@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "pesclock.hpp"
+#include "pesevents.hpp"
 
 struct PesState;  // the translated layer's call state (pes_state.hpp)
 
@@ -208,6 +209,9 @@ inline uint32_t LoadU32(const uint8_t* record, std::size_t offset) {
 inline void StoreU32(uint8_t* record, std::size_t offset, uint32_t value) {
   std::memcpy(record + offset, &value, sizeof value);
 }
+inline void StoreU64(uint8_t* record, std::size_t offset, uint64_t value) {
+  std::memcpy(record + offset, &value, sizeof value);
+}
 
 // A team record (G's side tables name them). Its attack angle is an f32 at +0x250 (CONFIRMED on-path in the corridor
 // angle's side record, seq021: bytes +0x250..+0x253), its attack sign a signed byte at +0x254 (A5Judge 1.2).
@@ -254,6 +258,52 @@ struct PesPitchRecord {
   std::array<uint8_t, kPitchRecordBytes> bytes{};
 };
 
+// The AI context ctx the carrier units and the corridor angle take (the Clear unit's +8 pointer, one per side): +0x18 is a
+// pointer to the side's AI record MA, +0xE0 a pointer to the event store E (CONFIRMED by capture, seq021: ctx+0xE0 held
+// 0x7ff5dff60018 and 0x140A3E190(E, 0) returns E+0x180698). The other ctx bytes are not read on the angle's path.
+inline constexpr std::size_t kCtxMaOffset = 0x18;
+inline constexpr std::size_t kCtxEventsOffset = 0xE0;
+inline constexpr std::size_t kCtxBytes = 0x100;
+struct PesCtxRecord {
+  std::array<uint8_t, kCtxBytes> bytes{};
+};
+
+// MA, a side's AI record (docs/re/pes-re-score-rows.md, pes-re-defensive-shape.md): the score rows' blocks (pesscorerows.hpp),
+// the ball copy at +0x2482C (x, height, z) and the carrier id u32 at +0x2483C. Its bytes run to the last field the angle
+// reads (+0x24850), rounded up. Each sorted block is 200 bytes: two teams' 11 entries of (slot id u32, value f32) at
+// +0x58 per team, the rank bytes after them (INF: the count and rank layout past the entries is not read here).
+inline constexpr std::size_t kMaLaneListAOffset = 0x229B4;  // list[0] (0x140A714E0 with argument != 1)
+inline constexpr std::size_t kMaLaneListBOffset = 0x22B9C;  // list[1] (argument == 1)
+inline constexpr std::size_t kMaListTeamStride = 0x58;
+inline constexpr int kMaListEntries = 11;
+inline constexpr std::size_t kMaBallOffset = 0x2482C;       // f32 x, +4 height, +8 z
+inline constexpr std::size_t kMaCarrierIdOffset = 0x2483C;  // u32
+inline constexpr std::size_t kMaBytes = 0x24900;
+// No carrier in MA+0x2483C (INF: PES's no-holder word is not decoded; the readers gate on id < 0x16).
+inline constexpr uint32_t kMaNoCarrier = 0xFFFFFFFFu;
+struct PesMaRecord {
+  std::array<uint8_t, kMaBytes> bytes{};
+};
+
+// A side's carrier unit as the Clear unit 0x142109EB0 reads it (r8 = the unit; the answer record is rdx): unit+0 the VA of the
+// carrier record (whose first u32 is the carrier's slot id, the angle's rdx), unit+8 the VA of ctx (the angle's rcx), unit+0x28
+// the VA of imageA, whose byte +0x31C1 is the danger flag the unit tests. The unit stores its answer as the u32 type 5 at
+// answer+0 and the corridor angle (an f32, degrees) at answer+8, and writes nothing while the danger byte is clear.
+// The unit, carrier record and answer sit in one block; imageA's other bytes are not read by the unit.
+inline constexpr std::size_t kUnitCarrierOffset = 0x0;
+inline constexpr std::size_t kUnitCtxOffset = 0x8;
+inline constexpr std::size_t kUnitImageAOffset = 0x28;
+inline constexpr std::size_t kImageADangerOffset = 0x31C1;
+inline constexpr std::size_t kImageABytes = 0x31D0;
+inline constexpr std::size_t kClearUnitBytes = 0x40;
+inline constexpr std::size_t kClearCarrierOffset = kClearUnitBytes;       // u32 carrier slot id
+inline constexpr std::size_t kClearAnswerOffset = kClearUnitBytes + 0x10;  // u32 type at +0, f32 angle at +8
+inline constexpr std::size_t kClearImageAOffset = kClearUnitBytes + 0x20;
+inline constexpr std::size_t kAnswerAngleOffset = 0x8;
+struct PesClearUnitBlock {
+  std::array<uint8_t, kClearImageAOffset + kImageABytes> bytes{};
+};
+
 // The translated bearing's scratch: the image's tail, past the last block (kScratchVa). The translated code runs on its
 // stack, which grows down from the end (the atan2 polynomial spills to rsp+0x20), and BearingOfPoints writes its two
 // points there. A ground point is laid out as the translated code reads it: x at +0, z at +kPointZOffset.
@@ -272,7 +322,11 @@ inline constexpr std::size_t kSidesOffset = kMatchInfoOffset + kMatchInfoBytes;
 inline constexpr std::size_t kBallOffset = kSidesOffset + static_cast<std::size_t>(kSideCount) * kSideRecordBytes;
 inline constexpr std::size_t kPitchOffset = kBallOffset + kBallRecordBytes;
 inline constexpr std::size_t kFrameRandomOffset = kPitchOffset + kPitchRecordBytes;
-inline constexpr std::size_t kScratchOffset = kFrameRandomOffset + kFrameRandomBytes;
+inline constexpr std::size_t kCtxOffset = kFrameRandomOffset + kFrameRandomBytes;
+inline constexpr std::size_t kMaOffset = kCtxOffset + static_cast<std::size_t>(kSideCount) * kCtxBytes;
+inline constexpr std::size_t kEventsOffset = kMaOffset + static_cast<std::size_t>(kSideCount) * kMaBytes;
+inline constexpr std::size_t kClearUnitOffset = kEventsOffset + sizeof(EventStoreImage);
+inline constexpr std::size_t kScratchOffset = kClearUnitOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesClearUnitBlock);
 inline constexpr std::size_t kStackOffset = kScratchOffset + kScratchBytes;
 inline constexpr uint64_t kScratchVa = kWorldWindowVa + kScratchOffset;
 inline constexpr uint64_t kStackVa = kWorldWindowVa + kStackOffset;
@@ -299,6 +353,10 @@ struct PesWorldImage {
   PesBallRecord ball{};
   PesPitchRecord pitch{};
   PesFrameRandomRecord frameRandom{};
+  std::array<PesCtxRecord, kSideCount> ctx{};  // each side's AI context (ctx+0x18 -> MA, ctx+0xE0 -> E)
+  std::array<PesMaRecord, kSideCount> ma{};    // each side's AI record
+  EventStoreImage events{};                    // E: the event store, PES's offsets (pesevents.hpp)
+  std::array<PesClearUnitBlock, kSideCount> clearUnit{};  // each side's carrier unit, its carrier record, answer and imageA
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points (kScratchVa)
   std::array<uint8_t, kStackBytes> stack{};      // the translated stoppage functions' stack (kStackVa)
 };
@@ -308,6 +366,10 @@ static_assert(offsetof(PesWorldImage, sides) == kSidesOffset);
 static_assert(offsetof(PesWorldImage, ball) == kBallOffset);
 static_assert(offsetof(PesWorldImage, pitch) == kPitchOffset);
 static_assert(offsetof(PesWorldImage, frameRandom) == kFrameRandomOffset);
+static_assert(offsetof(PesWorldImage, ctx) == kCtxOffset);
+static_assert(offsetof(PesWorldImage, ma) == kMaOffset);
+static_assert(offsetof(PesWorldImage, events) == kEventsOffset);
+static_assert(offsetof(PesWorldImage, clearUnit) == kClearUnitOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchOffset);
 static_assert(offsetof(PesWorldImage, stack) == kStackOffset);
 
@@ -321,6 +383,16 @@ class PesWorld {
     image_->tables.frameRandom = FrameRandomVa();
     image_->tables.pitch = PitchVa();
     for (int team = 0; team < kSideCount; ++team) SetEntry(WorldTable::kSideA, team, SideVa(team));
+    for (int side = 0; side < kSideCount; ++side) {
+      uint8_t* unit = ClearUnit(side);
+      StoreU64(unit, kUnitCarrierOffset, ClearUnitVa(side) + kClearCarrierOffset);
+      StoreU64(unit, kUnitCtxOffset, CtxVa(side));
+      StoreU64(unit, kUnitImageAOffset, ClearUnitVa(side) + kClearImageAOffset);
+    }
+    for (int side = 0; side < kSideCount; ++side) {
+      StoreU64(Ctx(side), kCtxMaOffset, MaVa(side));
+      StoreU64(Ctx(side), kCtxEventsOffset, EventsVa());
+    }
   }
   PesWorld(const PesWorld&) = delete;
   PesWorld& operator=(const PesWorld&) = delete;
@@ -341,6 +413,50 @@ class PesWorld {
   static constexpr uint64_t BallVa() { return kWorldWindowVa + kBallOffset; }
   static constexpr uint64_t PitchVa() { return kWorldWindowVa + kPitchOffset; }
   static constexpr uint64_t FrameRandomVa() { return kWorldWindowVa + kFrameRandomOffset; }
+  // The side's AI context, its AI record MA, and the event store E (kEventNewestOffset etc. are offsets into E).
+  static constexpr uint64_t CtxVa(int side) { return kWorldWindowVa + kCtxOffset + static_cast<uint64_t>(side) * kCtxBytes; }
+  static constexpr uint64_t MaVa(int side) { return kWorldWindowVa + kMaOffset + static_cast<uint64_t>(side) * kMaBytes; }
+  static constexpr uint64_t EventsVa() { return kWorldWindowVa + kEventsOffset; }
+  uint8_t* Ctx(int side) { return image_->ctx[side].bytes.data(); }
+  uint8_t* Ma(int side) { return image_->ma[side].bytes.data(); }
+  EventStoreImage& EventImage() { return image_->events; }
+  // E as the store's own view: every event the match routes lands in the window.
+  EventStore Events() { return EventStore(image_->events); }
+  // A side's carrier unit block (the Clear unit's r8 and everything it points at).
+  static constexpr uint64_t ClearUnitVa(int side) {
+    return kWorldWindowVa + kClearUnitOffset + static_cast<uint64_t>(side) * sizeof(PesClearUnitBlock);
+  }
+  uint8_t* ClearUnit(int side) { return image_->clearUnit[side].bytes.data(); }
+  // imageA+0x31C1, the danger flag the Clear unit tests (and the Long, BackSpace and Safety units read).
+  bool ClearDanger(int side) { return ClearUnit(side)[kClearImageAOffset + kImageADangerOffset] != 0; }
+  void SetClearDanger(int side, bool danger) { ClearUnit(side)[kClearImageAOffset + kImageADangerOffset] = danger ? 1 : 0; }
+  // Runs the Clear unit 0x142109EB0 on the window for `carrierSlot` of `side`: the answer type (5 when the danger byte is
+  // set, else 0: the unit stores nothing) and the corridor angle it stored (degrees, 0.0 when none).
+  struct ClearAnswer {
+    uint32_t type = 0;
+    float angle_deg = 0.0f;
+  };
+  ClearAnswer RunClearUnit(int side, uint32_t carrierSlot);
+  // MA's ball copy (x, height, z) and carrier id.
+  void SetMaBall(int side, float x, float height, float z) {
+    StoreF32(Ma(side), kMaBallOffset, x);
+    StoreF32(Ma(side), kMaBallOffset + 4, height);
+    StoreF32(Ma(side), kMaBallOffset + 8, z);
+  }
+  void SetMaCarrier(int side, uint32_t id) { StoreU32(Ma(side), kMaCarrierIdOffset, id); }
+  // Entry `rank` of team `team`'s list in MA list block `list` (0 or 1): the slot id, then the value.
+  void SetMaListEntry(int side, int list, int team, int rank, uint32_t id, float value) {
+    uint8_t* entry = Ma(side) + (list == 0 ? kMaLaneListAOffset : kMaLaneListBOffset) +
+                     static_cast<std::size_t>(team) * kMaListTeamStride + static_cast<std::size_t>(rank) * 8;
+    StoreU32(entry, 0, id);
+    StoreF32(entry, 4, value);
+  }
+  // A rank the list does not fill: the 0xFF fill PES reads there (pesscorerows.hpp SortedRow::ValueOf's note).
+  void ClearMaListEntry(int side, int list, int team, int rank) {
+    uint8_t* entry = Ma(side) + (list == 0 ? kMaLaneListAOffset : kMaLaneListBOffset) +
+                     static_cast<std::size_t>(team) * kMaListTeamStride + static_cast<std::size_t>(rank) * 8;
+    std::memset(entry, 0xFF, 8);
+  }
   // The clock's period record, in the match-info block: PesClock writes it in place.
   PeriodRecord& Period() { return image_->match.period; }
   // The match-info block's bytes, at PES's offsets (the kMi* constants).
@@ -400,6 +516,12 @@ class PesWorld {
     StoreF32(ball, kBallVelocityOffset, x);
     StoreF32(ball, kBallVelocityOffset + 4, y);
     StoreF32(ball, kBallVelocityOffset + 8, z);
+  }
+  void BallVelocity(float out[3]) const {
+    const uint8_t* ball = image_->ball.bytes.data();
+    out[0] = LoadF32(ball, kBallVelocityOffset);
+    out[1] = LoadF32(ball, kBallVelocityOffset + 4);
+    out[2] = LoadF32(ball, kBallVelocityOffset + 8);
   }
   // The frame counter MI+0x1198: PES's 0x140A128E4 increments it once a logic frame.
   uint32_t MatchFrame() const { return image_->match.frame; }

@@ -61,6 +61,20 @@ float RunBearing(uint8_t* world, uint64_t fromVa, uint64_t toVa) {
 
 void PesWorld::BindCall(::PesState& call) { Bind(call, Bytes()); }
 
+PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
+  uint8_t* unit = ClearUnit(side);
+  StoreU32(unit, kClearCarrierOffset, carrierSlot);
+  std::memset(unit + kClearAnswerOffset, 0, 0x10);
+  PesState s = NewCall(Bytes());
+  s.gpr[2] = ClearUnitVa(side) + kClearAnswerOffset;  // rdx: the answer record
+  s.gpr[8] = ClearUnitVa(side);                       // r8: the unit
+  ::pes_fn_142109EB0(s);
+  ClearAnswer answer;
+  answer.type = LoadU32(unit, kClearAnswerOffset);
+  answer.angle_deg = LoadF32(unit, kClearAnswerOffset + kAnswerAngleOffset);
+  return answer;
+}
+
 uint8_t* PesWorld::AnimeRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48910, Bytes(), slot)); }
 
 uint8_t* PesWorld::ManRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48A10, Bytes(), slot)); }

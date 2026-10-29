@@ -260,25 +260,16 @@ TEST_F(AngleOracle, EachRecordBindingChangesTheResult) {
 // ---- The same call on GF's own window ----
 //
 // The records the angle reads through G (the ball record, the pitch record, the frame-random record, the team, man, anime and
-// slot records, MI) are rebuilt in a pes::PesWorld at PES's offsets from the capture, field by field through the window's own
-// accessors and offset constants. Nothing else of G is copied: an unnamed byte stays zero, so a result equal to PES's proves
-// the named set covers this call's path. The objects beside G (the AI context ctx, its record MA at ctx+0x18 and the event store
-// E at ctx+0xE0) are not GF state yet; they are copied in as segments at their captured addresses.
+// slot records, MI) and the objects beside it (the AI context ctx, its record MA at ctx+0x18 and the event store E at
+// ctx+0xE0) are rebuilt in a pes::PesWorld at PES's offsets from the capture, field by field through the window's own
+// accessors and offset constants. Nothing else is copied: an unnamed byte stays zero, so a result equal to PES's proves the
+// named set covers this call's path.
 
 float F32At(const Oracle& o, uint64_t va) {
   const uint32_t u = static_cast<uint32_t>(Read(o, va, 4));
   float f;
   std::memcpy(&f, &u, sizeof f);
   return f;
-}
-
-void CopySeg(const Oracle& o, PesState& s, uint64_t va, size_t n) {
-  PesMem::Seg seg{va, std::vector<uint8_t>(n)};
-  for (size_t i = 0; i < n; ++i) {
-    const uint8_t* b = o.snap.at(va + i);
-    seg.bytes[i] = b != nullptr ? *b : 0;
-  }
-  s.mem.segs.push_back(std::move(seg));
 }
 
 void BuildWindow(const Oracle& o, pes::PesWorld& w) {
@@ -329,6 +320,25 @@ void BuildWindow(const Oracle& o, pes::PesWorld& w) {
   const uint64_t fr = Read(o, g + pes::kFrameRandomPtrOffset, 8);
   for (const size_t off : {pes::kFrameRandomIntOffset, pes::kFrameRandomByteOffset, pes::kFrameRandomUnitOffset})
     pes::StoreU32(w.FrameRandomRecord(), off, static_cast<uint32_t>(Read(o, fr + off, 4)));
+  // The AI record MA of the carrier's side (side 0 of the window), its ball copy, carrier id and lane lists, and the event
+  // store E's newest-event copy: all of it window state at PES's offsets.
+  const uint64_t ctx = o.calls[0].v[kRcx];
+  const uint64_t ma = Read(o, ctx + kCtx18, 8);
+  w.SetMaBall(0, F32At(o, ma + pes::kMaBallOffset), F32At(o, ma + pes::kMaBallOffset + 4),
+              F32At(o, ma + pes::kMaBallOffset + 8));
+  w.SetMaCarrier(0, static_cast<uint32_t>(Read(o, ma + pes::kMaCarrierIdOffset, 4)));
+  for (int list = 0; list < 2; ++list) {
+    const uint64_t block = ma + (list == 0 ? pes::kMaLaneListAOffset : pes::kMaLaneListBOffset);
+    for (int team = 0; team < 2; ++team) {
+      for (int rank = 0; rank < pes::kMaListEntries; ++rank) {
+        const uint64_t entry = block + static_cast<uint64_t>(team) * pes::kMaListTeamStride + static_cast<uint64_t>(rank) * 8;
+        w.SetMaListEntry(0, list, team, rank, static_cast<uint32_t>(Read(o, entry, 4)), F32At(o, entry + 4));
+      }
+    }
+  }
+  const uint64_t events = Read(o, ctx + kCtxE0, 8);
+  for (size_t i = 0; i < pes::kEventNewestBytes; ++i)
+    w.EventImage().newest[i] = static_cast<uint8_t>(Read(o, events + pes::kEventNewestOffset + i, 1));
 }
 
 // Runs the translated angle for case 0 on the window; the result is xmm0's low word, and `writes` is the call's write log
@@ -342,15 +352,9 @@ struct WindowResult {
 
 WindowResult RunAngleOnWindow(const Oracle& o, pes::PesWorld& w) {
   const CallRec& c = o.calls[0];
-  const uint64_t ctx = c.v[kRcx];
   PesState s;
   w.BindCall(s);
-  CopySeg(o, s, ctx, 0x100);
-  const uint64_t ma = Read(o, ctx + kCtx18, 8);
-  CopySeg(o, s, ma + 0x22900, 0x400);
-  CopySeg(o, s, ma + 0x24800, 0x50);
-  CopySeg(o, s, Read(o, ctx + kCtxE0, 8) + 0x180698, 0x60);
-  s.gpr[1] = ctx;
+  s.gpr[1] = pes::PesWorld::CtxVa(0);  // the angle's A0: the window's own AI context
   s.gpr[2] = c.v[2];
   s.gpr[8] = c.v[8];
   s.gpr[4] -= 8;
@@ -408,6 +412,11 @@ TEST_F(AngleOracle, EachWindowRecordBindingChangesTheAngle) {
       {"carrier anime +0x11C", [cid](pes::PesWorld& w) { return w.AnimeRecord(cid) + pes::kAnimeF11COffset; }},
       {"carrier slot +0xA1", [cid](pes::PesWorld& w) { return w.Block(cid) + pes::kSlotRecordOffset + pes::kSlotByteA1Offset; }},
       {"carrier slot +0xA4", [cid](pes::PesWorld& w) { return w.Block(cid) + pes::kSlotRecordOffset + pes::kSlotByteA4Offset; }},
+      {"MA ball copy x", [](pes::PesWorld& w) { return w.Ma(0) + pes::kMaBallOffset; }},
+      // (MA's carrier id, +0x2483C, is not on this call's path: flipping it left the path unchanged, so it is not claimed.)
+      {"MA list A team 1 rank 0 id",
+       [](pes::PesWorld& w) { return w.Ma(0) + pes::kMaLaneListAOffset + pes::kMaListTeamStride; }},
+      {"E newest event payload word 0", [](pes::PesWorld& w) { return w.EventImage().newest.data(); }},
   };
   for (const Binding& b : bindings) {
     pes::PesWorld world;

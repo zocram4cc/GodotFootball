@@ -536,7 +536,7 @@ void Match::ResetSituation(const Vector3& focusPos) {
     lastTouchTeamIDs[i] = -1;
   }
   lastTouchTeamID = -1;
-  pesEvents.Reset();
+  pesWorld->Events().Reset();
   pesDetectors = PesDetectorState{};
   lastGoalScorer = 0;
   bestPossessionTeamID = -1;

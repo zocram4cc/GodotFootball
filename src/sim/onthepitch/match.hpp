@@ -165,7 +165,7 @@ public:
   }
   // PES's event store E (pesevents.hpp): the match's event state. The event stage writes it on
   // every tick; the possession latch, the receive gates and the dodge window read it.
-  const pes::EventStore& GetPesEvents() const { return pesEvents; }
+  pes::EventStore GetPesEvents() const { return pesWorld->Events(); }
   // A touch of the ball, queued for the next event stage. `actionKind` is PES's action kind
   // (team.cpp maps the GF touch function onto it).
   void QueuePesTouch(Player* player, uint32_t actionKind);
@@ -622,8 +622,7 @@ protected:
   unsigned long pendingPenaltyDeadline_ms = 0;
   int lastTouchTeamIDs[e_TouchType_SIZE];
   int lastTouchTeamID = -1;
-  // PES's event store and the routing table and constants it is written with (pesevents.hpp).
-  pes::EventStore pesEvents;
+  // The routing table and constants PES's event store (the world window's E, pesevents.hpp) is written with.
   pes::EventRingTable pesEventRings{};
   pes::EventConstants pesEventConstants{};
   // Touches queued for the next event stage: PES's action kind, and the frame of the touch.

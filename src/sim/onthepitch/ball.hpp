@@ -101,7 +101,14 @@ public:
   void ResetSituation(const Vector3& focusPos);
 
 protected:
-  Vector3 momentum;
+  // The ball's velocity (m/s, GF axes) is the world window's ball record B+0x2948 and nothing else: PES's vector x, height,
+  // z holds GF's x, z, y. Every write goes through StoreMomentum.
+  Vector3 Momentum() const {
+    float v[3];
+    world->BallVelocity(v);
+    return Vector3(v[0], v[2], v[1]);
+  }
+  void StoreMomentum(const Vector3& m) { world->SetBallVelocity(m.coords[0], m.coords[2], m.coords[1]); }
   Quaternion rotation_ms;
 
   // PES's prediction sampler is the ball record's table in the world window (TrackSample): record 0 is where the ball
@@ -110,13 +117,10 @@ protected:
     world->SetBallSample(static_cast<int>(n), p.coords[0], p.coords[2], p.coords[1]);
   }
   pes::PesWorld* world;
-  // The ball record's velocity vector B+0x2948 (m/s; x, height, z in PES's axes): written wherever the momentum is.
-  void PublishMomentum() { world->SetBallVelocity(momentum.coords[0], momentum.coords[2], momentum.coords[1]); }
+
   Quaternion orientPrediction;
 
   std::list<Vector3> ballPosHistory;
-  Vector3 previousMomentum;
-  Vector3 previousPosition;
 
   Vector3 positionBuffer;
   Quaternion orientationBuffer;

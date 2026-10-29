@@ -40,7 +40,7 @@ Ball::~Ball() {}
 
 Vector3 Ball::GetMovement() {
   // meters / sec
-  return momentum;
+  return Momentum();
 }
 
 void Ball::Touch(const Vector3& target) {
@@ -70,15 +70,13 @@ void Ball::Stop() {
 
 void Ball::SetPosition(const Vector3& target) {
   positionBuffer.Set(target);
-  momentum.Set(0);
+  StoreMomentum(Vector3(0));
   SetRotation(0, 0, 0, 1.0);
   ballPosHistory.clear();
-  previousMomentum = momentum;
-  previousPosition = positionBuffer;
 }
 
 void Ball::SetMomentum(const Vector3& target) {
-  momentum.Set(target);
+  StoreMomentum(target);
   CalculatePrediction();
 }
 
@@ -152,7 +150,7 @@ BallSpatialInfo Ball::CalculatePrediction() {
 
   Vector3 nextPos = positionBuffer;
   Quaternion nextOrientation = orientationBuffer;
-  Vector3 momentumPredict = momentum;
+  Vector3 momentumPredict = Momentum();
 
   ballTouchesNet = false;
 
@@ -306,8 +304,7 @@ Vector3 Ball::GetAveragePosition(unsigned int duration_ms) const {
 
 void Ball::Process() {
   BallSpatialInfo spatialInfo = CalculatePrediction();
-  momentum = spatialInfo.momentum;
-  PublishMomentum();
+  StoreMomentum(spatialInfo.momentum);
   rotation_ms = spatialInfo.rotation_ms;
   recentHit = recentHitNext;
 
@@ -320,20 +317,14 @@ void Ball::Process() {
   ballPosHistory.push_back(positionBuffer);
   if (ballPosHistory.size() > ballHistorySize_ms)
     ballPosHistory.pop_front();
-
-  previousMomentum = momentum;
-  previousPosition = positionBuffer;
 }
 
 void Ball::ResetSituation(const Vector3& focusPos) {
-  momentum = Vector3(0);
-  PublishMomentum();
+  StoreMomentum(Vector3(0));
   rotation_ms = QUATERNION_IDENTITY;
   for (unsigned n = 0; n < pesball::kTrackLength; ++n) SetTrackSample(n, Vector3(focusPos + Vector3(0, 0, 0.11)));
   orientPrediction = QUATERNION_IDENTITY;
   ballPosHistory.clear();
-  previousMomentum = Vector3(0);
-  previousPosition = Vector3(focusPos + Vector3(0, 0, 0.11));
   positionBuffer = Vector3(focusPos + Vector3(0, 0, 0.11));
   orientationBuffer = QUATERNION_IDENTITY;
   ballTouchesNet = false;
