@@ -258,7 +258,7 @@ def tail_rows(spec, image, universe):
             except ValueError:
                 continue
             tv = "0x%X" % t
-            if t in addrs or t in MODEL_MAP or tv in MODEL_MAP:
+            if t in addrs or tv in MODEL_MAP:
                 continue
             if tv in universe:
                 todo.append(tv)

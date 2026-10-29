@@ -6,6 +6,8 @@ evidence for its model. Each entry's kind and model.op select one behaviour name
 implement:
 
   sqrt_xmm0  return-input: xmm0 = sqrtf(xmm0), IEEE-754 (x86 sqrtss NaN rules)
+  logf_xmm0  libm: xmm0 = logf(xmm0), the host C library (pes_model_logf; see stubs.json caveat for the ucrtbase gap)
+  powf_xmm0  libm: xmm0 = powf(xmm0, xmm1), the host C library (pes_model_powf; same caveat)
   noop       engine-noop: no effect on the success path; the call is dropped
   None       run-real kinds: the callee executes its image bytes, no stub
   unmodellable  blocked (see why): the function is not run
@@ -65,8 +67,7 @@ def load(path=DEFAULT):
     return table
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
-# libm (logf/powf) has no emitter yet, so it stays blocked, as before.
-MODEL_DOS = frozenset({"sqrt_xmm0", "noop", "abort"})
+MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "noop", "abort"})
 
 
 def models(table):

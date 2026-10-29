@@ -1994,6 +1994,10 @@ def stub_lines(do):
     """C++ for one stubbed callee's modelled effect (names: stubs.py DO)."""
     if do == "sqrt_xmm0":
         return ["s.set_x_f32(0, pes_model_sqrtf(s.x_f32(0)));"]
+    if do == "logf_xmm0":
+        return ["s.set_x_f32(0, pes_model_logf(s.x_f32(0)));"]
+    if do == "powf_xmm0":
+        return ["s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":

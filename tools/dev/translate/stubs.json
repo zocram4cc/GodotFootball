@@ -3555,6 +3555,23 @@
    }
   },
   {
+   "va": "1415A17C8",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530278] (FF25 at 1415A17C8, 6 bytes before the powf thunk); slot = logf per indirect.py KNOWN_SLOTS; one-xmm call shape logf(x)->xmm0",
+    "the slot's dump-time value 0x6FFFFEC7D5E0 is code in the snapshot's ucrtbase (live2/pid1694737/seq009) that computes logf: run in unicorn it returns logf(2)=0x3F317218, logf(0)=-inf, logf(-1)=-nan, logf(denormal) finite, and every C99 Annex F special case checked in test_libm_models.py"
+   ],
+   "model": {
+    "op": "logf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: every special value equals ucrtbase's bits (test_libm_models.py); an ordinary argument can differ by one ulp (measured by that test, see pes_stubs.hpp)"
+   }
+  },
+  {
    "va": "1415A17CE",
    "callers": [
     "14080EBA0"
@@ -3562,14 +3579,15 @@
    "used_by_closure": false,
    "kind": "libm",
    "why": [
-    "thunk jmp [0x142530290] (bytes at 1415A17CE: FF25BCEAF800); slot = powf per indirect.py KNOWN_SLOTS; two-xmm call shape powf(base,exp)->xmm0, verified by the diff, not by ABI proof"
+    "thunk jmp [0x142530290] (bytes at 1415A17CE: FF25BCEAF800); slot = powf per indirect.py KNOWN_SLOTS; two-xmm call shape powf(base,exp)->xmm0, verified by the diff, not by ABI proof",
+    "the slot's dump-time value 0x6FFFFEC7F090 is code in the snapshot's ucrtbase (live2/pid1694737/seq009) that computes powf: run in unicorn it returns powf(2,128)=inf, powf(-8,1/3)=-nan, powf(0,-1)=inf, and every C99 Annex F special case checked in test_libm_models.py"
    ],
    "model": {
     "op": "powf",
     "arg": "xmm0,xmm1",
     "ret": "xmm0",
     "enc": "f32",
-    "caveat": "host libm; valid only where the diff passes"
+    "caveat": "host libm: every special value equals ucrtbase's bits (test_libm_models.py); an ordinary argument can differ by one ulp (measured by that test, see pes_stubs.hpp)"
    }
   },
   {
