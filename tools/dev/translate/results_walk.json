@@ -4,8 +4,8 @@
  "results": [
   {
    "va": "0x14210F110",
-   "calls": 8,
-   "replayed": 8,
+   "calls": 10,
+   "replayed": 10,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -40,15 +40,23 @@
     "seq6695": {
      "calls": 1,
      "replayed": 1
+    },
+    "pid1981120_seq4046": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid1981120_seq4444": {
+     "calls": 1,
+     "replayed": 1
     }
    },
    "mismatches": [],
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 39,
+    "reached": 148,
     "total": 357,
-    "fraction": 0.1092
+    "fraction": 0.4146
    },
    "proven": true,
    "blocked_callees": []
