@@ -137,6 +137,26 @@
         "Wine ntdll RtlSetLastWin32Error (file offset 0x39cb0, read from the prefix's ntdll.dll): mov rax, gs:[0x30]; mov [rax+0x68], ecx; ret. It stores the DWORD in TEB.LastErrorValue (TEB+0x68, the same slot as GetLastError) and returns nothing. rax is left as the TEB self pointer.",
         "Reached from the recorded cutscene-create call (seq008) through the FlsGetValue failure path's SetLastError."
       ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "strcpy_s",
+      "code_hex": "4885c9740d4885d274084d85c07509c60100b816000000c34989c94929c8438a040841880149ffc184c0740f4883ea0175ecc60100b822000000c331c0c3",
+      "why": [
+        "errno_t strcpy_s(char *dst, size_t size, const char *src): rcx, rdx, r8; returns errno_t in eax. Export 2383 (ordinal 2384) of the PES prefix's ucrtbase.dll (SizeOfImage 0xF4000, RVA 0x17E00), named by its export directory.",
+        "Behaviour read from the loaded DLL's code in the snapshot (live_seq085, 0x6FFFFEC77E00): dst or size zero -> EINVAL (0x16) with no write; src zero -> *dst = 0 then EINVAL; otherwise copy src to dst up to and including its NUL; if no NUL fits in size -> *dst = 0 and ERANGE (0x22, value 34); else 0.",
+        "ponytail: the model does not store errno (ucrtbase per-thread state, reached through _errno at RVA 0xA550) and does not call _invalid_parameter_noinfo (RVA 0x684C0). Neither is in the game's diffed memory; a game read of errno after strcpy_s is not modelled (OPEN)."
+      ]
+    },
+    {
+      "module": "VCRUNTIME140.dll",
+      "export": "memset",
+      "code_hex": "4989c9574889cf89d04c89c1f3aa4c89c85fc3",
+      "why": [
+        "void *memset(void *dst, int c, size_t n): rcx, edx, r8; returns dst in rax. Export of the PES prefix's VCRUNTIME140.dll (module name from its export directory), RVA 0x19A0 in a full capture (pid407792/seq001, 0x6FFFFB8219A0).",
+        "Contract: writes the low byte of c to n bytes at dst, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code: the DLL fills vectors (its first instructions build 0x0101010101010101 by movabs and imul, then punpcklbw), so the byte pattern is the same and the code differs.",
+        "Model: mov r9, rcx (dst kept); push rdi; mov rdi, rcx; mov eax, edx; mov rcx, r8; rep stosb; mov rax, r9; pop rdi; ret. n = 0 stores nothing. Checked by test_memset_model.py. The callers' argument shapes (44C880, 445E90) are not checked yet (OPEN)."
+      ]
     }
   ]
 }
