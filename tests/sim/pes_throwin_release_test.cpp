@@ -31,6 +31,9 @@ namespace {
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
 constexpr unsigned int kSeed = 3;
 constexpr int kMinutes = 2;
+// Seed 7's two minutes release no throw-in (its first is past tick 15000: docs/ports/pes-port-StoppageFlow5.md §3), so the
+// tests search matches in turn until one has a throw-in. Seed 3's first walker is at tick 2461 on the path-A census.
+constexpr unsigned int kThrowInSeeds[] = {kSeed, 3u, 13u, 11u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 
@@ -49,8 +52,8 @@ void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
   *out = *setup->pesSetPieceTakerConstants;
 }
 
-// Runs a PES-loop match for two minutes, calling `onTick` after every tick.
-void RunMatch(const std::function<void(Match&)>& onTick) {
+// Runs a PES-loop match for two minutes of `seed`, calling `onTick` after every tick.
+void RunMatch(unsigned int seed, const std::function<void(Match&)>& onTick) {
   const char* root = std::getenv("PES21_ROOT");
   ASSERT_TRUE(root != nullptr) << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -65,7 +68,7 @@ void RunMatch(const std::function<void(Match&)>& onTick) {
   auto setup = std::make_unique<MatchSetup>();
   setup->homeTeamDbId = HOME_TEAM;
   setup->awayTeamDbId = AWAY_TEAM;
-  setup->seed = kSeed;
+  setup->seed = seed;
   setup->durationMinutes = kMinutes;
   setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
   setup->rig = &*rig;
@@ -106,21 +109,24 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
 
 // PES releases a throw-in from behind the line: the release holds the ball at the hand's key offset, inside the touchline,
 // until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the ball lies
-// inside the line. Counted over a two-minute seed-7 match.
+// inside the line. Counted over the first searched two-minute match with a throw-in.
 TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   int releases = 0, outside = 0;
-  bool throwInTaking = false;
-  RunMatch([&](Match& match) {
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInTaking = true;
-    if (throwInTaking && !match.IsInSetPiece()) {
-      throwInTaking = false;
-      releases++;
-      if (std::fabs(match.GetBall()->Predict(0).coords[1]) > pesFieldHalfWidth) outside++;
-    }
-  });
-  EXPECT_GT(releases, 0) << "no throw-in was released within two minutes";
+  for (const unsigned int seed : kThrowInSeeds) {
+    if (releases > 0) break;
+    bool throwInTaking = false;
+    RunMatch(seed, [&](Match& match) {
+      const RefereeBuffer& b = match.GetRefereeBuffer();
+      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInTaking = true;
+      if (throwInTaking && !match.IsInSetPiece()) {
+        throwInTaking = false;
+        releases++;
+        if (std::fabs(match.GetBall()->Predict(0).coords[1]) > pesFieldHalfWidth) outside++;
+      }
+    });
+  }
+  EXPECT_GT(releases, 0) << "no throw-in was released in any searched two-minute match";
   EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
 }
 
@@ -136,41 +142,44 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
   LoadTakerConstants(&k);
   int carried = 0, mismatched = 0;
   float worst_m = 0.0f;
-  bool throwInTaking = false, carrying = false;
-  int takeRow = 0;
-  Vector3 heldBall, heldRoot, rootEndingLastTick;
-  RunMatch([&](Match& match) {
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking) {
-      throwInTaking = true;
-      carrying = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
-      const Player* mate = match.GetTeam(b.teamID)->GetController()->ThrowInTargetMate(b.taker);
-      const Vector3 to = mate ? mate->GetPosition() : b.taker->GetPosition();
-      const float d = (b.taker->GetPosition().Get2D() - to.Get2D()).GetLength();
-      takeRow = pes::ThrowInCarryReleaseRow(d, k.throwInReleaseShort_m);
-      rootEndingLastTick = b.taker->GetPosition();
-    }
-    if (throwInTaking && match.IsInSetPiece()) {
-      heldBall = match.GetBall()->Predict(0);
-      heldRoot = rootEndingLastTick;
-      rootEndingLastTick = b.taker->GetPosition();
-      return;
-    }
-    if (!throwInTaking) return;
-    throwInTaking = false;
-    if (!carrying) return;
-    carried++;
-    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow);
-    const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-    const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
-    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
-    const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
-    const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
-    const float gap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - keyHorizontal_m);
-    worst_m = std::max(worst_m, gap_m);
-    if (gap_m > kKeyTolerance_m) mismatched++;
-  });
-  EXPECT_GT(carried, 0) << "no carried throw-in was released within two minutes";
+  for (const unsigned int seed : kThrowInSeeds) {
+    if (carried > 0) break;
+    bool throwInTaking = false, carrying = false;
+    int takeRow = 0;
+    Vector3 heldBall, heldRoot, rootEndingLastTick;
+    RunMatch(seed, [&](Match& match) {
+      const RefereeBuffer& b = match.GetRefereeBuffer();
+      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking) {
+        throwInTaking = true;
+        carrying = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
+        const Player* mate = match.GetTeam(b.teamID)->GetController()->ThrowInTargetMate(b.taker);
+        const Vector3 to = mate ? mate->GetPosition() : b.taker->GetPosition();
+        const float d = (b.taker->GetPosition().Get2D() - to.Get2D()).GetLength();
+        takeRow = pes::ThrowInCarryReleaseRow(d, k.throwInReleaseShort_m);
+        rootEndingLastTick = b.taker->GetPosition();
+      }
+      if (throwInTaking && match.IsInSetPiece()) {
+        heldBall = match.GetBall()->Predict(0);
+        heldRoot = rootEndingLastTick;
+        rootEndingLastTick = b.taker->GetPosition();
+        return;
+      }
+      if (!throwInTaking) return;
+      throwInTaking = false;
+      if (!carrying) return;
+      carried++;
+      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow);
+      const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+      const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
+      const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
+      const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
+      const float gap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - keyHorizontal_m);
+      worst_m = std::max(worst_m, gap_m);
+      if (gap_m > kKeyTolerance_m) mismatched++;
+    });
+  }
+  EXPECT_GT(carried, 0) << "no carried throw-in was released in any searched match";
   EXPECT_EQ(mismatched, 0) << mismatched << " of " << carried << " carried releases were not at the key's horizontal offset (worst "
                            << worst_m << " m)";
 }
@@ -180,7 +189,7 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
 // 0 when the spot's PES z is negative, over the clip. In GF's frame (PES z = -y) that is -y from the +y touchline and +y from
 // the -y one. Built on main, the lift warped only the position, so a carrier who walked in facing the line ended the lift
 // with his root facing out, and the release hold put the ball outside it. At the end of every carried throw-in's lift in a
-// two-minute seed-7 match, the root must face the pitch.
+// two-minute match of a searched seed, the root must face the pitch.
 // The lift's warp ends on PES's heading. On seed 7's first carried throw-in, the retain clip the carrier starts on the lift's last
 // tick (SelectRetainAnim) took its start angle from facing the pitch centre, and the root landed 54 degrees off. From the lift on,
 // the taker's clips start from the root yaw (HumanoidBase::RootStartAngle, Humanoid::HoldsRootYaw); on the merged tree the MOVESTEP
@@ -191,23 +200,26 @@ TEST(PesThrowInRelease, TheLiftTurnsACarriedThrowInTakerToFaceThePitch) {
   const float cosTolerance = std::cos(kFacingTolerance_deg * std::acos(-1.0f) / 180.0f);
   int lifts = 0, facingOut = 0;
   float worstDot = 1.0f;
-  bool wasArrived[2] = {true, true};
-  RunMatch([&](Match& match) {
-    for (int t = 0; t < 2; ++t) {
-      TeamAIController* c = match.GetTeam(t)->GetController();
-      Player* taker = c->GetPieceTaker();
-      const bool walking = taker && c->IsPieceTakerWalking(taker);
-      const bool arrived = !walking || c->PieceTakerArrived();
-      if (walking && arrived && !wasArrived[t]) {  // the tick the lift ends
-        ++lifts;
-        const Vector3 pitchward(0.0f, c->GetPieceWalkTarget().coords[1] > 0.0f ? -1.0f : 1.0f, 0.0f);
-        const float dot = taker->GetRootDirectionVec().GetDotProduct(pitchward);
-        worstDot = std::min(worstDot, dot);
-        if (dot < cosTolerance) ++facingOut;
+  for (const unsigned int seed : kThrowInSeeds) {
+    if (lifts > 0) break;
+    bool wasArrived[2] = {true, true};
+    RunMatch(seed, [&](Match& match) {
+      for (int t = 0; t < 2; ++t) {
+        TeamAIController* c = match.GetTeam(t)->GetController();
+        Player* taker = c->GetPieceTaker();
+        const bool walking = taker && c->IsPieceTakerWalking(taker);
+        const bool arrived = !walking || c->PieceTakerArrived();
+        if (walking && arrived && !wasArrived[t]) {  // the tick the lift ends
+          ++lifts;
+          const Vector3 pitchward(0.0f, c->GetPieceWalkTarget().coords[1] > 0.0f ? -1.0f : 1.0f, 0.0f);
+          const float dot = taker->GetRootDirectionVec().GetDotProduct(pitchward);
+          worstDot = std::min(worstDot, dot);
+          if (dot < cosTolerance) ++facingOut;
+        }
+        wasArrived[t] = arrived;
       }
-      wasArrived[t] = arrived;
-    }
-  });
-  ASSERT_GT(lifts, 0) << "no carried throw-in was lifted within two minutes";
+    });
+  }
+  ASSERT_GT(lifts, 0) << "no carried throw-in was lifted in any searched match";
   EXPECT_EQ(facingOut, 0) << facingOut << " of " << lifts << " lifted takers did not face the pitch (worst cos " << worstDot << ")";
 }

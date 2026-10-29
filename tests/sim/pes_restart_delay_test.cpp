@@ -144,66 +144,75 @@ TEST(PesRestartDelay, DISABLED_EveryStoppageRestartsWithinTheInstallBoundAtTwent
 // its frame. Its side is the team that did not touch the ball last. The run stops once a goal kick and a throw-in have both
 // been armed, wherever the trajectory puts them; the corner's spot, side and gate are covered by pes_restart_sequencer_test.
 TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrames) {
-  std::optional<unsigned long> lastStop, lastRelease;
   std::map<int, int> armed;
-  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (b.active && b.prepared && !b.started) {
-      // The set-play ready state (MI+0x116c = 3) turns on at the ready point, after the teleport window, not at the wipe.
-      const unsigned long now = match.GetActualTime_ms();
-      EXPECT_EQ(b.ReadyForTake(now), now >= b.prepareTime + b.readyDelay_ms) << "set piece " << b.desiredSetPiece;
-    }
-    if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
-      lastRelease = b.stopTime;
-      // The timed taker is released on the first frame at or past the PES gate, counted from the set-play ready point
-      // (MI+0x116c = 3), not from the armed point: the fade-in and the tail come between the two. A goal kick has no
-      // clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
-      const int gate = pes::ReleaseFrames(b.desiredSetPiece);
-      const unsigned long ready_ms = b.prepareTime + b.readyDelay_ms;
-      const int frames = static_cast<int>((match.GetActualTime_ms() - ready_ms) / Match::kTick_ms);
-      if (gate > 0) {
-        EXPECT_GE(frames, gate) << "released early for set piece " << b.desiredSetPiece;
-        EXPECT_LE(frames, gate + 2) << "released late for set piece " << b.desiredSetPiece;
-      }
-    }
-    if (!b.active || (lastStop && *lastStop == b.stopTime)) return;
-    lastStop = b.stopTime;
-    // Timed by GoalSequence, not PES's programme; kind 7 (the period end) schedules exactly like a kick-off
-    // (gametypes.hpp, docs/re/pes-re-plan-selector.md §4).
-    if (b.desiredSetPiece == e_SetPiece_KickOff || b.desiredSetPiece == e_SetPiece_PeriodEnd) return;
+  // Seed 7's twenty minutes release no goal kick since KickSoftMin's PES kick-quality fold moved the match (see
+  // AGoalKickIsReleasedOnThePesLadder), so the test searches matches in turn until one arms both set pieces.
+  const unsigned int kArmedSeeds[] = {SEED, 3u, 5u, 11u, 13u};
+  for (const unsigned int seed : kArmedSeeds) {
+    if (armed[e_SetPiece_GoalKick] > 0 && armed[e_SetPiece_ThrowIn] > 0) break;
+    std::optional<unsigned long> lastStop, lastRelease;
+    RunMatchWithinTheBound(
+        true, TWENTY_MINUTES,
+        [&](Match& match) {
+          const RefereeBuffer& b = match.GetRefereeBuffer();
+          if (b.active && b.prepared && !b.started) {
+            // The set-play ready state (MI+0x116c = 3) turns on at the ready point, after the teleport window, not at the wipe.
+            const unsigned long now = match.GetActualTime_ms();
+            EXPECT_EQ(b.ReadyForTake(now), now >= b.prepareTime + b.readyDelay_ms) << "set piece " << b.desiredSetPiece;
+          }
+          if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
+            lastRelease = b.stopTime;
+            // The timed taker is released on the first frame at or past the PES gate, counted from the set-play ready point
+            // (MI+0x116c = 3), not from the armed point: the fade-in and the tail come between the two. A goal kick has no
+            // clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
+            const int gate = pes::ReleaseFrames(b.desiredSetPiece);
+            const unsigned long ready_ms = b.prepareTime + b.readyDelay_ms;
+            const int frames = static_cast<int>((match.GetActualTime_ms() - ready_ms) / Match::kTick_ms);
+            if (gate > 0) {
+              EXPECT_GE(frames, gate) << "released early for set piece " << b.desiredSetPiece;
+              EXPECT_LE(frames, gate + 2) << "released late for set piece " << b.desiredSetPiece;
+            }
+          }
+          if (!b.active || (lastStop && *lastStop == b.stopTime)) return;
+          lastStop = b.stopTime;
+          // Timed by GoalSequence, not PES's programme; kind 7 (the period end) schedules exactly like a kick-off
+          // (gametypes.hpp, docs/re/pes-re-plan-selector.md §4).
+          if (b.desiredSetPiece == e_SetPiece_KickOff || b.desiredSetPiece == e_SetPiece_PeriodEnd) return;
 
-    const pes::RestartSpotConstants& k = match.GetPesRestartSpotConstants();
-    const pes::StoppageConstants& stoppage = match.GetPesStoppageConstants();
-    // The programme's spacing from prepare to armed does not depend on the hold, so any hold works.
-    const pes::Timing want =
-        pes::RunProgramme(pes::BuildProgramme(b.desiredSetPiece), b.stopTime, stoppage, false, 5);
-    EXPECT_EQ(static_cast<long>(b.startTime - b.prepareTime),
-              static_cast<long>(want.armedAt_ms - want.prepareAt_ms))
-        << "set piece " << b.desiredSetPiece;
-    armed[b.desiredSetPiece]++;
+          const pes::RestartSpotConstants& k = match.GetPesRestartSpotConstants();
+          const pes::StoppageConstants& stoppage = match.GetPesStoppageConstants();
+          // The programme's spacing from prepare to armed does not depend on the hold, so any hold works.
+          const pes::Timing want =
+              pes::RunProgramme(pes::BuildProgramme(b.desiredSetPiece), b.stopTime, stoppage, false, 5);
+          EXPECT_EQ(static_cast<long>(b.startTime - b.prepareTime),
+                    static_cast<long>(want.armedAt_ms - want.prepareAt_ms))
+              << "set piece " << b.desiredSetPiece;
+          armed[b.desiredSetPiece]++;
 
-    const float x = std::fabs(b.restartPos.coords[0]);
-    const float y = std::fabs(b.restartPos.coords[1]);
-    Team* lastTouch = match.GetLastTouchTeam();
-    if (!lastTouch) lastTouch = match.GetTeam(0);
-    switch (b.desiredSetPiece) {
-      case e_SetPiece_GoalKick:
-        EXPECT_NEAR(x, pesGoalAreaLineX + k.goalAreaPushOut_m, 1e-3);
-        EXPECT_NEAR(y, k.goalAreaPushZ_m, 1e-3);
-        break;
-      case e_SetPiece_ThrowIn:
-        EXPECT_LE(x, pesFieldHalfLength - 1.0f + 1e-3f);
-        EXPECT_GT(y, pesFieldHalfWidth);
-        EXPECT_LT(y, pesFieldHalfWidth + 1.0f);
-        break;
-      default:
-        return;
-    }
-    EXPECT_EQ(b.teamID, pes::AwardedTeamAfterBallOut(lastTouch->GetID()));
-  }, kTwentyMinuteMaxSimTicks,
-     [&](const Match&) { return armed[e_SetPiece_GoalKick] > 0 && armed[e_SetPiece_ThrowIn] > 0; }, SEED, false);
-  EXPECT_GT(armed[e_SetPiece_GoalKick], 0) << "no goal kick was armed";
-  EXPECT_GT(armed[e_SetPiece_ThrowIn], 0) << "no throw-in was armed";
+          const float x = std::fabs(b.restartPos.coords[0]);
+          const float y = std::fabs(b.restartPos.coords[1]);
+          Team* lastTouch = match.GetLastTouchTeam();
+          if (!lastTouch) lastTouch = match.GetTeam(0);
+          switch (b.desiredSetPiece) {
+            case e_SetPiece_GoalKick:
+              EXPECT_NEAR(x, pesGoalAreaLineX + k.goalAreaPushOut_m, 1e-3);
+              EXPECT_NEAR(y, k.goalAreaPushZ_m, 1e-3);
+              break;
+            case e_SetPiece_ThrowIn:
+              EXPECT_LE(x, pesFieldHalfLength - 1.0f + 1e-3f);
+              EXPECT_GT(y, pesFieldHalfWidth);
+              EXPECT_LT(y, pesFieldHalfWidth + 1.0f);
+              break;
+            default:
+              return;
+          }
+          EXPECT_EQ(b.teamID, pes::AwardedTeamAfterBallOut(lastTouch->GetID()));
+        },
+        kTwentyMinuteMaxSimTicks,
+        [&](const Match&) { return armed[e_SetPiece_GoalKick] > 0 && armed[e_SetPiece_ThrowIn] > 0; }, seed, false);
+  }
+  EXPECT_GT(armed[e_SetPiece_GoalKick], 0) << "no goal kick was armed in any searched match";
+  EXPECT_GT(armed[e_SetPiece_ThrowIn], 0) << "no throw-in was armed in any searched match";
 }
 
 // A throw-in is taken from the spot the referee armed. Five minutes of seed 7 stalled here: the
@@ -610,23 +619,30 @@ TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
   constexpr long kForcedFrame = 110;  // the forced kick on ladder frame 109, read one tick later
   std::optional<unsigned long> checkedStop;
   int goalKicks = 0;
-  // The goal kicks of seed 7's twenty-minute match, wherever the trajectory puts them; three exercise both ladder modes.
+  // Three goal kicks exercise both ladder modes. The goal kicks move with every change to the match before them (the
+  // PES kick-quality fold, KickSoftMin, left seed 7's twenty minutes with none), so the test searches matches in turn,
+  // like the ceremony throw-in and natural-goal tests.
   constexpr int kGoalKicksChecked = 3;
-  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
-    if (checkedStop && *checkedStop == b.stopTime) return;
-    checkedStop = b.stopTime;
-    goalKicks++;
-    // The mode comes from the ladder's own answer: a receiver is a lofted pass, none a kick into space.
-    const bool withReceiver = match.GetTeam(b.teamID)->GetController()->GoalKickReceiver() != nullptr;
-    const long expected = withReceiver ? kLoftedFrame : kForcedFrame;
-    const long framesFromArmed =
-        std::lround(static_cast<double>(match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
-    EXPECT_EQ(framesFromArmed, expected)
-        << (withReceiver ? "lofted" : "forced") << " goal kick released off its ladder frame";
-  }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return goalKicks >= kGoalKicksChecked; }, SEED, false);
-  EXPECT_GT(goalKicks, 0) << "no goal kick was released";
+  const unsigned int kGoalKickSeeds[] = {SEED, 3u, 5u, 11u, 13u};
+  for (const unsigned int seed : kGoalKickSeeds) {
+    if (goalKicks >= kGoalKicksChecked) break;
+    checkedStop.reset();
+    RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
+      const RefereeBuffer& b = match.GetRefereeBuffer();
+      if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
+      if (checkedStop && *checkedStop == b.stopTime) return;
+      checkedStop = b.stopTime;
+      goalKicks++;
+      // The mode comes from the ladder's own answer: a receiver is a lofted pass, none a kick into space.
+      const bool withReceiver = match.GetTeam(b.teamID)->GetController()->GoalKickReceiver() != nullptr;
+      const long expected = withReceiver ? kLoftedFrame : kForcedFrame;
+      const long framesFromArmed =
+          std::lround(static_cast<double>(match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
+      EXPECT_EQ(framesFromArmed, expected)
+          << (withReceiver ? "lofted" : "forced") << " goal kick released off its ladder frame (seed " << seed << ")";
+    }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return goalKicks >= kGoalKicksChecked; }, seed, false);
+  }
+  EXPECT_GT(goalKicks, 0) << "no goal kick was released in any searched match";
 }
 
 // A mover whose PES clip reaches its last frame must go on. On seed 57 a presser (team 0, id 4) held zero speed in
@@ -723,29 +739,38 @@ TEST(PesRestartDelay, AFinishedTrapDoesNotFreezeAMover) {
 // release event at 54 Hz (the doc's release table); a launched ball is inside the line within a few ticks.
 TEST(PesRestartDelay, AReleasedThrowInCarriesItsBallInsideTheTouchline) {
   constexpr unsigned long kCrossWithinTicks = 27;
-  unsigned long tick = 0, releasedAt = 0;
-  bool throwInSetPiece = false, awaitingCross = false;
+  // Seed 7's two minutes release no throw-in (see ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases), so the test
+  // searches matches in turn until one releases a throw-in, and checks every release in it.
+  const unsigned int kThrowInSeeds[] = {SEED, SEAMLESS_SEED, 13u, 11u};
   int releases = 0, stalls = 0;
-  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
-    ++tick;
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    const bool inSetPiece = match.IsInSetPiece();
-    if (inSetPiece && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInSetPiece = true;
-    if (throwInSetPiece && !inSetPiece) {
-      throwInSetPiece = false;
-      awaitingCross = true;
-      releasedAt = tick;
-      releases++;
-    }
-    if (!awaitingCross) return;
-    if (std::fabs(match.GetBall()->Predict(0).coords[1]) <= pesFieldHalfWidth) {
-      awaitingCross = false;
-    } else if (tick - releasedAt > kCrossWithinTicks) {
-      stalls++;
-      awaitingCross = false;
-    }
-  });
-  EXPECT_GT(releases, 0) << "no throw-in was released";
+  for (const unsigned int seed : kThrowInSeeds) {
+    if (releases > 0) break;
+    unsigned long tick = 0, releasedAt = 0;
+    bool throwInSetPiece = false, awaitingCross = false;
+    RunMatchWithinTheBound(
+        true, MINUTES,
+        [&](Match& match) {
+          ++tick;
+          const RefereeBuffer& b = match.GetRefereeBuffer();
+          const bool inSetPiece = match.IsInSetPiece();
+          if (inSetPiece && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInSetPiece = true;
+          if (throwInSetPiece && !inSetPiece) {
+            throwInSetPiece = false;
+            awaitingCross = true;
+            releasedAt = tick;
+            releases++;
+          }
+          if (!awaitingCross) return;
+          if (std::fabs(match.GetBall()->Predict(0).coords[1]) <= pesFieldHalfWidth) {
+            awaitingCross = false;
+          } else if (tick - releasedAt > kCrossWithinTicks) {
+            stalls++;
+            awaitingCross = false;
+          }
+        },
+        kMaxSimTicks, nullptr, seed);
+  }
+  EXPECT_GT(releases, 0) << "no throw-in was released in any searched match";
   EXPECT_EQ(stalls, 0) << stalls << " released throw-in(s) left the ball outside the touchline for more than "
                        << kCrossWithinTicks << " ticks";
 }
@@ -758,34 +783,38 @@ TEST(PesRestartDelay, AReleasedThrowInCarriesItsBallInsideTheTouchline) {
 TEST(PesRestartDelay, ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases) {
   constexpr float kRestPastSpot_m = 0.29f;  // the stall's distance past the spot
   constexpr unsigned long kJudgeWithinTicks = 2;
-  unsigned long tick = 0, placedAt = 0;
+  // Seed 7's two minutes release no throw-in: its first is past tick 15000 (docs/ports/pes-port-StoppageFlow5.md §3). Seed 3's
+  // first walker is at tick 2461 on the path-A census, so the test searches matches in turn until one arms a throw-in.
+  const unsigned int kThrowInSeeds[] = {SEED, SEAMLESS_SEED, 13u, 11u};
   bool armed = false, judged = false;
-  RunMatchWithinTheBound(
-      true, MINUTES,
-      [&](Match& match) {
-        ++tick;
-        if (armed) return;
-        const RefereeBuffer& b = match.GetRefereeBuffer();
-        if (!match.IsInSetPiece() || !b.started || !b.active ||
-            b.desiredSetPiece != e_SetPiece_ThrowIn)
-          return;
-        const Vector3 spot = b.restartPos;
-        const float side = spot.coords[1] > 0 ? 1.0f : -1.0f;
-        Ball* ball = match.GetBall();
-        ball->SetPosition(
-            Vector3(spot.coords[0], side * (std::fabs(spot.coords[1]) + kRestPastSpot_m), 0.0f));
-        ball->Stop();
-        match.StopSetPiece();
-        const_cast<RefereeBuffer&>(b).active = false;
-        armed = true;
-        placedAt = tick;
-      },
-      kMaxSimTicks,
-      [&](Match& match) {
-        if (!armed || tick < placedAt + kJudgeWithinTicks) return false;
-        judged = !match.IsInPlay();
-        return true;
-      });
+  for (const unsigned int seed : kThrowInSeeds) {
+    if (armed) break;
+    unsigned long tick = 0, placedAt = 0;
+    RunMatchWithinTheBound(
+        true, MINUTES,
+        [&](Match& match) {
+          ++tick;
+          if (armed) return;
+          const RefereeBuffer& b = match.GetRefereeBuffer();
+          if (!match.IsInSetPiece() || !b.started || !b.active || b.desiredSetPiece != e_SetPiece_ThrowIn) return;
+          const Vector3 spot = b.restartPos;
+          const float side = spot.coords[1] > 0 ? 1.0f : -1.0f;
+          Ball* ball = match.GetBall();
+          ball->SetPosition(Vector3(spot.coords[0], side * (std::fabs(spot.coords[1]) + kRestPastSpot_m), 0.0f));
+          ball->Stop();
+          match.StopSetPiece();
+          const_cast<RefereeBuffer&>(b).active = false;
+          armed = true;
+          placedAt = tick;
+        },
+        kMaxSimTicks,
+        [&](Match& match) {
+          if (!armed || tick < placedAt + kJudgeWithinTicks) return false;
+          judged = !match.IsInPlay();
+          return true;
+        },
+        seed);
+  }
   EXPECT_TRUE(armed) << "no throw-in was released to place the ball past its spot";
   EXPECT_TRUE(judged) << "a ball at rest " << kRestPastSpot_m
                       << " m past its spot was not judged out within " << kJudgeWithinTicks
