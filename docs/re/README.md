@@ -335,6 +335,8 @@ address given.
 |`pes-re-record-layouts-chains.md`|Per-record field tables for the kick, trap, Clear and sanction chains with the field-to-GF-source work list (RecordMap)|
 |`pes-re-record-ids.md`|Record identities: kicker `ap` = heap player object (vtable 0x1425E34D8) with six kick-field writers; Clear carrier = heap record; G+0x180 stride 0x74 (two IMUL sites, live lattice); anime +0x1A/+0x1C belong to the anime record, not GF's slot|
 |`pes-re-fdc-format.md`|The FixDemo cutscene .fdc format: container, record classes (Cut, Env, Timing, Effect, Human, Object, Camera, Function), field layouts, from the parser over the install|
+|`pes-re-open-decodes.md`|CANM camera sampler: linear lerp per channel incl. per-component quaternion lerp (not slerp), 30 fps keys (0x142591140); the 0x5D facing gate (157.5 deg) decoded; sanction ring push and card-history tables (A1+0x750D0 / +0xCE720), r9d=0 at the side-0 call|
+|`pes-re-kick-kinds.md`|Kick kind is chosen per kick by geometric candidate tests (Kick action slots 13/15 set it; W2/W3 only reset); Q = Base(class, subclass, gate) x G(geometry): Base bit-exact for all 150 kinds on 4 captures (600/600); G's closed form open; GF action -> PES request type 8/9/10|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
