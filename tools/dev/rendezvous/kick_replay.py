@@ -129,8 +129,9 @@ HK_MOTION, HK_MOTION_GATE, HK_MOTION_DESC = 0x14083CD7D, 0x14083E036, 0x14083E41
 HK_VEC, HK_TOUCH, HK_EFF, HK_A, HK_DESC, HK_Q = (0x14083CDCD, 0x14083CE36, 0x14083CF07, 0x14083CF11, 0x14083E42E,
                                                   0x14083E618)
 Q_COLUMNS = ["kind", "b2754", "entry2755", "first", "window", "flags", "velX", "velZ", "stamina", "heading", "body",
-             "launch0", "launch2", "a", "motion", "touch", "desc", "q"]
-Q_FLOATS = {"window", "velX", "velZ", "stamina", "heading", "body", "launch0", "launch2", "a"}
+             "launch0", "launch2", "a", "motion", "touch", "desc", "q", "ballY"]
+Q_FLOATS = {"window", "velX", "velZ", "stamina", "heading", "body", "launch0", "launch2", "a", "ballY"}
+HK_BALL = 0x14083E44C
 
 
 def f32_bits(v):
@@ -180,6 +181,8 @@ def q_case(snap_dir, cfg, patch=None):
             rec["a"] = xmm_f32(uc, 0)
         elif address == HK_DESC:
             rec["desc"] = rd(xc.UC_X86_REG_RAX) & 0xFFFFFFFF
+        elif address == HK_BALL:   # xmm6 = the ball record's +4 float, loaded at 0x14083E447 (the in-flight branch)
+            rec["ballY"] = xmm_f32(uc, 6)
         elif address == HK_Q:
             rec["q"] = f32_bits(xmm_f32(uc, 13))
 
@@ -198,6 +201,8 @@ def q_row(rec):
             v = -1 if v is None else v
         elif c == "touch":
             v = 0 if v is None else v   # the window block did not run: the touch state was never read
+        elif c == "ballY":
+            v = 0.0 if v is None else v  # the in-flight branch did not run: no ball record was read
         if c == "q":   # already the f32 bits
             out.append("%08x" % v)
         else:
@@ -205,28 +210,41 @@ def q_row(rec):
     return "\t".join(out)
 
 
-def q_patches(count, seed):
+def kinds_with_subclass(subs):
+    """Kinds whose kind-table row (0x14344E380, 16 bytes) has a subclass (byte 12) in `subs`; read from PES_EXE."""
+    with open(os.environ["PES_EXE"], "rb") as f:
+        f.seek(0x14344E380 - 0x140000000)
+        t = f.read(151 * 16)
+    return [k for k in range(1, 151) if t[16 * k + 12] in subs]
+
+
+def q_patches(count, seed, focus=False):
     """Deterministic input sweep: every field Q reads takes values on both sides of each threshold it is tested
-    against. The first 150 cases walk every kind of the table with nothing else changed."""
+    against. The first 150 cases walk every kind of the table with nothing else changed. `focus` instead draws only
+    the subclasses 2..7 and 0xC (the kick-angle bucket terms) with motion ids whose descriptor byte is not 1 (those
+    are the cases Q is ported for) and a first-time window always open."""
     import random
     rng = random.Random(seed)
-    out = [{"kind": k} for k in range(1, 151)] if count else []
+    out = [{"kind": k} for k in range(1, 151)] if count and not focus else []
+    kinds = kinds_with_subclass({2, 3, 4, 5, 6, 7, 12})
     for _ in range(count):
         out.append({
-            "kind": rng.randint(1, 150), "b2754": rng.choice([0, 9, 9, 2, 3]),
+            "kind": rng.choice(kinds) if focus else rng.randint(1, 150), "b2754": rng.choice([0, 9, 9, 2, 3]),
             "entry2755": rng.choice([0, 2, 4, 9, 0xD, 0xF, 0x11, 1, 3]), "first": rng.choice([-1, 0, 1, 1]),
-            "window": rng.choice([720.0, rng.uniform(0, 359.9), rng.uniform(0, 359.9)]),
+            "window": (rng.uniform(0, 359.9) if focus
+                       else rng.choice([720.0, rng.uniform(0, 359.9), rng.uniform(0, 359.9)])),
             "flags": rng.choice([0, 0, 1 << 29]), "velX": rng.uniform(-0.6, 0.6), "velZ": rng.uniform(-0.6, 0.6),
             "stamina": rng.uniform(0, 100), "heading": rng.uniform(-400, 400), "body": rng.uniform(-200, 600),
             "launch": (rng.uniform(-30, 30), rng.uniform(0, 8), rng.uniform(-30, 30)),
             "a": rng.uniform(0, 1), "touch": rng.choice([0, 1]),
-            "motion": rng.choice([0, 0x9F1, 0x9BE, 0xA20, 0xA7D, 0x9B0, 0x9B4, 0xA41, 0xA42, 0xA45, 0x500]),
+            "motion": (rng.choice([0, 0x500]) if focus else rng.choice(
+                [0, 0x9F1, 0x9BE, 0xA20, 0xA7D, 0x9B0, 0x9B4, 0xA41, 0xA42, 0xA45, 0x500])),
         })
     return out
 
 
 def q_main(a):
-    cfg_patches = q_patches(a.q_count, a.q_seed)
+    cfg_patches = q_patches(a.q_count, a.q_seed, a.q_focus)
     with open(a.q, "w") as f:
         f.write("seq\t" + "\t".join(Q_COLUMNS) + "\n")
         for snap in a.snaps:
@@ -250,6 +268,7 @@ def main():
                     "and --q-count random input cases, inputs and PES's Q as f32 bits (replaces --out/--tsv)")
     ap.add_argument("--q-count", type=int, default=250)
     ap.add_argument("--q-seed", type=int, default=1)
+    ap.add_argument("--q-focus", action="store_true", help="only the bucket-driven subclasses, descriptor != 1 motions")
     ap.add_argument("snaps", nargs="+")
     a = ap.parse_args()
     if a.q:

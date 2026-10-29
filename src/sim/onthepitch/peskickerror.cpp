@@ -141,7 +141,8 @@ bool LoadSituationConstants(const PeImage& exe, SituationConstants* c) {
       {0x142590d98, &c->turnSq},    {0x1425a8a28, &c->c2Base},   {0x1425c48a0, &c->c2Gain},
       {0x14259858c, &c->windowLimit}, {0x142598580, &c->halfTurn}, {0x142588218, &c->negOne},
       {0x1425cca3c, &c->turn157},   {0x1425a9bf0, &c->turn130},  {0x1425c5950, &c->turn125},
-      {0x14256ae30, &c->turn120},   {0x1425c48d4, &c->turn115},  {0x14259d628, &c->turn110}};
+      {0x14256ae30, &c->turn120},   {0x1425c48d4, &c->turn115},  {0x14259d628, &c->turn110},
+      {0x1425cb2a8, &c->ballLow}};
   bool ok = true;
   for (auto [va, out] : rdata) ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
   const std::pair<uint64_t, double*> doubles[] = {

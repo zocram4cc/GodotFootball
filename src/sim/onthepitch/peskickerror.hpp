@@ -71,6 +71,9 @@ struct SituationConstants {
   float turn115 = 0.0f;      // 115.0 @0x1425c48d4 class 1 (first-time byte != 0) and class 2 (byte 0)
   float turn110 = 0.0f;      // 110.0 @0x14259d628 class 2, first-time byte != 0
   float noWindow = 0.0f;     // 720.0: the immediate W1 (0x1406EB6FC) stores in ap+0x2764
+  // In-flight branch (motion descriptor byte 1, subclass 2..12, 0x14083E437..0x14083E607): with the ball record's height
+  // at or under this the branch multiplies Q by exactly 1 (0x14083E47E: ramp = 1, so 1 - ramp^2 = 0). Not ported above it.
+  float ballLow = 0.0f;      // 0.3260578 @0x1425cb2a8
   // The kind table 0x14344E380 (16 B per row, row = kind) and the four gate predicates 0x1407240F0, 0x140724590,
   // 0x140726610, 0x140726640 evaluated over the kinds from the immediates and tables in their code.
   static constexpr int kKinds = 151;  // rows 0..0x96

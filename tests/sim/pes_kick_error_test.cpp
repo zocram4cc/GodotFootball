@@ -286,15 +286,18 @@ TEST(PesKickErrorOracle, SituationFactorEqualsPesBitForBit) {
   while (std::getline(in, line)) {
     if (line.rfind("seq\t", 0) == 0) continue;  // a concatenated file's repeated header
     std::istringstream row(line);
-    std::string seq, window, vx, vz, stamina, heading, body, l0, l2, a, q;
+    std::string seq, window, vx, vz, stamina, heading, body, l0, l2, a, q, ballY;
     int kind, b2754, entry, first, motion, touch, desc;
     uint32_t flags;
     std::getline(row, seq, '\t');
     row >> kind >> b2754 >> entry >> first >> window >> flags >> vx >> vz >> stamina >> heading >> body >> l0 >> l2 >>
-        a >> motion >> touch >> desc >> q;
+        a >> motion >> touch >> desc >> q >> ballY;
     ASSERT_FALSE(row.fail()) << line;
-    constexpr int kDescriptorInFlight = 1;  // cmp eax,1 at 0x14083E42E
-    if (desc == kDescriptorInFlight) {
+    // PES's in-flight branch (descriptor byte 1, 0x14083E42E) is not ported; it multiplies Q by exactly 1 while the ball
+    // record's height is at or under ballLow, so those rows still compare. ballY NaN: height unknown, row skipped.
+    constexpr int kDescriptorInFlight = 1;
+    const float ball = FromBits(ballY);
+    if (desc == kDescriptorInFlight && !(ball <= k->situation.ballLow)) {
       ++skipped;
       continue;
     }
