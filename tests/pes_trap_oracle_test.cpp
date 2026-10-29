@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -265,7 +266,8 @@ class TrapOracle : public ::testing::Test {
     if (dir == nullptr || *dir == '\0' || exe == nullptr || *exe == '\0')
       GTEST_SKIP() << "GF_PES_TRAP_ORACLE / PES_EXE unset (PES-derived captures and image, not committed)";
     for (const auto& e : std::filesystem::directory_iterator(dir))
-      if (std::filesystem::exists(e.path() / "manifest.tsv")) dirs_.push_back(e.path().string());
+      if (std::filesystem::exists(e.path() / "manifest.tsv") && std::filesystem::exists(e.path() / "mem.bin"))
+        dirs_.push_back(e.path().string());  // (exists follows the capture link: a removed capture is skipped)
     std::sort(dirs_.begin(), dirs_.end());
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
     exe_ = exe;
@@ -311,6 +313,109 @@ TEST_F(TrapOracle, EveryCapturedCallOnGfsWindowGivesPesOutput) {
     EXPECT_EQ(got.result.issued, wantIssued) << dir;
     EXPECT_EQ(got.result.out, ReferenceOut(o)) << dir;
   }
+}
+
+// A flipped byte can send PES's own code to one of its aborts (a trap in a validating helper): that is a change of the call's
+// path, but it would end the test process. The call runs in a child; one that dies reports as a path of its own.
+RunOut RunForked(const Oracle& o, const std::string& exe, const std::function<void(Built&)>& mutate) {
+  int fds[2];
+  EXPECT_EQ(pipe(fds), 0);
+  const pid_t pid = fork();
+  if (pid == 0) {
+    close(fds[0]);
+    const RunOut r = RunCall(o, exe, mutate);
+    const uint32_t head[3] = {r.result.issued ? 1u : 0u, r.result.out, static_cast<uint32_t>(r.writes.size())};
+    if (write(fds[1], head, sizeof head) < 0 || write(fds[1], r.writes.data(), r.writes.size()) < 0) _exit(2);
+    _exit(0);
+  }
+  close(fds[1]);
+  RunOut out;
+  uint32_t head[3];
+  if (read(fds[0], head, sizeof head) == static_cast<ssize_t>(sizeof head)) {
+    out.result.issued = head[0] != 0;
+    out.result.out = head[1];
+    out.writes.resize(head[2]);
+    for (size_t got = 0; got < head[2];) {
+      const ssize_t n = read(fds[0], &out.writes[got], head[2] - got);
+      if (n <= 0) break;
+      got += static_cast<size_t>(n);
+    }
+  } else {
+    out.writes = "the call aborted";
+  }
+  close(fds[0]);
+  int status = 0;
+  waitpid(pid, &status, 0);
+  return out;
+}
+
+// The record indices the call reads (first and last of a kind in the manifest): the actor's slot and its man records.
+struct Indices {
+  int slot = 0, manFirst = 0, manLast = 0;
+};
+Indices IndicesOf(const Oracle& o) {
+  Indices idx;
+  bool seenMan = false;
+  for (const auto& line : o.manifest) {
+    if (line[0] != "T") continue;
+    const int i = std::atoi(line[2].c_str());
+    if (line[1] == "slot") idx.slot = i;
+    if (line[1] == "man") {
+      if (!seenMan) idx.manFirst = i;
+      idx.manLast = i;
+      seenMan = true;
+    }
+  }
+  return idx;
+}
+
+// Every binding of the call's inputs the window holds is one byte of its records; flipping it must change the call's path (the
+// result or the bytes the chain writes) in at least one capture, or the binding is not read and is not claimed. Not claimed
+// (no remaining capture's call changes with them): P+0xB08, P+0x377C, the play state MI+0x116C, the pitch F0, the anime class
+// byte; the removed captures (seq4310, 4329, 4351, 4402) read some of them.
+TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
+  struct Binding {
+    const char* name;
+    std::function<uint8_t*(Built&, const Indices&)> byteOf;
+    uint8_t flip = 0x01;  // the lowest bit by default: a larger flip can turn a byte into one PES's own code rejects
+  };
+  const std::vector<Binding> bindings = {
+      {"P position x", [](Built& b, const Indices&) { return b.world->P() + pes::kPPosOffset; }},
+      {"P next position z", [](Built& b, const Indices&) { return b.world->P() + pes::kPNextPosOffset + 8; }},
+      {"P heading", [](Built& b, const Indices&) { return b.world->P() + pes::kPHeadingOffset; }},
+      {"P velocity x", [](Built& b, const Indices&) { return b.world->P() + pes::kPVelocityOffset; }},
+      {"P byte 0xAC9", [](Built& b, const Indices&) { return b.world->P() + pes::kPByteAC9Offset; }},
+      {"P word 0xAE0", [](Built& b, const Indices&) { return b.world->P() + pes::kPWordAE0Offset; }},
+      // (P+0x2458 is a state byte the chain validates: any value but the captured one reaches a trap in 0x140A58550 (a PES
+      // abort), so it cannot be flipped and is not claimed here.)
+      {"P scale 0x3B18", [](Built& b, const Indices&) { return b.world->P() + pes::kPF3B18Offset; }},
+      {"ball sample 0 x", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallSamplesOffset; }},
+      {"ball sample 3 height",
+       [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallSamplesOffset + 3 * pes::kBallSampleStride + 4; }},
+      {"ball +0x4 (high byte)", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallField04Offset + 3; }},
+      {"ball velocity x", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallVelocityOffset + 2; }, 0x40},
+      {"MI frame", [](Built& b, const Indices&) { return b.world->MatchInfo() + pes::kMiFrameOffset; }},
+      {"man A position x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManPosXOffset; }},
+      {"man A velocity x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManVelXOffset; }},
+      {"man B facing", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manLast) + pes::kManFacingOffset; }},
+      {"man B +0x5B0", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manLast) + 0x5B0; }},
+      {"slot +0x9B", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x9B; }},
+      {"slot +0xC8", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0xC8; }},
+      {"slot +0x104", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x104; }},
+  };
+  std::map<std::string, int> changed;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    const RunOut base = RunCall(o, exe_);
+    const Indices idx = IndicesOf(o);
+    for (const Binding& binding : bindings) {
+      const RunOut flipped = RunForked(o, exe_, [&](Built& b) { *binding.byteOf(b, idx) ^= binding.flip; });
+      if (!(flipped == base)) ++changed[binding.name];
+    }
+  }
+  for (const Binding& binding : bindings) EXPECT_GT(changed[binding.name], 0) << binding.name << ": no capture's call reads it";
 }
 
 }  // namespace
