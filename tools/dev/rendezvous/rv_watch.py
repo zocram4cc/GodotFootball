@@ -32,7 +32,11 @@ def main():
     ap.add_argument("--min-free-gib", type=int, default=150)
     ap.add_argument("--per-hook-max", type=int, default=0,
                     help="snapshots per hook per game launch; past it calls are released unsnapshotted (0: no cap)")
+    ap.add_argument("--only", default="",
+                    help="comma-separated hook names to snapshot; calls of every other hook are released unsnapshotted, "
+                         "so rare hooks an agent waits on are not starved by frequent ones filling the disk floor")
     a = ap.parse_args()
+    only = {h for h in a.only.split(",") if h}
     st = os.stat(a.run)
     uid, gid = st.st_uid, st.st_gid
     os.makedirs(a.out, exist_ok=True)
@@ -95,6 +99,9 @@ def main():
                 continue
             seen.add(f)
             cap = fs.rv_parse_capture(f)
+            if only and cap["hook"] not in only:
+                open(os.path.join(a.run, "release_%d" % cap["seq"]), "w").close()  # not logged: frequent by design
+                continue
             if shutil.disk_usage(a.out).free < a.min_free_gib << 30:
                 release(cap, "disk under %d GiB" % a.min_free_gib)
                 continue
