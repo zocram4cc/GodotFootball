@@ -12,5 +12,6 @@
 void pes_fn_14053ACE0(PesState& s);
 
 void pes_fn_14053ACE0(PesState& s) {
-  /*OUT-OF-RANGE JMP 0x143F6A7F0*/return;
+  /*OUT-OF-RANGE JMP 0x143F6A7F0*/ pes_dispatch_missing(0x143F6A7F0);
+  return;
 }

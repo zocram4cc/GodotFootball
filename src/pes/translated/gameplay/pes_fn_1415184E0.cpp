@@ -170,5 +170,6 @@ void pes_fn_1415184E0(PesState& s) {
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
-  /*OUT-OF-RANGE JMP 0x144ADC120*/return;
+  /*OUT-OF-RANGE JMP 0x144ADC120*/ pes_dispatch_missing(0x144ADC120);
+  return;
 }

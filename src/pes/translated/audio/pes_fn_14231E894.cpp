@@ -354,5 +354,6 @@ void pes_fn_14231E894(PesState& s) {
   s.set_x_f32(0, (float)((s.x_f32(0)) * ((k_c142C4DCC0_f))));
   s.xmm[1][0] = s.xmm[0][0]; s.xmm[1][1] = s.xmm[0][1];
   s.set_x_f32(0, k_c142565604_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
-  /*OUT-OF-RANGE JMP 0x1415A17CE*/return;
+  s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));
+  return;
 }
