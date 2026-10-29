@@ -103,5 +103,21 @@ class TailJumpLoud(unittest.TestCase):
         gen_translated.silent_tail_sites(members)  # a jump after a ret into a non-image address is dead decode noise
 
 
+class VariantChoice(unittest.TestCase):
+    """One function translated under two sets' universes: the layer keeps the variant that links more."""
+    GAP = "/*OUT-OF-SET CALL 0x1*/ pes_dispatch_missing(0x1);\n"
+    JMP = "/*OUT-OF-RANGE JMP 0x2*/ pes_dispatch_missing(0x2);\n"
+
+    def test_fewer_gaps_wins_whichever_set_comes_first(self):
+        one, two = "a\n" + self.GAP, "b\n" + self.GAP + self.JMP
+        self.assertEqual(gen_translated.choose_variant(one, two), one)
+        self.assertEqual(gen_translated.choose_variant(two, one), one)
+        self.assertEqual(gen_translated.choose_variant(two, "c\n"), "c\n")
+
+    def test_variants_that_differ_with_as_many_gaps_are_a_conflict(self):
+        self.assertIsNone(gen_translated.choose_variant("a\n" + self.GAP, "b\n" + self.GAP))
+        self.assertIsNone(gen_translated.choose_variant("a\n", "b\n"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

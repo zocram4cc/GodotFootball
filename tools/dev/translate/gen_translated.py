@@ -81,8 +81,16 @@ def translate(va, image, stubs, universe):
 GAP_MARKERS = ("/*OUT-OF-SET CALL ", "OUT-OF-RANGE JMP")
 
 
-def has_gap(text):
-    return any(m in text for m in GAP_MARKERS)
+def gap_count(text):
+    return sum(text.count(m) for m in GAP_MARKERS)
+
+
+def choose_variant(old, new):
+    """Two translations of one function under different sets' universes: the one with fewer gaps (a callee one set lacks
+    becomes an abort there; the layer keeps the variant that links more of what PES runs). None when they differ with as
+    many gaps: a real conflict."""
+    a, b = gap_count(old), gap_count(new)
+    return new if b < a else old if a < b else None
 
 
 TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
@@ -126,15 +134,13 @@ def build(image):
             text = translate(cur, image, stubs, universe)
             old = texts.get(cur)
             if old is not None and old != text:
-                # Sets translate under their own universes: a callee one set lacks becomes a gap there (a missing
-                # dispatch, an out-of-range jump that returns). The layer keeps the variant without gaps, which some
-                # set proved; two variants that differ otherwise, or both with gaps, are a real conflict.
-                old_gap, new_gap = has_gap(old), has_gap(text)
-                if old_gap and not new_gap:
-                    texts[cur] = text
-                elif old_gap == new_gap:
-                    conflicts.append("%s translates differently under %s (gap: layer %s, this set %s; first set %s)"
-                                     % (cur, name, old_gap, new_gap, sub_of.get(cur, "closure")))
+                # Sets translate under their own universes: a callee one set lacks becomes a gap there.
+                pick = choose_variant(old, text)
+                if pick is None:
+                    conflicts.append("%s translates differently under %s (%d gaps in both; first set %s)"
+                                     % (cur, name, gap_count(text), sub_of.get(cur, "closure")))
+                else:
+                    texts[cur] = pick
             texts.setdefault(cur, text)
             for c in CALLEE.findall(text):
                 cv = "0x" + c.upper()
