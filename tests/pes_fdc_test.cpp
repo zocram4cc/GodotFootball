@@ -4,10 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -144,6 +146,7 @@ struct CanmChannelSpec {
   uint32_t type;
   std::vector<uint16_t> frames;
   std::vector<std::vector<float>> values;
+  bool noTimes = false;  // times offset 0: one key per frame, no table
 };
 std::vector<uint8_t> MakeCanm(uint32_t frameCount, const std::vector<CanmChannelSpec>& channels) {
   const size_t trackOff = 0x18;
@@ -172,10 +175,10 @@ std::vector<uint8_t> MakeCanm(uint32_t frameCount, const std::vector<CanmChannel
     chanOffs.push_back(uint32_t(cur));
     const size_t ncomp = (ch.type == 1 || ch.type == 4) ? 4 : 1;
     const size_t chanStart = cur;
-    std::vector<uint8_t> body(16, 0);
-    body.resize(16 + 2 * ch.frames.size(), 0);
-    const uint32_t timesOff = 16;
-    const uint32_t valuesOff = uint32_t(timesOff + 2 * ch.frames.size());
+    const size_t tableBytes = ch.noTimes ? 0 : 2 * ch.frames.size();
+    std::vector<uint8_t> body(16 + tableBytes, 0);
+    const uint32_t timesOff = ch.noTimes ? 0 : 16;
+    const uint32_t valuesOff = uint32_t(16 + tableBytes);
     std::vector<uint8_t> valuesBytes;
     for (const auto& v : ch.values)
       for (size_t k = 0; k < ncomp; ++k) PutF(valuesBytes, k < v.size() ? v[k] : 0.0f);
@@ -188,7 +191,7 @@ std::vector<uint8_t> MakeCanm(uint32_t frameCount, const std::vector<CanmChannel
     body[7] = 0;
     PutU32At(body, 8, timesOff);
     PutU32At(body, 12, valuesOff);
-    for (size_t k = 0; k < ch.frames.size(); ++k) {
+    for (size_t k = 0; k < ch.frames.size() && !ch.noTimes; ++k) {
       body[timesOff + 2 * k] = uint8_t(ch.frames[k]);
       body[timesOff + 2 * k + 1] = uint8_t(ch.frames[k] >> 8);
     }
@@ -273,39 +276,364 @@ TEST(PesFdc, RejectsAFileShorterThanItsEntryTable) {
   EXPECT_FALSE(pes::fdc::Parse(file, &f, &err));
 }
 
-TEST(PesFdcCanm, SamplesLinearPositionAndSlerpsRotationBetweenKeys) {
-  const float s = std::sqrt(0.5f);
-  const auto bytes = MakeCanm(2, {
-      {1, {0, 1, 2}, {{0, 0, 0, 1}, {0, s, 0, s}, {0, s, 0, s}}},   // rotation: id, 90 deg about Y, held
-      {4, {0, 1, 2}, {{0, 1, 0, 1}, {2, 1, 0, 1}, {2, 1, 4, 1}}},   // position
-      {8, {0, 1, 2}, {{40}, {50}, {50}}},                            // vertical fov
-      {8, {0}, {{0.5f}}},                                             // near
-      {8, {0}, {{100}}},                                              // far
-      {8, {0}, {{1.5f}}},                                             // aspect
+// ---- CANM sampling and the FixDemoCamera pose (docs/re/pes-re-camera-pose.md) ----
+
+namespace {
+
+using pes::fdc::CameraRecord;
+using pes::fdc::PoseConstants;
+
+// The constants the pose maths reads from the executable; null without an install.
+const PoseConstants* Constants() {
+  static const std::optional<PoseConstants> k = []() -> std::optional<PoseConstants> {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root) return std::nullopt;
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    if (!exe) return std::nullopt;
+    return pes::fdc::LoadPoseConstants(*exe, &err);
+  }();
+  return k ? &*k : nullptr;
+}
+#define NEED_CONSTANTS(k)                                                         \
+  const PoseConstants* k = Constants();                                           \
+  if (!k) GTEST_SKIP() << "PES21_ROOT not set or PES2021.exe pose constants unreadable"
+
+// A clip with the given rotation and position channels; fov/near/far/aspect are one held key each.
+Canm Clip(uint32_t length, const std::vector<uint16_t>& rotFrames, const std::vector<std::vector<float>>& rot,
+          const std::vector<uint16_t>& posFrames, const std::vector<std::vector<float>>& pos, bool posNoTimes = false) {
+  const auto bytes = MakeCanm(length, {
+      {1, rotFrames, rot},
+      {4, posFrames, pos, posNoTimes},
+      {8, {0}, {{40}}},
+      {8, {0}, {{0.5f}}},
+      {8, {0}, {{100}}},
+      {8, {0}, {{1.5f}}},
   });
   Canm c;
   std::string err;
+  EXPECT_TRUE(pes::fdc::ParseCanm(bytes, &c, &err)) << err;
+  return c;
+}
+
+Canm HeldClip(const std::vector<float>& q, const std::vector<float>& pos) { return Clip(10, {0}, {q}, {0}, {pos}); }
+
+float Norm4(const std::array<float, 4>& q) { return std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]); }
+
+}  // namespace
+
+TEST(PesFdcCanm, ReadsLengthAndTheFpsOnlyWhenTheHeaderFlagsIt) {
+  auto bytes = MakeCanm(7, {});
+  Canm c;
+  std::string err;
   ASSERT_TRUE(pes::fdc::ParseCanm(bytes, &c, &err)) << err;
-  EXPECT_EQ(c.frameCount, 2u);
-  EXPECT_EQ(c.frameRate, 30u);
+  EXPECT_EQ(c.length, 7.0f);
+  EXPECT_TRUE(c.hasFps);
+  EXPECT_EQ(c.fps, 30);
+  bytes[12] = 0;  // bit 0 of +0xC clear: the stream has no fps (0x142139D60)
+  ASSERT_TRUE(pes::fdc::ParseCanm(bytes, &c, &err)) << err;
+  EXPECT_FALSE(c.hasFps);
+}
 
-  const auto mid = pes::fdc::SampleCanm(c, 0.5f);
-  EXPECT_NEAR(mid.position[0], 1.0f, 1e-5f);
-  EXPECT_NEAR(mid.position[2], 0.0f, 1e-5f);
-  EXPECT_NEAR(mid.fovDeg, 45.0f, 1e-4f);
-  EXPECT_NEAR(mid.rotation[1], std::sin(0.5f * std::acos(-1.0f) / 4.0f), 1e-4f);  // half of 90 deg about Y
-  EXPECT_NEAR(mid.rotation[3], std::cos(0.5f * std::acos(-1.0f) / 4.0f), 1e-4f);
-  EXPECT_NEAR(mid.nearM, 0.5f, 1e-6f);
-  EXPECT_NEAR(mid.farM, 100.0f, 1e-6f);
-  EXPECT_NEAR(mid.aspect, 1.5f, 1e-6f);
+TEST(PesFdcSample, RotationBelowTheLowSnapIsTheFirstKeyAndAboveTheHighSnapTheSecond) {
+  NEED_CONSTANTS(k);
+  // Unnormalised keys: any blend or renormalise would change them.
+  const Canm c = Clip(1000, {0, 1000}, {{0, 0, 0, 2}, {0, 3, 0, 0}}, {0}, {{0, 0, 0, 1}});
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 0.5f).rotation, (std::array<float, 4>{0, 0, 0, 2}));    // f = 0.0005
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 999.5f).rotation, (std::array<float, 4>{0, 3, 0, 0}));  // f = 0.9995
+}
 
-  const auto late = pes::fdc::SampleCanm(c, 1.5f);
-  EXPECT_NEAR(late.position[0], 2.0f, 1e-5f);
-  EXPECT_NEAR(late.position[2], 2.0f, 1e-5f);
-  EXPECT_NEAR(late.rotation[1], s, 1e-5f);
-  // Past the last key the pose is held.
-  const auto past = pes::fdc::SampleCanm(c, 9.0f);
-  EXPECT_NEAR(past.position[2], 4.0f, 1e-5f);
+TEST(PesFdcSample, KeysWithOneMinusDotAtMostTheThresholdBlendLinearlyAndStayUnnormalised) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {0, 10}, {{0, 0, 0, 1}, {0, 0.001f, 0, 1}}, {0}, {{0, 0, 0, 1}});
+  const auto q = pes::fdc::SampleCanm(*k, c, 5.0f).rotation;  // d = 1: 1 - d = 0
+  EXPECT_EQ(q[1], 0.5f * 0.001f);
+  EXPECT_EQ(q[3], 1.0f);  // (1-f)*1 + f*1; a renormalise would give 1/|q| != 1
+}
+
+TEST(PesFdcSample, KeysJustPastTheLinearThresholdSlerpToAUnitQuaternion) {
+  NEED_CONSTANTS(k);
+  const float th = 0.015f;
+  const float s = std::sin(th), co = std::cos(th);
+  ASSERT_GT(1.0f - co, k->slerpLinearEps);  // the fixture is past the threshold
+  const Canm c = Clip(10, {0, 10}, {{0, 0, 0, 1}, {0, s, 0, co}}, {0}, {{0, 0, 0, 1}});
+  EXPECT_NEAR(Norm4(pes::fdc::SampleCanm(*k, c, 5.0f).rotation), 1.0f, 1e-6f);  // linear weights give cos(th/2)
+}
+
+TEST(PesFdcSample, SlerpDoesNotRenormaliseItsOutput) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {0, 10}, {{0, 0, 0, 0.5f}, {0, 0.5f, 0, 0}}, {0}, {{0, 0, 0, 1}});
+  const auto q = pes::fdc::SampleCanm(*k, c, 5.0f).rotation;  // d = 0, half way: 0.5 * sin(45 deg) each
+  EXPECT_NEAR(q[1], 0.5f * std::sqrt(0.5f), 1e-6f);
+  EXPECT_NEAR(q[3], 0.5f * std::sqrt(0.5f), 1e-6f);
+}
+
+TEST(PesFdcSample, SlerpTakesTheShortArcByNegatingTheSecondKey) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {0, 10}, {{0, 0, 0, 1}, {0, 0.6f, 0, -0.8f}}, {0}, {{0, 0, 0, 1}});
+  const auto q = pes::fdc::SampleCanm(*k, c, 5.0f).rotation;  // d = -0.8: the key is flipped to (0,-.6,0,.8)
+  const double th = std::acos(0.8), w = std::sin(0.5 * th) / std::sin(th);
+  EXPECT_NEAR(q[1], -w * 0.6, 1e-6);
+  EXPECT_NEAR(q[3], w + w * 0.8, 1e-6);
+}
+
+TEST(PesFdcSample, PositionIsFTimesSecondPlusOneMinusFTimesFirst) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {0}, {{0, 0, 0, 1}}, {0, 10}, {{-43.9f, 0, 0, 1}, {41.7f, 0, 0, 1}});
+  const float v0 = -43.9f, v1 = 41.7f, f = 0.1f;  // frame 1 of keys 0 and 10: f = 1/10
+  ASSERT_NE(f * v1 + (1.0f - f) * v0, v0 + (v1 - v0) * f);  // the fixture tells the two forms apart
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 1.0f).position[0], -35.340004f);
+}
+
+TEST(PesFdcSample, FramesPastTheLengthOrBelowZeroHoldTheEndPoses) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {0}, {{0, 0, 0, 1}}, {0, 10}, {{-4, 0, 0, 1}, {6, 0, 0, 1}});
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 12.0f).position[0], 6.0f);
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, -3.0f).position[0], -4.0f);  // unclamped, f = -0.3 would extrapolate
+}
+
+TEST(PesFdcSample, BeforeTheFirstKeyTimePositionExtrapolatesAndRotationIsTheFirstKey) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {2, 10}, {{0, 0, 0, 2}, {0, 3, 0, 0}}, {2, 10}, {{0, 0, 0, 1}, {8, 0, 0, 1}});
+  const auto s = pes::fdc::SampleCanm(*k, c, 1.0f);  // key 0 is at 2: f = (1 - 2) / 8 = -0.125
+  EXPECT_EQ(s.position[0], -1.0f);
+  EXPECT_EQ(s.rotation, (std::array<float, 4>{0, 0, 0, 2}));
+}
+
+TEST(PesFdcSample, EqualKeyTimesUseTheLastOfTheRunAsTheSegmentStart) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {0}, {{0, 0, 0, 1}}, {0, 5, 5, 10}, {{0, 0, 0, 1}, {1, 0, 0, 1}, {2, 0, 0, 1}, {3, 0, 0, 1}});
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 5.0f).position[0], 2.0f);
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 7.5f).position[0], 2.5f);
+}
+
+TEST(PesFdcSample, AChannelWithoutATimesTableHasOneKeyPerFrame) {
+  NEED_CONSTANTS(k);
+  const Canm c = Clip(10, {0}, {{0, 0, 0, 1}}, {0, 1, 2}, {{0, 0, 0, 1}, {10, 0, 0, 1}, {20, 0, 0, 1}}, /*posNoTimes=*/true);
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 1.5f).position[0], 15.0f);
+}
+
+TEST(PesFdcSample, FovIsTheChannelDegreesToRadians) {
+  NEED_CONSTANTS(k);
+  const Canm c = HeldClip({0, 0, 0, 1}, {0, 0, 0, 1});
+  EXPECT_NEAR(pes::fdc::SampleCanm(*k, c, 0.0f).fovRad, 40.0 * std::acos(-1.0) / 180.0, 1e-6);
+}
+
+TEST(PesFdcPose, ClipFrameIsClockMinusStartPlusAnimeStartTimesFpsOverSixty) {
+  NEED_CONSTANTS(k);
+  const Canm c = HeldClip({0, 0, 0, 1}, {0, 0, 0, 1});  // 30 fps stream
+  CameraRecord rec;
+  rec.startTime = 540.0f;
+  rec.timeMode = 1;
+  rec.animeStartTime = 6.0f;
+  EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, 570.0f), 36.0f * (30.0f / k->sixty));
+  EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, 100.0f), 6.0f * (30.0f / k->sixty));  // before the start: t = 0
+  rec.timeMode = 0;                                                               // the player clock as is
+  EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, 100.0f), 106.0f * (30.0f / k->sixty));
+}
+
+TEST(PesFdcPose, ClipFrameWrapsAtTheLengthOnlyForALoopingRecord) {
+  NEED_CONSTANTS(k);
+  const Canm c = HeldClip({0, 0, 0, 1}, {0, 0, 0, 1});  // 30 fps, length 10
+  CameraRecord rec;
+  rec.timeMode = 0;
+  const float clock = k->sixty * 0.5f;  // half a second: 15 frames at 30 fps
+  EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, clock), 15.0f);
+  rec.loop = 1;
+  EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, clock), 5.0f);
+}
+
+TEST(PesFdcPose, AStreamWithoutAnFpsRunsAtTheDefault) {
+  NEED_CONSTANTS(k);
+  Canm c = HeldClip({0, 0, 0, 1}, {0, 0, 0, 1});
+  c.hasFps = false;
+  c.fps = 99;
+  EXPECT_EQ(pes::fdc::ClipFps(*k, c), k->defaultFps);
+  CameraRecord rec;
+  rec.timeMode = 0;
+  EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, 10.0f), 10.0f * (k->defaultFps / k->sixty));
+}
+
+TEST(PesFdcPose, IdentityRotationLooksDownMinusZWithColumnsZeroAndTwoNegated) {
+  NEED_CONSTANTS(k);
+  const auto p = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, 0, 0, 1}, {1, 2, 3, 1}), CameraRecord{}, 0.0f, {}, 0.0f);
+  EXPECT_EQ(p.forward(), (std::array<float, 3>{0, 0, -1}));
+  EXPECT_EQ(p.up(), (std::array<float, 3>{0, 1, 0}));
+  EXPECT_EQ(p.m[0][0], -1.0f);  // column 0 is minus the camera's right
+  EXPECT_EQ(p.eye, (std::array<float, 3>{1, 2, 3}));
+}
+
+TEST(PesFdcPose, TheMatrixNormalisesAnUnnormalisedQuaternion) {
+  NEED_CONSTANTS(k);
+  const float h = std::sqrt(0.5f);
+  const auto unit = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, h, 0, h}, {0, 0, 0, 1}), CameraRecord{}, 0.0f, {}, 0.0f);
+  const auto big = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, 3 * h, 0, 3 * h}, {0, 0, 0, 1}), CameraRecord{}, 0.0f, {}, 0.0f);
+  for (int r = 0; r < 3; ++r)
+    for (int col = 0; col < 3; ++col) EXPECT_NEAR(big.m[r][col], unit.m[r][col], 1e-6f);
+}
+
+TEST(PesFdcPose, HeightOffsetRaisesTheEye) {
+  NEED_CONSTANTS(k);
+  const auto p = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, 0, 0, 1}, {1, 2, 3, 1}), CameraRecord{}, 0.0f, {}, 0.25f);
+  EXPECT_EQ(p.eye, (std::array<float, 3>{1, 2.25f, 3}));
+}
+
+TEST(PesFdcPose, HeightOffsetIsTargetHeightMinusTheReferenceTimesScaleTimesRate) {
+  NEED_CONSTANTS(k);
+  EXPECT_EQ(pes::fdc::HeightOffsetM(*k, k->heightRef + 20.0f, 2.0f), (20.0f * k->heightScale) * 2.0f);
+  EXPECT_EQ(pes::fdc::HeightOffsetM(*k, k->heightRef - 10.0f, 0.0f), 0.0f);
+}
+
+TEST(PesFdcPose, FlipMirrorsXOfTheEyeAndTheOrientation) {
+  NEED_CONSTANTS(k);
+  const float a = 0.3f;  // a yaw, so the forward vector has an x part
+  const Canm c = HeldClip({0, std::sin(a), 0, std::cos(a)}, {4, 2, 3, 1});
+  const auto plain = pes::fdc::EvaluateCameraPose(*k, c, CameraRecord{}, 0.0f, {}, 0.0f);
+  pes::fdc::CutOffset flip;
+  flip.flip = true;
+  CameraRecord rec;
+  rec.useCutOffset = 1;
+  const auto mirrored = pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, flip, 0.0f);
+  ASSERT_NE(plain.forward()[0], 0.0f);
+  EXPECT_EQ(mirrored.eye, (std::array<float, 3>{-4, 2, 3}));
+  EXPECT_EQ(mirrored.forward(), (std::array<float, 3>{-plain.forward()[0], plain.forward()[1], plain.forward()[2]}));
+  EXPECT_EQ(mirrored.up(), (std::array<float, 3>{-plain.up()[0], plain.up()[1], plain.up()[2]}));
+}
+
+TEST(PesFdcPose, RotYTurnsTheWholeShotAboutWorldYAndTheOffsetIsAddedAfterFlipAndRotY) {
+  NEED_CONSTANTS(k);
+  const Canm c = HeldClip({0, 0, 0, 1}, {1, 0, 0, 1});
+  CameraRecord rec;
+  rec.useCutOffset = 1;
+  pes::fdc::CutOffset off;
+  off.rotYDeg = 90.0f;
+  auto p = pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, off, 0.0f);
+  EXPECT_NEAR(p.eye[0], 0.0f, 1e-6f);  // (1,0,0) -> (cos, 0, -sin)
+  EXPECT_NEAR(p.eye[2], -1.0f, 1e-6f);
+  EXPECT_NEAR(p.forward()[0], -1.0f, 1e-6f);  // (0,0,-1) -> (-sin, 0, cos * -1)
+  EXPECT_NEAR(p.forward()[2], 0.0f, 1e-6f);
+  EXPECT_NEAR(p.up()[1], 1.0f, 1e-6f);
+
+  off.flip = true;  // flip, then turn, then add: (1,0,0) -> (-1,0,0) -> (0,0,1) -> (10,0,1)
+  off.pos = {10, 0, 0};
+  p = pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, off, 0.0f);
+  EXPECT_NEAR(p.eye[0], 10.0f, 1e-6f);
+  EXPECT_NEAR(p.eye[2], 1.0f, 1e-6f);
+
+  rec.useCutOffset = 0;  // the record does not ask for the player's offset
+  p = pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, off, 0.0f);
+  EXPECT_EQ(p.eye, (std::array<float, 3>{1, 0, 0}));
+}
+
+TEST(PesFdcRender, NearIsTheRecordsAndFarIsAtLeastTheFloor) {
+  NEED_CONSTANTS(k);
+  const auto pose = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, 0, 0, 1}, {0, 0, 0, 1}), CameraRecord{}, 0.0f, {}, 0.0f);
+  CameraRecord rec;
+  rec.nearClip = 0.05f;  // below any GF clamp: PES passes the record's value on
+  rec.farClip = k->renderFarFloor * 0.1f;
+  auto r = pes::fdc::RenderCameraParams(*k, pose, rec, k->wideAspect, false);
+  EXPECT_EQ(r.nearM, 0.05f);
+  EXPECT_EQ(r.farM, k->renderFarFloor);
+  rec.farClip = k->renderFarFloor * 2.0f;
+  EXPECT_EQ(pes::fdc::RenderCameraParams(*k, pose, rec, k->wideAspect, false).farM, k->renderFarFloor * 2.0f);
+}
+
+TEST(PesFdcRender, FovIsClampedToZeroAndTheMaximum) {
+  NEED_CONSTANTS(k);
+  auto pose = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, 0, 0, 1}, {0, 0, 0, 1}), CameraRecord{}, 0.0f, {}, 0.0f);
+  pose.fovRad = k->fovMaxRad + 0.5f;
+  EXPECT_EQ(pes::fdc::RenderCameraParams(*k, pose, CameraRecord{}, k->wideAspect, false).fovRad, k->fovMaxRad);
+  pose.fovRad = -0.2f;
+  EXPECT_EQ(pes::fdc::RenderCameraParams(*k, pose, CameraRecord{}, k->wideAspect, false).fovRad, 0.0f);
+}
+
+TEST(PesFdcRender, WidescreenFixKeepsTheSixteenByNineHorizontalFovOnlyBelowThatAspect) {
+  NEED_CONSTANTS(k);
+  auto pose = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, 0, 0, 1}, {0, 0, 0, 1}), CameraRecord{}, 0.0f, {}, 0.0f);
+  pose.fovRad = 0.8f;
+  const float narrow = k->wideAspect * 0.75f;
+  const double want = 2.0 * std::atan(std::tan(0.4) * double(k->wideAspect) / double(narrow));
+  EXPECT_NEAR(pes::fdc::RenderCameraParams(*k, pose, CameraRecord{}, narrow, true).fovRad, want, 1e-6);
+  EXPECT_EQ(pes::fdc::RenderCameraParams(*k, pose, CameraRecord{}, narrow, false).fovRad, 0.8f);  // option byte clear
+  EXPECT_EQ(pes::fdc::RenderCameraParams(*k, pose, CameraRecord{}, k->wideAspect * 1.2f, true).fovRad, 0.8f);  // wider
+}
+
+// The worked example of docs/re/pes-re-camera-pose.md §3 (script example.py, float32 throughout):
+// ent_001_view_st000_cam2.fdc, camera record 0 (key 20, start 540 ticks, cam0021.canm), the cut offset
+// taken as zero. eye, forward (= -R*z), up (= R*y), fov (radians), clip frame.
+struct WorkedRow {
+  float dTicks;
+  std::array<float, 3> eye, forward, up;
+  float fovRad, frame;
+};
+const WorkedRow kWorked[] = {
+    {30.0f, {-55.0f, 0.400000006f, 9.69999981f}, {0.494217366f, 0.241652727f, -0.83507669f},
+     {-0.123076625f, 0.970362782f, 0.207961977f}, 0.809797525f, 15.0f},
+    {91.0f, {-55.0f, 0.400000006f, 9.69999981f}, {0.528505206f, 0.244651943f, -0.81291306f},
+     {-0.133352309f, 0.969610989f, 0.205113947f}, 0.809797525f, 45.5f},  // the slerp's linear-weight branch
+    {180.0f, {-55.0f, 0.400000006f, 9.69999981f}, {0.625869215f, 0.251175195f, -0.738375783f},
+     {-0.162409395f, 0.967941642f, 0.191604182f}, 0.809797525f, 90.0f},
+};
+
+TEST(PesFdcPoseInstall, LoadsEveryConstantFromItsInstruction) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto k = pes::fdc::LoadPoseConstants(*exe, &err);
+  ASSERT_TRUE(k) << err;
+  EXPECT_NEAR(k->degToRad * k->oneEighty, k->pi, 1e-6f);
+  EXPECT_LT(k->snapLow, k->snapHigh);
+  EXPECT_LT(k->snapHigh, k->one);
+  EXPECT_GT(k->defaultFps, 0.0f);
+  EXPECT_GT(k->renderFarFloor, 0.0f);
+}
+
+TEST(PesFdcPoseInstall, EntranceCutPoseMatchesTheWorkedExampleBitForBit) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto k = pes::fdc::LoadPoseConstants(*exe, &err);
+  ASSERT_TRUE(k) << err;
+
+  std::string fdcPath;
+  for (const auto& p : pes::fdc::ListCutFiles(vfs))
+    if (pes::PesVfs::Fold(p).find("ent_001_view_st000_cam2.fdc") != std::string::npos) fdcPath = p;
+  if (fdcPath.empty()) GTEST_SKIP() << "the install has no entrance cut";
+  auto bytes = vfs.Read(fdcPath, &err);
+  ASSERT_TRUE(bytes) << err;
+  File f;
+  ASSERT_TRUE(pes::fdc::Parse(*bytes, &f, &err)) << err;
+  ASSERT_FALSE(f.cameras.empty());
+  const CameraRecord& rec = f.cameras[0];
+  const pes::fdc::Resource* res = f.FindResource(rec.animePath);
+  ASSERT_NE(res, nullptr);
+  auto clip = res->external ? vfs.Read(res->vfsPath, &err) : std::optional<std::vector<uint8_t>>(res->data);
+  ASSERT_TRUE(clip) << err;
+  Canm c;
+  ASSERT_TRUE(pes::fdc::ParseCanm(*clip, &c, &err)) << err;
+  // The oracle is the worked example of this install's record: skip when a mod changed it.
+  if (rec.startTime != 540.0f || rec.timeMode != 1 || rec.animeStartTime != 0.0f || c.length != 330.0f ||
+      !c.hasFps || c.fps != 30)
+    GTEST_SKIP() << "the installed entrance record differs from the worked example";
+
+  for (const WorkedRow& w : kWorked) {
+    const auto p = pes::fdc::EvaluateCameraPose(*k, c, rec, rec.startTime + w.dTicks, {}, 0.0f);
+    SCOPED_TRACE(w.dTicks);
+    EXPECT_EQ(p.eye, w.eye);
+    EXPECT_EQ(p.forward(), w.forward);
+    EXPECT_EQ(p.up(), w.up);
+    EXPECT_EQ(p.fovRad, w.fovRad);
+    EXPECT_EQ(p.frame, w.frame);
+    const auto r = pes::fdc::RenderCameraParams(*k, p, rec, k->wideAspect, false);
+    EXPECT_EQ(r.nearM, rec.nearClip);
+    EXPECT_EQ(r.farM, std::max(k->renderFarFloor, rec.farClip));
+  }
 }
 
 TEST(PesFdcCanm, RejectsAStreamWithoutTheMagic) {
@@ -379,7 +707,7 @@ TEST(PesFdcInstall, EveryEmbeddedCameraStreamIsAWellFormedUnitRotationStream) {
           break;
         }
       }
-      if (c.channels[0].frames.size() != c.frameCount + 1u) ++bad;
+      if (c.channels[0].frames.size() != size_t(c.length) + 1u) ++bad;
     }
   }
   std::cout << "[fdc canm install] embedded streams " << streams << " bad " << bad << "\n";
