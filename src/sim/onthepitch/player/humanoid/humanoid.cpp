@@ -73,6 +73,9 @@ constexpr int8_t kPesDefaultB2754 = 0xC, kPesDefaultBucket = 0x12;
 // bit, writer OPEN), the motion id behind ap+0xAB8 vtable+0x18 and vtable+0x30 (touch state), and ap+0x281C (stamina
 // accumulator of FUN_1406F6790) have no GF producer: first-time 0, no window, AI bit 0, motion 0, no touch, stamina 0.
 // ap+0x247C (heading) and ap+0xBE4 (body turn) both take GF's direction vectors. Remove each as its PES writer lands.
+// ponytail: the in-flight branch of Q (peskickerror.cpp, subclass 2..12) runs only for motion descriptor byte 1
+// (FUN_1406B0250 over the run-time motion table from the motion id above); with no motion id the descriptor stays 0, so the
+// branch, its ball records (FUN_140A6CF70(ball, 1) and (ball, 2)) and FUN_1406EAD40's bit are not fed. Remove with the motion id.
 pes::KickSituation PesKickSituation(Player* player, const pes::KickErrorConstants& k, const Vector3& launch,
                                     e_FunctionType type, bool header, float quality) {
   const pes::SituationConstants& c = k.situation;

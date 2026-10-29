@@ -106,6 +106,12 @@ bool LoadGatePredicates(const PeImage& exe, SituationConstants* c) {
        addHead[3] == 0x83 && addHead[4] == 0xF9 && Bytes(exe, 0x140724102, {0x0F, 0xB6, 0x84, 0x02}) &&
        U32(exe, 0x140724106, &byteTab) && Bytes(exe, 0x14072410A, {0x8B, 0x8C, 0x82}) &&
        U32(exe, 0x14072410D, &dwordTab) && Bytes(exe, 0x140724116, {0xB0, 0x01, 0xC3});  // mov al,1; ret
+  // 0x1407241A0: lea eax,[rcx-lo]; cmp eax,span; jbe true; cmp ecx,k1; je true; cmp ecx,k2; je true; xor al,al; ret; true: mov al,1
+  uint32_t lo241A0 = 0, span241A0 = 0;
+  uint8_t k1 = 0, k2 = 0;
+  ok = ok && LeaRange(exe, 0x1407241A0, &lo241A0, &span241A0) && Bytes(exe, 0x1407241A6, {0x76, 0x0D}) &&
+       Bytes(exe, 0x1407241A8, {0x83, 0xF9}) && U8(exe, 0x1407241AA, &k1) && Bytes(exe, 0x1407241AB, {0x74, 0x08}) &&
+       Bytes(exe, 0x1407241AD, {0x83, 0xF9}) && U8(exe, 0x1407241AF, &k2) && Bytes(exe, 0x1407241B0, {0x74, 0x03, 0x32, 0xC0, 0xC3, 0xB0, 0x01, 0xC3});
   if (!ok) return false;
   const uint32_t lo240F0 = static_cast<uint32_t>(-static_cast<int32_t>(static_cast<int8_t>(addHead[2])));
   const uint32_t span240F0 = addHead[5];
@@ -122,6 +128,7 @@ bool LoadGatePredicates(const PeImage& exe, SituationConstants* c) {
     if (InRange(k, r[0][0], r[0][1]) || InRange(k, r[1][0], r[1][1])) g |= 2;
     if (InRange(k, r[2][0], r[2][1]) || InRange(k, r[3][0], r[3][1]) || InRange(k, r[4][0], r[4][1])) g |= 4;
     if ((k <= limit && ((mask >> k) & 1)) || InRange(k, r[5][0], r[5][1])) g |= 8;
+    if (InRange(k, lo241A0, span241A0) || k == k1 || k == k2) g |= 16;
     c->gateKinds[k] = g;
   }
   return true;
@@ -142,7 +149,9 @@ bool LoadSituationConstants(const PeImage& exe, SituationConstants* c) {
       {0x14259858c, &c->windowLimit}, {0x142598580, &c->halfTurn}, {0x142588218, &c->negOne},
       {0x1425cca3c, &c->turn157},   {0x1425a9bf0, &c->turn130},  {0x1425c5950, &c->turn125},
       {0x14256ae30, &c->turn120},   {0x1425c48d4, &c->turn115},  {0x14259d628, &c->turn110},
-      {0x1425cb2a8, &c->ballLow}};
+      {0x1425cb2a8, &c->ballLow},   {0x1425e5b40, &c->ballHeld}, {0x1425e6060, &c->ballHigh},
+      {0x1425efa20, &c->ballSpan},  {0x142588210, &c->flightLo}, {0x142591140, &c->flightHi},
+      {0x14259be2c, &c->flightHi1}, {0x14259b89c, &c->flightGain0}};
   bool ok = true;
   for (auto [va, out] : rdata) ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
   const std::pair<uint64_t, double*> doubles[] = {
@@ -473,14 +482,53 @@ float SituationFactor(const SituationConstants& c, const KickSituation& s) {
       break;
     default: break;
   }
+  // Subclass 2..12 with the motion descriptor byte 1 (0x14083E407..0x14083E607): the ball in flight. The ball record's height (record
+  // 1, FUN_140A6CF70(ball, 1)+4) runs through the knee ramp g (1 up to ballLow, 0 from ballHigh); the AI bit and the kinds of
+  // 0x1407240F0 / 0x1407241A0 lower the height by ballHeld first. The ball's speed (records 1 to 2, FUN_140A57650 -> FUN_14042D470)
+  // is scaled by p85 when the action class record has the bit (FUN_1406EAD40) and by p95 for the same kinds and the AI bit, then
+  // ramps from flightLo to the class's top. 0x1407245D0 (subclass < 2) is false for every subclass here, so it is not evaluated.
+  const uint8_t gk = (s.kind >= 0 && s.kind < SituationConstants::kKinds) ? c.gateKinds[s.kind] : 0;
+  if (sub >= 2 && sub <= 0xC && s.descriptor == 1) {
+    float h = s.ball1Y;
+    if ((gk & 1) != 0 || (gk & 16) != 0 || s.aiBit) h += c.ballHeld;
+    float g;
+    if (!(h > c.ballLow))
+      g = c.one;
+    else if (!(h < c.ballHigh))
+      g = 0.0f;
+    else
+      g = (h - c.ballHigh) / c.ballSpan;
+    g = g * g;
+    const float airborne = c.one - g;
+    const float dz = s.ball2Z - s.ball1Z, dx = s.ball2X - s.ball1X;
+    float speed = kmhPerTickUnit * std::sqrt(dz * dz + dx * dx);
+    if (s.actionBit) speed *= c.p85;
+    if ((gk & 1) != 0 || (gk & 16) != 0 || s.aiBit) speed *= c.p95;
+    float hi = c.flightHi, mult = c.effK;
+    if (cls == 1) {
+      mult = c.p80;
+      hi = c.flightHi1;
+    } else if (cls == 0) {
+      mult = c.flightGain0;
+      hi = c.fifty;
+    }
+    float r;
+    if (!(c.flightLo < speed))
+      r = 0.0f;
+    else if (!(speed < hi))
+      r = c.one;
+    else
+      r = (speed - c.flightLo) / (hi - c.flightLo);
+    q *= c.one - (((r * c.p90) + c.tenth) * airborne) * mult;
+  }
   // Subclass 0 and 1 with the b2754 byte at 9 (0x14083E691).
   constexpr int kTailByte = 9;
   if (sub == 0 || sub == 1) {
     if (s.b2754 == kTailByte) q *= s.firstTime == 0 ? c.p90 : c.p85;
   }
-  // ponytail: subclass 2..12 with the motion-descriptor byte 1 (FUN_1406b0250 over the runtime motion table, 0x14083E42E)
-  // multiplies Q again from the target entity's geometry (0x14083E437..0x14083E607). GF has no motion table: skipped.
-  // The oracle (tools/dev/rendezvous/kick_replay.py --q) records the descriptor byte; rows with 1 are not compared.
+  // ponytail: GF kicks carry no PES motion id, so the call site (humanoid.cpp PesKickSituation) hands descriptor 0 and this branch
+  // never runs in a match. The PES site that removes it: FUN_1406B0250 over the motion table (0x1436F23C0, built at run time by
+  // 0x1406AECF0) from the kicker's motion id (u16 behind vtable+0x18 of the object at ap+0xAB8).
   return q;
 }
 

@@ -13,6 +13,7 @@ Usage: PES_EXE=<unpacked pes_full.bin> <venv>/bin/python kick_replay.py --hooks 
 """
 import argparse
 import json
+import math
 import os
 import struct
 import sys
@@ -129,9 +130,12 @@ HK_MOTION, HK_MOTION_GATE, HK_MOTION_DESC = 0x14083CD7D, 0x14083E036, 0x14083E41
 HK_VEC, HK_TOUCH, HK_EFF, HK_A, HK_DESC, HK_Q = (0x14083CDCD, 0x14083CE36, 0x14083CF07, 0x14083CF11, 0x14083E42E,
                                                   0x14083E618)
 Q_COLUMNS = ["kind", "b2754", "entry2755", "first", "window", "flags", "velX", "velZ", "stamina", "heading", "body",
-             "launch0", "launch2", "a", "motion", "touch", "desc", "q", "ballY"]
-Q_FLOATS = {"window", "velX", "velZ", "stamina", "heading", "body", "launch0", "launch2", "a", "ballY"}
-HK_BALL = 0x14083E44C
+             "launch0", "launch2", "a", "motion", "touch", "desc", "q", "ballY", "ball1x", "ball1z", "ball2x", "ball2z",
+             "ead"]
+Q_FLOATS = {"window", "velX", "velZ", "stamina", "heading", "body", "launch0", "launch2", "a", "ballY", "ball1x", "ball1z",
+            "ball2x", "ball2z"}
+HK_BALL, HK_EAD = 0x14083E44C, 0x14083E547   # E44C: rax = ball record 1 (ball+0xB0), xmm6 its +4 float; E547: al = FUN_1406EAD40
+BALL_REC1, BALL_REC2 = 0xB0, 0xD8            # FUN_140A6CF70(ball, 1) / (ball, 2): x, height, z (f32) at +0, +4, +8
 
 
 def f32_bits(v):
@@ -179,10 +183,25 @@ def q_case(snap_dir, cfg, patch=None):
             if "a" in patch:
                 uc.reg_write(xc.UC_X86_REG_XMM0, f32_bits(patch["a"]))
             rec["a"] = xmm_f32(uc, 0)
-        elif address == HK_DESC:
+        elif address == HK_DESC:   # rax = FUN_1406B0250's result; the ball records are written first, so PES reads them below
+            ball = struct.unpack("<Q", bytes(uc.mem_read(rd(xc.UC_X86_REG_RBP) - 0x78, 8)))[0]
+            for key, off in (("ball1", BALL_REC1), ("ball2", BALL_REC2)):
+                if key in patch:
+                    uc._ensure(ball + off, 12)
+                    uc.mem_write(ball + off, struct.pack("<3f", *patch[key]))
+            if "descv" in patch:
+                uc.reg_write(xc.UC_X86_REG_RAX, int(patch["descv"]))
             rec["desc"] = rd(xc.UC_X86_REG_RAX) & 0xFFFFFFFF
         elif address == HK_BALL:   # xmm6 = the ball record's +4 float, loaded at 0x14083E447 (the in-flight branch)
             rec["ballY"] = xmm_f32(uc, 6)
+            rax = rd(xc.UC_X86_REG_RAX)
+            for key, base in (("ball1", 0), ("ball2", 0x28)):   # record 2 follows record 1 by the record stride 0x28
+                x, _, z = struct.unpack("<3f", bytes(uc.mem_read(rax + base, 12)))
+                rec[key + "x"], rec[key + "z"] = x, z
+        elif address == HK_EAD:    # al = FUN_1406EAD40(ap, 0xB or 0xC): the action class record's bit
+            if "ead" in patch:
+                uc.reg_write(xc.UC_X86_REG_RAX, int(patch["ead"]))
+            rec["ead"] = rd(xc.UC_X86_REG_RAX) & 0xFF
         elif address == HK_Q:
             rec["q"] = f32_bits(xmm_f32(uc, 13))
 
@@ -201,8 +220,10 @@ def q_row(rec):
             v = -1 if v is None else v
         elif c == "touch":
             v = 0 if v is None else v   # the window block did not run: the touch state was never read
-        elif c == "ballY":
+        elif c in ("ballY", "ball1x", "ball1z", "ball2x", "ball2z"):
             v = 0.0 if v is None else v  # the in-flight branch did not run: no ball record was read
+        elif c == "ead":
+            v = 0 if v is None else v    # FUN_1406EAD40 was not called
         if c == "q":   # already the f32 bits
             out.append("%08x" % v)
         else:
@@ -210,41 +231,79 @@ def q_row(rec):
     return "\t".join(out)
 
 
-def kinds_with_subclass(subs):
-    """Kinds whose kind-table row (0x14344E380, 16 bytes) has a subclass (byte 12) in `subs`; read from PES_EXE."""
+def kind_rows():
+    """The kind table 0x14344E380 (16 bytes per row, row = kind), read from PES_EXE."""
     with open(os.environ["PES_EXE"], "rb") as f:
         f.seek(0x14344E380 - 0x140000000)
-        t = f.read(151 * 16)
-    return [k for k in range(1, 151) if t[16 * k + 12] in subs]
+        return f.read(151 * 16)
 
 
-def q_patches(count, seed, focus=False):
+def kinds_with(subs, classes=None):
+    """Kinds whose row has a subclass (byte 12) in `subs` and, when given, a class (byte 13) in `classes`."""
+    t = kind_rows()
+    return [k for k in range(1, 151) if t[16 * k + 12] in subs and (classes is None or t[16 * k + 13] in classes)]
+
+
+def kinds_with_subclass(subs):
+    return kinds_with(subs)
+
+
+KMH_PER_TICK_UNIT = 54.0 * 60.0 * 60.0 / 1000.0   # km/h per metre-per-tick: tick rate 0x14259D624 x 60 x 60 / 1000
+MOTION_A = [0x9B0, 0x9B4, 0xA41, 0xA42, 0xA45]     # the motion-A set of the bucket override (kinds 0x2B / 0x3A)
+
+
+def q_patches(count, seed, mode="random"):
     """Deterministic input sweep: every field Q reads takes values on both sides of each threshold it is tested
-    against. The first 150 cases walk every kind of the table with nothing else changed. `focus` instead draws only
-    the subclasses 2..7 and 0xC (the kick-angle bucket terms) with motion ids whose descriptor byte is not 1 (those
-    are the cases Q is ported for) and a first-time window always open."""
+    against. The first 150 cases walk every kind of the table with nothing else changed (mode random).
+    focus: only the bucket-driven subclasses 2..7 and 0xC with motion ids whose descriptor byte is not 1 and a first-time
+    window always open. flight: the in-flight branch (descriptor patched to 1, subclass 2..12): ball heights and speeds on both
+    sides of the knee, the ramp ends and the scalings. aim: the first-time window's thresholds (windows over the whole circle,
+    exactly 360.0 included) on class 0..2 kinds, and kinds 0x2B/0x3A with each motion-A id."""
     import random
     rng = random.Random(seed)
-    out = [{"kind": k} for k in range(1, 151)] if count and not focus else []
-    kinds = kinds_with_subclass({2, 3, 4, 5, 6, 7, 12})
+    out = [{"kind": k} for k in range(1, 151)] if count and mode == "random" else []
+    kinds = kinds_with({2, 3, 4, 5, 6, 7, 12})
+    flight_kinds = kinds_with(set(range(2, 13)))
+    aim_kinds = kinds_with({2, 3, 4, 5, 6, 7, 12}, {0, 1, 2})
+    heights = [0.0, 0.1085, 0.3259, 0.3262, 0.5432, 0.5436, 0.6519, 0.6523, 0.8693, 0.8697, 1.0, 2.54]
+    speeds = [0.0, 5.0, 9.99, 10.01, 15.0, 29.9, 30.1, 39.9, 40.1, 49.9, 50.1, 60.0]
+    scales = [1.0, 1 / 0.85, 1 / 0.95, 1 / (0.85 * 0.95)]
     for _ in range(count):
-        out.append({
-            "kind": rng.choice(kinds) if focus else rng.randint(1, 150), "b2754": rng.choice([0, 9, 9, 2, 3]),
+        p = {
+            "kind": rng.choice(kinds) if mode == "focus" else rng.randint(1, 150), "b2754": rng.choice([0, 9, 9, 2, 3]),
             "entry2755": rng.choice([0, 2, 4, 9, 0xD, 0xF, 0x11, 1, 3]), "first": rng.choice([-1, 0, 1, 1]),
-            "window": (rng.uniform(0, 359.9) if focus
+            "window": (rng.uniform(0, 359.9) if mode == "focus"
                        else rng.choice([720.0, rng.uniform(0, 359.9), rng.uniform(0, 359.9)])),
             "flags": rng.choice([0, 0, 1 << 29]), "velX": rng.uniform(-0.6, 0.6), "velZ": rng.uniform(-0.6, 0.6),
             "stamina": rng.uniform(0, 100), "heading": rng.uniform(-400, 400), "body": rng.uniform(-200, 600),
             "launch": (rng.uniform(-30, 30), rng.uniform(0, 8), rng.uniform(-30, 30)),
             "a": rng.uniform(0, 1), "touch": rng.choice([0, 1]),
-            "motion": (rng.choice([0, 0x500]) if focus else rng.choice(
+            "motion": (rng.choice([0, 0x500]) if mode == "focus" else rng.choice(
                 [0, 0x9F1, 0x9BE, 0xA20, 0xA7D, 0x9B0, 0x9B4, 0xA41, 0xA42, 0xA45, 0x500])),
-        })
+        }
+        if mode == "flight":
+            y = rng.choice(heights) if rng.random() < 0.7 else rng.uniform(0, 1.2)
+            step = (rng.choice(speeds) * rng.choice(scales) if rng.random() < 0.7 else rng.uniform(0, 60)) / KMH_PER_TICK_UNIT
+            ang = rng.uniform(0, 6.283185307)
+            x, z = rng.uniform(-50, 50), rng.uniform(-30, 30)
+            p.update({"kind": rng.choice(flight_kinds), "descv": 1, "ead": rng.choice([0, 1]), "window": 720.0,
+                      "ball1": (x, y, z),
+                      "ball2": (x + step * math.cos(ang), y + rng.uniform(-0.2, 0.2), z + step * math.sin(ang))})
+        elif mode == "aim":
+            p["descv"] = 2   # not the in-flight branch: only the window and the motion override vary
+            if rng.random() < 0.5:
+                p.update({"kind": rng.choice(aim_kinds), "first": rng.choice([0, 1]), "entry2755": rng.choice([0, 2, 4, 0xD]),
+                          "window": rng.choice([360.0, rng.uniform(0, 359.99), rng.uniform(0, 359.99)]),
+                          "motion": 0})
+            else:
+                p.update({"kind": rng.choice([0x2B, 0x3A]), "motion": rng.choice(MOTION_A), "window": 720.0,
+                          "entry2755": rng.choice([0, 2, 4, 0xF, 0x11])})
+        out.append(p)
     return out
 
-
 def q_main(a):
-    cfg_patches = q_patches(a.q_count, a.q_seed, a.q_focus)
+    cfg_patches = q_patches(a.q_count, a.q_seed, a.q_mode)
+
     with open(a.q, "w") as f:
         f.write("seq\t" + "\t".join(Q_COLUMNS) + "\n")
         for snap in a.snaps:
@@ -268,7 +327,12 @@ def main():
                     "and --q-count random input cases, inputs and PES's Q as f32 bits (replaces --out/--tsv)")
     ap.add_argument("--q-count", type=int, default=250)
     ap.add_argument("--q-seed", type=int, default=1)
-    ap.add_argument("--q-focus", action="store_true", help="only the bucket-driven subclasses, descriptor != 1 motions")
+    ap.add_argument("--q-focus", dest="q_mode", action="store_const", const="focus", default="random",
+                    help="only the bucket-driven subclasses, descriptor != 1 motions")
+    ap.add_argument("--q-flight", dest="q_mode", action="store_const", const="flight",
+                    help="the in-flight branch: descriptor 1, ball heights and speeds around every threshold")
+    ap.add_argument("--q-aim", dest="q_mode", action="store_const", const="aim",
+                    help="first-time window thresholds and the motion-A bucket override")
     ap.add_argument("snaps", nargs="+")
     a = ap.parse_args()
     if a.q:

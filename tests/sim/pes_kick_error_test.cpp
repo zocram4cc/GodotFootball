@@ -270,8 +270,8 @@ float FromBits(const std::string& hex) {
 // tools/dev/rendezvous/kick_replay.py --q replays kick_scatter captures (each capture itself, and with each input Q
 // reads moved across the thresholds it is tested against) and records the inputs and PES's Q as f32 bits. Rows are
 // PES-derived: they stay in scratch and reach the test through PES_KICK_Q_TSV. desc is the motion-descriptor byte PES
-// read (-1: subclass 0, 1 or 8..: not read); 1 sends PES into the in-flight branch (0x14083E42E), which is not ported,
-// so those rows are not compared. A TSV with no comparable row fails.
+// read (-1: subclass 0, 1 or 8..: not read); 1 sends PES into the in-flight branch (0x14083E42E), which is ported: the
+// ball records (ball1x, ballY, ball1z, ball2x, ball2z) and FUN_1406EAD40's bit (ead) are its inputs. A TSV with no row fails.
 TEST(PesKickErrorOracle, SituationFactorEqualsPesBitForBit) {
   const char* path = std::getenv("PES_KICK_Q_TSV");
   if (!path || !std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES_KICK_Q_TSV or PES21_ROOT not set";
@@ -282,24 +282,22 @@ TEST(PesKickErrorOracle, SituationFactorEqualsPesBitForBit) {
   ASSERT_TRUE(in) << path;
   std::string line;
   std::getline(in, line);  // header
-  int compared = 0, skipped = 0, wrong = 0;
+  int compared = 0, inFlight = 0, aboveKnee = 0, wrong = 0;
   while (std::getline(in, line)) {
     if (line.rfind("seq\t", 0) == 0) continue;  // a concatenated file's repeated header
     std::istringstream row(line);
-    std::string seq, window, vx, vz, stamina, heading, body, l0, l2, a, q, ballY;
-    int kind, b2754, entry, first, motion, touch, desc;
+    std::string seq, window, vx, vz, stamina, heading, body, l0, l2, a, q, ballY, b1x, b1z, b2x, b2z;
+    int kind, b2754, entry, first, motion, touch, desc, ead;
     uint32_t flags;
     std::getline(row, seq, '\t');
     row >> kind >> b2754 >> entry >> first >> window >> flags >> vx >> vz >> stamina >> heading >> body >> l0 >> l2 >>
-        a >> motion >> touch >> desc >> q >> ballY;
+        a >> motion >> touch >> desc >> q >> ballY >> b1x >> b1z >> b2x >> b2z >> ead;
     ASSERT_FALSE(row.fail()) << line;
-    // PES's in-flight branch (descriptor byte 1, 0x14083E42E) is not ported; it multiplies Q by exactly 1 while the ball
-    // record's height is at or under ballLow, so those rows still compare. ballY NaN: height unknown, row skipped.
     constexpr int kDescriptorInFlight = 1;
     const float ball = FromBits(ballY);
-    if (desc == kDescriptorInFlight && !(ball <= k->situation.ballLow)) {
-      ++skipped;
-      continue;
+    if (desc == kDescriptorInFlight) {
+      ++inFlight;
+      if (ball > k->situation.ballLow) ++aboveKnee;
     }
     pes::KickSituation s;
     s.kind = kind;
@@ -318,6 +316,13 @@ TEST(PesKickErrorOracle, SituationFactorEqualsPesBitForBit) {
     s.launchX = FromBits(l0);
     s.launchZ = FromBits(l2);
     s.quality = FromBits(a);
+    s.descriptor = desc;
+    s.ball1X = FromBits(b1x);
+    s.ball1Y = ball;
+    s.ball1Z = FromBits(b1z);
+    s.ball2X = FromBits(b2x);
+    s.ball2Z = FromBits(b2z);
+    s.actionBit = ead != 0;
     const float want = FromBits(q);
     const float got = pes::SituationFactor(k->situation, s);
     ++compared;
@@ -326,10 +331,11 @@ TEST(PesKickErrorOracle, SituationFactorEqualsPesBitForBit) {
     }
   }
   RecordProperty("compared", compared);
-  RecordProperty("skippedDescriptor", skipped);
+  RecordProperty("inFlight", inFlight);
+  RecordProperty("aboveKnee", aboveKnee);
   EXPECT_GT(compared, 0);
   EXPECT_EQ(wrong, 0) << wrong << " of " << compared << " rows differ";
-  std::printf("[ oracle   ] Q rows compared %d, descriptor-branch rows skipped %d\n", compared, skipped);
+  std::printf("[ oracle   ] Q rows compared %d (in-flight branch %d, above the knee %d)\n", compared, inFlight, aboveKnee);
 }
 
 // A still kicker facing his kick, a perfect strike, no window and no bucket loses nothing: Q is the Base of the kind.
