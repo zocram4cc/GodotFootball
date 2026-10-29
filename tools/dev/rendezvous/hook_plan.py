@@ -62,6 +62,11 @@ TARGETS = [
     ("danger_writer_699960", 0x140699960, "carrier danger flag writer"),
     ("danger_builder_2119390", 0x142119390, "imageA builder that stores the danger byte"),
     ("cut_offset_1F39CC0", 0x141F39CC0, "cutscene player: cut offset and the played camera key"),
+    # FixDemo selection inputs for the GF-side request (docs/ports/pes-port-CutsceneHybrid2.md, CutsceneHybrid3).
+    ("fixdemo_wrapper_141F4FDA0", 0x141F4FDA0, "FixDemo variant wrapper"),
+    # The ctx setter 0x141F51630 is not hookable (a je at +3 falls inside the patch window).
+    ("fixdemo_ctx_init_141F514D0", 0x141F514D0, "FixDemo ctx init"),
+    ("goal_pick_140477400", 0x140477400, "goal cutscene pool pick"),
 ]
 
 

@@ -1,0 +1,45 @@
+{
+ "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; floor = bit-exact on every replayed call and own-block coverage >= 0.5 over the replayed calls.",
+ "floor_count": 1,
+ "results": [
+  {
+   "va": "0x142109EB0",
+   "calls": 5,
+   "replayed": 5,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq019": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq047": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq076": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq095": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq116": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 2,
+    "total": 4,
+    "fraction": 0.5
+   },
+   "floor": true,
+   "blocked_callees": []
+  }
+ ]
+}
