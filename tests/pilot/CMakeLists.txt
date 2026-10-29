@@ -76,6 +76,23 @@ add_executable(pes_world_test pes_world_test.cpp)
 target_link_libraries(pes_world_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_world_test)
 
+# Native heap seam: translated code that allocates (the FixDemo evaluator, vector growth) runs on GF memory through PES's
+# own allocator table, whose vtable targets dispatch to PesHeap (stubs.json native_services).
+add_executable(pes_native_heap_test pes_native_heap_test.cpp)
+target_link_libraries(pes_native_heap_test PRIVATE pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_native_heap_test)
+# The stub table's native services and the dispatch table gen_dispatch.py emits for them (stdlib only).
+add_test(NAME translate_native_services
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_native_services.py)
+# A tail jump to an untranslated target is loud, never a silent return (xlate, driver.runnable_extra, the layer check).
+add_test(NAME translate_tail_jump_loud
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_tail_jump_loud.py'")
+set_tests_properties(translate_tail_jump_loud PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+# The logf/powf models against C99 Annex F and (when the capture is there) the snapshot's ucrtbase.
+add_test(NAME translate_libm_models
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_libm_models.py'")
+set_tests_properties(translate_libm_models PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
+
 # Drift: regenerating every committed translated function from the image must reproduce the committed files.
 # Hand-refined functions are skipped by the check (their bit-exact proof is the harness check above).
 add_test(NAME diff_translated_drift

@@ -997,7 +997,8 @@ void pes_fn_140A3F730(PesState& s) {
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
-  /*OUT-OF-RANGE JMP 0x14417D0C0*/return;
+  /*OUT-OF-RANGE JMP 0x14417D0C0*/ pes_dispatch_missing(0x14417D0C0);
+  return;
   /*UNHANDLED CMC */(void)0;
   /*UNHANDLED INSD dword ptr [rdi], dx*/(void)0;
   if (s.cond("ge")) __builtin_trap();

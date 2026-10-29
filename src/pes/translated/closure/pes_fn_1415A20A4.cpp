@@ -11,6 +11,7 @@
 
 void pes_fn_1415A20A4(PesState& s);
 void pes_fn_1415A1A68(PesState& s);
+void pes_fn_1415A1AD4(PesState& s);
 void pes_fn_1415A1F7C(PesState& s);
 
 void pes_fn_1415A20A4(PesState& s) {
@@ -32,7 +33,7 @@ void pes_fn_1415A20A4(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[4] = (uint64_t)(_r);
   }
-  /*OUT-OF-RANGE JMP 0x1415A1AD4*/return;
+  { pes_fn_1415A1AD4(s); return; }
   L_1415A20C1:;
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[1]) + (0x2CULL)), 4)), _b = (uint64_t)((1ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
