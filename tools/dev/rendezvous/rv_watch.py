@@ -35,8 +35,12 @@ def main():
     ap.add_argument("--only", default="",
                     help="comma-separated hook names to snapshot; calls of every other hook are released unsnapshotted, "
                          "so rare hooks an agent waits on are not starved by frequent ones filling the disk floor")
+    ap.add_argument("--hook-max", default="",
+                    help="comma-separated NAME=N per-hook overrides of --per-hook-max (an agent hunting a rare branch "
+                         "needs more calls of one hook without raising every hook's cap)")
     a = ap.parse_args()
     only = {h for h in a.only.split(",") if h}
+    hook_max = {k: int(v) for k, v in (kv.split("=") for kv in a.hook_max.split(",") if kv)}
     st = os.stat(a.run)
     uid, gid = st.st_uid, st.st_gid
     os.makedirs(a.out, exist_ok=True)
@@ -105,8 +109,9 @@ def main():
             if shutil.disk_usage(a.out).free < a.min_free_gib << 30:
                 release(cap, "disk under %d GiB" % a.min_free_gib)
                 continue
-            if a.per_hook_max and per_hook.get(cap["hook"], 0) >= a.per_hook_max:
-                release(cap, "per-hook cap %d reached" % a.per_hook_max)
+            cap_n = hook_max.get(cap["hook"], a.per_hook_max)
+            if cap_n and per_hook.get(cap["hook"], 0) >= cap_n:
+                release(cap, "per-hook cap %d reached" % cap_n)
                 continue
             snap = fs.rv_take(pid, a.run, launch, cap, args, say, pauses)
             for p in glob.glob(os.path.join(a.run, "release_*")):
