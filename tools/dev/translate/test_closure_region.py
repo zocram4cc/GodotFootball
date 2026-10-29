@@ -4,7 +4,8 @@
 A `.trace` function tail-jumps (a 5-byte JMP rel32 thunk) into `.impdata`. The bridge's program ends before it, so the
 ledger holds those targets as unresolved rows (size 0, no callees), and many of them have no .pdata entry (leaves).
 closure.py decodes them from the image: a clean no-.pdata leaf gets its extent and a row, an unresolved universe row is
-replaced, a VM entry or an opaque-return (mutated) body is refused by name. Outside `.impdata` nothing changes.
+replaced, a VM entry or an opaque-return (mutated) body is refused by name. A clean no-.pdata leaf below `.impdata` (a
+`.trace` jmp thunk island) is taken the same way (Main ruling 29-10-26); the interior of a .pdata function never is.
 Needs capstone (the harness Python). Exit 0 green, 1 red, 77 skip.
 
 Optional oracle against the real image: PES_EXE=pes_full.bin, and PES_CAPTURE=<full capture dir> to compare the same
@@ -97,9 +98,12 @@ def main():
             results.append(("a VM entry is refused by name", err is not None and "VM entry" in err))
             _, err = run(pd, {}, va(MUTATED))
             results.append(("an opaque-return (mutated) body is refused by name", err is not None and "opaque return" in err))
-            _, err = run(pd, {}, va(TRACE_LEAF))
-            results.append(("below .impdata a no-.pdata function is still refused (rule unchanged)",
-                            err is not None and "not a .pdata function start" in err))
+            members, err = run(pd, {}, va(TRACE_LEAF))
+            results.append(("below .impdata a clean no-.pdata leaf is taken too (Main ruling 29-10-26: any code VA)",
+                            members == [va(TRACE_LEAF)] and err is None))
+            _, err = run(pd, {}, va(PDATA_FN) + 1)
+            results.append(("the interior of a .pdata function is refused by name, not decoded as a leaf",
+                            err is not None and "interior of the .pdata function" in err))
             # a resolved row is never replaced: only an unresolved one in .impdata is
             kept = {"%08X" % va(LEAF): {"unresolved": False, "size": 99, "callees": {}}}
             run(pd, kept, va(LEAF))

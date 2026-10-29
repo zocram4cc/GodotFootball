@@ -3654,6 +3654,23 @@
    "model": {
     "op": "abort"
    }
+  },
+  {
+   "va": "1415A01DC",
+   "callers": [
+    "14159FA0C",
+    "14159EFF8"
+   ],
+   "used_by_closure": true,
+   "kind": "engine-noop",
+   "why": [
+    "CFG icall check thunk: 1415A01DC is `jmp [0x142530868]`; the image holds 0x1415A02B0 in that slot and 1415A02B0 is `ret` (the default __guard_check_icall no-op); called with the target in RCX right before __ehvec_dtor's `call rsi` (14159FA5A mov rcx,rsi; call 1415A01DC; 14159FA62 call rsi)",
+    "docs/re/pes-re-dead-code.md:245: the CFG function table is empty (GuardCFFunctionTable = 0), so no target is ever rejected; a check writes nothing"
+   ],
+   "model": {
+    "op": "__guard_check_icall",
+    "effect": "none on the success path (validates the indirect-call target, returns)"
+   }
   }
  ]
 }

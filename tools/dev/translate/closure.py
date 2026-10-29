@@ -19,6 +19,7 @@ Usage (run with the harness Python, which has capstone):
 
 Rows and specs are a pure function of (image, roots, spec set, tag): re-running is idempotent.
 """
+import bisect
 import argparse
 import json
 import os
@@ -79,23 +80,27 @@ class Pdata:
         return self.img.read(n)
 
     def end_of(self, va):
-        """The end of the function that starts at va: its .pdata entry, else (protected area only) the end of the
-        clean no-unwind-info leaf that starts there. None if va is neither (see refusal)."""
+        """The end of the function that starts at va: its .pdata entry, else the end of the clean no-unwind-info leaf
+        that starts there (any code VA: a `.trace` jmp thunk island has no .pdata either; Main ruling 29-10-26, the
+        rule was .impdata-only). None if va is neither (see refusal)."""
         end = self.ends.get(va)
-        if end is None and va >= IMPDATA_LO:
+        if end is None:
             end = self._leaf_end(va)
         return end
 
     def refusal(self, va):
-        """Why va has no usable extent: names the protected-area class (DOC pes-re-protection.md §1.4)."""
-        if va < IMPDATA_LO:
-            return "is not a .pdata function start"
-        return "is in the protected area, has no .pdata entry and is not a clean leaf: %s" % self._why.get(va, "unreadable")
+        """Why va has no usable extent: names the class (VM entry, opaque return: DOC pes-re-protection.md §1.4)."""
+        return "has no .pdata entry and is not a clean leaf: %s" % self._why.get(va, "unreadable")
 
     def _leaf_end(self, va):
-        """Linear decode of a no-.pdata function in the protected area: ends at the first RET or JMP that no earlier
-        branch of the body jumps past. Refuses (None, reason in self._why) a VM entry (PUSHFQ first), an opaque
+        """Linear decode of a no-.pdata function: ends at the first RET or JMP that no earlier
+        branch of the body jumps past. Refuses (None, reason in self._why) the interior of a .pdata function (a
+        jump into shared tail code is not a function start), a VM entry (PUSHFQ first), an opaque
         return (XCHG [rsp],r; RET: the mutated class), undecodable bytes, or a body past LEAF_MAX_INSNS."""
+        i = bisect.bisect_right(self.starts, va) - 1
+        if i >= 0 and va < self.ends[self.starts[i]]:
+            self._why[va] = "interior of the .pdata function 0x%X" % self.starts[i]
+            return None
         reach, a, n = va, va, 0
         prev = None
         while n < LEAF_MAX_INSNS:

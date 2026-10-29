@@ -180252,6 +180252,31 @@
    "vtables": [],
    "walked": true
   },
+  "1405B82E0": {
+   "boundary": null,
+   "callees": {
+    "143FA8760": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1405b82e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cardlevel"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "image-leaf",
+   "subsystem": "cardlevel",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1405B83B0": {
    "boundary": null,
    "callees": {
@@ -1276492,30 +1276517,31 @@
   },
   "143F546F0": {
    "boundary": null,
-   "callees": {},
-   "error": "No function found at or containing address 0x143F546F0",
-   "how": "doc",
+   "callees": {
+    "14050E770": "direct",
+    "140A3AE30": "direct",
+    "140A489D0": "direct",
+    "141F9C3B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
    "indirect": [],
    "leaf": false,
    "name": "FUN_143f546f0",
-   "path": [
-    "14050C3E0",
-    "14050B490",
-    "14050EC90",
-    "143F546F0"
-   ],
+   "overspill": null,
+   "path": [],
    "protected": true,
    "roots": [
-    "referee"
+    "cardlevel"
    ],
    "scope": "in",
-   "size": 0,
-   "source": "bridge",
-   "subsystem": "referee",
+   "size": 122,
+   "source": "pdata",
+   "subsystem": "cardlevel",
    "tables": 0,
-   "unresolved": true,
+   "unresolved": false,
    "vtables": [],
-   "walked": false
+   "walked": true
   },
   "143F559F0": {
    "boundary": null,
@@ -1276816,84 +1276842,108 @@
   },
   "143F71690": {
    "boundary": null,
-   "callees": {},
-   "error": "No function found at or containing address 0x143F71690",
-   "how": "doc",
+   "callees": {
+    "1405B82E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
    "indirect": [],
    "leaf": false,
    "name": "FUN_143f71690",
-   "path": [
-    "14050E4A0",
-    "1405B7470",
-    "1405B6800",
-    "143F71690"
-   ],
+   "overspill": null,
+   "path": [],
    "protected": true,
    "roots": [
-    "restart"
+    "cardlevel"
    ],
    "scope": "in",
-   "size": 0,
-   "source": "bridge",
-   "subsystem": "restart",
+   "size": 36,
+   "source": "pdata",
+   "subsystem": "cardlevel",
    "tables": 0,
-   "unresolved": true,
+   "unresolved": false,
    "vtables": [],
-   "walked": false
+   "walked": true
   },
   "143F738A0": {
    "boundary": null,
    "callees": {},
-   "error": "No function found at or containing address 0x143F738A0",
-   "how": "doc",
+   "error": "",
+   "how": "closure",
    "indirect": [],
-   "leaf": false,
+   "leaf": true,
    "name": "FUN_143f738a0",
-   "path": [
-    "14050E4A0",
-    "1405B7470",
-    "1405B6970",
-    "143F738A0"
-   ],
+   "overspill": null,
+   "path": [],
    "protected": true,
    "roots": [
-    "restart"
+    "cardlevel"
    ],
    "scope": "in",
-   "size": 0,
-   "source": "bridge",
-   "subsystem": "restart",
+   "size": 7,
+   "source": "pdata",
+   "subsystem": "cardlevel",
    "tables": 0,
-   "unresolved": true,
+   "unresolved": false,
    "vtables": [],
-   "walked": false
+   "walked": true
   },
   "143FA8420": {
    "boundary": null,
-   "callees": {},
-   "error": "No function found at or containing address 0x143FA8420",
-   "how": "doc",
+   "callees": {
+    "140A48910": "direct",
+    "140A48A10": "direct",
+    "140A6C8F0": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
    "indirect": [],
    "leaf": false,
    "name": "FUN_143fa8420",
-   "path": [
-    "14050E4A0",
-    "1405B7470",
-    "1405B7200",
-    "143FA8420"
-   ],
+   "overspill": null,
+   "path": [],
    "protected": true,
    "roots": [
-    "restart"
+    "cardlevel"
    ],
    "scope": "in",
-   "size": 0,
-   "source": "bridge",
-   "subsystem": "restart",
+   "size": 94,
+   "source": "pdata",
+   "subsystem": "cardlevel",
    "tables": 0,
-   "unresolved": true,
+   "unresolved": false,
    "vtables": [],
-   "walked": false
+   "walked": true
+  },
+  "143FA8760": {
+   "boundary": null,
+   "callees": {
+    "1405B6870": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A72E70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_143fa8760",
+   "overspill": null,
+   "path": [],
+   "protected": true,
+   "roots": [
+    "cardlevel"
+   ],
+   "scope": "in",
+   "size": 54,
+   "source": "pdata",
+   "subsystem": "cardlevel",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "143FA8A10": {
    "boundary": null,
@@ -1278842,29 +1278892,25 @@
   "144293D10": {
    "boundary": null,
    "callees": {},
-   "error": "No function found at or containing address 0x144293D10",
-   "how": "doc",
+   "error": "",
+   "how": "closure",
    "indirect": [],
-   "leaf": false,
+   "leaf": true,
    "name": "FUN_144293d10",
-   "path": [
-    "1405B83B0",
-    "140A81AC0",
-    "140A81940",
-    "144293D10"
-   ],
+   "overspill": null,
+   "path": [],
    "protected": true,
    "roots": [
-    "referee"
+    "cardlevel"
    ],
    "scope": "in",
-   "size": 0,
-   "source": "bridge",
-   "subsystem": "referee",
+   "size": 112,
+   "source": "image-leaf",
+   "subsystem": "cardlevel",
    "tables": 0,
-   "unresolved": true,
+   "unresolved": false,
    "vtables": [],
-   "walked": false
+   "walked": true
   },
   "1442A2E10": {
    "boundary": null,
@@ -1287509,7 +1287555,7 @@
   "bridge": "http://127.0.0.1:8080",
   "closures": {
    "cardlevel": {
-    "members": 84,
+    "members": 92,
     "roots": [
      "0x1405B7470",
      "0x14050D6A0",
