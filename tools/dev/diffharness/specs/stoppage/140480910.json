@@ -1,0 +1,420 @@
+{
+ "name": "impure_140480910",
+ "va": "0x140480910",
+ "entry": "0x140480910",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (rules.closure_fix): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A2": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A3": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.270": {
+   "base": "0x21000000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0",
+  "r8": "A2",
+  "r9": "A3"
+ },
+ "regions_init": {
+  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270"
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8"
+ },
+ "inputs": {
+  "A0_0": {
+   "region": "A0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A0_4": {
+   "region": "A0",
+   "offset": "0x4",
+   "enc": "u8"
+  },
+  "A0_5": {
+   "region": "A0",
+   "offset": "0x5",
+   "enc": "u8"
+  },
+  "A0_D": {
+   "region": "A0",
+   "offset": "0xD",
+   "enc": "u8"
+  },
+  "A2_210": {
+   "region": "A2",
+   "offset": "0x210",
+   "enc": "u32"
+  },
+  "A3_0": {
+   "region": "A3",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A3_C": {
+   "region": "A3",
+   "offset": "0xC",
+   "enc": "u32"
+  },
+  "A3_18": {
+   "region": "A3",
+   "offset": "0x18",
+   "enc": "u64"
+  },
+  "A3_20": {
+   "region": "A3",
+   "offset": "0x20",
+   "enc": "u32"
+  },
+  "A3_24": {
+   "region": "A3",
+   "offset": "0x24",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1558": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1558",
+   "enc": "u32"
+  },
+  "scalar_rdx": {
+   "reg": "rdx",
+   "enc": "u32"
+  },
+  "scalar_xmm0": {
+   "reg": "xmm0",
+   "enc": "f32"
+  },
+  "stk0": {
+   "stack_offset": "0x20",
+   "enc": "u32"
+  },
+  "stk1": {
+   "stack_offset": "0x28",
+   "enc": "u8"
+  }
+ },
+ "input_schema": {
+  "A0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_D": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_210": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_18": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_20": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_24": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1558": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_rdx": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_xmm0": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "stk0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "w_A0_0": {
+   "region": "A0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "w_A0_4": {
+   "region": "A0",
+   "offset": "0x4",
+   "enc": "u8"
+  },
+  "w_A0_5": {
+   "region": "A0",
+   "offset": "0x5",
+   "enc": "u8"
+  },
+  "w_A0_D": {
+   "region": "A0",
+   "offset": "0xD",
+   "enc": "u8"
+  },
+  "w_A2_210": {
+   "region": "A2",
+   "offset": "0x210",
+   "enc": "u32"
+  },
+  "w_A3_0": {
+   "region": "A3",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "w_A3_C": {
+   "region": "A3",
+   "offset": "0xC",
+   "enc": "u32"
+  },
+  "w_A3_18_d0": {
+   "region": "A3",
+   "offset": "0x18",
+   "enc": "u32"
+  },
+  "w_A3_1C_d1": {
+   "region": "A3",
+   "offset": "0x1C",
+   "enc": "u32"
+  },
+  "w_A3_20": {
+   "region": "A3",
+   "offset": "0x20",
+   "enc": "u32"
+  },
+  "w_A3_24": {
+   "region": "A3",
+   "offset": "0x24",
+   "enc": "u32"
+  },
+  "ret_eax": {
+   "reg": "eax"
+  }
+ },
+ "ret_note": "eax (integer/bool return; upper bits unchecked)",
+ "seed": 1000,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [
+   "indirect-call@140480A84",
+   "indirect-call@140480B45"
+  ],
+  "tailjumps": [],
+  "unresolved_mem": 23,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [],
+  "stack_args": {
+   "0": [
+    1,
+    4
+   ],
+   "1": [
+    1
+   ]
+  },
+  "calls": [
+   "14047C1D0",
+   "140A3FE70"
+  ],
+  "flags": [
+   "callee-outside-set@1403FB5B0",
+   "callee-outside-set@14047C500",
+   "callee-outside-set@14047E060",
+   "callee-outside-set@14047E940",
+   "callee-outside-set@14047EA10",
+   "callee-outside-set@140A3FD20",
+   "indirect-call@140480A84",
+   "indirect-call@140480B45",
+   "unresolved-mem@140480972",
+   "unresolved-mem@140480979",
+   "unresolved-mem@140480981",
+   "unresolved-mem@140480989",
+   "unresolved-mem@14048098C",
+   "unresolved-mem@140480990",
+   "unresolved-mem@1404809D3",
+   "unresolved-mem@1404809DA",
+   "unresolved-mem@1404809E2",
+   "unresolved-mem@1404809EA",
+   "unresolved-mem@1404809ED",
+   "unresolved-mem@1404809F1",
+   "unresolved-mem@140480A2B",
+   "unresolved-mem@140480A32",
+   "unresolved-mem@140480A3A",
+   "unresolved-mem@140480A42",
+   "unresolved-mem@140480A45",
+   "unresolved-mem@140480A49",
+   "unresolved-mem@140480A8B",
+   "unresolved-mem@140480AE7",
+   "unresolved-mem@140480AF6",
+   "unresolved-mem@140480AFA",
+   "unresolved-mem@140480B2C"
+  ],
+  "stub_refs": [
+   "14159F3E0"
+  ]
+ },
+ "stub_refs": [
+  "14159F3E0"
+ ],
+ "harness": {
+  "harness_class": "harness cannot run",
+  "blockers": [
+   "call qword ptr [rip + 0x20aefa6] at 140480A84",
+   "call qword ptr [rip + 0x20aeee5] at 140480B45",
+   "call 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548",
+   "call 14047C500: callee 141F500D0: global store qword ptr [rip + 0x18a5c33], r at 141F50116; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 141F514D0: indirect call qword ptr [rax + 0x88] at 141F51504; callee 141F51630: callee 141F50B90: callee 141F50D80: callee 1408C75E0: indirect call qword ptr [rip + 0x1c68fe2] at 1408C7678; callee 140A7CFD0: callee 14155E260: callee 14155E260: recursion through 14155E260; callee 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548; callee 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548",
+   "call 14047E060: callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F",
+   "call 14047E940: callee 14047F170: callee 140A81230: callee 140A80EF0: callee 140A80D10: callee 1408C9DF0: computed jump at 1408C8FFC: switch case bodies not enumerated (closure incomplete); callee 1408C9DF0: computed jump at 1408C8FFC: switch case bodies not enumerated (closure incomplete); callee 140A80CF0: callee 1408C9DF0: computed jump at 1408C8FFC: switch case bodies not enumerated (closure incomplete); callee 1408C9DF0: computed jump at 1408C8FFC: switch case bodies not enumerated (closure incomplete); callee 140A81040: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F",
+   "call 14047EA10: callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F",
+   "call 140A3FD20: computed jump at 140A3FD4B: switch case bodies not enumerated (closure incomplete)"
+  ],
+  "out_of_set_callees": [
+   {
+    "va": "1403FB5B0",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "14047C1D0",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   },
+   {
+    "va": "14047C500",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": [
+     "14159F3E0"
+    ]
+   },
+   {
+    "va": "14047E060",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "14047E940",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": [
+     "14159F3E0"
+    ]
+   },
+   {
+    "va": "14047EA10",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "140A3FD20",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "140A3FE70",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   }
+  ],
+  "indirect_sites": [
+   "call qword ptr [rip + 0x20aefa6] at 140480A84",
+   "call qword ptr [rip + 0x20aeee5] at 140480B45"
+  ],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [
+   "140A48910",
+   "140A48A30"
+  ],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 1,
+  "accessor_slots": 28,
+  "rule": "rules.closure_fix: child links + accessor layout from image bytes"
+ }
+}
