@@ -18,17 +18,18 @@ Verdicts (live pins, GF citations) are in the report; this file holds the mechan
 import argparse
 import json
 import os
-import struct
 import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "diffharness"))
+sys.path.insert(0, HERE)
 
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64  # noqa: E402
 from capstone.x86 import X86_OP_IMM  # noqa: E402
 from specgen import analyze as AN  # noqa: E402
 from specgen import sets  # noqa: E402
+import pdata  # noqa: E402
 
 CHAINS = {
     "KICK": ["0x14083CC30", "0x1408414A0", "0x1408398D5", "0x140723320", "0x1406B0250", "0x1406EA340",
@@ -96,22 +97,10 @@ MD = Cs(CS_ARCH_X86, CS_MODE_64)
 MD.detail = True
 
 
-def pdata_ends():
-    """{function VA: end VA} from the image's .pdata section."""
-    e = struct.unpack("<I", AN.rd(AN.BASE + 0x3C, 4))[0]
-    nsec = struct.unpack("<H", AN.rd(AN.BASE + e + 6, 2))[0]
-    optsz = struct.unpack("<H", AN.rd(AN.BASE + e + 0x14, 2))[0]
-    for i in range(nsec):
-        s = AN.rd(AN.BASE + e + 0x18 + optsz + 40 * i, 40)
-        if s[:8].rstrip(b"\0") == b".pdata":
-            vsz, rva = struct.unpack("<II", s[8:16])
-            raw = AN.rd(AN.BASE + rva, vsz)
-            ends = {}
-            for k in range(0, len(raw) - 11, 12):
-                begin, end = struct.unpack("<II", raw[k:k + 8])
-                ends[AN.BASE + begin] = AN.BASE + end
-            return ends
-    raise SystemExit("no .pdata section")
+def pdata_ends(image):
+    """{entry VA: end VA} of the image's .pdata, from the shared reader (corrupt entries dropped)."""
+    with open(image, "rb") as f:
+        return pdata.Pdata(f).entries
 
 
 def count_insns(va, end):
@@ -147,7 +136,7 @@ def closure(seeds, ends, uni, maxn):
 
 def analyze(args):
     AN.open_image(args.image)
-    ends = pdata_ends()
+    ends = pdata_ends(args.image)
     uni = sets.load_universe()
     seeds = [int(v, 16) for vs in CHAINS.values() for v in vs]
     size_of = closure(seeds, ends, uni, args.max)

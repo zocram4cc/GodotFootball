@@ -55,10 +55,13 @@ class Pdata:
         _, nsec, _, _, _, optsz, _ = struct.unpack("<HHIIIHH", img.read(20))
         opt = img.read(optsz)
         exc_rva, exc_size = struct.unpack_from("<II", opt, 112 + 8 * 3)
-        entries, parent = {}, {}
+        entries, parent, self.dropped = {}, {}, 0  # dropped: corrupt entries (empty, or longer than MAX_FN)
         for i in range(0, exc_size - 11, 12):
             begin, end, unwind = struct.unpack("<III", self.read(IMAGE_BASE + exc_rva + i, 12))
-            if not 0 < end - begin <= MAX_FN or IMAGE_BASE + begin in entries:
+            if not 0 < end - begin <= MAX_FN:
+                self.dropped += 1
+                continue
+            if IMAGE_BASE + begin in entries:
                 continue
             entries[IMAGE_BASE + begin] = IMAGE_BASE + end
             if unwind & 1:
