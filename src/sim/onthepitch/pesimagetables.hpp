@@ -28,6 +28,12 @@ inline constexpr uint64_t kQuarterSineCount = 513;
 inline constexpr uint64_t kFrameCellsVa = 0x14351AE50;
 inline constexpr uint64_t kFrameCellsBytes = 8;
 inline constexpr uint64_t kFrameFloatSourceVa = 0x14259D624;
+// The tier table 0x140A603C0 reads for the carrier walk's capability gate 0x140A604D0 (BP+0x60 = tier * 100): 0x22 rows (the
+// `0x21 < param_2` bound) of 0x20 bytes, row r at 0x142645A40 + 0x20 * r (a flag byte, then seven f32 per tier, `+0x20 * r` in the
+// `&DAT_142645a44 + (tier + r * 8) * 4` reads).
+inline constexpr uint64_t kTierTableVa = 0x142645A40;
+inline constexpr uint64_t kTierRows = 0x22;
+inline constexpr uint64_t kTierRowBytes = 0x20;
 
 struct PesImageTables {
   std::vector<PesTrapSegment> segments;

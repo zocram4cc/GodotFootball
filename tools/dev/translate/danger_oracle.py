@@ -15,9 +15,11 @@ manifest.tsv, one record per line, tab separated:
   I   va   len                        a live range in the image's writable globals whose value differs from the file
   S   off  len                        a live range of the caller's stack, relative to the entry rsp
 
-Usage: PES_EXE=<pes_full.bin> python3 danger_oracle.py SNAP CASE_DIR TRACE_DIR HOOKS OUT_DIR   (harness Python: unicorn)
+Usage: PES_EXE=<pes_full.bin> python3 danger_oracle.py SNAP CASE_DIR TRACE_DIR HOOKS OUT_DIR [walk]   (harness Python: unicorn)
   CASE_DIR  = snapdiff's <out>/gen/142119390/snap_<label> (corpus.jsonl, maps.txt, ok_delta.bin)
   TRACE_DIR = the frame_trace output of the capture (pool/pages.bin)
+  walk      = the capture is a carrier-walk 0x14210F110 call (rcx = BP, rdx = {unit info, ctx}: the window's unit object), CASE_DIR
+              = <out>/gen/14210F110/snap_<label>; the BP record is rcx, ctx is *(rdx+8), and *rdx's 16 bytes are the "unit" kind.
 """
 import os
 import shutil
@@ -29,13 +31,15 @@ import frame_trace as ft  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 import trap_oracle as to  # noqa: E402
 
-BP_BYTES = 0x32C0   # the window's carrier block: unit info at +0x1C, state at +0x78, imageA at +0xEC (through its +0x31D0)
+BP_BYTES = 0x4300   # the window's carrier block: unit info at +0x1C, state at +0x78, imageA at +0xEC (through its +0x31D0), the walk's lists to +0x4300
 BP_UNIT = 0x1C      # r8 - BP
-CTX_BYTES, MA_BYTES, E_BYTES = 0x100, 0x24900, 0x180760  # the window's records (pesworldrecord.hpp, pesevents.hpp)
+CTX_BYTES, MA_BYTES, E_BYTES = 0x100, 0x27000, 0x180760  # the window's records (pesworldrecord.hpp, pesevents.hpp)
+UNIT_BYTES = 0x10   # the walk's rdx: {unit info VA, ctx VA}
 
 
 def main():
     snap_dir, case_dir, trace_dir, hooks, out_dir = sys.argv[1:6]
+    walk = len(sys.argv) > 6 and sys.argv[6] == "walk"
     image = open(os.environ["PES_EXE"], "rb").read()
     os.makedirs(out_dir, exist_ok=True)
     snap = fs.SnapMem(snap_dir)
@@ -46,9 +50,12 @@ def main():
 
     regs, live = to.replay(snap_dir, hooks, out_dir)
     g = u64(to.G_CELL)
-    ctx = regs["rdx"]
-    typed = [("G", 0, g, 0x2E58), ("bp", 0, regs["r8"] - BP_UNIT, BP_BYTES), ("ctx", 0, ctx, CTX_BYTES),
+    ctx = u64(regs["rdx"] + 8) if walk else regs["rdx"]
+    bp = regs["rcx"] if walk else regs["r8"] - BP_UNIT
+    typed = [("G", 0, g, 0x2E58), ("bp", 0, bp, BP_BYTES), ("ctx", 0, ctx, CTX_BYTES),
              ("ma", 0, u64(ctx + 0x18), MA_BYTES), ("e", 0, u64(ctx + 0xE0), E_BYTES)]
+    if walk:
+        typed.append(("unit", 0, regs["rdx"], UNIT_BYTES))
     for kind, off, size in to.POINTERS:
         typed.append((kind, 0, u64(g + off), size))
     for kind, off, stride, count, size in to.TABLES:

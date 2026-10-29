@@ -59,12 +59,13 @@ inline constexpr std::size_t kMatchInfoPtrOffset = 0x270;
 
 // The match-info block MI at PES's offsets (pes-re-ref-record.md 1.2). Its bytes run from MI+0x0 past the last field a
 // translated stoppage function reads (MI+0x15B8, a byte), rounded up to 0x40. The period record is at MI+0x1168.
-inline constexpr std::size_t kMatchInfoBytes = 0x1770;  // grown from 0x1760: the trap chain reads MI+0x1748..0x175D, the danger builder to MI+0x1768
+inline constexpr std::size_t kMatchInfoBytes = 0x1780;  // grown from 0x1770: the carrier walk 0x14210F110 reads MI+0x1775
 inline constexpr std::size_t kMatchInfoPeriodOffset = 0x1168;
 
 // The stoppage fields GF writes into MI at their writers (pes-re-ref-record.md 1.2; the values are PES's, the names are
 // the decode's). Offsides are the three words the involvement reads at play state 1.
 inline constexpr std::size_t kMiRestartArmedOffset = 0x11B2;    // u8: the restart-armed flag (116C == 3)
+inline constexpr std::size_t kMiWalkStateOffset = 0x1775;     // u8: the FSM byte the carrier walk vetoes passes and clears on (3, 9, 10)
 inline constexpr std::size_t kMiOffsideFlagOffset = 0x1544;    // u32: 0 none, 1 flagged
 inline constexpr std::size_t kMiOffsideAOffset = 0x1548;       // u32
 inline constexpr std::size_t kMiOffsideBOffset = 0x154C;       // u32: the offside category
@@ -224,6 +225,15 @@ inline constexpr std::size_t kSideAttackAngleOffset = 0x250;
 inline constexpr std::size_t kSideAttackSignOffset = 0x254;
 inline constexpr std::size_t kSideModeOffset = 0x6D4;
 inline constexpr std::size_t kSideUnitWordsOffset = 0x4C00;
+// The carrier walk's reads of the side record (0x14063E960 skills, 0x140A3AF90, 0x14210F110's kicker test): u32 side id at +0,
+// the slot-in-team -> player-info index map at +4 + 4 * slot%11, the player-info array at +0xA8 (stride 0x128) with the u64 skill
+// mask at +0x78 of each, and the designated taker's slot at +0x7C.
+inline constexpr std::size_t kSideIdOffset = 0x0;
+inline constexpr std::size_t kSideInfoIndexOffset = 0x4;
+inline constexpr std::size_t kSidePlayerInfoOffset = 0xA8;
+inline constexpr std::size_t kSidePlayerInfoStride = 0x128;
+inline constexpr std::size_t kSideSkillMaskOffset = 0x78;
+inline constexpr std::size_t kSideKickerOffset = 0x7C;
 inline constexpr std::size_t kSideRecordBytes = 0x4C30;
 struct PesSideRecord {
   std::array<uint8_t, kSideRecordBytes> bytes{};
@@ -285,7 +295,9 @@ inline constexpr std::size_t kMaListTeamStride = 0x58;
 inline constexpr int kMaListEntries = 11;
 inline constexpr std::size_t kMaBallOffset = 0x2482C;       // f32 x, +4 height, +8 z
 inline constexpr std::size_t kMaCarrierIdOffset = 0x2483C;  // u32
-inline constexpr std::size_t kMaBytes = 0x24900;
+// The ball owner's slot id (u32, 0xFF none): 0x140A627E0(ctx, 0) answers it to the carrier walk, which compares its side with BP+0x24.
+inline constexpr std::size_t kMaOwnerOffset = 0x2601C;
+inline constexpr std::size_t kMaBytes = 0x26040;
 // No carrier in MA+0x2483C (INF: PES's no-holder word is not decoded; the readers gate on id < 0x16).
 inline constexpr uint32_t kMaNoCarrier = 0xFFFFFFFFu;
 struct PesMaRecord {
@@ -306,7 +318,7 @@ inline constexpr std::size_t kBpFlagsOffset = 0x18;
 inline constexpr std::size_t kBpUnitInfoOffset = 0x1C;
 inline constexpr std::size_t kBpStateOffset = 0x78;
 inline constexpr std::size_t kBpImageAOffset = 0xEC;
-inline constexpr std::size_t kBpBytes = 0x32C0;  // imageA's end (BP+0xEC+0x31D0) rounded up to 0x10
+inline constexpr std::size_t kBpBytes = 0x4300;  // the walk's list ends at BP+0x4158, its previous-answer words at BP+0x4214
 inline constexpr std::size_t kImageADangerOffset = 0x31C1;
 inline constexpr std::size_t kImageAPressureOffset = 0x2124;
 // The unit info's fields (offsets from BP+0x1C) and the state's (from BP+0x78).
@@ -329,6 +341,37 @@ inline constexpr std::size_t kAnswerAngleOffset = 0x8;
 inline constexpr std::size_t kAnswerBytes = 0x10;
 inline constexpr std::size_t kUnitMarkOffset = 0xC;  // u32: undecoded (ponytail at SetCarrierInputs)
 inline constexpr uint32_t kBpRefreshAll = 0x1F;      // BP+0x18 in all ten captures
+// The carrier walk 0x14210F110 (rcx = BP, rdx = the unit object {unit info VA, ctx VA}; the chosen kind comes back in eax, 0x19 =
+// none). Its BP reads: the side (unit info +8) at +0x24, the tier word +0x60 (0x140A604D0: game-setting tier * 100), the ball copy
+// (x, height, z) at +0xB8, the state byte +0xC8, the owned byte +0xE4, the zone record at +0xAB8 (0x140699820 reads its +0x16C,
+// +0x170, +0x178, +0x17C), the team intention word +0x32B8 (0x141052E30), the turn reference angle +0x3380 (0x140481B00), the
+// previous chosen kind +0x41E4, and the priority list at +0x3E20: u32 count, u32 kinds, signed rank bytes (-1 unlisted) at
+// +0x68 + kind, 0x1C-byte answer records at +0x84 + 0x1C * kind.
+inline constexpr std::size_t kBpSideOffset = 0x24;
+inline constexpr std::size_t kBpTierOffset = 0x60;
+inline constexpr std::size_t kBpDecidedOffset = 0xC8;
+inline constexpr std::size_t kBpZoneOffset = 0xAB8;
+inline constexpr std::size_t kZoneFlagsOffset = 0x16C;   // u32: bit 0 = close
+inline constexpr std::size_t kZoneDepthOffset = 0x170;   // f32: negative = not close
+inline constexpr std::size_t kZoneRowOffset = 0x178;     // s32
+inline constexpr std::size_t kZoneColumnOffset = 0x17C;  // s32
+inline constexpr std::size_t kBpGuardOffset = 0x32AD;
+inline constexpr std::size_t kBpIntentionOffset = 0x32B8;
+inline constexpr std::size_t kBpTurnReferenceOffset = 0x3380;
+inline constexpr std::size_t kBpListOffset = 0x3E20;
+inline constexpr std::size_t kListRankOffset = 0x68;
+inline constexpr std::size_t kListRecordOffset = 0x84;
+inline constexpr std::size_t kListRecordStride = 0x1C;
+inline constexpr std::size_t kListBytes = kListRecordOffset + 0x19 * kListRecordStride;
+inline constexpr std::size_t kBpChosenKindOffset = 0x41E4;
+inline constexpr int kWalkKindCount = 0x19;
+inline constexpr uint32_t kWalkNoKind = 0x19;
+inline constexpr uint8_t kRankUnlisted = 0xFF;
+inline constexpr int kBpTierLive = 500;  // tier 5, zero ripeness delay (docs/re/pes-re-A4Carrier.md 3)
+// The skill bits the walk tests in the carrier's mask (0x14210F110: 0x14063E960(ctx, slot, bit)).
+inline constexpr int kSkillOneTouchShot = 0xB;
+inline constexpr int kSkillOneTouchPass = 0xC;
+inline constexpr int kSkillPinpointCross = 0xE;
 // The builder's call frame (0x142110D30's call): the return address at rsp, the 5th and 6th arguments past the 0x20 shadow.
 inline constexpr std::size_t kDangerArg5Offset = 0x28;
 inline constexpr std::size_t kDangerArg6Offset = 0x30;
@@ -485,6 +528,29 @@ class PesWorld {
   // byte 0x31C1 from the pressure builder 0x14069A500 and the writer 0x140699960 (its tail rule may set it too). Allocates
   // through PES's allocator on this world's PesHeap. `ext` carries bytes outside the window (tests); returns the danger byte.
   bool RunDangerBuilder(int side, const PesDangerExternals& ext = {});
+  // One list entry of the carrier walk: the kind and its 0x1C-byte answer record (the unit's output).
+  struct WalkEntry {
+    uint32_t kind = 0;
+    std::array<uint8_t, kListRecordStride> record{};
+  };
+  // Writes the walk's priority list into the side's BP (count, kinds, ranks = list position, the records at their kind's slot;
+  // every unlisted record is zeroed: type 0 answers nothing).
+  void SetUnitList(int side, const std::vector<WalkEntry>& list);
+  // The walk's reads of the side record: the carrier's skill mask and designated taker (the side id and the slot-in-team map are
+  // identities of the window), and the carrier's height stat byte 0x31 (cm).
+  void SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, uint8_t heightStatCm);
+  // Runs PES's carrier walk 0x14210F110 on the side's BP (rdx = its unit object): the chosen kind, or kWalkNoKind. `ext` carries
+  // bytes outside the window (tests); allocates through the world's PesHeap like the builder.
+  uint32_t RunWalk(int side, const PesDangerExternals& ext = {});
+  // The zone record at BP+0xAB8 as 0x140699820 (IsClose) reads it: close when f32 +0x170 >= 0 and (flags bit 0, or row and column
+  // both < 3) and column < 1. Writes the two cases (ponytail at the caller: the zone builder 0x140698340/830 is undecoded).
+  void SetCarrierZone(int side, bool close) {
+    uint8_t* zone = Carrier(side) + kBpZoneOffset;
+    StoreF32(zone, kZoneDepthOffset, close ? 0.0f : -1.0f);
+    StoreU32(zone, kZoneFlagsOffset, close ? 1u : 0u);
+    StoreU32(zone, kZoneRowOffset, 0);
+    StoreU32(zone, kZoneColumnOffset, 0);
+  }
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
   void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }
@@ -509,6 +575,8 @@ class PesWorld {
     StoreF32(Ma(side), kMaBallOffset + 8, z);
   }
   void SetMaCarrier(int side, uint32_t id) { StoreU32(Ma(side), kMaCarrierIdOffset, id); }
+  // The ball owner's slot id in MA (0xFF none).
+  void SetMaOwner(int side, uint32_t id) { StoreU32(Ma(side), kMaOwnerOffset, id); }
   // Entry `rank` of team `team`'s list in MA list block `list` (0 or 1): the slot id, then the value.
   void SetMaListEntry(int side, int list, int team, int rank, uint32_t id, float value) {
     uint8_t* entry = Ma(side) + (list == 0 ? kMaLaneListAOffset : kMaLaneListBOffset) +

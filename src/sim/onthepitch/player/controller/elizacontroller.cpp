@@ -3293,8 +3293,17 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   list.wideSector = zone.sector == pes::kSectorWide;
   list.pastCrossLine = carrierImage.id == pes::kPlanCross &&
                        attackSign * carrierPos.coords[0] > pesFieldHalfLength - 10.0f;
-  // The lane units answer lane slots (own team 0..10, opponents 11..21, each side in its active-list order); the pass
-  // commands and the walk take global player ids. Convert the five lane answers here, before the walk reads them.
+  // The Clear unit (kind 1, 0x142109EB0): PES's own function run on the world window. It answers only while imageA+0x31C1
+  // (the danger flag written above) is set, and then runs the corridor angle 0x142108630 over the window's records.
+  pes::CarrierAnswer clearAnswer;
+  const pes::PesWorld::ClearAnswer cleared =
+      pesWorld.RunClearUnit(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
+  if (cleared.type == static_cast<uint32_t>(pes::kAnswerClear)) clearAnswer = {pes::kAnswerClear, 0, cleared.angle_deg};
+  // The table keeps the lane slot each lane unit answered (own team 0..10, opponents 11..21): PES's answer records name it.
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
+                         goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass, clearAnswer);
+  // The pass commands take global player ids: convert the lane answers after the table holds them.
   std::vector<Player*> ownActive, oppActive;
   team->GetActivePlayers(ownActive);
   match->GetTeam(1 - team->GetID())->GetActivePlayers(oppActive);
@@ -3309,55 +3318,52 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   toGlobalId(safetyPass);
   toGlobalId(oneTwoPass);
   toGlobalId(directHighPass);
-  // The Clear unit (kind 1, 0x142109EB0): PES's own function run on the world window. It answers only while imageA+0x31C1
-  // (the danger flag written above) is set, and then runs the corridor angle 0x142108630 over the window's records.
-  pes::CarrierAnswer clearAnswer;
-  const pes::PesWorld::ClearAnswer cleared =
-      pesWorld.RunClearUnit(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
-  if (cleared.type == static_cast<uint32_t>(pes::kAnswerClear)) clearAnswer = {pes::kAnswerClear, 0, cleared.angle_deg};
-  const std::vector<pes::UnitSlot> table =
-      pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
-                         goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass, clearAnswer);
-  pes::WalkContext walk;
-  // The restart mode: 3 in a set piece, 1 in play, 2 stopped (report 5, MI+0x116C).
-  walk.restartMode = match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2);
-  // ponytail: MI+0x1775 (the FSM byte) has no GF state, and its writers are not decoded.
-  // ponytail: MA+0x7C, the designated kicker, has no GF accessor yet (set pieces are pessetpiecetaker's).
+  // The carrier walk 0x14210F110 (translated; equal to PES on eight real calls and two synthetic Clear-arm states,
+  // pes_walk_oracle_test) decides which unit's answer the carrier acts on, the Clear unit's replacement chain included.
+  // Its inputs are the window's records; the ones GF writes here name their PES site, the rest stand in.
+  uint8_t* bp = pesWorld.Carrier(sideIndex);
+  // ponytail: MI+0x116C is PES's match FSM; GF derives it from its own state (3 set piece, 1 in play, 2 stopped). MI+0x1775
+  // (the FSM byte that vetoes passes and clears in states 3, 9, 10) has no GF state; its writers are undecoded: 0.
+  pesWorld.Period().playState = static_cast<uint32_t>(match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2));
+  pesWorld.MatchInfo()[pes::kMiWalkStateOffset] = 0;
+  // ponytail: BP+0x60 (the CPU tier * 100) is a game setting; live play runs tier 5 (docs/re/pes-re-A4Carrier.md 3). BP+0xC8
+  // (the previous decision's flag), BP+0x32AD and BP+0x41E4 (the previous chosen kind, 0x19 = none) are written by the unit
+  // updater 0x1421019D0 / 0x14210F110's caller (undecoded); GF keeps no previous decision.
+  pes::StoreU32(bp, pes::kBpTierOffset, static_cast<uint32_t>(pes::kBpTierLive));
+  bp[pes::kBpDecidedOffset] = 0;
+  bp[pes::kBpGuardOffset] = 0;
+  pes::StoreU32(bp, pes::kBpChosenKindOffset, pes::kWalkNoKind);
+  pes::StoreU32(bp, pes::kBpIntentionOffset, static_cast<uint32_t>(intention));  // 0x141052E30(BP+0x32B0)
+  // ponytail: BP+0x3380 (the turn reference the kind-4 tail measures the facing against, writer undecoded) is the carrier's facing.
+  const Vector3 walkDir = CastPlayer()->GetDirectionVec();
+  pes::StoreF32(bp, pes::kBpTurnReferenceOffset, pes::PesBearingDeg(0.0f, 0.0f, walkDir.coords[0], walkDir.coords[1]));
+  // ponytail: the zone record at BP+0xAB8 (0x140698340/830, undecoded) stands in with GF's close band.
+  pesWorld.SetCarrierZone(sideIndex, pes::IsClose(zone));
   Player* ballOwner = match->GetBallRetainer();
-  walk.ballOwnerTeam = ballOwner != nullptr ? ballOwner->GetTeamID() : -1;
-  walk.ownTeam = team->GetID();
-  walk.ballHeightOk = ballHeight >= CastPlayer()->GetStat("physical_height");
-  walk.skill11 = PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot);
-  walk.skill12 = PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass);
-  walk.skill14 = PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing);
-  walk.closeBand = pes::IsClose(zone);
-  // ponytail: the tier gate (rule 3) is off: live tier 5 is zero delay and GF has no tier.
-  // ponytail: the forced-clear opponent count (rule 7, 0x140A4C820) reads
-  // the pressure table GF does not carry; clears always replace.
-  walk.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
-  walk.safetyToKeeper = longPass.index >= 0 &&
-                        match->GetPlayer(longPass.index) != nullptr &&
-                        match->GetPlayer(longPass.index)->GetFormationEntry().role == e_PlayerRole_GK;
-  walk.keeperWithinNinety = carrierPressureClass >= 2;  // ponytail: 0x140439FE0 is not ported
-  // Rule 8's instant return: the Forward answer goes back to the man who passed to the carrier within two seconds.
-  // The last pass event keeps its passer and its target, both from the kick (humanoid.cpp).
-  const auto& lastPass = match->GetLastPassEvent();
-  walk.forwardIsInstantReturn = pes::ForwardIsInstantReturn(
-      pass.index, lastPass.passer ? lastPass.passer->GetID() : -1, lastPass.target == CastPlayer(),
-      static_cast<float>(match->GetActualTime_ms() - lastPass.time_ms) * 0.001f);
-  const pes::UnitSlot won = pes::WalkCarrierUnits(table, walk);
-  if (won.kind == 0) addShot();
-  else if (won.kind == 4) addPass(pass);
-  else if (won.kind == 9) addPass(longPass);
-  else if (won.kind == 7) addPass(crossPass);
-  else if (won.kind == 2) addPass(goalFrontPass);
-  else if (won.kind == 3) addPass(backSpacePass);
-  else if (won.kind == 6) addPass(safetyPass);
-  else if (won.kind == 10) addPass(oneTwoPass);
-  else if (won.kind == 11) addPass(directHighPass);
-  else if (won.kind == 1) {
+  pesWorld.SetMaOwner(sideIndex, ballOwner != nullptr ? static_cast<uint32_t>(match->PesSlotOf(ballOwner)) : pes::kMiNoSlot);
+  uint64_t skillMask = 0;
+  if (PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot)) skillMask |= 1ull << pes::kSkillOneTouchShot;
+  if (PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass)) skillMask |= 1ull << pes::kSkillOneTouchPass;
+  if (PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing)) skillMask |= 1ull << pes::kSkillPinpointCross;
+  const float heightCm = std::clamp(CastPlayer()->GetStat("physical_height") * 100.0f, 0.0f, 255.0f);
+  pesWorld.SetCarrierProfile(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())), skillMask,
+                             static_cast<uint8_t>(heightCm));
+  std::vector<pes::PesWorld::WalkEntry> entries;
+  for (const pes::UnitSlot& slot : table) entries.push_back({static_cast<uint32_t>(slot.kind), pes::EncodeAnswerRecord(slot.answer)});
+  pesWorld.SetUnitList(sideIndex, entries);
+  const uint32_t wonKind = pesWorld.RunWalk(sideIndex);
+  if (wonKind == 0) addShot();
+  else if (wonKind == 4) addPass(pass);
+  else if (wonKind == 9) addPass(longPass);
+  else if (wonKind == 7) addPass(crossPass);
+  else if (wonKind == 2) addPass(goalFrontPass);
+  else if (wonKind == 3) addPass(backSpacePass);
+  else if (wonKind == 6) addPass(safetyPass);
+  else if (wonKind == 10) addPass(oneTwoPass);
+  else if (wonKind == 11) addPass(directHighPass);
+  else if (wonKind == 1) {
     // The Clear unit's own answer: the corridor angle (PES bearing, window coordinates: z is GF's y) is the direction.
-    const float heading = won.answer.angle_deg / degreesPerRadian;
+    const float heading = clearAnswer.angle_deg / degreesPerRadian;
     _AddClearance(commandQueue, Vector3(std::sin(heading), std::cos(heading), 0.0f));
   }
 }

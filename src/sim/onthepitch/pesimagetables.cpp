@@ -25,6 +25,7 @@ std::optional<PesImageTables> LoadPesImageTables(const PeImage& exe, std::string
   const uint64_t classBytes = sizeof(uint32_t) * (kAnimeClassBack + kClassTableEntries);
   if (!Read(exe, kAnimeClassTableVa - sizeof(uint32_t) * kAnimeClassBack, classBytes, &tables, error) ||
       !Read(exe, kQuarterSineVa, sizeof(float) * kQuarterSineCount, &tables, error) ||
+      !Read(exe, kTierTableVa, kTierRows * kTierRowBytes, &tables, error) ||
       !Read(exe, kFrameCellsVa, kFrameCellsBytes, &tables, error))
     return std::nullopt;
   uint8_t source[sizeof(float)];

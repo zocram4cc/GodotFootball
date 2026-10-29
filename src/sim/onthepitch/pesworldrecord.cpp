@@ -130,6 +130,45 @@ bool PesWorld::RunDangerBuilder(int side, const PesDangerExternals& ext) {
   return ClearDanger(side);
 }
 
+void PesWorld::SetUnitList(int side, const std::vector<WalkEntry>& list) {
+  uint8_t* l = Carrier(side) + kBpListOffset;
+  std::memset(l, 0, kListBytes);
+  std::memset(l + kListRankOffset, kRankUnlisted, kWalkKindCount);
+  StoreU32(l, 0, static_cast<uint32_t>(list.size()));
+  for (std::size_t position = 0; position < list.size(); ++position) {
+    const WalkEntry& entry = list[position];
+    StoreU32(l, sizeof(uint32_t) * (1 + position), entry.kind);
+    l[kListRankOffset + entry.kind] = static_cast<uint8_t>(position);
+    std::memcpy(l + kListRecordOffset + kListRecordStride * entry.kind, entry.record.data(), kListRecordStride);
+  }
+}
+
+void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, uint8_t heightStatCm) {
+  uint8_t* record = image_->sides[side].bytes.data();
+  StoreU32(record, kSideIdOffset, static_cast<uint32_t>(side));
+  for (uint32_t k = 0; k < kSlotsPerSide; ++k) StoreU32(record, kSideInfoIndexOffset + sizeof(uint32_t) * k, k);
+  const std::size_t info = kSidePlayerInfoOffset + kSidePlayerInfoStride * (slot % kSlotsPerSide);
+  std::memcpy(record + info + kSideSkillMaskOffset, &skillMask, sizeof skillMask);
+  StoreU32(record, kSideKickerOffset, slot);  // ponytail: the designated taker (T+0x7C) is the carrier: a set-piece decider is the taker; the writer is the restart set-up, undecoded
+  Block(static_cast<int>(slot))[kSlotRecordOffset + kSlotByteA1Offset] = heightStatCm;
+}
+
+uint32_t PesWorld::RunWalk(int side, const PesDangerExternals& ext) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  PesState s = NewCall(Bytes());
+  heap_->Attach(s);
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  const uint64_t entry = kStackVa + kStackBytes - kDangerFrameBytes;
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = CarrierVa(side);                    // rcx: BP
+  s.gpr[2] = CarrierVa(side) + kUnitObjectOffset;  // rdx: {unit info VA, ctx VA}
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_14210F110(s);
+  return static_cast<uint32_t>(s.gpr[0]);
+}
+
 PesTrapResult PesWorld::RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
   s.mem.flat = ext.image;
