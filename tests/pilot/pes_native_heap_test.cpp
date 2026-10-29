@@ -153,17 +153,39 @@ TEST(NativeHeap, FreeThroughEitherPoolKindReturnsTheBlock) {
   EXPECT_EQ(m.heap.Frees(), 2u);
 }
 
+// Pool 0 frees by scanning every pool (0x1403FB5B0): the pools' owns slot (+0x30) answers, then the first occupied
+// pool frees. A null free is a no-op.
+TEST(NativeHeap, PoolZeroFreesThroughTheOwnsScan) {
+  Machine m;
+  const uint64_t a = m.Alloc(2, 0x30, 0x10);
+  ASSERT_NE(a, 0u);
+  m.Free(0, a);
+  EXPECT_EQ(m.heap.Live(), 0u);
+  EXPECT_EQ(m.heap.Frees(), 1u);
+  m.Free(2, 0);
+  EXPECT_EQ(m.heap.Frees(), 1u);
+}
+
 TEST(NativeHeap, AlignmentSizeZeroAndFailureFollowTheAllocationContract) {
   Machine m(1u << 16);
+  ASSERT_NE(m.Alloc(2, 0x10, 0x10), 0u);  // leaves the bump offset off any larger alignment
   const uint64_t a = m.Alloc(2, 100, 0x40);
   EXPECT_EQ(a % 0x40, 0u);
+  const uint64_t b = m.Alloc(2, 8, 0x100);
+  EXPECT_EQ(b % 0x100, 0u);
+  EXPECT_EQ(m.Alloc(2, ~0ULL - 7, 0x10), 0u);
   const uint64_t z = m.Alloc(2, 0, 4);
   EXPECT_NE(z, 0u);  // a zero size still gets a block
   EXPECT_EQ(z % PesHeap::kMinAlign, 0u);
   EXPECT_NE(z, a);
+  const uint64_t z2 = m.Alloc(2, 0, 4);
+  EXPECT_NE(z2, z);  // two zero-size blocks are two blocks
   // A request the arena cannot hold: the allocator trims (native no-op), retries, finds no handler and answers 0.
   EXPECT_EQ(m.Alloc(2, 1u << 20, 0x10), 0u);
-  EXPECT_EQ(m.heap.Live(), 2u);  // the failed call left nothing allocated
+  // A request under the arena's size but past what is left of it fails the same way, and a smaller one still fits.
+  EXPECT_EQ(m.Alloc(2, (1u << 16) - 0x1000, 0x10), 0u);
+  EXPECT_NE(m.Alloc(2, 0x100, 0x10), 0u);
+  EXPECT_EQ(m.heap.Live(), 6u);  // the failed calls left nothing allocated
 }
 
 TEST(NativeHeapDeathTest, FreeingAPointerTheHeapNeverGaveOutAborts) {

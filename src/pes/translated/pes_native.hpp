@@ -35,6 +35,9 @@ struct PesHeap {
                             kFwdTrimVa = 0x141B34DB0;
   // Where GF's arena sits in the translated code's address space: above PES's image and the other GF windows.
   static constexpr uint64_t kArenaVa = 0x2400000000ULL;
+  // ponytail: one fixed, bump-and-free-list arena; Alloc answers 0 when it is full, as PES's heap does when it cannot grow.
+  // The FixDemo chains (vectors of a few hundred bytes, one std::map node per cached cut) need kilobytes; a chain that
+  // keeps more live (replay, camera caches) raises kDefaultArenaBytes or moves to size classes with coalescing.
   static constexpr uint64_t kDefaultArenaBytes = 8u << 20;
   static constexpr uint64_t kMinAlign = 0x10;  // PES's block alignment (0x1403FB410's floor for sizes >= 0x10)
 

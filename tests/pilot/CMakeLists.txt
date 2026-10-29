@@ -81,6 +81,9 @@ gtest_discover_tests(pes_world_test)
 add_executable(pes_native_heap_test pes_native_heap_test.cpp)
 target_link_libraries(pes_native_heap_test PRIVATE pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_native_heap_test)
+# The stub table's native services and the dispatch table gen_dispatch.py emits for them (stdlib only).
+add_test(NAME translate_native_services
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_native_services.py)
 
 # Drift: regenerating every committed translated function from the image must reproduce the committed files.
 # Hand-refined functions are skipped by the check (their bit-exact proof is the harness check above).
