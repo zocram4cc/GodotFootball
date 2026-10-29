@@ -71,6 +71,15 @@ TARGETS = [
     ("carrier_walk_210F110", 0x14210F110, "carrier unit walk (forced clear)"),
     # The danger writer's input pressure record (MatchInfo4): built right before 0x140699960 runs.
     ("pressure_build_69A500", 0x14069A500, "pressure record builder feeding the danger writer"),
+    # FixDemo scene start (CutsceneCam): reads scene+0x110..0x120 and the step kind; goal/foul cut offsets.
+    ("fixdemo_scene_start_141F5CD00", 0x141F5CD00, "FixDemo scene start (cut offset per scene)"),
+    # Goal cutscene anchor (CutsceneCam): scorer position clamped to the pitch, then written to scene+0x110..0x120.
+    ("cut_anchor_calc_474F00", 0x140474F00, "goal scene anchor from the scorer's position"),
+    ("cut_anchor_write_47D280", 0x14047D280, "goal scene anchor writer (scene+0x110..0x120)"),
+    # The foul judge's level decision (docs/re/pes-re-duels-fouls.md 2.2): contact -> points -> level -> pending foul (CardLevel).
+    ("judge_decide_5B7470", 0x1405B7470, "judge level decision: points, thresholds, overrides, builds the pending foul"),
+    ("judge_whistle_50E770", 0x14050E770, "whistle writer: JR restart/side/reason/spot/kind/fouler/victim"),
+    ("judge_commit_43F546F0", 0x143F546F0, "Judge::Commit (protected): JR+0x38 card level"),
 ]
 
 
