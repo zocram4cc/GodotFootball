@@ -339,10 +339,8 @@
    "unresolved-mem@140A85B00",
    "unresolved-mem@140A85B03",
    "unresolved-mem@140A85B07"
-  ],
-  "stub_refs": []
+  ]
  },
- "stub_refs": [],
  "harness": {
   "harness_class": "runnable (closure real)",
   "blockers": [],

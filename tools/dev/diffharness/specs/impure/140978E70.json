@@ -846,9 +846,6 @@
    "IMG"
   ],
   "stack_args": {},
-  "stub_refs": [
-   "1415A1780"
-  ],
   "tailjumps": [
    "tailjump@140A57802"
   ],
@@ -958,9 +955,6 @@
   "size": "0x20000"
  },
  "status": "impure-sample",
- "stub_refs": [
-  "1415A1780"
- ],
  "subsystem": "impure-sample",
  "va": "0x140978E70"
 }

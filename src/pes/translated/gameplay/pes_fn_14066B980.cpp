@@ -1131,7 +1131,7 @@ void pes_fn_14066B980(PesState& s) {
   s.set_x_f32(7, (float)((s.x_f32(7)) * (s.x_f32(7))));
   s.set_x_f32(6, (float)((s.x_f32(6)) + (s.x_f32(7))));
   s.xmm[0][0] = s.xmm[6][0]; s.xmm[0][1] = s.xmm[6][1];
-  /*OUT-OF-SET CALL 0x1415A1780*/ pes_dispatch_missing(0x1415A1780);
+  s.set_x_f32(0, pes_model_sqrtf(s.x_f32(0)));
   s.set_x_f32(3, k_c14259BE2C_f); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   s.set_x_f32(0, (float)((s.x_f32(0)) + (s.x_f32(15))));
   s.wrf(((s.gpr[4]) + (0x38ULL)), s.x_f32(14));
