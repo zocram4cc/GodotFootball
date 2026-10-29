@@ -130,7 +130,6 @@ struct PoseConstants {
   float wideAspect = 0;       // 0x141F7B294: the aspect the widescreen fix keeps the fov for
   float radToDeg = 0;         // 0x140A91E7A: the axis-angle builder turns its radians into degrees
   float quarterTurnDeg = 0;   // 0x140A91E99: ... and takes the cosine as the sine 90 degrees on
-  float fullTurnDeg = 0;      // 0x141F7B72F: SetCutOffset wraps rotY into [0, this)
   std::array<float, 513> sinTable{};  // 0x142655950 (lea 0x140A92D04): sin(i * 90 / 512 degrees), the table of 0x140A92C80
 };
 std::optional<PoseConstants> LoadPoseConstants(const PeImage& exe, std::string* err);

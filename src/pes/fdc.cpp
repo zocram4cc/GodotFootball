@@ -113,7 +113,6 @@ constexpr ConstSite kConstSites[] = {
     {&PoseConstants::wideAspect, 0x141F7B294, 0xF3, 0x10, 0x142609394},
     {&PoseConstants::radToDeg, 0x140A91E7A, 0xF3, 0x59, 0x14259BE40},
     {&PoseConstants::quarterTurnDeg, 0x140A91E99, 0xF3, 0x58, 0x14259BE5C},
-    {&PoseConstants::fullTurnDeg, 0x141F7B72F, 0xF3, 0x58, 0x14259858C},
 };
 
 bool ReadConstSite(const PeImage& exe, const ConstSite& s, float* out, std::string* err) {
@@ -529,12 +528,9 @@ CameraPose EvaluateCameraPose(const PoseConstants& k, const Canm& c, const Camer
   p.m = CameraMatrix(k, s.rotation);
   p.eye = s.position;
   p.eye[1] = p.eye[1] + heightOffsetM;  // 0x141F7B866
-  CutOffset off = rec.useCutOffset != 0 ? playerOffset : CutOffset{};
-  // SetCutOffset (0x141F7B700) keeps rotY wrapped once into [0, 360).
-  if (off.rotYDeg < 0.0f)
-    off.rotYDeg = off.rotYDeg + k.fullTurnDeg;
-  else if (off.rotYDeg >= k.fullTurnDeg)
-    off.rotYDeg = off.rotYDeg - k.fullTurnDeg;
+  // SetCutOffset (0x141F7B700) wraps rotY once into [0, 360); 0x140A92C80 wraps its input the same way, so
+  // the matrix cannot tell the wrapped from the unwrapped angle and the wrap is not repeated here.
+  const CutOffset off = rec.useCutOffset != 0 ? playerOffset : CutOffset{};
   if (off.flip) {  // 0x141F7B87D: m01, m02, m10, m20 and x times -1
     p.m[0][1] *= k.minusOne;
     p.m[0][2] *= k.minusOne;

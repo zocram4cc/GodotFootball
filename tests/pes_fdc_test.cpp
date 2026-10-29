@@ -816,9 +816,9 @@ TEST(PesFdcCutOffset, RotYTurnsTheEyeByTheAngleAboutWorldY) {
   }
 }
 
-TEST(PesFdcCutOffset, RotYIsWrappedOnceIntoZeroToThreeSixtyBeforeItTurnsTheShot) {
+TEST(PesFdcCutOffset, RotYOutsideZeroToThreeSixtyTurnsTheShotLikeItsWrappedAngle) {
   NEED_CONSTANTS(k);
-  // FixDemoCamera slot +0x60 (0x141F7B700): rotY < 0 gets +360, rotY >= 360 gets -360, once.
+  // FixDemoCamera slot +0x60 (0x141F7B700) stores rotY wrapped once into [0, 360): the shot cannot tell.
   const Canm c = HeldClip({0, 0, 0, 1}, {1, 0, 0, 1});
   CameraRecord rec;
   rec.useCutOffset = 1;
