@@ -84,6 +84,10 @@ CutRecord DecodeCut(const uint8_t* r, size_t n) {
   auto u8 = [&](size_t off) { return off < n ? r[off] : uint8_t(0); };
   CutRecord c;
   c.id = int32_t(u32(0x00));
+  c.minTime = f32(0x08);
+  c.maxTime = f32(0x0c);
+  c.playSpeed = f32(0x10);
+  c.functionNo = u32(0x38);
   c.useOffset = u8(0x19) != 0;
   for (size_t i = 0; i < 3; ++i) c.offsetPos[i] = f32(0x1c + 4 * i);
   c.offsetRotYDeg = f32(0x28);

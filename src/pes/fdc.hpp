@@ -65,6 +65,11 @@ struct TimingRecord {
 // record +0x19, +0x4C = +0x1C, +0x58 = +0x28, +0x5C = +0x2C; the node base is record - 0x30).
 struct CutRecord {
   int32_t id = 0;                        // +0x00: the player's cut map key
+  // The step length (0x141F2DD80 -> player+0x64, lines 195-199 of its decompile): node +0x38/+0x3C = record +0x08/+0x0C,
+  // node +0x40 = +0x10 (player+0xAA8 speed); the node base is record - 0x30. Ticks of 1/60 s.
+  float minTime = 0, maxTime = 0;        // +0x08, +0x0C
+  float playSpeed = 0;                   // +0x10
+  uint32_t functionNo = 0;               // +0x38: the function-number term 0x141F31D80 may override min/max (not decoded)
   bool useOffset = false;                // +0x19
   std::array<float, 3> offsetPos{};      // +0x1C
   float offsetRotYDeg = 0;               // +0x28
