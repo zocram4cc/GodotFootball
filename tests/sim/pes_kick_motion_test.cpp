@@ -325,6 +325,47 @@ TEST(PesKickMotion, TheLateralAndFirstSideTablesTakeTheirOwnGate) {
   EXPECT_EQ(row(8, w), 211);
 }
 
+TEST(PesKickMotion, TheActionRowTakesItsAlternativeOnlyWithTheActionBit) {
+  pes::KickMotionConstants k = Synthetic();
+  const pes::SituationConstants sc = SyntheticSituation();
+  k.clip[size_t((7 * pes::kClipBands + 0) * pes::kClipSides + 0)] = 0x86E;
+  pes::KickWorld w;
+  EXPECT_EQ(pes::KickRow(k, sc, 9, 7, 0, 0, 0.0f, false, false, &w), 0x86E);
+  w.actionBit = true;
+  EXPECT_EQ(pes::KickRow(k, sc, 9, 7, 0, 0, 0.0f, false, false, &w), 0x86F);
+}
+
+// PES's swap loop stops at the first row that matches, so a replacement that is itself a swap source is not swapped again.
+TEST(PesKickMotion, ASwapTableStopsAtTheFirstMatchingRow) {
+  pes::KickMotionConstants k = Synthetic();
+  const pes::SituationConstants sc = SyntheticSituation();
+  k.swapOddTick = {{100, 101}, {101, 102}};
+  k.clip[size_t((7 * pes::kClipBands + 0) * pes::kClipSides + 0)] = 100;
+  pes::KickWorld w;
+  w.tickOdd = true;
+  EXPECT_EQ(pes::KickRow(k, sc, 9, 7, 0, 0, 0.0f, false, false, &w), 101);
+}
+
+// The header ladder (kind-table byte +0xC under 2) turns a 120-degree kick to 0xD, the other ladder to 0xF.
+TEST(PesKickMotion, AKindTableByteOfOneIsAHeaderAndTwoIsNot) {
+  const pes::KickMotionConstants k = Synthetic();
+  pes::SituationConstants sc = SyntheticSituation();
+  sc.kindTable[5 * 16 + 12] = 1;
+  sc.kindTable[6 * 16 + 12] = 2;
+  EXPECT_EQ(pes::KickBucket(k, sc, 120.0f, 5, 0.0f), 0xD);
+  EXPECT_EQ(pes::KickBucket(k, sc, 120.0f, 6, 0.0f), 0xF);
+}
+
+// FUN_14071E6F0's flag A mirrors the angle of the two angle-keyed kinds (0x77, 0x78).
+TEST(PesKickMotion, FlagAMirrorsTheAngleOfTheAngleKeyedKinds) {
+  const pes::KickMotionConstants k = Synthetic();
+  const pes::SituationConstants sc = SyntheticSituation();
+  const int plain = pes::KickRow(k, sc, 9, 0x77, 0, 0, 90.0f, false, false, nullptr);
+  const int mirrored = pes::KickRow(k, sc, 9, 0x77, 0, 0, 90.0f, true, false, nullptr);
+  EXPECT_NE(plain, mirrored);
+  EXPECT_EQ(mirrored, pes::KickRow(k, sc, 9, 0x77, 0, 0, -90.0f, false, false, nullptr));
+}
+
 TEST(PesKickMotion, ADescriptorOfAMotionPastTheTableOrWithTooManyHitsIsTheCappedCount) {
   // HitData record: 108 bytes, word 0 bits 0..12 = motion - 0x11. Three records on one motion, cap 2.
   pes::MbinfoBins bins;
