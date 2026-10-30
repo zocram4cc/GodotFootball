@@ -1671,7 +1671,11 @@ class Emitter:
                 if tgt in self.pilot:
                     self.siblings.add(tgt)
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
-                return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
+                # Never a silent return: the caller would see a normal return where PES jumped into code the layer does not
+                # hold. A closure that runs the target pulls it in (snapdiff, driver.runnable_extra); one that remains aborts
+                # naming the VA when reached. (The `return;` stays a separate line: it is the basic-block terminator flow.py
+                # reads. Same text as NativeSeam's change, so the two merge.)
+                return ["/*OUT-OF-RANGE JMP %s*/ pes_dispatch_missing(%s);" % (tgt, tgt), "return;"]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
             info = ctx.get("jmpreg", {}).get(addr)
             if info and info.get("table") is not None:
