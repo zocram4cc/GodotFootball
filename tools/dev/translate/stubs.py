@@ -6,6 +6,8 @@ evidence for its model. Each entry's kind and model.op select one behaviour name
 implement:
 
   sqrt_xmm0  return-input: xmm0 = sqrtf(xmm0), IEEE-754 (x86 sqrtss NaN rules)
+  logf_xmm0  libm: xmm0 = logf(xmm0), the host C library (pes_model_logf; see stubs.json caveat for the ucrtbase gap)
+  powf_xmm0  libm: xmm0 = powf(xmm0, xmm1), the host C library (pes_model_powf; same caveat)
   noop       engine-noop: no effect on the success path; the call is dropped
   None       run-real kinds: the callee executes its image bytes, no stub
   unmodellable  blocked (see why): the function is not run
@@ -65,8 +67,7 @@ def load(path=DEFAULT):
     return table
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
-# libm (logf/powf) has no emitter yet, so it stays blocked, as before.
-MODEL_DOS = frozenset({"sqrt_xmm0", "noop", "abort"})
+MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "noop", "abort"})
 
 
 def models(table):
@@ -81,3 +82,23 @@ def check_spec_refs(spec, table, where):
         if e is None or e["do"] not in MODEL_DOS:
             got = "no entry" if e is None else "do=%s" % e["do"]
             raise SystemExit("%s: stub_refs %s disagrees with stubs.json (%s)" % (where, ref, got))
+
+
+# The ops a native service may name: each is a GF-native C++ implementation pes_native_<op> (pes_native.cpp).
+KNOWN_NATIVE_OPS = frozenset({"heap_alloc", "heap_free", "heap_owns", "heap_trim"})
+
+
+def natives(path=DEFAULT):
+    """{VA (int): op} for the stubs.json "native_services": PES VAs the production dispatch table sends to a GF-native
+    implementation. They are not in load()'s table: the harness never sees them and runs PES's bytes there."""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    out = {}
+    for e in data.get("native_services", []):
+        va = int(e["va"], 16)
+        if va in out or va in load(path):
+            raise SystemExit("stubs.json: native service %s is duplicated or also a stub" % e["va"])
+        if e["op"] not in KNOWN_NATIVE_OPS:
+            raise SystemExit("stubs.json: native service %s: unknown op %r" % (e["va"], e["op"]))
+        out[va] = e["op"]
+    return out

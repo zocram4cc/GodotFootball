@@ -1110,7 +1110,7 @@ bool AI_HasPossession(Ball* ball, Player* player) {
   // The ball's movement across one PES tick (Milestone A1: the 10 ms difference
   // became a record difference times the tick's rate in Hz).
   Vector3 ballMovement3D =
-      (pesball::TrackRecord(ball->GetTrack(), pesball::TrackIndexForMs(10.0), 1) -
+      (ball->TrackSample(pesball::TrackIndexForMs(10.0) + 1) -
        ball->Predict(0)) *
       pes::kPesTickHz;
   if ((ballMovement3D - playerMovement).GetLength() > 6.0f)

@@ -302,8 +302,9 @@ int AnnouncedAddedMinutes(const PesClockConstants& c, e_AddedTimePhase phase, fl
   return std::min(announced, kMaxAnnouncedAddedMinutes);  // report 3.1: at most 9
 }
 
-PesClock::PesClock(const PesClockConstants& constants, float matchMinutes)
+PesClock::PesClock(const PesClockConstants& constants, float matchMinutes, PeriodRecord& periodRecord)
     : constants(constants),
+      record(periodRecord),
       unitsPerFrame(PesUnitsPerFrame(constants, matchMinutes)),
       // The match's game time per logic frame, the law MatchDurationGameTimeFromRealMilliseconds uses.
       gameSecondsPerFrame(constants.matchSpeedBase / (constants.gameSpeed * matchMinutes)) {}

@@ -117,6 +117,8 @@ protected:
   void _AddPass(std::vector<PlayerCommand>& commandQueue, Player* target, e_FunctionType passType);
   void _AddPanicPass(std::vector<PlayerCommand>& commandQueue,
                           const std::vector<PlayerImage>& opponentPlayerImages);
+  // The clearance commands (a high ball, a shot, a long pass, all without a recipient) toward `direction`.
+  void _AddClearance(std::vector<PlayerCommand>& commandQueue, const Vector3& direction);
   float _GetPassingOdds(Player* targetPlayer, e_FunctionType passType,
                         const std::vector<PlayerImage>& opponentPlayerImages,
                         float ballVelocityMultiplier = 1.0f);
