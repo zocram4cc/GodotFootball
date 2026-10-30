@@ -33,6 +33,7 @@ import frame_trace as ft  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 
 EVENT_POS, RADIUS, CUT_LIST = 0x140476C50, 0x140474CF0, 0x140477BC0
+RECOMPUTE_LIST, BC_WRITER = 0x1404B6BD0, 0x1404B88B0
 DEMO_INFO_TO_A0 = 0x1E8
 CUT_STRIDE = 0x1C
 PAD = 0x400  # the synthetic call's scratch lives this far above rsp (the caller's dead frames)
@@ -141,6 +142,14 @@ def main():
                    patch=[(vec, blob), (data, struct.pack("<%dI" % n, *cuts))])
         regs = dict(base_regs, rcx=a0, rdx=vec, r8=ctx)  # 0x140477BC0(A0, std::vector<u32>* out, ctx): the list the builder makes
         write_snap(os.path.join(a.out, "cutlist", label), idx, CUT_LIST, "goal_cutlist_477BC0", mcall, regs,
+                   os.path.join(mem, "mem.bin"))
+        # The per-tick recompute's else arm (0x140471A80 with A0+0xBC not in {6, 8}): the list/scene/T builder
+        # 0x1404B6BD0(A0, std::vector<u32>* out, ctx), and the A0+0xBC writer 0x1404B88B0(A0, ctx).
+        regs = dict(base_regs, rcx=a0, rdx=vec, r8=ctx)
+        write_snap(os.path.join(a.out, "recompute_list", label), idx, RECOMPUTE_LIST, "goal_recompute_list_4B6BD0", mcall, regs,
+                   os.path.join(mem, "mem.bin"))
+        regs = dict(base_regs, rcx=a0, rdx=ctx)
+        write_snap(os.path.join(a.out, "bc_writer", label), idx, BC_WRITER, "goal_bc_writer_4B88B0", mcall, regs,
                    os.path.join(mem, "mem.bin"))
         print(label, json.dumps(expect[label]), flush=True)
         if a.oracle_cfg:
