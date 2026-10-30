@@ -56,16 +56,16 @@ void Put(KickMotionConstants* k, int kind, int side, const int16_t (&band)[kClip
   for (int b = 0; b < kClipBands; ++b) k->clip[size_t((kind * kClipBands + b) * kClipSides + side)] = band[b];
 }
 
-// Sub-type 1 (Idletable, the table's side 1): FUN_1406AA590 stores per record, bands 0..11.
-void IdleRecord(KickMotionConstants* k, const std::vector<uint8_t>& f, int kind) {
+// The Movetable.bin record (the table's side 1; FUN_1406AA590's stores at +2, +6, ..): bands 0..11 from the record's five words.
+void MovetableRecord(KickMotionConstants* k, const std::vector<uint8_t>& f, int kind) {
   const uint32_t w0 = Word(f, kind, 0), w1 = Word(f, kind, 1), w2 = Word(f, kind, 2), w3 = Word(f, kind, 3), w4 = Word(f, kind, 4);
   const int16_t band[kClipBands] = {Field12(w1, 0),  Field12(w0, 12), Field12(w2, 0),  Field12(w1, 12), Field12(w0, 0), Field11(w3, 0),
                                     Field12(w2, 12), Field11(w4, 0),  Bit(w1, 24),      Field11(w3, 11), Bit(w1, 26),    Bit(w1, 25)};
   Put(k, kind, 1, band);
 }
 
-// Sub-type 2 (Movetable, side 0).
-void MoveRecord(KickMotionConstants* k, const std::vector<uint8_t>& f, int kind) {
+// The Idletable.bin record (side 0; the stores at +0, +4, ..).
+void IdletableRecord(KickMotionConstants* k, const std::vector<uint8_t>& f, int kind) {
   const uint32_t w0 = Word(f, kind, 0), w1 = Word(f, kind, 1), w2 = Word(f, kind, 2), w3 = Word(f, kind, 3), w4 = Word(f, kind, 4);
   const int16_t band[kClipBands] = {Field12(w2, 12), Field12(w2, 0), Field12(w3, 12), Field12(w3, 0), Field12(w0, 12), Field12(w0, 0),
                                     Field12(w4, 12), Field12(w4, 0), Field12(w1, 12), Field12(w1, 0), Bit(w1, 25),     Bit(w1, 24)};
@@ -87,7 +87,7 @@ std::optional<KickMotionConstants> LoadKickMotionConstants(const PeImage& exe, c
       return std::nullopt;
     }
   }
-  for (int kind = 0; kind < kClipKinds; ++kind) IdleRecord(&k, *idle, kind), MoveRecord(&k, *move, kind);
+  for (int kind = 0; kind < kClipKinds; ++kind) IdletableRecord(&k, *idle, kind), MovetableRecord(&k, *move, kind);
   const std::pair<uint64_t, float*> floats[] = {
       {0x1425DBDC0, &k.n157}, {0x1425DBDBC, &k.n112}, {0x1425DBDB8, &k.n67},   {0x1425CFA50, &k.n22},       {0x14259D618, &k.p22},
       {0x1425CCA34, &k.p67},  {0x1425CB30C, &k.p112}, {0x1425E5B58, &k.cutE5B58}, {0x1425C65E8, &k.lateralKmh},
@@ -96,6 +96,11 @@ std::optional<KickMotionConstants> LoadKickMotionConstants(const PeImage& exe, c
   for (auto [va, out] : floats) ok = ok && ReadF(exe, va, out);
   ok = ok && ReadPairs(exe, kSwapOddVa, kSwapLateralVa, &k.swapOddTick) && ReadPairs(exe, kSwapLateralVa, kSwapFirstSideVa, &k.swapLateral) &&
        ReadPairs(exe, kSwapFirstSideVa, kSwapEndVa, &k.swapFirstSide);
+  // FUN_1406AE940 fills the default record with one entry per kind: `inc byte [rbx+1]` after the cap compare for kind 1.
+  constexpr uint64_t kDefaultHitIncVa = 0x1406AE9A4;
+  uint8_t inc[3];
+  if (ok && exe.ReadVa(kDefaultHitIncVa, sizeof inc, inc) && inc[0] == 0xFE && inc[1] == 0x43 && inc[2] == 0x01) k.defaultRecordHits = 1;
+  ok = ok && k.defaultRecordHits == 1;
   if (!ok) {
     *error = "kick motion: the angle cuts or swap tables are not in the exe";
     return std::nullopt;
@@ -236,9 +241,10 @@ int KickBucket(const KickMotionConstants& k, const SituationConstants& sc, float
   }
 }
 
-int KickMotionDescriptor(const Mbinfo& mbinfo, int motion) {
+int KickMotionDescriptor(const KickMotionConstants& k, const Mbinfo& mbinfo, int motion) {
   if (motion == kMotionE42) return kDescriptorE42;
   if (motion == kMotionF7C) return kDescriptorF7C;
+  if (motion >= kMotionSlots) return k.defaultRecordHits;  // the table's default record
   return mbinfo.HitCount(motion);
 }
 

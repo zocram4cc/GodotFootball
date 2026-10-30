@@ -51,6 +51,7 @@ struct KickMotionConstants {
   float runKmh = 0;      // 22.0 @0x1425C48C0: FUN_14071E6F0's run speed at row 0x809
   float ballRange = 0;   // 30000.0 @0x1425CD078
   float rangeDiv = 0;    // 3600.0 @0x142598590
+  int defaultRecordHits = 0;  // the motion table's default record (motions past 0x1124) holds one HitData entry: FUN_1406AE940 0x1406AE9A4
 };
 
 // Reads the clip table from the install's Idletable.bin and Movetable.bin (through the VFS winner) and the constants from the exe.
@@ -72,7 +73,7 @@ int KickMotion(const Animetable& table, int row, int column);
 // FUN_140723DE0(angle_deg, kind, req): the Animetable column (0..0x11) of a kick turned `angle_deg` off the body.
 int KickBucket(const KickMotionConstants& k, const SituationConstants& sc, float angle_deg, int kind, float req);
 
-// FUN_1406B0250(motion table, motion, 0): the motion record's byte 1.
-int KickMotionDescriptor(const Mbinfo& mbinfo, int motion);
+// FUN_1406B0250(motion table, motion, 0): the motion record's byte 1 (its HitData count).
+int KickMotionDescriptor(const KickMotionConstants& k, const Mbinfo& mbinfo, int motion);
 
 }  // namespace pes

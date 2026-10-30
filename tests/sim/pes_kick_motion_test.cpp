@@ -177,7 +177,7 @@ TEST(PesKickMotionOracle, TheDescriptorOfEveryMotionEqualsPes) {
   NEED_TSV(rows, "desc.tsv");
   int ones = 0, wrong = 0;
   for (const auto& r : rows) {
-    const int got = pes::KickMotionDescriptor(*in->mbinfo, std::stoi(r[0]));
+    const int got = pes::KickMotionDescriptor(in->k, *in->mbinfo, std::stoi(r[0]));
     ones += got == 1;
     if (got != std::stoi(r[1]) && ++wrong <= 10) ADD_FAILURE() << "motion " << r[0] << ": got " << got << " want " << r[1];
   }
@@ -208,7 +208,7 @@ TEST(PesKickMotionOracle, TheCapturedKickGivesPesMotionAndDescriptor) {
   EXPECT_EQ(row, std::stoi(c[8]));
   const int motion = pes::KickMotion(*in->table, row, std::stoi(c[2]));
   EXPECT_EQ(motion, std::stoi(c[6])) << "the motion PES's kicker plays";
-  EXPECT_EQ(pes::KickMotionDescriptor(*in->mbinfo, motion), std::stoi(c[7]));
+  EXPECT_EQ(pes::KickMotionDescriptor(in->k, *in->mbinfo, motion), std::stoi(c[7]));
 }
 
 // ---- relations that hold on any install ------------------------------------------------------------------------------------
@@ -296,11 +296,14 @@ TEST(PesKickMotion, ADescriptorOfAMotionPastTheTableOrWithTooManyHitsIsTheCapped
   std::string err;
   auto m = pes::ParseMbinfo(bins, caps, &err);
   ASSERT_TRUE(m) << err;
-  EXPECT_EQ(pes::KickMotionDescriptor(*m, 0x31), 2) << "PES's builder drops the record past the cap";
-  EXPECT_EQ(pes::KickMotionDescriptor(*m, 0x32), 0);
-  EXPECT_EQ(pes::KickMotionDescriptor(*m, -1), 0);
-  EXPECT_EQ(pes::KickMotionDescriptor(*m, 0xE42), 0x22) << "FUN_1406B0250 answers these two motions without a record";
-  EXPECT_EQ(pes::KickMotionDescriptor(*m, 0xF7C), 0x18);
+  pes::KickMotionConstants k;
+  k.defaultRecordHits = 1;
+  EXPECT_EQ(pes::KickMotionDescriptor(k, *m, 0x31), 2) << "PES's builder drops the record past the cap";
+  EXPECT_EQ(pes::KickMotionDescriptor(k, *m, 0x32), 0);
+  EXPECT_EQ(pes::KickMotionDescriptor(k, *m, -1), 0);
+  EXPECT_EQ(pes::KickMotionDescriptor(k, *m, 0x1125), 1) << "past the table: the default record's one entry";
+  EXPECT_EQ(pes::KickMotionDescriptor(k, *m, 0xE42), 0x22) << "FUN_1406B0250 answers these two motions without a record";
+  EXPECT_EQ(pes::KickMotionDescriptor(k, *m, 0xF7C), 0x18);
 }
 
 }  // namespace
