@@ -666,7 +666,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
     _sp.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"),
              "--out", gen, "--vas"] + sorted(need), check=True)
     bin_p = os.path.join(gen, "d_%s" % tag)
-    objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need] + [os.path.join(gen, "pes_dispatch_gen.cpp")]
     rc, _, err = sh([args.cxx, "-std=c++20", "-O1", "-I", gen, "-o", bin_p,
                      main_p] + objs, timeout=300)
     if rc != 0:

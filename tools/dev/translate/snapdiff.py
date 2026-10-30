@@ -150,7 +150,7 @@ def build_binary(va, spec, args, pilot, reached):
     subprocess.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"), "--out", gen, "--vas"]
                    + sorted(need), check=True)
     bin_p = os.path.join(gen, "snapdiff_%s" % tag)
-    srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need] + [os.path.join(gen, "pes_dispatch_gen.cpp")]
     trace = ["-include", os.path.join(HERE, "lockstep_trace.h")] if os.environ.get("GF_XLATE_TRACE") else []
 
     def compile_one(src):

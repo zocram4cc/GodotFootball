@@ -238,3 +238,9 @@ set_tests_properties(translate_setcc_store_test PROPERTIES SKIP_RETURN_CODE 77 T
 add_test(NAME translate_select_recorded_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_select_recorded.py)
 set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
+
+# Adding one translated function must not recompile the layer: no pes_fn TU includes translated.hpp or the dispatch
+# table, and one added member changes only its TU, translated.hpp and pes_dispatch_gen.cpp. Plain python3.
+add_test(NAME translate_layer_headers_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_layer_headers.py)
+set_tests_properties(translate_layer_headers_test PROPERTIES TIMEOUT 300)
