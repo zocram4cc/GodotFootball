@@ -7,10 +7,11 @@ before the block (decompile 0x14210F110; addresses are the instructions the hook
   0x14210F455  pressure record P = 0x14069A3E0(BP+0x2210, 0xFF): P+0x30 and P+0x34 (P+0x30 != 0 and P+0x34 > 1 goes straight to the block)
   0x14210F465  BP+0xE4 (nonzero skips the event test)
   0x14210F4AB  0x141052E30(BP+0x32B0) (zero goes to the block)
-  0x14210F4BF  the previous decision record BP+0x4204 (type; 3 = dribble) and BP+0x420C (its age)
-  0x14210F4E8  0x140481B00(BP+0x3380, BP+0x4210): the angle between the carrier's facing and that decision, against 60.0
-               (0x14259A764); below it (previous decision a dribble of age > 2) the unit stands down, the block is skipped.
-The block is reached when the pressure record says so, or the event/32B0/4204 tests fail, or the angle is >= 60.0.
+  0x14210F4BF  the dribble proposal record BP+0x4204 (written each step by 0x14211D710): type (3 = dribble) and its word +8
+               (BP+0x420C, the dribble sub-kind; must be > 2)
+  0x14210F4E8  0x140481B00(BP+0x3380, BP+0x4210): the turn distance between the turn reference BP+0x3380 and the record's +0xC
+               word, against 60.0 (0x14259A764); below it the unit stands down and the block is skipped.
+The block is reached when the pressure record says so, or the event/32B0/4204 tests fail, or the distance is >= 60.0.
 
 Usage: PES_EXE=<pes_full.bin> python3 walk_gates.py HOOKS_CFG SCRATCH_DIR CAPTURE_DIR [CAPTURE_DIR ...]   (harness Python: unicorn)
 SCRATCH_DIR receives each replay's trace (outputs are PES-derived: keep it out of the repo).

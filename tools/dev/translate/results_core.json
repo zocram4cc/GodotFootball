@@ -95106,8 +95106,8 @@
      "total": 366
     },
     "0x142109EB0": {
-     "fraction": 0.5,
-     "reached": 2,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     }
    },
@@ -95117,18 +95117,18 @@
    "failure_class": null,
    "icount_max": 10,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-EndClear3.md \u00a72); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "note": "proof snapdiff: every real call replayed bit-exact. 14 calls: pes-port-ForcedClearReal.md section 1 (12 danger-predicated captures live2 pid483669 seq8889, 11497, 13209, 14088, 15049, 17213, 18365, 20019, 20021, 20023, 20026, 20029: the danger-1 arm, own-block 4/4) plus pid407792 seq019, seq047 (danger-0; pes-port-EndClear3.md section 2, whose other three captures are no longer on disk); the unicorn harness has no corpus for it, so driver --check does not re-run it",
    "proof": "snapdiff",
    "requested": 64,
    "snapdiff": {
-    "calls": 5,
+    "calls": 14,
     "mismatches": 0,
     "own_block": {
-     "fraction": 0.5,
-     "reached": 2,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     },
-    "replayed": 5,
+    "replayed": 14,
     "source": "tools/dev/translate/results_endclear_clear.json"
    },
    "stubs": [],

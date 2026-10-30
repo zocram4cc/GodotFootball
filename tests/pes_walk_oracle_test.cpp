@@ -103,9 +103,10 @@ TEST_F(WalkOracle, TheClearArmKeysOnTheClearRecordsType) {
   EXPECT_GT(realChecked, 0) << "no real Clear-arm state in the oracle set";
 }
 
-// The list GF writes is PES's list: read each capture's list back (count, kinds, the record at each kind's slot), rewrite it with
-// SetUnitList over a zeroed list region, and the walk must still return PES's kind. A wrong rank byte or a record at the wrong
-// slot changes the walk's order or its answers.
+// The list GF writes is PES's list: read each capture's list from the capture's own memory (count, kinds, the record at each
+// kind's slot; the window holds only the bytes the walk read, and the Clear arm's chain reads a kind's record without reading its
+// position, as seq15049's kind 6), rewrite it with SetUnitList over a zeroed list region, and the walk must still return PES's
+// kind. A wrong rank byte or a record at the wrong slot changes the walk's order or its answers.
 TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
   for (const std::string& dir : dirs_) {
     Oracle o;
@@ -114,25 +115,27 @@ TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
     Built b;
     Build(o, b, true, true);
     uint8_t* list = b.world->Carrier(b.side) + pes::kBpListOffset;
+    const uint64_t pesList = o.regs.at("rcx") + pes::kBpListOffset;
+    std::vector<uint8_t> captured(pes::kListBytes);
+    for (std::size_t at = 0; at < captured.size(); ++at) captured[at] = static_cast<uint8_t>(Read(o, pesList + at, 1));
     std::vector<pes::PesWorld::WalkEntry> entries;
-    for (uint32_t position = 0, count = LoadU32(list, 0); position < count; ++position) {
+    for (uint32_t position = 0, count = LoadU32(captured.data(), 0); position < count; ++position) {
       pes::PesWorld::WalkEntry e;
-      e.kind = LoadU32(list, sizeof(uint32_t) * (1 + position));
-      std::copy_n(KindRecord(*b.world, b.side, e.kind), e.record.size(), e.record.begin());
+      e.kind = LoadU32(captured.data(), sizeof(uint32_t) * (1 + position));
+      std::copy_n(captured.begin() + pes::kListRecordOffset + pes::kListRecordStride * e.kind, e.record.size(), e.record.begin());
       entries.push_back(e);
     }
-    const std::vector<uint8_t> captured(list, list + pes::kListBytes);
     ASSERT_FALSE(entries.empty()) << dir;
     b.world->SetUnitList(b.side, entries);
-    // PES's own list bytes: the count, the kinds, every rank byte (-1 unlisted) and each listed kind's record.
+    // PES's own list bytes: the count, the kinds, every single-listed kind's rank byte and each listed kind's record.
     for (std::size_t at = 0; at < sizeof(uint32_t) * (1 + entries.size()); ++at) EXPECT_EQ(list[at], captured[at]) << dir << " list+" << at;
-    // A rank byte is the kind's position in the list (PES's own bytes, where the call read them: the rest of the window is zero).
-    // PES's list can name a kind twice (seq5878 lists kind 0 at two positions); GF's builder never does, so only single kinds count.
+    // A rank byte is the kind's position in the list. PES's list can name a kind twice (seq5878 lists kind 0 at two positions); GF's
+    // builder never does, so only single kinds count.
     for (std::size_t position = 0; position < entries.size(); ++position) {
       const uint32_t kind = entries[position].kind;
       if (std::count_if(entries.begin(), entries.end(), [kind](const auto& e) { return e.kind == kind; }) != 1) continue;
       const std::size_t at = pes::kListRankOffset + kind;
-      EXPECT_TRUE(captured[at] == position || captured[at] == 0) << dir << " captured rank of kind " << kind;
+      EXPECT_EQ(captured[at], position) << dir << " captured rank of kind " << kind;
       EXPECT_EQ(list[at], position) << dir << " rank of kind " << kind;
     }
     for (const auto& e : entries)
