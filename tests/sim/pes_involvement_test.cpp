@@ -46,7 +46,7 @@ void StageFoulStop(PesWorld& world, float spotX, float spotZ) {
   StoreU32(mi, kMiFoulKindOffset, kDirectFoulKind);
   StoreU32(mi, kMiFoulerOffset, kFoulerSlot);
   StoreU32(mi, kMiVictimOffset, kVictimSlot);
-  world.SetBall(spotX, spotZ);
+  for (int j = 0; j < pes::kBallSampleCount; ++j) world.SetBallSample(j, spotX, 0.0f, spotZ);  // a ball at rest on the spot
   world.SetAttackSign(kTeamZero, kAttackSignPositive);
 }
 

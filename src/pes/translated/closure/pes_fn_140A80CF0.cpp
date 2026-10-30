@@ -10,6 +10,7 @@
 
 
 void pes_fn_140A80CF0(PesState& s);
+void pes_fn_140A80C50(PesState& s);
 
 void pes_fn_140A80CF0(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[1]) & (uint64_t)(s.gpr[1])) & 0xFFFFFFFFFFFFFFFFULL;
@@ -24,5 +25,5 @@ void pes_fn_140A80CF0(PesState& s) {
   return;
   L_140A80CF8:;
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[1]) + (0xE0ULL)), 8));
-  /*OUT-OF-RANGE JMP 0x140A80C50*/return;
+  { pes_fn_140A80C50(s); return; }
 }

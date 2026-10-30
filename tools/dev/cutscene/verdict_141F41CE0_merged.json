@@ -1,0 +1,75 @@
+{
+ "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 0,
+ "results": [
+  {
+   "va": "0x141F41CE0",
+   "calls": 12,
+   "replayed": 2,
+   "excluded": 10,
+   "reasons": {
+    "case excluded": 10
+   },
+   "snapshots": {
+    "seq010": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq011": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq075": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "pid1467004_seq007": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid1694737_seq009": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq084": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq102": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq115": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq119": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq123": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq127": {
+     "calls": 1,
+     "replayed": 0
+    },
+    "seq134": {
+     "calls": 1,
+     "replayed": 0
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "blocked closure (harness excludes cases entering it): call 141F500D0: global store qword ptr [rip + 0x18a5c33], r at 141F50116; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qwo",
+   "own_block": {
+    "reached": 22,
+    "total": 32,
+    "fraction": 0.6875
+   },
+   "proven": false,
+   "blocked_callees": []
+  }
+ ]
+}

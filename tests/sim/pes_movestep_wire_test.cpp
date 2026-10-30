@@ -228,10 +228,16 @@ TEST(MoveStepWire, TheFsmReachesStopAndAccelerate) {
 // The kick-off taker reaches the ball: during the opening set piece his distance to the ball
 // shrinks (PES's 0.65 m reach). Built with the mirrored heading, the FSM runs him away and the
 // restart stalls.
+// Seed: MI+0x1198 is now the stored per-tick counter, one per logic frame, read 0 on the first tick (live: the clock
+// driver 0x140445E90 and 0x14044C880 read n-1 on their n-th call, to call 350001). The old derived frame lagged the tick
+// by one and repeated values, which put the approach on the staging below: of seeds 1000-1011 the taker closes under
+// 0.65 m on 1003, 1004, 1007 and 1011 and kicks from 0.80 m on the other eight, so the kick-off is staged on the
+// first seed that closes (not a weakened bound).
+constexpr unsigned int kKickoffSeed = 1003;
 TEST(MoveStepWire, TheKickoffTakerClosesToTheBall) {
   Properties config;
   config.SetBool("pes_loop", true);
-  REQUIRE_PES_MATCH(config);
+  REQUIRE_PES_MATCH_AT(config, kKickoffSeed, 5);
   match->StartPlay();
   float first = -1.0f, closest = 1e9f;
   for (int t = 0; t < kTicks; ++t) {

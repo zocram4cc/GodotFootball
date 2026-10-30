@@ -16,6 +16,7 @@
 #include "pessequencer.hpp"
 #include "goalsequence.hpp"
 #include "match.hpp"
+#include "pescarrier.hpp"
 #include "officials.hpp"
 #include "player/playerofficial.hpp"
 #include "matchprogression.hpp"
@@ -1174,8 +1175,12 @@ int Referee::JudgeContact(Player* tripee, Player* tripper, pes::ContactAction fo
 void Referee::StagePesField() {
   pes::PesWorld& world = match->PesWorldOf();
   world.SetFieldInfo(static_cast<float>(pitchHalfW + lineHalfW), static_cast<float>(pitchHalfH + lineHalfW));
-  for (int team = 0; team < pes::kSideCount; ++team)
-    world.SetAttackSign(team, static_cast<int>(-match->GetTeam(team)->GetSide()));
+  // The side records' attack sign (T+0x254) and attack angle (T+0x250; PES's 0x1404FEBD0 stores the angle the sign picks).
+  for (int team = 0; team < pes::kSideCount; ++team) {
+    const float sign = static_cast<float>(-match->GetTeam(team)->GetSide());
+    world.SetAttackSign(team, static_cast<int>(sign));
+    world.SetAttackAngle(team, pes::AttackAngleDeg(sign));
+  }
 }
 
 float Referee::NearestToBall_m(Team* team) const {

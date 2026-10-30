@@ -13,6 +13,7 @@ static constexpr uint64_t k_c14252FA28_q = 0x00006FFFFA6CAD50ULL;
 static constexpr double k_c14252FA28_d = 6.0841817103142e-310; // 6.0841817103142e-310
 
 void pes_fn_141F533D0(PesState& s);
+void pes_fn_141F531A0(PesState& s);
 
 void pes_fn_141F533D0(PesState& s) {
   s.gpr[4] -= 8;
@@ -167,7 +168,7 @@ void pes_fn_141F533D0(PesState& s) {
     s.gpr[4] = (uint64_t)(_r);
   }
   s.gpr[7] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
-  /*OUT-OF-RANGE JMP 0x141F531A0*/return;
+  { pes_fn_141F531A0(s); return; }
   L_141F53482:;
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);

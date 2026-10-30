@@ -1110,111 +1110,6 @@ float PlanHeadingDeg(int mode, float carrierX, float carrierZ, float attackSign,
   return BearingDeg(p, q);
 }
 
-// PES's list order is the table order the list builder writes (0x1421112c0); the walk reads it.
-namespace {
-
-constexpr int kAnswerClear = 5;    // type 5: the clear (0x142109eb0)
-constexpr int kAnswerRequest = 7;  // type 7: the pass to a requester (RespondRequest)
-
-const UnitSlot* FindSlot(const std::vector<UnitSlot>& table, int kind) {
-  for (const UnitSlot& s : table) {
-    if (s.kind == kind) return &s;
-  }
-  return nullptr;
-}
-
-// Rule 3, the first-time gate (report 5): off unless the tier gate is on.
-bool FirstTimeAccept(const UnitSlot& s, const WalkContext& c) {
-  if (!c.firstTimeGate) return true;
-  const int t = s.answer.type;
-  return (c.ballHeightOk || ((t != kAnswerShoot || c.skill11) && t != kAnswerClear)) &&
-         (t != kAnswerPass || c.skill12);
-}
-
-// Rule 5, the restart vetoes: MI+0x1775 in {3, 9, 10} skips passes and clears, and the stopped mode
-// (MI+0x116C == 2) accepts only passes.
-bool RestartAccept(const UnitSlot& s, const WalkContext& c) {
-  const int t = s.answer.type;
-  const bool vetoState = c.restartState == 3 || c.restartState == 9 || c.restartState == 10;
-  if (vetoState && (t == kAnswerPass || t == kAnswerClear)) return false;
-  return c.restartMode != 2 || t == kAnswerPass;
-}
-
-// The set-piece tail (0x14210f110 L141-157): a carrier who is not the designated kicker is free;
-// the kicker takes shots and clears, and passes only where the pass gate allows.
-bool SetPieceAccept(const UnitSlot& s, const WalkContext& c) {
-  if (!c.carrierIsKicker) return true;
-  const int t = s.answer.type;
-  if (t == kAnswerShoot || t == kAnswerClear) return true;
-  return (t == kAnswerPass || t == kAnswerRequest) && c.passAllowedInSetPiece;
-}
-
-// Rule 10, the final ownership check (0x14210F110 L641-645): the ball's owner unknown, a teammate,
-// or the answer is a dribble.
-bool OwnerAccept(const UnitSlot& s, const WalkContext& c) {
-  if (c.ballOwnerTeam < 0 || c.ballOwnerTeam == c.ownTeam) return true;
-  return s.answer.type == kAnswerDribble;
-}
-
-// Rule 7's Safety proviso: a back-pass to the keeper stands when owned or the
-// keeper is within 90 degrees of the body direction.
-bool SafetyAccept(const WalkContext& c) {
-  return !c.safetyToKeeper || c.owned || c.keeperWithinNinety;
-}
-
-// Rule 8's pass-kind vetoes (carunits5.c:393,421): Safety dies in the close
-// band, Forward dies on an instant return to the last passer, and a dribble
-// answer survives only from the Dribble kind itself.
-bool PassVeto(const UnitSlot& s, const WalkContext& c) {
-  if (s.answer.type != kAnswerPass && s.answer.type != kAnswerDribble) return false;
-  if (s.kind == 6 && s.answer.type == kAnswerPass && c.closeBand) return true;
-  if (s.kind == 4 && s.answer.type == kAnswerPass && c.forwardIsInstantReturn) return true;
-  if (s.answer.type == kAnswerDribble && s.kind != 16) return true;
-  return false;
-}
-
-}  // namespace
-
-bool ForwardIsInstantReturn(int forwardTarget, int passer, bool passedToCarrier, float secondsSincePass) {
-  // ponytail: the window is PES's 2 * int(54) frames at the 54 Hz game speed (carunits5.c:421).
-  constexpr float kInstantReturnWindow_s = 2.0f;
-  return passedToCarrier && passer >= 0 && forwardTarget == passer &&
-         secondsSincePass < kInstantReturnWindow_s;
-}
-
-UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c) {
-  for (const UnitSlot& s : table) {
-    const int t = s.answer.type;
-    if (t == kAnswerNone) continue;
-    if (c.restartMode != 3) {  // the open-play body (set pieces skip it, L122)
-      if (s.kind == 22) return s;                                    // rule 1
-      if (!FirstTimeAccept(s, c) || !RestartAccept(s, c)) continue;  // rules 3 and 5
-      if (t == kAnswerShoot && !c.closeBand) {                       // rule 6
-        const UnitSlot* back = FindSlot(table, 3);
-        if (back != nullptr && back->answer.type != kAnswerNone) return *back;
-      }
-      if (t == kAnswerClear && !c.forcedClear) {  // rule 7: the first listed
-        for (const int kind : {3, 4, 9, 6}) {     // 3, 4, 9, 6 that answers
-          const UnitSlot* pass = FindSlot(table, kind);  // replaces the clear
-          if (pass == nullptr || pass->answer.type == kAnswerNone) continue;
-          if (kind == 6 && !SafetyAccept(c)) continue;
-          return *pass;
-        }
-      }
-      if (PassVeto(s, c)) continue;  // rule 8
-      // Rule 9: a cross override for a pass or dribble from a kind other than 7, 8 and 23.
-      if ((t == kAnswerPass || t == kAnswerDribble) && c.skill14 && s.kind != 7 && s.kind != 8 &&
-          s.kind != 23) {
-        const UnitSlot* cross = FindSlot(table, 7);
-        if (cross != nullptr && cross->answer.type != kAnswerNone) return *cross;
-      }
-    }
-    const bool accepted = c.restartMode == 1 ? OwnerAccept(s, c) : SetPieceAccept(s, c);
-    if (accepted) return s;
-  }
-  return UnitSlot{};
-}
-
 PassAnswer PassLongUnit(const LongUnitInput& in, const CarrierConstants& k) {
   (void)k;
   // The head gate: owned, or the danger flag with the ball below 1.5 m.
@@ -2418,23 +2313,45 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
                                     const PassAnswer& backSpace, const PassAnswer& safety,
-                                    const PassAnswer& oneTwo, const PassAnswer& directHigh) {
+                                    const PassAnswer& oneTwo, const PassAnswer& directHigh,
+                                    const CarrierAnswer& clear) {
   std::vector<UnitSlot> table;
   for (const int kind : kinds) {
     UnitSlot slot;
     slot.kind = kind;
+    const auto pass = [&slot](const PassAnswer& a) { slot.answer = {kAnswerPass, a.kind, 0.0f, a.index, a.oneTouch}; };
     if (kind == 0 && shotAnswer) slot.answer = {kAnswerShoot, 1};
-    if (kind == 4 && fwd.index >= 0) slot.answer = {kAnswerPass, fwd.kind};
-    if (kind == 9 && lng.index >= 0) slot.answer = {kAnswerPass, lng.kind};
-    if (kind == 7 && cross.index >= 0) slot.answer = {kAnswerPass, cross.kind};
-    if (kind == 2 && goalFront.index >= 0) slot.answer = {kAnswerPass, goalFront.kind};
-    if (kind == 3 && backSpace.index >= 0) slot.answer = {kAnswerPass, backSpace.kind};
-    if (kind == 6 && safety.index >= 0) slot.answer = {kAnswerPass, safety.kind};
-    if (kind == 10 && oneTwo.index >= 0) slot.answer = {kAnswerPass, oneTwo.kind};
-    if (kind == 11 && directHigh.index >= 0) slot.answer = {kAnswerPass, directHigh.kind};
+    if (kind == 1) slot.answer = clear;
+    if (kind == 4 && fwd.index >= 0) pass(fwd);
+    if (kind == 9 && lng.index >= 0) pass(lng);
+    if (kind == 7 && cross.index >= 0) pass(cross);
+    if (kind == 2 && goalFront.index >= 0) pass(goalFront);
+    if (kind == 3 && backSpace.index >= 0) pass(backSpace);
+    if (kind == 6 && safety.index >= 0) pass(safety);
+    if (kind == 10 && oneTwo.index >= 0) pass(oneTwo);
+    if (kind == 11 && directHigh.index >= 0) pass(directHigh);
     table.push_back(slot);
   }
   return table;
+}
+
+std::array<uint8_t, 0x1C> EncodeAnswerRecord(const CarrierAnswer& answer) {
+  constexpr uint32_t kNoId = 0x19;
+  std::array<uint8_t, 0x1C> record{};
+  const auto store32 = [&record](size_t at, uint32_t v) { std::memcpy(record.data() + at, &v, sizeof v); };
+  if (answer.type == kAnswerNone) return record;
+  store32(0, static_cast<uint32_t>(answer.type));
+  store32(4, kNoId);
+  if (answer.type == kAnswerClear) {
+    std::memcpy(record.data() + 8, &answer.angle_deg, sizeof(float));
+  } else if (answer.type == kAnswerPass) {
+    store32(8, static_cast<uint32_t>(answer.target));
+    store32(0xC, static_cast<uint32_t>(answer.sub));
+    record[0x10] = answer.oneTouch ? 1 : 0;
+  } else {
+    store32(8, static_cast<uint32_t>(answer.sub));
+  }
+  return record;
 }
 
 // A lane unit's answer names a lane slot (own team 0..10, opponents 11..21, each side in its active-list order); the
@@ -2445,6 +2362,17 @@ int LaneSlotToGlobalId(int slot, const std::vector<int>& ownIds, const std::vect
     const int j = slot - lane::kSideSize;
     return j < static_cast<int>(oppIds.size()) ? oppIds[j] : -1;
   }
+  return -1;
+}
+
+int ReceiverPesSlot(int index, bool isLane, const std::vector<int>& ownIds, const std::vector<int>& oppIds,
+                    const std::vector<int>& ownPesSlots, const std::vector<int>& oppPesSlots) {
+  const int id = isLane ? LaneSlotToGlobalId(index, ownIds, oppIds) : index;
+  if (id < 0) return -1;
+  for (std::size_t j = 0; j < ownIds.size() && j < ownPesSlots.size(); ++j)
+    if (ownIds[j] == id) return ownPesSlots[j];
+  for (std::size_t j = 0; j < oppIds.size() && j < oppPesSlots.size(); ++j)
+    if (oppIds[j] == id) return oppPesSlots[j];
   return -1;
 }
 

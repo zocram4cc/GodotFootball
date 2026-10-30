@@ -12,6 +12,7 @@
 void pes_fn_141B55850(PesState& s);
 void pes_fn_1403FB710(PesState& s);
 void pes_fn_1403FB730(PesState& s);
+void pes_fn_141B558F0(PesState& s);
 void pes_fn_141B55F40(PesState& s);
 
 void pes_fn_141B55850(PesState& s) {
@@ -86,7 +87,7 @@ void pes_fn_141B55850(PesState& s) {
     s.gpr[4] = (uint64_t)(_r);
   }
   s.gpr[3] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
-  /*OUT-OF-RANGE JMP 0x141B558F0*/return;
+  { pes_fn_141B558F0(s); return; }
   L_141B558BF:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0])), 8));
   { uint64_t _t = (uint64_t)(s.rd(((s.gpr[0]) + (0x38ULL)), 8)); PesDispatch _d = pes_dispatch_lookup(_t);

@@ -10,6 +10,7 @@
 
 
 void pes_fn_1403FB5B0(PesState& s);
+void pes_fn_1403FB4F0(PesState& s);
 
 void pes_fn_1403FB5B0(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1])), 4));
@@ -37,7 +38,7 @@ void pes_fn_1403FB5B0(PesState& s) {
   if (s.cond("z")) goto L_1403FB5D9;
   L_1403FB5D1:;
   s.gpr[1] = (uint64_t)(s.gpr[0]);
-  /*OUT-OF-RANGE JMP 0x1403FB4F0*/return;
+  { pes_fn_1403FB4F0(s); return; }
   L_1403FB5D9:;
   return;
 }

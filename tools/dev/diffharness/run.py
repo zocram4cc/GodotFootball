@@ -13,6 +13,8 @@ Usage:
   run.py --check-spec --exe PATH --spec specs/<fn>.json
 """
 import argparse
+import ctypes
+import ctypes.util
 import json
 import math
 import os
@@ -144,6 +146,29 @@ def sqrt_f32_bits(b):
     if x < 0.0:
         return 0xFFC00000  # default QNaN, sign set
     return struct.unpack("<I", struct.pack("<f", math.sqrt(x)))[0]
+
+
+_LIBM = ctypes.CDLL(ctypes.util.find_library("m"))
+_LIBM.logf.restype, _LIBM.logf.argtypes = ctypes.c_float, [ctypes.c_float]
+_LIBM.powf.restype, _LIBM.powf.argtypes = ctypes.c_float, [ctypes.c_float, ctypes.c_float]
+
+
+def _f32(b):
+    return struct.unpack("<f", struct.pack("<I", b))[0]
+
+
+def _bits(f):
+    return struct.unpack("<I", struct.pack("<f", f))[0]
+
+
+def logf_f32_bits(b):
+    """Bits of logf(x) for the float with bits b (the logf_xmm0 hook's model: the host C library, as pes_model_logf)."""
+    return _bits(_LIBM.logf(_f32(b)))
+
+
+def powf_f32_bits(b, e):
+    """Bits of powf(x, y) for the floats with bits b, e (the powf_xmm0 hook's model, as pes_model_powf)."""
+    return _bits(_LIBM.powf(_f32(b), _f32(e)))
 
 
 def resolve_stubs(spec):
@@ -575,6 +600,15 @@ def install_hooks(mu, spec, RET_SENTINEL):
             xmm = uc.reg_read(reg_const("xmm0"))
             uc.reg_write(reg_const("xmm0"),
                          (xmm & ~0xFFFFFFFF) | sqrt_f32_bits(xmm & 0xFFFFFFFF))
+        elif kind == "logf_xmm0":
+            # libm (stubs.json, op logf): xmm0 low float = logf(xmm0); bits 32-127 kept.
+            xmm = uc.reg_read(reg_const("xmm0"))
+            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | logf_f32_bits(xmm & 0xFFFFFFFF))
+        elif kind == "powf_xmm0":
+            # libm (stubs.json, op powf): xmm0 low float = powf(xmm0, xmm1); bits 32-127 of xmm0 kept.
+            xmm = uc.reg_read(reg_const("xmm0"))
+            e = uc.reg_read(reg_const("xmm1")) & 0xFFFFFFFF
+            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | powf_f32_bits(xmm & 0xFFFFFFFF, e))
         else:
             uc._bad = "stub %s has unknown do=%s" % (name, kind)
             uc.emu_stop()

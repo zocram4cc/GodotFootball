@@ -200,6 +200,13 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   for (int slot = 0; slot < pes::kSlotCount; ++slot) pesWorld->BindSlot(slot);
   for (int official = 0; official < pes::kOfficialCount; ++official)
     pesWorld->BindOfficial(pes::kRefereeOfficialIndex + official);
+  // The pitch record F (G+0x2AA8's target), F[k] at +4k, from GF's field constants (gametypes.hpp, pes-re-fieldinfo.md). PES
+  // fills it from its stadium's FieldInfo; GF's pitch is fixed, so this is the one write.
+  const float pitchFields[pes::kPitchFieldCount] = {
+      pesFieldHalfLength, pesFieldHalfWidth, pesGoalInnerHalfWidth, pesGoalInnerHeight, pesGoalAreaLineX, pesGoalAreaHalfWidth,
+      pesPenaltyAreaLineX, pesPenaltyAreaHalfWidth, pesPenaltySpotX, pesNetHeight, pesFieldF10, pesFieldF11, pesFieldF12,
+      pesNetRoofBackX, pesNetFloorBackX, pesCrossbarThickness, pesPostThickness, pesCircleRadius};
+  for (int k = 0; k < pes::kPitchFieldCount; ++k) pesWorld->SetPitchField(k, pitchFields[k]);
   // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md). Required:
   // the event stage routes every record through the table.
   if (setup.pesEventRingTable == nullptr || setup.pesEventConstants == nullptr)
@@ -304,6 +311,12 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES mark table constants missing: read them from the install with "
         "pes::marktable::LoadMarkTableConstants into MatchSetup::pesMarkTableConstants");
   pesMarkTableConstants = *setup.pesMarkTableConstants;
+  // The install's table bytes the window's translated runs read (pesimagetables.hpp).
+  if (setup.pesImageTables == nullptr)
+    throw std::runtime_error(
+        "PES image tables missing: read them from the install with "
+        "pes::LoadPesImageTables into MatchSetup::pesImageTables");
+  pesWorld->BindImageTables(*setup.pesImageTables);
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);
@@ -511,9 +524,7 @@ void Match::AdvanceMatchFrames(uint32_t frames) {
   if (pesLoop) pesClock->AccrueStoppageLimit(frames);
 }
 
-int Match::GetPesFrame() const {
-  return pes::PesFrameOf(actualTime_ms, static_cast<int>(GetPesClockConstants().gameSpeed));
-}
+int Match::GetPesFrame() const { return static_cast<int>(pesWorld->MatchFrame()); }
 
 int Match::PesRestartKind() const {
   return referee ? pes::RestartKindOf(referee->GetBuffer().desiredSetPiece) : 0;
@@ -532,7 +543,7 @@ void Match::ResetSituation(const Vector3& focusPos) {
     lastTouchTeamIDs[i] = -1;
   }
   lastTouchTeamID = -1;
-  pesEvents.Reset();
+  pesWorld->Events().Reset();
   pesDetectors = PesDetectorState{};
   lastGoalScorer = 0;
   bestPossessionTeamID = -1;
@@ -808,8 +819,9 @@ void Match::UpdateBallHeatmap() {
 // The shoot-out is period 9 (pes-re-A6Writers.md §5); there the first kind-5 record names the owner.
 void Match::RecomputePesDesignatedOwner() {
   std::array<pes::Ring0Entry, pes::kRing0ScanCount> ring{};
+  const pes::EventStore events = GetPesEvents();  // a view of E in the world window
   for (int n = 0; n < static_cast<int>(pes::kRing0ScanCount); ++n) {
-    const pes::EventRecord* rec = pesEvents.NewestOrRing0(n);
+    const pes::EventRecord* rec = events.NewestOrRing0(n);
     if (!rec) continue;  // an empty slot: the default entry, which owns nobody
     ring[n].kind = rec->ActionKind();
     ring[n].tag = rec->U32(0x30);  // payload+0x1C (d_a.c:1263 reads piVar13[7])
@@ -1020,6 +1032,8 @@ void Match::Process() {
   // PES's period clock (pes_loop) runs every frame: SetFrozen holds it in a stoppage, where PES's
   // stoppage writer adds F and LIMIT (FUN_14044CE80 step 4). The off path keeps its in-play gate.
   if (pesLoop || (IsInPlay() && !IsInSetPiece())) AdvanceMatchFrames(1);
+  // MI+0x1198, the logic-frame counter, counts one per tick (PES 0x140A128E4: inc dword [MI+0x1198]).
+  pesWorld->AdvanceMatchFrame();
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;

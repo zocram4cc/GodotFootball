@@ -20,7 +20,8 @@ SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\")
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/cutscene' \
 --out-dir '${CMAKE_BINARY_DIR}/cutscene-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_cutscene.json' \"\${SEL[@]}\"")
-set_tests_properties(diff_cutscene_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
+# 4800 s: the full 685-function check took 2855 s at load ~30 (batch AO); 2400 timed out twice there.
+set_tests_properties(diff_cutscene_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 4800)
 
 # diff_presentation_recorded: the same check for the presentation set (specs/presentation; results_presentation.json
 # records its diffed VAs, each with the subsystem and role of its row).
@@ -30,7 +31,8 @@ SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\")
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/presentation' \
 --out-dir '${CMAKE_BINARY_DIR}/presentation-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_presentation.json' \"\${SEL[@]}\"")
-set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
+# 4800 s: 1881 s alone at load ~30 (batch AO); under the full fast tier at load ~30 (batch AP) 2400 timed out.
+set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 4800)
 
 # diff_core_recorded: the same check for the core set (specs/core; results_core.json records its diffed VAs, each with the
 # subsystem and role of its row). specs/core also holds the callees another set records: they are the callee universe,
@@ -80,6 +82,23 @@ gtest_discover_tests(pes_team_sheet_test)
 add_executable(pes_world_test pes_world_test.cpp)
 target_link_libraries(pes_world_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_world_test)
+
+# Native heap seam: translated code that allocates (the FixDemo evaluator, vector growth) runs on GF memory through PES's
+# own allocator table, whose vtable targets dispatch to PesHeap (stubs.json native_services).
+add_executable(pes_native_heap_test pes_native_heap_test.cpp)
+target_link_libraries(pes_native_heap_test PRIVATE pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_native_heap_test)
+# The stub table's native services and the dispatch table gen_dispatch.py emits for them (stdlib only).
+add_test(NAME translate_native_services
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_native_services.py)
+# A tail jump to an untranslated target is loud, never a silent return (xlate, driver.runnable_extra, the layer check).
+add_test(NAME translate_tail_jump_loud
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_tail_jump_loud.py'")
+set_tests_properties(translate_tail_jump_loud PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+# The logf/powf models against C99 Annex F and (when the capture is there) the snapshot's ucrtbase.
+add_test(NAME translate_libm_models
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_libm_models.py'")
+set_tests_properties(translate_libm_models PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
 
 # Drift: regenerating every committed translated function from the image must reproduce the committed files.
 # Hand-refined functions are skipped by the check (their bit-exact proof is the harness check above).

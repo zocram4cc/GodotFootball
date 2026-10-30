@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <new>
 
 #include "gametypes.hpp"
 
@@ -178,43 +179,43 @@ int EventKindBlock::Push(const EventRecord& rec) {
   return static_cast<int>(head);
 }
 
+EventStoreImage::EventStoreImage() {
+  // The record view over the newest copy reads an empty record's header (kind 0x37, p6 0xb: EventRecord's defaults).
+  const EventRecord blank{};
+  std::memcpy(newestHeader.data(), &blank, kEventPayloadOffset);
+}
+
 void EventStore::Reset() {
-  for (auto& r : rings_) r = EventRing8{};
-  overflow_ = EventRing10{};
-  log_ = EventLog{};
-  for (auto& k : kindBlocks_) k = EventKindBlock{};
-  newest_ = EventRecord{};
-  newestSecond_ = EventRecord{};
-  hasNewest_ = false;
-  hasNewestSecond_ = false;
+  // In place: the image is 1.5 MB, too big for a temporary.
+  img_->~EventStoreImage();
+  new (img_) EventStoreImage();
 }
 
 void EventStore::Route(const EventRingTable& table, const EventRecord& rec) {
   const uint32_t kind = rec.kind;
   const int ring = table.RingOf(kind);
-  const int slot = (ring < 10) ? Ring(ring).Push(rec) : overflow_.Push(rec);
-  log_.Push(static_cast<uint32_t>(ring), static_cast<uint16_t>(slot));
+  const int slot = (ring < 10) ? Ring(ring).Push(rec) : img_->overflow.Push(rec);
+  img_->log.Push(static_cast<uint32_t>(ring), static_cast<uint16_t>(slot));
   if (kind == 7) {
     // The kind-7 path also copies the payload to the newest slots. PES keeps
     // 0x60 bytes there; only the payload half of the record is written.
-    hasNewest_ = true;
-    std::memcpy(reinterpret_cast<uint8_t*>(&newest_) + 0x14,
-                reinterpret_cast<const uint8_t*>(&rec) + 0x14, kNewestBytes);
+    img_->gfHasNewest = true;
+    std::memcpy(img_->newest.data(), reinterpret_cast<const uint8_t*>(&rec) + kEventPayloadOffset, kNewestBytes);
     const ActorKey key{rec.U32(0x18), rec.U32(0x1c)};  // payload+4
     if (key.Valid()) {
-      std::memcpy(reinterpret_cast<uint8_t*>(&newestSecond_) + 0x14,
-                  reinterpret_cast<const uint8_t*>(&rec) + 0x14, kNewestBytes);
-      hasNewestSecond_ = true;
+      std::memcpy(img_->newestSecond.data(), reinterpret_cast<const uint8_t*>(&rec) + kEventPayloadOffset,
+                  kNewestBytes);
+      img_->gfHasNewestSecond = true;
     }
   }
-  if (kind < kKindBlockCount) kindBlocks_[kind].Push(rec);
+  if (kind < kKindBlockCount) img_->kindBlocks[kind].Push(rec);
 }
 
 const EventRecord* EventStore::NewestOrRing0(int n) const {
   // FUN_140a3e190 returns E+0x180698 for n == 0 with no empty test: the copy is
   // the store's own memory, which `hasNewest_` reports on.
-  if (n == 0) return hasNewest_ ? &newest_ : nullptr;
-  const EventRing8& ring = rings_[0];
+  if (n == 0) return img_->gfHasNewest ? &Newest() : nullptr;
+  const EventRing8& ring = img_->rings[0];
   if (static_cast<uint32_t>(n) >= ring.count) return nullptr;
   int i = static_cast<int>(ring.head) - n;
   if (i < 0) i += 8;
@@ -225,7 +226,7 @@ const EventRecord* EventStore::NewestOrRing0(int n) const {
 
 const EventRecord* EventStore::RingRecord(int ring, int n) const {
   if (ring < 0 || ring >= static_cast<int>(kRingCount)) return nullptr;
-  const EventRing8& r = rings_[static_cast<size_t>(ring)];
+  const EventRing8& r = img_->rings[static_cast<size_t>(ring)];
   if (static_cast<uint32_t>(n) >= r.count) return nullptr;
   int i = static_cast<int>(r.head) - n;
   if (i < 0) i += 8;
@@ -234,7 +235,7 @@ const EventRecord* EventStore::RingRecord(int ring, int n) const {
 
 const EventRecord* EventStore::KindLast(int kind) const {
   if (kind < 0 || kind >= static_cast<int>(kKindBlockCount)) return nullptr;
-  const EventKindBlock& block = kindBlocks_[static_cast<size_t>(kind)];
+  const EventKindBlock& block = img_->kindBlocks[static_cast<size_t>(kind)];
   if (block.count == 0) return nullptr;
   // FUN_140a3da00 holds the head at 0, so the record sits in slot 0.
   return &block.record;
@@ -242,15 +243,14 @@ const EventRecord* EventStore::KindLast(int kind) const {
 
 const EventRecord* EventStore::KindNth(int kind, int n) const {
   int seen = 0;
-  const uint32_t walk = log_.count < EventLog::kEntries
-                            ? log_.count
-                            : static_cast<uint32_t>(EventLog::kEntries);
+  const EventLog& log = img_->log;
+  const uint32_t walk = log.count < EventLog::kEntries ? log.count : static_cast<uint32_t>(EventLog::kEntries);
   for (uint32_t i = 0; i < walk; ++i) {
-    int idx = static_cast<int>(log_.head) - static_cast<int>(i);
+    int idx = static_cast<int>(log.head) - static_cast<int>(i);
     if (idx < 0) idx += static_cast<int>(EventLog::kEntries);
-    const EventLogEntry& entry = log_.entries[static_cast<size_t>(idx)];
-    const EventRecord* rec = entry.ring < 10 ? &rings_[entry.ring].slots[entry.slot]
-                                             : &overflow_.slots[entry.slot];
+    const EventLogEntry& entry = log.entries[static_cast<size_t>(idx)];
+    const EventRecord* rec = entry.ring < 10 ? &img_->rings[entry.ring].slots[entry.slot]
+                                             : &img_->overflow.slots[entry.slot];
     if (rec->kind == static_cast<uint32_t>(kind)) {
       if (seen == n) return rec;
       ++seen;
@@ -271,7 +271,7 @@ const EventRecord* EventStore::LastShot(int maxFrame) const {
 }
 
 ActorKey EventStore::Ring1Key(int n) const {
-  const EventRing8& ring = rings_[1];
+  const EventRing8& ring = img_->rings[1];
   if (static_cast<uint32_t>(n) >= ring.count) return NoActorKey();
   int i = static_cast<int>(ring.head) - n;
   if (i < 0) i += 8;
@@ -281,11 +281,11 @@ ActorKey EventStore::Ring1Key(int n) const {
 }
 
 ActorKey EventStore::NewestSecondKey() const {
-  if (!hasNewestSecond_) return NoActorKey();  // nothing valid has been routed
+  if (!img_->gfHasNewestSecond) return NoActorKey();  // nothing valid has been routed
   uint32_t team = 0;
   uint32_t slot = 0;
-  std::memcpy(&team, reinterpret_cast<const uint8_t*>(&newestSecond_) + 0x18, 4);
-  std::memcpy(&slot, reinterpret_cast<const uint8_t*>(&newestSecond_) + 0x1c, 4);
+  std::memcpy(&team, reinterpret_cast<const uint8_t*>(&NewestSecond()) + 0x18, 4);
+  std::memcpy(&slot, reinterpret_cast<const uint8_t*>(&NewestSecond()) + 0x1c, 4);
   return ActorKey{team, slot};
 }
 

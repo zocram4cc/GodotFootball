@@ -257,24 +257,64 @@ def reached_roots(image, reached):
 EXTRA_CAP = 2000
 
 
-def runnable_extra(spec, image, depth_cap=80):
+def tail_rows(spec, image, universe):
+    """Out-of-set rows for the tail jumps of the spec's function and of every universe member it reaches: a `jmp t`
+    past a function's own body to a t the universe lacks. xlate would emit an abort there (never a silent return);
+    the walk pulls t into the build instead, like an out-of-set callee. A CALL or tail jump into the universe is
+    followed (that member's own tails matter), a model is left to its model."""
+    import xlate
+    rows, seen = [], set()
+    todo = [spec["va"]] if spec.get("va") else []
+    while todo:
+        cur = todo.pop()
+        if cur in seen:
+            continue
+        seen.add(cur)
+        try:
+            lines = xlate.capstone_decode(image, int(cur, 16))
+        except Exception:
+            continue
+        addrs = {a for a, _, _ in lines}
+        for _, mn, ops in lines:
+            if mn not in ("CALL", "JMP") or not ops or "[" in ops[0]:
+                continue
+            try:
+                t = int(ops[0].strip(), 16)
+            except ValueError:
+                continue
+            tv = "0x%X" % t
+            if t in addrs or tv in MODEL_MAP:
+                continue
+            if tv in universe:
+                todo.append(tv)
+            elif mn == "JMP":
+                rows.append({"va": tv, "how": "call"})
+    return rows
+
+
+def runnable_extra(spec, image, depth_cap=80, universe=None):
     """Out-of-set direct callees the build can translate and call for
     real: stubs.json run-real kinds plus unmodellable entries whose whole
     why-chain is dispatchable. Transitively closed over direct CALLs
     decoded from the image (capstone, no bridge). Returns (extra, blocked)
-    where blocked is {va: reason} for callees that stay unmodellable."""
+    where blocked is {va: reason} for callees that stay unmodellable.
+    With `universe` (the set the build translates into), the tail jumps of the spec's
+    function and its universe callees past their bodies join the seeds (tail_rows)."""
     import xlate
     harness = spec.get("harness") or {}
     seeds = []
     unseeded = {}  # unmodellable out-of-set callees the build cannot run: named, not dropped
-    for e in harness.get("out_of_set_callees") or []:
+    rows = list(harness.get("out_of_set_callees") or [])
+    if universe is not None:
+        rows += tail_rows(spec, image, universe)
+    for e in rows:
         if (e.get("how") or "call") != "call":
             continue
         va = "0x" + str(e.get("va", "")).upper().replace("0X", "")
         entry = STUB_TABLE.get(int(va, 16))
         if entry is None:
             # No stubs.json entry: the harness runs the callee's image bytes (run.py), so the build must too.
-            if 0x140001000 <= int(va, 16) < 0x14252E800:
+            if CODE_LO <= int(va, 16) < CODE_HI:
                 seeds.append(va)
             continue
         if entry["do"] is None:
@@ -293,12 +333,17 @@ def runnable_extra(spec, image, depth_cap=80):
         except Exception:
             return None
         out = []
+        addrs = {a for a, _, _ in lines}
         for _, mn, ops in lines:
-            if mn == "CALL" and ops and "[" not in ops[0]:
+            # A CALL, or a JMP past the function's own body (a tail call: xlate emits `pes_fn_X(s); return;` when X is in
+            # the universe and a silent `return` when it is not), to a plain address.
+            if mn in ("CALL", "JMP") and ops and "[" not in ops[0]:
                 try:
-                    out.append("0x%X" % int(ops[0].strip(), 16))
+                    t = int(ops[0].strip(), 16)
                 except ValueError:
-                    pass
+                    continue
+                if mn == "CALL" or t not in addrs:
+                    out.append("0x%X" % t)
         return out
     stack = [(v, 0, [v]) for v in seeds]
     while stack:
@@ -331,7 +376,7 @@ def runnable_extra(spec, image, depth_cap=80):
                 # plain code the harness runs as image bytes. Plain CODE
                 # joins the build; anything outside CODE stays blocked.
                 ci = int(c, 16)
-                if 0x140001000 <= ci < 0x14252E800:
+                if CODE_LO <= ci < CODE_HI:
                     stack.append((c, depth + 1, chain + [c]))
                 else:
                     blocked[c] = "call outside code range"
@@ -445,7 +490,7 @@ def run_one(va, args, pilot):
     # Runnable out-of-set callees join this build's universe so the CALL
     # emitter links them instead of zeroing rax (OUT-OF-SET).
     res["stubs"] = sorted(MODEL_MAP)
-    build_pilot = set(pilot) | set(runnable_extra(spec, args.image)[0])
+    build_pilot = set(pilot) | set(runnable_extra(spec, args.image, universe=pilot)[0])
     try:
         asm_text = asm_for(args.asm_dir, va)
         src, _ = translate_one(va, asm_text, args.image, build_pilot,
@@ -526,7 +571,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
     # build translates them and calls them for real, like the harness runs
     # their image bytes. They join the in-set universe for this build only,
     # so the CALL emitter links them instead of zeroing rax (OUT-OF-SET).
-    extra, extra_blocked = runnable_extra(spec, args.image)
+    extra, extra_blocked = runnable_extra(spec, args.image, universe=pilot)
     build_pilot = set(pilot) | set(extra)
     # The build declares only callees it links: pilot-universe members that are not stubbed.
     callees = ["0x" + c.upper() for c in (spec.get("precheck", {}) or {}).get("calls", [])]
@@ -667,8 +712,10 @@ def build_and_diff(va, spec, args, pilot, nlines):
              "--out", gen, "--vas"] + sorted(need), check=True)
     bin_p = os.path.join(gen, "d_%s" % tag)
     objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    # ponytail: one g++ over every TU, serial; the budget grows with the TU count (a tail-jump closure of 350-600
+    # functions took 300 s and read as "compile: " with no error line). Upgrade: parallel per-TU objects.
     rc, _, err = sh([args.cxx, "-std=c++20", "-O1", "-I", gen, "-o", bin_p,
-                     main_p] + objs, timeout=300)
+                     main_p] + objs, timeout=300 + 20 * len(objs))
     if rc != 0:
         # keep the informative lines: errors plus undefined references
         # (ld failures print the missing symbol, not the word 'error')
@@ -822,7 +869,7 @@ def finish_one(va, args, pilot):
         except (OSError, ValueError):
             addrs = []
         spec, _ = load_spec(args.spec_dir, va)
-        extra, _ = runnable_extra(spec or {}, args.image)
+        extra, _ = runnable_extra(spec or {}, args.image, universe=pilot)
         in_set = ["0x" + c.upper()
                   for c in ((spec or {}).get("precheck", {}) or {}).get("calls", [])]
         vas = [va] + [c for c in in_set + extra if c != va]

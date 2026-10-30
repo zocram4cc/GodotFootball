@@ -381,6 +381,17 @@ def import_model_lines(op, jump):
                 " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1);"
                 " s.gpr[0] = _dst; s.gpr[1] = 0;"
                 " s.gpr[4] += 16;%s }" % pop_ret]
+    if e["do"] == "memmove":
+        # Win64 memmove(rcx=dst, rdx=src, r8=n), the code_hex model register for register: push rdi, push rsi; backward
+        # byte copy when src < dst < src + n, else forward; rax = dst, rcx = 0, r9 = src + n when dst > src.
+        return ["{ " + push_ret +
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[6], 8);"
+                " uint64_t _dst = s.gpr[1], _src = s.gpr[2], _n = s.gpr[8];"
+                " s.gpr[0] = _dst; if (_dst > _src) s.gpr[9] = _src + _n;"
+                " if (_dst > _src && _dst < _src + _n) { for (uint64_t _i = _n; _i-- > 0;) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
+                " else { for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
+                " s.gpr[1] = 0; s.gpr[4] += 16;%s }" % pop_ret]
     if e["do"] == "qpc":
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
@@ -1680,7 +1691,11 @@ class Emitter:
                 if tgt in self.pilot:
                     self.siblings.add(tgt)
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
-                return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
+                # Never a silent return: the caller would see a normal return where PES jumped into code the layer
+                # does not hold. The closure walk (driver.runnable_extra) pulls such targets in; one that remains
+                # aborts naming the VA when reached, and gen_translated.silent_tail_sites refuses it at generation.
+                # (The `return;` stays a separate line: it is the basic-block terminator flow.py reads.)
+                return ["/*OUT-OF-RANGE JMP %s*/ pes_dispatch_missing(%s);" % (tgt, tgt), "return;"]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
             info = ctx.get("jmpreg", {}).get(addr)
             if info and info.get("table") is not None:
@@ -1986,6 +2001,10 @@ def stub_lines(do):
     """C++ for one stubbed callee's modelled effect (names: stubs.py DO)."""
     if do == "sqrt_xmm0":
         return ["s.set_x_f32(0, pes_model_sqrtf(s.x_f32(0)));"]
+    if do == "logf_xmm0":
+        return ["s.set_x_f32(0, pes_model_logf(s.x_f32(0)));"]
+    if do == "powf_xmm0":
+        return ["s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":
