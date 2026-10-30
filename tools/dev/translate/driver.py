@@ -228,6 +228,31 @@ def _why_dispatchable(why):
     return True
 
 
+def reached_roots(image, reached):
+    """(roots, error) for a harness trace {indirect site: {target: count}}: the in-code targets that start a function,
+    sorted. A target is no root when it lies in the same function as a `jmp reg` site (a switch case, a label of the
+    function holding the site: 0x140A62047 inside 0x140A61F40; translating from it decodes nothing); a site inside a
+    function is no root either. Any other in-code target that is not a function boundary is an error naming it.
+    The one rule the diff builds (build_and_diff) and the snapshot builds (snapdiff) share."""
+    import xlate
+    pd = xlate.pdata_of(image)
+    roots = set()
+    for site, tgts in reached.items():
+        sv = int(site, 16)
+        reg_jmp = pd.indirect_kind(sv) == "jmp reg"
+        for t in tgts:
+            tv = int(t, 16)
+            if not CODE_LO <= tv < CODE_HI:
+                continue
+            if reg_jmp and pd.same_body(sv, tv):
+                continue
+            if pd.is_boundary(tv):
+                roots.add("0x%X" % tv)
+            elif pd.containing(tv) != pd.containing(sv):
+                return [], "closure walk: indirect target %s (from site %s) is not a function boundary" % (t, site)
+    return sorted(roots), None
+
+
 # ponytail: one budget over every seed's out-of-set walk; a walk over it blocks every unseen seed, leaves included. Upgrade: a budget per seed. Measured 28-10-26 (uncapped walks): 445E90 = 1871 functions, 44C880 = 1865 (depth 80); at 1100 both were refused by budget, and depth 25 blocked 33 functions of 44C880's walk.
 EXTRA_CAP = 2000
 
@@ -588,12 +613,13 @@ def build_and_diff(va, spec, args, pilot, nlines):
         reached = json.load(open(os.path.join(gen, "trace_%s.json" % tag)))
     except (OSError, ValueError):
         reached = {}
-    for site, tgts in (reached or {}).items():
-        for t in tgts:
-            ti = int(t, 16)
-            if CODE_LO <= ti < CODE_HI and t not in seen:
-                seen.add(t)
-                need.append(t)
+    roots, bad = reached_roots(args.image, reached or {})
+    if bad:
+        return False, bad, "translator bug"
+    for t in roots:
+        if t not in seen:
+            seen.add(t)
+            need.append(t)
     for cvi, cv in enumerate(need):
         p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
         if not os.path.exists(p):
@@ -904,11 +930,16 @@ def main():
     ap.add_argument("--exclude-recorded", action="store_true",
                     help="attempt and record only the specs that no other committed results*.json records. The rest "
                          "stay in the spec dir: they are the callee universe, and their own sets own their records.")
+    ap.add_argument("--select", default=None,
+                    help="with --check: a select_recorded.py JSON ({results file: [VA...]}); re-run only the recorded VAs it "
+                         "lists for --record's file (the fast gate). An empty selection passes: nothing it can break changed.")
     args = ap.parse_args()
     if args.traced_cases and (not args.seed_bank or args.perturb):
         ap.error("--traced-cases replays a --seed-bank with real values: give --seed-bank, not --perturb")
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
+    if args.select and not args.check:
+        ap.error("--select narrows a --check run")
     if args.check:
         recs = json.load(open(args.record))["results"]
         # A record with proof snapdiff was proven from real calls (snapdiff.py, not this harness): not re-run here.
@@ -918,6 +949,12 @@ def main():
         args.bank_vas = {r["va"].upper() for r in recs if r["diffed"] and r.get("corpus") == "bank"}
         if args.bank_vas and not args.seed_bank:
             ap.error("--check: %s record corpus 'bank': give --seed-bank" % " ".join(sorted(args.bank_vas)))
+        if args.select:
+            picked = {v.upper() for v in json.load(open(args.select)).get(os.path.basename(args.record), [])}
+            args.only = [v for v in args.only if v.upper() in picked]
+            if not args.only:
+                print("driver --check: no recorded function of %s selected; nothing to re-check" % args.record)
+                return 0
         if not args.only:
             print("driver --check: nothing recorded as diffed; an empty check is not a pass")
             return 1

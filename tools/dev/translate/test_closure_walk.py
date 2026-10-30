@@ -24,6 +24,7 @@ sys.path.insert(0, HERE)
 import pdata  # noqa: E402
 pdata.KNOWN = frozenset()  # the synthetic images use no ledger
 import closure  # noqa: E402
+import driver  # noqa: E402
 import snapdiff  # noqa: E402
 import xlate  # noqa: E402
 
@@ -157,6 +158,33 @@ class ClosureWalk(unittest.TestCase):
         need, err = self.run_closure(A, {"0x%X" % SWITCH_SITE: {"0x%X" % T: 1}})
         self.assertIsNone(err)
         self.assertIn("0x%X" % T, need)
+
+    def test_driver_roots_leave_a_target_outside_the_code_range_to_the_dispatch_abort(self):
+        roots, err = driver.reached_roots(self.image, {"0x%X" % A: {"0x%X" % (driver.CODE_HI + 0x100): 1}})
+        self.assertEqual((roots, err), ([], None))
+
+    # The diff build (driver.build_and_diff) shares the rule: 0x140A61F40's `jmp reg` switch at 0x140A61FF8 traces case
+    # 0x140A62047, a label inside it that is no function start (the build failed `callee 0x140A62047: no instructions`).
+    def test_driver_roots_skip_a_switch_case_in_its_own_function(self):
+        roots, err = driver.reached_roots(self.image, {"0x%X" % (B + 1): {"0x%X" % (B + 2): 1}})
+        self.assertIsNone(err)
+        self.assertEqual(roots, [])
+
+    def test_driver_roots_keep_a_function_start_and_refuse_an_instruction_middle(self):
+        roots, err = driver.reached_roots(self.image, {"0x%X" % A: {"0x%X" % C: 1}})
+        self.assertEqual((roots, err), (["0x%X" % C], None))
+        roots, err = driver.reached_roots(self.image, {"0x%X" % A: {"0x%X" % MID_B: 1}})
+        self.assertIn("not a function boundary", err or "")
+
+    def test_driver_roots_skip_a_register_jump_case_in_a_leaf(self):
+        roots, err = driver.reached_roots(self.image, {"0x%X" % SWITCH_SITE: {"0x%X" % SWITCH_CASE: 1}})
+        self.assertEqual((roots, err), ([], None))
+
+    @unittest.skipUnless(os.environ.get("PES_EXE"), "no PES_EXE")
+    def test_the_real_switch_of_140A61F40_is_no_root(self):
+        img = os.environ["PES_EXE"]
+        roots, err = driver.reached_roots(img, {"0x140A61FF8": {"0x140A62047": 79, "0x140A6204C": 2}})
+        self.assertEqual((roots, err), ([], None))
 
 
 class NothingCompiled(unittest.TestCase):
