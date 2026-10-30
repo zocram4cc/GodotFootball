@@ -146,7 +146,7 @@ def build_closure(va, spec, args, pilot, reached, executed=None):
             return need, None
 
 
-1: def build_binary(va, spec, args, pilot, reached, executed=None, native=False):
+def build_binary(va, spec, args, pilot, reached, executed=None, native=False):
     """The diff main and the translated closure, compiled. Returns (binary path, error). executed: the addresses the replays
     ran (--bounded), else None. native: the production dispatch (gen_dispatch --native), GF's PesHeap attached per call, and
     PES's allocator targets left out of the closure."""

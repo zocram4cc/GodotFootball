@@ -16,7 +16,11 @@ state except that type word. A carrier_clear source needs no patch (the unit wro
 libm calls of the forward run (cosf, sinf, ...) use Python float32 models, not Wine's ucrtbase, so lane lists the forward run
 builds can differ from a live run's in the last ulp. The walk itself calls no libm.
 
-Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py CAPTURE_DIR OUT_DIR [--hooks hooks.cfg] [--patch-clear]   (harness Python: unicorn)
+--entry VA [--hook-name NAME] (default: the walk): stop at another function's entry inside the same unit step instead, e.g. the
+turn-reference builder 0x14211D710 or the proposal writer 0x1421102D0 that run before the walk. The state is then a real
+(forward-emulated) entry state of that function; only the walk (--entry omitted) may take --patch-clear.
+
+Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py CAPTURE_DIR OUT_DIR [--hooks hooks.cfg] [--patch-clear] [--entry VA --hook-name NAME]   (harness Python: unicorn)
 """
 import argparse
 import json
@@ -106,6 +110,8 @@ def main():
     ap.add_argument("--patch-clear", action="store_true",
                     help="write type 5 into the kind-1 answer record (a danger_builder source: the Clear unit never ran); "
                          "off for a carrier_clear_2109EB0 source, whose unit wrote the record itself")
+    ap.add_argument("--entry", type=lambda s: int(s, 16), default=WALK, help="stop at this function's entry (default: the walk)")
+    ap.add_argument("--hook-name", default="carrier_walk_210F110", help="rv.hook of the written state")
     a = ap.parse_args()
     patch_imports()
     orig = ft.hook_bytes(a.hooks) if a.hooks else None
@@ -120,9 +126,9 @@ def main():
     reached = []
 
     def on_code(u, address, size, data):
-        if address == WALK:
+        if address == a.entry:
             bp = u.reg_read(xc.UC_X86_REG_RCX)
-            if a.patch_clear:
+            if a.patch_clear and a.entry == WALK:
                 u.mem_write(bp + ANSWER_LIST + ANSWER_RECORD + ANSWER_STRIDE * KIND_CLEAR, struct.pack("<I", TYPE_CLEAR))
             reached.append(True)
             u.emu_stop()
@@ -135,7 +141,7 @@ def main():
 
     index = json.load(open(os.path.join(a.src, "index.json")))
     rv = index["rv"]
-    rv.update(hook="carrier_walk_210F110", entry_va=WALK, flags=uc.reg_read(xc.UC_X86_REG_EFLAGS),
+    rv.update(hook=a.hook_name, entry_va=a.entry, flags=uc.reg_read(xc.UC_X86_REG_EFLAGS),
               mxcsr=uc.reg_read(xc.UC_X86_REG_MXCSR))
     index["label"] = os.path.basename(a.out.rstrip("/"))
     os.makedirs(a.out, exist_ok=True)
