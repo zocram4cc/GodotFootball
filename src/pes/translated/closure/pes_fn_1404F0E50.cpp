@@ -164,6 +164,10 @@ static constexpr float k_c1425C48D8_f = 289.0f; // 289.0;
 // image constant @ 0x1425C48F0 (4 bytes)
 static constexpr uint32_t k_c1425C48F0_w = 0xBE99999AU;
 static constexpr float k_c1425C48F0_f = -0.30000001192092896f; // -0.30000001192092896;
+// image window @ 0x1404F4684 (8 bytes, read-only)
+static constexpr uint8_t k_t1404F4684_8[8] = {0x70, 0x17, 0x4F, 0x00, 0x51, 0x17, 0x4F, 0x00};
+// image window @ 0x1404F468C (72 bytes, read-only)
+static constexpr uint8_t k_t1404F468C_48[72] = {0x00, 0x00, 0x01, 0x01, 0x01, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00};
 
 void pes_fn_1404F0E50(PesState& s);
 void pes_fn_14042D470(PesState& s);
@@ -1174,8 +1178,8 @@ void pes_fn_1404F0E50(PesState& s) {
   if (s.cond("a")) goto L_1404F1751;
   s.gpr[2] = (uint64_t)(((0x140000000ULL)));
   s.gpr[0] = (uint64_t)(int64_t)(int32_t)s.gpr[0];
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[2]) + ((s.gpr[0])*1ULL) + (0x4F468CULL)), 1));
-  s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[2]) + ((s.gpr[0])*4ULL) + (0x4F4684ULL)), 4));
+  s.gpr[0] = (uint64_t)(uint32_t)(ro_rd(k_t1404F468C_48, 72, (uint64_t)(s.gpr[0]) * 1ULL, 1));
+  s.gpr[1] = (uint64_t)(uint32_t)(ro_rd(k_t1404F4684_8, 8, (uint64_t)(s.gpr[0]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[2]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));

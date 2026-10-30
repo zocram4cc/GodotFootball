@@ -457,6 +457,7 @@ class Emitter:
         self.guards = []
         self.cur = None  # index of the instruction being emitted
         self.ro_tabs = {}  # (window VA, span) -> bytes of baked table windows
+        self.sw_tabs = {}  # window VA -> span: the byte map / dword table of each resolved JMP-reg switch (prepass)
 
     def bake(self, va, n):
         if (va, n) not in self.consts:
@@ -486,13 +487,18 @@ class Emitter:
         base = lea_const(self, PARENT.get(mp["base"], mp["base"]), self.cur)
         count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
                               self.cur)
-        if base is None or count is None:
+        if base is None:
             return None
         n = 4 if (flt == "f32" or width == 32) else width // 8
         if flt == "f64":
             n = 8
         start = base + mp["disp"]
-        span = count * mp["scale"] + n
+        if count is not None:
+            span = count * mp["scale"] + n
+        elif start in self.sw_tabs:  # a switch's own table: its size is the prepass's, not a guard's
+            span = self.sw_tabs[start]
+        else:
+            return None
         if not (BASE <= start and start + span <= BASE + self.img.size):
             return None
         if self.img.writable(start) or self.img.writable(start + span - 1):
@@ -1951,17 +1957,22 @@ def prepass(lines, img):
                             PARENT.get(mp["base"].lower(), mp["base"].lower()) == basep:
                         bmap = baseva + mp["disp"]
                         break
+            # The windows the switch itself reads (byte map, dword table): the loads that feed the JMP register are baked
+            # (Emitter.bake_ro) even where no guard walk finds the index bound (CDQE; an index that is a byte-map value),
+            # else the GF runtime, which has no image view, reads 0 and every case falls to default.
             if bmap is not None:
                 braw = img.read(bmap, count)
                 bvals = list(struct.unpack("<%dB" % count, braw))
                 n2 = max(bvals) + 1
                 raw = img.read(tva, n2 * 4)
                 words = list(struct.unpack("<%dI" % n2, raw))
+                tabs = {bmap: count, tva: n2 * 4}
             else:
                 raw = img.read(tva, count * 4)
                 words = list(struct.unpack("<%dI" % count, raw))
+                tabs = {tva: count * 4}
             jmpreg[addr] = {"table": tva, "words": words, "base": baseva,
-                            "default": default}
+                            "default": default, "tabs": tabs}
             for w in words:
                 if baseva + w in addrs:
                     labels.add(baseva + w)
@@ -1989,6 +2000,8 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     trace_pc = bool(os.environ.get("GF_XLATE_TRACE"))  # lockstep: one GF_TRACE_PC per instruction (snapdiff build only)
     body = []
     em.lines, em.labels, em.guards = lines, labels, find_guards(lines)
+    for info in jmpreg.values():
+        em.sw_tabs.update(info.get("tabs", {}))
     for idx, (addr, mnem, ops) in enumerate(lines):
         em.cur = idx
         if addr in labels:
