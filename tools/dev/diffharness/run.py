@@ -151,6 +151,8 @@ def sqrt_f32_bits(b):
 _LIBM = ctypes.CDLL(ctypes.util.find_library("m"))
 _LIBM.logf.restype, _LIBM.logf.argtypes = ctypes.c_float, [ctypes.c_float]
 _LIBM.powf.restype, _LIBM.powf.argtypes = ctypes.c_float, [ctypes.c_float, ctypes.c_float]
+_LIBM.sinf.restype, _LIBM.sinf.argtypes = ctypes.c_float, [ctypes.c_float]
+_LIBM.cosf.restype, _LIBM.cosf.argtypes = ctypes.c_float, [ctypes.c_float]
 
 
 def _f32(b):
@@ -169,6 +171,16 @@ def logf_f32_bits(b):
 def powf_f32_bits(b, e):
     """Bits of powf(x, y) for the floats with bits b, e (the powf_xmm0 hook's model, as pes_model_powf)."""
     return _bits(_LIBM.powf(_f32(b), _f32(e)))
+
+
+def sinf_f32_bits(b):
+    """Bits of sinf(x) for the float with bits b (the sinf_xmm0 hook's model: the host C library, as pes_model_sinf)."""
+    return _bits(_LIBM.sinf(_f32(b)))
+
+
+def cosf_f32_bits(b):
+    """Bits of cosf(x) for the float with bits b (the cosf_xmm0 hook's model: the host C library, as pes_model_cosf)."""
+    return _bits(_LIBM.cosf(_f32(b)))
 
 
 def resolve_stubs(spec):
@@ -609,6 +621,11 @@ def install_hooks(mu, spec, RET_SENTINEL):
             xmm = uc.reg_read(reg_const("xmm0"))
             e = uc.reg_read(reg_const("xmm1")) & 0xFFFFFFFF
             uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | powf_f32_bits(xmm & 0xFFFFFFFF, e))
+        elif kind in ("sinf_xmm0", "cosf_xmm0"):
+            # libm (stubs.json, op sinf / cosf): xmm0 low float = sinf / cosf(xmm0); bits 32-127 kept.
+            xmm = uc.reg_read(reg_const("xmm0"))
+            fn = sinf_f32_bits if kind == "sinf_xmm0" else cosf_f32_bits
+            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | fn(xmm & 0xFFFFFFFF))
         else:
             uc._bad = "stub %s has unknown do=%s" % (name, kind)
             uc.emu_stop()

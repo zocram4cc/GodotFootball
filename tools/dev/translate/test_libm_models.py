@@ -36,7 +36,7 @@ int main() {
   char op; unsigned a, b;
   while (std::scanf(" %c %x %x", &op, &a, &b) == 3) {
     float x, y; std::memcpy(&x, &a, 4); std::memcpy(&y, &b, 4);
-    float r = op == 'L' ? pes_model_logf(x) : pes_model_powf(x, y);
+    float r = op == 'L' ? pes_model_logf(x) : op == 'S' ? pes_model_sinf(x) : op == 'C' ? pes_model_cosf(x) : pes_model_powf(x, y);
     unsigned o; std::memcpy(&o, &r, 4); std::printf("%08x\n", o);
   }
 }
@@ -118,6 +118,10 @@ class Cpp:
 
 
 def python_model(op, x, y):
+    if op == "S":
+        return run.sinf_f32_bits(bits(x))
+    if op == "C":
+        return run.cosf_f32_bits(bits(x))
     return run.logf_f32_bits(bits(x)) if op == "L" else run.powf_f32_bits(bits(x), bits(y))
 
 
@@ -141,6 +145,24 @@ class Models(unittest.TestCase):
         got = Cpp.run([("P", x, y) for x, y, _ in POW_ROWS])
         for (x, y, want), g in zip(POW_ROWS, got):
             self.assertTrue(expected_ok(g, want), "powf(%r, %r) = %#x, want %r" % (x, y, g, want))
+
+    def test_sinf_cosf_special_values_follow_annex_f(self):
+        rows = [(0.0, 0.0, 1.0), (-0.0, -0.0, 1.0), (INF, NAN, NAN), (-INF, NAN, NAN), (NAN, NAN, NAN)]
+        sines = Cpp.run([("S", x, 0.0) for x, _, _ in rows])
+        cosines = Cpp.run([("C", x, 0.0) for x, _, _ in rows])
+        for (x, s, c), gs, gc in zip(rows, sines, cosines):
+            self.assertTrue(expected_ok(gs, s), "sinf(%r) = %#x, want %r" % (x, gs, s))
+            self.assertTrue(expected_ok(gc, c), "cosf(%r) = %#x, want %r" % (x, gc, c))
+
+    def test_sinf_cosf_are_the_trigonometric_functions_to_one_ulp_and_the_harness_agrees(self):
+        xs = [flt(bits(i * 0.37 - 9.0)) for i in range(50)] + [flt(bits(v)) for v in (1e-3, 1.5707964, 3.1415927, 100.0)]
+        sines = Cpp.run([("S", x, 0.0) for x in xs])
+        cosines = Cpp.run([("C", x, 0.0) for x in xs])
+        for x, gs, gc in zip(xs, sines, cosines):
+            self.assertLessEqual(ulp_gap(gs, bits(math.sin(x))), 1, "sinf(%r) = %#x" % (x, gs))
+            self.assertLessEqual(ulp_gap(gc, bits(math.cos(x))), 1, "cosf(%r) = %#x" % (x, gc))
+            self.assertEqual(gs, python_model("S", x, 0.0), "sinf harness model at %r" % x)
+            self.assertEqual(gc, python_model("C", x, 0.0), "cosf harness model at %r" % x)
 
     def test_cpp_and_harness_models_agree_on_every_input(self):
         logs, pows = sample()

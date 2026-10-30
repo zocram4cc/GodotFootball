@@ -3591,6 +3591,44 @@
    }
   },
   {
+   "va": "1415A1792",
+   "callers": [
+    "1423BA9D0"
+   ],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530218] (FF25 at 1415A1792); the slot's dump-time value 0x6FFFFEC80D90 is ucrtbase.dll!sinf (SnapMem.export_of on live2/pid615629/seq042); one-xmm call shape sinf(x)->xmm0",
+    "reached by the kick chooser 0x1408364D0 through the animation key unpacker 0x1423BA9D0 (5 of 24 captures stopped here: pid615629 seq15863, 15864, 16063-16065)"
+   ],
+   "model": {
+    "op": "sinf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F (test_libm_models.py); an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A178C",
+   "callers": [
+    "1423BA9D0"
+   ],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530208] (FF25 at 1415A178C); the slot's dump-time value 0x6FFFFEC7B9C0 is ucrtbase.dll!cosf (SnapMem.export_of on live2/pid615629/seq042); one-xmm call shape cosf(x)->xmm0",
+    "called beside sinf by the key unpacker 0x1423BA9D0"
+   ],
+   "model": {
+    "op": "cosf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F (test_libm_models.py); an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
    "va": "141863350",
    "callers": [
     "1405CE4F0",

@@ -17,3 +17,10 @@ static inline float pes_model_sqrtf(float x) { return std::sqrt(x); }
 // 0). The removal is ucrtbase's own double-precision algorithm and tables, read from the user's ucrtbase module.
 static inline float pes_model_logf(float x) { return std::log(x); }
 static inline float pes_model_powf(float x, float y) { return std::pow(x, y); }
+
+// sinf_xmm0 / cosf_xmm0: xmm0 = sinf(xmm0) / cosf(xmm0), the host C library (the key unpacker 0x1423BA9D0 reaches them through
+// the thunks 0x1415A1792 / 0x1415A178C). Special values follow C99 Annex F (test_libm_models.py).
+// ponytail: an ordinary argument can differ from ucrtbase's bits by one ulp; the removal is ucrtbase's own algorithm read from
+// the user's ucrtbase module (not measured here: no sinf/cosf ucrtbase run).
+static inline float pes_model_sinf(float x) { return std::sin(x); }
+static inline float pes_model_cosf(float x) { return std::cos(x); }

@@ -1991,6 +1991,10 @@ def stub_lines(do):
         return ["s.set_x_f32(0, pes_model_logf(s.x_f32(0)));"]
     if do == "powf_xmm0":
         return ["s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));"]
+    if do == "sinf_xmm0":
+        return ["s.set_x_f32(0, pes_model_sinf(s.x_f32(0)));"]
+    if do == "cosf_xmm0":
+        return ["s.set_x_f32(0, pes_model_cosf(s.x_f32(0)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":
