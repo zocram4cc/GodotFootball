@@ -394,11 +394,16 @@ void GfMatch::StartTimeline(const pes::FixDemoRequest& request) {
   pes::TimelineConfig config;
   config.sixty = k->sixty;
   config.fps = pes::offball::kPesFps;
-  // ponytail: DemoInfo state 2 waits for +0x1D4, set by the pre-scene gate 0x140447290: its sub-state 1 counts frames against
-  // fps * [0x142565604] (2.0 s, decompiled), then sub-state 2 against fps * (a goal-dependent number of half seconds) that
-  // FUN_14044E460 derives and whose inputs are not decoded. Four logged goals waited 147..232 frames in total; GF waits the
-  // decoded 2.0 s part only. Removed when 0x140447290 and 0x14044E460 are translated.
-  config.gateTicks = uint32_t(k->two * config.fps);
+  // A goal's gate (DemoInfo state 2 waiting for +0x1D4 = the goal run object's ready byte A0+0xEC, 0x140472640) opens when the
+  // scorer is within radius of the celebration spot (and faces it) or when the run object's timer A0+0x14 runs out:
+  // GoalRunTimerTicks, 4 s of PES frames (0x14047A710). The timer is the latest it opens; it was the gate on 3 of 13 captured
+  // goals and on the logged g4 (timer 216 -> gate 215: the poll's first row is the frame after the DemoInfo exists).
+  // ponytail: the early opening (scorer inside A0+0xC - A0+0x10 of A0+0x30 and facing it within 30 degrees: 0x140472989 and
+  // the tail after it) is not ported, so a goal whose scorer arrives early (PES: 147, 213 frames on two logged goals) starts
+  // later here; removed by translating 0x140472640 (docs/ports/pes-port-CutsceneTiming3.md section 2). [[G+0x2C0]+0x5C] = 1.0
+  // (read live) has no GF counterpart. A foul keeps the earliest opening of its own gate (0x14047EB00: the countdown
+  // fps*3 may only open once it is down to fps, so 2.0 s) until that gate is ported.
+  config.gateTicks = category == 3 ? pes::GoalRunTimerTicks(request.sceneId, config.fps, 1.0f) - 1 : uint32_t(k->two * config.fps);
   timeline_.emplace(config, std::move(steps));
   timelineScene_ = request.sceneId;
   timelineSixty_ = k->sixty;

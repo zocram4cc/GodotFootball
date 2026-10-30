@@ -32,6 +32,12 @@ struct TimelineStep {
 // raw draw 0x141F7A150(scene+0x128, 100) in [0, 99]. `ninetyNine` is the float at 0x1425C48CC.
 float CutLength(float minTicks, float maxTicks, int draw, float ninetyNine);
 
+// A0+0x14, the goal run object's timer of `0x14047A710` (`0x14047A71A..0x14047A80C`, called at `0x14047881F` by the goal builder
+// `0x140478190`): `(int)((float)(fps * k) / scale)` with k = 10 for the scenes 0x3013D..0x3013F (`0x14047A720 SUB EAX,0x3013D;
+// CMP EAX,2; JA`) and 4 otherwise (`0x14047A7F7 SHL EAX,2`, the arm with A0+0x130 = 0, which is 0 on all 13 captured goals). `scale` is
+// `[[G+0x2C0]+0x5C]` (1.0 read live). The gate opens no later than this many frames after the DemoInfo exists.
+uint32_t GoalRunTimerTicks(uint32_t scene, float fps, float scale);
+
 struct TimelineConfig {
   float sixty = 0;  // 0x14259A764: ticks per second (the player update's `movss xmm4` at 0x141F2F93B)
   float fps = 0;    // manager+0xF0 / player+0xAB0: 54.0 (pes::offball::kPesFps)

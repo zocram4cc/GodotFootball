@@ -126,6 +126,18 @@ TEST(CutsceneTimeline, CutLengthIsMaxUnlessBothBoundsArePositive) {
   EXPECT_NEAR(pes::CutLength(100, 300, 33, 99.0f), 166.6667f, 1e-3);
 }
 
+// The goal run object's timer (A0+0x14, PES's `0x14047A710`, called by the goal builder `0x140478190`): 4 s of PES frames
+// divided by the time scale [[G+0x2C0]+0x5C], truncated; the three special scenes 0x3013D..0x3013F wait 10 s. When it runs
+// out the DemoInfo's gate opens (`0x140472989`: `A0+0x14 == 0`): the latest the gate can open for a goal.
+TEST(GoalRunTimer, FourSecondsOfFramesDividedByTheTimeScaleTenForTheSpecialScenes) {
+  EXPECT_EQ(pes::GoalRunTimerTicks(0x30034, kFps, 1.0f), uint32_t(4 * kFps));
+  EXPECT_EQ(pes::GoalRunTimerTicks(0x30034, kFps, 0.75f), uint32_t(4 * kFps / 0.75f));
+  EXPECT_EQ(pes::GoalRunTimerTicks(0x30034, 60.0f, 1.0f), 240u);  // frames, not seconds: it follows the frame rate
+  for (uint32_t scene : {0x3013Du, 0x3013Eu, 0x3013Fu}) EXPECT_EQ(pes::GoalRunTimerTicks(scene, kFps, 1.0f), uint32_t(10 * kFps));
+  EXPECT_EQ(pes::GoalRunTimerTicks(0x3013C, kFps, 1.0f), uint32_t(4 * kFps));
+  EXPECT_EQ(pes::GoalRunTimerTicks(0x30140, kFps, 1.0f), uint32_t(4 * kFps));
+}
+
 // ---- The oracle: goals logged from a running PES ----
 
 struct Row {

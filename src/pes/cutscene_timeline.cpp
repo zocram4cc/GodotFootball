@@ -30,6 +30,11 @@ float CutLength(float minTicks, float maxTicks, int draw, float ninetyNine) {
   return (float(draw) * (maxTicks - minTicks)) / ninetyNine + minTicks;
 }
 
+uint32_t GoalRunTimerTicks(uint32_t scene, float fps, float scale) {
+  const uint32_t seconds = scene - 0x3013Du < 3 ? 10 : 4;  // 0x14047A720..0x14047A72B; 0x14047A7F7
+  return uint32_t(float(uint32_t(fps) * seconds) / scale);  // 0x14047A7FD CVTSI2SS, 0x14047A802 DIVSS, 0x14047A807 CVTTSS2SI
+}
+
 CutsceneTimeline::CutsceneTimeline(const TimelineConfig& config, std::vector<TimelineStep> steps)
     : config_(config), steps_(std::move(steps)) {
   state_.stepPhase = 4;  // the manager's loading phases (0x141F57690, 0x141F5A760, 0x141F5B810) are done long before the gate
