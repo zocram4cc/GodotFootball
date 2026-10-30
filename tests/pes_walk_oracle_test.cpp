@@ -7,7 +7,9 @@
 // GF_PES_WALK_ORACLE names a directory of per-capture directories (PES-derived, never committed), each made by
 // tools/dev/translate/danger_oracle.py ... walk. A directory named syn_* is a SYNTHETIC state (tools/dev/translate/synth_walk.py
 // --patch-clear: a real danger-builder capture run forward to the walk's entry with the kind-1 record's type set to 5, the Clear
-// unit's output; everything else is PES's state); the others are real calls. Without the variable the oracle tests skip.
+// unit's output; everything else is PES's state); the others are real: the walk's own captures, and the states
+// tools/dev/translate/synth_walk.py (no --patch-clear) runs forward from a danger-predicated carrier_clear_2109EB0 capture to the
+// walk's entry, whose kind-1 record is PES's own type 5. Without the variable the oracle tests skip.
 
 #include <gtest/gtest.h>
 
@@ -58,7 +60,7 @@ class WalkOracle : public ::testing::Test {
 };
 
 TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
-  std::set<uint32_t> realKinds, syntheticKinds;
+  std::set<uint32_t> realKinds, syntheticKinds, clearRecordKinds;
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
@@ -69,6 +71,7 @@ TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
     const uint32_t got = b.world->RunWalk(b.side, b.ext);
     EXPECT_EQ(got, want) << dir << (Synthetic(dir) ? " (synthetic)" : " (real)");
     (Synthetic(dir) ? syntheticKinds : realKinds).insert(want);
+    if (!Synthetic(dir) && LoadU32(KindRecord(*b.world, b.side, kClearKind), 0) == kClearType) clearRecordKinds.insert(want);
     // GF's production run holds no capture bytes outside the window: the kind must not depend on them.
     Built production;
     Build(o, production, false, true);
@@ -77,25 +80,27 @@ TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
   EXPECT_TRUE(realKinds.count(pes::kWalkNoKind)) << "the real set holds a call PES answers 'no kind' for";
   EXPECT_TRUE(realKinds.count(3)) << "the real set holds a call PES answers a chain kind (3) for";
   EXPECT_TRUE(syntheticKinds.count(kClearKind)) << "the synthetic set reaches the Clear arm and PES keeps the clear";
+  EXPECT_TRUE(clearRecordKinds.count(kClearKind)) << "the real set holds a call whose own Clear record PES keeps";
+  EXPECT_GT(clearRecordKinds.size(), 1u) << "the real set holds a call whose own Clear record PES does not keep";
 }
 
-// The Clear arm is live on the synthetic states: the kind-1 record's type word (5) is what the walk keys on, so a window whose
-// record answers nothing must not come back with the clear.
-TEST_F(WalkOracle, TheSyntheticClearArmKeysOnTheClearRecordsType) {
-  int checked = 0;
+// The Clear arm keys on the kind-1 record's type word (5): where PES keeps the clear (synthetic or real), a window whose record
+// answers nothing must not come back with the clear.
+TEST_F(WalkOracle, TheClearArmKeysOnTheClearRecordsType) {
+  int syntheticChecked = 0, realChecked = 0;
   for (const std::string& dir : dirs_) {
-    if (!Synthetic(dir)) continue;
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
     SetOverlay(o);
     Built b;
     Build(o, b, true, true);
-    ASSERT_EQ(LoadU32(KindRecord(*b.world, b.side, kClearKind), 0), kClearType) << dir << ": the patched type";
+    if (LoadU32(KindRecord(*b.world, b.side, kClearKind), 0) != kClearType || PesReturn(o) != kClearKind) continue;
     StoreU32(KindRecord(*b.world, b.side, kClearKind), 0, 0);
     EXPECT_NE(b.world->RunWalk(b.side, b.ext), kClearKind) << dir;
-    ++checked;
+    ++(Synthetic(dir) ? syntheticChecked : realChecked);
   }
-  EXPECT_GT(checked, 0) << "no synthetic state in the oracle set";
+  EXPECT_GT(syntheticChecked, 0) << "no synthetic Clear-arm state in the oracle set";
+  EXPECT_GT(realChecked, 0) << "no real Clear-arm state in the oracle set";
 }
 
 // The list GF writes is PES's list: read each capture's list back (count, kinds, the record at each kind's slot), rewrite it with
