@@ -20,7 +20,8 @@ SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\")
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/cutscene' \
 --out-dir '${CMAKE_BINARY_DIR}/cutscene-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_cutscene.json' \"\${SEL[@]}\"")
-set_tests_properties(diff_cutscene_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
+# 4800 s: the full 685-function check took 2855 s at load ~30 (batch AO); 2400 timed out twice there.
+set_tests_properties(diff_cutscene_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 4800)
 
 # diff_presentation_recorded: the same check for the presentation set (specs/presentation; results_presentation.json
 # records its diffed VAs, each with the subsystem and role of its row).
