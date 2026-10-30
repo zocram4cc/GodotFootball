@@ -3,7 +3,8 @@
 
 xlate emitted `/*OUT-OF-RANGE JMP t*/return;` for a `jmp t` past the function's own body when t was not in the
 universe: the call chain ended there and the caller saw a normal return (14047BCA0 -> 14047BB10, the vector growth that
-never allocated). Three rules, one test each, on a synthetic flat image (offset = VA - 0x140000000):
+never allocated). Three rules, one test each, on a synthetic PE image (a .pdata table, as the extent rule of pdata.py
+requires; the pattern of test_closure_walk.py / test_extent.py; offset = VA - 0x140000000):
   1. xlate: an untranslated tail target is a loud abort naming the VA, never a bare return.
   2. driver.runnable_extra, given the universe, follows the spec function's tail jumps into the closure.
   3. gen_translated.silent_tail_sites names any in-code untranslated tail target that survives into the layer.
@@ -12,6 +13,7 @@ Usage: GF_DIFF_PYTHON=<venv python> python3 test_tail_jump_loud.py
 import os
 import re
 import sys
+import struct
 import tempfile
 import unittest
 
@@ -19,37 +21,56 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import driver  # noqa: E402
 import gen_translated  # noqa: E402
+import pdata  # noqa: E402
+pdata.KNOWN = frozenset()  # the synthetic image uses no ledger
 import xlate  # noqa: E402
 
-BASE = 0x140000000
-# The tail targets lie past FN's decode window: a nearer forward jmp is read as a local jump (dead code after it).
-FN = 0x140001000
-TAIL, TAIL2 = FN + xlate.DECODE_WINDOW + 0x1000, FN + 2 * xlate.DECODE_WINDOW + 0x1000
-CALLEE = TAIL2 + 0x100
+BASE = pdata.IMAGE_BASE
+FN, TAIL, TAIL2, CALLEE = BASE + 0x1000, BASE + 0x1100, BASE + 0x1200, BASE + 0x1300
+UNWIND = 0x600  # one UNWIND_INFO (version 1, no flags, no codes) every .pdata entry points at
 
 
 def rel32(op, at, target):
     return bytes([op]) + ((target - (at + 5)) & 0xFFFFFFFF).to_bytes(4, "little")
 
 
-class Image:
+def build_image(path):
     """FN: xor eax,eax; jmp .+2 (local); call CALLEE; jmp TAIL.  TAIL: xor ecx,ecx; jmp TAIL2.  TAIL2: xor edx,edx; ret.
-    CALLEE (an out-of-universe call, the spec's out_of_set_callees decide it, not the tail walk): ret."""
+    CALLEE (an out-of-universe call, the spec's out_of_set_callees decide it, not the tail walk): ret, no .pdata entry
+    (a leaf). FN, TAIL and TAIL2 are three .pdata entries, so each is its own function and a jump between them is a
+    tail call."""
+    img = bytearray(0x20000)
+    struct.pack_into("<I", img, 0x3C, 0x80)
+    img[0x80:0x84] = b"PE\0\0"
+    struct.pack_into("<HHIIIHH", img, 0x84, 0x8664, 0, 0, 0, 0, 240, 0)
+    code = {FN: b"\x31\xC0\xEB\x00" + rel32(0xE8, FN + 4, CALLEE) + rel32(0xE9, FN + 9, TAIL),
+            TAIL: b"\x31\xC9" + rel32(0xE9, TAIL + 2, TAIL2), TAIL2: b"\x31\xD2\xC3", CALLEE: b"\xC3"}
+    entries = [(FN, 14), (TAIL, 7), (TAIL2, 3)]
+    struct.pack_into("<II", img, 0x98 + 112 + 24, 0x400, 12 * len(entries))
+    for i, (va, n) in enumerate(entries):
+        struct.pack_into("<III", img, 0x400 + 12 * i, va - BASE, va - BASE + n, UNWIND)
+    img[UNWIND:UNWIND + 4] = bytes([0x01, 0, 0, 0])
+    for off in range(0x1000, 0x1400):
+        img[off] = 0xCC
+    for va, b in code.items():
+        img[va - BASE:va - BASE + len(b)] = b
+    with open(path, "wb") as f:
+        f.write(img)
+
+
+_DIR = tempfile.TemporaryDirectory()  # one image for the module: xlate and pdata cache an image by its path
+_IMAGE = os.path.join(_DIR.name, "img.bin")
+build_image(_IMAGE)
+
+
+class Image:
+    """`with Image() as path`: the module's synthetic image."""
 
     def __enter__(self):
-        buf = bytearray(CALLEE - BASE + xlate.DECODE_WINDOW)
-        code = {FN: b"\x31\xC0\xEB\x00" + rel32(0xE8, FN + 4, CALLEE) + rel32(0xE9, FN + 9, TAIL),
-                TAIL: b"\x31\xC9" + rel32(0xE9, TAIL + 2, TAIL2), CALLEE: b"\xC3",
-                TAIL2: b"\x31\xD2\xC3"}
-        for va, b in code.items():
-            buf[va - BASE:va - BASE + len(b)] = b
-        self.f = tempfile.NamedTemporaryFile(suffix=".bin")
-        self.f.write(buf)
-        self.f.flush()
-        return self.f.name
+        return _IMAGE
 
     def __exit__(self, *a):
-        self.f.close()
+        pass
 
 
 def translate(image, pilot):

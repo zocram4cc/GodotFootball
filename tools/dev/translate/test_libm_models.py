@@ -5,10 +5,10 @@ Three things, on the real C++ model (pes_stubs.hpp, built by g++) and the harnes
   1. Special values (zero, negative, NaN, infinity, denormal, exact powers, overflow, underflow) equal the C99 Annex F
      results, which is the contract of the ucrtbase PES calls.
   2. The C++ and Python models agree on every input: the translator and the harness model one function.
-  3. When the snapshot's ucrtbase is available (PES_UCRT_SNAP, default the live2/pid1694737/seq009 capture; else
-     skipped), its logf/powf machine code is run in unicorn on the same inputs: special values are bit-identical, an
+  3. When PES_UCRT_SNAP names a full snapshot of the running game (else skipped), its ucrtbase logf/powf machine
+     code is run in unicorn on the same inputs: special values are bit-identical, an
      ordinary argument is within one ulp, and the count of one-ulp differences is printed (the documented gap).
-Usage: GF_DIFF_PYTHON=<venv python> python3 test_libm_models.py
+Usage: [PES_UCRT_SNAP=<snapshot dir>] GF_DIFF_PYTHON=<venv python> python3 test_libm_models.py
 """
 import math
 import os
@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.join(REPO, "tools", "dev", "diffharness"))
 import run  # noqa: E402  (the harness's Python models)
 
 INF, NAN = math.inf, math.nan
-SNAP = os.environ.get("PES_UCRT_SNAP", "/mnt/Extra4/gf-Rendezvous-scratch/live2/pid1694737/seq009")
+SNAP = os.environ.get("PES_UCRT_SNAP", "")  # a full snapshot of PES running (rendezvous live2/pid1694737/seq009)
 LOGF_THUNK_SLOT_VALUE, POWF_THUNK_SLOT_VALUE = 0x6FFFFEC7D5E0, 0x6FFFFEC7F090  # image slots 0x142530278 / 0x142530290
 MIN_DENORMAL = 2.0 ** -149
 DRIVER = r"""

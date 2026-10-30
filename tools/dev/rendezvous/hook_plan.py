@@ -82,6 +82,11 @@ TARGETS = [
     ("judge_commit_43F546F0", 0x143F546F0, "Judge::Commit (protected): JR+0x38 card level"),
     # The Trap action's own tick (S5 of docs/re/pes-re-trap-inputs.md; TrapCutover2): plays the committed clip.
     ("trap_action_tick_797CD0", 0x140797CD0, "Trap action tick (plays the clip the kind-0 chain committed)"),
+    # The kick kind chooser at Kick action start (KickKind): rcx = descriptor out, rdx = AnimePlayer, r8 = request.
+    ("kick_chooser_8364D0", 0x1408364D0, "kick kind/side/band chooser at Kick action start"),
+    # The actor's action switch (TrapTick2): the trap end handler 0x14079E5C0 calls it; it runs PES's per-action objects.
+    ("action_switch_6EEBB0", 0x1406EEBB0, "actor action switch (P+0xAC8 action id; per-action objects)"),
+    ("trap_end_other_79D4B0", 0x14079D4B0, "trap end handler's other branch"),
 ]
 
 

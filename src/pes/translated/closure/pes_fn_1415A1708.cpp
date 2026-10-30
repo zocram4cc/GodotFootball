@@ -11,9 +11,6 @@
 // image constant @ 0x14252FD40 (8 bytes)
 static constexpr uint64_t k_c14252FD40_q = 0x00006FFFFA66EC20ULL;
 static constexpr double k_c14252FD40_d = 6.0841816916812e-310; // 6.0841816916812e-310
-// image constant @ 0x14252FD68 (8 bytes)
-static constexpr uint64_t k_c14252FD68_q = 0x00006FFFFA6612F0ULL;
-static constexpr double k_c14252FD68_d = 6.0841816889342e-310; // 6.0841816889342e-310
 // image constant @ 0x14252FD80 (8 bytes)
 static constexpr uint64_t k_c14252FD80_q = 0x00006FFFFA666BE0ULL;
 static constexpr double k_c14252FD80_d = 6.0841816900591e-310; // 6.0841816900591e-310

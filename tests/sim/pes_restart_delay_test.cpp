@@ -551,26 +551,32 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
 // raises none. A judge that read the ball's centre on every tick would award the throw again to the
 // other side at the same spot, on the first tick after the release. No throw-in may be awarded again
 // within a second of a release.
+// The default seed's first 15000 ticks released no throw-in once the kick scatter took PES's situation factor Q (KickSoftMin
+// moved the kick paths), so the test searches matches in turn and checks the first that releases one, as the ceremony test does.
 TEST(PesRestartDelay, AThrowInIsNotAwardedAgainOnItsOwnSpot) {
   constexpr double kRewardWindow_ms = 1000.0;  // no pass from a spot reaches the far line sooner
-  std::optional<unsigned long> awarded, released;
-  double releasedAt_ms = 0.0;
+  const unsigned int kThrowInSeeds[] = {SEED, 3u, 5u, 11u, 13u};
   int throwIns = 0, reawarded = 0;
-  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn) return;
-    const double now_ms = static_cast<double>(match.GetActualTime_ms());
-    if (!awarded || *awarded != b.stopTime) {
-      if (released && now_ms < releasedAt_ms + kRewardWindow_ms) reawarded++;
-      awarded = b.stopTime;
-    }
-    if (b.started && (!released || *released != b.stopTime)) {
-      released = b.stopTime;
-      releasedAt_ms = now_ms;
-      throwIns++;
-    }
-  }, kFirstThrowInWindowTicks, nullptr, SEED, false);
-  EXPECT_GT(throwIns, 0) << "no throw-in was released";
+  for (const unsigned int seed : kThrowInSeeds) {
+    if (throwIns > 0) break;
+    std::optional<unsigned long> awarded, released;
+    double releasedAt_ms = 0.0;
+    RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
+      const RefereeBuffer& b = match.GetRefereeBuffer();
+      if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn) return;
+      const double now_ms = static_cast<double>(match.GetActualTime_ms());
+      if (!awarded || *awarded != b.stopTime) {
+        if (released && now_ms < releasedAt_ms + kRewardWindow_ms) reawarded++;
+        awarded = b.stopTime;
+      }
+      if (b.started && (!released || *released != b.stopTime)) {
+        released = b.stopTime;
+        releasedAt_ms = now_ms;
+        throwIns++;
+      }
+    }, kFirstThrowInWindowTicks, nullptr, seed, false);
+  }
+  EXPECT_GT(throwIns, 0) << "no throw-in was released in any searched match";
   EXPECT_EQ(reawarded, 0) << reawarded << " throw-in(s) awarded again within a second of a release, at the spot";
 }
 

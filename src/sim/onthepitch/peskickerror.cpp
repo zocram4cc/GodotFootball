@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <functional>
+#include <initializer_list>
 #include <utility>
 
 namespace pes {
@@ -34,13 +36,137 @@ float HalfNormal(const KickErrorConstants& k, int n) {
   return std::fabs(static_cast<float>(n) - k.normalCentre) / k.normalCentre;
 }
 
-// The situation product Q and the motion-descriptor factors F1/F2
-// (scatter 6) keys on the PES kick kind (ap+0x2752, 151-row table 0x14344e380: class byte 13, subclass byte 12),
-// the first-time/volley flags (ap+0x2756, ap+0x2764), the body turn (ap+0xbe4 - ap+0x247c), the AI bit (ap+0x2460
-// bit 29) and the motion descriptor F1/F2 (0x1406b0250 over the motion table, a runtime singleton at 0x1436f23c0).
-// ponytail: GF has none of these fields (the kind bridge is open, docs/re/pes-re-kick-scatter-inputs.md Unresolved 1):
-// Q = 1 until the bridge lands. Remove when GF kicks carry a PES kind and motion id.
-constexpr float kSituationNotPorted = 1.0f;
+// F1/F2 (scatter 6, the motion-descriptor factors, 0x14083e749..0x14083e76f) key on the kicker's motion id through
+// FUN_1406b0250 over the motion table, a runtime singleton at 0x1436f23c0.
+// ponytail: GF has neither PES's motion id nor that table, so F stays 1.0, the value PES stores (0x14083e749) when the
+// descriptor byte is not 1. Remove when GF kicks carry a PES motion id and the table is read from the install.
+constexpr float kMotionFactorNotPorted = 1.0f;
+
+constexpr uint64_t kImageBase = 0x140000000;
+constexpr int kLastKind = 0x95;                    // cmp [rcx-1], 0x95 in the kind-row getters
+constexpr uint16_t kMotionNoGate = 0x9F1;           // 0x14083E03B: the gate does not apply while this motion plays
+constexpr uint64_t kKindTableVa = 0x14344E380;      // 16 bytes per row, row = kind
+constexpr uint64_t kKindOutRowVa = 0x14344E620;     // the row the getters return for a kind outside 1..0x96
+constexpr int kRowSubclass = 12;                    // getter 0x14071E520 (movsx byte [rsp+0xc])
+constexpr int kRowClass = 13;                       // getter 0x1407205A0 (movsx byte [rsp+0xd])
+constexpr uint64_t kWindowStoreVa = 0x1406EB6FC;    // W1: mov qword [rcx+0x2764], imm32 (720.0f)
+
+// Motion ids the kick-angle bucket is overridden for (jump table 0x14083FF68 / bytes 0x14083FF78, 0x14083CD6E..CDCD).
+constexpr uint16_t kMotionBucketF = 0x9BE;          // -> 0xF
+constexpr uint16_t kMotionBucketD1 = 0xA20, kMotionBucketD2 = 0xA7D;  // -> 0xD
+constexpr uint16_t kMotionKindA[] = {0x9B0, 0x9B4, 0xA41, 0xA42, 0xA45};  // -> 9 for kinds 0x2B and 0x3A
+constexpr int kKindMotionA = 0x2B, kKindMotionB = 0x3A;
+
+// The bytes at `va` must equal `want` before an immediate beside them is trusted.
+bool Bytes(const PeImage& exe, uint64_t va, std::initializer_list<uint8_t> want) {
+  uint8_t b[16];
+  if (want.size() > sizeof b || !exe.ReadVa(va, want.size(), b)) return false;
+  return std::equal(want.begin(), want.end(), b);
+}
+bool U8(const PeImage& exe, uint64_t va, uint8_t* v) { return exe.ReadVa(va, 1, v); }
+bool U32(const PeImage& exe, uint64_t va, uint32_t* v) {
+  return exe.ReadVa(va, sizeof *v, reinterpret_cast<uint8_t*>(v));
+}
+
+// `lea eax,[rcx-lo]; cmp eax,span` (8D 41 d8 83 F8 s8, or 8D 81 d32 83 F8 s8): the unsigned range test lo..lo+span.
+bool LeaRange(const PeImage& exe, uint64_t va, uint32_t* lo, uint32_t* span) {
+  uint8_t b[9];
+  if (!exe.ReadVa(va, sizeof b, b)) return false;
+  if (b[0] == 0x8D && b[1] == 0x41 && b[3] == 0x83 && b[4] == 0xF8) {
+    *lo = static_cast<uint32_t>(-static_cast<int32_t>(static_cast<int8_t>(b[2])));
+    *span = b[5];
+    return true;
+  }
+  if (b[0] == 0x8D && b[1] == 0x81 && b[6] == 0x83 && b[7] == 0xF8) {
+    int32_t disp;
+    std::memcpy(&disp, b + 2, sizeof disp);
+    *lo = static_cast<uint32_t>(-disp);
+    *span = b[8];
+    return true;
+  }
+  return false;
+}
+bool InRange(uint32_t kind, uint32_t lo, uint32_t span) { return kind - lo <= span; }
+
+// The four predicates of Q's gate, evaluated for kinds 0..0x96 from their own code and tables:
+// 0x1407240F0 (a jump table over kinds 0x1D..0x92), 0x140724590 (two ranges), 0x140726610 (three), 0x140726640 (a bit
+// mask over 0..0x1A and a range).
+bool LoadGatePredicates(const PeImage& exe, SituationConstants* c) {
+  uint32_t r[8][2];  // 24590: 0, 1. 26610: 2, 3, 4. 26640: 5.
+  bool ok = LeaRange(exe, 0x140724590, r[0], r[0] + 1) && LeaRange(exe, 0x14072459B, r[1], r[1] + 1) &&
+            LeaRange(exe, 0x140726610, r[2], r[2] + 1) && LeaRange(exe, 0x14072661B, r[3], r[3] + 1) &&
+            LeaRange(exe, 0x140726626, r[4], r[4] + 1) && LeaRange(exe, 0x140726652, r[5], r[5] + 1);
+  uint8_t limit = 0;
+  uint32_t mask = 0, byteTab = 0, dwordTab = 0;
+  uint8_t addHead[6];
+  ok = ok && Bytes(exe, 0x140726640, {0x83, 0xF9}) && U8(exe, 0x140726642, &limit) &&
+       Bytes(exe, 0x140726645, {0xB8}) && U32(exe, 0x140726646, &mask);
+  // 0x1407240F0: add ecx,-lo; cmp ecx,span; ... movzx eax,byte[rdx+rax+byteTab]; mov ecx,[rdx+rax*4+dwordTab]
+  ok = ok && exe.ReadVa(0x1407240F0, sizeof addHead, addHead) && addHead[0] == 0x83 && addHead[1] == 0xC1 &&
+       addHead[3] == 0x83 && addHead[4] == 0xF9 && Bytes(exe, 0x140724102, {0x0F, 0xB6, 0x84, 0x02}) &&
+       U32(exe, 0x140724106, &byteTab) && Bytes(exe, 0x14072410A, {0x8B, 0x8C, 0x82}) &&
+       U32(exe, 0x14072410D, &dwordTab) && Bytes(exe, 0x140724116, {0xB0, 0x01, 0xC3});  // mov al,1; ret
+  // 0x1407241A0: lea eax,[rcx-lo]; cmp eax,span; jbe true; cmp ecx,k1; je true; cmp ecx,k2; je true; xor al,al; ret; true: mov al,1
+  uint32_t lo241A0 = 0, span241A0 = 0;
+  uint8_t k1 = 0, k2 = 0;
+  ok = ok && LeaRange(exe, 0x1407241A0, &lo241A0, &span241A0) && Bytes(exe, 0x1407241A6, {0x76, 0x0D}) &&
+       Bytes(exe, 0x1407241A8, {0x83, 0xF9}) && U8(exe, 0x1407241AA, &k1) && Bytes(exe, 0x1407241AB, {0x74, 0x08}) &&
+       Bytes(exe, 0x1407241AD, {0x83, 0xF9}) && U8(exe, 0x1407241AF, &k2) && Bytes(exe, 0x1407241B0, {0x74, 0x03, 0x32, 0xC0, 0xC3, 0xB0, 0x01, 0xC3});
+  if (!ok) return false;
+  const uint32_t lo240F0 = static_cast<uint32_t>(-static_cast<int32_t>(static_cast<int8_t>(addHead[2])));
+  const uint32_t span240F0 = addHead[5];
+  constexpr uint64_t kTrueTarget = 0x140724116;
+  for (uint32_t k = 0; k < SituationConstants::kKinds; ++k) {
+    uint8_t g = 0;
+    if (InRange(k, lo240F0, span240F0)) {
+      uint8_t idx = 0;
+      uint32_t rel = 0;
+      if (!U8(exe, kImageBase + byteTab + (k - lo240F0), &idx) || !U32(exe, kImageBase + dwordTab + 4u * idx, &rel))
+        return false;
+      if (kImageBase + rel == kTrueTarget) g |= 1;
+    }
+    if (InRange(k, r[0][0], r[0][1]) || InRange(k, r[1][0], r[1][1])) g |= 2;
+    if (InRange(k, r[2][0], r[2][1]) || InRange(k, r[3][0], r[3][1]) || InRange(k, r[4][0], r[4][1])) g |= 4;
+    if ((k <= limit && ((mask >> k) & 1)) || InRange(k, r[5][0], r[5][1])) g |= 8;
+    if (InRange(k, lo241A0, span241A0) || k == k1 || k == k2) g |= 16;
+    c->gateKinds[k] = g;
+  }
+  return true;
+}
+
+bool LoadSituationConstants(const PeImage& exe, SituationConstants* c) {
+  const std::pair<uint64_t, float*> rdata[] = {
+      {0x14258c260, &c->p90},       {0x1425ddf70, &c->p88},      {0x1425eb850, &c->p86},
+      {0x14256ae1c, &c->one},       {0x1425ab124, &c->p95},      {0x142572348, &c->p80},
+      {0x1425ab120, &c->p85},       {0x14257a194, &c->p70},      {0x1425ef9dc, &c->p925},
+      {0x14259d624, &c->tickRate},  {0x14259a764, &c->sixty},    {0x14256ae34, &c->thousand},
+      {0x14259bdfc, &c->stopLow},   {0x14253ee30, &c->hundred},  {0x14259be34, &c->fifty},
+      {0x14259bde4, &c->c0Gain},    {0x14259222c, &c->c13Gain},  {0x1425a2004, &c->speedTop},
+      {0x14256ae18, &c->staminaK},  {0x14259be30, &c->turnLo},   {0x14259be60, &c->turnHi},
+      {0x14259be5c, &c->turnDiv},   {0x1425c48c0, &c->lowKnee},  {0x1425c48b4, &c->lowGain},
+      {0x14259bdec, &c->topGain},   {0x14257a190, &c->effK},     {0x142588200, &c->tenth},
+      {0x142590d98, &c->turnSq},    {0x1425a8a28, &c->c2Base},   {0x1425c48a0, &c->c2Gain},
+      {0x14259858c, &c->windowLimit}, {0x142598580, &c->halfTurn}, {0x142588218, &c->negOne},
+      {0x1425cca3c, &c->turn157},   {0x1425a9bf0, &c->turn130},  {0x1425c5950, &c->turn125},
+      {0x14256ae30, &c->turn120},   {0x1425c48d4, &c->turn115},  {0x14259d628, &c->turn110},
+      {0x1425cb2a8, &c->ballLow},   {0x1425e5b40, &c->ballHeld}, {0x1425e6060, &c->ballHigh},
+      {0x1425efa20, &c->ballSpan},  {0x142588210, &c->flightLo}, {0x142591140, &c->flightHi},
+      {0x14259be2c, &c->flightHi1}, {0x14259b89c, &c->flightGain0}};
+  bool ok = true;
+  for (auto [va, out] : rdata) ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
+  const std::pair<uint64_t, double*> doubles[] = {
+      {0x14259d5e0, &c->aGain}, {0x14259d5e0, &c->aPlusFirst}, {0x1425ef868, &c->aPlusLater}};
+  for (auto [va, out] : doubles) ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
+  // W1 stores the no-window angle with `mov qword [rcx+0x2764], imm32`.
+  uint32_t window = 0;
+  ok = ok && Bytes(exe, kWindowStoreVa, {0x48, 0xC7, 0x81, 0x64, 0x27, 0x00, 0x00}) &&
+       U32(exe, kWindowStoreVa + 7, &window);
+  std::memcpy(&c->noWindow, &window, sizeof window);
+  ok = ok && exe.ReadVa(kKindTableVa, c->kindTable.size(), c->kindTable.data()) &&
+       exe.ReadVa(kKindOutRowVa, c->outOfRangeRow.size(), c->outOfRangeRow.data());
+  return ok && LoadGatePredicates(exe, c);
+}
+
 
 // The install's quarter-wave sine table (513 floats at 0x142655950), read at load and mapped into the translated sine.
 constexpr uint64_t kSinTableVa = 0x142655950;
@@ -87,6 +213,10 @@ std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std
   auto penalty = LoadPenaltyScatterConstants(exe, error);
   if (!penalty) return std::nullopt;
   k.penaltyScatter = *penalty;
+  if (!LoadSituationConstants(exe, &k.situation)) {
+    *error = "kick situation constant: .rdata or gate predicate unreadable";
+    return std::nullopt;
+  }
   return k;
 }
 
@@ -196,13 +326,219 @@ float PressureFactor(const KickErrorConstants& k, float contactSelf, float conta
   return 1.0f - k.rWeight * (k.dWeight * d);
 }
 
+float PesHeadingDeg(float x, float z) {
+  // FUN_14046F230(vec, out): out = FUN_14046F260's bearing of (vec[0], vec[2]), PES's own translated code, over a
+  // scratch window that holds the vector, the out slot and the stack.
+  constexpr uint64_t kBase = 0x20000, kVec = kBase, kVecZ = kBase + 8, kOut = kBase + 0x100;
+  constexpr uint64_t kStack = kBase + 0x1000;
+  std::array<uint8_t, 0x2000> scratch{};
+  PesState s;
+  s.mem.window = {kBase, scratch.size(), nullptr, scratch.data()};
+  s.gpr[4] = kStack;
+  s.gpr[1] = kVec;
+  s.gpr[2] = kOut;
+  s.wrf(kVec, x);
+  s.wrf(kVecZ, z);
+  ::pes_fn_14046F230(s);
+  return s.rdf(kOut);
+}
+
+namespace {
+
+const uint8_t* KindRow(const SituationConstants& c, int kind) {
+  return (kind - 1 >= 0 && kind - 1 <= kLastKind) ? &c.kindTable[static_cast<size_t>(kind) * 16]
+                                                  : c.outOfRangeRow.data();
+}
+int RowClass(const uint8_t* row) { return static_cast<int8_t>(row[kRowClass]); }
+int RowSubclass(const uint8_t* row) { return static_cast<int8_t>(row[kRowSubclass]); }
+
+// `to - from`, `from` wrapped to [0, 360), folded into [-180, 180]: 0x14083D195..0x14083D1F7 (kick angle),
+// 0x14083E0AD..0x14083E11C (body turn) and FUN_1404B6390 (first-time window), all one routine.
+float AngleDelta(const SituationConstants& c, float from, float to) {
+  if (0.0f > from)
+    from += c.windowLimit;
+  else if (from >= c.windowLimit)
+    from -= c.windowLimit;
+  float d = to - from;
+  if (static_cast<float>(std::fabs(static_cast<double>(d))) > c.halfTurn)
+    d -= (0.0f > d ? c.negOne : c.one) * c.windowLimit;
+  return d;
+}
+
+float AbsF(float x) { return static_cast<float>(std::fabs(static_cast<double>(x))); }
+
+// The bucket byte `uVar14` after the motion override (0x14083CD6E..0x14083CDCD) and the first-time window
+// (0x14083CDCD..0x14083CF07).
+int EffectiveBucket(const SituationConstants& c, const KickSituation& s, int cls, float launchBearing) {
+  int u = s.entry2755;
+  if (s.motion == kMotionBucketF) {
+    u = 0xF;
+  } else if (s.motion == kMotionBucketD1 || s.motion == kMotionBucketD2) {
+    u = 0xD;
+  } else if (s.kind == kKindMotionA || s.kind == kKindMotionB) {
+    for (const uint16_t m : kMotionKindA)
+      if (s.motion == m) u = 9;
+  }
+  if (!(s.window < c.windowLimit && (s.firstTime == 1 || cls == 2))) return u;
+  float d = AngleDelta(c, s.window, launchBearing);  // FUN_1404B6390(window, &bearing)
+  if (s.touch) d *= c.negOne;
+  const bool later = s.firstTime != 0;
+  float limit;
+  switch (cls) {
+    case 0: limit = later ? c.turn125 : c.turn130; break;
+    case 1: limit = later ? c.turn115 : c.turn120; break;
+    case 2: limit = later ? c.turn110 : c.turn115; break;
+    default: return u;  // classes 3 and up skip the window (0x14083CE4F)
+  }
+  if (d > c.turn157) return 0x11;
+  return d > limit ? 0xF : u;
+}
+
+}  // namespace
+
+float KickBase(const SituationConstants& c, const KickSituation& s) {
+  const uint8_t* row = KindRow(c, s.kind);
+  const int cls = RowClass(row);
+  const int sub = RowSubclass(row);
+  float q;
+  switch (cls) {
+    case 0: q = c.p90; break;
+    case 1: q = c.p88; break;
+    case 2:
+    case 3: q = c.p86; break;
+    default: q = c.one; break;
+  }
+  switch (sub) {  // jump table 0x1408400A0
+    case 1: q *= c.p95; break;
+    case 5: q *= c.p80; break;
+    case 6: q *= c.p85; break;
+    case 7:
+    case 0xB: q *= c.p90; break;
+    case 8: q *= c.p70; break;
+    default: break;
+  }
+  const uint8_t g = (s.kind >= 0 && s.kind < SituationConstants::kKinds) ? c.gateKinds[s.kind] : 0;
+  const bool excluded = (g & 1) != 0;   // 0x1407240F0
+  const bool listed = (g & 14) != 0;    // 0x140724590 | 0x140726610 | 0x140726640
+  if (!excluded && !s.aiBit && listed && s.motion != kMotionNoGate) {
+    if (static_cast<unsigned>(cls) < 2)
+      q *= c.p95;
+    else if (cls == 3)
+      q *= c.p925;
+    else
+      q *= c.p90;
+  }
+  return q;
+}
+
+float SituationFactor(const SituationConstants& c, const KickSituation& s) {
+  float q = KickBase(c, s);
+  const uint8_t* row = KindRow(c, s.kind);
+  const int cls = RowClass(row);
+  const int sub = RowSubclass(row);
+  const float launchBearing = PesHeadingDeg(s.launchX, s.launchZ);
+  const int bucket = EffectiveBucket(c, s, cls, launchBearing);
+  const float a = s.quality;
+  const float aLeft = c.one - a;  // 1 - a ([rbp-0x60])
+
+  // Speed (km/h) of the kicker: ap+0x2480 / +0x2488 are metres per tick.
+  const float kmhPerTickUnit = ((c.tickRate * c.sixty) * c.sixty) / c.thousand;
+  float speed = kmhPerTickUnit * std::sqrt(s.velZ * s.velZ + s.velX * s.velX);
+  // Kick angle against the kicker's heading picks the speed at which the strike starts to suffer.
+  const float kickAngle = AbsF(AngleDelta(c, s.heading_deg, launchBearing));
+  float limit = c.stopLow;
+  if (cls >= 0 && cls <= 3) {
+    const float gain = cls == 0 ? c.c0Gain : (cls == 2 ? c.stopLow : c.c13Gain);
+    const float t = Ramp(kickAngle, c.fifty, c.hundred, c.fifty);
+    limit = t * gain + c.stopLow;
+  }
+  if (speed > limit) speed = ((c.speedTop - limit) * s.stamina) * c.staminaK + limit;
+
+  // The body turn (ap+0xBE4 against the heading) widens the speed window.
+  const float turn = AbsF(AngleDelta(c, s.heading_deg, s.body_deg));
+  const float turnRamp = Ramp(turn, c.turnLo, c.turnHi, c.turnDiv);
+  const float turn100 = turnRamp * c.hundred;
+  const float low = c.lowKnee - (turn100 * c.lowGain) / c.hundred;
+  const float high = c.speedTop - (turn100 * c.topGain) / c.hundred;
+  const float speedRamp = Ramp(speed, low, high, high - low);
+  q *= c.one - ((aLeft * c.effK) + c.tenth) * speedRamp;
+
+  switch (sub) {  // jump table 0x1408400D4
+    case 0: case 1: case 9: case 10:
+      q *= c.one - (turnRamp * turnRamp) * c.turnSq;
+      break;
+    case 2: case 3: case 4: case 5: case 6: case 7: case 0xC:
+      if (bucket == 0 || bucket == 2 || bucket == 0xF || bucket == 0x11) {
+        q *= static_cast<float>(static_cast<double>(a) * c.aGain +
+                                (s.firstTime == 0 ? c.aPlusFirst : c.aPlusLater));
+      } else if (bucket == 4 || bucket == 0xD) {
+        float x;
+        if (cls == 2)
+          x = s.firstTime == 0 ? aLeft * c.tenth + c.c2Base : aLeft * c.c2Gain + c.c2Base;
+        else
+          x = s.firstTime == 0 ? aLeft * c.c2Base : aLeft * c.tenth;
+        q *= c.one - x;
+      }
+      break;
+    default: break;
+  }
+  // Subclass 2..12 with the motion descriptor byte 1 (0x14083E407..0x14083E607): the ball in flight. The ball record's height (record
+  // 1, FUN_140A6CF70(ball, 1)+4) runs through the knee ramp g (1 up to ballLow, 0 from ballHigh); the AI bit and the kinds of
+  // 0x1407240F0 / 0x1407241A0 lower the height by ballHeld first. The ball's speed (records 1 to 2, FUN_140A57650 -> FUN_14042D470)
+  // is scaled by p85 when the action class record has the bit (FUN_1406EAD40) and by p95 for the same kinds and the AI bit, then
+  // ramps from flightLo to the class's top. 0x1407245D0 (subclass < 2) is false for every subclass here, so it is not evaluated.
+  const uint8_t gk = (s.kind >= 0 && s.kind < SituationConstants::kKinds) ? c.gateKinds[s.kind] : 0;
+  if (sub >= 2 && sub <= 0xC && s.descriptor == 1) {
+    float h = s.ball1Y;
+    if ((gk & 1) != 0 || (gk & 16) != 0 || s.aiBit) h += c.ballHeld;
+    float g;
+    if (!(h > c.ballLow))
+      g = c.one;
+    else if (!(h < c.ballHigh))
+      g = 0.0f;
+    else
+      g = (h - c.ballHigh) / c.ballSpan;
+    g = g * g;
+    const float airborne = c.one - g;
+    const float dz = s.ball2Z - s.ball1Z, dx = s.ball2X - s.ball1X;
+    float speed = kmhPerTickUnit * std::sqrt(dz * dz + dx * dx);
+    if (s.actionBit) speed *= c.p85;
+    if ((gk & 1) != 0 || (gk & 16) != 0 || s.aiBit) speed *= c.p95;
+    float hi = c.flightHi, mult = c.effK;
+    if (cls == 1) {
+      mult = c.p80;
+      hi = c.flightHi1;
+    } else if (cls == 0) {
+      mult = c.flightGain0;
+      hi = c.fifty;
+    }
+    float r;
+    if (!(c.flightLo < speed))
+      r = 0.0f;
+    else if (!(speed < hi))
+      r = c.one;
+    else
+      r = (speed - c.flightLo) / (hi - c.flightLo);
+    q *= c.one - (((r * c.p90) + c.tenth) * airborne) * mult;
+  }
+  // Subclass 0 and 1 with the b2754 byte at 9 (0x14083E691).
+  constexpr int kTailByte = 9;
+  if (sub == 0 || sub == 1) {
+    if (s.b2754 == kTailByte) q *= s.firstTime == 0 ? c.p90 : c.p85;
+  }
+  // ponytail: GF kicks carry no PES motion id, so the call site (humanoid.cpp PesKickSituation) hands descriptor 0 and this branch
+  // never runs in a match. The PES site that removes it: FUN_1406B0250 over the motion table (0x1436F23C0, built at run time by
+  // 0x1406AECF0) from the kicker's motion id (u16 behind vtable+0x18 of the object at ap+0xAB8).
+  return q;
+}
+
 KickScatter BuildScatter(const KickErrorConstants& k, float a, float launchPenalty,
-                         float pressure) {
-  const float q = kSituationNotPorted;
+                         float pressure, float situation) {
+  const float q = situation;
   const float qk = k.half * q + (1.0f - k.half);       // Qk, k = 0.5 by default
   const float qs = k.half * q + k.half;                // 0.5Q + 0.5
   const float stat = a * k.ampBase + k.aBase;          // A = 0.75a + 0.25
-  const float f = kSituationNotPorted;
+  const float f = kMotionFactorNotPorted;
   auto soft = [&](float x) { return SoftMin4(launchPenalty, x, f, pressure); };
   auto record = [&](float scale, float qScale, float qAmp) {
     const float m = 1.0f - qAmp;

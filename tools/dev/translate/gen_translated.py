@@ -38,7 +38,8 @@ ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 # (committed results file, spec subdirectory of tools/dev/diffharness/specs).
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"),
-        ("results_core.json", "core"), ("results_fixdemo.json", "fixdemo"))
+        ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
+        ("results_fixdemo.json", "fixdemo"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -66,6 +67,19 @@ def records():
             for r in json.load(f)["results"]:
                 out.append((r["va"], name, bool(r.get("diffed")), r.get("failure_class")))
     return out
+
+
+def closure_members(va):
+    """The functions a snapdiff-proven record built beyond its direct callees (closure_file: the indirect targets its
+    replays reached, vtable methods that no direct CALL names), so the layer holds what the proof ran. A record without
+    the field has none."""
+    for fname, _ in SETS:
+        with open(os.path.join(HERE, fname)) as f:
+            for r in json.load(f)["results"]:
+                if r["va"] == va and r.get("closure_file"):
+                    with open(os.path.join(HERE, r["closure_file"])) as g:
+                        return set(json.load(g)["members"])
+    return set()
 
 
 def context(name, va, image):
@@ -138,7 +152,9 @@ def build(image):
     texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
-        queue, seen = [va], {va}
+        members = closure_members(va)
+        universe = universe | members
+        queue, seen = [va] + sorted(members - {va}), {va} | members
         while queue:
             cur = queue.pop(0)
             text = translate(cur, image, stubs, universe)

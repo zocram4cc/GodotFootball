@@ -5,7 +5,12 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 
 #include "onthepitch/peskickerror.hpp"
@@ -77,22 +82,22 @@ TEST(PesKickError, AmpSoftMinFoldsThreeNonUnitFactorsInPesOrder) {
   // {I = 0.9, A = 0.625, F = 1, R = 0.6}; the descending fold from 1.0 gives
   // q4 = 0.475 (1 -> 0.9 -> 0.59375 -> 0.475).
   const auto k = Synthetic();
-  const auto s = pes::BuildScatter(k, 0.5f, 0.9f, 0.6f);
+  const auto s = pes::BuildScatter(k, 0.5f, 0.9f, 0.6f, 1.0f);
   const float q4 = 0.475f;
   EXPECT_NEAR(s.yaw.amp, (1.0f - q4) * (1.0f - q4) * 4.25f + 0.75f, 1e-4);
 }
 
 TEST(PesKickError, PerfectKickHasNoSpreadAndAPoorKickerAWideOne) {
   const auto k = Synthetic();
-  const auto good = pes::BuildScatter(k, 1.0f, 1.0f, 1.0f);
+  const auto good = pes::BuildScatter(k, 1.0f, 1.0f, 1.0f, 1.0f);
   EXPECT_FLOAT_EQ(good.yaw.scale, 0.0f);
   EXPECT_FLOAT_EQ(good.yaw.amp, 0.75f);
   EXPECT_FLOAT_EQ(good.yaw.pSign, 0.5f);
-  const auto poor = pes::BuildScatter(k, 0.0f, 1.0f, 1.0f);
+  const auto poor = pes::BuildScatter(k, 0.0f, 1.0f, 1.0f, 1.0f);
   // A = 0.25, q4 = 0.25, amp = 0.75^2 * 4.25 + 0.75.
   EXPECT_NEAR(poor.yaw.amp, 0.5625f * 4.25f + 0.75f, 1e-5);
   // A hurried, pressed kick widens the scale.
-  const auto pressed = pes::BuildScatter(k, 1.0f, 0.5f, 1.0f);
+  const auto pressed = pes::BuildScatter(k, 1.0f, 0.5f, 1.0f, 1.0f);
   EXPECT_NEAR(pressed.yaw.scale, 0.5f * 22.5f, 1e-4);
   EXPECT_NEAR(pressed.speed.scale, 0.5f * 0.3f, 1e-5);
 }
@@ -141,7 +146,7 @@ TEST(PesKickError, DrawWithZeroScaleLeavesTheKickAlone) {
   const auto k = Synthetic();
   const auto rc = SyntheticRng();
   pes::Random rng(rc);
-  const auto e = pes::DrawKickError(k, rng, pes::BuildScatter(k, 1, 1, 1), false);
+  const auto e = pes::DrawKickError(k, rng, pes::BuildScatter(k, 1, 1, 1, 1), false);
   EXPECT_FLOAT_EQ(e.yaw_deg, 0.0f);
   EXPECT_FLOAT_EQ(e.pitch_deg, 0.0f);
   EXPECT_FLOAT_EQ(e.speedFactor, 1.0f);
@@ -152,7 +157,7 @@ TEST(PesKickError, DrawStaysInsideTheScaleAndHalvesLowPitch) {
   const auto rc = SyntheticRng();
   pes::Random rng(rc);
   rng.SetSeed(pes::kKickRngSlot, 777);
-  const auto s = pes::BuildScatter(k, 0.3f, 0.6f, 0.8f);
+  const auto s = pes::BuildScatter(k, 0.3f, 0.6f, 0.8f, 1.0f);
   bool sawYaw = false;
   for (int i = 0; i < 500; ++i) {
     const auto e = pes::DrawKickError(k, rng, s, true);
@@ -198,6 +203,30 @@ TEST(PesKickError, SinTableIsTheSineAtItsKnots) {
   }
 }
 
+// The soft minimum on PES's own arguments. tools/dev/rendezvous/kick_replay.py replays each kick_scatter capture and
+// writes one row per FUN_1408413c0 call (four factors, PES's result). The rows are PES-derived: they live in scratch and
+// reach the test through PES_KICK_SOFTMIN_TSV. A TSV with no rows fails: an empty oracle is not a pass.
+TEST(PesKickErrorOracle, SoftMinOnPesArgumentsGivesPesResult) {
+  const char* path = std::getenv("PES_KICK_SOFTMIN_TSV");
+  if (!path) GTEST_SKIP() << "PES_KICK_SOFTMIN_TSV not set";
+  std::ifstream in(path);
+  ASSERT_TRUE(in) << path;
+  std::string line;
+  std::getline(in, line);  // header: seq, call, a, b, c, d, out
+  int rows = 0;
+  while (std::getline(in, line)) {
+    std::istringstream row(line);
+    std::string seq;
+    int call = 0;
+    float a = 0, b = 0, c = 0, d = 0, want = 0;
+    row >> seq >> call >> a >> b >> c >> d >> want;
+    ASSERT_FALSE(row.fail()) << line;
+    EXPECT_EQ(pes::SoftMin4(a, b, c, d), want) << seq << " call " << call;
+    ++rows;
+  }
+  EXPECT_GT(rows, 0);
+}
+
 TEST(PesKickErrorInstall, LoadsFromTheExe) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
@@ -219,6 +248,164 @@ TEST(PesKickErrorInstall, LoadsFromTheExe) {
               1e-3);
   // A perfect kicker's amp is the floor, a poor one's sits inside Normal's range.
   EXPECT_GT(k->ampGain + k->ampBase, k->ampBase);
+}
+
+// ---- Situation factor Q (FUN_14083cc30, docs/ports/pes-port-KickQ.md) -----------------------------------------------
+
+std::optional<pes::KickErrorConstants> InstallConstants(std::string* err) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) return std::nullopt;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", err);
+  if (!exe) return std::nullopt;
+  return pes::LoadKickErrorConstants(*exe, err);
+}
+
+float FromBits(const std::string& hex) {
+  const uint32_t bits = static_cast<uint32_t>(std::stoul(hex, nullptr, 16));
+  float f;
+  std::memcpy(&f, &bits, sizeof f);
+  return f;
+}
+
+// tools/dev/rendezvous/kick_replay.py --q replays kick_scatter captures (each capture itself, and with each input Q
+// reads moved across the thresholds it is tested against) and records the inputs and PES's Q as f32 bits. Rows are
+// PES-derived: they stay in scratch and reach the test through PES_KICK_Q_TSV. desc is the motion-descriptor byte PES
+// read (-1: subclass 0, 1 or 8..: not read); 1 sends PES into the in-flight branch (0x14083E42E), which is ported: the
+// ball records (ball1x, ballY, ball1z, ball2x, ball2z) and FUN_1406EAD40's bit (ead) are its inputs. A TSV with no row fails.
+TEST(PesKickErrorOracle, SituationFactorEqualsPesBitForBit) {
+  const char* path = std::getenv("PES_KICK_Q_TSV");
+  if (!path || !std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES_KICK_Q_TSV or PES21_ROOT not set";
+  std::string err;
+  auto k = InstallConstants(&err);
+  ASSERT_TRUE(k) << err;
+  std::ifstream in(path);
+  ASSERT_TRUE(in) << path;
+  std::string line;
+  std::getline(in, line);  // header
+  int compared = 0, inFlight = 0, aboveKnee = 0, wrong = 0;
+  while (std::getline(in, line)) {
+    if (line.rfind("seq\t", 0) == 0) continue;  // a concatenated file's repeated header
+    std::istringstream row(line);
+    std::string seq, window, vx, vz, stamina, heading, body, l0, l2, a, q, ballY, b1x, b1z, b2x, b2z;
+    int kind, b2754, entry, first, motion, touch, desc, ead;
+    uint32_t flags;
+    std::getline(row, seq, '\t');
+    row >> kind >> b2754 >> entry >> first >> window >> flags >> vx >> vz >> stamina >> heading >> body >> l0 >> l2 >>
+        a >> motion >> touch >> desc >> q >> ballY >> b1x >> b1z >> b2x >> b2z >> ead;
+    ASSERT_FALSE(row.fail()) << line;
+    constexpr int kDescriptorInFlight = 1;
+    const float ball = FromBits(ballY);
+    if (desc == kDescriptorInFlight) {
+      ++inFlight;
+      if (ball > k->situation.ballLow) ++aboveKnee;
+    }
+    pes::KickSituation s;
+    s.kind = kind;
+    s.b2754 = static_cast<int8_t>(b2754);
+    s.entry2755 = static_cast<int8_t>(entry);
+    s.firstTime = static_cast<int8_t>(first);
+    s.window = FromBits(window);
+    s.aiBit = (flags >> 29) & 1;
+    s.motion = static_cast<uint16_t>(motion);
+    s.touch = touch != 0;
+    s.velX = FromBits(vx);
+    s.velZ = FromBits(vz);
+    s.stamina = FromBits(stamina);
+    s.heading_deg = FromBits(heading);
+    s.body_deg = FromBits(body);
+    s.launchX = FromBits(l0);
+    s.launchZ = FromBits(l2);
+    s.quality = FromBits(a);
+    s.descriptor = desc;
+    s.ball1X = FromBits(b1x);
+    s.ball1Y = ball;
+    s.ball1Z = FromBits(b1z);
+    s.ball2X = FromBits(b2x);
+    s.ball2Z = FromBits(b2z);
+    s.actionBit = ead != 0;
+    const float want = FromBits(q);
+    const float got = pes::SituationFactor(k->situation, s);
+    ++compared;
+    if (std::memcmp(&got, &want, sizeof got) != 0) {
+      if (++wrong <= 10) ADD_FAILURE() << seq << " kind " << kind << ": got " << got << " want " << want << "\n" << line;
+    }
+  }
+  RecordProperty("compared", compared);
+  RecordProperty("inFlight", inFlight);
+  RecordProperty("aboveKnee", aboveKnee);
+  EXPECT_GT(compared, 0);
+  EXPECT_EQ(wrong, 0) << wrong << " of " << compared << " rows differ";
+  std::printf("[ oracle   ] Q rows compared %d (in-flight branch %d, above the knee %d)\n", compared, inFlight, aboveKnee);
+}
+
+// A still kicker facing his kick, a perfect strike, no window and no bucket loses nothing: Q is the Base of the kind.
+// The Base's gate multiplier switches on with the AI bit off and off with it on, by exactly one of the three gate
+// multipliers, so every kind of the table must show Base(no AI) = Base(AI) x multiplier or no gate at all.
+TEST(PesKickErrorInstall, SituationBaseGateAndAUnhurriedKickKeepsTheBase) {
+  std::string err;
+  auto k = InstallConstants(&err);
+  if (!k && !std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(k) << err;
+  const pes::SituationConstants& c = k->situation;
+  int gated[3] = {0, 0, 0};
+  for (int kind = 1; kind <= 0x96; ++kind) {
+    pes::KickSituation s;
+    s.kind = kind;
+    s.entry2755 = 0x12;  // no bucket
+    s.window = c.noWindow;
+    s.quality = 1.0f;
+    s.launchX = 0.0f;
+    s.launchZ = 1.0f;  // bearing 0, the heading
+    const float base = pes::KickBase(c, s);
+    s.aiBit = true;
+    const float ungated = pes::KickBase(c, s);
+    s.aiBit = false;
+    s.motion = 0x9F1;
+    EXPECT_EQ(pes::KickBase(c, s), ungated) << "motion 0x9F1 switches the gate off, kind " << kind;
+    s.motion = 0;
+    if (base == ungated) {
+      ++gated[0];  // no gate for this kind
+    } else if (base == ungated * c.p95) {
+      ++gated[1];
+    } else if (base == ungated * c.p925 || base == ungated * c.p90) {
+      ++gated[2];
+    } else {
+      ADD_FAILURE() << "kind " << kind << ": gate multiplier is none of the install's";
+    }
+    EXPECT_EQ(pes::SituationFactor(c, s), base) << "a still, aligned, perfect kick keeps the Base, kind " << kind;
+  }
+  EXPECT_GT(gated[0], 0);
+  EXPECT_GT(gated[1], 0);
+  EXPECT_GT(gated[2], 0);
+}
+
+// A kicker running flat out, striking away from his heading with the stamina accumulator (ap+0x281C) full, loses Q
+// against one standing, in every class a kick can be.
+TEST(PesKickErrorInstall, SituationFactorFallsWithTheKickersSpeed) {
+  std::string err;
+  auto k = InstallConstants(&err);
+  if (!k && !std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(k) << err;
+  const pes::SituationConstants& c = k->situation;
+  for (int kind : {1, 28, 42, 57}) {  // one kind of each of the classes 3, 2, 1, 0
+    pes::KickSituation s;
+    s.kind = kind;
+    s.entry2755 = 0x12;
+    s.window = c.noWindow;
+    s.quality = 0.5f;
+    s.launchZ = -1.0f;  // bearing 180 against heading 0
+    s.stamina = 100.0f;
+    const float still = pes::SituationFactor(c, s);
+    s.velZ = 0.5f;  // m per tick: far above the sprint
+    EXPECT_LT(pes::SituationFactor(c, s), still) << "kind " << kind;
+  }
+}
+
+TEST(PesKickErrorInstall, HeadingIsPesBearing) {
+  EXPECT_FLOAT_EQ(pes::PesHeadingDeg(0.0f, 1.0f), 0.0f);
+  EXPECT_NEAR(pes::PesHeadingDeg(1.0f, 0.0f), 90.0f, 1e-3);
+  EXPECT_NEAR(pes::PesHeadingDeg(0.0f, -1.0f), 180.0f, 1e-3);
+  EXPECT_NEAR(pes::PesHeadingDeg(-1.0f, 0.0f), 270.0f, 1e-3);
 }
 
 }  // namespace
