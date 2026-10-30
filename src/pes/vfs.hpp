@@ -18,10 +18,10 @@ namespace pes {
 // then download/ cpks in DpFileList.bin order, the later cpk winning on equal
 // paths. Paths are case-insensitive, '/'-separated, no leading '/'.
 struct VfsOptions {
-  // The gameplay mod the GameplayLoader module has selected. PES re-rolls it at
-  // every match when is_random_gameplay_mod_enabled is set (os.clock seeded),
-  // so GF takes it as an input; unset = the loader's own boot state (its
-  // favorite_gameplay_mod, else "No Mod"). "No Mod" selects nothing.
+  // The gameplay mod GameplayLoader.lua answers for. PES re-rolls its choice at every
+  // match when is_random_gameplay_mod_enabled is set (os.clock seeded), so GF takes it
+  // as an input. Unset = "No Mod", stock PES: the loader answers nothing and the game's
+  // own cpks decide (download/ over Data/).
   std::optional<std::string> gameplayMod;
 };
 

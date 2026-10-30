@@ -96,7 +96,7 @@ TEST(VfsOrder, LoaderModBeatsLiveRoots) {
   in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
   pes::PesVfs vfs;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
   EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "MODA");
 }
 
@@ -140,7 +140,7 @@ TEST(VfsOrder, LoaderServesOnlyWhatIsGameplayFileAccepts) {
   in.Put("content/gameplay-loader/modA/common/render/thumbnail/y.dds", "NOT_GAMEPLAY");
   pes::PesVfs vfs;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
   EXPECT_EQ(ReadStr(vfs, "common/match/constant/constant_positionCK.bin"), "CK");
   EXPECT_EQ(ReadStr(vfs, "common/anime/FoxAnim/Body/x.mtar"), "ANIME");
   EXPECT_FALSE(vfs.Exists("common/render/thumbnail/y.dds"));
@@ -158,7 +158,7 @@ TEST(VfsOrder, ModulesAnswerInSiderIniOrder) {
     in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
     pes::PesVfs vfs;
     std::string err;
-    ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
     EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), netblockFirst ? "NETBLOCK" : "MODA");
   }
 }
@@ -173,7 +173,7 @@ TEST(VfsOrder, DisabledModulesAnswerNothing) {
     in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
     pes::PesVfs vfs;
     std::string err;
-    ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
     EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
   }
   {
@@ -184,15 +184,15 @@ TEST(VfsOrder, DisabledModulesAnswerNothing) {
     in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
     pes::PesVfs vfs;
     std::string err;
-    ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
     EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
   }
 }
 
-// The loader's selection is an input of the mount: an explicit mod replaces the
-// boot state, "No Mod" selects nothing, and a name the loader does not list is
+// The loader's selection is an input of the mount: a named mod is the one the loader
+// answers for, "No Mod" selects nothing, and a name the loader does not list is
 // refused (PES could never have selected it).
-TEST(VfsOrder, ExplicitGameplayModReplacesBootState) {
+TEST(VfsOrder, ExplicitGameplayModSelectsThatMod) {
   SyntheticInstall in("explicit");
   in.Sider(kTwoRoots, "lua.module = \"GameplayLoader.lua\"\n");
   in.LoaderState("modA");
@@ -213,18 +213,20 @@ TEST(VfsOrder, ExplicitGameplayModReplacesBootState) {
   EXPECT_NE(err.find("modC"), std::string::npos);
 }
 
-// The boot state is the favorite only when the loader lists it.
-TEST(VfsOrder, BootStateIsTheListedFavorite) {
-  SyntheticInstall in("favorite");
+// The loader's mod list is read the way GameplayLoader.lua reads it: CRLF lines, and a
+// commented-out mod is not listed, so an explicit selection of it is refused.
+TEST(VfsOrder, ExplicitModIsReadFromTheLoadersList) {
+  SyntheticInstall in("crlflist");
   in.Sider("", "lua.module = \"GameplayLoader.lua\"\n");
   in.LoaderState("modB", "No Mod\r\nmodA\r\n# modB\r\n");  // CRLF file; modB commented out
   in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
   in.Put("content/gameplay-loader/modB/common/match/constant/constant_player.bin", "MODB");
-  pes::PesVfs vfs;
+  pes::PesVfs listed, commented;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
-  EXPECT_EQ(vfs.GameplayMod(), "No Mod");
-  EXPECT_FALSE(vfs.Exists(CONSTANT_PLAYER));
+  ASSERT_TRUE(listed.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
+  EXPECT_EQ(ReadStr(listed, CONSTANT_PLAYER), "MODA");
+  EXPECT_FALSE(commented.Mount(in.Root(), &err, {.gameplayMod = "modB"}));
+  EXPECT_NE(err.find("modB"), std::string::npos);
 }
 
 // ---- the owner's install (PES21_ROOT) -----------------------------------
@@ -316,6 +318,21 @@ TEST(VfsOrderInstall, NoModServesACpkVariant) {
   }
   ASSERT_FALSE(variants.empty());
   EXPECT_NE(std::find(variants.begin(), variants.end(), ReadStr(none, kConstantFiles[1])), variants.end());
+}
+
+// The default mount is stock PES: no gameplay mod answers whatever config.ini selects, so
+// every gameplay file is the bytes an explicit "No Mod" mount serves.
+TEST(VfsOrderInstall, DefaultMountIsNoMod) {
+  const char* root = InstallRoot();
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  const auto loader = InstallLoader(root);
+  if (!loader || loader->mods.empty()) GTEST_SKIP() << "no GameplayLoader in this install";
+  pes::PesVfs def, none;
+  std::string err;
+  ASSERT_TRUE(def.Mount(root, &err)) << err;
+  ASSERT_TRUE(none.Mount(root, &err, {.gameplayMod = "No Mod"})) << err;
+  EXPECT_EQ(def.GameplayMod(), "No Mod");
+  for (const char* file : kConstantFiles) EXPECT_EQ(ReadStr(def, file), ReadStr(none, file)) << file;
 }
 
 // constant::Trap in the live PES (read 30-10-26, registry 0x1437F4808 -> entry

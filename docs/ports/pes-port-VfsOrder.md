@@ -72,3 +72,9 @@ The sixteen result in §1 is a path string for all nine files in sider's own buf
 3. sider's key cache (ttl 10 s, keyed by the requested name, not the key) can serve the previous mod's path for up to 10 s after a re-roll; not modelled.
 4. The Lua `string.match` filter is case-insensitive here (Lua's is case-sensitive): ponytail comment in `vfs.cpp`.
 5. Native order of two download cpks (DpFileList order) has no live proof yet.
+
+## 9. Owner ruling 30-10-26: the default is stock PES, "No Mod" (supersedes the favourite clause of §3 and the decision of §4)
+
+`PesVfs::Mount` with no `gameplayMod` selects no mod: GameplayLoader answers nothing and the game's own cpks decide, download/ over Data/ (the stock constants). The live PES is pinned to "No Mod" the same way. `favorite_gameplay_mod` in config.ini is no longer read: it is the loader's own boot state, not a GF input. A mod is selected only by `{.gameplayMod = NAME}` or `--gameplay-mod NAME` (gfsim_run, pesfmt_dump), and the sider order of §3 applies then.
+
+Install state read 30-10-26: `content/gameplay-loader/config.ini` says `favorite_gameplay_mod = No Mod`, so §2's `righetti4` no longer matches the install. On that install `VfsOrderInstall.DefaultMountIsNoMod` is green before and after the change. The red test is the synthetic `VfsOrder.DefaultMountIgnoresTheBootFavorite` (favourite `modA` listed).

@@ -55,7 +55,7 @@ std::string Q4(pes::Quat q) {
 }
 
 int Usage() {
-  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|rig|motions [NO ...]> --pes21-root DIR\n");
+  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|rig|motions [NO ...]> --pes21-root DIR [--gameplay-mod NAME]\n");
   return 2;
 }
 
@@ -64,7 +64,7 @@ int Usage() {
 int main(int argc, char** argv) {
   std::vector<std::string> pos;
   std::string root;
-  std::optional<std::string> gameplayMod;  // GameplayLoader's selection; unset = its boot state
+  std::optional<std::string> gameplayMod;  // GameplayLoader's mod; unset = "No Mod" (stock PES)
   if (const char* env = std::getenv("PES21_ROOT")) root = env;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];

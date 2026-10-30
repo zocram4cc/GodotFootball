@@ -190,7 +190,7 @@ bool PesVfs::MountModules(const std::vector<std::string>& modules, const VfsOpti
         continue;
       }
       const fs::path base = rootPath / SiderRelDir(*content);
-      // init(): the list is "No Mod" + one line per mod; the favorite from config.ini, if listed, starts selected.
+      // init(): the list is "No Mod" + one line per mod.
       std::vector<std::string> mods{"No Mod"};
       if (const auto csv = Slurp(base / "gameplay-mods.csv")) {
         for (const std::string& l : Lines(*csv)) {
@@ -203,20 +203,13 @@ bool PesVfs::MountModules(const std::vector<std::string>& modules, const VfsOpti
           if (fields.size() == 1) mods.push_back(fields[0]);
         }
       }
-      std::string favorite;
-      if (const auto cfg = Slurp(base / "config.ini")) {
-        const std::regex setting(R"(^([A-Za-z0-9_]+)\s*=\s*([-A-Za-z0-9. ]+))");
-        for (const std::string& l : Lines(*cfg)) {
-          std::smatch m;
-          if (std::regex_search(l, m, setting) && m[1] == "favorite_gameplay_mod") favorite = m[2];
-        }
-      }
       const auto listed = [&](const std::string& mod) { return std::find(mods.begin(), mods.end(), mod) != mods.end(); };
       if (options.gameplayMod && !listed(*options.gameplayMod)) {
         *error = "gameplay mod \"" + *options.gameplayMod + "\" is not in " + (base / "gameplay-mods.csv").string();
         return false;
       }
-      gameplayMod_ = options.gameplayMod ? *options.gameplayMod : listed(favorite) ? favorite : "No Mod";
+      // Unnamed = "No Mod" (stock PES): config.ini's favorite is the loader's own boot state, not a GF input.
+      gameplayMod_ = options.gameplayMod.value_or("No Mod");
       if (gameplayMod_ == "No Mod") {
         report_ += label + "  No Mod selected\n";
         continue;

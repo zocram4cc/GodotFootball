@@ -189,7 +189,7 @@ class ParityLog {
 
 int main(int argc, char** argv) {
   std::string dbSql, root, anims = DEFAULT_ANIMS;
-  std::optional<std::string> gameplayMod;  // GameplayLoader's selection; unset = its boot state
+  std::optional<std::string> gameplayMod;  // GameplayLoader's mod; unset = "No Mod" (stock PES)
   if (const char* env = std::getenv("PES21_ROOT")) root = env;
   int home = 0, away = 0, minutes = DEFAULT_MINUTES;
   unsigned int seed = DEFAULT_SEED;
