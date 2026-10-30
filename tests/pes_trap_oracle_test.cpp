@@ -1136,6 +1136,10 @@ TEST_F(TrapTickOracle, ListWhatTheOverlaySupplies) {
 // EyesTarget table and the Animetable buffer) equals what GF's loader built from the install: the loader is the input the window
 // cannot overlay (it holds no copy of the capture's heap), so a record GF built differently changes the solver's output unseen.
 // A read byte that lies in none of these structures, nor in the window's objects, is reported as unexplained.
+// KNOWN RED (30-10-26, a VFS-resolution slice owns it): on the 12 captures that read constant::Trap +0x8 the capture holds 0x0a and
+// GF's VFS winner gives 0x07. The live PES (pid951851, read through the registry 0x1437F4808 -> entry[0x3E] -> +8) holds the STOCK
+// Data/dt18_all.cpk trap.o in all 120 loader fields (0 differ from stock, 31 from the 4cc_06_gameplay.cpk copy) although 4cc_06 is
+// open in the process: PES does not resolve trap.o to the mod. The fix is the general VFS rule PES uses, not a per-file exception.
 TEST_F(TrapTickOracle, LoaderDataTheTickReadsEqualsTheCapture) {
   constexpr uint64_t kMotionTableGlobal = 0x1436F23C0ULL, kAnimeGlobal = 0x1436F2378ULL, kEyesGlobal = 0x1436F2648ULL;
   for (const std::string& dir : dirs_) {
