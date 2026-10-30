@@ -1392,6 +1392,19 @@ TEST(PesCarrierLaneSlots, AnAwayCarriersSlotNamesHisOwnTeamNotTheOtherSide) {
   EXPECT_EQ(pes::LaneSlotToGlobalId(22, away, home), -1);
 }
 
+// The walk reads an answer record's +8 as a man-record slot (side * 11 + squad place): an away carrier's receiver is slot 11 or
+// more whichever way the answer named him (lane slot or global id), and the active-list order is not the squad order.
+TEST(PesCarrierLaneSlots, AReceiverIsNamedByHisPesSlotWhateverNamedHim) {
+  const std::vector<int> ownIds = {111, 112, 113}, ownSlots = {14, 11, 15};  // an away side: active order differs from squad place
+  const std::vector<int> oppIds = {5, 6}, oppSlots = {2, 0};
+  EXPECT_EQ(pes::ReceiverPesSlot(0, true, ownIds, oppIds, ownSlots, oppSlots), 14);    // lane 0: his first active man
+  EXPECT_EQ(pes::ReceiverPesSlot(11, true, ownIds, oppIds, ownSlots, oppSlots), 2);    // lane 11: the opponents' first
+  EXPECT_EQ(pes::ReceiverPesSlot(113, false, ownIds, oppIds, ownSlots, oppSlots), 15); // a pass answer's global id
+  EXPECT_EQ(pes::ReceiverPesSlot(6, false, ownIds, oppIds, ownSlots, oppSlots), 0);
+  EXPECT_EQ(pes::ReceiverPesSlot(99, false, ownIds, oppIds, ownSlots, oppSlots), -1);
+  EXPECT_EQ(pes::ReceiverPesSlot(5, true, ownIds, oppIds, ownSlots, oppSlots), -1);  // lane 5 names nobody (3 own men)
+}
+
 TEST(PesCarrierLongUnit, ANonOwnedCarrierWithNoDangerStaysSilent) {
   // Kind 9 (0x14212AD40): without the ball and no danger flag, no answer.
   pes::LongUnitInput in;

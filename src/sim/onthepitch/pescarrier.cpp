@@ -2365,6 +2365,17 @@ int LaneSlotToGlobalId(int slot, const std::vector<int>& ownIds, const std::vect
   return -1;
 }
 
+int ReceiverPesSlot(int index, bool isLane, const std::vector<int>& ownIds, const std::vector<int>& oppIds,
+                    const std::vector<int>& ownPesSlots, const std::vector<int>& oppPesSlots) {
+  const int id = isLane ? LaneSlotToGlobalId(index, ownIds, oppIds) : index;
+  if (id < 0) return -1;
+  for (std::size_t j = 0; j < ownIds.size() && j < ownPesSlots.size(); ++j)
+    if (ownIds[j] == id) return ownPesSlots[j];
+  for (std::size_t j = 0; j < oppIds.size() && j < oppPesSlots.size(); ++j)
+    if (oppIds[j] == id) return oppPesSlots[j];
+  return -1;
+}
+
 int DribbleChooser(const DribbleChooserInput& in, const CarrierConstants& k) {
   // The feint gate: the facing inside 30 degrees of the attack and of the plan heading, the carrier
   // past halfway, and the caller's feint test (0x14212e970).

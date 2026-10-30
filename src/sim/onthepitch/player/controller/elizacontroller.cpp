@@ -2761,14 +2761,21 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // state 0x140a6e300 and box pressure are not decoded to GF state, so they stay off.
   [[maybe_unused]] const int dribbleSub = pes::DribbleSubKind(chooser, false, carrier);
 
-  // imageA+0x31C1, the danger flag the carrier units read: PES's unit builder 0x142119390 (translated, proven on ten real
-  // calls) stores it from the pressure builder 0x14069A500 and the writer 0x140699960, on the side's carrier block BP in the
-  // window. Its inputs are the window's own records (man, ball, MA lists, side, events); SetCarrierInputs writes the carrier's
-  // unit info and state from them. The Long, BackSpace and Safety units read the byte back (ClearDanger).
+  // The carrier block BP in the window (PES's unit updater 0x142110C90): the unit info BP+0x1C by 0x14063C9F0 and the state
+  // BP+0x78 by 0x14063A490 (both translated, equal to PES on the unslimmed walk captures: pes_walk_oracle_test UnitOracle), run
+  // on the window's own records (side, team info, man, anime, ball, MA, MI, events). The ball owner (MA+0x2601C) is the input
+  // the state's owned byte reads, so it is written first.
   pes::PesWorld& pesWorld = match->PesWorldOf();
   const int sideIndex = team->GetID();
-  pesWorld.SetCarrierInputs(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())),
-                            CastPlayer()->GetPossessionDuration_ms() > 0);
+  Player* ballOwner = match->GetBallRetainer();
+  pesWorld.SetMaOwner(sideIndex, ballOwner != nullptr ? static_cast<uint32_t>(match->PesSlotOf(ballOwner)) : pes::kMiNoSlot);
+  // ponytail: the CPU tier setting (side record +0xA294, written by the menus' 0x140A424E0 callers 0x141FBE480 / 0x141FB9FB0)
+  // is the live play setting, tier 5 (docs/re/pes-re-A4Carrier.md 3); GF has no such menu.
+  pesWorld.SetSideTier(sideIndex, static_cast<uint32_t>(pes::kBpTierLive));
+  pesWorld.RunCarrierUpdate(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
+  // imageA+0x31C1, the danger flag the carrier units read: PES's unit builder 0x142119390 (translated, proven on ten real
+  // calls) stores it from the pressure builder 0x14069A500 and the writer 0x140699960 on the same block. The Long, BackSpace
+  // and Safety units read the byte back (ClearDanger), and so does the walk (BP+0x32AD is the same byte).
   pesWorld.RunDangerBuilder(sideIndex);
   pes::PassAnswer pass;
   if (rethink) pass = passAnswer();
@@ -3299,17 +3306,29 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   const pes::PesWorld::ClearAnswer cleared =
       pesWorld.RunClearUnit(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
   if (cleared.type == static_cast<uint32_t>(pes::kAnswerClear)) clearAnswer = {pes::kAnswerClear, 0, cleared.angle_deg};
-  // The table keeps the lane slot each lane unit answered (own team 0..10, opponents 11..21): PES's answer records name it.
-  const std::vector<pes::UnitSlot> table =
-      pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
-                         goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass, clearAnswer);
-  // The pass commands take global player ids: convert the lane answers after the table holds them.
+  // The pass commands take global player ids and the lane answers name lane slots; the walk's records name PES slots
+  // (side * 11 + squad place, a man-record index): convert each answer to its PES slot for the table, then the lane
+  // answers to global ids for the commands.
   std::vector<Player*> ownActive, oppActive;
   team->GetActivePlayers(ownActive);
   match->GetTeam(1 - team->GetID())->GetActivePlayers(oppActive);
-  std::vector<int> ownIds, oppIds;
-  for (Player* p : ownActive) ownIds.push_back(p->GetID());
-  for (Player* p : oppActive) oppIds.push_back(p->GetID());
+  std::vector<int> ownIds, oppIds, ownPesSlots, oppPesSlots;
+  for (Player* p : ownActive) {
+    ownIds.push_back(p->GetID());
+    ownPesSlots.push_back(match->PesSlotOf(p));
+  }
+  for (Player* p : oppActive) {
+    oppIds.push_back(p->GetID());
+    oppPesSlots.push_back(match->PesSlotOf(p));
+  }
+  const auto atPesSlot = [&](pes::PassAnswer answer, bool isLane) {
+    if (answer.index >= 0) answer.index = pes::ReceiverPesSlot(answer.index, isLane, ownIds, oppIds, ownPesSlots, oppPesSlots);
+    return answer;
+  };
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, atPesSlot(pass, false), atPesSlot(longPass, false),
+                         atPesSlot(crossPass, false), atPesSlot(goalFrontPass, true), atPesSlot(backSpacePass, true),
+                         atPesSlot(safetyPass, true), atPesSlot(oneTwoPass, true), atPesSlot(directHighPass, true), clearAnswer);
   const auto toGlobalId = [&](pes::PassAnswer& answer) {
     if (answer.index >= 0) answer.index = pes::LaneSlotToGlobalId(answer.index, ownIds, oppIds);
   };
@@ -3322,25 +3341,20 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // pes_walk_oracle_test) decides which unit's answer the carrier acts on, the Clear unit's replacement chain included.
   // Its inputs are the window's records; the ones GF writes here name their PES site, the rest stand in.
   uint8_t* bp = pesWorld.Carrier(sideIndex);
-  // ponytail: MI+0x116C is PES's match FSM; GF derives it from its own state (3 set piece, 1 in play, 2 stopped). MI+0x1775
-  // (the FSM byte that vetoes passes and clears in states 3, 9, 10) has no GF state; its writers are undecoded: 0.
+  // ponytail: MI+0x116C is PES's match FSM; GF derives it from its own state (3 set piece, 1 in play, 2 stopped).
   pesWorld.Period().playState = static_cast<uint32_t>(match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2));
+  // MI+0x1775 (the byte the walk vetoes passes and clears on, 3, 9 and 10): PES writes it in three places only, the match-info
+  // constructor (0x140A3C7AA: 0), the copy-assign (0x1404144E2) and the setter 0x140A3CCF0, whose single caller 0x141FB1880
+  // (the flow state 5, mode 2, reached from 0x141FD5200) stores 3. That mode is chosen by the menus' command strings
+  // (0x141FC0335), not by a match in play; the 9 and 10 vetoes have no writer. Open play reads 0 in all 9 readable captures.
   pesWorld.MatchInfo()[pes::kMiWalkStateOffset] = 0;
-  // ponytail: BP+0x60 (the CPU tier * 100) is a game setting; live play runs tier 5 (docs/re/pes-re-A4Carrier.md 3). BP+0xC8
-  // (the previous decision's flag), BP+0x32AD and BP+0x41E4 (the previous chosen kind, 0x19 = none) are written by the unit
-  // updater 0x1421019D0 / 0x14210F110's caller (undecoded); GF keeps no previous decision.
-  pes::StoreU32(bp, pes::kBpTierOffset, static_cast<uint32_t>(pes::kBpTierLive));
-  bp[pes::kBpDecidedOffset] = 0;
-  bp[pes::kBpGuardOffset] = 0;
-  pes::StoreU32(bp, pes::kBpChosenKindOffset, pes::kWalkNoKind);
   pes::StoreU32(bp, pes::kBpIntentionOffset, static_cast<uint32_t>(intention));  // 0x141052E30(BP+0x32B0)
-  // ponytail: BP+0x3380 (the turn reference the kind-4 tail measures the facing against, writer undecoded) is the carrier's facing.
+  // ponytail: BP+0x3380 (the turn reference the kind-4 tail measures the facing against) is written inside 0x14211D710's
+  // sub-builders 0x14211E2D0 / 0x14211E210 / 0x14211E650 (untranslated, run only while the state's word 0 is 0): the carrier's
+  // facing stands in until they land.
   const Vector3 walkDir = CastPlayer()->GetDirectionVec();
   pes::StoreF32(bp, pes::kBpTurnReferenceOffset, pes::PesBearingDeg(0.0f, 0.0f, walkDir.coords[0], walkDir.coords[1]));
-  // ponytail: the zone record at BP+0xAB8 (0x140698340/830, undecoded) stands in with GF's close band.
-  pesWorld.SetCarrierZone(sideIndex, pes::IsClose(zone));
-  Player* ballOwner = match->GetBallRetainer();
-  pesWorld.SetMaOwner(sideIndex, ballOwner != nullptr ? static_cast<uint32_t>(match->PesSlotOf(ballOwner)) : pes::kMiNoSlot);
+  // The zone record at BP+0xAB8 is the danger builder run's own output (run above; equal to PES on the unslimmed captures).
   uint64_t skillMask = 0;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot)) skillMask |= 1ull << pes::kSkillOneTouchShot;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass)) skillMask |= 1ull << pes::kSkillOneTouchPass;

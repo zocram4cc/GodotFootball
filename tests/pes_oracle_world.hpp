@@ -27,7 +27,7 @@ inline void BindWorld(pes::PesWorld& w) {
   for (int k = 0; k < pes::kOfficialCount; ++k) w.BindOfficial(pes::kRefereeOfficialIndex + k);
   for (int t = 0; t < pes::kSideCount; ++t) {
     w.SetEntry(pes::WorldTable::kSideA, t, pes::PesWorld::SideVa(t));
-    w.SetEntry(pes::WorldTable::kSideB, t, pes::PesWorld::SideVa(t));
+    w.SetEntry(pes::WorldTable::kSideB, t, pes::PesWorld::TeamInfoVa(t));
   }
 }
 
@@ -39,6 +39,7 @@ inline uint8_t* RecordOf(pes::PesWorld& w, int side, const std::string& kind, in
   if (kind == "pitch") return w.PitchRecord();
   if (kind == "fr") return w.FrameRandomRecord();
   if (kind == "side") return w.SideRecord(idx);
+  if (kind == "team") return w.TeamInfoRecord(idx);
   if (kind == "anime") return w.AnimeRecord(idx);
   if (kind == "man") return w.ManRecord(idx);
   if (kind == "slot") return w.Block(idx) + pes::kSlotRecordOffset;
@@ -59,6 +60,7 @@ inline uint64_t CapturedBase(const Oracle& o, uint64_t g, const std::string& kin
   if (kind == "pitch") return Read(o, g + pes::kPitchPtrOffset, 8);
   if (kind == "fr") return Read(o, g + pes::kFrameRandomPtrOffset, 8);
   if (kind == "side") return entry(pes::kSideTableAOffset);
+  if (kind == "team") return entry(pes::kSideTableBOffset);
   if (kind == "anime") return entry(pes::kAnimeTableOffset);
   if (kind == "man") return entry(pes::kManTableOffset);
   if (kind == "slot") return entry(pes::kSlotTableOffset);
@@ -119,6 +121,48 @@ inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = fa
   if (!walk)
     pes::StoreU32(w.Carrier(b.side), pes::kBpFlagsOffset,
                   static_cast<uint32_t>(Read(o, o.regs.at("rsp") + pes::kDangerArg6Offset, 4)));
+}
+
+}  // namespace pes_oracle
+
+namespace pes_oracle {
+
+// Every record the window holds, copied whole from a capture through its G (the carrier-walk call: bp = rcx, ctx = *(rdx + 8)),
+// for tests that run a PES writer on the window and compare its output to the capture's bytes (the walk's live-in manifest
+// holds only what the walk read). The window's own ctx pointers to MA and E stay.
+inline void BuildFull(const Oracle& o, Built& b) {
+  pes::PesWorld& w = *b.world;
+  BindWorld(w);
+  w.BindImageTables(InstallTables());
+  const uint64_t g = Read(o, kImageG, 8);
+  b.side = static_cast<int>(Read(o, o.regs.at("rcx") + pes::kBpUnitInfoOffset + pes::kUnitSideOffset, 4));
+  const auto copy = [&](const char* kind, int idx, size_t bytes, size_t skipLo = 0, size_t skipHi = 0) {
+    uint8_t* dst = RecordOf(w, b.side, kind, idx);
+    const uint64_t base = CapturedBase(o, g, kind, idx, true);
+    ASSERT_NE(dst, nullptr) << kind;
+    if (base == 0) return;  // an official the capture's table does not hold (the fourth official has no entry)
+    for (size_t i = 0; i < bytes; ++i)
+      if (i < skipLo || i >= skipHi) dst[i] = static_cast<uint8_t>(Read(o, base + i, 1));
+  };
+  copy("B", 0, pes::kBallRecordBytes);
+  copy("MI", 0, pes::kMatchInfoBytes);
+  copy("pitch", 0, pes::kPitchRecordBytes);
+  copy("fr", 0, pes::kFrameRandomBytes);
+  for (int t = 0; t < pes::kSideCount; ++t) copy("side", t, pes::kSideRecordBytes);
+  for (int t = 0; t < pes::kSideCount; ++t) copy("team", t, pes::kTeamInfoRecordBytes);
+  for (int k = 0; k < pes::kAnimeCount; ++k) copy("anime", k, pes::kManRecordOffset);
+  for (int k = 0; k < pes::kManCount; ++k) copy("man", k, pes::kManRecordBytes);
+  for (int k = 0; k < pes::kSlotCount; ++k) copy("slot", k, pes::kPlayerBlockBytes - pes::kSlotRecordOffset);
+  copy("bp", 0, pes::kBpBytes);
+  uint8_t* ctx = w.Ctx(b.side);
+  uint64_t maVa = 0, eventsVa = 0;
+  std::memcpy(&maVa, ctx + pes::kCtxMaOffset, sizeof(maVa));
+  std::memcpy(&eventsVa, ctx + pes::kCtxEventsOffset, sizeof(eventsVa));
+  copy("ctx", 0, pes::kCtxBytes);
+  pes::StoreU64(ctx, pes::kCtxMaOffset, maVa);
+  pes::StoreU64(ctx, pes::kCtxEventsOffset, eventsVa);
+  copy("ma", 0, pes::kMaBytes);
+  copy("e", 0, sizeof(pes::EventStoreImage));
 }
 
 }  // namespace pes_oracle

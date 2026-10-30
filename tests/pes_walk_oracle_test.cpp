@@ -145,4 +145,78 @@ TEST(CarrierWalk, ListedKindsThatAnswerNothingReturnNoKind) {
   EXPECT_EQ(w.RunWalk(0), pes::kWalkNoKind);
 }
 
+// The unit updater's writers on GF's window. GF_PES_UNIT_ORACLE names a directory of per-capture directories (tools:
+// statedirs.py: mem.bin, maps.txt, the entry registers) of COMPLETE (unslimmed) carrier-walk captures: the BP the walk saw holds
+// what 0x14063C9F0 (unit info BP+0x1C) and 0x14063A490 (state BP+0x78) wrote earlier in the same tick. The window is rebuilt from
+// the capture's whole records, the two writers run on it, and every byte of BP+0x1C..BP+0xEC must equal the capture's, except the
+// state's two counters (the capture is after the update, the run is a second one: +1, and the owned-tick count restarts at 0
+// while the carrier is not the owner), plus BP+0x41E4 (the previous kind the driver stores before the walk).
+class UnitOracle : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* dir = std::getenv("GF_PES_UNIT_ORACLE");
+    if (dir == nullptr || *dir == '\0') GTEST_SKIP() << "GF_PES_UNIT_ORACLE unset (PES-derived captures, not committed)";
+    if (std::getenv("PES21_ROOT") == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the install's tables are bound from its exe)";
+    for (const auto& e : std::filesystem::directory_iterator(dir))
+      if (std::filesystem::exists(e.path() / "manifest.tsv")) dirs_.push_back(e.path().string());
+    std::sort(dirs_.begin(), dirs_.end());
+    ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
+  }
+  std::vector<std::string> dirs_;
+};
+
+TEST_F(UnitOracle, UnitInfoAndStateFromTheWindowEqualPesOnEveryCapture) {
+  constexpr std::size_t kTickCounter = pes::kBpStateOffset + 2 * sizeof(uint32_t);   // state word 2: ticks since the unit began
+  constexpr std::size_t kOwnedCounter = pes::kBpStateOffset + 3 * sizeof(uint32_t);  // state word 3: ticks owned
+  // OPEN (report 3): the two bytes that read the event store's none record 0x1436F3A40 through a register-held address, which the
+  // window does not hold: state word 4 (BP+0x88, ticks since the last event) and the state's sticky flag byte (BP+0xC8). Binding
+  // the record as an image segment fixed them but moved BP+0xB4 on every capture, cause not found.
+  constexpr std::size_t kEventTicks = pes::kBpStateOffset + 4 * sizeof(uint32_t), kStickyFlag = 0xC8;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    Built b;
+    BuildFull(o, b);
+    b.world->AdoptCarrierState(b.side);
+    uint8_t* bp = b.world->Carrier(b.side);
+    const std::vector<uint8_t> want(bp, bp + pes::kBpImageAOffset);
+    const uint32_t wantKind = LoadU32(bp, pes::kBpChosenKindOffset);
+    const uint32_t ticks = LoadU32(bp, kTickCounter), owned = LoadU32(bp, kOwnedCounter);
+    const bool carrierOwns = bp[pes::kBpStateOffset + pes::kStateOwnedOffset] != 0;
+    b.world->RunCarrierUpdate(b.side, LoadU32(bp, pes::kBpUnitInfoOffset + pes::kUnitSlotOffset), b.ext);
+    EXPECT_EQ(LoadU32(bp, kTickCounter), ticks + 1) << dir;
+    EXPECT_EQ(LoadU32(bp, kOwnedCounter), carrierOwns ? owned + 1 : 0u) << dir;
+    EXPECT_EQ(LoadU32(bp, pes::kBpChosenKindOffset), wantKind) << dir << ": the previous kind the walk read";
+    for (std::size_t i = pes::kBpUnitInfoOffset; i < want.size(); ++i) {
+      if ((i >= kTickCounter && i < kTickCounter + 4) || (i >= kOwnedCounter && i < kOwnedCounter + 4)) continue;
+      if ((i >= kEventTicks && i < kEventTicks + 4) || i == kStickyFlag) continue;
+      EXPECT_EQ(bp[i], want[i]) << dir << " BP+0x" << std::hex << i;
+    }
+  }
+}
+
+// The danger byte BP+0x32AD (the walk's guard) is the builder's imageA+0x31C1, and the zone record BP+0xAB8 is written by the same
+// builder run: both zeroed in the window, the builder run on the capture's records must give the capture's bytes back.
+TEST_F(UnitOracle, DangerBuilderOnTheWindowWritesTheWalksDangerByteAndZone) {
+  constexpr std::size_t kZoneBytes = 0x180;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    Built b;
+    BuildFull(o, b);
+    b.world->AdoptCarrierState(b.side);
+    uint8_t* bp = b.world->Carrier(b.side);
+    const std::vector<uint8_t> wantZone(bp + pes::kBpZoneOffset, bp + pes::kBpZoneOffset + kZoneBytes);
+    const uint8_t wantDanger = bp[pes::kBpGuardOffset];
+    std::memset(bp + pes::kBpZoneOffset, 0, kZoneBytes);
+    bp[pes::kBpGuardOffset] = 0;
+    b.world->RunDangerBuilder(b.side, b.ext);
+    EXPECT_EQ(bp[pes::kBpGuardOffset], wantDanger) << dir << " danger byte";
+    for (std::size_t i = 0; i < kZoneBytes; ++i)
+      EXPECT_EQ(bp[pes::kBpZoneOffset + i], wantZone[i]) << dir << " zone+0x" << std::hex << i;
+  }
+}
+
 }  // namespace

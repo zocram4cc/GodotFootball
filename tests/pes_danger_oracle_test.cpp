@@ -128,8 +128,9 @@ TEST(DangerBuilder, ZeroWorldRunsAndPressureRecordNamesTheCarrier) {
   EXPECT_EQ(LoadU32(w.Carrier(1), pes::kBpImageAOffset + pes::kImageAPressureOffset), slot % 11);
 }
 
-// The unit info the builder reads, as the ten captures show it: slot, slot % 11, side, the side's heading and sign, the man
-// record's position and that position times the sign (a side that attacks -x holds -1), the state's ball copy and owned byte.
+// The unit info the builder reads, written by the translated unit updater 0x14063C9F0 from the window's records: slot, slot % 11,
+// side, the side's heading and sign, the man record's position and that position times the sign (a side that attacks -x holds
+// -1); the state's owned byte follows the ball owner in MA.
 TEST(DangerBuilder, CarrierInputsAreTheWindowsRecordsTimesTheAttackSign) {
   pes::PesWorld w;
   BindWorld(w);
@@ -138,8 +139,8 @@ TEST(DangerBuilder, CarrierInputsAreTheWindowsRecordsTimesTheAttackSign) {
   w.SetAttackAngle(1, 270.0f);
   pes::StoreF32(w.ManRecord(static_cast<int>(slot)), pes::kManPosXOffset, -12.0f);
   pes::StoreF32(w.ManRecord(static_cast<int>(slot)), pes::kManPosZOffset, 3.0f);
-  w.SetMaBall(1, -10.0f, 0.5f, 0.25f);
-  w.SetCarrierInputs(1, slot, true);
+  w.SetMaOwner(1, slot);
+  w.RunCarrierUpdate(1, slot);
   const uint8_t* bp = w.Carrier(1);
   const uint8_t* unit = bp + pes::kBpUnitInfoOffset;
   EXPECT_EQ(LoadU32(unit, pes::kUnitSlotOffset), slot);
@@ -150,11 +151,11 @@ TEST(DangerBuilder, CarrierInputsAreTheWindowsRecordsTimesTheAttackSign) {
   EXPECT_EQ(pes::LoadF32(unit, pes::kUnitPositionOffset), -12.0f);
   EXPECT_EQ(pes::LoadF32(unit, pes::kUnitSignedPositionOffset), 12.0f);
   EXPECT_EQ(pes::LoadF32(unit, pes::kUnitSignedPositionOffset + 8), -3.0f);
-  const uint8_t* state = bp + pes::kBpStateOffset;
-  EXPECT_EQ(pes::LoadF32(state, pes::kStateBallOffset), -10.0f);
-  EXPECT_EQ(pes::LoadF32(state, pes::kStateBallOffset + 8), 0.25f);
-  EXPECT_EQ(state[pes::kStateOwnedOffset], 1);
+  EXPECT_EQ(bp[pes::kBpStateOffset + pes::kStateOwnedOffset], 1);
   EXPECT_EQ(LoadU32(bp, pes::kBpFlagsOffset), pes::kBpRefreshAll);
+  w.SetMaOwner(1, pes::kMiNoSlot);
+  w.RunCarrierUpdate(1, slot);
+  EXPECT_EQ(bp[pes::kBpStateOffset + pes::kStateOwnedOffset], 0) << "a carrier that is not the ball's owner is not owned";
 }
 
 }  // namespace

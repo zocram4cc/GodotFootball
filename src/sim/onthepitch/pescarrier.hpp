@@ -888,6 +888,12 @@ std::array<uint8_t, 0x1C> EncodeAnswerRecord(const CarrierAnswer& answer);
 // pass command takes a global player id, so the answer converts through the two active lists. -1 when the slot
 // names no player.
 int LaneSlotToGlobalId(int slot, const std::vector<int>& ownIds, const std::vector<int>& oppIds);
+// A receiver's PES slot (side * 11 + squad place): an answer record's +8 is read by the walk as a man-record index (0x14063E3A0,
+// 0x140A638C0, 0x140A62FE0 -> 0x140A48A10), not a lane slot and not GF's global id. `index` is a lane slot when `isLane`, else a
+// global player id; `ownIds`/`oppIds` are the two sides' active lists (lane order) and `ownPesSlots`/`oppPesSlots` the PES slot of
+// each entry. -1 when the receiver is on neither list.
+int ReceiverPesSlot(int index, bool isLane, const std::vector<int>& ownIds, const std::vector<int>& oppIds,
+                    const std::vector<int>& ownPesSlots, const std::vector<int>& oppPesSlots);
 
 // --- the Long unit (report 5.2, kind 9, 0x14212AD40) ---
 //

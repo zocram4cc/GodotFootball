@@ -113,7 +113,7 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   for (int k = 0; k < pes::kOfficialCount; ++k) w.BindOfficial(pes::kRefereeOfficialIndex + k);
   for (int t = 0; t < pes::kSideCount; ++t) {
     w.SetEntry(pes::WorldTable::kSideA, t, pes::PesWorld::SideVa(t));
-    w.SetEntry(pes::WorldTable::kSideB, t, pes::PesWorld::SideVa(t));
+    w.SetEntry(pes::WorldTable::kSideB, t, pes::PesWorld::TeamInfoVa(t));
   }
   const uint64_t rdx = o.regs.at("rdx");
   for (const auto& line : o.manifest) {
