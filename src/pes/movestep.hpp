@@ -360,6 +360,10 @@ float InlineDiffDeg(float a, float b, const RunConstants& k);
 // The 360 fold of a heading into [0, 360), the block every handler opens with.
 float FoldFull(float a, const RunConstants& k);
 
+// The styles the representative-motion table holds: the ladder FUN_1406ba2f0 returns 0..0xf and RUN_LOOP's jostle override
+// (FUN_1406c0170) 0x10; PES indexes the table unbounded, and 0x1425ddcf0 + 17 * 16 is the next table's start (0x1425dde00).
+inline constexpr int kRunStyleCount = 0x11;
+
 // Group B's install tables: the anime interface's tables (the dispatch table at 0x1425e35d0, decoded for
 // the port) and the stop, goto and turn-stop row grids (kind + class * 8).
 struct RunTables {
@@ -371,7 +375,7 @@ struct RunTables {
   std::array<int32_t, 32> gotoRow;        // FUN_1406b9bd0, kind + class*8, 0x1425dda50
   std::array<int32_t, 32> turnStopRow;    // FUN_1406ba0d0, kind + class*8, 0x1425ddb50
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
-  std::array<int32_t, 64> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0: 16 styles x 4 members (style*4 + band/4)
+  std::array<int32_t, kRunStyleCount * 4> styleGroup;  // FUN_1406d2030's representative motion, DAT_1425ddcf0: style*4 + band/4
 };
 
 // FUN_1406b9e80's 11-knot piecewise-linear table at 0x1425de010: ten records
