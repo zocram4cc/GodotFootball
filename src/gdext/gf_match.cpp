@@ -402,8 +402,11 @@ void GfMatch::StartTimeline(const pes::FixDemoRequest& request) {
   // the tail after it) is not ported, so a goal whose scorer arrives early (PES: 147, 213 frames on two logged goals) starts
   // later here; removed by translating 0x140472640 (docs/ports/pes-port-CutsceneTiming3.md section 2). [[G+0x2C0]+0x5C] = 1.0
   // (read live) has no GF counterpart. A foul keeps the earliest opening of its own gate (0x14047EB00: the countdown
-  // fps*3 may only open once it is down to fps, so 2.0 s) until that gate is ported.
-  config.gateTicks = category == 3 ? pes::GoalRunTimerTicks(request.sceneId, config.fps, 1.0f) - 1 : uint32_t(k->two * config.fps);
+  // fps*3 may only open once it is down to fps, so 2.0 s) until that gate is ported. The special scenes 0x3013D..0x3013F wait
+  // 10 s on the timer but PES opened the logged one (g3) after 147 frames by the 3.5 m arrival test (no angle clear), so they
+  // keep the 2.0 s stand-in too (a 540-frame wait would be far later than PES's), until the arrival test is ported.
+  const bool specialGoal = request.sceneId - 0x3013Du < 3;
+  config.gateTicks = category == 3 && !specialGoal ? pes::GoalRunTimerTicks(request.sceneId, config.fps, 1.0f) - 1 : uint32_t(k->two * config.fps);
   timeline_.emplace(config, std::move(steps));
   timelineScene_ = request.sceneId;
   timelineSixty_ = k->sixty;
