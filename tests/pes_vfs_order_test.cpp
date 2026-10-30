@@ -64,7 +64,8 @@ class SyntheticInstall {
   void Sider(const std::string& roots, const std::string& modules, const std::string& extra = "") {
     Put("sider.ini", "[sider]\nlivecpk.enabled = 1\nlua.enabled = 1\n" + extra + roots + modules);
   }
-  void LoaderState(const std::string& favorite, const std::string& mods = "No Mod\nmodA\nmodB\n") {
+  // The real gameplay-mods.csv lists mods only; the loader adds "No Mod" itself.
+  void LoaderState(const std::string& favorite, const std::string& mods = "modA\nmodB\n") {
     Put("modules/GameplayLoader.lua", kLoaderLua);
     Put("content/gameplay-loader/gameplay-mods.csv", mods);
     Put("content/gameplay-loader/config.ini", "favorite_gameplay_mod = " + favorite + "\n");
@@ -218,7 +219,7 @@ TEST(VfsOrder, ExplicitGameplayModSelectsThatMod) {
 TEST(VfsOrder, ExplicitModIsReadFromTheLoadersList) {
   SyntheticInstall in("crlflist");
   in.Sider("", "lua.module = \"GameplayLoader.lua\"\n");
-  in.LoaderState("modB", "No Mod\r\nmodA\r\n# modB\r\n");  // CRLF file; modB commented out
+  in.LoaderState("modB", "modA\r\n# modB\r\n");  // CRLF file; modB commented out
   in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
   in.Put("content/gameplay-loader/modB/common/match/constant/constant_player.bin", "MODB");
   pes::PesVfs listed, commented;
