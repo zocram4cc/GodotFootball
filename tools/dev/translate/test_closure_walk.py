@@ -153,6 +153,16 @@ class ClosureWalk(unittest.TestCase):
         need, err = self.run_closure(T, unmodellable=[T])
         self.assertNotIn("0x%X" % T, need)
 
+    def test_crawl_of_a_bounded_closure_walks_only_the_members(self):
+        # closure.py --members-file: a direct callee outside the member set is no member and is not walked.
+        row = lambda callees: {"callees": {"%08X" % c: "direct" for c in callees}}
+        universe = {"%08X" % A: row([B, C]), "%08X" % B: row([]), "%08X" % C: row([T])}
+        with open(self.image, "rb") as f:
+            members, _ = closure.crawl([A, B], universe, closure.ClosurePdata(f), "t", {A, B})
+            whole, _ = closure.crawl([A], universe, closure.ClosurePdata(f), "t")
+        self.assertEqual(members, [A, B])
+        self.assertEqual(sorted(whole), sorted([A, B, C, T]))
+
     def test_an_indirect_site_inside_a_function_is_no_root(self):
         # The harness traces call sites; B+1 is a site inside B, so the function holding it is the root, not the site.
         need, err = self.run_closure(T, {"0x%X" % (B + 1): {"0x%X" % C: 1}})
