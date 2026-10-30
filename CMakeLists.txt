@@ -42,10 +42,13 @@ target_link_libraries(pesrig PUBLIC pesfmt)
 
 # The committed translated layer (src/pes/translated; regenerated and drift-checked by
 # tools/dev/translate/gen_translated.py). Built unconditionally and linked into gfsim.
+# pes_dispatch_gen.cpp is the one TU naming every function (the indirect-call table): adding a function recompiles
+# the new TU and that one, nothing else.
 file(GLOB_RECURSE PES_TRANSLATED_SRCS CONFIGURE_DEPENDS
      "${CMAKE_SOURCE_DIR}/src/pes/translated/*/pes_fn_*.cpp")
 # pes_native.cpp: the GF-native services the dispatch table routes to (the heap behind PES's allocator tables).
-add_library(pestranslated STATIC ${PES_TRANSLATED_SRCS} ${CMAKE_SOURCE_DIR}/src/pes/translated/pes_native.cpp)
+add_library(pestranslated STATIC ${PES_TRANSLATED_SRCS} ${CMAKE_SOURCE_DIR}/src/pes/translated/pes_dispatch_gen.cpp
+            ${CMAKE_SOURCE_DIR}/src/pes/translated/pes_native.cpp)
 target_include_directories(pestranslated PUBLIC ${CMAKE_SOURCE_DIR}/src/pes/translated)
 
 add_executable(pesfmt_dump apps/pesfmt_dump.cpp)
