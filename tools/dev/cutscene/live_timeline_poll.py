@@ -26,6 +26,16 @@ while time.time()-t0<secs:
         d=rd((D,0x910),)[0]
         if d:
             row['D']=dict(scene=struct.unpack('<I',d[0:4])[0],kind=struct.unpack('<I',d[8:12])[0],st=struct.unpack('<I',d[0x1d8:0x1dc])[0],w74=struct.unpack('<I',d[0x1d0:0x1d4])[0],b75=d[0x1d4],b77=d[0x1dc],s8f2=d[0x8f2],c8f3=d[0x8f3],ctr=struct.unpack('<I',d[0x900:0x904])[0],v868=struct.unpack('<i',d[0x868:0x86c])[0],b870=d[0x870],sel=d[0x8f0],k878=struct.unpack('<4I',d[0x878:0x888]))
+            a=d[0x1e8:0x320]  # A0 = the goal run object at DemoInfo+0x1E8 (FUN_140472640 sets A0+0xEC, the byte FUN_14047B460 copies to DemoInfo+0x1D4)
+            I=lambda o:struct.unpack('<i',a[o:o+4])[0]; F=lambda o:round(struct.unpack('<f',a[o:o+4])[0],4)
+            row['A']=dict(sc=I(8),rad=F(0xc),f10=F(0x10),t14=I(0x14),t18=I(0x18),i24=I(0x24),b2c=a[0x2c],T=[F(0x30),F(0x34),F(0x38)],bc=I(0xbc),c8=I(0xc8),b=[a[0xea],a[0xeb],a[0xec],a[0xed]],b131=a[0x131])
+            if mi:
+                sl=rd((mi+0x1588,4),(mi+0x1590,4),(mi+0x15a5,1),(mi+0x15c8,8))
+                row['A'].update(m1588=struct.unpack('<I',sl[0])[0],m1590=struct.unpack('<I',sl[1])[0],m15a5=sl[2][0],m15c8=struct.unpack('<2I',sl[3]))
+                if I(8) and D:
+                    eps=rd(*[(G+(i+0xbf)*0x28,8) for i in range(22)])
+                    ps=rd(*[(U64(e)+0x55c,16) for e in eps if e])  # x at +0x55c, z at +0x564
+                    row['A']['P']=[[round(struct.unpack('<f',p[0:4])[0],2),round(struct.unpack('<f',p[8:12])[0],2)] if p else None for p in ps]
             M=U64(d[0x1e0:0x1e8])
             if M:
                 m=rd((M,0x270),)[0]
