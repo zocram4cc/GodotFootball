@@ -218491,6 +218491,36 @@
    "vtables": [],
    "walked": true
   },
+  "1406E6960": {
+   "boundary": null,
+   "callees": {
+    "1406E68C0": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406E696C",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406e6960",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 10,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406E69F0": {
    "boundary": null,
    "callees": {
@@ -1294335,7 +1294365,7 @@
     ]
    },
    "kickkind": {
-    "members": 193,
+    "members": 216,
     "roots": [
      "0x1408364D0"
     ]

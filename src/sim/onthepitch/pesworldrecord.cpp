@@ -218,6 +218,32 @@ PesTrapResult PesWorld::RunTrapKind0(const PesTrapRequest& request, const PesTra
   return result;
 }
 
+PesKickDescriptor PesWorld::RunKickChooser(const PesKickRequest& request, const PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  s.mem.flat = ext.image;
+  s.mem.flat_base = kImageBaseVa;
+  s.mem.flat_size = ext.imageBytes;
+  for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  for (const auto& [va, value] : ext.globals) s.mem.wr(va, value, 8);
+
+  // The Kick start's frame (FUN_140724CC0): the return address slot, the request (r8), the descriptor out (rcx). The descriptor
+  // starts as zeros: the chooser stores every field it answers (FUN_140821170's copy).
+  const uint64_t entry = kStackVa + kStackBytes - kKickFrameBytes;
+  const uint64_t requestVa = entry + kKickRequestFrameOffset, descriptorVa = entry + kKickDescriptorFrameOffset;
+  s.wr(entry, 0, 8);
+  for (std::size_t i = 0; i < kKickRequestBytes; ++i) s.wr(requestVa + i, request.bytes[i], 1);
+  for (std::size_t i = 0; i < kKickDescriptorBytes; ++i) s.wr(descriptorVa + i, 0, 1);
+  s.gpr[4] = entry;
+  s.gpr[1] = descriptorVa;  // rcx: the descriptor out
+  s.gpr[2] = PVa();         // rdx: P, the kicker's actor object (ap)
+  s.gpr[8] = requestVa;     // r8: the request
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_1408364D0(s);
+  PesKickDescriptor out;
+  for (std::size_t i = 0; i < kKickDescriptorBytes; ++i) out.bytes[i] = static_cast<uint8_t>(s.mem.rd(descriptorVa + i, 1));
+  return out;
+}
+
 uint8_t* PesWorld::AnimeRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48910, Bytes(), slot)); }
 
 uint8_t* PesWorld::ManRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48A10, Bytes(), slot)); }

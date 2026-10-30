@@ -1,0 +1,41 @@
+{
+ "note": "kickkind results. diffed = bit-exact vs the unicorn harness over the 24 captured kick_chooser calls (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickkind.json",
+   "coverage": {
+    "0x1408364D0": {
+     "fraction": 0.4231,
+     "reached": 88,
+     "total": 208
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 24 of 24 (pes-port-KickKind2.md); the closure is capture-bounded (216 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 24,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 88,
+     "total": 208,
+     "fraction": 0.4231
+    },
+    "replayed": 24,
+    "source": "tools/dev/translate/results_kickkind.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1408364D0"
+  }
+ ]
+}

@@ -18,6 +18,7 @@
 #include "pesclock.hpp"
 #include "pesevents.hpp"
 #include "pestrapworld.hpp"
+#include "peskickchooser.hpp"
 #include "pesimagetables.hpp"
 #include "pes_native.hpp"
 
@@ -582,6 +583,10 @@ class PesWorld {
   // kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack arguments), then the
   // chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp).
   PesTrapResult RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext);
+  // PES's kick chooser FUN_1408364D0 on the window: the request laid out as the Kick start's frame (peskickchooser.hpp), P, the ball,
+  // MI, man and slot records from the window, the image and loader data from `ext` (the same externals the trap chain takes). A kind
+  // outside the translated closure aborts loudly (pes_dispatch_missing).
+  PesKickDescriptor RunKickChooser(const PesKickRequest& request, const PesTrapExternals& ext);
   // MA's ball copy (x, height, z) and carrier id.
   void SetMaBall(int side, float x, float height, float z) {
     StoreF32(Ma(side), kMaBallOffset, x);

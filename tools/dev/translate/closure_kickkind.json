@@ -1,7 +1,12 @@
 {
- "note": "the functions snapdiff --bounded built for the proof of 0x1408364D0 (the 19 replayable captured kick-chooser calls): the root and each function the replays entered (direct callees, tail targets, vtable methods). Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "note": "the functions snapdiff --bounded built for the proof of 0x1408364D0 (the 24 replayable captured kick-chooser calls of live2/pid615629): the root and each function the replays entered (direct callees, tail targets, vtable methods). Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
  "root": "0x1408364D0",
  "members": [
+  "0x1403DB210",
+  "0x1403DB280",
+  "0x1403DB2C0",
+  "0x1403DB410",
+  "0x1403DB590",
   "0x14042D470",
   "0x14043A020",
   "0x14043A0A0",
@@ -40,6 +45,8 @@
   "0x1406E0020",
   "0x1406E6660",
   "0x1406E66B0",
+  "0x1406E68C0",
+  "0x1406E6960",
   "0x1406E69F0",
   "0x1406E6AB0",
   "0x1406E6BD0",
@@ -184,6 +191,13 @@
   "0x140A92DC0",
   "0x140A93070",
   "0x14124DAD0",
+  "0x1415BB730",
+  "0x1415BBA50",
+  "0x141AF2C20",
+  "0x141AF32C0",
+  "0x141AFDF10",
+  "0x141B034B0",
+  "0x141B03660",
   "0x141B59E20",
   "0x141B994E0",
   "0x141E532D0",
@@ -194,6 +208,15 @@
   "0x141EB50B0",
   "0x141EB51A0",
   "0x141EB51F0",
-  "0x141EB54D0"
+  "0x141EB54D0",
+  "0x1423A3FD0",
+  "0x1423A5750",
+  "0x1423A5BC0",
+  "0x1423B8FB0",
+  "0x1423B9030",
+  "0x1423B90E0",
+  "0x1423BA9D0",
+  "0x1423BB360",
+  "0x1423BE8C0"
  ]
 }
