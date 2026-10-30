@@ -8,25 +8,28 @@
 # when both are set.
 add_test(NAME diff_pilot_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
---out-dir '${CMAKE_BINARY_DIR}/pilot-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results.json'")
+--out-dir '${CMAKE_BINARY_DIR}/pilot-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results.json' \"\${SEL[@]}\"")
 set_tests_properties(diff_pilot_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
 
 # diff_cutscene_recorded: the same check for the cutscene set (specs/cutscene; results_cutscene.json records its diffed VAs).
 add_test(NAME diff_cutscene_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/cutscene' \
---out-dir '${CMAKE_BINARY_DIR}/cutscene-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_cutscene.json'")
+--out-dir '${CMAKE_BINARY_DIR}/cutscene-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_cutscene.json' \"\${SEL[@]}\"")
 set_tests_properties(diff_cutscene_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
 
 # diff_presentation_recorded: the same check for the presentation set (specs/presentation; results_presentation.json
 # records its diffed VAs, each with the subsystem and role of its row).
 add_test(NAME diff_presentation_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/presentation' \
---out-dir '${CMAKE_BINARY_DIR}/presentation-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_presentation.json'")
+--out-dir '${CMAKE_BINARY_DIR}/presentation-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_presentation.json' \"\${SEL[@]}\"")
 set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
 
 # diff_core_recorded: the same check for the core set (specs/core; results_core.json records its diffed VAs, each with the
@@ -34,9 +37,10 @@ set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 T
 # and their records stay in their own sets (driver --exclude-recorded).
 add_test(NAME diff_core_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/core' \
---out-dir '${CMAKE_BINARY_DIR}/core-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_core.json'")
+--out-dir '${CMAKE_BINARY_DIR}/core-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_core.json' \"\${SEL[@]}\"")
 # The check replays all 2,253 recorded core functions: about 2.5 h on a loaded machine (EndClear2, 28-10-26), past the
 # old 2 h cap when the gate shares the machine with agents.
 set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 14400)
@@ -50,10 +54,11 @@ set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1
 add_test(NAME diff_impure_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 BANK=(); [ -n \"$GF_IMPURE_BANKS\" ] && BANK=(--seed-bank \"$GF_IMPURE_BANKS\"); \
+SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/impure' \
 --out-dir '${CMAKE_BINARY_DIR}/impure-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_impure.json' \
-\"\${BANK[@]}\"")
+\"\${BANK[@]}\" \"\${SEL[@]}\"")
 set_tests_properties(diff_impure_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 3600)
 
 # Image check: the user's dump must be the image the pilot specs were authored
