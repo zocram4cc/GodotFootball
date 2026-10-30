@@ -114,6 +114,21 @@ TEST(VfsOrder, NoModFallsThroughToFirstListedRoot) {
   EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
 }
 
+// The default mount is stock PES: no gameplay mod answers unless one is named, so
+// config.ini's favorite is not the selection and the first listed root wins.
+TEST(VfsOrder, DefaultMountIgnoresTheBootFavorite) {
+  SyntheticInstall in("defaultnomod");
+  in.Sider(kTwoRoots, "lua.module = \"GameplayLoader.lua\"\n");
+  in.LoaderState("modA");
+  in.Put("livecpk/a/common/match/constant/constant_player.bin", "ROOT_A");
+  in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+  EXPECT_EQ(vfs.GameplayMod(), "No Mod");
+  EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
+}
+
 // The loader only serves the files its isGameplayFile accepts: anything else in
 // the mod folder is invisible to the game.
 TEST(VfsOrder, LoaderServesOnlyWhatIsGameplayFileAccepts) {
