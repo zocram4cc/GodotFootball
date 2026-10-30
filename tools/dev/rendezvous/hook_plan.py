@@ -94,6 +94,8 @@ TARGETS = [
     ("fixdemo_step_end_141F572F0", 0x141F572F0, "FixDemo step end (player state finished)"),
     ("fixdemo_step_machine_141F59380", 0x141F59380, "FixDemo step machine (frame after each step start)"),
     ("demoinfo_update_47C830", 0x14047C830, "DemoInfo update (go flag, first manager update, scene end)"),
+    # Trap end handler (diagnostic): does the live game reach it at all? (no action_switch/trap_end_other capture yet)
+    ("trap_end_handler_79E5C0", 0x14079E5C0, "Trap action end handler"),
 ]
 
 
