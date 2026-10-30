@@ -475,6 +475,29 @@ TEST(PesA1Sim, TheClearUnitRunsOnTheWindowAndAnswersOnlyOnTheDangerByte) {
   EXPECT_LE(answer.angle_deg, 360.0f);
 }
 
+// The answer record GF's walk list holds for a Clear (EncodeAnswerRecord) is the record PES's own Clear unit writes: type at +0 and
+// the corridor angle at +8 (kAnswerAngleOffset, 0x142109EB0). A record with the angle at another offset hands the walk's Clear arm
+// (and anything that reads the record) a different heading than the unit computed.
+TEST(PesA1Sim, TheClearRecordGfListsEqualsTheRecordPesClearUnitWrites) {
+  REQUIRE_PES_MATCH();
+  match->StartPlay();
+  for (int i = 0; i < 3; ++i) match->Process();
+  pes::PesWorld& world = match->PesWorldOf();
+  world.SetClearDanger(0, true);
+  int nonzeroAngles = 0;
+  for (uint32_t slot = 0; slot < pes::kSlotsPerSide; ++slot) {
+    const pes::PesWorld::ClearAnswer answer = world.RunClearUnit(0, slot);
+    ASSERT_EQ(answer.type, static_cast<uint32_t>(pes::kAnswerClear));
+    const auto gf = pes::EncodeAnswerRecord({pes::kAnswerClear, 0, answer.angle_deg});
+    const uint8_t* pesRecord = world.Carrier(0) + pes::kClearAnswerOffset;
+    EXPECT_EQ(std::memcmp(gf.data(), pesRecord, sizeof(uint32_t)), 0) << "type, slot " << slot;
+    EXPECT_EQ(std::memcmp(gf.data() + pes::kAnswerAngleOffset, pesRecord + pes::kAnswerAngleOffset, sizeof(float)), 0)
+        << "angle, slot " << slot;
+    nonzeroAngles += answer.angle_deg != 0.0f;
+  }
+  EXPECT_GT(nonzeroAngles, 0) << "an angle of 0 everywhere cannot tell the offsets apart";
+}
+
 // MI+0x1198 counts logic frames, one per tick, and is the frame every reader takes (PES 0x140A128E4).
 TEST(PesA1Sim, TheFrameCounterIsTheMatchInfoWordAndCountsTicks) {
   REQUIRE_PES_MATCH();
