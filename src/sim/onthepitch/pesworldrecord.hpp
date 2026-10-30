@@ -366,6 +366,8 @@ struct PesWorldImage {
   std::array<PesTrapImage, kSlotCount> trap{};            // each player's P, the Trap action's owner (pestrapworld.hpp)
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points (kScratchVa)
   std::array<uint8_t, kStackBytes> stack{};      // the translated stoppage functions' stack (kStackVa)
+  std::array<uint8_t, kTickFrameBytes> tickFrame{};    // the action tick's caller frame F (pestrapworld.hpp), written per call
+  std::array<uint8_t, kTickFrameXBytes> tickFrameX{};  // the object F+0x868 names
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -380,6 +382,10 @@ static_assert(offsetof(PesWorldImage, clearUnit) == kClearUnitOffset);
 static_assert(offsetof(PesWorldImage, trap) == kTrapOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchOffset);
 static_assert(offsetof(PesWorldImage, stack) == kStackOffset);
+inline constexpr std::size_t kTickFrameOffset = kStackOffset + kStackBytes;
+inline constexpr std::size_t kTickFrameXOffset = kTickFrameOffset + kTickFrameBytes;
+static_assert(offsetof(PesWorldImage, tickFrame) == kTickFrameOffset);
+static_assert(offsetof(PesWorldImage, tickFrameX) == kTickFrameXOffset);
 
 inline constexpr std::size_t kWorldBytes = sizeof(PesWorldImage);
 
@@ -454,6 +460,34 @@ class PesWorld {
   static constexpr uint64_t PhysiqueBVa(int slot) { return PhysiqueAVa(slot) + kPhysiqueObjectBytes; }
   uint8_t* PhysiqueA(int slot) { return image_->trap[slot].physiqueA.data(); }
   uint8_t* PhysiqueB(int slot) { return image_->trap[slot].physiqueB.data(); }
+  // The anime layer objects the tick reaches (pestrapworld.hpp), after the physique chain's two.
+  static constexpr uint64_t O1Va(int slot) { return PVa(slot) + kTrapO1Offset; }
+  static constexpr uint64_t O2Va(int slot) { return PVa(slot) + kTrapO2Offset; }
+  static constexpr uint64_t QVa(int slot) { return PVa(slot) + kTrapQOffset; }
+  static constexpr uint64_t RVa(int slot) { return PVa(slot) + kTrapROffset; }
+  static constexpr uint64_t SVa(int slot) { return PVa(slot) + kTrapSOffset; }
+  uint8_t* O1(int slot) { return image_->trap[slot].o1.data(); }
+  uint8_t* O2(int slot) { return image_->trap[slot].o2.data(); }
+  uint8_t* Q(int slot) { return image_->trap[slot].q.data(); }
+  uint8_t* R(int slot) { return image_->trap[slot].r.data(); }
+  uint8_t* S(int slot) { return image_->trap[slot].s.data(); }
+  // The tick's caller frame F and the object F+0x868 names (one of each: written before every tick call).
+  static constexpr uint64_t TickFrameVa() { return kWorldWindowVa + kTickFrameOffset; }
+  static constexpr uint64_t TickFrameXVa() { return kWorldWindowVa + kTickFrameXOffset; }
+  uint8_t* TickFrame() { return image_->tickFrame.data(); }
+  uint8_t* TickFrameX() { return image_->tickFrameX.data(); }
+  // PES's Trap action tick 0x140797CD0 on the window for `slot`'s P (rcx = the action, rdx = P, r8 = a stack slot holding F): the
+  // phase machine the action runs each logic frame. `ext` is the chain's (the loader data and the image). A path no capture
+  // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
+  PesTickResult RunTrapTick(int slot, PesTrapExternals& ext);
+  // The planned touch's heading and kind a man's committed trap carries (F+0x744 / F+0x748), kept with the window because PES keeps
+  // them in the caller's per-man state (OPEN: where). SetTickFrame writes them, the body's heading and the weight into F and F+0x868's object.
+  struct TickPlan {
+    float headingDeg = 0.0f;
+    int32_t kind = 0;
+  };
+  void SetTickPlan(int slot, float headingDeg, int32_t kind) { tickPlan_[slot] = {headingDeg, kind}; }
+  void SetTickFrame(int slot, float bodyHeadingDeg);
   // PES's Trap action's kind-0 chain 0x14079A470 on the window for `slot`'s P, as the action's +0x68 dispatcher (0x1407A01C0)
   // calls it for kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack
   // arguments), then the chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp); its segments are lent to
@@ -610,6 +644,7 @@ class PesWorld {
   }
 
   std::unique_ptr<PesWorldImage> image_;
+  std::array<TickPlan, kSlotCount> tickPlan_{};
 };
 
 }  // namespace pes

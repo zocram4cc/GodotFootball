@@ -26,6 +26,7 @@ inline constexpr std::size_t kLocomotionPhases = 0x18;  // P+0x245C below this i
 // sentinel of P+0x2810 (0xBE5, FUN_1406EB670; also the Animetable's row count).
 inline constexpr uint8_t kAnimeActionMove = 2;
 inline constexpr uint16_t kPNoMotion = 0xBE5;
+inline constexpr uint8_t kAnimeActionTrap = 7;
 
 // What the actor's fields are made from, in PES's units. `speedByte` is the Speed ability byte (slot record +0x97, 40..99).
 struct PesActorFacts {
@@ -42,6 +43,9 @@ struct PesActorFacts {
                                // FUN_141AD98B0); 0 is neutral
   int side = 0;                // the actor's side: P+0x3AC0 is that side's AI context (the window's ctx record)
   StaminaState stamina;        // slot record: tank cur/max, breath reserve
+  // The man is in the Trap action: the tick owns the action ids (P+0xAC8..0xACB), the phase byte (P+0x245C), the motion
+  // (P+0xAE0) and the class (P+0xB08), so WriteActorP leaves them as the last tick wrote them.
+  bool trapActive = false;
 };
 
 // ponytail: the one PES input with no GF source. It names the PES site that removes it:
@@ -60,6 +64,7 @@ struct PesActorOpenInputs {
 // The image's bytes P is made from.
 struct PesActorConstants {
   uint64_t interfaceVtable[2] = {0, 0};  // P+0xAB8, +0xAC0 (the constructor 0x1406E03D0 stores them)
+  uint64_t actionVtable = 0;             // P+0xC78: the Trap action's vtable (its constructor 0x140795630, store 0x1407956C2)
   std::array<uint8_t, kLocomotionPhases> locomotionClass{};  // DAT_14344E1F0[4 * phase]: P+0xB08 (0x1406D8C92)
   float standingSpeedKmh = 0.0f;  // 0x14259222C: the root speed above which phase 0 is class 3, else 1 (0x1406D8C35)
   float tickRate = 0.0f;          // 0x14351AE54 (FUN_141E532D0): ticks per second
@@ -80,5 +85,10 @@ uint8_t LocomotionClass(const PesActorConstants& c, const PesActorFacts& f, cons
 // (S1b, FUN_1406F99F0) and the interface vtables; then the open inputs.
 void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInputs& open, const PesActorConstants& c,
                  const StaminaConstants& stamina, const PhysiqueConstants& physique);
+
+// The action switch's stores for a committed trap (FUN_1406EEBB0: the previous ids take the current pair, the current pair becomes
+// TRAP, TRAP) and the action's start phase 0 (P+0x245C), which the tick's phase machine switches on. The man's action object was
+// written by the chain; from here the tick owns the ids (PesActorFacts::trapActive).
+void StartTrapAction(PesWorld& world, int slot);
 
 }  // namespace pes

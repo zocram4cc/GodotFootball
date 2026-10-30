@@ -26,6 +26,7 @@ constexpr uint64_t kTrapLoaderFnVa = 0x141E67B70ULL;
 constexpr std::size_t kVtableLoaderSlotOffset = 0x10;
 
 constexpr std::size_t kAnimetableCellBytes = 2;  // s16
+constexpr std::size_t kEyesObjectBytes = 0x10, kEyesTablePtrOffset = 8;  // FUN_1406B4EA0's 0x10-byte object
 // FUN_1406AA440 stores the mirror flag bytes after the s16 cells (offset 0x1AC34 = 0xBE5 x 0x12 x 2), one byte per cell.
 constexpr std::size_t kAnimetableBufferBytes = kAnimetableCellCount * (kAnimetableCellBytes + 1);  // 0x2824E
 
@@ -135,12 +136,23 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
     files.push_back(std::move(*bytes));
     caps.push_back(cap);
   }
+  auto eyes = vfs.Read(kEyesTargetPath, error);
+  if (!eyes) return std::nullopt;
+  if (eyes->size() > kEyesTargetTableBytes) {
+    *error = "trap: Eyestarget.bin is larger than FUN_1406B4D40's 0x1125-word table";
+    return std::nullopt;
+  }
+
 
   Arena arena(kTrapLoaderVa);
   const std::size_t table = arena.Alloc(kTableBytes), manager = arena.Alloc(kManagerBytes),
                     registry = arena.Alloc(kRegistryBytes), array = arena.Alloc(8 * (kTrapRegistryId + 1)),
                     entry = arena.Alloc(kEntryBytes), object = arena.Alloc(kTrapRuntimeBytes),
                     cells = arena.Alloc(kAnimetableBufferBytes), records = arena.Alloc(kMotionSlotCount * kMotionRecordBytes);
+  const std::size_t eyesObject = arena.Alloc(kEyesObjectBytes), eyesTable = arena.Alloc(kEyesTargetTableBytes);
+  std::memcpy(arena.At(eyesTable), eyes->data(), eyes->size());  // FUN_1415A1708: the file's bytes, in once
+  arena.At(eyesObject)[0] = 1;                                    // FUN_1406B4D40's loaded flag
+  Store64(arena.At(eyesObject) + kEyesTablePtrOffset, arena.Va(eyesTable));
   std::vector<std::size_t> raw;
   for (const auto& f : files) raw.push_back(arena.Alloc(f.size()));
 
@@ -188,7 +200,8 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   out.animetableVa = arena.Va(cells), out.registryVa = arena.Va(registry), out.trapVa = arena.Va(object);
   out.globals = {{kMotionTableGlobalVa, out.motionTableVa},
                  {kAnimeManagerGlobalVa, out.animeManagerVa},
-                 {kRegistryGlobalVa, out.registryVa}};
+                 {kRegistryGlobalVa, out.registryVa},
+                 {kEyesTargetGlobalVa, arena.Va(eyesObject)}};
   out.segment.va = kTrapLoaderVa;
   out.segment.bytes = arena.Take();
   return out;

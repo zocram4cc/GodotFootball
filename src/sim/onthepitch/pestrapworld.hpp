@@ -45,6 +45,7 @@ inline constexpr std::size_t kPF377CScaleOffset = 0x377C;  // f32: the rate ceil
 inline constexpr std::size_t kPPtr3AC0Offset = 0x3AC0;     // pointer (read, handed on)
 inline constexpr std::size_t kPSlotPtrOffset = 0x3AD8;     // pointer into the actor's slot record (+0x15C0)
 inline constexpr std::size_t kPF3B18Offset = 0x3B18;       // f32
+inline constexpr std::size_t kPPlaybackOffset = 0x3758;    // f32: the playback rate SetMotion stores (FUN_1406F0F70)
 inline constexpr std::size_t kSlotPPtrTargetOffset = 0x15C0;  // the slot-record offset P+0x3AD8 names
 
 // The request the Trap action's +0x68 slot takes (r9 of 0x1407A01C0), 0x24 bytes in PES's layout
@@ -85,16 +86,68 @@ inline constexpr std::size_t kFrameOutWordOffset = 0x228;     // the out word: a
 
 // The physique chain P+0xA08 reaches (FUN_141AF3180: *(*(P+0xA08)+0xF0)+0xC0 is G): two small heap objects in PES, here one
 // after P in the window. Their other bytes are not read by the chain.
-inline constexpr std::size_t kPhysiqueObjectBytes = 0x100;
+inline constexpr std::size_t kPhysiqueObjectBytes = 0x200;  // 0x100 for the chain's reads; the tick reads A+0x118 and A+0x188
 inline constexpr std::size_t kPhysiqueNextOffset = 0xF0;  // object A +0xF0: the VA of object B
 inline constexpr std::size_t kPhysiqueGOffset = 0xC0;     // object B +0xC0: G (f32)
 inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clamped G FUN_141EB5810 stores beside the chain's copy
 
-// The window's trap member: P, then the physique chain's two objects.
+// The anime layer's objects the action tick (FUN_140797CD0) reaches from P, in PES's layout (docs/ports/pes-port-TrapTick.md 2;
+// bytes the 14 captured ticks read or write, names INF): A (P+0xA08 target) holds two children, O1 at +0x118 and O2 at +0x188;
+// O2+0xD0 is the root's world point (x, y, z, 1) which SetMotion's solver reads and writes; Q (P+0x3AA8 target) points to R at +8, and
+// R is a joint chain header (+0x10 -> its pointer array at +0x30, +0x18 a length, +0x20 the joint count); S (P+0x3AE8 target) is a
+// small record whose +0x14 SetMotion writes.
+inline constexpr std::size_t kAChildO1Offset = 0x118, kAChildO2Offset = 0x188;
+inline constexpr std::size_t kO1Bytes = 0x600, kO2Bytes = 0x100, kQBytes = 0x10, kRBytes = 0x90, kSBytes = 0x20;
+inline constexpr std::size_t kO2PointOffset = 0xD0;  // f32 x, y, z, w
+inline constexpr std::size_t kQChainPtrOffset = 8;   // Q+8 -> R
+inline constexpr std::size_t kRArrayPtrOffset = 0x10, kRArrayOffset = 0x30;
+inline constexpr std::size_t kPQPtrOffset = 0x3AA8, kPSPtrOffset = 0x3AE8;  // P -> Q, P -> S
+inline constexpr std::size_t kPSegmentOffset = 0x2471, kPMirrorOffset = 0x2472;  // u8: the clip's segment index, the mirror byte
+inline constexpr std::size_t kPActionVtableOffset = kPActionOffset;  // the Trap action's vtable word (constructor 0x140795630)
+
+// The caller's frame object F (*r8 of the tick): its +0x870 is the ball record; the other fields the captured ticks read are
+// named in docs/ports/pes-port-TrapTick.md 3.
+inline constexpr std::size_t kTickFrameBytes = 0x880, kTickFrameXBytes = 0x600;
+inline constexpr std::size_t kFrameXPtrOffset = 0x868, kFrameBallOffset = 0x870;
+inline constexpr std::size_t kFrameHeadingOffset = 0x744, kFrameKindOffset = 0x748;  // f32 degrees, s32
+inline constexpr std::size_t kFrameXHeadingOffset = 0x5E4;                           // F+0x868's target: f32 degrees at +0x5E4
+inline constexpr std::size_t kTickEntryFrameSlotOffset = 0x48;  // the tick's r8: a stack slot (entry rsp + 0x48) holding F
+
+// The window's trap member: P, then the physique chain's two objects and the layer objects the tick reaches.
 struct PesTrapImage {
   std::array<uint8_t, kTrapPBytes> p{};
   std::array<uint8_t, kPhysiqueObjectBytes> physiqueA{};
   std::array<uint8_t, kPhysiqueObjectBytes> physiqueB{};
+  std::array<uint8_t, kO1Bytes> o1{};
+  std::array<uint8_t, kO2Bytes> o2{};
+  std::array<uint8_t, kQBytes> q{};
+  std::array<uint8_t, kRBytes> r{};
+  std::array<uint8_t, kSBytes> s{};
+};
+inline constexpr std::size_t kTrapO1Offset = kTrapPBytes + 2 * kPhysiqueObjectBytes;
+inline constexpr std::size_t kTrapO2Offset = kTrapO1Offset + kO1Bytes;
+inline constexpr std::size_t kTrapQOffset = kTrapO2Offset + kO2Bytes;
+inline constexpr std::size_t kTrapROffset = kTrapQOffset + kQBytes;
+inline constexpr std::size_t kTrapSOffset = kTrapROffset + kRBytes;
+
+// The facts GF writes into the tick's frame F and F+0x868's object before each tick (PesWorld::SetTickFrame; the oracle supplies the
+// same bytes from the capture). INF, from 14 captures: F+0x744 is the planned touch's heading (degrees, PES yaw) and F+0x748 its kind
+// (3 for a control touch, 4 for the directional one, which the request kind 0 and 4 map to); F+0x5E4 is 0.6 for kind 3 and 1.0 for
+// kind 4 (a weight, its writer is the tick's caller's caller: OPEN); F+0x868's object holds the body's heading (degrees) at +0x5E4.
+inline constexpr int32_t kTickKindControl = 3, kTickKindDirectional = 4;
+// ponytail: F+0x5E4, the weight the captures show per kind (0.6 control, 1.0 directional, read off 14 ticks). The tick's caller's caller
+// writes it from a source not decoded; the decode of that writer removes these two numbers.
+inline constexpr std::size_t kFrameWeightOffset = 0x5E4;
+inline constexpr float kTickWeightControl = 0.6f, kTickWeightDirectional = 1.0f;
+
+// What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment
+// index (P+0x2471), the playback rate (P+0x3758) and the phase byte (P+0x245C) the next tick switches on.
+struct PesTickResult {
+  uint16_t motion = 0;
+  uint8_t mirror = 0;
+  uint8_t segment = 0;
+  uint8_t phase = 0;
+  float playback = 0.0f;
 };
 
 // The clip a successful call commits: the Trap action object's u16 at +8 (P+0xC80), a motion number of the Animetable

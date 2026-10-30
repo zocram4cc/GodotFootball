@@ -3537,13 +3537,42 @@ void WritePesTrapActors(Match& match) {
       for (std::size_t k = 0; k < pes::kVelocityRingEntries; ++k)
         std::memcpy(open.velocityRing.data() + k * pes::kVelocityRingEntryBytes, man + pes::kManVelXOffset,
                     pes::kVelocityRingEntryBytes);
-      pes::WriteActorP(match.PesWorldOf(), TrapFactsOf(*p, slot), open, match.GetPesActorConstants(),
-                       match.GetPesStaminaConstants(), match.GetPesMoveStepConstants().physique);
+      pes::PesActorFacts facts = TrapFactsOf(*p, slot);
+      facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
+      pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
+                       match.GetPesMoveStepConstants().physique);
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
       // cell whose hash does not match (0x140A58550). The ring index's clock dword has no GF source: the match's clock stands in
       // (WriteSlotStamina's ponytail).
       pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
                             static_cast<uint32_t>(match.GetActualTime_ms()));
+    }
+  }
+}
+
+// Every man in the Trap action runs PES's action tick 0x140797CD0 (the phase machine) on his P and the world window, after the
+// actors were written. A start tick (phase 0, which runs SetMotion on the committed plan) plays the clip it issued: the motion
+// number, the playback rate and the mirror byte it left in P are PlayIssuedClip's arguments. A phase no capture reached aborts in
+// the translated dispatch (pes_dispatch_missing): docs/ports/pes-port-TrapTick.md 4.
+void RunPesTrapTicks(Match& match) {
+  constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
+  pes::PesWorld& world = match.PesWorldOf();
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      uint8_t* pb = world.P(slot);
+      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      const uint8_t phaseBefore = pb[pes::kPPhaseOffset];
+      // GF's heading is atan2(y, x); PES's yaw is atan2(x, y) (the man record's facing).
+      const Vector3 dir = p->GetDirectionVec();
+      const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
+      world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
+      if (phaseBefore == 0)
+        p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
     }
   }
 }

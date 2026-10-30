@@ -473,17 +473,17 @@ bool HumanoidBase::OnPesTrap() const {
              static_cast<int>(pes::PesClipFamily::kTrap);
 }
 
-bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
-  const int locomotion = static_cast<int>(pes::PesClipFamily::kLocomotion);
+bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family) {
   const bool onLocomotion = OnPesLocomotion();
-  // The body takes a MOVESTEP clip only where GF's own selection would let a movement clip take it: an
-  // AI movement clip, or the locomotion clip already on the body. A ball action keeps the body.
-  if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion) return false;
+  const bool onFamily = family == pes::PesClipFamily::kTrap ? OnPesTrap() : onLocomotion;
+  // The body takes an issued clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES clip
+  // already on the body (a trap's clip takes over a locomotion clip, as PES's action switch does). A ball action keeps the body.
+  if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion && !OnPesTrap()) return false;
   // The same motion plays on: a re-issue changes its rate only, while the clip has frames left. A clip at its last frame
   // starts again from its first (PES's issue is a restart, movestep.hpp IssuedClip), because the body's own Switch at the
   // last frame is held in STOP and ACCELERATE (PesPoseHeld), so a re-issue is the only way that clip moves on.
   const bool finished = currentAnim->frameNum >= currentAnim->anim->GetFrameCount() - 1;
-  if (onLocomotion && !finished && std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()) == motion) {
+  if (onFamily && !finished && std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()) == motion) {
     currentAnim->playbackRate = playback;
     return true;
   }
@@ -493,7 +493,7 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   query.byIncomingVelocity = false;
   query.byIncomingBodyDirection = false;
   query.bySide = false;
-  query.properties.Set("specialvar1", locomotion);
+  query.properties.Set("specialvar1", static_cast<int>(family));
   query.properties.Set("specialvar2", motion);
   DataSet dataSet;
   anims->CrudeSelection(dataSet, query);

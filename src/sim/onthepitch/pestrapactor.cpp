@@ -18,6 +18,8 @@ struct Site {
 // FUN_1406E03D0 (the constructor): `lea rax,[vtable]` before each of the two vtable stores.
 constexpr Site kVtable0Site{0x1406E0412, {0x48, 0x8D, 0x05}, 3, 7};
 constexpr Site kVtable1Site{0x1406E0420, {0x48, 0x8D, 0x05}, 3, 7};
+// FUN_140795630 (the Trap action's constructor): `lea rax,[vtable]` before the store into [rbx].
+constexpr Site kActionVtableSite{0x1407956BB, {0x48, 0x8D, 0x05}, 3, 7};
 // FUN_1406D8BF0: `movss xmm1,[standing speed]` (class 3 above it, 1 at or below).
 constexpr Site kStandingSite{0x1406D8C35, {0xF3, 0x0F, 0x10, 0x0D}, 4, 8};
 // FUN_1406EA110 (the root speed in km/h): rate * 60 * 60 / 1000 * |displacement|.
@@ -64,9 +66,11 @@ std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::str
   PesActorConstants c;
   float again = 0.0f;
   const uint64_t vt0 = img.Target(kVtable0Site), vt1 = img.Target(kVtable1Site);
-  bool ok = vt0 != 0 && vt1 != 0;
+  const uint64_t actionVtable = img.Target(kActionVtableSite);
+  bool ok = vt0 != 0 && vt1 != 0 && actionVtable != 0;
   c.interfaceVtable[0] = vt0;
   c.interfaceVtable[1] = vt1;
+  c.actionVtable = actionVtable;
   ok = ok && img.Float(kStandingSite, &c.standingSpeedKmh) && img.Float(kSixtySite, &c.secondsPerHour60) &&
        img.Float(kSixtyAgainSite, &again) && again == c.secondsPerHour60 && img.Float(kThousandSite, &c.metresPerKm) &&
        img.Float(kTickRateSite, &c.tickRate) && img.Float(kHeightDivisorSite, &c.heightDivisor);
@@ -110,18 +114,21 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   std::memcpy(p + kPNextPosOffset, man + kManPrevPosXOffset, 12);
   std::memcpy(p + kPHeadingOffset, man + kManFacingOffset, 4);
   p[kPByte2458Offset] = static_cast<uint8_t>(f.slot);  // FUN_1406EB670's store 0x1406EB6C1
-  p[kPPhaseOffset] = f.phase;
   std::memcpy(p + kPInterfaceVtable0Offset, &c.interfaceVtable[0], sizeof(uint64_t));
   std::memcpy(p + kPInterfaceVtable1Offset, &c.interfaceVtable[1], sizeof(uint64_t));
-  p[kPByteAC8Offset] = f.action;  // FUN_1406EEBB0's stores: current id and sub, then the previous pair
-  p[kPByteAC9Offset] = f.sub;
-  p[kPPrevActionOffset] = f.prevAction;
-  p[kPPrevActionOffset + 1] = f.prevSub;
-  std::memcpy(p + kPWordAE0Offset, &f.motion, sizeof f.motion);
+  std::memcpy(p + kPActionVtableOffset, &c.actionVtable, sizeof(uint64_t));
+  if (!f.trapActive) {  // else the tick owns these (PesActorFacts::trapActive)
+    p[kPPhaseOffset] = f.phase;
+    p[kPByteAC8Offset] = f.action;  // FUN_1406EEBB0's stores: current id and sub, then the previous pair
+    p[kPByteAC9Offset] = f.sub;
+    p[kPPrevActionOffset] = f.prevAction;
+    p[kPPrevActionOffset + 1] = f.prevSub;
+    std::memcpy(p + kPWordAE0Offset, &f.motion, sizeof f.motion);
+  }
   StoreU32(p, kPWord430Offset, f.kickApproach);
   StoreF32(p, kPWord277COffset, f.word277C);
   StoreF32(p, kPWord277COffset + 4, f.word2780);
-  p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
+  if (!f.trapActive) p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
   const uint64_t slotPtr = PesWorld::SlotVa(f.slot) + kSlotPPtrTargetOffset;  // FUN_140925470: slot record + 0x15C0
   std::memcpy(p + kPSlotPtrOffset, &slotPtr, sizeof slotPtr);
   StoreF32(p, kPF3B18Offset, f.heightCm / c.heightDivisor);  // FUN_1406EB210 (0x1406EB23E)
@@ -137,6 +144,29 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   std::memcpy(p + kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size());
   const uint64_t ctx = PesWorld::CtxVa(f.side);  // P+0x3AC0 = PM+0x7E0: the side's AI context (+0x18 MA, +0xE0 E)
   std::memcpy(p + kPPtr3AC0Offset, &ctx, sizeof ctx);
+  // The anime layer's objects the tick reaches (pestrapworld.hpp): the pointer structure, and the root's world point (x, y, z, 1)
+  // that SetMotion's solver reads (CONFIRMED against seq6634/seq126: O2+0xD0 equals the man's position and 1.0).
+  const uint64_t o1 = PesWorld::O1Va(f.slot), o2 = PesWorld::O2Va(f.slot), q = PesWorld::QVa(f.slot), r = PesWorld::RVa(f.slot),
+                 s = PesWorld::SVa(f.slot), rArray = r + kRArrayOffset;
+  uint8_t* a = world.PhysiqueA(f.slot);
+  std::memcpy(a + kAChildO1Offset, &o1, sizeof o1);
+  std::memcpy(a + kAChildO2Offset, &o2, sizeof o2);
+  std::memcpy(p + kPQPtrOffset, &q, sizeof q);
+  std::memcpy(world.Q(f.slot) + kQChainPtrOffset, &r, sizeof r);
+  std::memcpy(world.R(f.slot) + kRArrayPtrOffset, &rArray, sizeof rArray);
+  std::memcpy(p + kPSPtrOffset, &s, sizeof s);
+  uint8_t* point = world.O2(f.slot) + kO2PointOffset;
+  std::memcpy(point, man + kManPosXOffset, 12);
+  StoreF32(point, 12, 1.0f);
+}
+
+void StartTrapAction(PesWorld& world, int slot) {
+  uint8_t* p = world.P(slot);
+  p[kPPrevActionOffset] = p[kPByteAC8Offset];
+  p[kPPrevActionOffset + 1] = p[kPByteAC9Offset];
+  p[kPByteAC8Offset] = kAnimeActionTrap;
+  p[kPByteAC9Offset] = kAnimeActionTrap;
+  p[kPPhaseOffset] = 0;
 }
 
 }  // namespace pes

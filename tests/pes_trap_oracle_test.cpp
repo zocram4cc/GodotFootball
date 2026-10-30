@@ -355,11 +355,13 @@ struct Image {
 
 class TrapOracle : public ::testing::Test {
  protected:
+  // The environment variable naming the directory of oracle directories (the tick oracle reads its own).
+  virtual const char* OracleEnv() const { return "GF_PES_TRAP_ORACLE"; }
   void SetUp() override {
-    const char* dir = std::getenv("GF_PES_TRAP_ORACLE");
+    const char* dir = std::getenv(OracleEnv());
     const char* exe = std::getenv("PES_EXE");
     if (dir == nullptr || *dir == '\0' || exe == nullptr || *exe == '\0')
-      GTEST_SKIP() << "GF_PES_TRAP_ORACLE / PES_EXE unset (PES-derived captures and image, not committed)";
+      GTEST_SKIP() << OracleEnv() << " / PES_EXE unset (PES-derived captures and image, not committed)";
     for (const auto& e : std::filesystem::directory_iterator(dir))
       if (std::filesystem::exists(e.path() / "manifest.tsv") && std::filesystem::exists(e.path() / "mem.bin"))
         dirs_.push_back(e.path().string());  // (exists follows the capture link: a removed capture is skipped)
@@ -769,3 +771,237 @@ TEST_F(TrapOracle, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) {
   }
   EXPECT_EQ(checked, static_cast<int>(committed.size())) << "both issued captures must be in the oracle set";
 }
+
+// ---- The Trap action tick 0x140797CD0 (docs/ports/pes-port-TrapTick.md) --------------------------------------------------------
+//
+// GF_PES_TRAP_TICK_ORACLE names a directory of oracle directories of the 14 captured ticks (tools/dev/translate/trap_oracle.py over
+// snapdiff's 0x140797CD0 case dirs). Each capture's window is built as the kind-0 oracle's is (records, the man, P by
+// pes::WriteActorP, which now also writes the anime layer's pointer structure and the root point), then the bytes the tick reads
+// that GF holds no state for are the NAMED open inputs, overlaid from the capture only where GF wrote nothing:
+//   P: the tick's own persisted state and the other PES writers' (the action object P+0xC78.., +0x2471/2472/2460, the modes
+//      +0x2704.., the adjusters +0x41C/428/498/4D0/4D8, +0x354, +0x55C/5B0, +0xA04, +0xAD0, +0x2814.., +0x32E0, +0x3758);
+//   the layer objects A, O1, O2, Q, R, S (pestrapworld.hpp): their scalars;
+//   the caller frame F (+0x5C3/5C4/5E4/740..) and F+0x868's object (+0x5E4), and the caller's stack locals (S lines).
+// Where GF did write a byte and the capture differs, that is a derivation error and fails (pointer cells aside: the window's
+// pointers name window objects). The loader data (motion records of five Mbinfo kinds, the Animetable, trap.o, the EyesTarget
+// table) is built from the install, as for the chain.
+namespace {
+
+enum Obj : int { kObjP, kObjA, kObjO1, kObjO2, kObjQ, kObjR, kObjS, kObjFrame, kObjFrameX, kObjCount };
+struct ObjSpan {
+  uint64_t base = 0, size = 0;
+};
+using ObjSpans = std::array<ObjSpan, kObjCount>;
+using WriteMap = std::map<std::pair<int, uint32_t>, uint8_t>;
+
+ObjSpans CapturedObjects(const Oracle& o) {
+  const uint64_t p = o.regs.at("rdx"), a = Read(o, p + pes::kPScalePtrOffset, 8), q = Read(o, p + pes::kPQPtrOffset, 8),
+                 f = Read(o, o.regs.at("r8"), 8);
+  ObjSpans s;
+  s[kObjP] = {p, pes::kTrapPBytes};
+  s[kObjA] = {a, pes::kPhysiqueObjectBytes};
+  s[kObjO1] = {Read(o, a + pes::kAChildO1Offset, 8), pes::kO1Bytes};
+  s[kObjO2] = {Read(o, a + pes::kAChildO2Offset, 8), pes::kO2Bytes};
+  s[kObjQ] = {q, pes::kQBytes};
+  s[kObjR] = {Read(o, q + pes::kQChainPtrOffset, 8), pes::kRBytes};
+  s[kObjS] = {Read(o, p + pes::kPSPtrOffset, 8), pes::kSBytes};
+  s[kObjFrame] = {f, pes::kTickFrameBytes};
+  s[kObjFrameX] = {Read(o, f + pes::kFrameXPtrOffset, 8), pes::kTickFrameXBytes};
+  return s;
+}
+
+ObjSpans WindowObjects(int slot) {
+  ObjSpans s;
+  s[kObjP] = {pes::PesWorld::PVa(slot), pes::kTrapPBytes};
+  s[kObjA] = {pes::PesWorld::PhysiqueAVa(slot), pes::kPhysiqueObjectBytes};
+  s[kObjO1] = {pes::PesWorld::O1Va(slot), pes::kO1Bytes};
+  s[kObjO2] = {pes::PesWorld::O2Va(slot), pes::kO2Bytes};
+  s[kObjQ] = {pes::PesWorld::QVa(slot), pes::kQBytes};
+  s[kObjR] = {pes::PesWorld::RVa(slot), pes::kRBytes};
+  s[kObjS] = {pes::PesWorld::SVa(slot), pes::kSBytes};
+  s[kObjFrame] = {pes::PesWorld::TickFrameVa(), pes::kTickFrameBytes};
+  s[kObjFrameX] = {pes::PesWorld::TickFrameXVa(), pes::kTickFrameXBytes};
+  return s;
+}
+
+uint8_t* WindowBytes(pes::PesWorld& w, int slot, int obj) {
+  switch (obj) {
+    case kObjP: return w.P(slot);
+    case kObjA: return w.PhysiqueA(slot);
+    case kObjO1: return w.O1(slot);
+    case kObjO2: return w.O2(slot);
+    case kObjQ: return w.Q(slot);
+    case kObjR: return w.R(slot);
+    case kObjS: return w.S(slot);
+    case kObjFrame: return w.TickFrame();
+    default: return w.TickFrameX();
+  }
+}
+
+bool Classify(const ObjSpans& spans, uint64_t addr, int* obj, uint32_t* rel) {
+  for (int k = 0; k < kObjCount; ++k)
+    if (spans[k].base != 0 && addr >= spans[k].base && addr < spans[k].base + spans[k].size) {
+      *obj = k;
+      *rel = static_cast<uint32_t>(addr - spans[k].base);
+      return true;
+    }
+  return false;
+}
+
+// The window's pointer cells (they name window objects, so they differ from the capture's heap addresses by construction).
+bool IsPointerCell(int obj, uint32_t rel) {
+  const auto in = [rel](std::size_t cell, std::size_t n = 8) { return rel >= cell && rel < cell + n; };
+  switch (obj) {
+    case kObjP:
+      return in(pes::kPScalePtrOffset) || in(pes::kPQPtrOffset) || in(pes::kPSPtrOffset) || in(pes::kPPtr3AC0Offset) ||
+             in(pes::kPSlotPtrOffset);
+    case kObjA: return in(pes::kPhysiqueNextOffset) || in(pes::kAChildO1Offset) || in(pes::kAChildO2Offset);
+    case kObjQ: return in(pes::kQChainPtrOffset);
+    case kObjR: return in(pes::kRArrayPtrOffset) || in(pes::kRArrayOffset, 88);  // the joint pointer array
+    case kObjFrame: return in(pes::kFrameXPtrOffset) || in(pes::kFrameBallOffset);
+    default: return false;
+  }
+}
+
+// Every address the capture's tick wrote that lies in one of the objects, with its last byte: the reference row's write log.
+WriteMap ReferenceWrites(const Oracle& o, const ObjSpans& spans) {
+  WriteMap out;
+  const std::string w = Field(o.row, "w");
+  for (size_t at = 0; at + 18 <= w.size(); at += 18) {
+    int obj;
+    uint32_t rel;
+    if (Classify(spans, std::strtoull(w.substr(at, 16).c_str(), nullptr, 16), &obj, &rel))
+      out[{obj, rel}] = static_cast<uint8_t>(std::strtoul(w.substr(at + 16, 2).c_str(), nullptr, 16));
+  }
+  return out;
+}
+
+struct TickBuilt {
+  Built built;
+  std::vector<std::string> derivedMismatches;  // bytes GF wrote that differ from the capture's (outside pointer cells)
+  int overlaid = 0;                            // bytes taken from the capture
+};
+
+// The tick's caller stack: the window stack's entry rsp (RunTrapTick), where the S lines' bytes sit.
+constexpr uint64_t kTickEntry = pes::kStackVa + pes::kStackBytes - pes::kTrapFrameBytes;
+
+void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickBuilt& t, bool overlay = true) {
+  Build(o, image, imageBytes, t.built);
+  if (!overlay) return;
+  pes::PesWorld& w = *t.built.world;
+  const int slot = t.built.slot;
+  const ObjSpans captured = CapturedObjects(o);
+  const auto put = [&](int obj, uint32_t rel, uint64_t capAddr, size_t len) {
+    uint8_t* dst = WindowBytes(w, slot, obj) + rel;
+    for (size_t i = 0; i < len; ++i) {
+      const uint8_t cap = static_cast<uint8_t>(Read(o, capAddr + i, 1));
+      if (dst[i] == 0) {
+        if (cap != 0) ++t.overlaid;
+        dst[i] = cap;
+      } else if (dst[i] != cap && !IsPointerCell(obj, rel + static_cast<uint32_t>(i))) {
+        char buf[96];
+        std::snprintf(buf, sizeof buf, "obj %d +0x%x: GF %02x, capture %02x", obj, rel + static_cast<unsigned>(i), dst[i], cap);
+        t.derivedMismatches.push_back(buf);
+      }
+    }
+  };
+  const uint64_t rdx = o.regs.at("rdx");
+  for (const auto& line : o.manifest) {
+    if (line[0] == "T" && line[1] == "P") {
+      put(kObjP, static_cast<uint32_t>(std::strtoul(line[3].c_str(), nullptr, 16)), rdx + std::strtoul(line[3].c_str(), nullptr, 16),
+          std::strtoul(line[4].c_str(), nullptr, 10));
+    } else if (line[0] == "H") {
+      const uint64_t va = std::strtoull(line[1].c_str(), nullptr, 16);
+      const size_t len = std::strtoul(line[2].c_str(), nullptr, 10);
+      int obj;
+      uint32_t rel;
+      if (Classify(captured, va, &obj, &rel) && obj != kObjP) put(obj, rel, va, len);
+    } else if (line[0] == "S") {
+      const uint32_t rel = static_cast<uint32_t>(std::strtoul(line[1].c_str(), nullptr, 16));
+      if (rel == 0 || rel == pes::kTickEntryFrameSlotOffset) continue;  // the return address and the frame slot: the call's own
+      const size_t len = std::strtoul(line[2].c_str(), nullptr, 10);
+      uint8_t* dst = w.Bytes() + (kTickEntry - pes::kWorldWindowVa) + rel;
+      for (size_t i = 0; i < len; ++i) dst[i] = static_cast<uint8_t>(Read(o, o.regs.at("rsp") + rel + i, 1));
+    }
+  }
+}
+
+struct TickRun {
+  pes::PesTickResult result;
+  WriteMap writes;
+};
+
+TickRun RunTick(TickBuilt& t) {
+  std::vector<std::pair<uint64_t, uint8_t>> log;
+  t.built.ext.writeLog = &log;
+  TickRun run;
+  run.result = t.built.world->RunTrapTick(t.built.slot, t.built.ext);
+  const ObjSpans spans = WindowObjects(t.built.slot);
+  for (const auto& wr : log) {
+    int obj;
+    uint32_t rel;
+    if (Classify(spans, wr.first, &obj, &rel)) run.writes[{obj, rel}] = wr.second;
+  }
+  return run;
+}
+
+class TrapTickOracle : public TrapOracle {
+ protected:
+  const char* OracleEnv() const override { return "GF_PES_TRAP_TICK_ORACLE"; }
+};
+
+// What PES's tick left in P at `off` (n bytes): its last write there, else the byte the call started with.
+uint64_t PesPAfter(const Oracle& o, const WriteMap& writes, uint32_t off, unsigned n) {
+  uint64_t v = 0;
+  for (unsigned i = 0; i < n; ++i) {
+    const auto at = writes.find({kObjP, off + i});
+    const uint64_t b = at != writes.end() ? at->second : Read(o, o.regs.at("rdx") + off + i, 1);
+    v |= b << (8 * i);
+  }
+  return v;
+}
+
+// GF's window run of each captured tick writes PES's bytes into P and the layer objects, and leaves PES's motion, mirror, segment
+// and phase: on all 14 captures (phases 0, 1 and 3: the only ones captured; every other path aborts loudly in the dispatch).
+TEST_F(TrapTickOracle, EveryCapturedTickOnGfsWindowEqualsPes) {
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    Image image;
+    ASSERT_TRUE(image.Open(exe_));
+    TickBuilt t;
+    BuildTick(o, image.bytes, image.size, t);
+    for (const std::string& m : t.derivedMismatches) ADD_FAILURE() << dir << ": derived " << m;
+    const TickRun run = RunTick(t);
+    const WriteMap want = ReferenceWrites(o, CapturedObjects(o));
+    EXPECT_EQ(run.writes, want) << dir << ": bytes the tick wrote ((object, offset) -> last byte; P=0 A=1 O1=2 O2=3 Q=4 R=5 S=6)";
+    EXPECT_EQ(run.result.motion, PesPAfter(o, want, pes::kPWordAE0Offset, 2)) << dir;
+    EXPECT_EQ(run.result.mirror, PesPAfter(o, want, pes::kPMirrorOffset, 1)) << dir;
+    EXPECT_EQ(run.result.segment, PesPAfter(o, want, pes::kPSegmentOffset, 1)) << dir;
+    EXPECT_EQ(run.result.phase, PesPAfter(o, want, pes::kPPhaseOffset, 1)) << dir;
+  }
+}
+
+// The capture set reaches the start (phase 0, which commits the clip and its mirror byte) and the later phases; the mirrored and
+// the unmirrored clip are both in it (seq4824 plays unmirrored, the others mirrored: pes-port-TrapS5.md 3).
+TEST_F(TrapTickOracle, TheCapturesCoverTheStartAndBothMirrors) {
+  int starts = 0, mirrored = 0, plain = 0;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    Image image;
+    ASSERT_TRUE(image.Open(exe_));
+    TickBuilt t;
+    BuildTick(o, image.bytes, image.size, t);
+    const TickRun run = RunTick(t);
+    if (run.writes.count({kObjP, static_cast<uint32_t>(pes::kPWordAE0Offset)}) != 0) ++starts;  // SetMotion ran: a start
+    (run.result.mirror != 0 ? mirrored : plain)++;
+  }
+  EXPECT_EQ(starts, 2);
+  EXPECT_GT(mirrored, 0);
+  EXPECT_GT(plain, 0);
+}
+
+}  // namespace

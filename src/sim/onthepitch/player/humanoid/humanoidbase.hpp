@@ -12,6 +12,7 @@
 #include "../../AIsupport/mentalimage.hpp"
 #include "animcollection.hpp"
 #include "../../pesrandom.hpp"
+#include "../../pesclips.hpp"
 #include "base/math/vector3.hpp"
 #include "scene/scene3d/node.hpp"
 
@@ -242,7 +243,7 @@ public:
   // it runs out (a re-issue only changes its rate), and the AI takes the body back at the clip's end
   // unless MOVESTEP issues again. A ball action keeps the body, so the clip is refused. Returns whether
   // the body plays it.
-  bool PlayIssuedClip(int motion, float playback, bool mirror);
+  bool PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion);
   bool TripPending() const { return interruptAnim == e_InterruptAnim_Trip; }
   virtual float GetDecayingDifficultyFactor() const { return decayingDifficultyFactor; }
 

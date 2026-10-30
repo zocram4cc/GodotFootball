@@ -75,15 +75,25 @@ PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
   return answer;
 }
 
-PesTrapResult PesWorld::RunTrapKind0(int slot, const PesTrapRequest& request, PesTrapExternals& ext) {
-  PesState s = NewCall(Bytes());
+// The chain's externals on a call: the image, the loader segments (lent: moved in, handed back by ReturnSegments, so the 4.9 MB is
+// never copied) and the image globals that point at them. Returns how many segments the call held before.
+static std::size_t LendExternals(PesState& s, PesTrapExternals& ext) {
   s.mem.flat = ext.image;
   s.mem.flat_base = ext.imageBase;
   s.mem.flat_size = ext.imageBytes;
-  // The segments are lent to the call and handed back below: moving them costs nothing, a copy would be the loader's 4.9 MB.
   const std::size_t lent = s.mem.segs.size();
   for (PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, std::move(seg.bytes)});
   for (const auto& [va, value] : ext.globals) s.mem.wr(va, value, 8);
+  return lent;
+}
+
+static void ReturnSegments(PesState& s, PesTrapExternals& ext, std::size_t lent) {
+  for (std::size_t i = 0; i < ext.segments.size(); ++i) ext.segments[i].bytes = std::move(s.mem.segs[lent + i].bytes);
+}
+
+PesTrapResult PesWorld::RunTrapKind0(int slot, const PesTrapRequest& request, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
 
   // The dispatcher 0x1407A01C0 (kind <= 0): two bytes of the request go into the action, the first word of the request is
   // copied to the dispatcher's frame (r9), and the chain takes the other fields as stack arguments (6th: the out word's pointer).
@@ -112,11 +122,48 @@ PesTrapResult PesWorld::RunTrapKind0(int slot, const PesTrapRequest& request, Pe
   s.gpr[9] = entry + kFrameRequestCopyOffset; // r9: the dispatcher's copy of the request
   s.mem.wlog = ext.writeLog;
   ::pes_fn_14079A470(s);
-  for (std::size_t i = 0; i < ext.segments.size(); ++i) ext.segments[i].bytes = std::move(s.mem.segs[lent + i].bytes);
+  ReturnSegments(s, ext, lent);
   PesTrapResult result;
   result.issued = (s.gpr[0] & 0xFF) != 0;
   result.out = static_cast<uint32_t>(s.mem.rd(entry + kFrameOutWordOffset, 4));
   return result;
+}
+
+PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  // The caller (0x1406E5FC0) hands the tick the action (rcx), P (rdx) and a pointer to a slot that holds its frame F (r8); F's
+  // +0x870 is the ball record (the phase handlers read the ball's flags through it).
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
+  uint8_t* frame = TickFrame();
+  StoreU64(frame, kFrameBallOffset, BallVa());
+  StoreU64(frame, kFrameXPtrOffset, TickFrameXVa());
+  s.wr(entry, 0, 8);
+  s.wr(entry + kTickEntryFrameSlotOffset, TickFrameVa(), 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = PVa(slot) + kPActionOffset;
+  s.gpr[2] = PVa(slot);
+  s.gpr[8] = entry + kTickEntryFrameSlotOffset;
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_140797CD0(s);
+  ReturnSegments(s, ext, lent);
+  const uint8_t* p = P(slot);
+  PesTickResult result;
+  std::memcpy(&result.motion, p + kPWordAE0Offset, sizeof result.motion);
+  result.mirror = p[kPMirrorOffset];
+  result.segment = p[kPSegmentOffset];
+  result.phase = p[kPPhaseOffset];
+  result.playback = LoadF32(p, kPPlaybackOffset);
+  return result;
+}
+
+void PesWorld::SetTickFrame(int slot, float bodyHeadingDeg) {
+  uint8_t* frame = TickFrame();
+  const TickPlan& plan = tickPlan_[slot];
+  StoreF32(frame, kFrameHeadingOffset, plan.headingDeg);
+  StoreU32(frame, kFrameKindOffset, static_cast<uint32_t>(plan.kind));
+  StoreF32(frame, kFrameWeightOffset, plan.kind == kTickKindDirectional ? kTickWeightDirectional : kTickWeightControl);
+  StoreF32(TickFrameX(), kFrameXHeadingOffset, bodyHeadingDeg);
 }
 
 uint8_t* PesWorld::AnimeRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48910, Bytes(), slot)); }

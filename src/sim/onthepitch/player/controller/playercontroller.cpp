@@ -503,6 +503,9 @@ bool PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
     pes::PesTrapRequest request = pes::TrapRequestFor(touch, yaw_deg);
     const int slot = match->PesSlotOf(CastPlayer());
     pes::PesWorld& world = match->PesWorldOf();
+    // A man already in the Trap action is driven by its tick: the reaction holds his entry and queues nothing, and the chain does
+    // not run again over his committed plan.
+    if (world.P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap) return true;
     // ponytail: the dispatcher's kind-4 chain (0x14079B3D0) is not translated, so a planned touch cannot run as kind 4: it is
     // given the refusal status the retry rule acts on (3, in its set {3, 7, 8}) and takes PES's own retry as kind 0. The chain
     // that refuses or commits as kind 4 removes this.
@@ -520,17 +523,14 @@ bool PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
     // A refused trap queues no command and reports the refusal: PES's entry 3 (FUN_1409F8220) returns 0 then (0x1409F8538) and
     // its reaction walk continues with the later entries (ElizaController::_ReactionCommands does that).
     if (!result.issued) return false;
-    const int clip = pes::CommittedTrapClip(world.P(slot));
-    // The clip is the motion the chain committed, an Animetable cell: the match loads every such motion as a trap-family clip
-    // (pesclips.cpp), so the command names it by its motion number. ponytail: PES plays the committed plan from the Trap action's
-    // own tick (FUN_140797CD0: hit frame FUN_1406B03D0, duration FUN_1406AF620, root solver FUN_1406E85B0; FUN_1406F02F0 is the
-    // class-state setter P+0x2704[k] = mode, not a motion issue); GF plays the clip at once with the clip's first HitData frame as the touch frame (AddPesClips), the mirror
-    // choice and the root solve are GF's. That tick, ported, removes this.
-    command.desiredFunctionType = e_FunctionType_Special;
-    command.useSpecialVar1 = true;
-    command.specialVar1 = static_cast<int>(pes::PesClipFamily::kTrap);
-    command.useSpecialVar2 = true;
-    command.specialVar2 = clip;
+    // The committed plan is PES's action now: the action switch's stores (FUN_1406EEBB0) put the man in TRAP at phase 0, and the
+    // action's tick (FUN_140797CD0, RunPesTrapTicks) issues the clip, mirrored as its SetMotion says, from the next tick on. The
+    // touch's heading and kind are the tick's frame inputs (PesWorld::SetTickFrame).
+    int32_t committedKind;
+    std::memcpy(&committedKind, request.bytes.data() + pes::kReqKindOffset, sizeof committedKind);
+    pes::StartTrapAction(world, slot);
+    world.SetTickPlan(slot, yaw_deg, committedKind == pes::kTrapKindDirectional ? pes::kTickKindDirectional : pes::kTickKindControl);
+    return true;
   }
   commandQueue.push_back(command);
   return true;

@@ -22,16 +22,21 @@ namespace pes {
 inline constexpr uint64_t kMotionTableGlobalVa = 0x1436F23C0ULL;  // -> the motion-table singleton (+0 = base of the records)
 inline constexpr uint64_t kAnimeManagerGlobalVa = 0x1436F2378ULL; // -> the anime-table manager (+0 = the Animetable buffer)
 inline constexpr uint64_t kRegistryGlobalVa = 0x1437F4808ULL;     // -> the constant registry (+0 = the entry array)
+// The per-motion class table the action tick reads (FUN_1406B4C10: word[motion] & 0x1FF, 0x100 past the table): the object at the
+// global is {u8 loaded = 1, +8 -> the file's bytes}; its loader FUN_1406B4D40 (class 0x1425DCE48) takes Eyestarget.bin whole.
+inline constexpr uint64_t kEyesTargetGlobalVa = 0x1436F2648ULL;
+inline constexpr const char* kEyesTargetPath = "common/anime/EyesTarget/bin/Eyestarget.bin";
 
 // FUN_141E5CA20(registry, id): payload = *(*(array[id]) + 8). trap.o is object 35 of constant_player.bin, which follows
 // constant_match.bin's objects 0..26.
 inline constexpr uint32_t kTrapRegistryId = 0x3E;
 inline constexpr std::size_t kMotionSlotCount = 0x1125;   // FUN_1406B20E0: the record block is 0x1125 x 0x390 bytes
+inline constexpr std::size_t kEyesTargetTableBytes = kMotionSlotCount * 4;  // FUN_1406B4D40's allocation, 0x4494
 inline constexpr std::size_t kMotionRecordBytes = 0x390;
 inline constexpr std::size_t kAnimetableCellCount = 0xBE5 * 0x12;  // rows x columns, FUN_1406AA440
 inline constexpr std::size_t kTrapRuntimeBytes = 0x1D8;  // constant::Trap: the slot-2 loader's last store is +0x1D5
 
-// The four Mbinfo files the chain reads, as FUN_1406AEF60 files them: kind (the file's index in the path table 0x14344DC40),
+// The five Mbinfo files the chain and the action tick read, as FUN_1406AEF60 files them: kind (the file's index in the path table 0x14344DC40),
 // the list offset FUN_1406AE810 gives it inside a motion record, the record size, the motion key.
 struct TrapMbinfoKind {
   int kind;
@@ -45,6 +50,8 @@ inline constexpr TrapMbinfoKind kTrapMbinfoKinds[] = {
     {1, "common/anime/Mbinfo/bin/HitData.bin", 108, 0x20, 0x11},  // FUN_1406AD300
     {6, "common/anime/Mbinfo/bin/RotData.bin", 8, 0xC8, 0},       // FUN_1406AE4F0
     {13, "common/anime/Mbinfo/bin/BallData.bin", 20, 0x210, 0},   // FUN_1406AC660
+    // The action tick's kind 5 (FUN_1406AC990, accessor FUN_1406AF9xx: rec+0xA0): CancelData, 12 bytes a record, key word0 & 0x1FFF.
+    {5, "common/anime/Mbinfo/bin/CancelData.bin", 12, 0xA0, 0},   // FUN_1406AC990
 };
 
 // Where the loader objects sit in the window: one segment from kTrapLoaderVa (above the world window, kWorldWindowVa).
