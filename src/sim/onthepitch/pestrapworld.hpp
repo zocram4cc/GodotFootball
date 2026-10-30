@@ -15,8 +15,11 @@
 
 namespace pes {
 
-// P (rdx of 0x14079A470): the actor object; its Trap action sits inside it at +0xC78 (rcx). 0x3B1C is the last byte read.
-inline constexpr std::size_t kTrapPBytes = 0x3B40;
+// P (rdx of 0x14079A470): the actor object; its Trap action sits inside it at +0xC78 (rcx). The window holds P to the extent of its
+// constructor FUN_1406E03D0: the last store is the member FUN_1406E07D0 at +0x3B90 (0x30 bytes). SetMotion (FUN_1406F0F70) writes
+// +0x3B50..+0x3B8C, so a P cut at 0x3B40 let those stores land in the next window object (the physique chain's A).
+// OPEN: PES's allocation may be larger; nothing past +0x3BC0 is read or written by the 14 captures.
+inline constexpr std::size_t kTrapPBytes = 0x3BC0;
 inline constexpr std::size_t kPActionOffset = 0xC78;  // the Trap action object (rcx of the chain)
 
 // P+0x8: the actor's ground position (x, height, z; m), +0x14 its second point (the next frame's), +0x20 its heading
@@ -47,6 +50,26 @@ inline constexpr std::size_t kPSlotPtrOffset = 0x3AD8;     // pointer into the a
 inline constexpr std::size_t kPF3B18Offset = 0x3B18;       // f32
 inline constexpr std::size_t kPPlaybackOffset = 0x3758;    // f32: the playback rate SetMotion stores (FUN_1406F0F70)
 inline constexpr std::size_t kSlotPPtrTargetOffset = 0x15C0;  // the slot-record offset P+0x3AD8 names
+// The constructor FUN_1406E03D0's non-zero stores in P's tail (0x1406E0xxx stores; the member at +0x3B90 is FUN_1406E07D0's).
+inline constexpr std::size_t kPTailNoneOffsets[] = {0x3B50, 0x3B7C, 0x3BBC};  // u32 0xFFFFFFFF
+inline constexpr std::size_t kPTailOneOffsets[] = {0x3B5C, 0x3BB4};           // f32 1.0 (0x3B5C is the low half of a u64 0x3F800000)
+
+// The member object FUN_141EB42B0 constructs at P+8 (param_1; CONFIRMED against the 14 captures: its vtable store at param_1+0x420 is
+// the word the capture holds at P+0x428). Offsets below are from param_1; the stores are the constructor's non-zero ones (the rest
+// is zero, as the window's P starts). Immediates are the constructor's own (VAs on each line).
+inline constexpr std::size_t kPMemberOffset = 0x8;
+inline constexpr std::size_t kMemberRateOffset = 0x414;                    // f32 = [0x14256AE1C] / tick rate (0x141EB4333..0x141EB433F)
+inline constexpr std::size_t kMemberVtableOffset[3] = {0x420, 0x490, 0x4C8};  // vtable stores 0x141EB437C, 0x141EB43D6, 0x141EB43FF
+inline constexpr std::size_t kMemberNoneOffset[3] = {0x474, 0x476, 0x478};   // u16 0xFFFF (0x141EB4399..0x141EB43A1)
+inline constexpr uint16_t kMemberNoneIndex = 0xFFFF;
+inline constexpr std::size_t kMemberMinusOneOffset = 0x484, kMemberOneOffset = 0x488;  // f32 -1.0, 1.0 (0x141EB43A5, 0x141EB43AC)
+inline constexpr std::size_t kMemberFlagsOffset = 0x4F8;                   // u16 0xFF00 (0x141EB4406)
+inline constexpr uint16_t kMemberFlagsInit = 0xFF00;
+inline constexpr std::size_t kMemberUnitTableOffset = 0x6F8, kMemberUnitTableCount = 0x26, kMemberUnitTableStride = 0x10,
+                             kMemberUnitTableCellOffset = 0xC;             // f32 1.0 at +0xC of each of 0x26 entries (0x141EB4470..0x141EB4495)
+inline constexpr std::size_t kMemberUnitRunOffset = 0x958, kMemberUnitRunCount = 0x28;  // 0x28 f32 1.0 (two 0x14-runs, 0x141EB44AB..0x141EB44D5)
+inline constexpr std::size_t kMemberScaleOffset = 0x9F8, kMemberPairOffset = 0x9FC;     // f32 1.0; u32 0x10001 (0x141EB4497, 0x141EB44A1)
+inline constexpr uint32_t kMemberPairInit = 0x10001;
 
 // The request the Trap action's +0x68 slot takes (r9 of 0x1407A01C0), 0x24 bytes in PES's layout
 // (docs/re/pes-re-trap-kind0.md 1). The dispatcher copies the words below into its own frame and calls the kind's chain; kind <= 0 is

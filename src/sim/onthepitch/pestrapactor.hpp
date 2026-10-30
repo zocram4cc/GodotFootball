@@ -71,6 +71,8 @@ struct PesActorConstants {
   float secondsPerHour60 = 0.0f;  // 0x14259A764: multiplied in twice (0x1406EA14E, 0x1406EA15B)
   float metresPerKm = 0.0f;       // 0x14256AE34 (0x1406EA168)
   float heightDivisor = 0.0f;     // 0x142598580: P+0x3B18 = height_cm / 180 (0x1406EB231)
+  uint64_t memberVtable[3] = {0, 0, 0};  // P+0x428, +0x498, +0x4D0: the member constructor 0x141EB42B0's three `lea rax,[vtable]` sites
+  float memberRateNumerator = 0.0f;      // 0x14256AE1C: P+0x41C = this / tickRate (0x141EB4333)
 };
 
 // Reads the constants from the install's exe, each behind the opcode of the instruction that names it. Empty with `*error` set
@@ -85,6 +87,10 @@ uint8_t LocomotionClass(const PesActorConstants& c, const PesActorFacts& f, cons
 // (S1b, FUN_1406F99F0) and the interface vtables; then the open inputs.
 void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInputs& open, const PesActorConstants& c,
                  const StaminaConstants& stamina, const PhysiqueConstants& physique);
+
+// The member constructor FUN_141EB42B0's stores into the slot's P (the vtables the tick calls through, the "none" indices, the unit
+// tables), once per match when PES builds the actor, before any WriteActorP: the per-tick writes leave these bytes as the tick left them.
+void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c);
 
 // The action switch's stores for a committed trap (FUN_1406EEBB0: the previous ids take the current pair, the current pair becomes
 // TRAP, TRAP) and the action's start phase 0 (P+0x245C), which the tick's phase machine switches on. The man's action object was

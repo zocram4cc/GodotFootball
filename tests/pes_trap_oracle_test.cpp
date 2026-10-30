@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -313,6 +314,7 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   facts.side = facts.slot / pes::kSlotsPerSide;
   b.slot = facts.slot;
   CopyActorMan(o, g, w, facts.slot);
+  pes::ConstructActorP(w, facts.slot, g_derivation->actor);  // as a match does once, before the per-tick writes
   pes::WriteActorP(w, facts, OpenOf(o), g_derivation->actor, g_derivation->stamina, g_derivation->physique);
   // The request, as the dispatcher 0x1407A01C0 took it (kind 0): its words are the chain's stack arguments in the capture.
   const uint64_t rsp = o.regs.at("rsp"), action = rdx + pes::kPActionOffset;
@@ -881,6 +883,7 @@ struct TickBuilt {
   Built built;
   std::vector<std::string> derivedMismatches;  // bytes GF wrote that differ from the capture's (outside pointer cells)
   int overlaid = 0;                            // bytes taken from the capture
+  std::set<std::pair<int, uint32_t>> overlaidAt;  // (object, offset) of each of them
 };
 
 // The tick's caller stack: the window stack's entry rsp (RunTrapTick), where the S lines' bytes sit.
@@ -897,7 +900,10 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
     for (size_t i = 0; i < len; ++i) {
       const uint8_t cap = static_cast<uint8_t>(Read(o, capAddr + i, 1));
       if (dst[i] == 0) {
-        if (cap != 0) ++t.overlaid;
+        if (cap != 0) {
+          ++t.overlaid;
+          t.overlaidAt.insert({obj, rel + static_cast<uint32_t>(i)});
+        }
         dst[i] = cap;
       } else if (dst[i] != cap && !IsPointerCell(obj, rel + static_cast<uint32_t>(i))) {
         char buf[96];
@@ -930,6 +936,8 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
 struct TickRun {
   pes::PesTickResult result;
   WriteMap writes;
+  std::vector<std::pair<std::pair<int, uint32_t>, uint8_t>> ordered;  // the same writes in the order the tick made them
+  std::vector<std::pair<uint64_t, uint8_t>> raw;                      // every byte the tick wrote, by VA (debugging)
 };
 
 TickRun RunTick(TickBuilt& t) {
@@ -941,8 +949,12 @@ TickRun RunTick(TickBuilt& t) {
   for (const auto& wr : log) {
     int obj;
     uint32_t rel;
-    if (Classify(spans, wr.first, &obj, &rel)) run.writes[{obj, rel}] = wr.second;
+    if (Classify(spans, wr.first, &obj, &rel)) {
+      run.writes[{obj, rel}] = wr.second;
+      run.ordered.push_back({{obj, rel}, wr.second});
+    }
   }
+  run.raw = std::move(log);
   return run;
 }
 
@@ -974,6 +986,15 @@ TEST_F(TrapTickOracle, EveryCapturedTickOnGfsWindowEqualsPes) {
     TickBuilt t;
     BuildTick(o, image.bytes, image.size, t);
     for (const std::string& m : t.derivedMismatches) ADD_FAILURE() << dir << ": derived " << m;
+    if (const char* only = std::getenv("GF_TICK_ORACLE_TRAP"); only != nullptr && dir.find(only) != std::string::npos) {
+      std::printf("A+0x48 host %p\n", static_cast<void*>(WindowBytes(*t.built.world, t.built.slot, kObjA) + 0x48));
+      std::printf("A VA %llx  stack VA %llx..%llx  entry %llx  P VA %llx\n",
+                  static_cast<unsigned long long>(pes::PesWorld::PhysiqueAVa(t.built.slot)),
+                  static_cast<unsigned long long>(pes::kStackVa), static_cast<unsigned long long>(pes::kStackVa + pes::kStackBytes),
+                  static_cast<unsigned long long>(kTickEntry), static_cast<unsigned long long>(pes::PesWorld::PVa(t.built.slot)));
+      std::fflush(stdout);
+      raise(SIGTRAP);
+    }
     const TickRun run = RunTick(t);
     const WriteMap want = ReferenceWrites(o, CapturedObjects(o));
     // The addresses either side wrote and the two disagree on, as ranges per object (P=0 A=1 O1=2 O2=3 Q=4 R=5 S=6):
@@ -986,6 +1007,49 @@ TEST_F(TrapTickOracle, EveryCapturedTickOnGfsWindowEqualsPes) {
     for (const auto& kv : run.writes)
       if (want.find(kv.first) == want.end()) bad.insert(kv.first);
     std::string diff;
+    if (std::getenv("GF_TICK_ORACLE_VERBOSE") != nullptr) {
+      std::vector<std::pair<std::pair<int, uint32_t>, uint8_t>> pesOrdered;
+      const std::string w = Field(o.row, "w");
+      const ObjSpans caps = CapturedObjects(o);
+      for (size_t at = 0; at + 18 <= w.size(); at += 18) {
+        int obj;
+        uint32_t rel;
+        if (Classify(caps, std::strtoull(w.substr(at, 16).c_str(), nullptr, 16), &obj, &rel))
+          pesOrdered.push_back({{obj, rel}, static_cast<uint8_t>(std::strtoul(w.substr(at + 16, 2).c_str(), nullptr, 16))});
+      }
+      size_t i = 0;
+      while (i < pesOrdered.size() && i < run.ordered.size() && pesOrdered[i] == run.ordered[i]) ++i;
+      std::printf("%s: first ordered divergence at write %zu (PES %zu, GF %zu)\n", dir.c_str(), i, pesOrdered.size(), run.ordered.size());
+      {
+        const ObjSpans gfSpans = WindowObjects(t.built.slot);
+        size_t j = 0;
+        for (; j < run.raw.size(); ++j) {
+          int ob;
+          uint32_t rl;
+          if (Classify(gfSpans, run.raw[j].first, &ob, &rl) && ob == kObjA) break;
+        }
+        std::printf("  raw GF write log: first A write at raw index %zu of %zu; preceding 24 (VA:byte):", j, run.raw.size());
+        for (size_t k = j > 24 ? j - 24 : 0; k <= j && k < run.raw.size(); ++k)
+          std::printf(" %llx:%02x", static_cast<unsigned long long>(run.raw[k].first), run.raw[k].second);
+        std::printf("\n");
+      }
+      for (size_t k = i > 48 ? i - 48 : 0; k < i + 8; ++k) {
+        const auto show = [k](const auto& v, char* out) {
+          if (k < v.size()) std::snprintf(out, 40, "%d+0x%x=%02x", v[k].first.first, v[k].first.second, v[k].second);
+          else std::snprintf(out, 40, "--");
+        };
+        char a[40], b[40];
+        show(pesOrdered, a);
+        show(run.ordered, b);
+        std::printf("   [%zu] PES %s | GF %s\n", k, a, b);
+      }
+    }
+    if (std::getenv("GF_TICK_ORACLE_VERBOSE") != nullptr)
+      for (const auto& key : bad) {
+        const auto w = want.find(key), g = run.writes.find(key);
+        std::printf("%s [%d+0x%x] PES %s GF %s\n", dir.c_str(), key.first, key.second,
+                    w == want.end() ? "--" : (std::to_string(w->second)).c_str(), g == run.writes.end() ? "--" : (std::to_string(g->second)).c_str());
+      }
     for (auto it = bad.begin(); it != bad.end();) {
       auto last = it;
       for (auto next = std::next(it); next != bad.end() && next->first == last->first && next->second == last->second + 1; ++next) last = next;
@@ -1023,6 +1087,117 @@ TEST_F(TrapTickOracle, TheCapturesCoverTheStartAndBothMirrors) {
   EXPECT_EQ(starts, 2);
   EXPECT_GT(mirrored, 0);
   EXPECT_GT(plain, 0);
+}
+
+// Diagnostic: the window bytes the oracle takes from the capture because GF wrote none (the union over the captures), as ranges per
+// object. Every range here is an input a GF match does not supply.
+TEST_F(TrapTickOracle, ListWhatTheOverlaySupplies) {
+  std::set<std::pair<int, uint32_t>> all;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    Image image;
+    ASSERT_TRUE(image.Open(exe_));
+    TickBuilt t;
+    BuildTick(o, image.bytes, image.size, t);
+    all.insert(t.overlaidAt.begin(), t.overlaidAt.end());
+  }
+  std::string out;
+  for (auto it = all.begin(); it != all.end();) {
+    auto last = it;
+    for (auto next = std::next(it); next != all.end() && next->first == last->first && next->second <= last->second + 1; ++next) last = next;
+    char buf[64];
+    std::snprintf(buf, sizeof buf, " [%d+0x%x..0x%x]", it->first, it->second, last->second);
+    out += buf;
+    it = std::next(last);
+  }
+  std::printf("overlay-supplied ranges (P=0 A=1 O1=2 O2=3 Q=4 R=5 S=6):%s\n", out.c_str());
+}
+
+// Every byte of loader data the tick read (the manifest's H lines in the Mbinfo motion records, the lists they point to, the
+// EyesTarget table and the Animetable buffer) equals what GF's loader built from the install: the loader is the input the window
+// cannot overlay (it holds no copy of the capture's heap), so a record GF built differently changes the solver's output unseen.
+// A read byte that lies in none of these structures, nor in the window's objects, is reported as unexplained.
+TEST_F(TrapTickOracle, LoaderDataTheTickReadsEqualsTheCapture) {
+  constexpr uint64_t kMotionTableGlobal = 0x1436F23C0ULL, kAnimeGlobal = 0x1436F2378ULL, kEyesGlobal = 0x1436F2648ULL;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    std::vector<std::pair<uint64_t, uint64_t>> reads;  // the call's H ranges: [lo, hi)
+    for (const auto& line : o.manifest)
+      if (line[0] == "H") {
+        const uint64_t va = std::strtoull(line[1].c_str(), nullptr, 16);
+        reads.push_back({va, va + std::strtoul(line[2].c_str(), nullptr, 10)});
+      }
+    std::set<uint64_t> explained;
+    std::string diff;
+    // Compares the read bytes of [cap, cap + n) with `gf`.
+    const auto compare = [&](uint64_t cap, const uint8_t* gf, std::size_t n, const std::string& what) {
+      for (const auto& r : reads)
+        for (uint64_t x = std::max(cap, r.first); x < std::min(cap + n, r.second); ++x) {
+          explained.insert(x);
+          const uint8_t want = static_cast<uint8_t>(Read(o, x, 1));
+          if (gf == nullptr || gf[x - cap] != want) {
+            char buf[128];
+            std::snprintf(buf, sizeof buf, " [%s +0x%llx: capture %02x, GF %02x]", what.c_str(),
+                          static_cast<unsigned long long>(x - cap), want, gf == nullptr ? 0 : gf[x - cap]);
+            diff += buf;
+          }
+        }
+    };
+    const uint64_t capRecords = Read(o, Read(o, kMotionTableGlobal, 8), 8);
+    const uint8_t* gfRecords = g_loader->At(g_loader->motionRecordsVa, pes::kMotionSlotCount * pes::kMotionRecordBytes);
+    ASSERT_NE(gfRecords, nullptr);
+    for (std::size_t m = 0; m < pes::kMotionSlotCount; ++m) {
+      const uint64_t capRec = capRecords + m * pes::kMotionRecordBytes;
+      const uint8_t* gfRec = gfRecords + m * pes::kMotionRecordBytes;
+      char name[48];
+      std::snprintf(name, sizeof name, "motion %#zx counts", m);
+      compare(capRec, gfRec, 14, name);  // the per-kind count bytes
+      for (const pes::TrapMbinfoKind& k : pes::kTrapMbinfoKinds)
+        for (unsigned i = 0; i < gfRec[k.kind] && i < 16; ++i) {
+          uint64_t gfPtr;
+          std::memcpy(&gfPtr, gfRec + k.listOffset + 8 * i, 8);
+          std::snprintf(name, sizeof name, "motion %#zx kind %d #%u", m, k.kind, i);
+          compare(Read(o, capRec + k.listOffset + 8 * i, 8), g_loader->At(gfPtr, k.recordBytes), k.recordBytes, name);
+        }
+    }
+    uint64_t gfEyes = 0, gfAnime = 0;
+    for (const auto& [va, value] : g_loader->globals) {
+      if (va == kEyesGlobal) gfEyes = value;
+      if (va == kAnimeGlobal) gfAnime = value;
+    }
+    const uint8_t* eyesObject = g_loader->At(gfEyes, 0x10);
+    uint64_t eyesTable;
+    std::memcpy(&eyesTable, eyesObject + 8, 8);
+    compare(Read(o, Read(o, kEyesGlobal, 8) + 8, 8), g_loader->At(eyesTable, pes::kEyesTargetTableBytes), pes::kEyesTargetTableBytes, "EyesTarget");
+    compare(Read(o, Read(o, kAnimeGlobal, 8), 8), g_loader->At(g_loader->animetableVa, pes::kAnimetableCellCount * 3),
+            pes::kAnimetableCellCount * 3, "Animetable");
+    {  // constant::Trap: registry (0x1437F4808) -> entry array -> entry[kTrapRegistryId] -> payload at +8
+      const uint64_t registry = Read(o, 0x1437F4808ULL, 8), array = Read(o, registry, 8);
+      const uint64_t entry = Read(o, array + 8 * pes::kTrapRegistryId, 8);
+      compare(Read(o, entry + 8, 8), g_loader->At(g_loader->trapVa, pes::kTrapRuntimeBytes), pes::kTrapRuntimeBytes, "constant::Trap");
+    }
+    (void)gfAnime;
+    const ObjSpans captured = CapturedObjects(o);
+    std::string unexplained;
+    for (const auto& r : reads) {
+      uint64_t x = r.first;
+      while (x < r.second) {
+        int obj;
+        uint32_t rel;
+        if (explained.count(x) || Classify(captured, x, &obj, &rel) || (x >= 0x140000000ULL && x < 0x144000000ULL)) { ++x; continue; }
+        char buf[48];
+        std::snprintf(buf, sizeof buf, " %#llx", static_cast<unsigned long long>(x));
+        unexplained += buf;
+        break;  // the first byte of each H range is enough
+      }
+    }
+    EXPECT_TRUE(diff.empty()) << dir << ": loader bytes differ:" << diff;
+    std::printf("%s: unexplained H ranges (first byte):%s\n", dir.c_str(), unexplained.c_str());
+  }
 }
 
 }  // namespace

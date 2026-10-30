@@ -28,6 +28,12 @@ constexpr Site kSixtyAgainSite{0x1406EA15B, {0xF3, 0x44, 0x0F, 0x59, 0x05}, 5, 9
 constexpr Site kThousandSite{0x1406EA168, {0xF3, 0x44, 0x0F, 0x5E, 0x05}, 5, 9};
 // FUN_141E532D0 (the tick rate): `movss xmm0,[rate]; ret`.
 constexpr Site kTickRateSite{0x141E532D0, {0xF3, 0x0F, 0x10, 0x05}, 4, 8};
+// FUN_141EB42B0 (the member constructor at P+8): the three `lea rax,[vtable]` before the stores at param_1+0x420, +0x490, +0x4C8, and
+// `movss xmm1,[numerator]` before the divide by the tick rate that gives +0x414.
+constexpr Site kMemberVtableSite[3] = {{0x141EB4375, {0x48, 0x8D, 0x05}, 3, 7},
+                                       {0x141EB43CF, {0x48, 0x8D, 0x05}, 3, 7},
+                                       {0x141EB43F8, {0x48, 0x8D, 0x05}, 3, 7}};
+constexpr Site kMemberRateSite{0x141EB4333, {0xF3, 0x0F, 0x10, 0x0D}, 4, 8};
 // FUN_1406EB210: `divss xmm0,[180]` for P+0x3B18.
 constexpr Site kHeightDivisorSite{0x1406EB231, {0xF3, 0x0F, 0x5E, 0x05}, 4, 8};
 // FUN_1406D8BF0: `cmp byte [phase],0x18` and `movzx eax,byte [rdi + rcx*4 + disp32]` with rdi = the image base.
@@ -71,6 +77,11 @@ std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::str
   c.interfaceVtable[0] = vt0;
   c.interfaceVtable[1] = vt1;
   c.actionVtable = actionVtable;
+  for (int k = 0; k < 3; ++k) {
+    c.memberVtable[k] = img.Target(kMemberVtableSite[k]);
+    ok = ok && c.memberVtable[k] != 0;
+  }
+  ok = ok && img.Float(kMemberRateSite, &c.memberRateNumerator);
   ok = ok && img.Float(kStandingSite, &c.standingSpeedKmh) && img.Float(kSixtySite, &c.secondsPerHour60) &&
        img.Float(kSixtyAgainSite, &again) && again == c.secondsPerHour60 && img.Float(kThousandSite, &c.metresPerKm) &&
        img.Float(kTickRateSite, &c.tickRate) && img.Float(kHeightDivisorSite, &c.heightDivisor);
@@ -158,6 +169,24 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   uint8_t* point = world.O2(f.slot) + kO2PointOffset;
   std::memcpy(point, man + kManPosXOffset, 12);
   StoreF32(point, 12, 1.0f);
+}
+
+void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
+  uint8_t* m = world.P(slot) + kPMemberOffset;  // FUN_141EB42B0's param_1
+  StoreF32(m, kMemberRateOffset, c.memberRateNumerator / c.tickRate);
+  for (int k = 0; k < 3; ++k) std::memcpy(m + kMemberVtableOffset[k], &c.memberVtable[k], sizeof(uint64_t));
+  for (const std::size_t at : kMemberNoneOffset) std::memcpy(m + at, &kMemberNoneIndex, sizeof kMemberNoneIndex);
+  StoreF32(m, kMemberMinusOneOffset, -1.0f);
+  StoreF32(m, kMemberOneOffset, 1.0f);
+  std::memcpy(m + kMemberFlagsOffset, &kMemberFlagsInit, sizeof kMemberFlagsInit);
+  for (std::size_t k = 0; k < kMemberUnitTableCount; ++k)
+    StoreF32(m, kMemberUnitTableOffset + k * kMemberUnitTableStride + kMemberUnitTableCellOffset, 1.0f);
+  for (std::size_t k = 0; k < kMemberUnitRunCount; ++k) StoreF32(m, kMemberUnitRunOffset + 4 * k, 1.0f);
+  StoreF32(m, kMemberScaleOffset, 1.0f);
+  StoreU32(m, kMemberPairOffset, kMemberPairInit);
+  uint8_t* p = world.P(slot);  // the constructor FUN_1406E03D0's tail stores
+  for (const std::size_t at : kPTailNoneOffsets) StoreU32(p, at, 0xFFFFFFFFu);
+  for (const std::size_t at : kPTailOneOffsets) StoreF32(p, at, 1.0f);
 }
 
 void StartTrapAction(PesWorld& world, int slot) {
