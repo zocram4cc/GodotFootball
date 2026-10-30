@@ -32,6 +32,7 @@
 #include <functional>
 #include <iterator>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -975,26 +976,25 @@ TEST_F(TrapTickOracle, EveryCapturedTickOnGfsWindowEqualsPes) {
     for (const std::string& m : t.derivedMismatches) ADD_FAILURE() << dir << ": derived " << m;
     const TickRun run = RunTick(t);
     const WriteMap want = ReferenceWrites(o, CapturedObjects(o));
-    // (object, offset): GF's last byte against PES's, for every address either wrote and the two disagree on (object P=0 A=1 O1=2
-    // O2=3 Q=4 R=5 S=6).
-    std::string diff;
-    int shown = 0;
+    // The addresses either side wrote and the two disagree on, as ranges per object (P=0 A=1 O1=2 O2=3 Q=4 R=5 S=6):
+    // "obj+0xLO..0xHI(n bytes)".
+    std::set<std::pair<int, uint32_t>> bad;
     for (const auto& [key, byte] : want) {
       const auto at = run.writes.find(key);
-      if ((at == run.writes.end() || at->second != byte) && shown++ < 12) {
-        char buf[96];
-        std::snprintf(buf, sizeof buf, " [%d+0x%x PES %02x GF %s]", key.first, key.second, byte,
-                      at == run.writes.end() ? "none" : (std::to_string(at->second)).c_str());
-        diff += buf;
-      }
+      if (at == run.writes.end() || at->second != byte) bad.insert(key);
     }
-    for (const auto& [key, byte] : run.writes)
-      if (want.find(key) == want.end() && shown++ < 12) {
-        char buf[96];
-        std::snprintf(buf, sizeof buf, " [%d+0x%x GF %02x PES none]", key.first, key.second, byte);
-        diff += buf;
-      }
-    EXPECT_TRUE(diff.empty()) << dir << ": " << run.writes.size() << " GF writes, " << want.size() << " PES writes; first differences:" << diff;
+    for (const auto& kv : run.writes)
+      if (want.find(kv.first) == want.end()) bad.insert(kv.first);
+    std::string diff;
+    for (auto it = bad.begin(); it != bad.end();) {
+      auto last = it;
+      for (auto next = std::next(it); next != bad.end() && next->first == last->first && next->second == last->second + 1; ++next) last = next;
+      char buf[96];
+      std::snprintf(buf, sizeof buf, " [%d+0x%x..0x%x]", it->first, it->second, last->second);
+      diff += buf;
+      it = std::next(last);
+    }
+    EXPECT_TRUE(diff.empty()) << dir << ": " << run.writes.size() << " GF writes, " << want.size() << " PES writes; differing ranges:" << diff;
     // The outputs the body takes, where the tick wrote them (a field it left alone is not an output).
     const auto wrote = [&want](std::size_t off) { return want.count({kObjP, static_cast<uint32_t>(off)}) != 0; };
     if (wrote(pes::kPWordAE0Offset)) EXPECT_EQ(run.result.motion, PesPAfter(o, want, pes::kPWordAE0Offset, 2)) << dir;
