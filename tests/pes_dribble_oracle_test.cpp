@@ -90,12 +90,13 @@ TEST_F(TurnReferenceOracle, EveryCapturedEntryLeavesPesManagerBytesAndTurnRefere
   EXPECT_GT(turnWritten, 0) << "no captured step wrote BP+0x3380: the oracle set would prove nothing about it";
 }
 
-// OPEN (DISABLED): on a zero window the constructor aborts with PES_DISPATCH_UNTRANSLATED 0 (a virtual call through a vtable slot
-// that reads 0: the constructor is bit-exact on three live BPs, whose objects pre-exist, but not yet runnable on an empty block),
-// so RunCarrierConstruct is not called from RunCarrierUpdate. Enable once the null slot is found.
-// PES's constructor leaves the block's objects with their vtables: the carrier manager's and the kind objects' first words point
-// into the image, are equal for both sides, and the dribble kind (BP+0x33A0) and the carrier manager do not share one.
-TEST(CarrierConstruct, DISABLED_EveryObjectHoldsAnImageVtableOnBothSides) {
+// The null slot of the constructor on a zero window (the old abort `PES_DISPATCH_UNTRANSLATED: 0`): the block reset 0x14210E5F0,
+// the constructor's last call, calls slot +8 of every kind object (0x1421105B0), and the kind-0x18 object (BP+0x3DD0) takes the
+// vtable 0x142BF0F70 (0x1421349E0), which the bound vtable span did not cover: its slot read 0. The span now ends past it.
+// PES's constructor leaves the block's objects with their vtables: the carrier manager's, the kind objects' (the first, the dribble
+// kind and the last) first words point into the image, are equal for both sides, and the dribble kind (BP+0x33A0) and the carrier
+// manager do not share one.
+TEST(CarrierConstruct, EveryObjectHoldsAnImageVtableOnBothSides) {
   if (std::getenv("PES21_ROOT") == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the install's vtables are bound from its exe)";
   pes::PesWorld w;
   BindWorld(w);
@@ -103,7 +104,8 @@ TEST(CarrierConstruct, DISABLED_EveryObjectHoldsAnImageVtableOnBothSides) {
   w.RunCarrierConstruct(0);
   w.RunCarrierConstruct(1);
   constexpr std::size_t kDribbleKindOffset = 0x33A0;  // 0x1421105B0(BP, 0x10)
-  for (std::size_t off : {std::size_t{0}, pes::kBpManagerOffset, kDribbleKindOffset}) {
+  constexpr std::size_t kLastKindOffset = 0x3DD0;     // 0x1421105B0(BP, 0x18)
+  for (std::size_t off : {std::size_t{0}, pes::kBpManagerOffset, kDribbleKindOffset, kLastKindOffset}) {
     const uint64_t a = Word(w.Carrier(0), off), c = Word(w.Carrier(1), off);
     EXPECT_EQ(a, c) << "BP+0x" << std::hex << off;
     EXPECT_GE(a, pes::kImageBaseVa) << "BP+0x" << std::hex << off;
