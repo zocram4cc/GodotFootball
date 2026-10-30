@@ -1,6 +1,7 @@
 0x1405B7470	stand-in	restart	seed
 0x14050D6A0	stand-in	restart	seed
 0x143F546F0	stand-in	cardlevel	seed
+0x140A81910	stand-in	cardlevel	seed
 0x140439EF0	stand-in	AI	callee
 0x140481B00	stand-in	AI	callee
 0x1405B6800	stand-in	restart	callee

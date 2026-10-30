@@ -2656,6 +2656,7 @@ void pes_fn_140A812F0(PesState& s);
 void pes_fn_140A81540(PesState& s);
 void pes_fn_140A81570(PesState& s);
 void pes_fn_140A81860(PesState& s);
+void pes_fn_140A81910(PesState& s);
 void pes_fn_140A81940(PesState& s);
 void pes_fn_140A81AC0(PesState& s);
 void pes_fn_140A81B70(PesState& s);

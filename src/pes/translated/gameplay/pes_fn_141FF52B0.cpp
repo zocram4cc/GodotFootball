@@ -19,6 +19,9 @@ static constexpr double k_c14252FF88_d = 6.08418511180123e-310; // 6.08418511180
 // image constant @ 0x14252FF90 (8 bytes)
 static constexpr uint64_t k_c14252FF90_q = 0x00006FFFFE8729C0ULL;
 static constexpr double k_c14252FF90_d = 6.08418511169214e-310; // 6.08418511169214e-310
+// image constant @ 0x15901B5FB (4 bytes)
+static constexpr uint32_t k_c15901B5FB_w = 0xFFFF00CBU;
+static constexpr float k_c15901B5FB_f = __builtin_bit_cast(float, 0xFFFF00CBU); // non-finite;
 
 void pes_fn_141FF52B0(PesState& s);
 void pes_fn_1403DB240(PesState& s);
@@ -11697,7 +11700,7 @@ void pes_fn_141FF52B0(PesState& s) {
     s.wr(((s.gpr[3])), (uint64_t)(_r), 4);
   }
   s.gpr[2] = (s.gpr[2] & ~(0xFFULL << 8)) | (((uint64_t)(uint8_t)((255ULL))) << 8);
-  { uint64_t _a = (uint64_t)(s.rd(0x15901B5FBULL, 4)), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a + _b) & 0xFFFFFFFFULL;
+  { uint64_t _a = (uint64_t)(k_c15901B5FB_w), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a + _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFULL));
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 31) & 1;

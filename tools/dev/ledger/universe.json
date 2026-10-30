@@ -339679,6 +339679,29 @@
    "vtables": [],
    "walked": true
   },
+  "140A81910": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_140a81910",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cardlevel"
+   ],
+   "scope": "in",
+   "size": 9,
+   "source": "image-leaf",
+   "subsystem": "cardlevel",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140A81940": {
    "boundary": null,
    "callees": {
@@ -1287555,11 +1287578,12 @@
   "bridge": "http://127.0.0.1:8080",
   "closures": {
    "cardlevel": {
-    "members": 92,
+    "members": 93,
     "roots": [
      "0x1405B7470",
      "0x14050D6A0",
-     "0x143F546F0"
+     "0x143F546F0",
+     "0x140A81910"
     ]
    },
    "endclear": {

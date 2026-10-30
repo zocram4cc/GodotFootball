@@ -8,6 +8,9 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image constant @ 0x1482B3DC8 (2 bytes)
+static constexpr uint8_t k_c1482B3DC8[2] = {0xC0, 0x00};
+static constexpr uint16_t k_c1482B3DC8_h = 0x00C0U;
 
 void pes_fn_143FA8760(PesState& s);
 void pes_fn_1405B6870(PesState& s);
@@ -81,7 +84,7 @@ void pes_fn_143FA8760(PesState& s) {
   if (s.cond("nc")) {
     s.wr(((s.gpr[7])), (uint64_t)((20520ULL)), 2);
   } else {
-    s.gpr[15] = (s.gpr[15] & 0xFFFFFFFFFFFF0000ULL) | ((uint64_t)(uint16_t)(s.rd(0x1482B3DC8ULL, 2)));
+    s.gpr[15] = (s.gpr[15] & 0xFFFFFFFFFFFF0000ULL) | ((uint64_t)(uint16_t)(k_c1482B3DC8_h));
     { uint64_t _r = ((uint64_t)(((uint64_t)(uint16_t)s.gpr[15])) ^ (uint64_t)((20732ULL))) & 0xFFFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 15) & 1);
       s.cf = false; s.of = false;

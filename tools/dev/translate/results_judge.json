@@ -4,8 +4,8 @@
  "results": [
   {
    "va": "0x1405B7470",
-   "calls": 3,
-   "replayed": 3,
+   "calls": 4,
+   "replayed": 4,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -18,6 +18,10 @@
      "replayed": 1
     },
     "c_seq5123": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq3147": {
      "calls": 1,
      "replayed": 1
     }
@@ -58,8 +62,8 @@
   },
   {
    "va": "0x14050E770",
-   "calls": 18,
-   "replayed": 18,
+   "calls": 28,
+   "replayed": 28,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -132,6 +136,46 @@
      "replayed": 1
     },
     "c_seq3428": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq1092": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq1549": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq1590": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq1880": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq2116": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq2784": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq2911": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq3151": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq3433": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "e_seq875": {
      "calls": 1,
      "replayed": 1
     }

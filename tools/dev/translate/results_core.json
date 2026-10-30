@@ -19358,19 +19358,19 @@
    "failure_class": null,
    "icount_max": 21,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel2: judge_whistle_50E770 captures live2 pid2670420 seq028, seq7444, seq7535, seq7699; pid91171 seq028, seq308; pid132854 seq028, seq804, seq866, seq1161, seq1328, seq1493, seq2126, seq2673, seq2939; restart kinds 1 kick-off, 2 throw-in, 3 goal kick, 4 corner, 5 free kick); own-block coverage 0.5072; the unicorn harness corpus (5 valid of 64) is superseded",
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel3: judge_whistle_50E770, 28 captures: pid2670420 seq028, seq7444, seq7535, seq7699; pid91171 seq028, seq308, seq875, seq1092, seq1549, seq1590, seq1880, seq2116, seq2784, seq2911, seq3151, seq3433; pid132854 seq028, seq804, seq866, seq1161, seq1328, seq1493, seq2126, seq2673, seq2939, seq3142, seq3406, seq3428; restart kinds 1 kick-off, 2 throw-in, 3 goal kick, 4 corner, 5 free kick); own-block coverage 0.5072; the unicorn harness corpus (5 valid of 64) is superseded",
    "proof": "snapdiff",
-   "requested": 15,
+   "requested": 28,
    "role": "seed",
    "snapdiff": {
-    "calls": 15,
+    "calls": 28,
     "mismatches": 0,
     "own_block": {
      "reached": 35,
      "total": 69,
      "fraction": 0.5072
     },
-    "replayed": 15,
+    "replayed": 28,
     "source": "tools/dev/translate/results_judge.json"
    },
    "stubs": [],
@@ -98358,11 +98358,12 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 2,
+   "cases": 4,
+   "closure_file": "closure_judge.json",
    "coverage": {
     "0x1405B7470": {
-     "fraction": 0.195,
-     "reached": 39,
+     "fraction": 0.43,
+     "reached": 86,
      "total": 200
     }
    },
@@ -98372,18 +98373,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel2: judge_decide_5B7470 captures live2 pid2670420 seq7473, pid91171 seq316; both calls leave the decision early with no foul, so own-block coverage is 0.195: no capture reaches the points, the thresholds or the pending-foul builder); the unicorn harness has no corpus for it",
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel3: judge_decide_5B7470 captures live2 pid2670420 seq7473, pid91171 seq316, seq3147, pid132854 seq5123); all four leave the decision with no foul. seq5123 (a challenge action) runs the scorers 0x143F738A0 / 0x143FA8420 and the thresholds 0x143F71690 -> 0x1405B82E0 -> 0x143FA8760, so own-block coverage is 0.43; no capture reaches the pending-foul builder or a card; the unicorn harness has no corpus for it",
    "proof": "snapdiff",
-   "requested": 2,
+   "requested": 4,
    "snapdiff": {
-    "calls": 2,
+    "calls": 4,
     "mismatches": 0,
     "own_block": {
-     "reached": 39,
+     "reached": 86,
      "total": 200,
-     "fraction": 0.195
+     "fraction": 0.43
     },
-    "replayed": 2,
+    "replayed": 4,
     "source": "tools/dev/translate/results_judge.json"
    },
    "stubs": [],

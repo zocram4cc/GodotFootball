@@ -123,7 +123,9 @@ class Image:
         Reads the section table from the image itself (no bridge). The
         unpacked dump keeps the packed layout's section table, so VAs
         map the same way. Unknown VA -> writable (safe: live memory
-        read, never a stale baked constant).
+        read, never a stale baked constant). `.impdata` (rwx, the protector's section) is constant outside the
+        measured IMPDATA_VOLATILE_RVA pages (full_snapshot.py): its xor-masked constants (`mov eax,[w]; xor eax,K`) are
+        the image's words in every capture, so they bake like read-only data; a volatile page stays a live read.
         """
         if self._secs is None:
             self._secs = []
@@ -147,13 +149,14 @@ class Image:
                     flags = int.from_bytes(raw[36:40], "little")
                     size = max(vsize, rsize)
                     if size and rsize:
-                        self._secs.append((base + rva, size,
-                                           bool(flags & 0x80000000)))
+                        self._secs.append((base + rva, size, bool(flags & 0x80000000),
+                                           raw[:8].rstrip(b"\0") == b".impdata"))
             except OSError:
                 pass
-        for sva, ssize, wr in self._secs:
+        from full_snapshot import IMPDATA_VOLATILE_RVA
+        for sva, ssize, wr, imp in self._secs:
             if sva <= va < sva + ssize:
-                return wr
+                return wr and not (imp and (va - BASE) & ~0xFFF not in IMPDATA_VOLATILE_RVA)
         return True
 
 
@@ -2066,7 +2069,8 @@ def const_decls(em):
         if n == 4:
             f = struct.unpack("<f", blob)[0]
             decls.append("static constexpr uint32_t k_c%X_w = 0x%08XU;" % (va, vals[0]))
-            decls.append("static constexpr float k_c%X_f = %af; // %r" % (va, f, f))
+            decls.append("static constexpr float k_c%X_f = %s;" % (va, ("%af; // %r" % (f, f)) if __import__("math").isfinite(f)
+                                                                   else "__builtin_bit_cast(float, 0x%08XU); // non-finite" % vals[0]))
         elif n == 8:
             decls.append("static constexpr uint64_t k_c%X_q = 0x%016XULL;" % (va, struct.unpack("<Q", blob)[0]))
             # Non-finite doubles (%a renders nan/inf, invalid C++): always
@@ -2081,7 +2085,8 @@ def const_decls(em):
             if n % 4 == 0:
                 decls.append("static constexpr uint32_t k_c%X_w = 0x%08XU;" % (va, vals[0]))
                 f = struct.unpack("<f", blob[:4])[0]
-                decls.append("static constexpr float k_c%X_f = %af; // %r" % (va, f, f))
+                decls.append("static constexpr float k_c%X_f = %s;" % (va, ("%af; // %r" % (f, f)) if __import__("math").isfinite(f)
+                                                                       else "__builtin_bit_cast(float, 0x%08XU); // non-finite" % vals[0]))
             if n % 4 == 2:
                 decls.append("static constexpr uint16_t k_c%X_h = 0x%04XU;" % (va, struct.unpack("<H", blob[:2])[0]))
             if n % 2 == 1:
