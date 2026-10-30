@@ -94,13 +94,17 @@ inline const pes::PesImageTables& InstallTables() {
 // run read); GF's production run has none of them. `walk`: the capture is a carrier-walk call (its BP flags are not a stack word).
 // `flagsFromStack` false: a builder-shaped call (bp = r8 - 0x1C) whose sixth argument is not the refresh flags (0x14211D710's is
 // the plan record's address).
-inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = false, bool flagsFromStack = true) {
+// `construct`: run PES's block constructor 0x14210D320 on the empty window first (the objects the capture's reads did not touch,
+// the kind objects among them, then exist as PES's constructor leaves them); the capture's bytes are overlaid after it.
+inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = false, bool flagsFromStack = true,
+                  bool construct = false) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
   w.BindImageTables(InstallTables());
   const uint64_t g = Read(o, kImageG, 8);
   const uint64_t bp = walk ? o.regs.at("rcx") : o.regs.at("r8") - pes::kBpUnitInfoOffset;
   b.side = static_cast<int>(Read(o, bp + pes::kBpUnitInfoOffset + pes::kUnitSideOffset, 4));
+  if (construct) w.RunCarrierConstruct(b.side);
   for (const auto& line : o.manifest) {
     if (line[0] == "T") {
       uint8_t* dst = RecordOf(w, b.side, line[1], std::atoi(line[2].c_str()));

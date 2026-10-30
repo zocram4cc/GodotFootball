@@ -379,6 +379,20 @@ inline constexpr std::size_t kTurnArg6Offset = 0x30;
 inline constexpr std::size_t kTurnArg7Offset = 0x38;
 inline constexpr std::size_t kTurnArg8Offset = 0x40;
 inline constexpr std::size_t kTurnFrameBytes = 0x80;
+// The unit driver 0x142110D30's step input S (rdx; the same object 0x142110C90 reads: S+4 = the unit slot, S+0x38 = the side's ctx)
+// and the 72-byte step object 0x14211ED10 builds from it (the kind objects' virtual step reads it). CONFIRMED on the seq16184 capture
+// (S at 0x1e00ACF8: slot 19, S+0x30 = BP+0x4258, S+0x38 = ctx). GF's S and step object live at the top of the window's stack.
+inline constexpr std::size_t kStepInputBytes = 0x40;
+inline constexpr std::size_t kStepInputSlotOffset = 0x4;
+inline constexpr std::size_t kStepInputOutputOffset = 0x30;
+inline constexpr std::size_t kStepInputCtxOffset = 0x38;
+inline constexpr std::size_t kStepObjectBytes = 0x48;
+inline constexpr std::size_t kBpStepOutputOffset = 0x4258;  // S+0x30: the output-buffer record, inside the BP block
+inline constexpr std::size_t kBpAdoptedOffset = 0x41E8;     // the adopted answer's copy (0x1C bytes: the proposal's, BP+0x4204..)
+inline constexpr std::size_t kProposalRecordBytes = 0x1C;
+inline constexpr std::size_t kStepScratchBytes = 0x90;     // the step object and S, at the top of the stack (16-aligned)
+inline constexpr std::size_t kSlotClassWordOffset = 0x14;  // the slot record's word 0x142110D30 tests with 0x140A6E320
+inline constexpr uint32_t kProposalKindTaker = 0x13;        // 0x142110D30: the proposal kind when 0x140A638C0(ctx, slot) holds, else kBpDefaultKind
 inline constexpr std::size_t kBpListOffset = 0x3E20;
 inline constexpr std::size_t kListRankOffset = 0x68;
 inline constexpr std::size_t kListRecordOffset = 0x84;
@@ -576,15 +590,18 @@ class PesWorld {
   uint32_t RunWalk(int side, const PesDangerExternals& ext = {});
   // PES's carrier-block constructor 0x14210D320(BP, side) (proved bit-exact on three live BPs, results_dribble.json): the unit
   // info, state, imageA's lists, the carrier manager at BP+0x32C0 with its nine step objects, and the 25 unit-kind objects, vtables
-  // included. NOT yet called from RunCarrierUpdate: on an empty block it aborts in a virtual call (open, see pes-port-DribbleProposal.md);
-  // a test that loaded a capture's BP (whose objects exist) calls AdoptCarrierState.
+  // included. Production does not run it yet (RunCarrierUpdate's ponytail); a test that loaded a capture's BP calls AdoptCarrierState.
   void RunCarrierConstruct(int side, const PesDangerExternals& ext = {});
   // PES's turn-reference builder 0x14211D710(BP+0x32C0, ctx, unit info, state, imageA, BP+0x32B0, side record, BP+0x4204): while the
   // state's word 0 is 0 it ticks the carrier manager (0x14211E2D0, 0x14211E210) and writes BP+0x3380, the angle the walk's Clear
-  // gate (0x14210F4E8) measures the dribble proposal against. Call after RunDangerBuilder and the plan word BP+0x32B8. NOT yet called
-  // from the controller: GF's BP is never constructed (RunCarrierConstruct), and the two upper bytes of BP+0x3380 differ from PES's on
-  // two of the ten captured entries (open, pes_dribble_oracle_test).
+  // gate (0x14210F4E8) measures the dribble proposal against. Call after RunDangerBuilder and the plan word BP+0x32B8
+  // (RunDribbleProposal does).
   void RunTurnReference(int side, const PesDangerExternals& ext = {});
+  // The unit driver 0x142110D30's proposal chain, in its order: RunTurnReference; the step object 0x14211ED10 builds (the step input S
+  // lives at the top of the window's stack); while the state's word 0 is 0 the proposal writer 0x1421102D0(BP, kind, step object,
+  // BP+0x4204) with kind 0x10 (0x13 when 0x140A638C0(ctx, slot) holds); then the copy BP+0x41E8 <- BP+0x4204 (0x1C bytes) and the
+  // previous-kind word BP+0x41E4 = 0x10. BP+0x4204 is the dribble-proposal record the carrier walk's Clear gate reads.
+  void RunDribbleProposal(int side, uint32_t slot, const PesDangerExternals& ext = {});
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
   void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }

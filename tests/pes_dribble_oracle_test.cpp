@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -88,6 +89,56 @@ TEST_F(TurnReferenceOracle, EveryCapturedEntryLeavesPesManagerBytesAndTurnRefere
       if (want.count(turn + i)) EXPECT_EQ(prod[pes::kBpTurnReferenceOffset + i], want.at(turn + i)) << dir << ": production run, turn byte " << i;
   }
   EXPECT_GT(turnWritten, 0) << "no captured step wrote BP+0x3380: the oracle set would prove nothing about it";
+}
+
+// PES's post-writer bytes of the same unit step (walkref.tsv per oracle directory: BP-relative offset, length, hex; made by running
+// PES's own code from the builder capture on to the carrier walk's entry, tools/dev/translate/synth_walk.py): the turn reference
+// BP+0x3380, the previous-kind word BP+0x41E4, the adopted copy BP+0x41E8 and the dribble-proposal record BP+0x4204 itself.
+// GF's chain RunDribbleProposal (0x14211D710, 0x14211ED10, 0x1421102D0, the copies of 0x142110D30) from the entry state must leave
+// them, on the window with the capture's out-of-window bytes and on the production window without.
+struct RefField {
+  std::size_t offset = 0;
+  std::vector<uint8_t> bytes;
+};
+
+std::vector<RefField> WalkRef(const std::string& dir) {
+  std::vector<RefField> fields;
+  std::ifstream in(std::filesystem::path(dir) / "walkref.tsv");
+  std::string off, len, hex;
+  while (in >> off >> len >> hex) {
+    RefField f;
+    f.offset = std::stoul(off, nullptr, 16);
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2) f.bytes.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16)));
+    EXPECT_EQ(f.bytes.size(), std::stoul(len)) << dir;
+    fields.push_back(std::move(f));
+  }
+  return fields;
+}
+
+TEST_F(TurnReferenceOracle, TheProposalChainLeavesPesTurnReferenceAndProposalRecord) {
+  int compared = 0, proposalTypes = 0;
+  for (const std::string& dir : dirs_) {
+    const std::vector<RefField> ref = WalkRef(dir);
+    if (ref.empty()) continue;  // PES's own code did not reach the walk from this capture (no walkref.tsv)
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    for (bool captureBytes : {true, false}) {
+      Built b;
+      Build(o, b, captureBytes, false, false, true);
+      const uint8_t* block = b.world->Carrier(b.side);
+      b.world->RunDribbleProposal(b.side, pes::LoadU32(block, pes::kBpUnitInfoOffset + pes::kUnitSlotOffset), b.ext);
+      for (const RefField& f : ref)
+        for (std::size_t i = 0; i < f.bytes.size(); ++i)
+          EXPECT_EQ(block[f.offset + i], f.bytes[i]) << dir << (captureBytes ? " (capture bytes)" : " (production window)") << ": BP+0x"
+                                                     << std::hex << f.offset + i;
+    }
+    ++compared;
+    // The record's type word differs between the states: a chain that writes nothing would pass a state whose record is all zero.
+    if (pes::LoadU32(ref.back().bytes.data(), 0) != 0) ++proposalTypes;
+  }
+  EXPECT_GT(compared, 0) << "no walkref.tsv under " << std::getenv("GF_PES_DRIBBLE_ORACLE");
+  EXPECT_GT(proposalTypes, 0) << "every compared proposal record was all zero: the oracle would prove nothing about the writer";
 }
 
 // The null slot of the constructor on a zero window (the old abort `PES_DISPATCH_UNTRANSLATED: 0`): the block reset 0x14210E5F0,

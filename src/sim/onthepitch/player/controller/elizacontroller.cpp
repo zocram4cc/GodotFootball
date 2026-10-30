@@ -3350,8 +3350,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   pesWorld.MatchInfo()[pes::kMiWalkStateOffset] = 0;
   pes::StoreU32(bp, pes::kBpIntentionOffset, static_cast<uint32_t>(intention));  // 0x141052E30(BP+0x32B0)
   // ponytail: BP+0x3380 (the turn reference the kind-4 tail measures the facing against) is written inside 0x14211D710's
-  // sub-builders 0x14211E2D0 / 0x14211E210 / 0x14211E650 (untranslated, run only while the state's word 0 is 0): the carrier's
-  // facing stands in until they land.
+  // sub-builders 0x14211E2D0 / 0x14211E210 / 0x14211E650 (translated, run by PesWorld::RunDribbleProposal, proven equal to PES on
+  // ten states): the carrier's facing stands in until the proposal writer 0x1421102D0's heading (BP+0x4210) matches PES and the
+  // controller can call the chain (pes_dribble_oracle_test, TheProposalChain...). BP+0x4204 is not written either.
   const Vector3 walkDir = CastPlayer()->GetDirectionVec();
   pes::StoreF32(bp, pes::kBpTurnReferenceOffset, pes::PesBearingDeg(0.0f, 0.0f, walkDir.coords[0], walkDir.coords[1]));
   // The zone record at BP+0xAB8 is the danger builder run's own output (run above; equal to PES on the unslimmed captures).

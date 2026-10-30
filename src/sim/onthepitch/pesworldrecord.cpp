@@ -145,6 +145,9 @@ void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternal
   };
   // The driver 0x142110C90 resets the block (0x14210E5F0 -> the state's constructor 0x14063A3B0) when its unit goes inactive: a
   // new carrier starts a fresh state, whose counters then run from zero.
+  // ponytail: only the state constructor of the block reset runs; the full reset 0x14210E5F0 walks the kind objects the constructor
+  // 0x14210D320 builds (RunCarrierConstruct), which production does not run until the proposal chain's heading matches PES
+  // (pes_dribble_oracle_test TheProposalChain...: BP+0x4210 differs on six of seven states) and a 2-min smoke finishes.
   if (!stateReady_[side] || LoadU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset) != slot) {
     call(&::pes_fn_14063A3B0, bp + kBpStateOffset, 0);
     StoreU32(Carrier(side), kBpChosenKindOffset, kWalkNoKind);  // 0x14210E6B8
@@ -213,6 +216,58 @@ void PesWorld::RunTurnReference(int side, const PesDangerExternals& ext) {
   s.gpr[9] = bp + kBpStateOffset;
   s.mem.wlog = ext.writeLog;
   ::pes_fn_14211D710(s);
+}
+
+void PesWorld::RunDribbleProposal(int side, uint32_t slot, const PesDangerExternals& ext) {
+  RunTurnReference(side, ext);  // 0x14211D710: ticks the carrier manager, writes BP+0x3380
+  uint8_t* bp = Carrier(side);
+  const uint64_t bpVa = CarrierVa(side);
+  const uint64_t top = kStackVa + kStackBytes;
+  const uint64_t stepInput = top - kStepInputBytes;      // S
+  const uint64_t stepObject = top - kStepScratchBytes;   // the 72-byte object 0x14211ED10 fills, below S (16-aligned)
+  const uint64_t entry = stepObject - kTurnFrameBytes;   // the call frame below both
+  // One translated call on the window: the registers PES's driver passes, the stack arguments past the 0x20 shadow.
+  const auto call = [&](void (*fn)(::PesState&), uint64_t rcx, uint64_t rdx, uint64_t r8, uint64_t r9, uint64_t arg5 = 0,
+                        uint64_t arg6 = 0, uint64_t arg7 = 0, uint64_t arg8 = 0) {
+    PesState s = NewCall(Bytes());
+    heap_->Attach(s);
+    for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    s.wr(entry, 0, 8);
+    s.wr(entry + kTurnArg5Offset, arg5, 8);
+    s.wr(entry + kTurnArg6Offset, arg6, 8);
+    s.wr(entry + kTurnArg7Offset, arg7, 8);
+    s.wr(entry + kTurnArg8Offset, arg8, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = rcx;
+    s.gpr[2] = rdx;
+    s.gpr[8] = r8;
+    s.gpr[9] = r9;
+    s.mem.wlog = ext.writeLog;
+    fn(s);
+    return static_cast<uint32_t>(s.gpr[0]);
+  };
+  PesState in = NewCall(Bytes());  // S: the slot, the output record BP+0x4258 and the ctx (CONFIRMED on seq16184)
+  for (std::size_t off = 0; off < kStepScratchBytes; off += 8) in.wr(stepObject + off, 0, 8);
+  in.wr(stepInput + kStepInputSlotOffset, slot, 4);
+  in.wr(stepInput + kStepInputOutputOffset, bpVa + kBpStepOutputOffset, 8);
+  in.wr(stepInput + kStepInputCtxOffset, CtxVa(side), 8);
+  call(&::pes_fn_14211ED10, stepObject, stepInput, bpVa + kBpUnitInfoOffset, bpVa + kBpStateOffset, bpVa + kBpImageAOffset,
+       bpVa + kBpPlanOffset, bpVa + kBpManagerOffset, SideVa(side));
+  // The driver goes on only while the carrier is in neither of the two flag classes (0x140A6E320 of the anime class byte and of
+  // the slot record's word +0x14); otherwise it runs 0x14210DD60.
+  // ponytail: 0x14210DD60 (the flagged carrier's branch) is untranslated: GF leaves the proposal as it is for such a carrier.
+  const int8_t animeClass = static_cast<int8_t>(AnimeRecord(static_cast<int>(slot))[1]);
+  if ((call(&::pes_fn_140A6E320, static_cast<uint64_t>(static_cast<int64_t>(animeClass)), 0, 0, 0) & 0xFF) != 0 ||
+      (call(&::pes_fn_140A6E320, LoadU32(Block(static_cast<int>(slot)) + kSlotRecordOffset, kSlotClassWordOffset), 0, 0, 0) & 0xFF) != 0)
+    return;
+  StoreU32(bp, kBpChosenKindOffset, kWalkNoKind);
+  call(&::pes_fn_142119D20, bpVa + kBpAdoptedOffset, 0, 0, 0);
+  if (LoadU32(bp, kBpStateOffset) != 0) return;
+  const uint32_t kind = (call(&::pes_fn_140A638C0, CtxVa(side), slot, 0, 0) & 0xFF) != 0 ? kProposalKindTaker : kBpDefaultKind;
+  call(&::pes_fn_1421102D0, bpVa, kind, stepObject, bpVa + kBpProposalOffset);
+  std::memcpy(bp + kBpAdoptedOffset, bp + kBpProposalOffset, kProposalRecordBytes);
+  StoreU32(bp, kBpChosenKindOffset, kBpDefaultKind);
 }
 
 PesTrapResult PesWorld::RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext) {

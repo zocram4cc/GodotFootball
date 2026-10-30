@@ -195932,6 +195932,33 @@
    "vtables": [],
    "walked": true
   },
+  "14063E830": {
+   "boundary": null,
+   "callees": {
+    "140A3AF90": "direct",
+    "140A489D0": "direct",
+    "141B59E20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14063e830",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 31,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14063E960": {
    "boundary": null,
    "callees": {
@@ -195984,6 +196011,31 @@
    "source": "bridge",
    "subsystem": "AI",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "14063E9F0": {
+   "boundary": null,
+   "callees": {
+    "141E53540": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14063e9f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 5,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1224779,6 +1224831,29 @@
    "vtables": [],
    "walked": true
   },
+  "142119D90": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_142119d90",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 4,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "142119DF0": {
    "boundary": null,
    "callees": {},
@@ -1224803,6 +1224878,29 @@
    "vtables": [],
    "walked": true
   },
+  "142119E00": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_142119e00",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 6,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "142119E20": {
    "boundary": null,
    "callees": {},
@@ -1224819,6 +1224917,75 @@
    ],
    "scope": "in",
    "size": 13,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "142119E60": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_142119e60",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 10,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "142119E90": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_142119e90",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 7,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "142119EB0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_142119eb0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 10,
    "source": "pdata",
    "subsystem": "dribble",
    "tables": 0,
@@ -1226722,6 +1226889,55 @@
    ],
    "scope": "in",
    "size": 931,
+   "source": "pdata",
+   "subsystem": "dribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "142130EE0": {
+   "boundary": null,
+   "callees": {
+    "140458740": "direct",
+    "140474C40": "direct",
+    "140477130": "direct",
+    "140481B00": "direct",
+    "1404B6390": "direct",
+    "14063E960": "direct",
+    "140A3E190": "direct",
+    "140A48910": "direct",
+    "140A489F0": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A57710": "direct",
+    "140A60300": "direct",
+    "140A6C6D0": "direct",
+    "140A6CF70": "direct",
+    "140A8F7C0": "direct",
+    "140A8F890": "direct",
+    "140A90D30": "direct",
+    "140A92D40": "direct",
+    "14159F3E0": "direct",
+    "141E532D0": "direct",
+    "142119D80": "direct",
+    "142119D90": "direct",
+    "142119E00": "direct",
+    "14212F1C0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142130ee0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribble"
+   ],
+   "scope": "in",
+   "size": 511,
    "source": "pdata",
    "subsystem": "dribble",
    "tables": 0,
@@ -1293147,11 +1293363,16 @@
     ]
    },
    "dribble": {
-    "members": 248,
+    "members": 84,
     "roots": [
-     "0x14211D710",
-     "0x1421102D0",
-     "0x14210D320"
+     "0x14063E830",
+     "0x142119D90",
+     "0x142119E60",
+     "0x142119E90",
+     "0x142119EB0",
+     "0x142130EE0",
+     "0x142119E00",
+     "0x14063E9F0"
     ]
    },
    "endclear": {
