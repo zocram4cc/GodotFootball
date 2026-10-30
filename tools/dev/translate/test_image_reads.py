@@ -86,14 +86,14 @@ class ImageReads(unittest.TestCase):
         cls.dir.cleanup()
         xlate._RO_WINDOWS[:] = []
 
-    def translate(self, rva, declared):
-        xlate._RO_WINDOWS[:] = [(TAB, TAB + len(TABLE))] if declared else [(0x1, 0x2)]  # non-empty: skip the file load
+    def translate(self, rva, windows):
+        xlate._RO_WINDOWS[:] = windows
         va = "0x%X" % (BASE + rva)
         src, _ = xlate.translate_one(self.img, "", va, set())
         return va, src
 
-    def run_fn(self, rva, arg):
-        va, src = self.translate(rva, True)
+    def run_fn(self, rva, arg, windows=None):
+        va, src = self.translate(rva, windows or [(TAB, TAB + len(TABLE), None)])
         d = self.dir.name
         open(os.path.join(d, "f.cpp"), "w").write("\n".join(src) + "\n")
         open(os.path.join(d, "m.cpp"), "w").write(MAIN % (va[2:], va[2:]))
@@ -104,7 +104,7 @@ class ImageReads(unittest.TestCase):
         return subprocess.run([exe, str(arg)], capture_output=True, text=True).stdout.strip()
 
     def findings(self, rva):
-        va, _ = self.translate(rva, False)
+        va, _ = self.translate(rva, [(0x1, 0x2, None)])  # non-empty: skips the ro_tables.json load
         return sorted(v for _, v in xlate.LIVE_RO[va])
 
     def test_an_undeclared_pointer_walk_is_a_finding(self):
@@ -118,7 +118,7 @@ class ImageReads(unittest.TestCase):
         self.assertEqual(self.run_fn(FB_RVA, 0), "44332211")
 
     def test_the_lint_lists_function_site_and_address(self):
-        va, _ = self.translate(FA_RVA, False)
+        va, _ = self.translate(FA_RVA, [(0x1, 0x2, None)])
         (fn, site, read), = xlate.live_reads({va: xlate.LIVE_RO[va]})
         self.assertEqual((fn, read), (va, TAB))
         self.assertEqual(site, BASE + FA_RVA + 9)  # the movzx in the loop
@@ -130,6 +130,16 @@ class ImageReads(unittest.TestCase):
     def test_a_declared_parameter_index_reads_the_table_with_no_image_view(self):
         self.assertEqual([self.run_fn(FC_RVA, i) for i in (0, 2, 7)], ["3", "5", "44"])
         self.assertEqual(xlate.LIVE_RO["0x%X" % (BASE + FC_RVA)], set())
+
+    def test_overlapping_declared_tables_bake_their_hull(self):
+        # both hold the read's start; the wider one (-8..+4) alone would miss index 7, the other (0..+8) holds it
+        self.assertEqual(self.run_fn(FC_RVA, 7, [(TAB - 8, TAB + 4, None), (TAB, TAB + 8, None)]), "44")
+
+    def test_a_table_served_by_a_runtime_binding_stays_live_and_is_not_a_finding(self):
+        bound = [(TAB, TAB + len(TABLE), "a binding")]
+        va, src = self.translate(FC_RVA, bound)
+        self.assertEqual(xlate.LIVE_RO[va], set())
+        self.assertIn("s.rd(", "\n".join(src))
 
 
 if __name__ == "__main__":

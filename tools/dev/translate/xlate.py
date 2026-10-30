@@ -559,15 +559,17 @@ LIVE_RO = {}
 
 # Declared read-only tables (ro_tables.json): the extent of each table a register-formed read walks without a guard the
 # translator can bound (a loop pointer, a parameter-driven index). Each is baked whole, so the read is the image's bytes.
+# An entry with a "bound" note is NOT baked: a runtime binding serves it (the note names it), and the read stays live.
 RO_TABLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ro_tables.json")
 _RO_WINDOWS = []
 
 
 def ro_windows():
-    """[(lo, hi)] of the declared tables (RO_TABLES)."""
+    """[(lo, hi, bound note or None)] of the declared tables (RO_TABLES)."""
     if not _RO_WINDOWS:
         with open(RO_TABLES) as f:
-            _RO_WINDOWS.extend((int(t["va"], 0), int(t["va"], 0) + int(t["bytes"], 0)) for t in json.load(f))
+            _RO_WINDOWS.extend((int(t["va"], 0), int(t["va"], 0) + int(t["bytes"], 0), t.get("bound"))
+                               for t in json.load(f))
     return _RO_WINDOWS
 
 
@@ -597,13 +599,14 @@ class Emitter:
     def note_live_ro(self, mp):
         """The read emitted live below goes through a base or index register that may hold an image VA (image_origins)
         and lands in a read-only section: the GF runtime maps no image there, so it reads 0. Record it for
-        gen_translated's lint."""
+        gen_translated's lint, unless a runtime binding serves it (a `bound` table in RO_TABLES)."""
         if self.cur is None or mp.get("seg"):
             return
         for reg in (mp["base"], mp["index"]):
             for o in image_origins(self, PARENT.get(reg, reg), self.cur) if reg else ():
-                if not self.img.writable(o + mp["disp"]):
-                    self.live_ro.add((self.lines[self.cur][0], o + mp["disp"]))
+                v = o + mp["disp"]
+                if not self.img.writable(v) and not any(lo <= v < hi and bound for lo, hi, bound in ro_windows()):
+                    self.live_ro.add((self.lines[self.cur][0], v))
 
     def bake(self, va, n):
         if (va, n) not in self.consts:
@@ -625,20 +628,22 @@ class Emitter:
         return ("(%s)" % " + ".join(terms)) if terms else "0ULL"
 
     def bake_window(self, mp, width, flt):
-        """A register-formed read of a read-only image table that no guard bounds, whose every origin lies in one
-        declared table (RO_TABLES): bake the widest such table (the harness corpus drives a parameter-indexed read over a
-        wide domain, and a wider window only adds image bytes) and read it at the address's offset into it. None when
-        the read is not image-derived, lies in no declared table, or is a 128-bit read."""
+        """A register-formed read of a read-only image table that no guard bounds, whose every origin lies in a declared
+        table (RO_TABLES): bake the hull of the declared tables holding it (the harness corpus drives a parameter-indexed
+        read over a wide domain, and a wider window only adds image bytes) and read it at the address's offset into it.
+        None when the read is not image-derived, lies in no declared table, is served by a runtime binding, or is a
+        128-bit read."""
         if self.cur is None or width == 128 or mp.get("seg"):
             return None
         starts = {o + mp["disp"] for reg in (mp["base"], mp["index"]) if reg
                   for o in image_origins(self, PARENT.get(reg, reg), self.cur)}
         if not starts or any(self.img.writable(v) for v in starts):
             return None
-        fit = [(hi - lo, lo) for lo, hi in ro_windows() if all(lo <= v < hi for v in starts)]
-        if not fit:
+        held = [(lo, hi, bound) for lo, hi, bound in ro_windows() if all(lo <= v < hi for v in starts)]
+        fit = [(lo, hi) for lo, hi, bound in held if not bound]
+        if not fit or len(fit) < len(held):
             return None
-        span, lo = max(fit)
+        lo, span = min(l for l, _ in fit), max(h for _, h in fit) - min(l for l, _ in fit)
         n = 4 if (flt == "f32" or width == 32) else width // 8
         if flt == "f64":
             n = 8
