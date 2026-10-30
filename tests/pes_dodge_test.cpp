@@ -252,6 +252,8 @@ TEST(PesDodgeInstall, TheUsersTablesAndRows) {
   ASSERT_TRUE(k.has_value()) << err;
   EXPECT_EQ(k->lastEventRollDivisor, 54);           // gs: GAME_SPEED_VA, 0x14351ae50
   EXPECT_FLOAT_EQ(k->lastEventWindowFactor, 0.2f);  // DAT_142598578
+  EXPECT_GT(k->ballLead_s, 0.0f);                   // FUN_140a070e0's lead reads 0x142590d98, the word the reach margin reads
+  EXPECT_FLOAT_EQ(k->ballLead_s, k->ballReachMargin_m);
   auto t = pes::LoadAnimetable(*exe, vfs, &err);
   ASSERT_TRUE(t.has_value()) << err;
   auto mb = pes::LoadMbinfo(vfs, *exe, &err);
@@ -543,6 +545,23 @@ TEST(PesDodgeBallGate, SubTestFastRunsTheStepAndTheReachFirst) {
   in.selfHeading_deg = 40.0f;  // the ball well off his heading
   in.defendGoalAngle_deg = 90.0f;
   EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+}
+
+TEST(PesDodgeBallGate, EntryGateWantsTheBallToReachHimWithinTheLeadTime) {
+  pes::DodgeConstants k = BallConstants();
+  k.ballLead_s = 0.3f;
+  const float speed = 10.0f;
+  const float reach = speed * k.ballLead_s;  // 3 m
+  EXPECT_TRUE(pes::BallDodgeEntryGate(k, (reach - 0.05f) * (reach - 0.05f), speed));
+  EXPECT_FALSE(pes::BallDodgeEntryGate(k, (reach + 0.05f) * (reach + 0.05f), speed));
+}
+
+TEST(PesDodgeBallGate, ABallAtRestIsNeverDodgedByAManWhoIsNotOnIt) {
+  // The stall: a loose ball lying still (0.08 m/s in the measured run) with men one to three metres off it. PES's entry needs
+  // the ball's step over the lead time to cover the distance, which a ball at rest never does.
+  pes::DodgeConstants k = BallConstants();
+  k.ballLead_s = 0.3f;
+  for (const float dist : {0.5f, 1.0f, 2.0f, 3.0f}) EXPECT_FALSE(pes::BallDodgeEntryGate(k, dist * dist, 0.08f)) << dist;
 }
 
 TEST(PesDodgeBallGate, SubTestFastReadsHisHeadingOrTheGoalHeDefends) {

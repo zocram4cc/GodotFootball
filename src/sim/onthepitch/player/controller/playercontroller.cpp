@@ -443,7 +443,7 @@ bool PlayerController::_ReceiveCandidate() {
 // (GetOnTheBallCommands runs for the designated man before the ball arrives
 // and leaves its direction in inputDirection); a one-touch kick is that brain's
 // queued pass, so kind 3 needs nothing here.
-void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
+bool PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
   const pes::NewestEventView ev = pes::NewestEvent(match->GetPesEvents());
   const Vector3 ballMove = match->GetBall()->GetMovement().Get2D();
@@ -517,16 +517,14 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
       std::memcpy(request.bytes.data() + pes::kReqKindOffset, &control, sizeof control);
       result = world.RunTrapKind0(slot, request, match->PesTrapExternalsOf());
     }
-    // ponytail: a refused trap queues no command. PES's entry 3 (FUN_1409F8220) returns 0 then and its reaction walk continues with
-    // the later entries; GF's chooser picks one winner (ElizaController::_ReactionCommands), and letting a refusal fall through to
-    // the next predicate moved pes_stall_test's live-ball firings from 140 to 1226 ticks (the restart taker took dodge clips), so
-    // the walk's continuation waits for the reaction entries it would reach.
-    if (!result.issued) return;
+    // A refused trap queues no command and reports the refusal: PES's entry 3 (FUN_1409F8220) returns 0 then (0x1409F8538) and
+    // its reaction walk continues with the later entries (ElizaController::_ReactionCommands does that).
+    if (!result.issued) return false;
     const int clip = pes::CommittedTrapClip(world.P(slot));
     // The clip is the motion the chain committed, an Animetable cell: the match loads every such motion as a trap-family clip
     // (pesclips.cpp), so the command names it by its motion number. ponytail: PES plays the committed plan from the Trap action's
-    // own tick (FUN_140797CD0: hit frame FUN_1406B03D0, duration FUN_1406AF620, root solver FUN_1406E85B0, motion issue
-    // FUN_1406F02F0); GF plays the clip at once with the clip's first HitData frame as the touch frame (AddPesClips), the mirror
+    // own tick (FUN_140797CD0: hit frame FUN_1406B03D0, duration FUN_1406AF620, root solver FUN_1406E85B0; FUN_1406F02F0 is the
+    // class-state setter P+0x2704[k] = mode, not a motion issue); GF plays the clip at once with the clip's first HitData frame as the touch frame (AddPesClips), the mirror
     // choice and the root solve are GF's. That tick, ported, removes this.
     command.desiredFunctionType = e_FunctionType_Special;
     command.useSpecialVar1 = true;
@@ -535,6 +533,7 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
     command.specialVar2 = clip;
   }
   commandQueue.push_back(command);
+  return true;
 }
 
 void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool forceMagnet,

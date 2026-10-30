@@ -157,6 +157,16 @@
         "Contract: writes the low byte of c to n bytes at dst, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code: the DLL fills vectors (its first instructions build 0x0101010101010101 by movabs and imul, then punpcklbw), so the byte pattern is the same and the code differs.",
         "Model: mov r9, rcx (dst kept); push rdi; mov rdi, rcx; mov eax, edx; mov rcx, r8; rep stosb; mov rax, r9; pop rdi; ret. n = 0 stores nothing. Checked by test_memset_model.py. The callers' argument shapes (44C880, 445E90) are not checked yet (OPEN)."
       ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "sqrtf",
+      "code_hex": "f30f51c0c3",
+      "why": [
+        "float sqrtf(float): xmm0 in, xmm0 out. The game's sqrt thunk (0x1415A1780, stubs.json op sqrtf) is `jmp [0x1425301F0]`, the ucrtbase export; a recorded call that reaches it runs the export in the snapshot (seq6634 of trap_action_tick_797CD0 stops at it).",
+        "Model: sqrtss xmm0, xmm0; ret. IEEE sqrt is correctly rounded, the exact claim stubs.json makes for the thunk. The export's own code (movss spills, a classify of the argument, the errno path for a negative) only differs for NaN and negative arguments (OPEN: not checked against the captured calls' arguments).",
+        "Reached from the Trap action tick's captures (rendezvous hook trap_action_tick_797CD0, pid 483669)."
+      ]
     }
   ]
 }

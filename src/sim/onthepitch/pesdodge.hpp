@@ -100,6 +100,9 @@ struct DodgeConstants {
   // reach (0x14256ae18 m per reach unit) plus the 0x142590d98 margin.
   float ballReachPerUnit_m = 0.0f;
   float ballReachMargin_m = 0.0f;
+  // FUN_140a070e0's lead time: the ball dodge entry looks this far (seconds) along the ball's step (0x142590d98, the same
+  // word the reach margin reads).
+  float ballLead_s = 0.0f;
   // FUN_140a07570's two window tests: the bearing window off his heading
   // (0x142588210, deg) and the same window on the defend-goal axis
   // (0x14259be5c, deg).
@@ -209,6 +212,11 @@ struct BallEligibilityInput {
 bool BallClassAdmits(const DodgeConstants& k, int roleClass);
 
 bool BallDodgeEligible(const DodgeConstants& k, const BallEligibilityInput& in);
+
+// FUN_140a070e0's first gate (the entry's head, before the eligibility and the sub-tests): his squared distance to the ball
+// (PES reads his entry of the ball-distance table, MA+0x24710) within the ball's step over the lead time. A ball at rest
+// fails it for every man who is not standing on it.
+bool BallDodgeEntryGate(const DodgeConstants& k, float manDistSq_m2, float ballSpeed_mps);
 
 // FUN_140a07570 / FUN_140a07880: the two sub-tests the ball dodge's own
 // dispatcher (FUN_140a072d0) runs between the eligibility and the selector.

@@ -1207,7 +1207,11 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   // to the action dispatch. The mark bit is read on the own-side table
   // (IsMarkedByTable); the PES path only, like the R1/R2 arms.
   const bool marked = match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer());
-  const pes::DefenderReaction chosen = pes::ChooseMarkedReaction(in, marked);
+  pes::DefenderReaction chosen = pes::ChooseMarkedReaction(in, marked);
+  if (chosen == pes::DefenderReaction::kReceive && !_TrapCommand(commandQueue)) {
+    in.receive = false;
+    chosen = pes::ChooseMarkedReaction(in, marked);
+  }
   int dodgeKind = 0;
   switch (chosen) {
     case pes::DefenderReaction::kDodgeBall: dodgeKind = dodgeKindBall; break;
@@ -1218,8 +1222,7 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   }
   switch (chosen) {
     case pes::DefenderReaction::kReceive:
-      _TrapCommand(commandQueue);
-      break;
+      break;  // _TrapCommand queued its command above
     case pes::DefenderReaction::kTackle:
       CastPlayer()->SetPesChallenge(pes::ContactAction::kTackle);
       _TackleCommand(commandQueue, contact);
@@ -1246,6 +1249,8 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
     case pes::DefenderReaction::kNone:
       break;
   }
+  // PES's receive entry (FUN_1409F8220) returns 0 on a refusal (0x1409F8538) and the walk goes on to the later entries: the
+  // refused man takes whichever of them says yes. The dodge entries are gated like PES's own (_DodgeBallCandidate).
 }
 
 bool ElizaController::_TackleCandidate(const pes::DefenderDecisionConstants& k) {
@@ -1423,6 +1428,12 @@ bool ElizaController::_DodgeBallCandidate(int* kind) {
   const Vector3 ballFar = _mentalImage->GetBallPrediction(200);
   if ((ballNear.Get2D() - CastPlayer()->GetPosition()).GetLength() > 3.0f) return false;
   const pes::DodgeConstants& k = match->GetPesDodgeConstants();
+  // FUN_140a070e0's head: the ball must be about to reach him. A ball at rest (the loose ball a man is walking onto) never
+  // is, so he does not dodge it. ponytail: PES reads his entry of the ball-distance table (MA+0x24710, sorted by distance to
+  // the ball); his own squared distance to the ball stands in for it, as the receive entry's table read does.
+  const Vector3 toBall = ballNear.Get2D() - CastPlayer()->GetPosition().Get2D();
+  if (!pes::BallDodgeEntryGate(k, toBall.GetDotProduct(toBall), match->GetBall()->GetMovement().Get2D().GetLength()))
+    return false;
   // FUN_140a07bf0: the eligibility. PES reads the player's own live anime
   // action class (0..93) out of the game's per-player record; GF's engine
   // carries its own action on the player, so the class is derived from it.
