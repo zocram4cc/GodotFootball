@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -60,8 +61,15 @@ class StaminaCells : public ::testing::Test {
   static uint64_t TankPct(const std::array<uint8_t, kRecordBytes>& r) { return Run(::pes_fn_140A58550, r) & 0xFFFFFFFFULL; }
   static uint64_t ReservePct(const std::array<uint8_t, kRecordBytes>& r) { return Run(::pes_fn_140A581C0, r) & 0xFFFFFFFFULL; }
 
+  // A record whose cells already hold keys (the setters keep the key): arbitrary nonzero words, one per cell, so the ring's keyed
+  // encoding is exercised (with key 0 the ring would store the bytes plainly).
   std::array<uint8_t, kRecordBytes> Written(const pes::StaminaState& s, uint32_t clock = 12345) const {
     std::array<uint8_t, kRecordBytes> r{};
+    uint32_t key = 0x9E3779B1u;
+    for (const std::size_t cell : {pes::kSlotStaminaCurOffset, pes::kSlotStaminaMaxOffset, pes::kSlotBreathOffset}) {
+      std::memcpy(r.data() + cell + offsetof(GuardedWordSet, f), &key, sizeof key);
+      key = key * 0x85EBCA6Bu + 0xC2B2AE35u;
+    }
     pes::WriteSlotStamina(r.data(), k_, s, clock);
     return r;
   }

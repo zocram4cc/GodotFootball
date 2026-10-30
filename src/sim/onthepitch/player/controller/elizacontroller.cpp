@@ -1207,14 +1207,7 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   // to the action dispatch. The mark bit is read on the own-side table
   // (IsMarkedByTable); the PES path only, like the R1/R2 arms.
   const bool marked = match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer());
-  pes::DefenderReaction chosen = pes::ChooseMarkedReaction(in, marked);
-  // Entry 3's function (FUN_1409F8220) returns 0 when the trap chain refuses (the call at 0x1409F8538, FUN_1409F8640), and the
-  // walk (FUN_140A06DD0) goes on to the entries after it: it stops only on a 1.
-  if (chosen == pes::DefenderReaction::kReceive) {
-    if (_TrapCommand(commandQueue)) return;
-    in.receive = false;
-    chosen = pes::ChooseMarkedReaction(in, marked);
-  }
+  const pes::DefenderReaction chosen = pes::ChooseMarkedReaction(in, marked);
   int dodgeKind = 0;
   switch (chosen) {
     case pes::DefenderReaction::kDodgeBall: dodgeKind = dodgeKindBall; break;
@@ -1224,7 +1217,8 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
     default: break;
   }
   switch (chosen) {
-    case pes::DefenderReaction::kReceive:  // handled above: a refused trap is not the winner, an issued one has returned
+    case pes::DefenderReaction::kReceive:
+      _TrapCommand(commandQueue);
       break;
     case pes::DefenderReaction::kTackle:
       CastPlayer()->SetPesChallenge(pes::ContactAction::kTackle);
