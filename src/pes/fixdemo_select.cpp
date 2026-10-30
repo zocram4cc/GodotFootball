@@ -86,7 +86,10 @@ constexpr uint64_t kMathTablesVa = 0x1426550D0, kMathTablesBytes = 0x1090;
 // The FixDemo list object's vtable (0x141F5EC60 stores its VA in a stack object; 0x141F61CC0 jumps through slot 3 and
 // 0x141F616F0 calls slot 4), read from the install.
 constexpr uint64_t kListVtableVa = 0x142BA67D0, kListVtableBytes = 0x40;
-constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x40, kA0Bytes = 0x200;
+// The run object (G+0x21E8 table): 0x140A73E30 reads its flag byte at +0x6C and 0x1419E0900 its target at +0x18, so the object
+// must reach past +0x6C (a 0x40 object let the flag read the neighbouring allocation: a nonzero byte sent the side-1 goal's
+// 0x140476190 down the "run object has a target" arm and left T.x unassigned). INF: PES's own object size is not decoded.
+constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x70, kA0Bytes = 0x200;
 constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManTable = 0x1DD8, kWorldRunTable = 0x21E8;
 constexpr uint64_t kWorldTableStride = 0x28;
 constexpr uint64_t kWorldTeamInfoTable = 0xA1 * kWorldTableStride, kWorldSquadTable = 0xA3 * kWorldTableStride;

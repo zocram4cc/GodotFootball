@@ -32,7 +32,7 @@ import stubs as stub_table  # noqa: E402
 import frame_trace as ft  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 
-EVENT_POS, RADIUS = 0x140476C50, 0x140474CF0
+EVENT_POS, RADIUS, CUT_LIST = 0x140476C50, 0x140474CF0, 0x140477BC0
 DEMO_INFO_TO_A0 = 0x1E8
 CUT_STRIDE = 0x1C
 PAD = 0x400  # the synthetic call's scratch lives this far above rsp (the caller's dead frames)
@@ -86,6 +86,14 @@ def check(out, label, want, orig):
     print("ORACLE %s eventPos %s %s radius %s %s" % (label, "OK" if ok_pos else "MISMATCH", got,
                                                       "OK" if err2 is None and r == want["radius"] else "MISMATCH", r),
           flush=True)
+    d = os.path.join(out, "cutlist", label)
+    uc, err3 = ft.run_recorded(d, orig=orig, trace=trace)
+    call = ft.load_recorded_call(d)
+    ids = err3
+    if err3 is None:
+        begin, end = struct.unpack("<2Q", bytes(uc.mem_read(call["gpr"]["rdx"], 16)))
+        ids = list(struct.unpack("<%dI" % ((end - begin) // 4), bytes(uc.mem_read(begin, end - begin)))) if end > begin else []
+    print("ORACLE %s cutlist %s %s" % (label, "OK" if err3 is None and ids == want["cuts"] else "MISMATCH", ids), flush=True)
 
 
 
@@ -131,6 +139,9 @@ def main():
         write_snap(os.path.join(a.out, "radius", label), idx, RADIUS, "goal_radius_474CF0", mcall, regs,
                    os.path.join(mem, "mem.bin"),
                    patch=[(vec, blob), (data, struct.pack("<%dI" % n, *cuts))])
+        regs = dict(base_regs, rcx=a0, rdx=vec, r8=ctx)  # 0x140477BC0(A0, std::vector<u32>* out, ctx): the list the builder makes
+        write_snap(os.path.join(a.out, "cutlist", label), idx, CUT_LIST, "goal_cutlist_477BC0", mcall, regs,
+                   os.path.join(mem, "mem.bin"))
         print(label, json.dumps(expect[label]), flush=True)
         if a.oracle_cfg:
             check(a.out, label, expect[label], ft.hook_bytes(a.oracle_cfg))

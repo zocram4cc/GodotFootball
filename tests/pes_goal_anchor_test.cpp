@@ -116,7 +116,7 @@ struct Oracle {
   bool defaultArm;
 };
 const Oracle kOracle[] = {
-    {"A", {0x30034, 0x30134, 0x3011C}, 194601516, {{0x30034, 1}, {0x3011C, 7}}, true},
+    {"A", {0x30034, 0x30134, 0x3011C}, 459971373, {{0x30034, 1}, {0x3011C, 7}}, true},
     {"B", {0x3011B, 0x30005, 0x300A3, 0x30132}, 1127289236, {{0x30005, 0}, {0x300A3, 1}, {0x3011B, 9}}, true},
     {"C", {0x30111, 0x30038, 0x300A0}, 675191954, {{0x30038, 0}, {0x300A0, 1}, {0x30111, 1}}, true},
     {"D", {0x300D3}, 486850559, {}, false},
@@ -213,11 +213,9 @@ void ExpectEqualsPes(unsigned firstSlot, unsigned lastSlot) {
 // Side 0 scored: goals B, C, E, G (pid132854). T, radius, anchor position, rotation and flip equal PES's.
 TEST(GoalAnchor, EqualsPesOnTheFourSideZeroDefaultGoals) { ExpectEqualsPes(0, 10); }
 
-// Side 1 scored: goal A (pid2621613, scorer slot 21). OPEN, disabled until found: the radius equals PES's (13.5462) but T
-// comes out (0, 31.06) against PES's (-49.56, 32.06): x is never assigned on this input. The bearing facts (both
-// orders), the squad key table and the team-info sign were checked; the side-1 arena fact that differs from PES's is not
-// known. Run with --gtest_also_run_disabled_tests.
-TEST(GoalAnchor, DISABLED_EqualsPesOnTheSideOneDefaultGoal) { ExpectEqualsPes(11, 21); }
+// Side 1 scored: goal A (pid2621613, scorer slot 21). T, radius, anchor position, rotation and flip equal PES's. (It failed
+// with T = (0, 31.06) while the run object was 0x40 bytes: 0x140A73E30's flag byte at +0x6C read the next allocation.)
+TEST(GoalAnchor, EqualsPesOnTheSideOneDefaultGoal) { ExpectEqualsPes(11, 21); }
 
 // (OpenExe, MakeInstalled and MakeFor are defined above.)
 
