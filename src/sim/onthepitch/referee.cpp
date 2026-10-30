@@ -808,8 +808,6 @@ void Referee::PublishPesStoppage() {
                 foul.foulVictim ? static_cast<uint32_t>(match->PesSlotOf(foul.foulVictim)) : static_cast<uint32_t>(pes::kMiNoSlot));
   pes::StoreU32(mi, pes::kMiOffsideFlagOffset, offsidePlayers.empty() ? 0u : 1u);
   mi[pes::kMiRestartArmedOffset] = buffer.prepared ? 1 : 0;
-  const Vector3 ball = match->GetBall()->Predict(0);
-  world.SetBall(ball.coords[0], ball.coords[1]);
   StagePesField();
 }
 

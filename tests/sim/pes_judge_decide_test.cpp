@@ -38,7 +38,7 @@ struct Staged {
     // Midfield, the fouler two metres from the victim; the ball well away from both.
     Place(kVictim, 0.0f, 0.0f);
     Place(kFouler, -2.0f, 0.0f);
-    world.SetBall(30.0f, 20.0f);
+    for (int j = 0; j < kBallSampleCount; ++j) world.SetBallSample(j, 30.0f, 0.0f, 20.0f);
   }
 
   void Place(int slot, float x, float z) {

@@ -74,7 +74,7 @@ inline constexpr std::size_t kMiRestartSideOffset = 0x1558;    // u32: the side 
 inline constexpr std::size_t kMiSpotXOffset = 0x155C;          // f32: the restart spot x (m)
 inline constexpr std::size_t kMiSpotZOffset = 0x1564;          // f32: the restart spot z (m)
 inline constexpr std::size_t kMiStopReasonOffset = 0x1574;     // u32: 1 period end, 3 kick-off, 4 ball out, 5 foul or offside
-inline constexpr std::size_t kMiFrameOffset = 0x1198;           // u32: the match frame count (the judge ages ball events by it)
+inline constexpr std::size_t kMiFrameOffset = 0x1198;           // u32: the logic-frame counter (0x140A128E4 increments it; the judge ages ball events by it)
 inline constexpr std::size_t kMiFoulKindOffset = 0x1588;       // u32: 1 offside, 2 direct foul, 3 indirect
 inline constexpr uint32_t kFoulKindDirect = 2;                  // MI+0x1588 and the foul event's +0x18: a direct foul
 inline constexpr std::size_t kMiCardLevelOffset = 0x158C;      // u32: 0 none, 1 foul, 2 foul + warning, 3 yellow, 4 red
@@ -460,7 +460,7 @@ inline constexpr uint64_t kStackVa = kWorldWindowVa + kStackOffset;
 // ---- The sanction tree's records: PES's 0x14047F170 reads them in place (docs/ports/pes-port-FoulSanction.md 2). ----
 // A0, the request (Flow+0x6D8): the tree's answer, the scene id, is stored at +0 by the builder 0x140480910; the tree
 // reads the played-scene counter at +0xD (0 on the stop's first decision).
-inline constexpr std::size_t kRequestBytes = 0x40;
+inline constexpr std::size_t kSanctionRequestBytes = 0x40;
 inline constexpr std::size_t kRequestSceneOffset = 0x0;   // u32
 inline constexpr std::size_t kRequestPlayedOffset = 0xD;  // u8
 // A1, the ANALYZE object (owner+0x228): its +0x18 names a block whose +0x24A0C holds two 0x14-byte per-side records
@@ -522,7 +522,7 @@ inline constexpr std::size_t kJudgePointsOffset = 0x30;      // u8
 inline constexpr std::size_t kJudgeTypeOffset = 0x55;        // u8: the foul type (0 contact, 1 slide .. 8 force)
 
 struct PesSanctionImage {
-  std::array<uint8_t, kRequestBytes> request{};
+  std::array<uint8_t, kSanctionRequestBytes> request{};
   std::array<uint8_t, kAnalyzeBytes> analyze{};
   std::array<uint8_t, kAnalyzeBlockBytes> analyzeBlock{};
   std::array<uint8_t, kEventRecordBytes> foulSource{};  // the record 0x140A3DAC0 copies into the ring
@@ -535,7 +535,6 @@ inline constexpr std::size_t kSanctionOffset = kStackOffset + kStackBytes;
 
 // The match-info block (PES's MI): the period record the clock writes in place (pesclock.hpp), at its PES offset, and the
 // frame counter after it.
-inline constexpr std::size_t kMiFrameOffset = 0x1198;  // u32: the logic-frame counter (0x140A128E4 increments it)
 struct PesMatchInfo {
   std::array<uint8_t, kMatchInfoPeriodOffset> reserved_head{};  // MI+0x0 .. MI+0x1168: no GF writer yet
   PeriodRecord period{};                                        // MI+0x1168: PES's period record
