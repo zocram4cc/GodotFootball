@@ -90,6 +90,10 @@ TARGETS = [
     # Goal cutscene kind-3 recompute (CutAnchor6): per-tick DemoInfo recompute and the A0+0xBC writer.
     ("recompute_471A80", 0x140471A80, "goal DemoInfo recompute (A0+0x30 for kind-3 rows)"),
     ("bcwriter_4B88B0", 0x1404B88B0, "A0+0xBC writer"),
+    # Cutscene timing (CutsceneTiming): step end, step machine and the DemoInfo update (start delay, scene end).
+    ("fixdemo_step_end_141F572F0", 0x141F572F0, "FixDemo step end (player state finished)"),
+    ("fixdemo_step_machine_141F59380", 0x141F59380, "FixDemo step machine (frame after each step start)"),
+    ("demoinfo_update_47C830", 0x14047C830, "DemoInfo update (go flag, first manager update, scene end)"),
 ]
 
 
