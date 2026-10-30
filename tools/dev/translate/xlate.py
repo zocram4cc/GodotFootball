@@ -615,7 +615,8 @@ class Emitter:
 
     def bake_window(self, mp, width, flt):
         """A register-formed read of a read-only image table that no guard bounds, whose every origin lies in one
-        declared table (RO_TABLES): bake the smallest such table and read it at the address's offset into it. None when
+        declared table (RO_TABLES): bake the widest such table (the harness corpus drives a parameter-indexed read over a
+        wide domain, and a wider window only adds image bytes) and read it at the address's offset into it. None when
         the read is not image-derived, lies in no declared table, or is a 128-bit read."""
         if self.cur is None or width == 128 or mp.get("seg"):
             return None
@@ -626,7 +627,7 @@ class Emitter:
         fit = [(hi - lo, lo) for lo, hi in ro_windows() if all(lo <= v < hi for v in starts)]
         if not fit:
             return None
-        span, lo = min(fit)
+        span, lo = max(fit)
         n = 4 if (flt == "f32" or width == 32) else width // 8
         if flt == "f64":
             n = 8
