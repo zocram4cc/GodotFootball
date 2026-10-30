@@ -77,10 +77,6 @@ add_executable(pes_judge_test pes_judge_test.cpp)
 target_link_libraries(pes_judge_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_judge_test)
 
-add_executable(pes_judge_decide_test pes_judge_decide_test.cpp)
-target_link_libraries(pes_judge_decide_test PRIVATE gfsim pesfmt GTest::gtest_main)
-gtest_discover_tests(pes_judge_decide_test)
-
 add_executable(pes_offside_test pes_offside_test.cpp)
 target_link_libraries(pes_offside_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_offside_test)

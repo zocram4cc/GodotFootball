@@ -81,13 +81,6 @@ void PesWorld::BindSanction() {
   const uint64_t events = SanctionVa(offsetof(PesSanctionImage, events));
   std::memcpy(z.analyze.data() + kAnalyzeBlockPtrOffset, &block, sizeof block);
   std::memcpy(z.analyze.data() + kAnalyzeEventsPtrOffset, &events, sizeof events);
-  // The judge's ctx cell names A1, its +0x3C0 names JR: 0x1405B7470 reads the cell as **(judge+0x3B8).
-  const uint64_t analyze = SanctionVa(offsetof(PesSanctionImage, analyze));
-  std::memcpy(z.judgeCtx.data(), &analyze, sizeof analyze);
-  const uint64_t ctx = SanctionVa(offsetof(PesSanctionImage, judgeCtx));
-  const uint64_t result = SanctionVa(offsetof(PesSanctionImage, judgeResult));
-  std::memcpy(z.judge.data() + kJudgeCtxPtrOffset, &ctx, sizeof ctx);
-  std::memcpy(z.judge.data() + kJudgeResultPtrOffset, &result, sizeof result);
 }
 
 void PesWorld::SetFieldInfo(float halfLength_m, float halfWidth_m) {
@@ -127,67 +120,6 @@ uint32_t PesWorld::DecideSanction() {
   ::pes_fn_14047F170(s);
   StoreU32(image_->sanction.request.data(), kRequestSceneOffset, static_cast<uint32_t>(s.gpr[0]));  // eax
   return static_cast<uint32_t>(s.gpr[0]);
-}
-
-PesWorld::JudgeVerdict PesWorld::DecideJudge(int victim, int fouler) {
-  uint8_t* judge = image_->sanction.judge.data();
-  judge[kJudgePendingOffset] = 0;
-  PesState s = NewCall(Bytes());
-  s.gpr[1] = SanctionVa(offsetof(PesSanctionImage, judge));  // rcx = the judge
-  s.gpr[2] = static_cast<uint32_t>(victim);                  // edx = A
-  s.gpr[8] = static_cast<uint32_t>(fouler);                  // r8d = B
-  ::pes_fn_1405B7470(s);
-  JudgeVerdict verdict;
-  verdict.pending = judge[kJudgePendingOffset] != 0;
-  if (!verdict.pending) return verdict;
-  verdict.level = LoadU32(judge, kJudgeLevelOffset);
-  verdict.points = judge[kJudgePointsOffset];
-  verdict.restart = LoadU32(judge, kJudgeRestartOffset);
-  verdict.type = judge[kJudgeTypeOffset];
-  return verdict;
-}
-
-PesWorld::JudgeVerdict PesWorld::DecideContact(const ContactFacts& facts) {
-  constexpr std::size_t kStagedBytes = kAnimeTackleKindOffset + 4;
-  uint8_t* animeA = Block(facts.victim);
-  uint8_t* animeB = Block(facts.fouler);
-  uint8_t savedA[kStagedBytes], savedB[kStagedBytes];
-  std::memcpy(savedA, animeA, kStagedBytes);
-  std::memcpy(savedB, animeB, kStagedBytes);
-  std::memset(animeA, 0, kStagedBytes);
-  std::memset(animeB, 0, kStagedBytes);
-  const auto setFlag = [](uint8_t* anime, int bit) {
-    uint64_t flags;
-    std::memcpy(&flags, anime + kAnimeFlagsOffset, sizeof flags);
-    flags |= uint64_t{1} << bit;
-    std::memcpy(anime + kAnimeFlagsOffset, &flags, sizeof flags);
-  };
-  animeA[kAnimeActionOffset] = facts.victimFell ? kActionFall : facts.victimStaggered ? kActionStagger : 0;
-  if (facts.victimFace) setFlag(animeA, kFlagFace);
-  animeB[kAnimeActionOffset] = facts.foulerAction;
-  // 0x140A63DA0: a challenge (0xB..0xE) has played the ball with flag 15 set, any other action with flag 16.
-  if (facts.playedBall) {
-    const bool challenge = facts.foulerAction >= kActionSlide && facts.foulerAction <= kActionBlock;
-    setFlag(animeB, challenge ? kFlagPlayedBall : kFlagChallenge);
-  }
-  uint8_t* slotB = SlotRecord(facts.fouler);
-  slotB[kSlotIntentOffset] = facts.intent ? 1 : 0;
-  slotB[kSlotFairOffset] = 0;
-  StoreF32(slotB, kSlotApproachAngleOffset, facts.targeted ? facts.approachAngle_deg : 0.0f);
-  StoreU32(slotB, kSlotTargetValidOffset, facts.targeted ? 1u : 0u);
-  StoreU32(slotB, kSlotTargetIdOffset, facts.targeted ? static_cast<uint32_t>(facts.victim) : 0xFFFFFFFFu);
-  StoreU32(slotB, kSlotForceTargetOffset, facts.targeted ? static_cast<uint32_t>(facts.victim) : 0xFFFFFFFFu);
-  StoreF32(slotB, kSlotTargetPointOffset, facts.targetX);
-  StoreF32(slotB, kSlotTargetPointOffset + sizeof(float), facts.targetY);
-  StoreF32(slotB, kSlotTargetPointOffset + 2 * sizeof(float), facts.targetZ);
-  const JudgeVerdict verdict = DecideJudge(facts.victim, facts.fouler);
-  std::memcpy(animeA, savedA, kStagedBytes);
-  std::memcpy(animeB, savedB, kStagedBytes);
-  return verdict;
-}
-
-void PesWorld::SetTeamLine(int team, float x) {
-  StoreF32(image_->sanction.analyzeBlock.data(), kAnalyzeTeamLineOffset[team], x);
 }
 
 float PesWorld::Bearing(const uint8_t* from, const uint8_t* to) {
