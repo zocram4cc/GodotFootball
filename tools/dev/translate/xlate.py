@@ -543,18 +543,26 @@ def import_model_lines(op, jump):
 
 
 # function VA -> {(site VA, image VA)}: the live reads of read-only image bytes each translated function still carries
-# (Emitter.note_live_ro). gen_translated fails the generation on any that no runtime binding serves.
+# (Emitter.note_live_ro). gen_translated fails the generation on any: the GF runtime maps no image, so such a read returns 0.
 LIVE_RO = {}
 
-RUNTIME_READS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runtime_reads.json")
+# Declared read-only tables (ro_tables.json): the extent of each table a register-formed read walks without a guard the
+# translator can bound (a loop pointer, a parameter-driven index). Each is baked whole, so the read is the image's bytes.
+RO_TABLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ro_tables.json")
+_RO_WINDOWS = []
 
 
-def unserved_reads(found, bindings):
-    """Lint: the live read-only image reads (LIVE_RO shape) that no runtime binding serves, as sorted
-    (function VA, site VA, image VA) lines. bindings: [{"va": .., "bytes": .., "binding": ..}] (runtime_reads.json)."""
-    ranges = [(int(str(b["va"]), 0), int(str(b["va"]), 0) + int(b["bytes"])) for b in bindings]
-    return sorted((fn, site, va) for fn, reads in found.items() for site, va in reads
-                  if not any(lo <= va < hi for lo, hi in ranges))
+def ro_windows():
+    """[(lo, hi)] of the declared tables (RO_TABLES)."""
+    if not _RO_WINDOWS:
+        with open(RO_TABLES) as f:
+            _RO_WINDOWS.extend((int(t["va"], 0), int(t["va"], 0) + int(t["bytes"], 0)) for t in json.load(f))
+    return _RO_WINDOWS
+
+
+def live_reads(found):
+    """The lint's findings (LIVE_RO shape in), as sorted (function VA, site VA, image VA)."""
+    return sorted((fn, site, va) for fn, reads in found.items() for site, va in reads)
 
 
 class Emitter:
@@ -604,6 +612,31 @@ class Emitter:
             d = mp["disp"]
             terms.append("(0x%XULL)" % (d & 0xFFFFFFFFFFFFFFFF) if d >= 0 else "(0ULL - 0x%XULL)" % (-d))
         return ("(%s)" % " + ".join(terms)) if terms else "0ULL"
+
+    def bake_window(self, mp, width, flt):
+        """A register-formed read of a read-only image table that no guard bounds, whose every origin lies in one
+        declared table (RO_TABLES): bake the smallest such table and read it at the address's offset into it. None when
+        the read is not image-derived, lies in no declared table, or is a 128-bit read."""
+        if self.cur is None or width == 128 or mp.get("seg"):
+            return None
+        starts = {o + mp["disp"] for reg in (mp["base"], mp["index"]) if reg
+                  for o in image_origins(self, PARENT.get(reg, reg), self.cur)}
+        if not starts or any(self.img.writable(v) for v in starts):
+            return None
+        fit = [(hi - lo, lo) for lo, hi in ro_windows() if all(lo <= v < hi for v in starts)]
+        if not fit:
+            return None
+        span, lo = min(fit)
+        n = 4 if (flt == "f32" or width == 32) else width // 8
+        if flt == "f64":
+            n = 8
+        self.ro_tabs[(lo, span)] = self.img.read(lo, span)
+        rd = "ro_rd(k_t%X_%X, %d, (uint64_t)(%s) - 0x%XULL, %d)" % (lo, span, span, self.addr_expr(mp), lo, n)
+        if flt == "f32":
+            return "PesState::f32((uint32_t)%s)" % rd
+        if flt == "f64":
+            return "PesState::f64(%s)" % rd
+        return rd
 
     def bake_ro(self, mp, width, flt):
         """A register-indexed read of a read-only image table whose base is a
@@ -690,6 +723,9 @@ class Emitter:
             baked = self.bake_ro(mp, width, flt)
             if baked is not None:
                 return baked
+        baked = self.bake_window(mp, width, flt)
+        if baked is not None:
+            return baked
         self.note_live_ro(mp)
         a = self.addr_expr(mp)
         if width == 128:

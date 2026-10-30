@@ -8,6 +8,10 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image window @ 0x1425E36C0 (76 bytes, read-only)
+static constexpr uint8_t k_t1425E36C0_4C[76] = {0x00, 0x00, 0x34, 0xC3, 0x00, 0x00, 0x28, 0xC3, 0x00, 0x80, 0x16, 0xC3, 0x00, 0x00, 0x04, 0xC3, 0x00, 0x00, 0xDD, 0xC2, 0x00, 0x00, 0xA0, 0xC2, 0x00, 0x00, 0x72, 0xC2, 0x00, 0x00, 0x08, 0xC2, 0x00, 0x00, 0x78, 0xC1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x78, 0x41, 0x00, 0x00, 0x08, 0x42, 0x00, 0x00, 0x72, 0x42, 0x00, 0x00, 0xA0, 0x42, 0x00, 0x00, 0xDD, 0x42, 0x00, 0x00, 0x04, 0x43, 0x00, 0x80, 0x16, 0x43, 0x00, 0x00, 0x28, 0x43, 0x00, 0x00, 0x34, 0x43};
+// image window @ 0x1425E3710 (18 bytes, read-only)
+static constexpr uint8_t k_t1425E3710_12[18] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11};
 
 void pes_fn_1406EB100(PesState& s);
 
@@ -21,10 +25,10 @@ void pes_fn_1406EB100(PesState& s) {
   s.gpr[8] = (uint64_t)(s.gpr[9]);
   (void)0;
   L_1406EB110:;
-  s.cmp_ss((float)(s.x_f32(1)), (float)((s.rdf(((s.gpr[8]))))));
+  s.cmp_ss((float)(s.x_f32(1)), (float)((PesState::f32((uint32_t)ro_rd(k_t1425E36C0_4C, 76, (uint64_t)(((s.gpr[8]))) - 0x1425E36C0ULL, 4)))));
   if (s.cond("c")) goto L_1406EB124;
   s.gpr[0] = (uint64_t)(uint32_t)(((s.gpr[2]) + (0x1ULL)));
-  s.set_x_f32(0, s.rdf(((s.gpr[9]) + ((s.gpr[0])*4ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
+  s.set_x_f32(0, PesState::f32((uint32_t)ro_rd(k_t1425E36C0_4C, 76, (uint64_t)(((s.gpr[9]) + ((s.gpr[0])*4ULL))) - 0x1425E36C0ULL, 4))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
   if (s.cond("nc")) goto L_1406EB132;
   L_1406EB124:;
@@ -49,6 +53,6 @@ void pes_fn_1406EB100(PesState& s) {
   L_1406EB132:;
   s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
   s.gpr[1] = (uint64_t)(((0x1425E3710ULL)));
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[2]) + ((s.gpr[1])*1ULL)), 1));
+  s.gpr[0] = (uint64_t)(uint32_t)(ro_rd(k_t1425E3710_12, 18, (uint64_t)(((s.gpr[2]) + ((s.gpr[1])*1ULL))) - 0x1425E3710ULL, 1));
   return;
 }

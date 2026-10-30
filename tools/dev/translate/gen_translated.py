@@ -152,15 +152,13 @@ def build(image):
 
 
 def lint(members):
-    """Fail loudly on a committed function that reads a read-only image address live (the GF runtime maps no image
-    there, so the read returns 0 while the harness, which maps the image flat, stays bit-exact). Each must be baked by
-    the translator or served by a binding listed in runtime_reads.json."""
-    with open(xlate.RUNTIME_READS) as f:
-        bindings = json.load(f)
-    bad = xlate.unserved_reads({va: r for va, r in xlate.LIVE_RO.items() if va in members}, bindings)
+    """Fail loudly on a committed function that reads a read-only image address live: the GF runtime maps no image there,
+    so the read returns 0, while the harness maps the image flat and its diffs stay bit-exact. The translator must bake
+    every such read (a guard-bounded window, a switch table, or a declared table in ro_tables.json)."""
+    bad = xlate.live_reads({va: r for va, r in xlate.LIVE_RO.items() if va in members})
     if bad:
-        raise SystemExit("gen_translated: %d live read(s) of a read-only image address no bake or runtime binding serves "
-                         "(bake in xlate, or list the binding in runtime_reads.json):\n  %s"
+        raise SystemExit("gen_translated: %d live read(s) of a read-only image address (declare the table in ro_tables.json "
+                         "or teach xlate to bake it):\n  %s"
                          % (len(bad), "\n  ".join("function %s site 0x%X reads image 0x%X" % b for b in bad)))
 
 

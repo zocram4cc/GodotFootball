@@ -7,6 +7,8 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image window @ 0x142613D20 (40 bytes, read-only)
+static constexpr uint8_t k_t142613D20_28[40] = {0x00, 0x00, 0x18, 0x00, 0x00, 0xD0, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x3C, 0x00, 0x00, 0x00, 0x37, 0x00, 0x00, 0xD0, 0x06, 0x00, 0x00, 0x12, 0x07, 0x00, 0x00, 0x13, 0x01, 0x00, 0x00, 0xF0, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00};
 
 void pes_fn_1408CB0B0(PesState& s);
 
@@ -33,7 +35,7 @@ void pes_fn_1408CB0B0(PesState& s) {
   } else {
     s.gpr[1] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[8])) << 32))) >> 32));
     s.gpr[8] = (uint64_t)(((0x142613D20ULL)));
-    { uint64_t _r = ((uint64_t)(s.rd(((s.gpr[8]) + ((s.gpr[1])*4ULL)), 4)) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[2]))) & 0xFFFFFFFFULL;
+    { uint64_t _r = ((uint64_t)(ro_rd(k_t142613D20_28, 40, (uint64_t)(((s.gpr[8]) + ((s.gpr[1])*4ULL))) - 0x142613D20ULL, 4)) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[2]))) & 0xFFFFFFFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
       s.cf = false; s.of = false; }
     if (s.cond("z")) {
