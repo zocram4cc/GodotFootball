@@ -2,7 +2,7 @@
 // livecpk_get_filepath, in sider.ini module order), then sider's cpk.root
 // folders (first listed wins), then the game's own cpks. Synthetic installs
 // pin the rule; the install tests at the bottom check it against the owner's
-// files and the live process (docs/re/pes-re-vfs-order.md).
+// files and the live process (docs/ports/pes-port-VfsOrder.md).
 #include <gtest/gtest.h>
 
 #include <algorithm>

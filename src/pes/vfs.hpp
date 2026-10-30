@@ -12,7 +12,7 @@
 namespace pes {
 
 // The PES 2021 file system as the game sees it, in the order sider resolves a
-// path (docs/re/pes-re-vfs-order.md): the Lua modules of sider.ini that answer
+// path (docs/ports/pes-port-VfsOrder.md): the Lua modules of sider.ini that answer
 // livecpk events (first listed module that has the file wins), then sider's
 // cpk.root folders (first listed wins), then the game's own cpks: Data/ cpks,
 // then download/ cpks in DpFileList.bin order, the later cpk winning on equal

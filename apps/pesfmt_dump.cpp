@@ -64,10 +64,12 @@ int Usage() {
 int main(int argc, char** argv) {
   std::vector<std::string> pos;
   std::string root;
+  std::optional<std::string> gameplayMod;  // GameplayLoader's selection; unset = its boot state
   if (const char* env = std::getenv("PES21_ROOT")) root = env;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     if (a == "--pes21-root" && i + 1 < argc) root = argv[++i];
+    else if (a == "--gameplay-mod" && i + 1 < argc) gameplayMod = argv[++i];
     else pos.push_back(a);
   }
   if (pos.empty() || root.empty()) return Usage();
@@ -75,7 +77,7 @@ int main(int argc, char** argv) {
 
   pes::PesVfs vfs;
   std::string err;
-  if (!vfs.Mount(root, &err)) {
+  if (!vfs.Mount(root, &err, {.gameplayMod = gameplayMod})) {
     std::fprintf(stderr, "mount failed: %s\n", err.c_str());
     return 1;
   }
