@@ -393,28 +393,6 @@ TEST(PesReceiveInstall, TheInstallCarriesTheGamesOwnReceive) {
   EXPECT_LT(k->receivingPointMargin_m, 1.0f);
 }
 
-// The trap picker's rows (FUN_14081ff70 over DAT_14348dac0) come from the install: every row is an action-7 row,
-// names a clip, and has a non-empty clip-space window. The picker reads them; no PES number is written here.
-TEST(PesReceiveInstall, TheTrapRowsAreTheInstallsActionSevenWindows) {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  std::string err;
-  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
-  ASSERT_TRUE(exe.has_value()) << err;
-  pes::PesVfs vfs;
-  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-  auto k = pes::LoadReceiveConstants(*exe, vfs, &err);
-  ASSERT_TRUE(k.has_value()) << err;
-  ASSERT_FALSE(k->trapRows.empty());
-  for (const pes::ActionRow& row : k->trapRows) {
-    EXPECT_EQ(row.action, pes::kTrapActionRow) << "clip " << row.clip;
-    EXPECT_GT(row.clip, 0) << "a trap row names a clip";
-    EXPECT_LT(row.xb, row.xe) << "clip " << row.clip;
-    EXPECT_LT(row.zb, row.ze) << "clip " << row.clip;
-  }
-}
-
-
 }  // namespace
 
 // The store's action kinds (PES ring-0 +0) as the receive gates name them: 1 a

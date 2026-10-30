@@ -443,7 +443,7 @@ bool PlayerController::_ReceiveCandidate() {
 // (GetOnTheBallCommands runs for the designated man before the ball arrives
 // and leaves its direction in inputDirection); a one-touch kick is that brain's
 // queued pass, so kind 3 needs nothing here.
-void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
+bool PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
   const pes::NewestEventView ev = pes::NewestEvent(match->GetPesEvents());
   const Vector3 ballMove = match->GetBall()->GetMovement().Get2D();
@@ -517,11 +517,13 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
       std::memcpy(request.bytes.data() + pes::kReqKindOffset, &control, sizeof control);
       result = world.RunTrapKind0(slot, request, match->PesTrapExternalsOf());
     }
-    if (!result.issued) return;
+    if (!result.issued) return false;
     const int clip = pes::CommittedTrapClip(world.P(slot));
-    // The clip plays only if the match loaded it (pesclips.cpp's trap family); the action's own tick, which plays any
-    // committed motion with PES's touch frame, is not ported (docs/ports/pes-port-TrapCutover.md, open item 1).
-    if (!match->GetAnimCollection()->HasSpecial(static_cast<int>(pes::PesClipFamily::kTrap), clip)) return;
+    // The clip is the motion the chain committed, an Animetable cell: the match loads every such motion as a trap-family clip
+    // (pesclips.cpp), so the command names it by its motion number. ponytail: PES plays the committed plan from the Trap action's
+    // own tick (FUN_140797CD0: hit frame FUN_1406B03D0, duration FUN_1406AF620, root solver FUN_1406E85B0, motion issue
+    // FUN_1406F02F0); GF plays the clip at once with the clip's first HitData frame as the touch frame (AddPesClips), the mirror
+    // choice and the root solve are GF's. That tick, ported, removes this.
     command.desiredFunctionType = e_FunctionType_Special;
     command.useSpecialVar1 = true;
     command.specialVar1 = static_cast<int>(pes::PesClipFamily::kTrap);
@@ -529,6 +531,7 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
     command.specialVar2 = clip;
   }
   commandQueue.push_back(command);
+  return true;
 }
 
 void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool forceMagnet,

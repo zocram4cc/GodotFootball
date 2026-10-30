@@ -33,6 +33,13 @@ tools/capture_viewer.sh --face <face id>
 build/apps/gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --pes21-root "$PES21_ROOT"
 ```
 
+A match (`gfsim_run`, the Godot extension) also needs `PES_EXE`, the memory dump of your running game that
+`tools/pes21_import/dump_image.py` writes (`tools/pes21_import/README.md`, "A match needs the image"):
+
+```bash
+export PES_EXE=/path/to/pes_full.bin
+```
+
 The file system mounts PES's own archives in the order the game uses: `Data/`,
 then `download/` in `DpFileList.bin` order, then sider live-cpk roots from
 `sider.ini`. Later sources override earlier ones.

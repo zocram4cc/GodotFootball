@@ -44,7 +44,8 @@ struct PesClipSet {
 // `rapidstop_` and `rapid_3_2_dodge_` motions the Dodge action selects
 // (docs/re/pes-re-contact-port.md pass 4 stage B);
 // family kTackle = the `tacklefoot_` motions the Tackle action's sub-kind
-// group tables select (stage C).
+// group tables select (stage C); family kTrap = every motion an Animetable cell names (the motions the Trap action's kind-0 chain
+// can commit).
 std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, std::string* error);
 
 // One clip as engine .anim text (the format Animation::LoadText reads), at the
@@ -64,8 +65,8 @@ inline bool IsPesClipFamily(int specialVar1) {
   return specialVar1 == int(PesClipFamily::kDodge) || specialVar1 == int(PesClipFamily::kTackle);
 }
 
-// PES's locomotion clips (the MOVESTEP handlers' rows, A-MOV) and its trap clips (the action-7 rows of the
-// action-clip table, FUN_14081ff70) are played as PES picked them. GF's pose matching (incoming velocity, body
+// PES's locomotion clips (the MOVESTEP handlers' rows, A-MOV) and its trap clips (the Animetable motions the Trap chain commits)
+// are played as PES picked them. GF's pose matching (incoming velocity, body
 // direction, side) is the stand-in that PES does not have, so it applies to the dodge and tackle families only.
 inline bool IsPesLocomotionFamily(int specialVar1) {
   return specialVar1 == int(PesClipFamily::kLocomotion);
