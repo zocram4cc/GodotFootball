@@ -790,7 +790,7 @@ TEST_F(TrapOracle, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) {
 // table) is built from the install, as for the chain.
 namespace {
 
-enum Obj : int { kObjP, kObjA, kObjO1, kObjO2, kObjQ, kObjR, kObjS, kObjFrame, kObjFrameX, kObjCount };
+enum Obj : int { kObjP, kObjA, kObjO1, kObjO2, kObjQ, kObjR, kObjS, kObjFrame, kObjFrameX, kObjBall, kObjCount };
 struct ObjSpan {
   uint64_t base = 0, size = 0;
 };
@@ -810,6 +810,7 @@ ObjSpans CapturedObjects(const Oracle& o) {
   s[kObjS] = {Read(o, p + pes::kPSPtrOffset, 8), pes::kSBytes};
   s[kObjFrame] = {f, pes::kTickFrameBytes};
   s[kObjFrameX] = {Read(o, f + pes::kFrameXPtrOffset, 8), pes::kTickFrameXBytes};
+  s[kObjBall] = {Read(o, f + pes::kFrameBallOffset, 8), pes::kBallRecordBytes};  // the prediction samples the tick indexes (FUN_140A6CF70)
   return s;
 }
 
@@ -824,6 +825,7 @@ ObjSpans WindowObjects(int slot) {
   s[kObjS] = {pes::PesWorld::SVa(slot), pes::kSBytes};
   s[kObjFrame] = {pes::PesWorld::TickFrameVa(), pes::kTickFrameBytes};
   s[kObjFrameX] = {pes::PesWorld::TickFrameXVa(), pes::kTickFrameXBytes};
+  s[kObjBall] = {pes::PesWorld::BallVa(), pes::kBallRecordBytes};
   return s;
 }
 
@@ -837,6 +839,7 @@ uint8_t* WindowBytes(pes::PesWorld& w, int slot, int obj) {
     case kObjR: return w.R(slot);
     case kObjS: return w.S(slot);
     case kObjFrame: return w.TickFrame();
+    case kObjBall: return w.BallRecord();
     default: return w.TickFrameX();
   }
 }
@@ -899,13 +902,14 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
     uint8_t* dst = WindowBytes(w, slot, obj) + rel;
     for (size_t i = 0; i < len; ++i) {
       const uint8_t cap = static_cast<uint8_t>(Read(o, capAddr + i, 1));
+      if (IsPointerCell(obj, rel + static_cast<uint32_t>(i))) continue;  // names a window object: its zero bytes are not gaps to fill
       if (dst[i] == 0) {
         if (cap != 0) {
           ++t.overlaid;
           t.overlaidAt.insert({obj, rel + static_cast<uint32_t>(i)});
         }
         dst[i] = cap;
-      } else if (dst[i] != cap && !IsPointerCell(obj, rel + static_cast<uint32_t>(i))) {
+      } else if (dst[i] != cap) {
         char buf[96];
         std::snprintf(buf, sizeof buf, "obj %d +0x%x: GF %02x, capture %02x", obj, rel + static_cast<unsigned>(i), dst[i], cap);
         t.derivedMismatches.push_back(buf);
@@ -913,6 +917,10 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
     }
   };
   const uint64_t rdx = o.regs.at("rdx");
+  // The ball record's prediction samples the tick indexes (FUN_140A6CF70; GF holds them as PesWorld::SetBallSample): the manifest's H
+  // lines miss them (the replay serves them from the page set), so they are supplied whole, 250 samples.
+  put(kObjBall, pes::kBallSamplesOffset, captured[kObjBall].base + pes::kBallSamplesOffset,
+      static_cast<size_t>(pes::kBallSampleCount) * pes::kBallSampleStride);
   for (const auto& line : o.manifest) {
     if (line[0] == "T" && line[1] == "P") {
       put(kObjP, static_cast<uint32_t>(std::strtoul(line[3].c_str(), nullptr, 16)), rdx + std::strtoul(line[3].c_str(), nullptr, 16),
@@ -922,7 +930,11 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
       const size_t len = std::strtoul(line[2].c_str(), nullptr, 10);
       int obj;
       uint32_t rel;
-      if (Classify(captured, va, &obj, &rel) && obj != kObjP) put(obj, rel, va, len);
+      if (Classify(captured, va, &obj, &rel)) {
+        if (obj != kObjP) put(obj, rel, va, len);
+      } else if (std::getenv("GF_TICK_ORACLE_VERBOSE") != nullptr) {
+        std::printf("  unsupplied read: %llx +%zu\n", static_cast<unsigned long long>(va), len);
+      }
     } else if (line[0] == "S") {
       const uint32_t rel = static_cast<uint32_t>(std::strtoul(line[1].c_str(), nullptr, 16));
       if (rel == 0 || rel == pes::kTickEntryFrameSlotOffset) continue;  // the return address and the frame slot: the call's own
