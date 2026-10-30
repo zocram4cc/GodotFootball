@@ -12,6 +12,14 @@
 static constexpr unsigned __int128 k_c142BF02C0 = ((unsigned __int128)0x0000000300000002ULL << 64) | 0x0000000800000009ULL;
 // image constant @ 0x142BF02D0 (16 bytes)
 static constexpr unsigned __int128 k_c142BF02D0 = ((unsigned __int128)0x0000000600000005ULL << 64) | 0x0000000400000001ULL;
+// image window @ 0x14211E5A8 (40 bytes, read-only)
+static constexpr uint8_t k_t14211E5A8_28[40] = {0xD1, 0xE3, 0x11, 0x02, 0x95, 0xE3, 0x11, 0x02, 0x9B, 0xE3, 0x11, 0x02, 0xA1, 0xE3, 0x11, 0x02, 0xAD, 0xE3, 0x11, 0x02, 0xA7, 0xE3, 0x11, 0x02, 0xB3, 0xE3, 0x11, 0x02, 0xB9, 0xE3, 0x11, 0x02, 0xBF, 0xE3, 0x11, 0x02, 0xC8, 0xE3, 0x11, 0x02};
+// image window @ 0x14211E5D0 (40 bytes, read-only)
+static constexpr uint8_t k_t14211E5D0_28[40] = {0x45, 0xE4, 0x11, 0x02, 0x09, 0xE4, 0x11, 0x02, 0x0F, 0xE4, 0x11, 0x02, 0x15, 0xE4, 0x11, 0x02, 0x21, 0xE4, 0x11, 0x02, 0x1B, 0xE4, 0x11, 0x02, 0x27, 0xE4, 0x11, 0x02, 0x2D, 0xE4, 0x11, 0x02, 0x33, 0xE4, 0x11, 0x02, 0x3C, 0xE4, 0x11, 0x02};
+// image window @ 0x14211E5F8 (40 bytes, read-only)
+static constexpr uint8_t k_t14211E5F8_28[40] = {0xD1, 0xE4, 0x11, 0x02, 0x95, 0xE4, 0x11, 0x02, 0x9B, 0xE4, 0x11, 0x02, 0xA1, 0xE4, 0x11, 0x02, 0xAD, 0xE4, 0x11, 0x02, 0xA7, 0xE4, 0x11, 0x02, 0xB3, 0xE4, 0x11, 0x02, 0xB9, 0xE4, 0x11, 0x02, 0xBF, 0xE4, 0x11, 0x02, 0xC8, 0xE4, 0x11, 0x02};
+// image window @ 0x14211E620 (40 bytes, read-only)
+static constexpr uint8_t k_t14211E620_28[40] = {0x61, 0xE5, 0x11, 0x02, 0x25, 0xE5, 0x11, 0x02, 0x2B, 0xE5, 0x11, 0x02, 0x31, 0xE5, 0x11, 0x02, 0x3D, 0xE5, 0x11, 0x02, 0x37, 0xE5, 0x11, 0x02, 0x43, 0xE5, 0x11, 0x02, 0x49, 0xE5, 0x11, 0x02, 0x4F, 0xE5, 0x11, 0x02, 0x58, 0xE5, 0x11, 0x02};
 
 void pes_fn_14211E2D0(PesState& s);
 void pes_fn_14211CA80(PesState& s);
@@ -96,7 +104,7 @@ void pes_fn_14211E2D0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("a")) goto L_14211E3D1;
-  s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x211E5A8ULL)), 4));
+  s.gpr[1] = (uint64_t)(uint32_t)(ro_rd(k_t14211E5A8_28, 40, (uint64_t)(s.gpr[0]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[15]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
@@ -180,7 +188,7 @@ void pes_fn_14211E2D0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("a")) goto L_14211E445;
-  s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x211E5D0ULL)), 4));
+  s.gpr[1] = (uint64_t)(uint32_t)(ro_rd(k_t14211E5D0_28, 40, (uint64_t)(s.gpr[0]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[15]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
@@ -264,7 +272,7 @@ void pes_fn_14211E2D0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("a")) goto L_14211E4D1;
-  s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x211E5F8ULL)), 4));
+  s.gpr[1] = (uint64_t)(uint32_t)(ro_rd(k_t14211E5F8_28, 40, (uint64_t)(s.gpr[0]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[15]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
@@ -361,7 +369,7 @@ void pes_fn_14211E2D0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("a")) goto L_14211E561;
-  s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x211E620ULL)), 4));
+  s.gpr[1] = (uint64_t)(uint32_t)(ro_rd(k_t14211E620_28, 40, (uint64_t)(s.gpr[0]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[15]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));

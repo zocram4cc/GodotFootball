@@ -35,18 +35,6 @@ inline constexpr uint64_t kFrameFloatSourceVa = 0x14259D624;
 // the window binds the span.
 inline constexpr uint64_t kBpVtablesVa = 0x142BEED00;
 inline constexpr uint64_t kBpVtablesBytes = 0x142BF0F90 - kBpVtablesVa;
-// The switch jump tables of the carrier manager's step 0x14211E2D0 (four 10-entry u32 tables, 0x14211E5A8 + 0x28 * k: the step
-// order 9, 8, 2, 3, 1, 4, 5, 6, 7 picks each step object through `MOV ECX,[R15+RAX*4+0x211E5A8]`, bounded by `CMP EAX,9`), of the
-// turn-reference angle 0x14211E650 (8 entries, `CMP EAX,7`: `MOV ECX,[R9+RAX*4+0x211EC50]`) and of the state builder
-// 0x14063D3C0 (7 entries, `CMP R13D,6`: `MOV ECX,[RDX+R13*4+0x63D884]`). The translator bakes a table only when it can bound the
-// index; these it could not, so on an unbound window every case read target 0 and fell to the default arm (step 9, the first
-// step, was never called: BP+0x3380 came out 0).
-inline constexpr uint64_t kManagerJumpTablesVa = 0x14211E5A8;
-inline constexpr uint64_t kManagerJumpTablesBytes = 4 * 10 * sizeof(uint32_t);
-inline constexpr uint64_t kTurnAngleJumpTableVa = 0x14211EC50;
-inline constexpr uint64_t kTurnAngleJumpTableBytes = 8 * sizeof(uint32_t);
-inline constexpr uint64_t kStateJumpTableVa = 0x14063D884;
-inline constexpr uint64_t kStateJumpTableBytes = 7 * sizeof(uint32_t);
 // The tier table 0x140A603C0 reads for the carrier walk's capability gate 0x140A604D0 (BP+0x60 = tier * 100): 0x22 rows (the
 // `0x21 < param_2` bound) of 0x20 bytes, row r at 0x142645A40 + 0x20 * r (a flag byte, then seven f32 per tier, `+0x20 * r` in the
 // `&DAT_142645a44 + (tier + r * 8) * 4` reads).
