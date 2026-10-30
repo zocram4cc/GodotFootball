@@ -10,36 +10,36 @@
 
 // image constant @ 0x142565600 (4 bytes)
 static constexpr uint32_t k_c142565600_w = 0x3F000000U;
-static constexpr float k_c142565600_f = 0.5f; // 0.5
+static constexpr float k_c142565600_f = 0.5f; // 0.5;
 // image constant @ 0x142565D30 (8 bytes)
 static constexpr uint64_t k_c142565D30_q = 0x7FFFFFFFFFFFFFFFULL;
 // image constant @ 0x14256AE1C (4 bytes)
 static constexpr uint32_t k_c14256AE1C_w = 0x3F800000U;
-static constexpr float k_c14256AE1C_f = 1.0f; // 1.0
+static constexpr float k_c14256AE1C_f = 1.0f; // 1.0;
 // image constant @ 0x142588218 (4 bytes)
 static constexpr uint32_t k_c142588218_w = 0xBF800000U;
-static constexpr float k_c142588218_f = -1.0f; // -1.0
+static constexpr float k_c142588218_f = -1.0f; // -1.0;
 // image constant @ 0x14259222C (4 bytes)
 static constexpr uint32_t k_c14259222C_w = 0x40A00000U;
-static constexpr float k_c14259222C_f = 5.0f; // 5.0
+static constexpr float k_c14259222C_f = 5.0f; // 5.0;
 // image constant @ 0x142598580 (4 bytes)
 static constexpr uint32_t k_c142598580_w = 0x43340000U;
-static constexpr float k_c142598580_f = 180.0f; // 180.0
+static constexpr float k_c142598580_f = 180.0f; // 180.0;
 // image constant @ 0x14259858C (4 bytes)
 static constexpr uint32_t k_c14259858C_w = 0x43B40000U;
-static constexpr float k_c14259858C_f = 360.0f; // 360.0
+static constexpr float k_c14259858C_f = 360.0f; // 360.0;
 // image constant @ 0x14259BDF4 (4 bytes)
 static constexpr uint32_t k_c14259BDF4_w = 0x41000000U;
-static constexpr float k_c14259BDF4_f = 8.0f; // 8.0
+static constexpr float k_c14259BDF4_f = 8.0f; // 8.0;
 // image constant @ 0x14259BE0C (4 bytes)
 static constexpr uint32_t k_c14259BE0C_w = 0x41700000U;
-static constexpr float k_c14259BE0C_f = 15.0f; // 15.0
+static constexpr float k_c14259BE0C_f = 15.0f; // 15.0;
 // image constant @ 0x14259BE1C (4 bytes)
 static constexpr uint32_t k_c14259BE1C_w = 0x41A00000U;
-static constexpr float k_c14259BE1C_f = 20.0f; // 20.0
+static constexpr float k_c14259BE1C_f = 20.0f; // 20.0;
 // image constant @ 0x14259BE64 (4 bytes)
 static constexpr uint32_t k_c14259BE64_w = 0x430C0000U;
-static constexpr float k_c14259BE64_f = 140.0f; // 140.0
+static constexpr float k_c14259BE64_f = 140.0f; // 140.0;
 
 void pes_fn_1405E2C90(PesState& s);
 void pes_fn_140439E50(PesState& s);

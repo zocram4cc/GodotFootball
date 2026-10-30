@@ -7,6 +7,15 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image constant @ 0x1482B3D70 (4 bytes)
+static constexpr uint32_t k_c1482B3D70_w = 0xB9C1C749U;
+static constexpr float k_c1482B3D70_f = -0.0003696030762512237f; // -0.0003696030762512237;
+// image constant @ 0x1482B3D74 (4 bytes)
+static constexpr uint32_t k_c1482B3D74_w = 0x4807BEB4U;
+static constexpr float k_c1482B3D74_f = 139002.8125f; // 139002.8125;
+// image constant @ 0x1482B3D78 (4 bytes)
+static constexpr uint32_t k_c1482B3D78_w = 0x01789E89U;
+static constexpr float k_c1482B3D78_f = 4.5664149490712886e-38f; // 4.5664149490712886e-38;
 
 void pes_fn_143F546F0(PesState& s);
 void pes_fn_14050E770(PesState& s);
@@ -118,7 +127,7 @@ void pes_fn_143F546F0(PesState& s) {
   if (s.cond("a")) {
     s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3]));
   } else {
-    s.gpr[0] = (uint64_t)(uint32_t)(s.rd(0x1482B3D70ULL, 4));
+    s.gpr[0] = (uint64_t)(uint32_t)(k_c1482B3D70_w);
     { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)((66014442ULL))) & 0xFFFFFFFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
       s.cf = false; s.of = false;
@@ -184,7 +193,7 @@ void pes_fn_143F546F0(PesState& s) {
           s.gpr[1] = (uint64_t)(uint32_t)(_r);
         }
         if (s.cond("z")) {
-          s.gpr[0] = (uint64_t)(uint32_t)(s.rd(0x1482B3D78ULL, 4));
+          s.gpr[0] = (uint64_t)(uint32_t)(k_c1482B3D78_w);
           { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)((24682122ULL))) & 0xFFFFFFFFULL;
             s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
             s.cf = false; s.of = false;
@@ -236,7 +245,7 @@ void pes_fn_143F546F0(PesState& s) {
             s.gpr[1] = (uint64_t)(uint32_t)(_r);
           }
           if (s.cond("z")) {
-            s.gpr[0] = (uint64_t)(uint32_t)(s.rd(0x1482B3D78ULL, 4));
+            s.gpr[0] = (uint64_t)(uint32_t)(k_c1482B3D78_w);
             { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)((24682122ULL))) & 0xFFFFFFFFULL;
               s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
               s.cf = false; s.of = false;
@@ -258,7 +267,7 @@ void pes_fn_143F546F0(PesState& s) {
       s.wr(((s.gpr[0]) + (0x38ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[3])), 4);
     } else {
       s.gpr[0] = (uint64_t)(s.rd(((s.gpr[5]) + (0x3C0ULL)), 8));
-      s.gpr[6] = (uint64_t)(uint32_t)(s.rd(0x1482B3D74ULL, 4));
+      s.gpr[6] = (uint64_t)(uint32_t)(k_c1482B3D74_w);
       { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[6])) ^ (uint64_t)((1208467125ULL))) & 0xFFFFFFFFULL;
         s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
         s.cf = false; s.of = false;
