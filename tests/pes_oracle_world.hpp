@@ -92,7 +92,9 @@ inline const pes::PesImageTables& InstallTables() {
 
 // `osBytes`: also hand the call the capture's bytes outside the window (the allocator's and the thread block's words the PES
 // run read); GF's production run has none of them. `walk`: the capture is a carrier-walk call (its BP flags are not a stack word).
-inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = false) {
+// `flagsFromStack` false: a builder-shaped call (bp = r8 - 0x1C) whose sixth argument is not the refresh flags (0x14211D710's is
+// the plan record's address).
+inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = false, bool flagsFromStack = true) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
   w.BindImageTables(InstallTables());
@@ -118,7 +120,7 @@ inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = fa
     }
   }
   // A builder call: BP+0x18 is the caller's sixth argument (the refresh flags): the capture's stack word.
-  if (!walk)
+  if (!walk && flagsFromStack)
     pes::StoreU32(w.Carrier(b.side), pes::kBpFlagsOffset,
                   static_cast<uint32_t>(Read(o, o.regs.at("rsp") + pes::kDangerArg6Offset, 4)));
 }

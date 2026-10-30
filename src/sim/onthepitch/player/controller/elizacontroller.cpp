@@ -3349,11 +3349,10 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // (0x141FC0335), not by a match in play; the 9 and 10 vetoes have no writer. Open play reads 0 in all 9 readable captures.
   pesWorld.MatchInfo()[pes::kMiWalkStateOffset] = 0;
   pes::StoreU32(bp, pes::kBpIntentionOffset, static_cast<uint32_t>(intention));  // 0x141052E30(BP+0x32B0)
-  // ponytail: BP+0x3380 (the turn reference the kind-4 tail measures the facing against) is written inside 0x14211D710's
-  // sub-builders 0x14211E2D0 / 0x14211E210 / 0x14211E650 (untranslated, run only while the state's word 0 is 0): the carrier's
-  // facing stands in until they land.
-  const Vector3 walkDir = CastPlayer()->GetDirectionVec();
-  pes::StoreF32(bp, pes::kBpTurnReferenceOffset, pes::PesBearingDeg(0.0f, 0.0f, walkDir.coords[0], walkDir.coords[1]));
+  // BP+0x3380 (the turn reference the walk's Clear gate and the kind-4 tail measure against) is PES's own: 0x14211D710 on the
+  // window (translated, bit-exact on ten captured entry states). ponytail: GF runs it once per carrier decision, PES once per unit
+  // step (0x142110D30), so the manager's step counters tick slower; the unit-step cadence lands with the driver 0x142110C90.
+  pesWorld.RunTurnReference(sideIndex);
   // The zone record at BP+0xAB8 is the danger builder run's own output (run above; equal to PES on the unslimmed captures).
   uint64_t skillMask = 0;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot)) skillMask |= 1ull << pes::kSkillOneTouchShot;

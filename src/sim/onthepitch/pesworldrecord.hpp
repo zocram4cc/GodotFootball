@@ -370,6 +370,15 @@ inline constexpr std::size_t kZoneColumnOffset = 0x17C;  // s32
 inline constexpr std::size_t kBpGuardOffset = 0x32AD;
 inline constexpr std::size_t kBpIntentionOffset = 0x32B8;
 inline constexpr std::size_t kBpTurnReferenceOffset = 0x3380;
+inline constexpr std::size_t kBpPlanOffset = 0x32B0;         // the carrier plan record (its path word is kBpIntentionOffset)
+inline constexpr std::size_t kBpManagerOffset = 0x32C0;      // the carrier manager 0x14211D710 steps (+0xC0 = kBpTurnReferenceOffset)
+inline constexpr std::size_t kBpProposalOffset = 0x4204;     // the dribble-proposal record (type word, id, +0xC target, +0x10 heading)
+// 0x14211D710's call frame: the return address at rsp, then past the 0x20 shadow the fifth to eighth arguments.
+inline constexpr std::size_t kTurnArg5Offset = 0x28;
+inline constexpr std::size_t kTurnArg6Offset = 0x30;
+inline constexpr std::size_t kTurnArg7Offset = 0x38;
+inline constexpr std::size_t kTurnArg8Offset = 0x40;
+inline constexpr std::size_t kTurnFrameBytes = 0x80;
 inline constexpr std::size_t kBpListOffset = 0x3E20;
 inline constexpr std::size_t kListRankOffset = 0x68;
 inline constexpr std::size_t kListRecordOffset = 0x84;
@@ -531,7 +540,7 @@ class PesWorld {
   // E as the store's own view: every event the match routes lands in the window.
   EventStore Events() { return EventStore(image_->events); }
   // The block's state is already live (a test that loaded a capture's BP): RunCarrierUpdate continues it instead of resetting.
-  void AdoptCarrierState(int side) { stateReady_[side] = true; }
+  void AdoptCarrierState(int side) { stateReady_[side] = constructed_[side] = true; }
   // A side's carrier block BP (kBp* offsets) and the Clear unit object beside it (the unit's r8).
   static constexpr uint64_t CarrierVa(int side) {
     return kWorldWindowVa + kCarrierOffset + static_cast<uint64_t>(side) * sizeof(PesCarrierBlock);
@@ -565,6 +574,15 @@ class PesWorld {
   // Runs PES's carrier walk 0x14210F110 on the side's BP (rdx = its unit object): the chosen kind, or kWalkNoKind. `ext` carries
   // bytes outside the window (tests); allocates through the world's PesHeap like the builder.
   uint32_t RunWalk(int side, const PesDangerExternals& ext = {});
+  // PES's carrier-block constructor 0x14210D320(BP, side) (proved bit-exact on three live BPs, results_dribble.json): the unit
+  // info, state, imageA's lists, the carrier manager at BP+0x32C0 with its nine step objects, and the 25 unit-kind objects, vtables
+  // included. RunCarrierUpdate runs it once per side, before its first writer; a test that loaded a capture's BP calls
+  // AdoptCarrierState instead.
+  void RunCarrierConstruct(int side, const PesDangerExternals& ext = {});
+  // PES's turn-reference builder 0x14211D710(BP+0x32C0, ctx, unit info, state, imageA, BP+0x32B0, side record, BP+0x4204): while the
+  // state's word 0 is 0 it ticks the carrier manager (0x14211E2D0, 0x14211E210) and writes BP+0x3380, the angle the walk's Clear
+  // gate (0x14210F4E8) measures the dribble proposal against. Call after RunDangerBuilder and the plan word BP+0x32B8.
+  void RunTurnReference(int side, const PesDangerExternals& ext = {});
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
   void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }
@@ -721,6 +739,7 @@ class PesWorld {
   std::unique_ptr<PesWorldImage> image_;
   std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
+  std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)
   PesImageTables imageTables_;     // the install's table bytes the window runs read at register-held addresses (BindImageTables)
 };
 

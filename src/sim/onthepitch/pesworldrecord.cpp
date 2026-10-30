@@ -143,6 +143,7 @@ void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternal
     s.mem.wlog = ext.writeLog;
     fn(s);
   };
+  if (!constructed_[side]) RunCarrierConstruct(side, ext);
   // The driver 0x142110C90 resets the block (0x14210E5F0 -> the state's constructor 0x14063A3B0) when its unit goes inactive: a
   // new carrier starts a fresh state, whose counters then run from zero.
   if (!stateReady_[side] || LoadU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset) != slot) {
@@ -175,6 +176,44 @@ uint32_t PesWorld::RunWalk(int side, const PesDangerExternals& ext) {
   s.mem.wlog = ext.writeLog;
   ::pes_fn_14210F110(s);
   return static_cast<uint32_t>(s.gpr[0]);
+}
+
+void PesWorld::RunCarrierConstruct(int side, const PesDangerExternals& ext) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  PesState s = NewCall(Bytes());
+  heap_->Attach(s);
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = CarrierVa(side);  // rcx: BP
+  s.gpr[2] = static_cast<uint32_t>(side);
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_14210D320(s);
+  constructed_[side] = true;
+}
+
+void PesWorld::RunTurnReference(int side, const PesDangerExternals& ext) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  const uint64_t bp = CarrierVa(side);
+  PesState s = NewCall(Bytes());
+  heap_->Attach(s);
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kTurnArg5Offset, bp + kBpImageAOffset, 8);  // imageA
+  s.wr(entry + kTurnArg6Offset, bp + kBpPlanOffset, 8);    // the plan record
+  s.wr(entry + kTurnArg7Offset, SideVa(side), 8);          // 0x140A48A30(G, side): the side record
+  s.wr(entry + kTurnArg8Offset, bp + kBpProposalOffset, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = bp + kBpManagerOffset;
+  s.gpr[2] = CtxVa(side);
+  s.gpr[8] = bp + kBpUnitInfoOffset;
+  s.gpr[9] = bp + kBpStateOffset;
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_14211D710(s);
 }
 
 PesTrapResult PesWorld::RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext) {

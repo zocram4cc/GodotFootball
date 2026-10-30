@@ -446,6 +446,16 @@ def import_model_lines(op, jump):
         # RtlSetLastWin32Error(ecx): TEB.LastErrorValue (gs:[0x30]+0x68) = ecx; rax = the TEB self pointer (the machine code).
         return ["{ " + push_ret + " uint64_t _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[0] = _self;"
                 " s.wr(_self + 0x68ULL, s.gpr[1] & 0xFFFFFFFFULL, 4);%s }" % pop_ret]
+    if e["do"] == "fdtest":
+        # ucrtbase _fdtest(rcx=float*): the code_hex model register for register. exp = the word at +2 & 0x7F80 (left in rdx);
+        # all-ones exponent: 1 for an infinity (mantissa zero), else 2; else a zero is 0; else the exponent negated in dx
+        # (rdx = that word) selects subnormal -2 (exponent 0) or normal -1. rax = the class, zero-extended.
+        return ["{ " + push_ret + " uint32_t _hi = (uint32_t)s.rd(s.gpr[1] + 2ULL, 2), _lo = (uint32_t)s.rd(s.gpr[1], 2);"
+                " uint32_t _exp = _hi & 0x7F80u; uint64_t _dx = _exp; uint32_t _r;"
+                " if (_exp == 0x7F80u) _r = ((_hi & 0x7Fu) == 0 && _lo == 0) ? 1u : 2u;"
+                " else if ((_hi & 0x7FFFu) == 0 && _lo == 0) _r = 0u;"
+                " else { _dx = (uint32_t)(0u - _exp) & 0xFFFFu; _r = _exp != 0 ? 0xFFFFFFFFu : 0xFFFFFFFEu; }"
+                " s.gpr[2] = _dx; s.gpr[0] = _r;%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
 
