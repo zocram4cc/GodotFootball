@@ -147,10 +147,13 @@ def main():
     sub = s.virtual(0x28) & 0xFFFFFFFF
     motion = s.ap_motion()
     row = s.row(s.ap, sub, flds["kind"], flds["band"], flds["side"], flds["scale"])
+    mi = s.q(s.q(0x1436F3DC8) + 0x270)  # match info: tick counter +0x1198, side +0x1554 (the fix-up gates of FUN_14071E6F0)
+    tick = struct.unpack("<I", s.rd(mi + 0x1198, 4))[0]
+    half = struct.unpack("<i", s.rd(mi + 0x1554, 4))[0]
     with open(path("capture.tsv"), "w") as f:
-        f.write("kind\tband\tcol\tside\tscale\tsub\tmotion\tdesc\trow\trepick\n")
+        f.write("kind\tband\tcol\tside\tscale\tsub\tmotion\tdesc\trow\trepick\ttick\thalf\n")
         f.write("\t".join(str(x) for x in (flds["kind"], flds["band"], flds["col"], flds["side"], flds["scale"], sub,
-                                           motion, s.descriptor(motion), row, s.motion(row, flds["col"], 0))) + "\n")
+                                           motion, s.descriptor(motion), row, s.motion(row, flds["col"], 0), tick, half)) + "\n")
 
     table = s.rd(s.q(s.q(MANAGER_GLOBAL) + 8), CLIP_TABLE_BYTES)
     with open(path("cliptable.hex"), "w") as f:

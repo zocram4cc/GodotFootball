@@ -91,6 +91,7 @@ struct MotionRecord {
 // PES's per-kind list caps (DAT_1425dc370, one dword per kind), read from the exe by VA.
 struct MotionCaps {
   uint32_t animation = 0, subHit = 0, cancel = 0, rot = 0, foot = 0, pivot = 0;
+  uint32_t hit = 0;  // kind 1, HitData: the cap behind PES's count byte rec[1] (FUN_1406B0250's descriptor)
 };
 std::optional<MotionCaps> LoadMotionCaps(const PeImage& exe, std::string* error);
 
@@ -106,6 +107,8 @@ class Mbinfo {
   // Null when the motion has no record of that kind.
   const MotionTiming* Timing(int motionNo) const;
   const std::vector<HitRecord>& Hits(int motionNo) const;
+  // PES's count byte rec[1] of the motion's record: its HitData records up to the kind-1 cap (0 past the table).
+  int HitCount(int motionNo) const;
   const CancelRecord* Cancel(int motionNo) const;
   size_t MotionCount() const { return hits_.size(); }
   // PES's table entry for a motion: an empty record past the table's last slot.
@@ -116,6 +119,7 @@ class Mbinfo {
   std::vector<std::optional<MotionTiming>> timing_;
   std::vector<std::vector<HitRecord>> hits_;
   std::vector<std::optional<CancelRecord>> cancel_;
+  uint32_t hitCap_ = 0;
   std::vector<MotionRecord> motions_;
 };
 
