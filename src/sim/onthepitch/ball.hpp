@@ -26,6 +26,7 @@
 
 #include "pesball.hpp"
 #include "pesballtrack.hpp"
+#include "pesworldrecord.hpp"
 
 using namespace blunted;
 
@@ -48,10 +49,22 @@ public:
   // PES's track read at a GF time in milliseconds: one record per PES tick, floored
   // (Milestone A1). The live ball steps on that same tick, so this is the ball.
   Vector3 Predict(unsigned int predictTime_ms) const {
-    return pesball::TrackAt(track, predictTime_ms);
+    return TrackSample(pesball::TrackIndexForMs(predictTime_ms));
+  }
+  // Record n of the ball's prediction table, which lives in the world window's ball record B+0x88+0x28*n (PES layout,
+  // pesworldrecord.hpp); a read past the end takes the last record (FUN_140A6CF70). GF coordinates: x, y = PES z,
+  // z = PES height.
+  Vector3 TrackSample(unsigned n) const {
+    float p[3];
+    world->BallSample(static_cast<int>(n < pesball::kTrackLength ? n : pesball::kTrackLength - 1), p);
+    return Vector3(p[0], p[2], p[1]);
   }
   // The prediction the AI copies per tick: PES's 250 records, one per PES tick.
-  const std::array<Vector3, pesball::kTrackLength>& GetTrack() const { return track; }
+  std::array<Vector3, pesball::kTrackLength> GetTrack() const {
+    std::array<Vector3, pesball::kTrackLength> out;
+    for (unsigned n = 0; n < pesball::kTrackLength; ++n) out[n] = TrackSample(n);
+    return out;
+  }
   Vector3 GetMovement();
   void Touch(const Vector3& target);
   void SetPosition(const Vector3& target);
@@ -88,17 +101,26 @@ public:
   void ResetSituation(const Vector3& focusPos);
 
 protected:
-  Vector3 momentum;
+  // The ball's velocity (m/s, GF axes) is the world window's ball record B+0x2948 and nothing else: PES's vector x, height,
+  // z holds GF's x, z, y. Every write goes through StoreMomentum.
+  Vector3 Momentum() const {
+    float v[3];
+    world->BallVelocity(v);
+    return Vector3(v[0], v[2], v[1]);
+  }
+  void StoreMomentum(const Vector3& m) { world->SetBallVelocity(m.coords[0], m.coords[2], m.coords[1]); }
   Quaternion rotation_ms;
 
-  // PES's prediction sampler, one record per PES tick (pesballtrack.hpp). Record 0
-  // is where the ball is now and record k is k ticks of 1/54 s on.
-  std::array<Vector3, pesball::kTrackLength> track;
+  // PES's prediction sampler is the ball record's table in the world window (TrackSample): record 0 is where the ball
+  // is now and record k is k ticks of 1/54 s on. The writer is CalculatePrediction (PES's sampler rebuilds it per tick).
+  void SetTrackSample(unsigned n, const Vector3& p) {
+    world->SetBallSample(static_cast<int>(n), p.coords[0], p.coords[2], p.coords[1]);
+  }
+  pes::PesWorld* world;
+
   Quaternion orientPrediction;
 
   std::list<Vector3> ballPosHistory;
-  Vector3 previousMomentum;
-  Vector3 previousPosition;
 
   Vector3 positionBuffer;
   Quaternion orientationBuffer;

@@ -89,8 +89,4 @@ bool TeamPossessionLatch(const PossessionLatchInput& in) {
   return in.old;
 }
 
-int PesFrameOf(uint64_t ms, int gs) {
-  return static_cast<int>(ms * static_cast<uint64_t>(gs) / 1000u);
-}
-
 }  // namespace pes

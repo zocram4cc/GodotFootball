@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include "onthepitch/pesworldrecord.hpp"
 
@@ -24,42 +25,112 @@ int TeamOf(int slot) { return slot >= lane::kSideSize ? 1 : 0; }
 
 }  // namespace
 
-SortedRow::SortedRow() { Clear(); }
+namespace {
+
+// MA's S1 blocks (pesscorerows.hpp's table): the score, list and angle blocks of the two goals, the pair rows, the
+// per-player nearest lists and the pair bearings.
+constexpr std::size_t kMaScoreOffset[2] = {0x228EC, 0x22AD4};
+constexpr std::size_t kMaListOffset[2] = {0x229B4, 0x22B9C};
+constexpr std::size_t kMaAngleOffset[2] = {0x22A7C, 0x22C64};
+constexpr std::size_t kMaPairOffset[2] = {0x22CBC, 0x22D84};
+constexpr std::size_t kMaNearestOffset = 0x22E4C;
+constexpr std::size_t kMaBearingOffset = 0x23F7C;
+constexpr std::size_t kBearingRowStride = 0x58;
+static_assert(kMaListTeamStride == kRowTeamStride, "the list blocks are the sorted blocks");
+
+uint8_t* EntryAt(uint8_t* block, int team, int rank) {
+  return block + kRowTeamStride * static_cast<std::size_t>(team) + 8u * static_cast<std::size_t>(rank);
+}
+
+}  // namespace
 
 void SortedRow::Clear() {
-  count_.fill(0);
-  rank_.fill(-1);
+  if (block_ == nullptr) return;
+  std::memset(block_, kRowUnlisted, kRowBytes);
+  block_[kRowCountOffset] = block_[kRowCountOffset + 1] = 0;
 }
 
 void SortedRow::Add(int id, float value) {
   const int team = TeamOf(id);
-  entry_[team][count_[team]++] = RowEntry{id, value};
+  const uint8_t rank = block_[kRowCountOffset + team]++;
+  uint8_t* entry = EntryAt(block_, team, rank);
+  const uint32_t slot = static_cast<uint32_t>(id);
+  std::memcpy(entry, &slot, 4);
+  std::memcpy(entry + 4, &value, 4);
+}
+
+RowEntry SortedRow::Entry(int side, int rank) const {
+  RowEntry e;
+  uint32_t slot;
+  const uint8_t* entry = EntryAt(block_, side, rank);
+  std::memcpy(&slot, entry, 4);
+  std::memcpy(&e.value, entry + 4, 4);
+  e.id = static_cast<int>(slot);
+  return e;
 }
 
 void SortedRow::Seal() {
   for (int team = 0; team < 2; ++team) {
-    auto first = entry_[team].begin();
-    auto last = first + count_[team];
+    const int count = block_[kRowCountOffset + team];
+    RowEntry listed[lane::kSideSize];
+    for (int r = 0; r < count; ++r) listed[r] = Entry(team, r);
     // A stable sort keeps the lower slot first on a tie.
-    std::stable_sort(first, last,
-                     [](const RowEntry& a, const RowEntry& b) { return a.value < b.value; });
-    for (int r = 0; r < count_[team]; ++r) rank_[entry_[team][r].id] = r;
+    std::stable_sort(listed, listed + count, [](const RowEntry& a, const RowEntry& b) { return a.value < b.value; });
+    for (int r = 0; r < count; ++r) {
+      uint8_t* entry = EntryAt(block_, team, r);
+      const uint32_t slot = static_cast<uint32_t>(listed[r].id);
+      std::memcpy(entry, &slot, 4);
+      std::memcpy(entry + 4, &listed[r].value, 4);
+      block_[kRowRankOffset + listed[r].id] = static_cast<uint8_t>(r);
+    }
   }
 }
 
 float SortedRow::ValueOf(int id) const {
-  if (id < 0 || id >= lane::kSlots || rank_[id] < 0)
-    return std::numeric_limits<float>::quiet_NaN();
-  return entry_[TeamOf(id)][rank_[id]].value;
+  const int rank = RankOf(id);
+  if (rank < 0) return std::numeric_limits<float>::quiet_NaN();
+  return Entry(TeamOf(id), rank).value;
 }
 
 int SortedRow::RankOf(int id) const {
-  if (id < 0 || id >= lane::kSlots) return -1;
-  return rank_[id];
+  if (block_ == nullptr || id < 0 || id >= lane::kSlots) return -1;
+  const uint8_t rank = block_[kRowRankOffset + id];
+  return rank == kRowUnlisted ? -1 : rank;
 }
 
-int SortedRow::Nearest(int side) const {
-  return count_[side] > 0 ? entry_[side][0].id : lane::kNoSlot;
+int SortedRow::Nearest(int side) const { return Count(side) > 0 ? Entry(side, 0).id : lane::kNoSlot; }
+
+float FloatRow::operator[](int i) const {
+  float v;
+  std::memcpy(&v, p_ + 4 * i, 4);
+  return v;
+}
+
+void FloatRow::Set(int i, float v) const { std::memcpy(p_ + 4 * i, &v, 4); }
+
+void FloatRow::Fill(float v) const {
+  for (int i = 0; i < lane::kSlots; ++i) Set(i, v);
+}
+
+ScoreRows::ScoreRows() : scratch_(kMaBytes, 0) { Bind(scratch_.data()); }
+
+void ScoreRows::Bind(uint8_t* ma) {
+  for (int side = 0; side < 2; ++side) {
+    score[side] = SortedRow(ma + kMaScoreOffset[side]);
+    list[side] = SortedRow(ma + kMaListOffset[side]);
+    pair[side] = SortedRow(ma + kMaPairOffset[side]);
+    angle[side] = FloatRow(ma + kMaAngleOffset[side]);
+  }
+  for (int i = 0; i < lane::kSlots; ++i) {
+    nearest[i] = SortedRow(ma + kMaNearestOffset + kRowBytes * static_cast<std::size_t>(i));
+    bearing[i] = FloatRow(ma + kMaBearingOffset + kBearingRowStride * static_cast<std::size_t>(i));
+  }
+  if (ma == bound_) return;
+  bound_ = ma;
+  for (SortedRow& row : score) row.Clear();
+  for (SortedRow& row : list) row.Clear();
+  for (SortedRow& row : pair) row.Clear();
+  for (SortedRow& row : nearest) row.Clear();
 }
 
 void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mask, ScoreRows& rows, bool pesPath,
@@ -74,7 +145,7 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
     SortedRow& list = rows.list[side];
     score.Clear();
     list.Clear();
-    rows.angle[side].fill(0.0f);
+    rows.angle[side].Fill(0.0f);
     for (int i = 0; i < lane::kSlots; ++i) {
       if (!p[i].onPitch) continue;
       const float dx = centre - p[i].x;
@@ -82,7 +153,7 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
       list.Add(i, std::fabs(dx));
       // A slot exactly on the goal centre has bearing 0 (the writer's zero case).
       if (!(p[i].z == 0.0f && p[i].x == centre))
-        rows.angle[side][i] = world.BearingOfPoints(centre, 0.0f, p[i].x, p[i].z);
+        rows.angle[side].Set(i, world.BearingOfPoints(centre, 0.0f, p[i].x, p[i].z));
     }
     score.Seal();
     list.Seal();
@@ -107,7 +178,7 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
   // exactly: off the PES path the table stays zero, while the NearestList
   // below still rebuilds (GF's own readers use it).
   if (pesPath) {
-    for (auto& row : rows.bearing) row.fill(0.0f);
+    for (const FloatRow& row : rows.bearing) row.Fill(0.0f);
     for (int a = 0; a < lane::kSlots; ++a) {
       if (!p[a].onPitch) continue;
       for (int b = 0; b < lane::kSlots; ++b) {
@@ -115,7 +186,7 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
         const float dx = p[a].x - p[b].x;
         const float dz = p[a].z - p[b].z;
         if (dx == 0.0f && dz == 0.0f) continue;  // coincident: the row stays 0
-        rows.bearing[a][b] = world.Bearing(p[b].man, p[a].man);
+        rows.bearing[a].Set(b, world.Bearing(p[b].man, p[a].man));
       }
     }
   }

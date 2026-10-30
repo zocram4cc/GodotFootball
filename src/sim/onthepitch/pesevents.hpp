@@ -192,16 +192,58 @@ struct EventKindBlock {
   int Push(const EventRecord& rec);
 };
 
-// The store `E`. The rings, the overflow ring, the newest-event copy, the
-// per-kind blocks and the write log, in E's own offsets.
+// E's byte layout, PES's own offsets (the header comment above; the ring and kind-block strides are the structs' own
+// sizes). The kind-block run ends where the write log begins: PES's 55 blocks (K = 0..54) fill E+0x1c258..E+0x26ff0, so a
+// block for kind 55 (the 0x37 empty sentinel) would be the log.
+inline constexpr size_t kEventOverflowOffset = 0xFA50;
+inline constexpr size_t kEventKindBlocksOffset = 0x1C258;
+inline constexpr size_t kEventLogOffset = 0x26FF0;
+inline constexpr size_t kEventNewestOffset = 0x180698;        // payload+0 of the newest kind-7 event
+inline constexpr size_t kEventNewestSecondOffset = 0x1806FC;  // payload+0 of the valid-key copy
+inline constexpr size_t kEventPayloadOffset = 0x14;           // a record's payload starts here
+inline constexpr size_t kEventNewestBytes = 0x60;
+inline constexpr size_t kEventStoreBytes = 0x180760;          // past the second copy
+
+// The store E as bytes: the rings, the overflow ring, the per-kind blocks, the write log, and the two newest-event payload
+// copies, each at its PES offset. GF's two presence flags are the only bytes PES does not have: PES reads the copies with no
+// empty test, GF's readers answer null until the first kind-7 route.
+struct EventStoreImage {
+  static constexpr size_t kRingCount = 10;
+  static constexpr size_t kKindBlockCount = 55;
+  EventStoreImage();
+
+  std::array<EventRing8, kRingCount> rings{};                          // E + r*0x1908; the ring run ends at 0xfa50
+  EventRing10 overflow{};                                              // E+0xfa50
+  std::array<EventKindBlock, kKindBlockCount> kindBlocks{};            // E + 0x1c258 + K*0x328
+  EventLog log{};                                                      // E+0x26ff0
+  // E+0x271f8 .. E+0x180684: the rest of PES's store, none of it read or written here. The newest-event copies follow: the
+  // 0x14 bytes before the first payload hold an empty record's header (what a record view over the copy reads); the second
+  // copy's record view reads the first copy's tail for its header, and no consumer reads a header.
+  std::array<uint8_t, kEventNewestOffset - kEventPayloadOffset - kEventLogOffset - sizeof(EventLog)> reserved_b{};
+  std::array<uint8_t, kEventPayloadOffset> newestHeader{};
+  std::array<uint8_t, kEventNewestSecondOffset - kEventNewestOffset> newest{};  // E+0x180698
+  std::array<uint8_t, kEventNewestBytes + 4> newestSecond{};                     // E+0x1806fc
+  bool gfHasNewest = false;        // the newest copy has been written at least once
+  bool gfHasNewestSecond = false;  // ... and so has the valid-key second copy
+};
+static_assert(offsetof(EventStoreImage, overflow) == kEventOverflowOffset);
+static_assert(offsetof(EventStoreImage, kindBlocks) == kEventKindBlocksOffset);
+static_assert(offsetof(EventStoreImage, log) == kEventLogOffset);
+static_assert(offsetof(EventStoreImage, newest) == kEventNewestOffset);
+static_assert(offsetof(EventStoreImage, newestSecond) == kEventNewestSecondOffset);
+
+// The store `E`: a view over an EventStoreImage (the world window's event region, pesworldrecord.hpp). It holds no state
+// of its own; every method reads and writes the image.
 class EventStore {
  public:
-  static constexpr size_t kRingCount = 10;
-  static constexpr size_t kKindBlockCount = 56;
+  static constexpr size_t kRingCount = EventStoreImage::kRingCount;
+  static constexpr size_t kKindBlockCount = EventStoreImage::kKindBlockCount;
   // FUN_140a3dc40's kind-7 newest copy: 0x60 bytes of the payload at
   // E+0x180698, plus a second copy at E+0x1806fc written only when the key at
   // rec+0x18 is valid (FUN_140a60530), which FUN_140a3e880 (E+0x180700) reads.
-  static constexpr size_t kNewestBytes = 0x60;
+  static constexpr size_t kNewestBytes = kEventNewestBytes;
+
+  explicit EventStore(EventStoreImage& image) : img_(&image) {}
 
   void Reset();
 
@@ -211,25 +253,23 @@ class EventStore {
   void Route(const EventRingTable& table, const EventRecord& rec);
 
   // The rings, indexed by ring number (0..9).
-  EventRing8& Ring(int r) { return rings_[static_cast<size_t>(r)]; }
-  const EventRing8& Ring(int r) const { return rings_[static_cast<size_t>(r)]; }
-  EventRing10& OverflowRing() { return overflow_; }
-  const EventRing10& OverflowRing() const { return overflow_; }
+  EventRing8& Ring(int r) { return img_->rings[static_cast<size_t>(r)]; }
+  const EventRing8& Ring(int r) const { return img_->rings[static_cast<size_t>(r)]; }
+  EventRing10& OverflowRing() { return img_->overflow; }
+  const EventRing10& OverflowRing() const { return img_->overflow; }
 
-  EventLog& Log() { return log_; }
-  const EventLog& Log() const { return log_; }
-  EventKindBlock& KindBlock(int k) { return kindBlocks_[static_cast<size_t>(k)]; }
-  const EventKindBlock& KindBlock(int k) const {
-    return kindBlocks_[static_cast<size_t>(k)];
-  }
+  EventLog& Log() { return img_->log; }
+  const EventLog& Log() const { return img_->log; }
+  EventKindBlock& KindBlock(int k) { return img_->kindBlocks[static_cast<size_t>(k)]; }
+  const EventKindBlock& KindBlock(int k) const { return img_->kindBlocks[static_cast<size_t>(k)]; }
 
-  // E+0x180698: the newest kind-7 record's payload. PES keeps 0x60 bytes of
-  // the payload there; the record's own words are the payload copy's.
-  const EventRecord& Newest() const { return newest_; }
+  // E+0x180698: the newest kind-7 record's payload. PES keeps 0x60 bytes of the payload there; the record view's own
+  // words are the header before the copy.
+  const EventRecord& Newest() const { return *RecordOf(img_->newest.data()); }
   // E+0x1806fc: the second copy, written only while the key at rec+0x18 is
   // valid, which FUN_140a3e880 (E+0x180700) reads as the newest event's other
   // key.
-  const EventRecord& NewestSecond() const { return newestSecond_; }
+  const EventRecord& NewestSecond() const { return *RecordOf(img_->newestSecond.data()); }
 
   // FUN_140a3e190: n == 0 is the newest event, n >= 1 walks ring 0 from its
   // head. Null is PES's empty sentinel (an out-of-range n, or a slot whose
@@ -254,14 +294,12 @@ class EventStore {
   ActorKey NewestSecondKey() const;
 
  private:
-  std::array<EventRing8, kRingCount> rings_{};
-  EventRing10 overflow_{};
-  EventLog log_{};
-  std::array<EventKindBlock, kKindBlockCount> kindBlocks_{};
-  EventRecord newest_{};
-  EventRecord newestSecond_{};
-  bool hasNewest_ = false;       // the newest copy has been written at least once
-  bool hasNewestSecond_ = false;  // ... and so has the valid-key second copy
+  // A record view whose payload (+0x14) is the copy at `payload`: PES's readers return the payload pointer, GF's consumers
+  // take a record and add 0x14. Only the payload bytes are PES's; the 0x14 before them are the image's own empty header.
+  static const EventRecord* RecordOf(const uint8_t* payload) {
+    return reinterpret_cast<const EventRecord*>(payload - kEventPayloadOffset);
+  }
+  EventStoreImage* img_;
 };
 
 // FUN_140a62ea0 with FUN_140a3b320: the player id a {team, slot} key names,

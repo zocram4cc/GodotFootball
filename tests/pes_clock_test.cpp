@@ -113,11 +113,13 @@ TEST(PesMatchSpeed, TheStampMovesOneHundredOverTheMatchMinutesPerFrame) {
   const pes::PesClockConstants c = FakeConstants();
   // A6Writers 6: 90 * E60 * E5C * (60 / 54) / E58. At E58 = 10, the live match, that is 10 a frame.
   EXPECT_FLOAT_EQ(pes::PesUnitsPerFrame(c, 10.0f), 10.0f);
-  pes::PesClock clock(c, 10.0f);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(c, 10.0f, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(1);
   EXPECT_FLOAT_EQ(clock.PeriodClock(), 10.0f);
-  pes::PesClock fast(c, 5.0f);
+  pes::PeriodRecord fastRecord;
+  pes::PesClock fast(c, 5.0f, fastRecord);
   fast.SetPhase(e_MatchPhase_1stHalf);
   fast.Advance(1);
   EXPECT_FLOAT_EQ(fast.PeriodClock(), 20.0f) << "a shorter match moves the clock faster";
@@ -128,7 +130,8 @@ TEST(PesMatchSpeed, TheStampMovesOneHundredOverTheMatchMinutesPerFrame) {
 TEST(PesClock, AStoppageHoldsTheStampAndAddsHalfAUnitPerFrame) {
   const pes::PesClockConstants c = FakeConstants();
   for (float minutes : {5.0f, 10.0f}) {
-    pes::PesClock clock(c, minutes);
+    pes::PeriodRecord periodRecord;
+    pes::PesClock clock(c, minutes, periodRecord);
     clock.SetPhase(e_MatchPhase_1stHalf);
     clock.Advance(100);
     const float stamp = pes::PeriodStamp(clock.Record());
@@ -144,7 +147,8 @@ TEST(PesClock, AStoppageHoldsTheStampAndAddsHalfAUnitPerFrame) {
 TEST(PesClock, StoppageTimeCountsTowardsTheTimeUp) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(Frames(2699));
   clock.SetFrozen(true);
@@ -159,7 +163,8 @@ TEST(PesClock, StoppageTimeCountsTowardsTheTimeUp) {
 TEST(PesPeriod, EachPhaseIsItsOwnPESPeriod) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   EXPECT_EQ(clock.Record().period, 1u);
   clock.SetPhase(e_MatchPhase_2ndHalf);
@@ -175,7 +180,8 @@ TEST(PesPeriod, EachPhaseIsItsOwnPESPeriod) {
 TEST(PesPeriod, ANewPeriodStartsAFreshRecord) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(Frames(500));
   clock.SetFrozen(true);
@@ -194,7 +200,8 @@ TEST(PesTimeUp, GateOpensExactlyAtTheHalfLength) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
   EXPECT_FLOAT_EQ(c->timeUpBase, 162000.0f) << "45 game-minutes at 60 units a second";
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(Frames(2699));
   EXPECT_FALSE(clock.TimeUpGateOpen());
@@ -208,7 +215,8 @@ TEST(PesTimeUp, GateOpensExactlyAtTheHalfLength) {
 TEST(PesTimeUp, AddedMinutesHoldTheGateByWholeMinutes) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(Frames(2700));
   clock.AnnounceAddedTime(4);
@@ -227,7 +235,8 @@ TEST(PesTimeUp, AddedMinutesHoldTheGateByWholeMinutes) {
 TEST(PesTimeUp, AddedTimeIsAnnouncedOnce) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(Frames(2700));
   clock.AnnounceAddedTime(4);
@@ -242,7 +251,8 @@ TEST(PesTimeUp, ExtraTimePeriodsUseTheShorterLength) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
   EXPECT_FLOAT_EQ(c->timeUpFlag, 54000.0f);
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stExtraTime);
   clock.Advance(Frames(899));
   EXPECT_FALSE(clock.TimeUpGateOpen());
@@ -254,7 +264,8 @@ TEST(PesTimeUp, ExtraTimePeriodsUseTheShorterLength) {
 TEST(PesTimeUp, ThePenaltyShootoutHasNoTimeUp) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesClock clock(*c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(*c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_Penalties);
   clock.Advance(100000);
   EXPECT_FALSE(clock.TimeUpGateOpen());
@@ -549,7 +560,8 @@ TEST(PesTimeUpJudge, TheOutOfZonePatternNeedsTheBallInTheNearHalf) {
 
 TEST(PesClock, TheStoppageLimitTakesHalfAUnitPerFrameAndCapsAt21600) {
   const pes::PesClockConstants c = FakeConstants();
-  pes::PesClock clock(c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.SetFrozen(true);
   clock.AccrueStoppageLimit(1);
@@ -560,7 +572,8 @@ TEST(PesClock, TheStoppageLimitTakesHalfAUnitPerFrameAndCapsAt21600) {
 
 TEST(PesClock, TheStoppageLimitMovesOnlyWhileStoppedInAClockPeriod) {
   const pes::PesClockConstants c = FakeConstants();
-  pes::PesClock clock(c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.AccrueStoppageLimit(1);
   EXPECT_FLOAT_EQ(clock.Record().limit, 0.0f) << "in play it does not move";
@@ -574,7 +587,8 @@ TEST(PesClock, TheStoppageLimitMovesOnlyWhileStoppedInAClockPeriod) {
 TEST(PesTimeUp, AnAnnouncementAddsToTheStoppageAlreadyOnLimit) {
   pes::PesClockConstants c = FakeConstants();
   c.minuteUnits = 3600.0f;
-  pes::PesClock clock(c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.SetFrozen(true);
   clock.AccrueStoppageLimit(1);
@@ -609,7 +623,8 @@ TEST(PesClockInstall, ConstantsComeFromTheExe) {
 TEST(PesPeriodWhistle, TheHalfTimeWhistleHandsOverToTheBreakWhateverTheScore) {
   const pes::PesClockConstants c = FakeConstants();
   for (bool level : {false, true}) {
-    pes::PesClock clock(c, kMatchMinutes);
+    pes::PeriodRecord periodRecord;
+    pes::PesClock clock(c, kMatchMinutes, periodRecord);
     clock.SetPhase(e_MatchPhase_1stHalf);
     clock.EndPeriod(level);
     EXPECT_EQ(clock.Record().period, 2u) << "level " << level;
@@ -618,11 +633,13 @@ TEST(PesPeriodWhistle, TheHalfTimeWhistleHandsOverToTheBreakWhateverTheScore) {
 
 TEST(PesPeriodWhistle, ATiedSecondHalfHandsOverToTheExtraTimeBreakAndAnUntiedOneToFullTime) {
   const pes::PesClockConstants c = FakeConstants();
-  pes::PesClock tied(c, kMatchMinutes);
+  pes::PeriodRecord tiedRecord;
+  pes::PesClock tied(c, kMatchMinutes, tiedRecord);
   tied.SetPhase(e_MatchPhase_2ndHalf);
   tied.EndPeriod(true);
   EXPECT_EQ(tied.Record().period, 4u);
-  pes::PesClock untied(c, kMatchMinutes);
+  pes::PeriodRecord untiedRecord;
+  pes::PesClock untied(c, kMatchMinutes, untiedRecord);
   untied.SetPhase(e_MatchPhase_2ndHalf);
   untied.EndPeriod(false);
   EXPECT_EQ(untied.Record().period, 10u);
@@ -630,11 +647,13 @@ TEST(PesPeriodWhistle, ATiedSecondHalfHandsOverToTheExtraTimeBreakAndAnUntiedOne
 
 TEST(PesPeriodWhistle, ATiedSecondExtraTimeHandsOverToTheShootOutBreakAndAnUntiedOneToFullTime) {
   const pes::PesClockConstants c = FakeConstants();
-  pes::PesClock tied(c, kMatchMinutes);
+  pes::PeriodRecord tiedRecord;
+  pes::PesClock tied(c, kMatchMinutes, tiedRecord);
   tied.SetPhase(e_MatchPhase_2ndExtraTime);
   tied.EndPeriod(true);
   EXPECT_EQ(tied.Record().period, 8u);
-  pes::PesClock untied(c, kMatchMinutes);
+  pes::PeriodRecord untiedRecord;
+  pes::PesClock untied(c, kMatchMinutes, untiedRecord);
   untied.SetPhase(e_MatchPhase_2ndExtraTime);
   untied.EndPeriod(false);
   EXPECT_EQ(untied.Record().period, 10u);
@@ -643,7 +662,8 @@ TEST(PesPeriodWhistle, ATiedSecondExtraTimeHandsOverToTheShootOutBreakAndAnUntie
 TEST(PesPeriodWhistle, TheExtraTimeFirstHalfHandsOverToItsBreakWhateverTheScore) {
   const pes::PesClockConstants c = FakeConstants();
   for (bool level : {false, true}) {
-    pes::PesClock clock(c, kMatchMinutes);
+    pes::PeriodRecord periodRecord;
+    pes::PesClock clock(c, kMatchMinutes, periodRecord);
     clock.SetPhase(e_MatchPhase_1stExtraTime);
     clock.EndPeriod(level);
     EXPECT_EQ(clock.Record().period, 6u) << "level " << level;
@@ -653,7 +673,8 @@ TEST(PesPeriodWhistle, TheExtraTimeFirstHalfHandsOverToItsBreakWhateverTheScore)
 // A level match, whistle by whistle: the phase change starts each period after its break.
 TEST(PesPeriodWhistle, ALevelMatchRunsThroughEveryBreak) {
   const pes::PesClockConstants c = FakeConstants();
-  pes::PesClock clock(c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.EndPeriod(true);
   EXPECT_EQ(clock.Record().period, 2u);
@@ -676,7 +697,8 @@ TEST(PesPeriodWhistle, ALevelMatchRunsThroughEveryBreak) {
 // PES's break has no clock: its stamp, F and LIMIT hold, and it is never past its length.
 TEST(PesBreak, ABreakHasNoClock) {
   const pes::PesClockConstants c = FakeConstants();
-  pes::PesClock clock(c, kMatchMinutes);
+  pes::PeriodRecord periodRecord;
+  pes::PesClock clock(c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(Frames(100));
   const float stamp = clock.PeriodClock();

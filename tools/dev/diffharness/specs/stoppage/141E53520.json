@@ -1,0 +1,53 @@
+{
+ "name": "impure_141E53520",
+ "va": "0x141E53520",
+ "entry": "0x141E53520",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (rules.closure_fix): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {},
+ "args": {},
+ "regions_init": {},
+ "patch_addrs": {},
+ "inputs": {},
+ "input_schema": {},
+ "outputs": {
+  "ret_eax": {
+   "reg": "eax"
+  }
+ },
+ "ret_note": "eax (integer/bool return; upper bits unchecked)",
+ "seed": 1009,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [],
+  "unresolved_mem": 0,
+  "live_data_reads": [],
+  "live_data_writes": [],
+  "rdata_constant_reads": [],
+  "stack_args": {},
+  "calls": [],
+  "flags": [],
+  "stub_refs": []
+ },
+ "stub_refs": [],
+ "harness": {
+  "harness_class": "runnable (closure real)",
+  "blockers": [],
+  "out_of_set_callees": [],
+  "indirect_sites": [],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 0,
+  "accessor_slots": 0,
+  "rule": "rules.closure_fix: child links + accessor layout from image bytes"
+ }
+}
