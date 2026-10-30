@@ -12,8 +12,8 @@ its behaviour is proven only through their diffs.
 Output:
   <root>/<subsystem>/pes_fn_<VA>.cpp   recorded functions, one per file
   <root>/closure/pes_fn_<VA>.cpp       callee closure members
-  <root>/translated.hpp                declarations of every committed function
-  <root>/pes_dispatch_gen.hpp          indirect-call table over the same set
+  <root>/translated.hpp                declarations of every committed function (for GF-side callers only)
+  <root>/pes_dispatch_gen.cpp          indirect-call table over the same set (the one TU naming every function)
 
 Usage:
   gen_translated.py --image IMG [--root DIR]     regenerate the layer
@@ -207,7 +207,7 @@ def layer_files(members):
             "#pragma once",
             "struct PesState;"]
     files["translated.hpp"] = "\n".join(head + ["void pes_fn_%s(PesState& s);" % va[2:] for va in vas]) + "\n"
-    files["pes_dispatch_gen.hpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
+    files["pes_dispatch_gen.cpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
     return files
 
 
