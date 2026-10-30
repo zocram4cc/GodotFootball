@@ -1,0 +1,21 @@
+{
+ "note": "snapshot-backed diff of a synthetic call (snapdiff.py): the goal cut-list builder 0x140477BC0(A0, &std::vector<u32>, ctx) over the full snapshot of captured goal A's anchor call (A0 = rcx and ctx = rdx of the anchor call; A0's generator state at A0+0x114 rewound two draws of 0x140A92530, the state the builder started from; built by tools/dev/cutscene/goal_event_calls.py), on the harness (PES's bytes) and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 1,
+ "captures": "live2/pid2621613 (calc seq1532 regs, seq1531 memory); replayed with snapdiff.py --hooks hooks.cfg --spec-dir specs/core over goal_event_calls.py's cutlist call; snapcase.py reads return-address slots as 0 for non-RET reads and maps a page-end instruction's bytes (pes-port-CutAnchor6.md)",
+ "results": [
+  {
+   "va": "0x140477BC0",
+   "calls": 1,
+   "replayed": 1,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {"seq1532_pid2621613": {"calls": 1, "replayed": 1}},
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {"fraction": 0.5, "reached": 53, "total": 106},
+   "proven": true,
+   "blocked_callees": []
+  }
+ ]
+}

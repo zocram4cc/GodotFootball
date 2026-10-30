@@ -98662,6 +98662,25 @@
    "stubs": [],
    "translated": true,
    "va": "0x140474CF0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {"0x140477BC0": {"fraction": 0.5, "reached": 53, "total": 106}},
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 128,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: 1 synthetic call from goal A's full snapshot replayed bit-exact (pes-port-CutAnchor6.md); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 64,
+   "snapdiff": {"calls": 1, "mismatches": 0, "own_block": {"fraction": 0.5, "reached": 53, "total": 106}, "replayed": 1, "source": "tools/dev/translate/results_snapdiff_cutanchor6.json"},
+   "stubs": [],
+   "translated": true,
+   "va": "0x140477BC0"
   }
  ]
 }
