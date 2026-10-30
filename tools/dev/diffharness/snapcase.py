@@ -156,14 +156,29 @@ class Replayer:
         uc._ret_slot_reads = 0
         uc.hook_add(UC_HOOK_MEM_READ, self._on_read)
 
+    def _insn(self, u):
+        """The instruction just executed at the last RIP. 16 bytes are read; when the next page is not mapped yet (an
+        instruction ending at a page end, 0x141F50FF3's CALL) the bytes to the page end hold all of it."""
+        va = u._last_rip
+        try:
+            code = bytes(u.mem_read(va, 16))
+        except Exception:
+            code = bytes(u.mem_read(va, PAGE - (va & (PAGE - 1))))
+        return next(self.md.disasm(code, va), None)
+
     def _on_read(self, u, access, addr, size, value, data):
-        """A read of a return-address slot the translation does not push (normalised above). The only
-        legitimate read is the callee's own RET; any other is a function reading its return address,
-        which the normalisation could hide. Counted in the case (retread)."""
-        if addr in u._call_slots:
-            ins = next(self.md.disasm(bytes(u.mem_read(u._last_rip, 16)), u._last_rip), None)
-            if ins is None or ins.mnemonic != "ret":
+        """A read of a return-address slot the translation does not push (normalised below). The only legitimate read is
+        the callee's own RET, which gets the real address; any other read (a function reading a dead slot, as 0x141F5D770
+        reads its caller's home slot at [rsp+0x78]: 0x140477BC0's replay) gets the 0 the translation pushed there, so a
+        stale return address cannot reach a dead stack byte on one side only. Counted in the case (retread)."""
+        base = addr & ~7
+        if base in u._call_slots:
+            ins = self._insn(u)
+            if ins is not None and ins.mnemonic == "ret":
+                u.mem_write(base, u._call_real[base])
+            else:
                 u._ret_slot_reads += 1
+                u.mem_write(base, bytes(8))
 
     def _on_write(self, u, access, addr, size, value, data):
         """A written byte run. The translator's CALL does not push the return address: a call to a
@@ -172,13 +187,14 @@ class Replayer:
         translation does it: dropped for a stub, 0 otherwise. Counted in uc._call_pushes."""
         v = value & ((1 << (8 * size)) - 1)
         if size == 8 and addr == u.reg_read(self._rsp) - 8:
-            ins = next(self.md.disasm(bytes(u.mem_read(u._last_rip, 16)), u._last_rip), None)
+            ins = self._insn(u)
             if ins is not None and ins.mnemonic == "call":
                 if ins.operands and ins.operands[0].type == 2 and ins.operands[0].imm in self.stub_vas:
                     return
                 v = 0
                 u._call_pushes += 1
                 u._call_slots.add(addr)
+                u._call_real[addr] = struct.pack("<Q", value & (2 ** 64 - 1))
         u._writes.append((addr, size, v))
 
     def run(self, rec, pages):
@@ -197,7 +213,7 @@ class Replayer:
         for k in lazy.import_calls:
             lazy.import_calls[k] = 0
         uc._writes, uc._addrs, uc._trace, uc._prev = [], set(), {}, [None, 0]
-        uc._call_slots, uc._ret_slot_reads = set(), 0
+        uc._call_slots, uc._call_real, uc._ret_slot_reads = set(), {}, 0
         uc._bad, uc._last_rip = None, 0
         uc._pcs = []
         gpr = dict(zip(GPR_NAMES, rec[:16]))
