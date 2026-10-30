@@ -37,11 +37,23 @@ constexpr uint64_t kCtxGoalDiff = 0x5160, kCtxCompetitionRaw = 0x5170, kCtxParen
                    kCtxEventSlot = 0x5218, kCtxMode = 0x5228;
 constexpr uint32_t kModeMatch = 2;  // 0x141F514D0: ctx+0x5228 = 2 selects the match RNG
 
-// The DB: per category {start,count} u16 pairs at DB+cat*0x20+0x168, count at +0x178, the 0x78-byte rows at +0x180.
+// The DB holds two arrays per category, each {groups pointer, group count at +0x10, rows pointer at +0x18} at a 0x20 stride:
+// the cut library (0x78-byte variant rows, at DB+0x168; the matcher's) and the scene table (0x38-byte step rows, at DB+8;
+// 0x140A7C800's flag test and the list expansion 0x141F616F0's), pes-re-cutscenes.md section 2.2.
 constexpr uint64_t kDbBytes = 0x460;  // 0x140A7CC00 allocates the singleton with this size
 constexpr uint64_t kDbCategoryStride = 0x20, kDbGroupsOff = 0x168, kDbGroupCountOff = 0x178, kDbRowsOff = 0x180;
-constexpr uint64_t kRowBytes = 0x78;  // key u16[10] at +0, then the fdc strings and b0/f/b1 (not read by the matcher)
+constexpr uint64_t kDbSceneTableOff = 8;
+constexpr uint64_t kRowBytes = 0x78;  // key u16[10] at +0, then the fdc strings and b0/f/b1 (+0x68/+0x6C/+0x70)
+constexpr uint64_t kRowB0 = 0x68, kRowF = 0x6C, kRowB1 = 0x70;
 constexpr unsigned kKeyColumns = 10;
+// A scene-table step row (0x141F616F0's reads): kind u8 +0, fade f32 +4, cut u32 +8, flags u32 +0xC, c0 u8 +0x10, c1 u8 +0x11,
+// w0 u16 +0x12, w1 i16 +0x14, ten {u8,u8,u8} from +0x16, w2 i16 +0x34.
+constexpr uint64_t kStepBytes = 0x38, kStepFade = 4, kStepCut = 8, kStepFlags = 0xC, kStepC0 = 0x10, kStepC1 = 0x11,
+                   kStepW0 = 0x12, kStepW1 = 0x14, kStepTrip = 0x16, kStepW2 = 0x34;
+constexpr unsigned kStepTrips = 10;
+// The pick cache: a std::map<u32 cut id, u32 row> at ctx+0x30 (head node pointer, size), nodes keyed at +0x1C, valued at +0x20.
+constexpr uint64_t kCtxPickMap = 0x30, kMapNodeBytes = 0x30, kMapNodeKey = 0x1C, kMapNodeValue = 0x20;
+constexpr uint64_t kMapTagVa = 0x142BA554B;  // the length-error text 0x141F4FDA0 passes to the node allocator
 
 // ponytail: the setter 0x141F51630 reads these from the match setup and the environment record (world+0x35960+0x70), none
 // of which GF has. The values are what PES's own exhibition match holds at an event (live captures pid1792161 seq16360 and
@@ -67,17 +79,27 @@ constexpr uint64_t kImageTablesVa = 0x141F4F900, kImageTablesBytes = 0x1200;
 constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldSlotPageVa = 0x1436F3000, kWorldSlotPageBytes = 0x1000;
 constexpr uint64_t kFpsVa = 0x14351AE54;        // inside the environment globals segment
 constexpr uint64_t kFullTurnVa = 0x14259858C;   // 360.0f: the writer 0x14047D280's wrap constant (read from the install)
-// The table PES's math routines read through memory (0x140A92C80's sin/cos: the 513-entry quarter wave at 0x142655950, its
-// 512.0 scale at 0x1426550E8, and the atan polynomial's pi/4 at 0x142656158), as one run read from the install.
-constexpr uint64_t kMathTablesVa = 0x1426550E0, kMathTablesBytes = 0x1080;
-constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x40, kA0Bytes = 0x40;
+// The table PES's math routines read through memory (0x140A92530's 2^-31 scale at 0x1426550D8, 0x140A92C80's sin/cos: the
+// 513-entry quarter wave at 0x142655950, its 512.0 scale at 0x1426550E8, and the atan polynomial's pi/4 at 0x142656158), as
+// one run read from the install.
+constexpr uint64_t kMathTablesVa = 0x1426550D0, kMathTablesBytes = 0x1090;
+constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x40, kA0Bytes = 0x200;
 constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManTable = 0x1DD8, kWorldRunTable = 0x21E8;
 constexpr uint64_t kWorldTableStride = 0x28;
-constexpr unsigned kPitchSlots = 22;  // 2 sides * 11
+constexpr uint64_t kWorldTeamInfoTable = 0xA1 * kWorldTableStride, kWorldSquadTable = 0xA3 * kWorldTableStride;
+constexpr unsigned kPitchSlots = 22, kSideSlots = 11;  // 2 sides * 11
+constexpr uint64_t kSquadBytes = 0x30, kTeamInfoBytes = 0x300, kTeamInfoAttackSign = 0x254;
+constexpr uint64_t kFieldInfoBytes = 18 * sizeof(float);
 constexpr uint64_t kMiSlotMode = 0x1588, kMiSlot = 0x1590;  // MI+0x1588 == 1: the scorer's slot is MI+0x1590 (0x140474F00)
+constexpr uint64_t kMiScorerSide = 0x15C8, kMiScorerPlace = 0x15CC;  // the pair 0x140A62EA0 maps to a slot (0x140476C50)
 constexpr uint64_t kManFacing = 0x554, kManPos = 0x55C, kManVel = 0x574, kManMoveMode = 0x5B0, kRunTarget = 0x18;
-constexpr uint64_t kA0SceneId = 8, kA0Radius = 0xC;
+constexpr uint64_t kA0SceneId = 8, kA0Radius = 0xC, kA0Target = 0x30, kA0Rng = 0x108, kA0RngState = 0x114;
+// The goal event record 0x140476C50 takes as its third argument: +0x18 points at the object holding each side's attack bearing.
+constexpr uint64_t kEventBytes = 0x100, kEventMatchRecord = 0x18, kMatchRecordBytes = 0x22900, kAttackBearingSide0 = 0x228D8,
+                   kAttackBearingSide1 = 0x228D4;
 constexpr uint64_t kAnchorOutVa = kScratchVa + 0x100, kAnchorOutRotY = 0x10;  // pos (3 f32) then rotY, inside the scratch segment
+constexpr uint64_t kVectorVa = kScratchVa + 0x200;  // the std::vector<u32> of cut ids 0x140474CF0 takes
+constexpr uint64_t kMapScratchVa = kScratchVa + 0x300;  // the node allocator's key pointer and result slots
 constexpr uint64_t kDbSceneRows = 0x448, kDbSceneRowsEnd = 0x450;  // a std::vector's begin/end: the goal scene rows (0x140A7CBA0)
 constexpr uint64_t kSceneRowBytes = 0x3C, kSceneRowFloats = 8, kSceneRowTail = 0x38;
 
@@ -88,10 +110,10 @@ struct FixDemoSelector::Impl {
   std::unique_ptr<PesHeap> heap = std::make_unique<PesHeap>();
   PesState s;
   uint64_t ctx = 0, db = 0;
-  uint64_t world = 0, matchInfo = 0, fieldInfo = 0, a0 = 0;
+  uint64_t world = 0, matchInfo = 0, fieldInfo = 0, a0 = 0, event = 0, matchRecord = 0;
   std::array<uint64_t, kPitchSlots> man{}, run{};
+  std::array<uint64_t, 2> squad{}, teamInfo{};  // per side: the squad key table and the team info (+0x254: attack sign)
   float fullTurnDeg = 0;
-  std::map<uint32_t, uint32_t> cache;  // cut id -> row
 
   Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables, float fullTurn)
       : tables(std::move(t)), fullTurnDeg(fullTurn) {
@@ -105,6 +127,7 @@ struct FixDemoSelector::Impl {
     s.gpr[4] = kStackVa + kStackBytes - 0x100;
     ctx = heap->Alloc(kCtxBytes, 0x10);
     s.wr(kFixDemoCtxSlotVa, ctx, 8);
+    InitPickMap();
     BuildDb();
     // Environment globals at their image values.
     s.wr(kG1sVa, kStandInFixtureWord, 2);
@@ -129,6 +152,18 @@ struct FixDemoSelector::Impl {
     s.wr(va, head, 8);
   }
 
+  // The pick cache is a std::map at ctx+0x30: a sentinel head (left = parent = right = self, black, isnil) and a size.
+  void InitPickMap() {
+    const uint64_t head = heap->Alloc(kMapNodeBytes, 0x10);
+    s.wr(head, head, 8);
+    s.wr(head + 8, head, 8);
+    s.wr(head + 0x10, head, 8);
+    s.wr(head + 0x18, 1, 1);
+    s.wr(head + 0x19, 1, 1);
+    s.wr(ctx + kCtxPickMap, head, 8);
+    s.wr(ctx + kCtxPickMap + 8, 0, 8);
+  }
+
   void BuildDb() {
     db = heap->Alloc(kDbBytes, 0x10);
     s.wr(kFixDemoDbSlotVa, db, 8);
@@ -143,14 +178,50 @@ struct FixDemoSelector::Impl {
         const FixDemoCutGroup& g = table.cutGroups[gi];
         s.wr(groups + gi * 4, g.firstRow, 2);
         s.wr(groups + gi * 4 + 2, g.rows.size(), 2);
-        for (size_t ri = 0; ri < g.rows.size(); ++ri)
-          for (size_t k = 0; k < kKeyColumns && k < g.rows[ri].keys.size(); ++k)
-            s.wr(rows + (g.firstRow + ri) * kRowBytes + k * 2, g.rows[ri].keys[k], 2);
+        for (size_t ri = 0; ri < g.rows.size(); ++ri) {
+          const uint64_t row = rows + (g.firstRow + ri) * kRowBytes;
+          for (size_t k = 0; k < kKeyColumns && k < g.rows[ri].keys.size(); ++k) s.wr(row + k * 2, g.rows[ri].keys[k], 2);
+          s.wr(row + kRowB0, g.rows[ri].b0, 4);
+          s.wrf(row + kRowF, g.rows[ri].f);
+          s.wr(row + kRowB1, g.rows[ri].b1, 4);
+        }
       }
       s.wr(base + kDbGroupsOff, groups, 8);
       s.wr(base + kDbGroupCountOff, table.cutGroups.size(), 4);
       s.wr(base + kDbRowsOff, rows, 8);
+      BuildSceneTable(db + kDbSceneTableOff + static_cast<uint64_t>(cat) * kDbCategoryStride, table);
     }
+  }
+
+  // The scene table (T2): a {start, count} group per scene into one array of step rows.
+  void BuildSceneTable(uint64_t base, const FixDemoTable& table) {
+    uint32_t stepCount = 0;
+    for (const FixDemoScene& scene : table.scenes) stepCount += static_cast<uint32_t>(scene.steps.size());
+    const uint64_t groups = heap->Alloc(std::max<size_t>(table.scenes.size(), 1) * 4, 0x10);
+    const uint64_t rows = Zalloc(std::max<uint32_t>(stepCount, 1) * kStepBytes);
+    uint32_t next = 0;
+    for (size_t si = 0; si < table.scenes.size(); ++si) {
+      const auto& steps = table.scenes[si].steps;
+      s.wr(groups + si * 4, next, 2);
+      s.wr(groups + si * 4 + 2, steps.size(), 2);
+      for (const FixDemoStep& step : steps) {
+        const uint64_t row = rows + next++ * kStepBytes;
+        s.wr(row, step.kind, 1);
+        s.wrf(row + kStepFade, step.fade);
+        s.wr(row + kStepCut, step.cut, 4);
+        s.wr(row + kStepFlags, step.flags, 4);
+        s.wr(row + kStepC0, step.c0, 1);
+        s.wr(row + kStepC1, step.c1, 1);
+        s.wr(row + kStepW0, step.w0, 2);
+        s.wr(row + kStepW1, static_cast<uint16_t>(step.w1), 2);
+        for (size_t k = 0; k < kStepTrips && k < step.trip.size(); ++k)
+          for (size_t b = 0; b < 3; ++b) s.wr(row + kStepTrip + 3 * k + b, step.trip[k][b], 1);
+        s.wr(row + kStepW2, static_cast<uint16_t>(step.w2), 2);
+      }
+    }
+    s.wr(base, groups, 8);
+    s.wr(base + 0x10, table.scenes.size(), 4);
+    s.wr(base + 0x18, rows, 8);
   }
 
   uint64_t Zalloc(uint64_t bytes) {
@@ -163,8 +234,11 @@ struct FixDemoSelector::Impl {
     world = Zalloc(kAnchorWorldBytes);
     s.wr(kWorldSlotVa, world, 8);
     matchInfo = Zalloc(kMatchInfoBytes);
-    fieldInfo = Zalloc(8);
+    fieldInfo = Zalloc(kFieldInfoBytes);
     a0 = Zalloc(kA0Bytes);
+    event = Zalloc(kEventBytes);
+    matchRecord = Zalloc(kMatchRecordBytes);
+    s.wr(event + kEventMatchRecord, matchRecord, 8);
     s.wr(world + kWorldMatchInfo, matchInfo, 8);
     s.wr(world + kWorldFieldInfo, fieldInfo, 8);
     for (unsigned slot = 0; slot < kPitchSlots; ++slot) {
@@ -172,6 +246,18 @@ struct FixDemoSelector::Impl {
       run[slot] = Zalloc(kRunBytes);
       s.wr(world + kWorldManTable + slot * kWorldTableStride, man[slot], 8);
       s.wr(world + kWorldRunTable + slot * kWorldTableStride, run[slot], 8);
+    }
+    // Per side: the squad table 0x140A62EA0 maps a squad key through (word 0 = the side, word 1+i = slot i's key) and the
+    // team info (G+(0xA1+side)*0x28; +0x254 = the attack sign 0x140476190 reads: 1 for side 0, 0xFF for side 1).
+    // GF keys its squad by the index on the pitch, so the key of slot i is i.
+    for (unsigned side = 0; side < 2; ++side) {
+      squad[side] = Zalloc(kSquadBytes);
+      teamInfo[side] = Zalloc(kTeamInfoBytes);
+      s.wr(squad[side], side, 4);
+      for (unsigned i = 0; i < kSideSlots; ++i) s.wr(squad[side] + 4 + 4 * i, i, 4);
+      s.wr(teamInfo[side] + kTeamInfoAttackSign, side == 0 ? 1 : 0xFF, 1);
+      s.wr(world + kWorldSquadTable + side * kWorldTableStride, squad[side], 8);
+      s.wr(world + kWorldTeamInfoTable + side * kWorldTableStride, teamInfo[side], 8);
     }
   }
 
@@ -191,16 +277,23 @@ struct FixDemoSelector::Impl {
     s.wr(db + kDbSceneRowsEnd, base + rows.size() * kSceneRowBytes, 8);
   }
 
+  // The goal's anchor and the two inputs PES computes for it before the anchor (the builder 0x140478190): the scene's run
+  // radius A0+0xC by 0x140474CF0, then the celebration spot A0+0x30 by 0x140476C50, which the scorer's run object keeps as
+  // his target; the scene anchor 0x140474F00 and the flip 0x140478FF0 follow, as the DemoInfo's first tick runs them.
   std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
     const auto goal = tables.find(kFixDemoGoal);
     const uint32_t index = (f.sceneId & 0xFFFF) - 1;
     if (goal == tables.end() || (f.sceneId >> 16) != static_cast<uint32_t>(kFixDemoGoal) ||
         index >= goal->second.goalSceneRows.size() || f.scorerSlot >= kPitchSlots)
       return std::nullopt;
+    const uint32_t side = f.scorerSlot / kSideSlots, place = f.scorerSlot % kSideSlots;
     s.wr(matchInfo + kMiSlotMode, 1, 4);
     s.wr(matchInfo + kMiSlot, f.scorerSlot, 4);
-    s.wrf(fieldInfo, f.halfLength);
-    s.wrf(fieldInfo + 4, f.halfWidth);
+    s.wr(matchInfo + kMiScorerSide, side, 4);
+    s.wr(matchInfo + kMiScorerPlace, place, 4);
+    for (size_t k = 0; k < f.field.size(); ++k) s.wrf(fieldInfo + 4 * k, f.field[k]);
+    s.wrf(matchRecord + kAttackBearingSide0, f.attackDeg[0]);
+    s.wrf(matchRecord + kAttackBearingSide1, f.attackDeg[1]);
     s.wrf(kFpsVa, f.fps);
     const uint64_t m = man[f.scorerSlot], r = run[f.scorerSlot];
     s.wrf(m + kManFacing, f.facing);
@@ -208,17 +301,45 @@ struct FixDemoSelector::Impl {
     for (unsigned i = 0; i < 3; ++i) {
       s.wrf(m + kManPos + 4 * i, f.pos[i]);
       s.wrf(m + kManVel + 4 * i, f.vel[i]);
-      s.wrf(r + kRunTarget + 4 * i, f.target[i]);
+      s.wrf(r + kRunTarget + 4 * i, 0.0f);  // the target is what 0x140476C50 is about to give him
     }
+    // A0: the DemoInfo's defaults (0x140478090), then the fields the builder sets before the calls.
+    for (uint64_t off = 0; off < kA0Bytes; off += 8) s.wr(a0 + off, 0, 8);
+    s.gpr[1] = a0;
+    Call(&pes_fn_140478090);
     s.wr(a0 + kA0SceneId, f.sceneId, 4);
-    s.wrf(a0 + kA0Radius, f.radius);
+    s.wr(a0 + kA0RngState, f.rngState, 4);
+    // 0x140474CF0(A0, std::vector<u32>* of the scenes): {begin, end, capacity} over the ids.
+    const uint64_t ids = Zalloc(std::max<size_t>(f.cuts.size(), 1) * 4);
+    for (size_t i = 0; i < f.cuts.size(); ++i) s.wr(ids + 4 * i, f.cuts[i], 4);
+    s.wr(kVectorVa, ids, 8);
+    s.wr(kVectorVa + 8, ids + 4 * f.cuts.size(), 8);
+    s.wr(kVectorVa + 0x10, ids + 4 * f.cuts.size(), 8);
+    s.gpr[1] = a0;
+    s.gpr[2] = kVectorVa;
+    Call(&pes_fn_140474CF0);
+    GoalAnchor out;
+    out.radius = ReturnedFloat();
+    heap->Free(ids);
+    s.wrf(a0 + kA0Radius, out.radius);
+    // 0x140476C50(A0, &out, event record, 0): the celebration spot.
+    s.gpr[1] = a0;
+    s.gpr[2] = kAnchorOutVa + 0x20;
+    s.gpr[8] = event;
+    s.gpr[9] = 0;
+    Call(&pes_fn_140476C50);
+    for (unsigned i = 0; i < 3; ++i) {
+      out.target[i] = s.rdf(kAnchorOutVa + 0x20 + 4 * i);
+      s.wrf(a0 + kA0Target + 4 * i, out.target[i]);
+      // ponytail: the writer of the run object's +0x18 is not decoded; it equals A0+0x30 on all 7 captured goals.
+      s.wrf(r + kRunTarget + 4 * i, out.target[i]);
+    }
     // 0x140474F00(A0, arg2 (not read), &pos, &rotY)
     s.gpr[1] = a0;
     s.gpr[2] = 0;
     s.gpr[8] = kAnchorOutVa;
     s.gpr[9] = kAnchorOutVa + kAnchorOutRotY;
     Call(&pes_fn_140474F00);
-    GoalAnchor out;
     for (unsigned i = 0; i < 3; ++i) out.pos[i] = s.rdf(kAnchorOutVa + 4 * i);
     float rot = s.rdf(kAnchorOutVa + kAnchorOutRotY);
     // The writer 0x14047D280 (kind-1 arm) wraps rotY once by [0x14259858C]: 0 <= r ? (r < t ? r : r - t) : r + t.
@@ -244,12 +365,11 @@ struct FixDemoSelector::Impl {
     s.gpr[4] += 8;
   }
 
-  // 0x141F4FDA0.
+  // 0x141F4FDA0: the variant row of a cut group, through PES's own wrapper (its pick cache is the std::map at ctx+0x30).
   std::optional<uint32_t> Pick(uint32_t cutId) {
-    if (const auto hit = cache.find(cutId); hit != cache.end()) return hit->second;
     const uint32_t category = (cutId >> 16) & 0xFF;
     const uint32_t group = (cutId & 0xFFFF) - 1;  // 0x141F4FDB0: movzx ebx, dx; dec ebx
-    // 0x140A7CB40(db, &rows, &count, category, group): rows pointer, count, and the group's start in rax.
+    // 0x140A7CB40(db, &rows, &count, category, group): the group's rows pointer (the wrapper returns row * 0x78 + rows).
     s.gpr[1] = db;
     s.gpr[2] = kOutRowsVa;
     s.gpr[8] = kOutCountVa;
@@ -257,22 +377,55 @@ struct FixDemoSelector::Impl {
     s.wr(s.gpr[4] + kShadowBytes, group, 4);
     Call(&pes_fn_140A7CB40);
     const uint64_t rows = s.rd(kOutRowsVa, 8);
-    const uint32_t count = static_cast<uint32_t>(s.rd(kOutCountVa, 4));
-    const uint32_t start = static_cast<uint16_t>(s.gpr[0]);
     if (rows == 0) return std::nullopt;
-    // 0x141F4B1D0(ctx, category, rows, count, history = 0x1437F5DC0 + category * 0x40, start).
     s.gpr[1] = ctx;
-    s.gpr[2] = category;
-    s.gpr[8] = rows;
-    s.gpr[9] = count;
-    s.wr(s.gpr[4] + kShadowBytes, kFixDemoHistoryVa + static_cast<uint64_t>(category) * 0x40, 8);
-    s.wr(s.gpr[4] + kShadowBytes + 8, start, 4);
-    Call(&pes_fn_141F4B1D0);
-    const uint32_t row = static_cast<uint32_t>(s.gpr[0]);
-    // ponytail: PES caches the pick in a std::map at ctx+0x30 (0x141056DF0 node alloc, 0x141056F40 insert; neither is in the
-    // committed layer). GF keeps the same cut-id -> row table beside the arena until the wrapper is translated.
-    cache.emplace(cutId, row);
-    return row;
+    s.gpr[2] = cutId;
+    Call(&pes_fn_141F4FDA0);
+    if (s.gpr[0] == 0) return std::nullopt;
+    return static_cast<uint32_t>((s.gpr[0] - rows) / kRowBytes);
+  }
+
+  // Inserts {cutId -> row} into the pick map the way 0x141F4FDA0 does (0x141F4FE87..0x141F4FEEB): find the lower bound, then
+  // the node allocator 0x141056DF0 and the tree insert 0x141056F40 with that bound as the hint, then the value at node+0x20.
+  void StorePick(uint32_t cutId, uint32_t row) {
+    const uint64_t map = ctx + kCtxPickMap, head = s.rd(map, 8);
+    uint64_t bound = head, node = s.rd(head + 8, 8);
+    while (s.rd(node + 0x19, 1) == 0) {
+      if (static_cast<uint32_t>(s.rd(node + kMapNodeKey, 4)) < cutId) {
+        node = s.rd(node + 0x10, 8);
+      } else {
+        bound = node;
+        node = s.rd(node, 8);
+      }
+    }
+    if (bound != head && cutId >= static_cast<uint32_t>(s.rd(bound + kMapNodeKey, 4))) {
+      s.wr(bound + kMapNodeValue, row, 4);  // already cached: PES keeps the node, here the test's pick wins
+      return;
+    }
+    const uint64_t keyVa = kMapScratchVa, keyPtrVa = kMapScratchVa + 8, outVa = kMapScratchVa + 0x10;
+    s.wr(keyVa, cutId, 4);
+    s.wr(keyPtrVa, keyVa, 8);
+    s.gpr[1] = map;
+    s.gpr[2] = kMapTagVa;
+    s.gpr[8] = keyPtrVa;
+    s.gpr[9] = outVa;
+    Call(&pes_fn_141056DF0);
+    const uint64_t fresh = s.gpr[0];
+    s.gpr[1] = map;
+    s.gpr[2] = outVa;
+    s.gpr[8] = bound;
+    s.gpr[9] = fresh + kMapNodeKey;
+    s.wr(s.gpr[4] + kShadowBytes, fresh, 8);
+    Call(&pes_fn_141056F40);
+    s.wr(s.rd(outVa, 8) + kMapNodeValue, row, 4);
+  }
+
+  // The float a function returns in xmm0.
+  float ReturnedFloat() const {
+    const uint32_t bits = static_cast<uint32_t>(s.xmm[0][0]);
+    float f;
+    std::memcpy(&f, &bits, sizeof f);
+    return f;
   }
 };
 
@@ -315,8 +468,10 @@ void FixDemoSelector::Seed(uint32_t sessionSeed, uint32_t matchSeed) {
 void FixDemoSelector::BeginEvent(const FixDemoFacts& f) {
   Impl& m = *impl_;
   PesState& s = m.s;
-  m.cache.clear();
   for (uint64_t off = 0; off < kCtxBytes; off += 8) s.wr(m.ctx + off, 0, 8);  // 0x141F50B90 resets; unread fields stay 0
+  // ponytail: the reset's map clear (0x141F50B90 frees the nodes) is not run: the old nodes stay in the arena, a few dozen
+  // bytes per picked cut and event, against 8 MiB; a long session that fills it needs the clear translated.
+  m.InitPickMap();
   const uint64_t c = m.ctx;
   s.wr(c + kCtxStadium, f.stadium, 4);
   s.wr(c + kCtxTimeOfDay, f.timeOfDay, 4);
@@ -345,6 +500,8 @@ void FixDemoSelector::BeginEvent(const FixDemoFacts& f) {
 }
 
 std::optional<uint32_t> FixDemoSelector::PickRow(uint32_t cutId) { return impl_->Pick(cutId); }
+
+void FixDemoSelector::RestorePick(uint32_t cutId, uint32_t row) { impl_->StorePick(cutId, row); }
 
 std::optional<FixDemoRequest> FixDemoSelector::Request(uint32_t sceneId) {
   Impl& m = *impl_;

@@ -63,26 +63,37 @@ struct FixDemoRequest {
   std::vector<FixDemoStepRequest> steps;  // up to the scene's terminating cut 0
 };
 
-// What GF knows about a goal, in PES's units and axes (PES x, y up, z): the inputs of the scene anchor 0x140474F00 (the
-// placement of the scorer's celebration camera) as it reads them, with the PES site of each.
+// What GF knows about a goal, in PES's units and axes (PES x, y up, z): the inputs of the goal's event position
+// (0x140476C50), run radius (0x140474CF0) and scene anchor (0x140474F00) as they read them, with the PES site of each.
 struct GoalAnchorFacts {
   uint32_t sceneId = 0;            // A0+8: the goal scene (category 3); picks the scene row at DB+0x448
-  uint32_t scorerSlot = 0;         // MI+0x1590, read when MI+0x1588 == 1: side * 11 + the scorer's index in the side (< 22)
+  uint32_t scorerSlot = 0;         // side * 11 + the scorer's index in the side (< 22); MI+0x15C8 = {side, index}, MI+0x1590
   std::array<float, 3> pos{};      // the scorer's man record +0x55C: metres
   std::array<float, 3> vel{};      // +0x574: metres per PES frame
   float facing = 0;                // +0x554: body facing, degrees (read instead of the velocity when moveMode == 1)
   uint32_t moveMode = 0;           // +0x5B0
-  float halfLength = 0, halfWidth = 0;  // the field info G+0x2AA8 (+0, +4): the pitch's half sizes, metres
+  std::array<float, 18> field{};   // the field info G+0x2AA8: F0..F17, metres
   float fps = 0;                   // 0x14351AE54: PES frames per second (the rotation's speed scale divides by it)
-  std::array<float, 3> target{};   // the scorer's run object +0x18 (0x140A489A0): where the scorer runs after the goal
-  float radius = 0;                // A0+0xC: the scene's run radius (0x140474CF0); the anchor stays this far from the target
+  // The side's attacking bearing in degrees, the object behind ctx+0x18: +0x228D8 for side 0 (team info +0x254 = 1),
+  // +0x228D4 for side 1 (+0x254 = 0xFF). 0x140476190 puts the corner spot at the end this bearing points to.
+  std::array<float, 2> attackDeg{};
+  // ponytail: the scene list the builder 0x140477BC0 makes (the picked scene plus the scenes around it: the lead-in, the
+  // goalkeeper and the closing scene; 27 functions of closure, reading the goal event record), the list 0x140474CF0 sums the
+  // radius over. Until 0x140477BC0 is translated GF passes the scenes it will play.
+  std::vector<uint32_t> cuts;
+  // ponytail: A0+0x114, the state of the generator at A0+0x108 that 0x140476190 draws its corner-spot jitter from. PES seeds
+  // it where the DemoInfo is built (the 0x14047DF00 construction, from its clock); the site that removes this is that seed.
+  uint32_t rngState = 0;
 };
 
-// The scene anchor: the writer 0x14047D280's result for a kind-1 goal, scene+0x110..+0x120.
+// The scene anchor: the writer 0x14047D280's result for a kind-1 goal, scene+0x110..+0x120, with the two inputs the
+// translated 0x140476C50 and 0x140474CF0 computed for it.
 struct GoalAnchor {
   std::array<float, 3> pos{};
   float rotYDeg = 0;  // wrapped into [0, 360)
   bool flip = false;  // 0x140478FF0
+  std::array<float, 3> target{};  // A0+0x30 = the scorer's run object +0x18: the celebration spot (0x140476C50)
+  float radius = 0;               // A0+0xC: the scene's run radius (0x140474CF0)
 };
 
 class PeImage;
@@ -108,6 +119,10 @@ class FixDemoSelector {
 
   // 0x141F4FDA0 for a cut group id: the variant row index, cached per event; nullopt where PES answers 0 (no such group).
   std::optional<uint32_t> PickRow(uint32_t cutId);
+
+  // Puts back one pick PES had cached for the event (ctx+0x30, cut id -> row), the way 0x141F4FDA0 inserts it. For tests
+  // that replay a recorded goal from the picks PES's radius call had made.
+  void RestorePick(uint32_t cutId, uint32_t row);
 
   // The cuts a scene plays, in order, each with its picked variant (the list expansion 0x141F616F0's use of the wrapper).
   std::optional<FixDemoRequest> Request(uint32_t sceneId);

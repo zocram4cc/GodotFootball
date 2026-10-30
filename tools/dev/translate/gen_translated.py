@@ -42,6 +42,10 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
+# Calls the translator links through the dispatch table (a virtual tail jump, `jmp [rax+0x18]`), which the closure walk
+# over direct `pes_fn_` calls cannot see: caller -> the one target the table resolves to in PES. 0x141F61CC0 ends in the
+# FixDemo list's virtual expand (vtable 0x142BA67D0 slot 3 = 0x141F616F0); a layer without it aborts there at run time.
+INDIRECT_EDGES = {"0x141F61CC0": ("0x141F616F0",)}
 
 
 def spec_dir(name):
@@ -142,8 +146,7 @@ def build(image):
                 else:
                     texts[cur] = pick
             texts.setdefault(cur, text)
-            for c in CALLEE.findall(text):
-                cv = "0x" + c.upper()
+            for cv in [("0x" + c.upper()) for c in CALLEE.findall(text)] + list(INDIRECT_EDGES.get(cur, ())):
                 if cv != cur and cv in universe and cv not in seen:
                     seen.add(cv)
                     queue.append(cv)

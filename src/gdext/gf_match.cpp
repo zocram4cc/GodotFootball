@@ -215,14 +215,9 @@ constexpr uint32_t kOrdinaryFoulScene = 0x20008;
 // ponytail: the goal level (goal ctx [0]) and stage gate of the generic pick 0x140477400 come from a goal context GF does not
 // have (pesgoalscene.hpp); an ordinary goal is level 0.
 constexpr pes::GoalSceneRule kGoalRule{0, false};
-// ponytail: the anchor's three inputs GF does not have. (1) The scene's run radius A0+0xC: PES writes it at 0x140478190
-// (`param_1[3] = 0x140474CF0(A0, cut list)`: the sum of 0x141F5EC60 over the scene's cuts of kinds 5, 7, 0xB, 0xC, 0xD, built by
-// 0x140477BC0); neither is in the committed layer, so no push (radius 0, PES's own answer when the scorer is outside it).
-// (2) The scorer's run target (run object +0x18) = the event position A0+0x30, which 0x140476C50 builds from the scene row's
-// kind byte (the corner-side celebration spot of the captured goals); until it is translated the target is the goal's event
-// position GF already feeds the ctx (the ball). (3) The scorer's move word man+0x5B0 (PES's per-frame man update), which picks
-// velocity or facing for the rotation: GF has no such word; 0 is what two captured goals held (the velocity's heading).
-constexpr float kSceneRunRadius = 0.0f;
+// ponytail: the scorer's move word man+0x5B0 (PES's per-frame man update), which picks velocity or facing for the anchor's
+// rotation: GF has no such word; 0 is what two captured goals held (the velocity's heading). The anchor's run target and
+// radius are no longer stand-ins: the translated 0x140476C50 and 0x140474CF0 compute them from the facts below.
 constexpr uint32_t kScorerMoveMode = 0;
 
 void GfMatch::set_cutscene_environment(int stadium, int time_of_day, int weather) {
@@ -298,11 +293,22 @@ std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const V
   f.vel = {vel.x, vel.y, vel.z};
   f.facing = float(Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0));  // PES's bearing: atan2(dx, dz)
   f.moveMode = kScorerMoveMode;
-  f.halfLength = pesFieldHalfLength;
-  f.halfWidth = pesFieldHalfWidth;
+  // PES's FieldInfo F0..F17 is GF's one pitch table (gametypes.hpp).
+  f.field = {pesFieldHalfLength, pesFieldHalfWidth,  pesGoalInnerHalfWidth, pesGoalInnerHeight,    pesGoalAreaLineX,
+             pesGoalAreaHalfWidth, pesPenaltyAreaLineX, pesPenaltyAreaHalfWidth, pesPenaltySpotX,  pesNetHeight,
+             pesFieldF10,        pesFieldF11,        pesFieldF12,          pesNetRoofBackX,        pesNetFloorBackX,
+             pesCrossbarThickness, pesPostThickness, pesCircleRadius};
   f.fps = pes::offball::kPesFps;
-  f.target = {event.x, event.y, event.z};
-  f.radius = kSceneRunRadius;
+  // The scoring side attacked the goal the ball is in: its bearing points along +x (90) or -x (270); the other side's is the
+  // opposite (the second half swaps them).
+  f.attackDeg[side] = event.x > 0 ? 90.0f : 270.0f;
+  f.attackDeg[1 - side] = event.x > 0 ? 270.0f : 90.0f;
+  // ponytail: the scenes the builder 0x140477BC0 lists around the picked one are not built (27 functions of closure); the
+  // radius sums over the scene GF plays.
+  f.cuts = {sceneId};
+  // ponytail: PES seeds the DemoInfo generator (A0+0x108) from its clock where the DemoInfo is built (0x14047DF00); GF lends
+  // it the goal pick's own generator state, unadvanced.
+  f.rngState = goalRng_->State(pes::kRange0Slot);
   return fixdemo_->PlaceGoal(f);
 }
 

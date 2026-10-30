@@ -100,7 +100,34 @@ pes::FixDemoSceneRow RowOf(const std::vector<uint8_t>& b) {
   return row;
 }
 
-pes::GoalAnchorFacts FactsOf(const Case& c) {
+// FieldInfo F0..F8 of the captured run (the same eight floats on every goal), as bits.
+constexpr uint32_t kFieldBits[] = {0x42523D70, 0x42083D70, 0x406A3D71, 0x401C28F6, 0x423C3D70,
+                                   0x41128F5C, 0x42108F5C, 0x41A0F5C2, 0x42263D70};
+
+// What goal_event_cases.py reads from each capture besides the anchor's inputs: the scene list the builder made (cuts), the
+// A0 generator state before the call (rngPre, one draw of 0x140A92530 rewound), the picks PES's radius call had cached
+// (cut id -> variant row), and whether the captured A0+0x30 / A0+0xC came out of the default arm: the two kind-3 goals
+// (D, F) did not (A0 held a later recompute: 55.06 against the 60.06 the call gives on the same inputs).
+struct Oracle {
+  const char* name;
+  std::vector<uint32_t> cuts;
+  uint32_t rngPre;
+  std::vector<std::pair<uint32_t, uint32_t>> picks;
+  bool defaultArm;
+};
+const Oracle kOracle[] = {
+    {"A", {0x30034, 0x30134, 0x3011C}, 194601516, {{0x30034, 1}, {0x3011C, 7}}, true},
+    {"B", {0x3011B, 0x30005, 0x300A3, 0x30132}, 1127289236, {{0x30005, 0}, {0x300A3, 1}, {0x3011B, 9}}, true},
+    {"C", {0x30111, 0x30038, 0x300A0}, 675191954, {{0x30038, 0}, {0x300A0, 1}, {0x30111, 1}}, true},
+    {"D", {0x300D3}, 486850559, {}, false},
+    {"E", {0x30102, 0x30009, 0x300A1, 0x30136}, 1570210949, {{0x30009, 0}, {0x300A1, 0}, {0x30102, 9}}, true},
+    {"F", {0x300D4}, 511140391, {}, false},
+    {"G", {0x30104, 0x30009, 0x30136, 0x3011C}, 350138786, {{0x30009, 1}, {0x30104, 5}, {0x3011C, 5}, {0x30136, 331}}, true},
+};
+static_assert(sizeof(kOracle) / sizeof(kOracle[0]) == sizeof(kCases) / sizeof(kCases[0]));
+
+// The side's attacking bearing: the scorer's side attacks the end its corner spot (the captured target) is at.
+pes::GoalAnchorFacts FactsOf(const Case& c, const Oracle& o) {
   pes::GoalAnchorFacts f;
   f.sceneId = c.sceneId;
   f.scorerSlot = c.slot;
@@ -108,13 +135,17 @@ pes::GoalAnchorFacts FactsOf(const Case& c) {
   f.vel = c.vel;
   f.facing = c.facing;
   f.moveMode = c.moveMode;
-  f.halfLength = c.halfLength;
-  f.halfWidth = c.halfWidth;
+  for (size_t k = 0; k < sizeof(kFieldBits) / sizeof(kFieldBits[0]); ++k) f.field[k] = F(kFieldBits[k]);
   f.fps = c.fps;
-  f.target = c.target;
-  f.radius = c.radius;
+  const unsigned side = c.slot / 11;
+  const float towardsPlusX = c.target[0] > 0 ? 90.0f : 270.0f;  // INF: PES's bearing of its +x end; pid132854's page is not captured
+  f.attackDeg[side] = towardsPlusX;
+  f.attackDeg[1 - side] = towardsPlusX > 180.0f ? 90.0f : 270.0f;
+  f.cuts = o.cuts;
+  f.rngState = o.rngPre;
   return f;
 }
+pes::GoalAnchorFacts FactsOf(const Case& c) { return FactsOf(c, kOracle[&c - kCases]); }
 
 std::optional<pes::PeImage> OpenExe(std::string* why) {
   const char* root = std::getenv("PES21_ROOT");
@@ -123,6 +154,18 @@ std::optional<pes::PeImage> OpenExe(std::string* why) {
     return std::nullopt;
   }
   return pes::PeImage::Open(std::string(root) + "/PES2021.exe", why);
+}
+
+// A selector over the install's own goal table (scenes, cut groups, variant rows), as PES's DB holds it.
+std::unique_ptr<pes::FixDemoSelector> MakeInstalled(const pes::PeImage& exe, pes::FixDemoTable* table, std::string* why) {
+  const char* root = std::getenv("PES21_ROOT");
+  pes::PesVfs vfs;
+  if (!root || !vfs.Mount(root, why)) return nullptr;
+  const auto bytes = vfs.Read(pes::FixDemoTablePath(pes::kFixDemoGoal), why);
+  auto decoded = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, why) : std::nullopt;
+  if (!decoded) return nullptr;
+  *table = *decoded;
+  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, why);
 }
 
 // A selector whose goal table holds only the case's scene row (the rest zero), at the scene's index.
@@ -136,23 +179,42 @@ std::unique_ptr<pes::FixDemoSelector> MakeFor(const pes::PeImage& exe, const Cas
   return sel;
 }
 
-TEST(GoalAnchor, EqualsPesOnTheSevenCapturedGoals) {
+// GF's T (A0+0x30), radius (A0+0xC) and anchor on the inputs of the five captured goals that took the default arm equal
+// PES's: the translated 0x140476C50, 0x140474CF0, 0x140474F00 and 0x140478FF0 on GF's arena, the install's tables, and the
+// picks PES's own radius call had cached. Bit for bit.
+TEST(GoalAnchor, EqualsPesOnTheFiveDefaultGoals) {
   std::string why;
   const auto exe = OpenExe(&why);
   if (!exe) GTEST_SKIP() << why;
+  pes::FixDemoTable table;
+  int compared = 0;
   for (const Case& c : kCases) {
-    auto sel = MakeFor(*exe, c);
-    ASSERT_TRUE(sel);
-    const auto got = sel->PlaceGoal(FactsOf(c));
+    const Oracle& o = kOracle[&c - kCases];
+    if (!o.defaultArm) continue;
+    auto sel = MakeInstalled(*exe, &table, &why);
+    if (!sel) GTEST_SKIP() << why;
+    const uint32_t index = (c.sceneId & 0xFFFF) - 1;
+    if (index >= table.goalSceneRows.size() || table.goalSceneRows[index].head != RowOf(Unhex(c.rowHex)).head)
+      continue;  // the install's goal table is not the captured run's
+    for (const auto& [cut, row] : o.picks) sel->RestorePick(cut, row);
+    const auto got = sel->PlaceGoal(FactsOf(c, o));
     ASSERT_TRUE(got) << c.name;
+    ++compared;
+    for (int i = 0; i < 3; ++i) EXPECT_EQ(got->target[i], c.target[i]) << c.name << " " << c.snap << " T[" << i << "]";
+    EXPECT_EQ(got->radius, c.radius) << c.name << " " << c.snap << " radius";
     for (int i = 0; i < 3; ++i) EXPECT_EQ(got->pos[i], c.wantPos[i]) << c.name << " " << c.snap << " pos[" << i << "]";
     EXPECT_EQ(got->rotYDeg, c.wantRotY) << c.name << " " << c.snap;
     EXPECT_EQ(got->flip, c.wantFlip != 0) << c.name << " " << c.snap;
   }
+  if (compared == 0) GTEST_SKIP() << "the install's goal table matches none of the captured scenes";
 }
 
-// The scorer's slot is only a table index: the same facts in any slot give the same anchor (a wrong table stride or a record
-// written for another slot moves it).
+// (OpenExe, MakeInstalled and MakeFor are defined above.)
+
+// (the oracle test is above, beside the data it reads)
+
+// The scorer's slot is only a table index: the same facts in another slot of the same side give the same anchor (a wrong
+// table stride or a record written for another slot moves it).
 TEST(GoalAnchor, DoesNotDependOnTheScorersSlot) {
   std::string why;
   const auto exe = OpenExe(&why);
@@ -162,35 +224,42 @@ TEST(GoalAnchor, DoesNotDependOnTheScorersSlot) {
   pes::GoalAnchorFacts f = FactsOf(c);
   const auto base = sel->PlaceGoal(f);
   ASSERT_TRUE(base);
-  for (uint32_t slot : {0u, 10u, 11u, 21u}) {
+  for (uint32_t slot : {0u, 5u, 10u}) {
     f.scorerSlot = slot;
     const auto got = sel->PlaceGoal(f);
     ASSERT_TRUE(got);
     EXPECT_EQ(got->pos, base->pos) << "slot " << slot;
-    EXPECT_EQ(got->rotYDeg, base->rotYDeg) << "slot " << slot;
+    EXPECT_EQ(got->target, base->target) << "slot " << slot;
   }
 }
 
-// The anchor follows where the scorer stands, and the run radius pushes it away from the run target (PES: the anchor closer to
-// the target than the radius is moved out to it, along the bearing, before the pull-in from the pitch edge).
+// The anchor follows where the scorer stands, and the run radius (the translated 0x140474CF0 over the scene list) pushes it
+// away from the run target (PES: the anchor closer to the target than the radius is moved out to it, along the bearing,
+// before the pull-in from the pitch edge). An empty scene list has no radius.
 TEST(GoalAnchor, FollowsTheScorerAndIsPushedOutByTheRunRadius) {
   std::string why;
   const auto exe = OpenExe(&why);
   if (!exe) GTEST_SKIP() << why;
   const Case& c = kCases[0];
-  auto sel = MakeFor(*exe, c);
-  pes::GoalAnchorFacts f = FactsOf(c);
-  const auto distanceToTarget = [&](const pes::GoalAnchor& a) {
-    return std::hypot(a.pos[0] - f.target[0], a.pos[2] - f.target[2]);
+  const Oracle& o = kOracle[0];
+  pes::FixDemoTable table;
+  auto sel = MakeInstalled(*exe, &table, &why);
+  if (!sel) GTEST_SKIP() << why;
+  for (const auto& [cut, row] : o.picks) sel->RestorePick(cut, row);
+  pes::GoalAnchorFacts f = FactsOf(c, o);
+  const auto distanceToTarget = [](const pes::GoalAnchor& a) {
+    return std::hypot(a.pos[0] - a.target[0], a.pos[2] - a.target[2]);
   };
-  f.radius = 0.0f;
+  f.cuts.clear();
   const auto base = sel->PlaceGoal(f);
   ASSERT_TRUE(base);
-  f.radius = 40.0f;
+  EXPECT_EQ(base->radius, 0.0f) << "no scenes, no radius";
+  f.cuts = o.cuts;
   const auto pushed = sel->PlaceGoal(f);
   ASSERT_TRUE(pushed);
+  EXPECT_GT(pushed->radius, 0.0f) << "the scene list is summed";
   EXPECT_GT(distanceToTarget(*pushed), distanceToTarget(*base)) << "the radius is read";
-  f.radius = 0.0f;
+  f.cuts.clear();
   f.pos[2] += 3.0f;
   const auto moved = sel->PlaceGoal(f);
   ASSERT_TRUE(moved);
