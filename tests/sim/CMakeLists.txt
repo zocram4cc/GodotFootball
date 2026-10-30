@@ -104,6 +104,10 @@ add_executable(pes_random_test pes_random_test.cpp)
 target_link_libraries(pes_random_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_random_test)
 
+add_executable(pes_goal_scene_test pes_goal_scene_test.cpp)
+target_link_libraries(pes_goal_scene_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_goal_scene_test)
+
 add_executable(pes_ball_collision_test pes_ball_collision_test.cpp)
 target_link_libraries(pes_ball_collision_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_ball_collision_test)
@@ -169,6 +173,14 @@ add_executable(pes_stall_test pes_stall_test.cpp)
 target_link_libraries(pes_stall_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_stall_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_stall_test PROPERTIES TIMEOUT 1800)
+
+add_executable(pes_match_info_test pes_match_info_test.cpp)
+target_link_libraries(pes_match_info_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_match_info_test)
+
+add_executable(pes_involvement_test pes_involvement_test.cpp)
+target_link_libraries(pes_involvement_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_involvement_test)
 
 add_executable(pes_setpiece_taker_test pes_setpiece_taker_test.cpp)
 target_link_libraries(pes_setpiece_taker_test PRIVATE gfsim pesfmt GTest::gtest_main)

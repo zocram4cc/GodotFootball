@@ -205,19 +205,25 @@ def gen(spec, va, callees):
     return ("\n".join(L) + "\n").replace("if (bad < 10)", "if (true)")
 
 
-def gen_snap(va, callees):
+def gen_snap(va, callees, native=False, vec_arg=None):
     """The snapshot diff main for one function. argv: ok_calls.bin (the replayable calls of one
     snapshot, snapcase.py), mem.bin, maps.txt (its readable runs), out.jsonl, ok_delta.bin (each call's delta pages),
     pool/pages.bin (their bytes) and the snapshot's TEB (hex, record.json "teb"): the GS base each call runs with.
     Each call starts from its recorded registers over the snapshot's own pages (SnapView, copied on first touch and
     dropped per call), with its return address at [rsp]. One output line per call in the harness corpus's
-    format: rax, the full xmm0, and every byte written (address and value, in order)."""
+    format: rax, the full xmm0, and every byte written (address and value, in order).
+    native: the call runs on GF's heap (pes_native.hpp PesHeap, attached per call) instead of the snapshot's own heap
+    pages, so the written bytes differ by heap addresses; the row then also carries the heap's allocation counts.
+    vec_arg: a GPR index (2 = rdx) holding a std::vector<u32>* argument; the row carries the vector's elements read
+    after the call ("vec"), the heap-independent output the two runs are compared on (native_seam_check.py)."""
     V = va[2:]
     fns = sorted({V} | {c[2:] for c in callees})
     L = []
     L.append('// Generated snapshot diff main for %s (build tree only).' % va)
     L.append('#include "pes_state.hpp"')
     L.append('#include "pes_cond.inl"')
+    if native:
+        L.append('#include "pes_native.hpp"')
     L.append('#include <cstdint>')
     L.append('#include <cstdio>')
     L.append('#include <cstdlib>')
@@ -264,6 +270,9 @@ def gen_snap(va, callees):
     L.append('    const uint64_t* r = recs[i].v;')
     L.append('    PesState s;')
     L.append('    s.mem.snap = &snap;')
+    if native:
+        L.append('    PesHeap heap;')
+        L.append('    heap.Attach(s);')
     L.append('    s.gs_base = strtoull(argv[7], nullptr, 16);  // the snapshot TEB (record.json "teb"), per run')
     L.append('    for (int g = 0; g < 16; ++g) s.gpr[g] = r[g];')
     L.append('    for (int x = 0; x < 16; ++x) { s.xmm[x][0] = r[16 + 2 * x]; s.xmm[x][1] = r[17 + 2 * x]; }')
@@ -274,7 +283,17 @@ def gen_snap(va, callees):
     L.append(r'    fprintf(out, "{\"case\": %zu, \"ok\": true, \"rax\": \"%016llx\", \"xmm0\": \"%016llx%016llx\", \"w\": \"",')
     L.append(r'            i, (unsigned long long)s.gpr[0], (unsigned long long)s.xmm[0][1], (unsigned long long)s.xmm[0][0]);')
     L.append('    for (const auto& w : log) fprintf(out, "%016llx%02x", (unsigned long long)w.first, (unsigned)w.second);')
-    L.append(r'    fprintf(out, "\"}\n");')
+    if vec_arg is not None:
+        L.append(r'    fprintf(out, "\", \"vec\": \"");')
+        L.append('    for (uint64_t p = s.rd(r[%d], 8), e = s.rd(r[%d] + 8, 8); p < e; p += 4)' % (vec_arg, vec_arg))
+        L.append('      fprintf(out, "%08x", (unsigned)s.rd(p, 4));')
+        L.append(r'    fprintf(out, "\"");')
+    else:
+        L.append(r'    fprintf(out, "\"");')
+    if native:
+        L.append(r'    fprintf(out, ", \"allocs\": %llu, \"frees\": %llu, \"live\": %llu",')
+        L.append('            (unsigned long long)heap.Allocs(), (unsigned long long)heap.Frees(), (unsigned long long)heap.Live());')
+    L.append(r'    fprintf(out, "}\n");')
     L.append('    snap.reset();')
     L.append('  }')
     L.append('  fclose(out);')

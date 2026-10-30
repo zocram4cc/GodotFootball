@@ -69,6 +69,7 @@ struct PesMatchConstants {
   std::optional<pes::MoveStepConstants> moveStep;
   std::optional<pes::PressConstants> press;
   std::optional<pes::marktable::Constants> markTable;
+  std::optional<pes::PesImageTables> imageTables;
   std::optional<pes::formation::FormationTables> formationTables;
   std::optional<pes::formation::SheetConstants> sheetConstants;
   std::optional<pes::PlayerDatabase> playerDatabase;
@@ -117,6 +118,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted) c.moveStep = pes::LoadMoveStepConstants(*exe, vfs, &err);
   c.press = pes::LoadPressConstants(*exe, &err);
   c.markTable = pes::marktable::LoadMarkTableConstants(*exe, &err);
+  c.imageTables = pes::LoadPesImageTables(*exe, &err);
   if (mounted) c.formationTables = pes::formation::FormationTables::Load(vfs, &err);
   if (mounted) c.playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
   c.sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
@@ -165,6 +167,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesMoveStepConstants, c.moveStep);
   fill(setup->pesPressConstants, c.press);
   fill(setup->pesMarkTableConstants, c.markTable);
+  fill(setup->pesImageTables, c.imageTables);
   return ok;
 }
 

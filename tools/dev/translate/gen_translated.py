@@ -38,7 +38,8 @@ ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 # (committed results file, spec subdirectory of tools/dev/diffharness/specs).
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"),
-        ("results_core.json", "core"), ("results_fixdemo.json", "fixdemo"))
+        ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
+        ("results_fixdemo.json", "fixdemo"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -58,6 +59,19 @@ def records():
     return out
 
 
+def closure_members(va):
+    """The functions a snapdiff-proven record built beyond its direct callees (closure_file: the indirect targets its
+    replays reached, vtable methods that no direct CALL names), so the layer holds what the proof ran. A record without
+    the field has none."""
+    for fname, _ in SETS:
+        with open(os.path.join(HERE, fname)) as f:
+            for r in json.load(f)["results"]:
+                if r["va"] == va and r.get("closure_file"):
+                    with open(os.path.join(HERE, r["closure_file"])) as g:
+                        return set(json.load(g)["members"])
+    return set()
+
+
 def context(name, va, image):
     """Spec, stub map and universe that a diff run of va in set name translates under."""
     sdir = spec_dir(name)
@@ -65,7 +79,8 @@ def context(name, va, image):
     if spec is None:
         raise SystemExit("gen_translated: no spec for %s in %s" % (va, name))
     stubs = driver.MODEL_MAP
-    universe = driver.universe_of(sdir) | set(driver.runnable_extra(spec, image)[0])
+    base = driver.universe_of(sdir)
+    universe = base | set(driver.runnable_extra(spec, image, universe=base)[0])
     return spec, stubs, universe
 
 
@@ -80,8 +95,30 @@ def translate(va, image, stubs, universe):
 GAP_MARKERS = ("/*OUT-OF-SET CALL ", "OUT-OF-RANGE JMP")
 
 
-def has_gap(text):
-    return any(m in text for m in GAP_MARKERS)
+def gap_count(text):
+    return sum(text.count(m) for m in GAP_MARKERS)
+
+
+def choose_variant(old, new):
+    """Two translations of one function under different sets' universes: the one with fewer gaps (a callee one set lacks
+    becomes an abort there; the layer keeps the variant that links more of what PES runs). None when they differ with as
+    many gaps: a real conflict."""
+    a, b = gap_count(old), gap_count(new)
+    return new if b < a else old if a < b else None
+
+
+TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
+
+
+def silent_tail_sites(members):
+    """Refuse a layer holding a tail jump into the image's code that the layer does not translate: PES continues there,
+    the layer only aborts (xlate emits pes_dispatch_missing), and the closure walk should have pulled the target in.
+    A target outside the code range is dead decode noise (a jmp after a ret into no image address) and stays an abort."""
+    bad = ["%s: jmp %s" % (va, t) for va, m in sorted(members.items()) for t in TAIL_GAP.findall(m["raw"])
+           if driver.CODE_LO <= int(t, 16) < driver.CODE_HI]
+    if bad:
+        raise SystemExit("gen_translated: %d tail jump(s) into code the layer does not hold:\n  %s"
+                         % (len(bad), "\n  ".join(bad[:30])))
 
 
 
@@ -105,21 +142,21 @@ def build(image):
     texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
-        queue, seen = [va], {va}
+        members = closure_members(va)
+        universe = universe | members
+        queue, seen = [va] + sorted(members - {va}), {va} | members
         while queue:
             cur = queue.pop(0)
             text = translate(cur, image, stubs, universe)
             old = texts.get(cur)
             if old is not None and old != text:
-                # Sets translate under their own universes: a callee one set lacks becomes a gap there (a missing
-                # dispatch, an out-of-range jump that returns). The layer keeps the variant without gaps, which some
-                # set proved; two variants that differ otherwise, or both with gaps, are a real conflict.
-                old_gap, new_gap = has_gap(old), has_gap(text)
-                if old_gap and not new_gap:
-                    texts[cur] = text
-                elif old_gap == new_gap:
-                    conflicts.append("%s translates differently under %s (gap: layer %s, this set %s; first set %s)"
-                                     % (cur, name, old_gap, new_gap, sub_of.get(cur, "closure")))
+                # Sets translate under their own universes: a callee one set lacks becomes a gap there.
+                pick = choose_variant(old, text)
+                if pick is None:
+                    conflicts.append("%s translates differently under %s (%d gaps in both; first set %s)"
+                                     % (cur, name, gap_count(text), sub_of.get(cur, "closure")))
+                else:
+                    texts[cur] = pick
             texts.setdefault(cur, text)
             for c in CALLEE.findall(text):
                 cv = "0x" + c.upper()
@@ -147,6 +184,7 @@ def build(image):
         for c in CALLEE.findall(m["raw"]):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
                 raise SystemExit("gen_translated: %s calls %s, which is not committed" % (cur, c))
+    silent_tail_sites(members)
     return members
 
 
@@ -169,7 +207,7 @@ def layer_files(members):
             "#pragma once",
             "struct PesState;"]
     files["translated.hpp"] = "\n".join(head + ["void pes_fn_%s(PesState& s);" % va[2:] for va in vas]) + "\n"
-    files["pes_dispatch_gen.hpp"] = gen_dispatch.text(vas)
+    files["pes_dispatch_gen.hpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
     return files
 
 

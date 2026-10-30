@@ -188,7 +188,25 @@ void TeamAIController::TickScoreRows() {
   // FUN_140457070's argument; Match::Process). A match opens stopped (inPlay starts false), so its first
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
+  scoreRows_.Bind(world.Ma(team->GetID()));  // the rows are views over this side's MA record: the window is the store
   scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(), pesPath, world);
+  WriteMaRecord();
+}
+
+void TeamAIController::WriteMaRecord() {
+  // The side's AI record MA in the world window (PES layout, pesworldrecord.hpp): the ball copy and the holder's id. The
+  // sorted lane lists the carrier units' angle reads are the score-row writer's own blocks in the same record.
+  // ponytail: MA+0x2482C's writer is not decoded (it changes every frame, pes-re-advance.md); the ball's record 0 stands
+  // in for it, as the press gate's stand-in does (teamAIcontroller.cpp's MA ball copy). Replace with the PES writer.
+  // ponytail: MA+0x2483C is the T7a holder (FUN_140A627E0 else MA+0x2483C): the match's holder slot stands in for it.
+  pes::PesWorld& world = match->PesWorldOf();
+  const int side = team->GetID();
+  float ball[3];
+  world.BallSample(0, ball);
+  world.SetMaBall(side, ball[0], ball[1], ball[2]);
+  const Player* holder = match->GetPesHolder();
+  world.SetMaCarrier(side, holder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(holder)) : pes::kMaNoCarrier);
+  // The sorted lane lists are not copied here: the score-row writer builds them in this side's MA block in place.
 }
 
 void TeamAIController::TickMarkTable() {

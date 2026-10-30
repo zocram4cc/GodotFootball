@@ -10,6 +10,7 @@
 
 
 void pes_fn_140857010(PesState& s);
+void pes_fn_140846610(PesState& s);
 void pes_fn_140A3E190(PesState& s);
 void pes_fn_140A57720(PesState& s);
 void pes_fn_140A6CE00(PesState& s);
@@ -125,7 +126,7 @@ void pes_fn_140857010(PesState& s) {
             s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(3))));
             s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
             s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(0))));
-            /*OUT-OF-SET CALL 0x140846610*/ pes_dispatch_missing(0x140846610);
+            { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140846610(s); s.gpr[4] += 8; }
             s.wr(((s.gpr[14]) + (0x19ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
           }
         }
@@ -157,7 +158,7 @@ void pes_fn_140857010(PesState& s) {
               s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(3))));
               s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
               s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(0))));
-              /*OUT-OF-SET CALL 0x140846610*/ pes_dispatch_missing(0x140846610);
+              { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140846610(s); s.gpr[4] += 8; }
               s.wr(((s.gpr[14]) + (0x19ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
             }
           }
@@ -174,7 +175,7 @@ void pes_fn_140857010(PesState& s) {
           s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(3))));
           s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
           s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(0))));
-          /*OUT-OF-SET CALL 0x140846610*/ pes_dispatch_missing(0x140846610);
+          { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140846610(s); s.gpr[4] += 8; }
           s.wr(((s.gpr[14]) + (0x19ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
         }
       }
@@ -247,7 +248,7 @@ void pes_fn_140857010(PesState& s) {
               s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(3))));
               s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
               s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(0))));
-              /*OUT-OF-SET CALL 0x140846610*/ pes_dispatch_missing(0x140846610);
+              { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140846610(s); s.gpr[4] += 8; }
               s.wr(((s.gpr[14]) + (0x19ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
             }
           }
@@ -279,7 +280,7 @@ void pes_fn_140857010(PesState& s) {
                 s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(3))));
                 s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
                 s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(0))));
-                /*OUT-OF-SET CALL 0x140846610*/ pes_dispatch_missing(0x140846610);
+                { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140846610(s); s.gpr[4] += 8; }
                 s.wr(((s.gpr[14]) + (0x19ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
               }
             }
@@ -296,7 +297,7 @@ void pes_fn_140857010(PesState& s) {
             s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(3))));
             s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
             s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(0))));
-            /*OUT-OF-SET CALL 0x140846610*/ pes_dispatch_missing(0x140846610);
+            { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140846610(s); s.gpr[4] += 8; }
             s.wr(((s.gpr[14]) + (0x19ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
           }
         }
@@ -313,7 +314,7 @@ void pes_fn_140857010(PesState& s) {
         s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(3))));
         s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
         s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(0))));
-        /*OUT-OF-SET CALL 0x140846610*/ pes_dispatch_missing(0x140846610);
+        { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140846610(s); s.gpr[4] += 8; }
         s.wr(((s.gpr[14]) + (0x19ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
       }
     }

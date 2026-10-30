@@ -14,7 +14,7 @@
 #include "match.hpp"
 #include "pesballphysics.hpp"
 
-Ball::Ball(Match* match) : match(match) {
+Ball::Ball(Match* match) : match(match), world(&match->PesWorldOf()) {
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md). The constants come
   // from the install: the `ball.o` record of constant_match.bin and the image
   // values that live in the exe and nowhere else. GF's own bounce (0.62),
@@ -40,7 +40,7 @@ Ball::~Ball() {}
 
 Vector3 Ball::GetMovement() {
   // meters / sec
-  return momentum;
+  return Momentum();
 }
 
 void Ball::Touch(const Vector3& target) {
@@ -70,15 +70,13 @@ void Ball::Stop() {
 
 void Ball::SetPosition(const Vector3& target) {
   positionBuffer.Set(target);
-  momentum.Set(0);
+  StoreMomentum(Vector3(0));
   SetRotation(0, 0, 0, 1.0);
   ballPosHistory.clear();
-  previousMomentum = momentum;
-  previousPosition = positionBuffer;
 }
 
 void Ball::SetMomentum(const Vector3& target) {
-  momentum.Set(target);
+  StoreMomentum(target);
   CalculatePrediction();
 }
 
@@ -152,7 +150,7 @@ BallSpatialInfo Ball::CalculatePrediction() {
 
   Vector3 nextPos = positionBuffer;
   Quaternion nextOrientation = orientationBuffer;
-  Vector3 momentumPredict = momentum;
+  Vector3 momentumPredict = Momentum();
 
   ballTouchesNet = false;
 
@@ -274,10 +272,10 @@ BallSpatialInfo Ball::CalculatePrediction() {
     // PES's sampler, rebuilt from the live state on PES's own tick: record k is
     // where the ball is k ticks of 1/54 s from now (docs/re/pes-re-officials-ball.md
     // 5.3, the rebuild-per-tick GapsMatch settled). Records 0..250, 40-byte stride.
-    track[tick] = nextPos;
+    SetTrackSample(tick, nextPos);
   }
 
-  track[0] = positionBuffer;
+  SetTrackSample(0, positionBuffer);
 
   return BallSpatialInfo(newMomentum, newRotation_ms);
 }
@@ -306,32 +304,27 @@ Vector3 Ball::GetAveragePosition(unsigned int duration_ms) const {
 
 void Ball::Process() {
   BallSpatialInfo spatialInfo = CalculatePrediction();
-  momentum = spatialInfo.momentum;
+  StoreMomentum(spatialInfo.momentum);
   rotation_ms = spatialInfo.rotation_ms;
   recentHit = recentHitNext;
 
   // The ball's own next tick is record 1 of the track it just wrote: the live step
   // and the sampler's first step are the same integration, so the ball lands on the
   // record every AI read takes for "now" (Milestone A1).
-  positionBuffer = track[1];
+  positionBuffer = TrackSample(1);
   orientationBuffer = orientPrediction;
 
   ballPosHistory.push_back(positionBuffer);
   if (ballPosHistory.size() > ballHistorySize_ms)
     ballPosHistory.pop_front();
-
-  previousMomentum = momentum;
-  previousPosition = positionBuffer;
 }
 
 void Ball::ResetSituation(const Vector3& focusPos) {
-  momentum = Vector3(0);
+  StoreMomentum(Vector3(0));
   rotation_ms = QUATERNION_IDENTITY;
-  for (auto& record : track) record = Vector3(focusPos + Vector3(0, 0, 0.11));
+  for (unsigned n = 0; n < pesball::kTrackLength; ++n) SetTrackSample(n, Vector3(focusPos + Vector3(0, 0, 0.11)));
   orientPrediction = QUATERNION_IDENTITY;
   ballPosHistory.clear();
-  previousMomentum = Vector3(0);
-  previousPosition = Vector3(focusPos + Vector3(0, 0, 0.11));
   positionBuffer = Vector3(focusPos + Vector3(0, 0, 0.11));
   orientationBuffer = QUATERNION_IDENTITY;
   ballTouchesNet = false;
