@@ -430,6 +430,9 @@ int main(int argc, char** argv) {
               inPlaySeconds, holdTicks, holdSeconds);
   std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
   std::printf("[idle] %lu episodes, stalls %lu\n", watch.IdleEpisodes(), watch.IdleStallEpisodes());
+  const pes::KickMotionStats& kicks = match.PesKickMotionStats();
+  std::printf("[kickmotion] %u kicks, no clip %u, descriptor 1 %u, in-flight Q %u\n", kicks.kicks, kicks.noClip, kicks.descriptorOne,
+              kicks.inFlight);
   if (parityLog) parity.Print(match, stdout);
   return 0;
 }

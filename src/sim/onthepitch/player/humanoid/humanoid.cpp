@@ -123,6 +123,8 @@ pes::KickSituation PesKickSituation(Match* match, Player* player, const pes::Kic
   turn_deg += turn_deg > 180.0f ? -360.0f : turn_deg < -180.0f ? 360.0f : 0.0f;
   const int bucket = pes::KickBucket(km, c, turn_deg, s.kind, 0.0f);
   const int motion = row == pes::kNoClipRow ? -1 : pes::KickMotion(match->GetPesAnimetable(), row, bucket);
+  pes::KickMotionStats& stats = match->PesKickMotionStats();
+  ++stats.kicks;
   if (motion > 0) {
     s.b2754 = static_cast<int8_t>(band);
     s.entry2755 = static_cast<int8_t>(bucket);
@@ -131,6 +133,11 @@ pes::KickSituation PesKickSituation(Match* match, Player* player, const pes::Kic
     // The in-flight branch's ball records: the ball's predicted position one and two ticks on (FUN_140A6CF70(ball, 1) and (ball, 2)).
     s.ball1X = ball1.coords[0], s.ball1Y = ball1.coords[2], s.ball1Z = ball1.coords[1];
     s.ball2X = ball2.coords[0], s.ball2Z = ball2.coords[1];
+    const int subclass = static_cast<int8_t>(c.kindTable[size_t(s.kind) * 16 + 12]);  // getter 0x14071E520
+    stats.descriptorOne += s.descriptor == 1;
+    stats.inFlight += s.descriptor == 1 && subclass >= 2 && subclass <= 0xC;
+  } else {
+    ++stats.noClip;
   }
   return s;
 }

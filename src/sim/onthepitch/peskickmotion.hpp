@@ -76,4 +76,9 @@ int KickBucket(const KickMotionConstants& k, const SituationConstants& sc, float
 // FUN_1406B0250(motion table, motion, 0): the motion record's byte 1 (its HitData count).
 int KickMotionDescriptor(const KickMotionConstants& k, const Mbinfo& mbinfo, int motion);
 
+// What the match's kick picks came to (a diagnostic the smoke prints): picks made, picks the clip table had no motion for, picks whose
+// motion descriptor is 1, and those that reach Q's in-flight branch (descriptor 1 and kind subclass 2..12).
+struct KickMotionStats {
+  uint32_t kicks = 0, noClip = 0, descriptorOne = 0, inFlight = 0;
+};
 }  // namespace pes
