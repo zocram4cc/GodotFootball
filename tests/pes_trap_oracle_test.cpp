@@ -975,11 +975,32 @@ TEST_F(TrapTickOracle, EveryCapturedTickOnGfsWindowEqualsPes) {
     for (const std::string& m : t.derivedMismatches) ADD_FAILURE() << dir << ": derived " << m;
     const TickRun run = RunTick(t);
     const WriteMap want = ReferenceWrites(o, CapturedObjects(o));
-    EXPECT_EQ(run.writes, want) << dir << ": bytes the tick wrote ((object, offset) -> last byte; P=0 A=1 O1=2 O2=3 Q=4 R=5 S=6)";
-    EXPECT_EQ(run.result.motion, PesPAfter(o, want, pes::kPWordAE0Offset, 2)) << dir;
-    EXPECT_EQ(run.result.mirror, PesPAfter(o, want, pes::kPMirrorOffset, 1)) << dir;
-    EXPECT_EQ(run.result.segment, PesPAfter(o, want, pes::kPSegmentOffset, 1)) << dir;
-    EXPECT_EQ(run.result.phase, PesPAfter(o, want, pes::kPPhaseOffset, 1)) << dir;
+    // (object, offset): GF's last byte against PES's, for every address either wrote and the two disagree on (object P=0 A=1 O1=2
+    // O2=3 Q=4 R=5 S=6).
+    std::string diff;
+    int shown = 0;
+    for (const auto& [key, byte] : want) {
+      const auto at = run.writes.find(key);
+      if ((at == run.writes.end() || at->second != byte) && shown++ < 12) {
+        char buf[96];
+        std::snprintf(buf, sizeof buf, " [%d+0x%x PES %02x GF %s]", key.first, key.second, byte,
+                      at == run.writes.end() ? "none" : (std::to_string(at->second)).c_str());
+        diff += buf;
+      }
+    }
+    for (const auto& [key, byte] : run.writes)
+      if (want.find(key) == want.end() && shown++ < 12) {
+        char buf[96];
+        std::snprintf(buf, sizeof buf, " [%d+0x%x GF %02x PES none]", key.first, key.second, byte);
+        diff += buf;
+      }
+    EXPECT_TRUE(diff.empty()) << dir << ": " << run.writes.size() << " GF writes, " << want.size() << " PES writes; first differences:" << diff;
+    // The outputs the body takes, where the tick wrote them (a field it left alone is not an output).
+    const auto wrote = [&want](std::size_t off) { return want.count({kObjP, static_cast<uint32_t>(off)}) != 0; };
+    if (wrote(pes::kPWordAE0Offset)) EXPECT_EQ(run.result.motion, PesPAfter(o, want, pes::kPWordAE0Offset, 2)) << dir;
+    if (wrote(pes::kPMirrorOffset)) EXPECT_EQ(run.result.mirror, PesPAfter(o, want, pes::kPMirrorOffset, 1)) << dir;
+    if (wrote(pes::kPSegmentOffset)) EXPECT_EQ(run.result.segment, PesPAfter(o, want, pes::kPSegmentOffset, 1)) << dir;
+    if (wrote(pes::kPPhaseOffset)) EXPECT_EQ(run.result.phase, PesPAfter(o, want, pes::kPPhaseOffset, 1)) << dir;
   }
 }
 
