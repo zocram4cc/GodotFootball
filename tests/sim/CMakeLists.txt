@@ -220,6 +220,10 @@ add_executable(pes_kick_error_test pes_kick_error_test.cpp)
 target_link_libraries(pes_kick_error_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_kick_error_test)
 
+add_executable(pes_kick_motion_test pes_kick_motion_test.cpp)
+target_link_libraries(pes_kick_motion_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_kick_motion_test)
+
 add_executable(pes_penalty_scatter_test pes_penalty_scatter_test.cpp)
 target_link_libraries(pes_penalty_scatter_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_penalty_scatter_test)

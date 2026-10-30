@@ -286,6 +286,45 @@ TEST(PesKickMotion, ThePassAndShotRowsSwapOnlyForTheirOwnRequest) {
   EXPECT_EQ(pes::KickRow(k, sc, 9, 6, 0, 0, 0.0f, false, false, &w), 0x865);
 }
 
+// Row 0x809 (FUN_14071E6F0): the ball within 30000 / (tick x 3600) m of the player's displacement keeps it at a walk on an odd tick,
+// takes 0x875 at a walk on an even tick and 0x877 at a run; a ball beyond it takes 0x874.
+TEST(PesKickMotion, TheBallRowSplitsOnTheBallDistanceTheTickAndTheRunSpeed) {
+  pes::KickMotionConstants k = Synthetic();
+  const pes::SituationConstants sc = SyntheticSituation();
+  k.ballRange = 30000.0f, k.rangeDiv = 3600.0f, k.runKmh = 22.0f;
+  k.clip[size_t((7 * pes::kClipBands + 0) * pes::kClipSides + 0)] = 0x809;
+  const auto row = [&](const pes::KickWorld& w) { return pes::KickRow(k, sc, 9, 7, 0, 0, 0.0f, false, false, &w); };
+  pes::KickWorld w;  // ball and player at the same point, standing
+  EXPECT_EQ(row(w), 0x875) << "even tick, walking";
+  w.tickOdd = true;
+  EXPECT_EQ(row(w), 0x809) << "odd tick, walking: no assignment";
+  w.dispX = w.ballX = 0.2f;  // 0.2 m per tick = 38.9 km/h at 54 Hz
+  EXPECT_EQ(row(w), 0x877) << "running";
+  w.ballX = 5.0f;
+  EXPECT_EQ(row(w), 0x874) << "ball out of reach";
+}
+
+// The lateral table swaps when the displacement in the player's heading frame reaches 19 km/h; the first-side table on the match side.
+TEST(PesKickMotion, TheLateralAndFirstSideTablesTakeTheirOwnGate) {
+  pes::KickMotionConstants k = Synthetic();
+  const pes::SituationConstants sc = SyntheticSituation();
+  k.swapLateral = {{200, 201}};
+  k.swapFirstSide = {{210, 211}};
+  k.clip[size_t((7 * pes::kClipBands + 0) * pes::kClipSides + 0)] = 200;
+  k.clip[size_t((8 * pes::kClipBands + 0) * pes::kClipSides + 0)] = 210;
+  const auto row = [&](int kind, const pes::KickWorld& w) { return pes::KickRow(k, sc, 9, kind, 0, 0, 0.0f, false, false, &w); };
+  pes::KickWorld w;
+  w.dispZ = 0.05f;  // 9.7 km/h
+  EXPECT_EQ(row(7, w), 200);
+  w.dispZ = 0.2f;  // 38.9 km/h forward of heading 0
+  EXPECT_EQ(row(7, w), 201);
+  w.heading_deg = 90.0f;  // the same step is now sideways: the frame's z axis is -x
+  EXPECT_EQ(row(7, w), 200);
+  EXPECT_EQ(row(8, w), 210);
+  w.firstSide = true;
+  EXPECT_EQ(row(8, w), 211);
+}
+
 TEST(PesKickMotion, ADescriptorOfAMotionPastTheTableOrWithTooManyHitsIsTheCappedCount) {
   // HitData record: 108 bytes, word 0 bits 0..12 = motion - 0x11. Three records on one motion, cap 2.
   pes::MbinfoBins bins;
