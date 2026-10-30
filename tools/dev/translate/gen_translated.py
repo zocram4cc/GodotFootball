@@ -45,7 +45,13 @@ CLOSURE = "closure"
 # Calls the translator links through the dispatch table (a virtual tail jump, `jmp [rax+0x18]`), which the closure walk
 # over direct `pes_fn_` calls cannot see: caller -> the one target the table resolves to in PES. 0x141F61CC0 ends in the
 # FixDemo list's virtual expand (vtable 0x142BA67D0 slot 3 = 0x141F616F0); a layer without it aborts there at run time.
-INDIRECT_EDGES = {"0x141F61CC0": ("0x141F616F0",)}
+INDIRECT_EDGES = {
+    "0x141F61CC0": ("0x141F616F0",),
+    # 0x141F616F0's `__ehvec_dtor` callbacks (0x140400F50, 0x140400DF0, 0x140B28910) are called through a function pointer.
+    "0x141F616F0": ("0x140400F50", "0x140400DF0", "0x140B28910"),
+    # 0x1415A01DC is the CFG check thunk `jmp [IAT]`; the unpacked image's slot holds a bare `ret` (0x1415A02B0).
+    "0x1415A01DC": ("0x1415A02B0",),
+}
 
 
 def spec_dir(name):

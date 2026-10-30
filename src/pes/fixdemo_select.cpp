@@ -83,6 +83,9 @@ constexpr uint64_t kFullTurnVa = 0x14259858C;   // 360.0f: the writer 0x14047D28
 // 513-entry quarter wave at 0x142655950, its 512.0 scale at 0x1426550E8, and the atan polynomial's pi/4 at 0x142656158), as
 // one run read from the install.
 constexpr uint64_t kMathTablesVa = 0x1426550D0, kMathTablesBytes = 0x1090;
+// The FixDemo list object's vtable (0x141F5EC60 stores its VA in a stack object; 0x141F61CC0 jumps through slot 3 and
+// 0x141F616F0 calls slot 4), read from the install.
+constexpr uint64_t kListVtableVa = 0x142BA67D0, kListVtableBytes = 0x40;
 constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x40, kA0Bytes = 0x200;
 constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManTable = 0x1DD8, kWorldRunTable = 0x21E8;
 constexpr uint64_t kWorldTableStride = 0x28;
@@ -115,11 +118,13 @@ struct FixDemoSelector::Impl {
   std::array<uint64_t, 2> squad{}, teamInfo{};  // per side: the squad key table and the team info (+0x254: attack sign)
   float fullTurnDeg = 0;
 
-  Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables, float fullTurn)
+  Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables,
+       std::vector<uint8_t> listVtable, float fullTurn)
       : tables(std::move(t)), fullTurnDeg(fullTurn) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
     s.mem.img.push_back({kMathTablesVa, std::move(mathTables)});
+    s.mem.img.push_back({kListVtableVa, std::move(listVtable)});
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
                              {kWorldSlotPageVa, kWorldSlotPageBytes}})
@@ -441,6 +446,11 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
     if (error) *error = "the image does not map the math routines' tables";
     return nullptr;
   }
+  std::vector<uint8_t> vtable(kListVtableBytes);
+  if (!exe.ReadVa(kListVtableVa, vtable.size(), vtable.data())) {
+    if (error) *error = "the image does not map the FixDemo list's vtable";
+    return nullptr;
+  }
   uint8_t turn[sizeof(float)];
   float fullTurn;
   if (!exe.ReadVa(kFullTurnVa, sizeof turn, turn)) {
@@ -449,7 +459,7 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
   }
   std::memcpy(&fullTurn, turn, sizeof fullTurn);
   return std::unique_ptr<FixDemoSelector>(
-      new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), fullTurn)));
+      new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), fullTurn)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
