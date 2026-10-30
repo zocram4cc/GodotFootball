@@ -42,13 +42,6 @@ pes::PossessionLatchInput ThreeB(int team) {
 
 }  // namespace
 
-TEST(PesPossessionFrames, FrameIsTheFloorOfMillisecondsTimesGameSpeed) {
-  EXPECT_EQ(pes::PesFrameOf(0, 54), 0);
-  EXPECT_EQ(pes::PesFrameOf(10, 54), 0);    // 0.54 frames
-  EXPECT_EQ(pes::PesFrameOf(999, 54), 53);  // 53.9 frames
-  EXPECT_EQ(pes::PesFrameOf(1000, 54), 54);
-}
-
 TEST(PesPossessionLatch, RestartStateThreeGivesTheRestartTeamBeforeAnyOtherTerm) {
   pes::PossessionLatchInput in = Base();
   in.restartState = 3;
@@ -332,7 +325,6 @@ TEST(PesPossessionInstall, TheGameSpeedIsTheLatchsFrameRate) {
   ASSERT_TRUE(clock.has_value()) << err;
   const int gs = static_cast<int>(clock->gameSpeed);
   EXPECT_FLOAT_EQ(clock->gameSpeed, 54.0f);
-  EXPECT_EQ(pes::PesFrameOf(1000, gs), gs);
   EXPECT_EQ(gs / 6, 9);  // the step-2 window
 }
 

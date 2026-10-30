@@ -12,6 +12,14 @@
 #include "onthepitch/pesevents.hpp"
 
 namespace {
+// The store is a view over an image (the world window's event region in the match); a test owns one on the heap (1.5 MB).
+struct OwnedStore {
+  std::unique_ptr<pes::EventStoreImage> image = std::make_unique<pes::EventStoreImage>();
+  pes::EventStore store{*image};
+};
+}  // namespace
+
+namespace {
 
 // A PE with one section: file offset 0x400 holds the section's virtual address.
 std::vector<uint8_t> SectionPe(uint64_t imageBase, uint32_t sectionVa, uint32_t rawSize) {
@@ -271,7 +279,8 @@ TEST(PesEventStore, RouteFollowsTheInstallTable) {
   auto table = pes::LoadEventRingTable(*pe, &err);
   ASSERT_TRUE(table) << err;
 
-  pes::EventStore store;
+  OwnedStore owned;
+  pes::EventStore& store = owned.store;
   pes::EventRecord touch;
   touch.Write(7, 100, 100, 0.f, 1);
   touch.SetActionKind(7);
@@ -314,7 +323,8 @@ TEST(PesEventStore, NewestCopyFollowsKindSevenAndTheKey) {
   auto table = pes::LoadEventRingTable(*pe, &err);
   ASSERT_TRUE(table) << err;
 
-  pes::EventStore store;
+  OwnedStore owned;
+  pes::EventStore& store = owned.store;
   const auto payload_word = [&store](uint32_t off) { return store.Newest().U32(off); };
   const auto second_word = [&store](uint32_t off) { return store.NewestSecond().U32(off); };
 
@@ -370,7 +380,8 @@ class RoutedStore {
 
  private:
   const pes::EventRingTable& table_;
-  pes::EventStore store_;
+  OwnedStore owned_;
+  pes::EventStore& store_ = owned_.store;
 };
 
 // A ring slot still holding the 0x37 sentinel reads as no record, which is what
@@ -845,7 +856,8 @@ TEST(PesEventDetectors, BallEventCarriesTheActionKindAndDeduplicates) {
   auto table = pes::LoadEventRingTable(*pe, &err);
   ASSERT_TRUE(table) << err;
   pes::EventConstants k;
-  pes::EventStore store;
+  OwnedStore owned;
+  pes::EventStore& store = owned.store;
 
   pes::BallEventInput in;
   in.ballState = 1;
@@ -910,7 +922,8 @@ TEST(PesEventDetectors, Type14WritesTheOtherRecordThenTheTouch) {
   k.shortScale = 16.0f;
   k.shortUpper = 32767.0f;
   k.shortLower = -32768.0f;
-  pes::EventStore store;
+  OwnedStore owned;
+  pes::EventStore& store = owned.store;
   // A kind-8 record routes to ring 1 and leaves a valid key there.
   pes::EventRecord eight;
   eight.Reset();
@@ -1089,7 +1102,8 @@ TEST(PesEventDetectors, PossessionSequenceRecordsOnThePlayerChange) {
 // n = 1 the touch before it (the re-touch lockout's previous event).
 TEST(PesEventStore, EventAtReadsTheNthNewestRingZeroEvent) {
   pes::EventRingTable table{};  // every kind routes to ring 0
-  pes::EventStore store;
+  OwnedStore owned;
+  pes::EventStore& store = owned.store;
   pes::EventRecord first;
   first.Write(7, 10, 10, 0.f, 0);
   first.SetActionKind(1);

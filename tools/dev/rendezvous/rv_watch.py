@@ -29,11 +29,12 @@ GPR_ORDER = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
 
 
 def call_matches(pid, cap, expr):
-    """Evaluate a --when predicate on the parked call: entry GPRs by name, b/d/q(addr) read 1/4/8 bytes of the
-    live process. An unreadable address counts as no match. The expression is the operator's own CLI text."""
+    """Evaluate a --when predicate on the parked call: entry GPRs by name, ret (the return address, i.e. the caller
+    site) and b/d/q(addr) reads of the live process. An unreadable address counts as no match. The expression is the
+    operator's own CLI text."""
     import struct
     rec = fs.RV_REC.unpack(fs.rv_read(pid, cap["page"] + fs.RV_REC_OFF, fs.RV_REC.size))
-    env = dict(zip(GPR_ORDER, rec[:16]))
+    env = dict(zip(GPR_ORDER, rec[:16]), ret=rec[48])
     rd = lambda fmt, n: lambda a: struct.unpack(fmt, fs.rv_read(pid, a, n))[0]
     env.update(b=rd("<B", 1), d=rd("<I", 4), q=rd("<Q", 8))
     try:
