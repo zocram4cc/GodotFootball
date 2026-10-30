@@ -8,6 +8,7 @@
 
 #include "gdext/pes_library.hpp"
 #include "onthepitch/pesrandom.hpp"
+#include "pes/cutscene_timeline.hpp"
 #include "pes/fixdemo_select.hpp"
 #include "pes/fixdemo_table.hpp"
 
@@ -61,8 +62,12 @@ class GfMatch : public RefCounted {
   // [{cut, row, fdc: PackedStringArray}], anchor: {pos: Vector3, rot_y: degrees, flip: bool}} (anchor: goals only, the
   // placement PES's scene anchor gives the scene's player: PesCutsceneCamera.set_stage_default). Empty when none is pending.
   Dictionary take_cutscene();
-  // The render side finished the scene (0x141F58FC0): the category's rotation word advances.
-  void cutscene_finished(int scene_id);
+  // The scene in force on PES's timeline (pes::CutsceneTimeline, one Tick per logic frame): {scene, step: the step whose
+  // player has started (-1 before the first, the last stays in force until the scene ends), step_started: the step whose first
+  // update was this frame (-1 otherwise), clock_prev_s and clock_s: that step's player clock before and after this frame, in
+  // seconds (cameras play on it), ended: the scene's list ran out this frame (the category's rotation word advanced,
+  // 0x141F58FC0)}. Empty when no scene is in force.
+  Dictionary cutscene_state() const;
 
  protected:
   static void _bind_methods();
@@ -71,6 +76,7 @@ class GfMatch : public RefCounted {
   void RefreshPlayers();
   void PollCutscenes();
   std::optional<pes::GoalAnchor> PlaceGoalScene(uint32_t sceneId, const Vector3& event);
+  void StartTimeline(const pes::FixDemoRequest& request);
   Ref<PesLibrary> library_;  // keeps the rig the match points at alive
   std::unique_ptr<blunted::Database> db_;
   std::unique_ptr<Match> match_;
@@ -90,6 +96,12 @@ class GfMatch : public RefCounted {
   int lastScore_[2] = {0, 0};
   unsigned long lastFoulStop_ms_ = 0;
   bool foulStopSeen_ = false;
+  // The scene's timeline: built when the request is made, ticked from the frame DemoInfo exists.
+  std::optional<pes::CutsceneTimeline> timeline_;
+  uint32_t timelineScene_ = 0;
+  float timelineSixty_ = 60.0f;  // PoseConstants::sixty, to turn clock ticks into seconds
+  float clockPrevTicks_ = 0;
+  uint32_t tick_ = 0, timelineStartTick_ = 0;
 };
 
 }  // namespace godot

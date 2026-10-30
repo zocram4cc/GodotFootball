@@ -39,9 +39,11 @@ var _accumulator := 0.0
 var _lastAlpha := 1.0
 var _camera: Camera3D
 var _broadcast: PesBroadcastCamera
-var _cutscene: PesCutsceneCamera
+var _cutscene: PesCutsceneCamera  # the --fdc-file debug track, on wall time
 var _cut_t := 0.0
-var _cutscene_scene := 0  # the FixDemo scene a goal or foul stop requested; 0 for the --fdc-file debug track
+var _cutscene_scene := 0  # the FixDemo scene in force (GfMatch.cutscene_state); 0 when none
+var _cut_steps: Array[PesCutsceneCamera] = []  # one per step of that scene: every layer's cameras of the step
+var _cut_state: Dictionary = {}
 var _fixed_pose := false
 
 
@@ -134,28 +136,38 @@ func _process(delta: float) -> void:
 
 
 
-# A goal or a foul stop made GF's FixDemo request (PES's evaluator and matcher on GF's arena): play the first layer that
-# has a camera, at the requested camera index. The scene ends when its clip does (0x141F58FC0 -> cutscene_finished).
+# A goal or a foul stop made GF's FixDemo request (PES's evaluator and matcher on GF's arena). Its timeline (start, steps, end)
+# runs in the sim (GfMatch.cutscene_state, pes::CutsceneTimeline); here every step gets the cameras of all its layers and the
+# one in force plays on that step's player clock.
 func _poll_cutscene() -> void:
 	var req: Dictionary = sim.take_cutscene()
-	if req.is_empty() or args.has("no-cutscene"):
+	if not req.is_empty() and not args.has("no-cutscene"):
+		_load_cutscene(req)
+	if _cutscene_scene == 0:
 		return
+	_cut_state = sim.cutscene_state()
+	if _cut_state.is_empty() or _cut_state["ended"]:
+		print("frame %d cutscene scene 0x%x ended" % [Engine.get_process_frames(), _cutscene_scene])
+		_cut_steps.clear()
+		_cutscene_scene = 0
+		_cut_state = {}
+	elif int(_cut_state["step_started"]) >= 0:
+		print("frame %d cutscene scene 0x%x step %d starts" % [Engine.get_process_frames(), _cutscene_scene, int(_cut_state["step_started"])])
+
+
+func _load_cutscene(req: Dictionary) -> void:
+	_cut_steps.clear()
 	for step: Dictionary in req["steps"]:
 		var cam := PesCutsceneCamera.new()
-		if cam.load_layers(library, int(req["category"]), step["fdc"], int(args.get("fdc-camera", 0))) == OK:
-			# ponytail: PES's scene start 0x141F5CD00 gives each step its own stage default by the step's placement mode
-			# (+0x10: 1 = the anchor, 2 = the scene's waypoint map at scene+0x60); the first playable step takes the anchor.
-			if req.has("anchor"):
-				var anchor: Dictionary = req["anchor"]
-				cam.set_stage_default(anchor["pos"], anchor["rot_y"], anchor["flip"])
-				print("frame %d goal anchor pos %s rotY %.2f flip %s" % [Engine.get_process_frames(), anchor["pos"], anchor["rot_y"], anchor["flip"]])
-			_cutscene = cam
-			_cut_t = float(args.get("fdc-t0", 0.0))
-			_cutscene_scene = int(req["scene"])
-			print("frame %d cutscene scene 0x%x cut 0x%x row %d layers %s" % [Engine.get_process_frames(), _cutscene_scene, int(step["cut"]), int(step["row"]), step["fdc"]])
-			return
-	# Every layer's camera records are procedural (empty anime path, PES 0x141F7BFE0, not ported): the broadcast camera stays.
-	print("frame %d cutscene scene 0x%x: no clip camera in its layers, broadcast camera kept (steps %s)" % [Engine.get_process_frames(), int(req["scene"]), req["steps"]])
+		cam.load_step(library, int(req["category"]), step["fdc"])
+		# ponytail: PES's scene start 0x141F5CD00 gives each step its own stage default by the step's placement mode
+		# (+0x10: 1 = the anchor, 2 = the scene's waypoint map at scene+0x60); every step takes the anchor.
+		if req.has("anchor"):
+			var anchor: Dictionary = req["anchor"]
+			cam.set_stage_default(anchor["pos"], anchor["rot_y"], anchor["flip"])
+		_cut_steps.append(cam)
+		print("frame %d cutscene scene 0x%x cut 0x%x row %d layers %s" % [Engine.get_process_frames(), int(req["scene"]), int(step["cut"]), int(step["row"]), step["fdc"]])
+	_cutscene_scene = int(req["scene"])
 
 
 func _interpolate(alpha: float) -> void:
@@ -189,13 +201,15 @@ func _place(delta: float) -> void:
 		return
 	if _cutscene != null:
 		_cut_t += delta
-		if _cutscene_scene != 0 and _cut_t >= _cutscene.duration_s():
-			print("frame %d cutscene scene 0x%x ended at %.3f s" % [Engine.get_process_frames(), _cutscene_scene, _cut_t])
-			sim.cutscene_finished(_cutscene_scene)  # the scene's list ended: PES advances its category rotation
-			_cutscene = null
-			_cutscene_scene = 0
-		else:
-			_cutscene.update(_camera, _cut_t)
+		_cutscene.update(_camera, _cut_t)
+		return
+	if _cutscene_scene != 0 and int(_cut_state.get("step", -1)) >= 0:
+		var t: float = _cut_state["clock_s"]
+		if int(_cut_state["step_started"]) < 0:  # the clock moved one tick: show the pose between the two, as the players are
+			t = lerpf(_cut_state["clock_prev_s"], t, clampf(_accumulator / TICK_S, 0.0, 1.0))
+		# False: no clip camera is in force (before the first record starts, or a procedural record, PES 0x141F7BFE0): the
+		# broadcast camera stays.
+		if _cut_steps[int(_cut_state["step"])].update(_camera, t):
 			return
 	if args.has("follow"):
 		var p: Vector3 = players[int(args["follow"])].global_position

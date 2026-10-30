@@ -58,7 +58,7 @@ void GfMatch::_bind_methods() {
   ClassDB::bind_method(D_METHOD("set_cutscene_environment", "stadium", "time_of_day", "weather"),
                        &GfMatch::set_cutscene_environment);
   ClassDB::bind_method(D_METHOD("take_cutscene"), &GfMatch::take_cutscene);
-  ClassDB::bind_method(D_METHOD("cutscene_finished", "scene_id"), &GfMatch::cutscene_finished);
+  ClassDB::bind_method(D_METHOD("cutscene_state"), &GfMatch::cutscene_state);
 }
 
 Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const String& anims_dir, int home,
@@ -124,6 +124,8 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   fixdemo_.reset();
   goalTable_.reset();
   pendingCutscene_.reset();
+  timeline_.reset();
+  tick_ = 0;
   lastScore_[0] = lastScore_[1] = 0;
   foulStopSeen_ = false;
   std::map<int, pes::FixDemoTable> tables;
@@ -206,6 +208,15 @@ void GfMatch::step() {
   match_->Process();
   RefreshPlayers();  // substitutions change the active set
   PollCutscenes();
+  ++tick_;
+  // PES's cutscene clock: one update per logic frame once DemoInfo exists. A finished timeline is dropped on the frame after
+  // its `ended` flag was read (cutscene_state).
+  if (timeline_ && timeline_->Done()) timeline_.reset();
+  if (timeline_ && tick_ >= timelineStartTick_) {
+    clockPrevTicks_ = timeline_->State().clock;
+    timeline_->Tick();
+    if (timeline_->State().ended && fixdemo_) fixdemo_->EndScene(timelineScene_);  // 0x141F58FC0: the rotation word advances
+  }
 }
 
 // ponytail: PES's sanction tree 0x14047F170 returns the foul scene id from the foul record (kind, fouler, period, injury and
@@ -248,6 +259,7 @@ void GfMatch::PollCutscenes() {
   const RefereeBuffer& stop = match_->GetRefereeBuffer();
   const bool foul = stop.active && (stop.desiredSetPiece == e_SetPiece_FreeKick || stop.desiredSetPiece == e_SetPiece_Penalty) &&
                     (!foulStopSeen_ || stop.stopTime != lastFoulStop_ms_);
+  if (timeline_) return;  // one scene at a time: PES's DemoInfo is a singleton (a stop during a scene is not asked)
   if (scored) {
     // The goal scene: PES's generic pick (pesgoalscene), then the variant of each of its cuts.
     const auto scene = pes::PickGoalScene(*goalTable_, kGoalRule, *goalRng_);
@@ -260,6 +272,7 @@ void GfMatch::PollCutscenes() {
     fixdemo_->BeginEvent(facts);
     pendingCutscene_ = fixdemo_->Request(*scene);
     pendingAnchor_ = PlaceGoalScene(*scene, ball);
+    if (pendingCutscene_) StartTimeline(*pendingCutscene_);
   } else if (foul) {
     foulStopSeen_ = true;
     lastFoulStop_ms_ = stop.stopTime;
@@ -270,6 +283,7 @@ void GfMatch::PollCutscenes() {
     fixdemo_->BeginEvent(facts);
     pendingCutscene_ = fixdemo_->Request(kOrdinaryFoulScene);
     pendingAnchor_.reset();
+    if (pendingCutscene_) StartTimeline(*pendingCutscene_);
   }
 }
 
@@ -341,8 +355,69 @@ Dictionary GfMatch::take_cutscene() {
   return out;
 }
 
-void GfMatch::cutscene_finished(int scene_id) {
-  if (fixdemo_) fixdemo_->EndScene(uint32_t(scene_id));
+// ponytail: the frames between PES's goal pick and the DemoInfo that runs the scene: four logged goals show the DemoInfo
+// (and its manager) alive two frames after the pick frame (the first poll row with a scene id). The creating call (the
+// DemoInfo builder 0x14047DF00 behind the pick's caller) is not decoded, so the lag is the measured one; removed with it.
+constexpr uint32_t kPickToDemoInfoTicks = 2;
+
+// The scene's timeline from its request: every step's player makes its length, start and speed from the first Cut record of
+// the variant's layers (cut start 0x141F2DD80, pes::fdc::StepFromCut); the DemoInfo's state machine and the manager step
+// them (pes::CutsceneTimeline).
+void GfMatch::StartTimeline(const pes::FixDemoRequest& request) {
+  const pes::fdc::PoseConstants* k = library_.is_valid() ? library_->cutscene_camera_constants() : nullptr;
+  if (!k) return;
+  const int category = int(request.sceneId >> 16);
+  std::vector<pes::TimelineStep> steps;
+  for (const pes::FixDemoStepRequest& step : request.steps) {
+    pes::fdc::File cuts;  // the player's cut map: the Cut records of every layer
+    for (const std::string& name : step.fdc) {
+      const std::string path = pes::FixDemoCutDataPath(category, name);
+      std::string err;
+      auto bytes = path.empty() ? std::nullopt : library_->vfs().Read(path, &err);
+      pes::fdc::File layer;
+      if (bytes && pes::fdc::Parse(*bytes, &layer, &err)) cuts.cuts.insert(cuts.cuts.end(), layer.cuts.begin(), layer.cuts.end());
+    }
+    // ponytail: PES's player of a step whose layers hold no Cut record keeps length -1 and never finishes; the manager's
+    // 3600-frame wait (0x141F59380 case 6, [0x142598590]) ends the scene. GF gives such a step the shortest length (1 tick)
+    // so the list still runs out; no installed variant is without a Cut record.
+    // ponytail: the raw length draw 0x141F7A150(scene+0x128, 100) of a Cut with min < max is not exposed by FixDemoSelector
+    // (its Random1000 is the arena's); 0 gives the minimum. Every Cut of the goal scenes captured so far has min == max.
+    const pes::fdc::CutRecord* first = pes::fdc::FirstCut(cuts);
+    steps.push_back(first ? pes::fdc::StepFromCut(*first, 0, *k) : pes::TimelineStep{1.0f, 0.0f, 1.0f});
+  }
+  if (steps.empty()) {  // a request with no step at all plays nothing
+    fixdemo_->EndScene(request.sceneId);
+    pendingCutscene_.reset();
+    pendingAnchor_.reset();
+    return;
+  }
+  pes::TimelineConfig config;
+  config.sixty = k->sixty;
+  config.fps = pes::offball::kPesFps;
+  // ponytail: DemoInfo state 2 waits for +0x1D4, set by the pre-scene gate 0x140447290: its sub-state 1 counts frames against
+  // fps * [0x142565604] (2.0 s, decompiled), then sub-state 2 against fps * (a goal-dependent number of half seconds) that
+  // FUN_14044E460 derives and whose inputs are not decoded. Four logged goals waited 147..232 frames in total; GF waits the
+  // decoded 2.0 s part only. Removed when 0x140447290 and 0x14044E460 are translated.
+  config.gateTicks = uint32_t(k->two * config.fps);
+  timeline_.emplace(config, std::move(steps));
+  timelineScene_ = request.sceneId;
+  timelineSixty_ = k->sixty;
+  clockPrevTicks_ = 0;
+  // The pick step has run this far: DemoInfo exists kPickToDemoInfoTicks frames after it, the timeline's first Tick the next.
+  timelineStartTick_ = tick_ + 1 + kPickToDemoInfoTicks + 1;
+}
+
+Dictionary GfMatch::cutscene_state() const {
+  Dictionary out;
+  if (!timeline_) return out;
+  const pes::TimelineState& s = timeline_->State();
+  out["scene"] = int(timelineScene_);
+  out["step"] = s.stepPhase >= 5 ? s.step : -1;
+  out["step_started"] = s.stepStarted;
+  out["clock_prev_s"] = double(clockPrevTicks_ / timelineSixty_);
+  out["clock_s"] = double(s.clock / timelineSixty_);
+  out["ended"] = s.ended;
+  return out;
 }
 
 bool GfMatch::is_over() const { return !match_ || match_->IsGameOver(); }
