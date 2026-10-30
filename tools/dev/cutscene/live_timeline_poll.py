@@ -36,6 +36,24 @@ while time.time()-t0<secs:
                     eps=rd(*[(G+(i+0xbf)*0x28,8) for i in range(22)])
                     ps=rd(*[(U64(e)+0x55c,16) for e in eps if e])  # x at +0x55c, z at +0x564
                     row['A']['P']=[[round(struct.unpack('<f',p[0:4])[0],2),round(struct.unpack('<f',p[8:12])[0],2)] if p else None for p in ps]
+                    # the gate 0x140472640 reads the scorer's facing (man+0x554, degrees) and run record (G+(i+0xDD)*0x28: +1 type byte, +0x24 u16, +0x54 f32)
+                    fs=rd(*[(U64(e)+0x554,4) for e in eps if e])
+                    row['A']['Fc']=[round(struct.unpack('<f',f)[0],3) if f else None for f in fs]
+                    rps=rd(*[(G+(i+0xa5)*0x28,8) for i in range(22)])  # the anime table G+0x19C8 (FUN_140A48910)
+                    rr=rd(*[(U64(r),0x58) for r in rps if r])
+                    row['A']['R']=[[x[1],struct.unpack('<H',x[0x24:0x26])[0],round(struct.unpack('<f',x[0x54:0x58])[0],3)] if x else None for x in rr]
+            o=d[0x6d8:0x6ec]  # the FOUL run object (kind 5/9 handlers 0x140446960 / 0x1404466F0): +0 scene, +4/+5 bytes, +8 countdown, +0xC ready (FUN_14047EB00)
+            if struct.unpack('<I',o[0:4])[0]>>16==2 and mi:
+                fo=dict(sc=struct.unpack('<I',o[0:4])[0],b4=o[4],b5=o[5],cd=struct.unpack('<i',o[8:12])[0],rdy=o[0xc])
+                sl=rd((mi+0x1590,8),(mi+0x1588,4))
+                fo.update(m1590=struct.unpack('<2I',sl[0]),m1588=struct.unpack('<I',sl[1])[0])
+                eps=rd(*[(G+(i+0xbf)*0x28,8) for i in range(23)])  # slot 0x16 = the referee's man record
+                ps=rd(*[(U64(e)+0x55c,16) for e in eps if e])
+                fo['P']=[[round(struct.unpack('<f',p[0:4])[0],2),round(struct.unpack('<f',p[8:12])[0],2)] if p else None for p in ps]
+                rps=rd(*[(G+(i+0xa5)*0x28,8) for i in range(22)])
+                rr=rd(*[(U64(r)+8,8) for r in rps if r])  # run record +8: bit 10 is read for the player in MI+0x1594
+                fo['R8']=[struct.unpack('<Q',x)[0] if x else None for x in rr]
+                row['Fo']=fo
             M=U64(d[0x1e0:0x1e8])
             if M:
                 m=rd((M,0x270),)[0]

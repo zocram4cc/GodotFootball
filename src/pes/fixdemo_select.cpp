@@ -94,6 +94,17 @@ constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManT
 constexpr uint64_t kWorldTableStride = 0x28;
 constexpr uint64_t kWorldTeamInfoTable = 0xA1 * kWorldTableStride, kWorldSquadTable = 0xA3 * kWorldTableStride;
 constexpr unsigned kPitchSlots = 22, kSideSlots = 11;  // 2 sides * 11
+// The gates' world (0x140472640, 0x14047EB00): the anime record table 0x140A48910 reads (G+0x19C8; record +1 class byte, +8 flag
+// word, +0x54 speed), the referee's man record (table index 0x16, which 0x140A48A10 answers), the object behind G+0x2C0 whose
+// +0x5C is the time scale, the run object's ready byte A0+0xEC, the first cut id the DemoInfo holds (+0x10: the scene flag test
+// 0x140A7C800 takes it), the integer frame rate 0x14351AE50 (0x141E532E0 returns it) and the foul object (0x14047FEB0's layout).
+constexpr uint64_t kWorldAnimeTable = 0x19C8, kAnimeBytes = 0x60, kAnimeClass = 1, kAnimeFlags = 8, kAnimeSpeed = 0x54;
+constexpr uint64_t kWorldTimeScale = 0x2C0, kTimeScaleBytes = 0x60, kTimeScaleValue = 0x5C;
+constexpr unsigned kRefereeSlot = 0x16;
+constexpr uint64_t kA0Ready = 0xEC, kDemoInfoBytes = 0x40, kDemoInfoCut = 0x10, kFpsIntVa = 0x14351AE50;
+constexpr uint64_t kFoulBytes = 0x20, kFoulScene = 0, kFoulCountdown = 8, kFoulReady = 0xC, kMiFouler = 0x1590, kMiVictim = 0x1594;
+constexpr uint32_t kFoulCountdownSeconds = 3;  // 0x14047FEB0: `fps * 3 / scale`
+constexpr uint32_t kAnimeFlagBit10 = 1u << 10;  // 0x14047EB00: `*(u32*)(anime + 8) >> 10 & 1`
 constexpr uint64_t kSquadBytes = 0x30, kTeamInfoBytes = 0x300, kTeamInfoAttackSign = 0x254;
 constexpr uint64_t kFieldInfoBytes = 18 * sizeof(float);
 constexpr uint64_t kMiSlotMode = 0x1588, kMiSlot = 0x1590;  // MI+0x1588 == 1: the scorer's slot is MI+0x1590 (0x140474F00)
@@ -117,6 +128,10 @@ struct FixDemoSelector::Impl {
   PesState s;
   uint64_t ctx = 0, db = 0;
   uint64_t world = 0, matchInfo = 0, fieldInfo = 0, a0 = 0, event = 0, matchRecord = 0;
+  std::array<uint64_t, kPitchSlots> anime{};
+  uint64_t referee = 0, demo = 0, foul = 0, timeScale = 0;
+  uint32_t gateSlot = 0, foulerSlot = 0, victimSlot = 0;
+  bool goalPlaced = false;
   std::array<uint64_t, kPitchSlots> man{}, run{};
   std::array<uint64_t, 2> squad{}, teamInfo{};  // per side: the squad key table and the team info (+0x254: attack sign)
   float fullTurnDeg = 0;
@@ -252,9 +267,20 @@ struct FixDemoSelector::Impl {
     for (unsigned slot = 0; slot < kPitchSlots; ++slot) {
       man[slot] = Zalloc(kManBytes);
       run[slot] = Zalloc(kRunBytes);
+      anime[slot] = Zalloc(kAnimeBytes);
+      s.wr(world + kWorldAnimeTable + slot * kWorldTableStride, anime[slot], 8);
       s.wr(world + kWorldManTable + slot * kWorldTableStride, man[slot], 8);
       s.wr(world + kWorldRunTable + slot * kWorldTableStride, run[slot], 8);
     }
+    referee = Zalloc(kManBytes);
+    s.wr(world + kWorldManTable + kRefereeSlot * kWorldTableStride, referee, 8);
+    demo = Zalloc(kDemoInfoBytes);
+    foul = Zalloc(kFoulBytes);
+    // ponytail: the time scale object behind G+0x2C0 (+0x5C, read live as 1.0 on every capture) has no GF counterpart: the
+    // match speed setting that PES's [[G+0x2C0]+0x5C] carries; removed with it.
+    timeScale = Zalloc(kTimeScaleBytes);
+    s.wrf(timeScale + kTimeScaleValue, 1.0f);
+    s.wr(world + kWorldTimeScale, timeScale, 8);
     // Per side: the squad table 0x140A62EA0 maps a squad key through (word 0 = the side, word 1+i = slot i's key) and the
     // team info (G+(0xA1+side)*0x28; +0x254 = the attack sign 0x140476190 reads: 1 for side 0, 0xFF for side 1).
     // GF keys its squad by the index on the pitch, so the key of slot i is i.
@@ -362,7 +388,61 @@ struct FixDemoSelector::Impl {
     s.gpr[2] = 0;
     Call(&pes_fn_140478FF0);
     out.flip = (s.gpr[0] & 0xFF) != 0;
+    // The goal builder's last calls: the run object's timers (0x14047A710(A0, event): A0+0x14 = fps x 4 / scale, 10 for
+    // 0x3013D..F, A0+0x18 = fps x 30 / scale), and the DemoInfo's first cut id the tail's scene flag test reads (+0x10).
+    s.wr(demo + kDemoInfoCut, f.cuts.empty() ? f.sceneId : f.cuts.front(), 4);
+    s.gpr[1] = a0;
+    s.gpr[2] = event;
+    Call(&pes_fn_14047A710);
+    gateSlot = f.scorerSlot;
+    goalPlaced = true;
     return out;
+  }
+
+  // One call of the goal gate 0x140472640(A0, event, DemoInfo) with the scorer as he is this frame; A0+0xEC after it.
+  bool GoalGate(const GoalGateFacts& g) {
+    if (!goalPlaced) return false;
+    const uint64_t m = man[gateSlot], a = anime[gateSlot];
+    s.wrf(m + kManFacing, g.facing);
+    for (unsigned i = 0; i < 3; ++i) s.wrf(m + kManPos + 4 * i, g.pos[i]);
+    s.wr(a + kAnimeClass, g.animeClass, 1);
+    s.wrf(a + kAnimeSpeed, g.animeSpeed);
+    s.gpr[1] = a0;
+    s.gpr[2] = event;
+    s.gpr[8] = demo;
+    Call(&pes_fn_140472640);
+    return s.rd(a0 + kA0Ready, 1) != 0;
+  }
+
+  // The foul object as its constructor 0x14047FEB0 leaves it (scene, flags 0, countdown `(int)(fps * 3 / scale)`, ready 0) and
+  // the foul in the match info. ponytail: the constructor itself is not translated (its callees build effect objects); the
+  // countdown line and the zeroed flags (object +4, +5) are mirrored, +4/+5 are INF zero (the live foul rows' `Fo.b4/b5`).
+  void BeginFoul(const FoulGateStart& st) {
+    s.wr(kFpsIntVa, static_cast<uint32_t>(st.fps), 4);
+    s.wrf(kFpsVa, st.fps);
+    for (uint64_t off = 0; off < kFoulBytes; off += 8) s.wr(foul + off, 0, 8);
+    s.wr(foul + kFoulScene, st.sceneId, 4);
+    const float scale = s.rdf(timeScale + kTimeScaleValue);
+    s.wr(foul + kFoulCountdown, static_cast<uint32_t>(static_cast<int>(static_cast<float>(static_cast<uint32_t>(st.fps) * kFoulCountdownSeconds) / scale)), 4);
+    s.wr(matchInfo + kMiFouler, st.foulerSlot, 4);
+    s.wr(matchInfo + kMiVictim, st.victimSlot, 4);
+    foulerSlot = st.foulerSlot;
+    victimSlot = st.victimSlot;
+  }
+
+  bool FoulGate(const FoulGateFacts& f) {
+    if (foulerSlot >= kPitchSlots || victimSlot >= kPitchSlots) return false;
+    const auto put = [&](uint64_t record, const std::array<float, 3>& pos) {
+      for (unsigned i = 0; i < 3; ++i) s.wrf(record + kManPos + 4 * i, pos[i]);
+    };
+    put(man[foulerSlot], f.foulerPos);
+    put(man[victimSlot], f.victimPos);
+    put(referee, f.refereePos);
+    const uint64_t flags = anime[victimSlot] + kAnimeFlags;
+    s.wr(flags, f.victimFlag10 ? kAnimeFlagBit10 : 0, 4);
+    s.gpr[1] = foul;
+    Call(&pes_fn_14047EB00);
+    return s.rd(foul + kFoulReady, 1) != 0;
   }
 
   // A translated function is entered as the dispatch enters it: a return address pushed.
@@ -535,6 +615,12 @@ std::optional<FixDemoRequest> FixDemoSelector::Request(uint32_t sceneId) {
 }
 
 std::optional<GoalAnchor> FixDemoSelector::PlaceGoal(const GoalAnchorFacts& facts) { return impl_->PlaceGoal(facts); }
+
+bool FixDemoSelector::GoalGateReady(const GoalGateFacts& facts) { return impl_->GoalGate(facts); }
+
+void FixDemoSelector::BeginFoulGate(const FoulGateStart& start) { impl_->BeginFoul(start); }
+
+bool FixDemoSelector::FoulGateReady(const FoulGateFacts& facts) { return impl_->FoulGate(facts); }
 
 void FixDemoSelector::EndScene(uint32_t sceneId) {
   // 0x141F58FC0: `uVar1 != 0x60001 && 10 < uVar1 - 0x40011` (unsigned) guards the call 0x141F4D070(cat = uVar1 >> 16 & 0xFF).

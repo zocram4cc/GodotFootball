@@ -96,6 +96,30 @@ struct GoalAnchor {
   float radius = 0;               // A0+0xC: the scene's run radius (0x140474CF0)
 };
 
+// The scorer as the goal run object's gate 0x140472640 reads him each PES frame (man record +0x554/+0x55C/+0x564, anime record
+// +1 and +0x54).
+struct GoalGateFacts {
+  std::array<float, 3> pos{};  // man +0x55C..: metres, PES axes
+  float facing = 0;            // man +0x554: body facing, degrees
+  uint8_t animeClass = 0;      // anime record +1: PES's anime class of what he is doing (0x1426484F0 tables)
+  float animeSpeed = 0;        // anime record +0x54, the speed the tail compares with 13.5 ([0x1425A1FFC])
+};
+
+// What the foul run object's gate 0x14047EB00 reads each PES frame: the fouler, the fouled man and the referee (man records
+// 0x14047EB00 takes through 0x140A48A10; slot 0x16 is the referee), and the fouled man's anime record +8 bit 10.
+struct FoulGateFacts {
+  std::array<float, 3> foulerPos{}, victimPos{}, refereePos{};  // man +0x55C..: metres, PES axes
+  bool victimFlag10 = false;                                    // anime record +8 bit 10 of the fouled man
+};
+
+// A foul stop as PES's foul run object holds it at creation (the constructor 0x14047FEB0).
+struct FoulGateStart {
+  uint32_t sceneId = 0;       // object +0
+  uint32_t foulerSlot = 0;    // MI+0x1590 (< 22)
+  uint32_t victimSlot = 0;    // MI+0x1594 (< 22)
+  float fps = 0;              // 0x14351AE50 / 0x14351AE54: PES frames per second
+};
+
 class PeImage;
 
 class FixDemoSelector {
@@ -136,6 +160,17 @@ class FixDemoSelector {
   // [0x14259858C], and the flip 0x140478FF0), run on the arena: the scene row is the goal table's, laid into the DB at
   // +0x448/+0x450. Nullopt when the table has no row for the scene or the slot is not a pitch slot.
   std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& facts);
+
+  // The goal's DemoInfo gate, PES's own: `0x140472640(A0, ctx, DemoInfo)` run once on the arena of the last PlaceGoal with the
+  // scorer's facts of this frame (A0+0x14 counts down once per call: the timer 0x14047A710 set at PlaceGoal; the radius test,
+  // the facing, anime-class and scene-flag clears are PES's), and A0+0xEC after it: true from the frame the gate opens (it
+  // latches). Call it once per PES frame while DemoInfo state 2 waits. False before PlaceGoal.
+  bool GoalGateReady(const GoalGateFacts& facts);
+
+  // The foul DemoInfo's gate, PES's own: BeginFoulGate builds the object as 0x14047FEB0 does (countdown fps x 3 / the time
+  // scale), FoulGateReady runs `0x14047EB00(object)` with this frame's positions and answers the ready byte (object +0xC).
+  void BeginFoulGate(const FoulGateStart& start);
+  bool FoulGateReady(const FoulGateFacts& facts);
 
   // Puts back one pick-history node recorded from a live PES, the way 0x141F4FFF0 creates it: key = (group start + range
   // start) * 0x100 + column, the node's two range words, and its used-block byte vector with the vector's capacity. For tests

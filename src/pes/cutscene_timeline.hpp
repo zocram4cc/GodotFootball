@@ -32,18 +32,14 @@ struct TimelineStep {
 // raw draw 0x141F7A150(scene+0x128, 100) in [0, 99]. `ninetyNine` is the float at 0x1425C48CC.
 float CutLength(float minTicks, float maxTicks, int draw, float ninetyNine);
 
-// A0+0x14, the goal run object's timer of `0x14047A710` (`0x14047A71A..0x14047A80C`, called at `0x14047881F` by the goal builder
-// `0x140478190`): `(int)((float)(fps * k) / scale)` with k = 10 for the scenes 0x3013D..0x3013F (`0x14047A720 SUB EAX,0x3013D;
-// CMP EAX,2; JA`) and 4 otherwise (`0x14047A7F7 SHL EAX,2`, the arm with A0+0x130 = 0, which is 0 on all 13 captured goals). `scale` is
-// `[[G+0x2C0]+0x5C]` (1.0 read live). The gate opens no later than this many frames after the DemoInfo exists.
-uint32_t GoalRunTimerTicks(uint32_t scene, float fps, float scale);
+// The gate of DemoInfo state 2 is PES's own function, run by the caller once a frame: the goal run object's ready byte
+// A0+0xEC (0x140472640, copied to DemoInfo+0x1D4 by 0x14047B460) or the foul object's +0xC (0x14047EB00): FixDemoSelector::
+// GoalGateReady / FoulGateReady (src/pes/fixdemo_select.hpp). Tick() takes its result.
 
 struct TimelineConfig {
   float sixty = 0;  // 0x14259A764: ticks per second (the player update's `movss xmm4` at 0x141F2F93B)
   float fps = 0;    // manager+0xF0 / player+0xAB0: 54.0 (pes::offball::kPesFps)
-  // Ticks from the request to DemoInfo state 4: the pre-scene gate 0x140447290 sets DemoInfo+0x1D4, the flag state 2 waits
-  // for (a frame counter against fps x a scene-dependent time: pes-port-CutsceneTiming2 section 3). An input, not a constant.
-  uint32_t gateTicks = 0;
+  // (the gate is Tick's argument: PES's per-frame gate function, not a configured count)
 };
 
 struct TimelineState {
@@ -62,7 +58,8 @@ struct TimelineState {
 class CutsceneTimeline {
  public:
   CutsceneTimeline(const TimelineConfig& config, std::vector<TimelineStep> steps);
-  void Tick();
+  // One PES frame. `gateReady`: the gate function's answer for this frame (DemoInfo state 2 leaves for 4 on the first true).
+  void Tick(bool gateReady);
   const TimelineState& State() const { return state_; }
   bool Done() const { return state_.demoState == 0; }
 

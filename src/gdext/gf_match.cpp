@@ -4,6 +4,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include <algorithm>
+#include <array>
 
 #include <godot_cpp/core/math.hpp>
 #include "data/matchdata.hpp"
@@ -15,6 +16,7 @@
 #include "onthepitch/pesgoalscene.hpp"
 #include "onthepitch/referee.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/player/controller/elizacontroller.hpp"
 #include "simcontext.hpp"
 #include "utils/database.hpp"
 
@@ -212,10 +214,16 @@ void GfMatch::step() {
   // PES's cutscene clock: one update per logic frame once DemoInfo exists. A finished timeline is dropped on the frame after
   // its `ended` flag was read (cutscene_state).
   if (timeline_ && timeline_->Done()) timeline_.reset();
-  if (timeline_ && tick_ >= timelineStartTick_) {
-    clockPrevTicks_ = timeline_->State().clock;
-    timeline_->Tick();
-    if (timeline_->State().ended && fixdemo_) fixdemo_->EndScene(timelineScene_);  // 0x141F58FC0: the rotation word advances
+  if (timeline_) {
+    // PES's gate function, once a frame while DemoInfo state 2 waits (it latches: the run object's ready byte stays set). The
+    // first call is the frame before the timeline's first Tick (the DemoInfo creation frame): Tick n sees call n + 1, which puts
+    // the timer-decided gate of the logged g4 at Tick 215 (timer 216 - 1: pes-port-CutsceneTiming3.md section 2).
+    if (!gateOpen_ && tick_ + 1 >= timelineStartTick_) gateOpen_ = RunGate();
+    if (tick_ >= timelineStartTick_) {
+      clockPrevTicks_ = timeline_->State().clock;
+      timeline_->Tick(gateOpen_);
+      if (timeline_->State().ended && fixdemo_) fixdemo_->EndScene(timelineScene_);  // 0x141F58FC0: the rotation word advances
+    }
   }
 }
 
@@ -271,7 +279,12 @@ void GfMatch::PollCutscenes() {
     facts.eventZ = ball.z;
     fixdemo_->BeginEvent(facts);
     pendingCutscene_ = fixdemo_->Request(*scene);
+    gateScorer_ = match_->GetLastGoalScorer();
+    gateIsGoal_ = true;
     pendingAnchor_ = PlaceGoalScene(*scene, ball);
+    // The gate runs on the run object the anchor's PlaceGoal built: a goal whose scorer is not in the active set (no anchor, no
+    // run object) plays no scene.
+    if (!pendingAnchor_) pendingCutscene_.reset();
     if (pendingCutscene_) StartTimeline(*pendingCutscene_);
   } else if (foul) {
     foulStopSeen_ = true;
@@ -283,7 +296,20 @@ void GfMatch::PollCutscenes() {
     fixdemo_->BeginEvent(facts);
     pendingCutscene_ = fixdemo_->Request(kOrdinaryFoulScene);
     pendingAnchor_.reset();
-    if (pendingCutscene_) StartTimeline(*pendingCutscene_);
+    // ponytail: an offside stop reaches here with no fouler (PES's offside DemoInfo is not a foul object); slot 0 stands in for
+    // both men until the offside scene's own gate is decoded.
+    gateFouler_ = match_->GetReferee()->GetCurrentFoulPlayer();
+    gateVictim_ = match_->GetReferee()->GetCurrentFoulVictim();
+    gateIsGoal_ = false;
+    if (pendingCutscene_) {
+      pes::FoulGateStart start;
+      start.sceneId = kOrdinaryFoulScene;
+      start.foulerSlot = uint32_t(std::max(PesSlot(gateFouler_), 0));
+      start.victimSlot = uint32_t(std::max(PesSlot(gateVictim_), 0));
+      start.fps = pes::offball::kPesFps;
+      fixdemo_->BeginFoulGate(start);
+      StartTimeline(*pendingCutscene_);
+    }
   }
 }
 
@@ -292,18 +318,14 @@ void GfMatch::PollCutscenes() {
 // the last touch of the scoring team (Match::GetLastGoalScorer), as the goal celebration finds him.
 std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const Vector3& event) {
   Player* scorer = match_->GetLastGoalScorer();
-  const auto at = std::find(players_.begin(), players_.end(), scorer);
-  if (!scorer || at == players_.end()) return std::nullopt;
-  const size_t index = size_t(at - players_.begin());
-  const int side = teamOf_[index];
-  int place = 0;  // the scorer's index among his side's players
-  for (size_t k = 0; k < index; ++k) place += teamOf_[k] == side;
+  const int slot = PesSlot(scorer);
+  if (!scorer || slot < 0) return std::nullopt;
   const Vector3 pos = ToFox(scorer->GetPosition());
   const Vector3 vel = ToFox(scorer->GetMovement()) / TICK_S / pes::offball::kPesFps;  // metres per PES frame
   const Vector3 dir = ToFox(scorer->GetBodyDirectionVec());
   pes::GoalAnchorFacts f;
   f.sceneId = sceneId;
-  f.scorerSlot = uint32_t(side * pes::designation::kSideSlots + place);
+  f.scorerSlot = uint32_t(slot);
   f.pos = {pos.x, pos.y, pos.z};
   f.vel = {vel.x, vel.y, vel.z};
   f.facing = float(Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0));  // PES's bearing: atan2(dx, dz)
@@ -325,6 +347,47 @@ std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const V
   // it the goal pick's own generator state, unadvanced.
   f.rngState = goalRng_->State(pes::kRange0Slot);
   return fixdemo_->PlaceGoal(f);
+}
+
+int GfMatch::PesSlot(Player* p) const {
+  const auto at = std::find(players_.begin(), players_.end(), p);
+  if (!p || at == players_.end()) return -1;
+  const size_t index = size_t(at - players_.begin());
+  const int side = teamOf_[index];
+  int place = 0;  // his index among his side's players
+  for (size_t k = 0; k < index; ++k) place += teamOf_[k] == side;
+  return side * pes::designation::kSideSlots + place;
+}
+
+// ponytail: the anime record's +0x54 (what the goal gate's tail compares with 13.5, [0x1425A1FFC]) is written by PES's per-tick
+// movement writer, which is not decoded. Measured on 3549 man-frames of a live goal (live_f.jsonl): it follows the man's ground
+// speed at about 3.5-3.9 times its value in m/s (a km/h-like unit), so GF feeds 3.6 x speed; removed with the writer.
+constexpr float kAnimeSpeedPerMps = 3.6f;
+// ponytail: the fouled man's anime record +8 bit 10 (read by the foul gate's else arm) has no writer decoded; false until the
+// live `Fo.R8` rows (live_timeline_poll.py) say which state sets it.
+
+bool GfMatch::RunGate() {
+  if (!fixdemo_) return false;
+  const auto at = [](auto* p) {
+    const Vector3 v = ToFox(p->GetPosition());
+    return std::array<float, 3>{v.x, v.y, v.z};
+  };
+  if (gateIsGoal_) {
+    if (!gateScorer_) return false;
+    pes::GoalGateFacts g;
+    g.pos = at(gateScorer_);
+    const Vector3 dir = ToFox(gateScorer_->GetBodyDirectionVec());
+    g.facing = float(Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0));  // PES's bearing: atan2(dx, dz)
+    g.animeClass = uint8_t(AnimeClassOf(gateScorer_));
+    const Vector3 v = ToFox(gateScorer_->GetMovement()) / TICK_S;  // m/s, Y up: the ground speed is x and z
+    g.animeSpeed = kAnimeSpeedPerMps * float(Math::sqrt(double(v.x) * v.x + double(v.z) * v.z));
+    return fixdemo_->GoalGateReady(g);
+  }
+  pes::FoulGateFacts f;
+  if (gateFouler_) f.foulerPos = at(gateFouler_);
+  if (gateVictim_) f.victimPos = at(gateVictim_);
+  if (PlayerOfficial* ref = match_->GetOfficials()->GetReferee()) f.refereePos = at(ref);
+  return fixdemo_->FoulGateReady(f);
 }
 
 Dictionary GfMatch::take_cutscene() {
@@ -394,19 +457,7 @@ void GfMatch::StartTimeline(const pes::FixDemoRequest& request) {
   pes::TimelineConfig config;
   config.sixty = k->sixty;
   config.fps = pes::offball::kPesFps;
-  // A goal's gate (DemoInfo state 2 waiting for +0x1D4 = the goal run object's ready byte A0+0xEC, 0x140472640) opens when the
-  // scorer is within radius of the celebration spot (and faces it) or when the run object's timer A0+0x14 runs out:
-  // GoalRunTimerTicks, 4 s of PES frames (0x14047A710). The timer is the latest it opens; it was the gate on 3 of 13 captured
-  // goals and on the logged g4 (timer 216 -> gate 215: the poll's first row is the frame after the DemoInfo exists).
-  // ponytail: the early opening (scorer inside A0+0xC - A0+0x10 of A0+0x30 and facing it within 30 degrees: 0x140472989 and
-  // the tail after it) is not ported, so a goal whose scorer arrives early (PES: 147, 213 frames on two logged goals) starts
-  // later here; removed by translating 0x140472640 (docs/ports/pes-port-CutsceneTiming3.md section 2). [[G+0x2C0]+0x5C] = 1.0
-  // (read live) has no GF counterpart. A foul keeps the earliest opening of its own gate (0x14047EB00: the countdown
-  // fps*3 may only open once it is down to fps, so 2.0 s) until that gate is ported. The special scenes 0x3013D..0x3013F wait
-  // 10 s on the timer but PES opened the logged one (g3) after 147 frames by the 3.5 m arrival test (no angle clear), so they
-  // keep the 2.0 s stand-in too (a 540-frame wait would be far later than PES's), until the arrival test is ported.
-  const bool specialGoal = request.sceneId - 0x3013Du < 3;
-  config.gateTicks = category == 3 && !specialGoal ? pes::GoalRunTimerTicks(request.sceneId, config.fps, 1.0f) - 1 : uint32_t(k->two * config.fps);
+  gateOpen_ = false;
   timeline_.emplace(config, std::move(steps));
   timelineScene_ = request.sceneId;
   timelineSixty_ = k->sixty;

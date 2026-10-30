@@ -117,6 +117,7 @@ public:
   void CancelSetPiece();
 
   Player* GetCurrentFoulPlayer() { return foul.foulPlayer; }
+  Player* GetCurrentFoulVictim() { return foul.foulVictim; }
   int GetCurrentFoulType() { return foul.foulType; }
 
   // PES 2021's offside category for a player (docs/re/pes-re-offside.md 4):

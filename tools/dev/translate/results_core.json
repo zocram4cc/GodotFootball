@@ -98720,5 +98720,43 @@
    "translated": true,
    "va": "0x1404B88B0"
   }
+  ,{
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {"0x140472640": {"fraction": 0.5182, "reached": 57, "total": 110}},
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 128,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: 13 synthetic gate calls over the full snapshots of 13 captured goals replayed bit-exact (pes-port-CutsceneTiming4.md); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 64,
+   "snapdiff": {"calls": 13, "mismatches": 0, "own_block": {"fraction": 0.5182, "reached": 57, "total": 110}, "replayed": 13, "source": "tools/dev/translate/results_snapdiff_gate.json"},
+   "stubs": [],
+   "translated": true,
+   "va": "0x140472640"
+  }
+  ,{
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {"0x14047EB00": {"fraction": 1.0, "reached": 34, "total": 34}},
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 128,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: 32 synthetic foul-object calls over a full in-play snapshot replayed bit-exact (pes-port-CutsceneTiming4.md); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 64,
+   "snapdiff": {"calls": 32, "mismatches": 0, "own_block": {"fraction": 1.0, "reached": 34, "total": 34}, "replayed": 32, "source": "tools/dev/translate/results_snapdiff_foulgate.json"},
+   "stubs": [],
+   "translated": true,
+   "va": "0x14047EB00"
+  }
  ]
 }

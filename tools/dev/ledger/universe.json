@@ -1290635,6 +1290635,18 @@
      "0x14063D2F0"
     ]
    },
+   "foulgate": {
+    "members": 7,
+    "roots": [
+     "0x14047EB00"
+    ]
+   },
+   "gate": {
+    "members": 237,
+    "roots": [
+     "0x140472640"
+    ]
+   },
    "trapchain": {
     "members": 170,
     "roots": [

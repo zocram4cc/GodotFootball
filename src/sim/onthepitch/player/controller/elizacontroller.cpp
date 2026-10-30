@@ -976,6 +976,8 @@ inline float BearingDeg(const Vector3& from, const Vector3& to) {
 
 inline float AngleBetweenDeg(float a, float b) { return std::fabs(WrapDeg(a - b)); }
 
+}  // namespace
+
 // PES 2021's anime action class (the table `0x1434a5470`, 0 NOTHING,
 // 2 MOVE, 3 STEP_MOVE, 4 DRIBBLE, 5/6 DRIBBLE_SIDE_BACK/STEP_MOVE, 7 TRAP,
 // 8/9/10 LONG_PASS/SHORT_PASS/SHOOT, 11/12 SLIDING(_KEEP), 13 TACKLE,
@@ -1009,6 +1011,8 @@ int AnimeClassOf(Player* p) {
   }
   return 0;
 }
+
+namespace {
 
 // Whether the team is playing one of its deepest mentality rungs, the only GF
 // analogue the report leaves open for PES's single `T+0xa298` defensive mode

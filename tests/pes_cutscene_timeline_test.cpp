@@ -27,13 +27,15 @@ using pes::TimelineStep;
 // (60 / 54) * speed ticks. Values of the image (0x14259A764) and of the manager's fps (+0xF0).
 constexpr float kSixty = 60.0f, kFps = 54.0f;
 
-TimelineConfig Config(uint32_t gate) {
+TimelineConfig Config() {
   TimelineConfig c;
   c.sixty = kSixty;
   c.fps = kFps;
-  c.gateTicks = gate;
   return c;
 }
+
+// Tick number n (1-based) with the gate answering true from tick `gate` on.
+void TickToGate(CutsceneTimeline& t, uint32_t gate) { t.Tick(t.State().tick + 1 >= gate); }
 
 // Ticks (1-based) at which each marker happens in a run to the end.
 struct Marks {
@@ -50,9 +52,9 @@ Marks Play(uint32_t gate, std::vector<TimelineStep> steps) {
   m.finished.assign(steps.size(), 0);
   m.totalAtFinish.assign(steps.size(), 0);
   m.clockAtStart.assign(steps.size(), 0);
-  CutsceneTimeline t(Config(gate), steps);
+  CutsceneTimeline t(Config(), steps);
   for (int i = 0; i < 100000 && !t.Done(); ++i) {
-    t.Tick();
+    TickToGate(t, gate);
     const TimelineState& s = t.State();
     if (s.anchorWrite) m.anchor = s.tick;
     if (s.stepStarted >= 0) {
@@ -109,11 +111,11 @@ TEST(CutsceneTimeline, SceneEndsWhenTheStepListRunsOutNotWhenTheFirstStepEnds) {
 }
 
 TEST(CutsceneTimeline, FinishedStateIsAbsorbingAndTicksAreIgnored) {
-  CutsceneTimeline t(Config(5), {{20, 0, 1}});
-  for (int i = 0; i < 1000; ++i) t.Tick();
+  CutsceneTimeline t(Config(), {{20, 0, 1}});
+  for (int i = 0; i < 1000; ++i) TickToGate(t, 5);
   ASSERT_TRUE(t.Done());
   const uint32_t tick = t.State().tick;
-  t.Tick();
+  TickToGate(t, 5);
   EXPECT_EQ(t.State().tick, tick);
   EXPECT_FALSE(t.State().ended);
 }
@@ -124,18 +126,6 @@ TEST(CutsceneTimeline, CutLengthIsMaxUnlessBothBoundsArePositive) {
   EXPECT_EQ(pes::CutLength(100, 300, 0, 99.0f), 100.0f);
   EXPECT_EQ(pes::CutLength(100, 300, 99, 99.0f), 300.0f);
   EXPECT_NEAR(pes::CutLength(100, 300, 33, 99.0f), 166.6667f, 1e-3);
-}
-
-// The goal run object's timer (A0+0x14, PES's `0x14047A710`, called by the goal builder `0x140478190`): 4 s of PES frames
-// divided by the time scale [[G+0x2C0]+0x5C], truncated; the three special scenes 0x3013D..0x3013F wait 10 s. When it runs
-// out the DemoInfo's gate opens (`0x140472989`: `A0+0x14 == 0`): the latest the gate can open for a goal.
-TEST(GoalRunTimer, FourSecondsOfFramesDividedByTheTimeScaleTenForTheSpecialScenes) {
-  EXPECT_EQ(pes::GoalRunTimerTicks(0x30034, kFps, 1.0f), uint32_t(4 * kFps));
-  EXPECT_EQ(pes::GoalRunTimerTicks(0x30034, kFps, 0.75f), uint32_t(4 * kFps / 0.75f));
-  EXPECT_EQ(pes::GoalRunTimerTicks(0x30034, 60.0f, 1.0f), 240u);  // frames, not seconds: it follows the frame rate
-  for (uint32_t scene : {0x3013Du, 0x3013Eu, 0x3013Fu}) EXPECT_EQ(pes::GoalRunTimerTicks(scene, kFps, 1.0f), uint32_t(10 * kFps));
-  EXPECT_EQ(pes::GoalRunTimerTicks(0x3013C, kFps, 1.0f), uint32_t(4 * kFps));
-  EXPECT_EQ(pes::GoalRunTimerTicks(0x30140, kFps, 1.0f), uint32_t(4 * kFps));
 }
 
 // ---- The oracle: goals logged from a running PES ----
@@ -211,11 +201,11 @@ bool MatchesMidTotal(const std::vector<TimelineState>& h, int k, const Row& r) {
 // the frame counter first, the objects after, and the counter moves at the start of a frame).
 // The index of the first row the model does not reproduce (rows.size() when all), and what differed.
 std::pair<size_t, std::string> FirstMismatch(const Episode& e, const std::vector<TimelineStep>& steps, uint32_t gate) {
-  CutsceneTimeline t(Config(gate), steps);
+  CutsceneTimeline t(Config(), steps);
   std::vector<TimelineState> history{t.State()};
   const int last = e.rows.back().frame - e.pick;
   for (int i = 0; i < last + 2; ++i) {
-    t.Tick();
+    TickToGate(t, gate);
     history.push_back(t.State());
   }
   for (size_t i = 0; i < e.rows.size(); ++i) {

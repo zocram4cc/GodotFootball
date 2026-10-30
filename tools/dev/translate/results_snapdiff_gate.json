@@ -1,0 +1,78 @@
+{
+ "note": "snapshot-backed diff of synthetic gate calls (snapdiff.py): the goal run object's gate 0x140472640(A0, ctx, DemoInfo) over the full snapshot of each of 13 captured goals' anchor writes (cut_anchor_write_47D280, DemoInfo state 5), A0+0xEC cleared in a dense copy so the whole body runs on the scorer's state of the capture (tools/dev/cutscene/goal_gate_calls.py); proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 1,
+ "results": [
+  {
+   "va": "0x140472640",
+   "calls": 13,
+   "replayed": 13,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq1114_pid91171": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq12251_pid483669": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq2145_pid91171": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq2151_pid132854": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq2938_pid91171": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq2961_pid132854": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq3458_pid91171": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq3782_pid132854": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4194_pid132854": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4720_pid132854": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5565_pid132854": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq901_pid91171": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 57,
+    "total": 110,
+    "fraction": 0.5182
+   },
+   "proven": true,
+   "blocked_callees": []
+  }
+ ],
+ "captures": "live2/pid132854 (seq2151, 2961, 3782, 4194, 4720, 5565), pid2621613/seq1531, pid483669/seq12251, pid91171 (seq901, 1114, 2145, 2938, 3458); the harness ran PES's bytes (hooks.cfg) and the translated closure over the same memory"
+}

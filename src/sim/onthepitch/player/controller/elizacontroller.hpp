@@ -34,6 +34,9 @@ struct PreRating {  // for optimization: first calculate everything but passrati
 
 bool PreRatingSortFunc(const PreRating& a, const PreRating& b);
 bool SortPlayersDeepestFirst(Player* a, Player* b);
+// PES's anime class (the byte at anime record +1) of what a player is doing, from GF's function type (the ponytail mapping
+// documented at the definition); the dodge's eligibility and the goal run object's gate (pes::GoalGateFacts) read it.
+int AnimeClassOf(Player* p);
 
 class ElizaController : public PlayerController {
 public:

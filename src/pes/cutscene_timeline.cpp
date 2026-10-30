@@ -30,11 +30,6 @@ float CutLength(float minTicks, float maxTicks, int draw, float ninetyNine) {
   return (float(draw) * (maxTicks - minTicks)) / ninetyNine + minTicks;
 }
 
-uint32_t GoalRunTimerTicks(uint32_t scene, float fps, float scale) {
-  const uint32_t seconds = scene - 0x3013Du < 3 ? 10 : 4;  // 0x14047A720..0x14047A72B; 0x14047A7F7
-  return uint32_t(float(uint32_t(fps) * seconds) / scale);  // 0x14047A7FD CVTSI2SS, 0x14047A802 DIVSS, 0x14047A807 CVTTSS2SI
-}
-
 CutsceneTimeline::CutsceneTimeline(const TimelineConfig& config, std::vector<TimelineStep> steps)
     : config_(config), steps_(std::move(steps)) {
   state_.stepPhase = 4;  // the manager's loading phases (0x141F57690, 0x141F5A760, 0x141F5B810) are done long before the gate
@@ -113,7 +108,7 @@ void CutsceneTimeline::Manager() {
   secondsThisTick_ = 0;
 }
 
-void CutsceneTimeline::Tick() {
+void CutsceneTimeline::Tick(bool gateReady) {
   TimelineState& s = state_;
   s.anchorWrite = false;
   s.stepStarted = -1;
@@ -121,10 +116,10 @@ void CutsceneTimeline::Tick() {
   if (s.demoState == 0) return;
   ++s.tick;
   switch (s.demoState) {
-    case 2:  // waiting for +0x1D4 (the pre-scene gate 0x140447290) and the manager's loads
-      if (s.tick >= config_.gateTicks) s.demoState = 4;
+    case 2:  // waiting for +0x1D4: the gate function's ready byte (goal 0x140472640 + 0x14047B460, foul 0x14047EB00) and the manager's loads
+      if (gateReady) s.demoState = 4;
       break;
-    case 4: s.demoState = 5; break;                          // the cue is ready (stand-in: see TimelineConfig)
+    case 4: s.demoState = 5; break;                          // the cue is ready (the loader's wait is not modelled: kEndCueFrames' note)
     case 5: s.anchorWrite = true; s.demoState = 6; break;    // 0x14047D280
     case 6: s.demoState = 7; break;
     case 7: s.demoState = 8; break;

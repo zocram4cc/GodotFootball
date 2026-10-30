@@ -1,0 +1,7 @@
+0x14047EB00	stand-in	restart	seed
+0x140A3BDA0	stand-in	in-match menu	callee
+0x140A3BDC0	stand-in	in-match menu	callee
+0x140A3FE70	stand-in	cutscene	callee
+0x140A48910	stand-in	AI	callee
+0x140A48A10	stand-in	AI	callee
+0x141E532E0	stand-in	referee	callee

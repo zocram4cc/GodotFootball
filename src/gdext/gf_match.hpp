@@ -77,6 +77,11 @@ class GfMatch : public RefCounted {
   void PollCutscenes();
   std::optional<pes::GoalAnchor> PlaceGoalScene(uint32_t sceneId, const Vector3& event);
   void StartTimeline(const pes::FixDemoRequest& request);
+  // PES's gate function for the scene in force (goal 0x140472640, foul 0x14047EB00) on this frame's players; true once open.
+  bool RunGate();
+  // PES's slot of a player on the pitch (side * 11 + his index among his side's players, the squad key GF's arena uses); -1 when
+  // he is not in the active set.
+  int PesSlot(Player* p) const;
   Ref<PesLibrary> library_;  // keeps the rig the match points at alive
   std::unique_ptr<blunted::Database> db_;
   std::unique_ptr<Match> match_;
@@ -102,6 +107,11 @@ class GfMatch : public RefCounted {
   float timelineSixty_ = 60.0f;  // PoseConstants::sixty, to turn clock ticks into seconds
   float clockPrevTicks_ = 0;
   uint32_t tick_ = 0, timelineStartTick_ = 0;
+  // The gate of DemoInfo state 2: whose facts feed PES's gate function, and whether it has opened (it latches).
+  Player* gateScorer_ = nullptr;                 // goal: the scorer the run object tracks
+  Player* gateFouler_ = nullptr;                 // foul: the fouler and the fouled man
+  Player* gateVictim_ = nullptr;
+  bool gateIsGoal_ = false, gateOpen_ = false;
 };
 
 }  // namespace godot
