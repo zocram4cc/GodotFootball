@@ -31,7 +31,8 @@ SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\")
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/presentation' \
 --out-dir '${CMAKE_BINARY_DIR}/presentation-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_presentation.json' \"\${SEL[@]}\"")
-set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
+# 4800 s: 1881 s alone at load ~30 (batch AO); under the full fast tier at load ~30 (batch AP) 2400 timed out.
+set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 4800)
 
 # diff_core_recorded: the same check for the core set (specs/core; results_core.json records its diffed VAs, each with the
 # subsystem and role of its row). specs/core also holds the callees another set records: they are the callee universe,
