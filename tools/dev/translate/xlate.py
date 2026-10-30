@@ -24,6 +24,7 @@ import re
 import struct
 import sys
 import flow
+from stubs import LIBM1
 
 BASE = 0x140000000
 
@@ -389,6 +390,17 @@ def import_model_lines(op, jump):
                 " if (_dst > _src && _dst < _src + _n) { for (uint64_t _i = _n; _i-- > 0;) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " else { for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " s.gpr[1] = 0; s.gpr[4] += 16;%s }" % pop_ret]
+    if e["do"] == "finite":
+        # ucrtbase!_finite(double xmm0), the code_hex model register for register: movsd [rsp+8], xmm0 (the caller's home slot);
+        # rax = ((x & 0x7FFF...) - 0x7FF0...) >> 63 (logical); rcx = 0x7FF0000000000000.
+        return ["{ " + push_ret + " uint64_t _x = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _x, 8);"
+                " s.gpr[0] = ((_x & 0x7FFFFFFFFFFFFFFFULL) - 0x7FF0000000000000ULL) >> 63; s.gpr[1] = 0x7FF0000000000000ULL;%s }" % pop_ret]
+    if e["do"] == "isnan":
+        # ucrtbase!_isnan(double xmm0), the code_hex model register for register: movsd [rsp+8], xmm0 (the caller's home slot);
+        # rcx = x & 0x7FFF...; rdx = 0x7FF0000000000000; rax = rcx > rdx (unsigned).
+        return ["{ " + push_ret + " uint64_t _x = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _x, 8);"
+                " s.gpr[1] = _x & 0x7FFFFFFFFFFFFFFFULL; s.gpr[2] = 0x7FF0000000000000ULL;"
+                " s.gpr[0] = s.gpr[1] > s.gpr[2] ? 1ULL : 0ULL;%s }" % pop_ret]
     if e["do"] == "qpc":
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
@@ -1991,10 +2003,8 @@ def stub_lines(do):
         return ["s.set_x_f32(0, pes_model_logf(s.x_f32(0)));"]
     if do == "powf_xmm0":
         return ["s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));"]
-    if do == "sinf_xmm0":
-        return ["s.set_x_f32(0, pes_model_sinf(s.x_f32(0)));"]
-    if do == "cosf_xmm0":
-        return ["s.set_x_f32(0, pes_model_cosf(s.x_f32(0)));"]
+    if do in [op + "_xmm0" for op in LIBM1]:
+        return ["s.set_x_f32(0, pes_model_%s(s.x_f32(0)));" % do[:-5]]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":

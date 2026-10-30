@@ -8,8 +8,7 @@ implement:
   sqrt_xmm0  return-input: xmm0 = sqrtf(xmm0), IEEE-754 (x86 sqrtss NaN rules)
   logf_xmm0  libm: xmm0 = logf(xmm0), the host C library (pes_model_logf; see stubs.json caveat for the ucrtbase gap)
   powf_xmm0  libm: xmm0 = powf(xmm0, xmm1), the host C library (pes_model_powf; same caveat)
-  sinf_xmm0  libm: xmm0 = sinf(xmm0), the host C library (pes_model_sinf; same caveat)
-  cosf_xmm0  libm: xmm0 = cosf(xmm0), the host C library (pes_model_cosf; same caveat)
+  <op>_xmm0  libm, op in LIBM1 (sinf, cosf, acosf): xmm0 = op(xmm0), the host C library (pes_model_<op>; same caveat)
   noop       engine-noop: no effect on the success path; the call is dropped
   None       run-real kinds: the callee executes its image bytes, no stub
   unmodellable  blocked (see why): the function is not run
@@ -33,18 +32,19 @@ DEFAULT = os.path.join(HERE, "stubs.json")
 # Names from tools/dev/ledger/indirect.py KNOWN_SLOTS.
 ABORT_SLOTS = {0x14252FDE0: "abort"}
 
+# One-xmm libm ops (xmm0 = op(xmm0)); the harness (run.py LIBM1), pes_stubs.hpp and the stubs.json entries agree.
+LIBM1 = ("sinf", "cosf", "acosf")
 # kind -> {model.op: do}; None is the op-independent default for the kind.
 DO_BY_KIND = {
     "return-input": {"sqrtf": "sqrt_xmm0"},
     "engine-noop": {None: "noop"},
     "abort-trap": {"abort": "abort"},
-    "libm": {"logf": "logf_xmm0", "powf": "powf_xmm0", "sinf": "sinf_xmm0", "cosf": "cosf_xmm0"},
+    "libm": dict({"logf": "logf_xmm0", "powf": "powf_xmm0"}, **{op: op + "_xmm0" for op in LIBM1}),
     "run-real": {None: None},
     "run-real-closure": {None: None},
     "unmodellable": {None: "unmodellable"},
 }
-KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0", "sinf_xmm0", "cosf_xmm0",
-            "unmodellable", None}
+KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0", "unmodellable", None} | {op + "_xmm0" for op in LIBM1}
 
 
 def load(path=DEFAULT):
@@ -69,7 +69,7 @@ def load(path=DEFAULT):
     return table
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
-MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "sinf_xmm0", "cosf_xmm0", "noop", "abort"})
+MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "noop", "abort"} | {op + "_xmm0" for op in LIBM1})
 
 
 def models(table):

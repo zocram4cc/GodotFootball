@@ -151,8 +151,9 @@ def sqrt_f32_bits(b):
 _LIBM = ctypes.CDLL(ctypes.util.find_library("m"))
 _LIBM.logf.restype, _LIBM.logf.argtypes = ctypes.c_float, [ctypes.c_float]
 _LIBM.powf.restype, _LIBM.powf.argtypes = ctypes.c_float, [ctypes.c_float, ctypes.c_float]
-_LIBM.sinf.restype, _LIBM.sinf.argtypes = ctypes.c_float, [ctypes.c_float]
-_LIBM.cosf.restype, _LIBM.cosf.argtypes = ctypes.c_float, [ctypes.c_float]
+LIBM1 = ("sinf", "cosf", "acosf")  # one-xmm libm models (stubs.json ops); the hook kind is "<op>_xmm0"
+for _op in LIBM1:
+    getattr(_LIBM, _op).restype, getattr(_LIBM, _op).argtypes = ctypes.c_float, [ctypes.c_float]
 
 
 def _f32(b):
@@ -173,14 +174,9 @@ def powf_f32_bits(b, e):
     return _bits(_LIBM.powf(_f32(b), _f32(e)))
 
 
-def sinf_f32_bits(b):
-    """Bits of sinf(x) for the float with bits b (the sinf_xmm0 hook's model: the host C library, as pes_model_sinf)."""
-    return _bits(_LIBM.sinf(_f32(b)))
-
-
-def cosf_f32_bits(b):
-    """Bits of cosf(x) for the float with bits b (the cosf_xmm0 hook's model: the host C library, as pes_model_cosf)."""
-    return _bits(_LIBM.cosf(_f32(b)))
+def libm1_f32_bits(op, b):
+    """Bits of op(x) (op in LIBM1) for the float with bits b (the <op>_xmm0 hook's model: the host C library, as pes_model_<op>)."""
+    return _bits(getattr(_LIBM, op)(_f32(b)))
 
 
 def resolve_stubs(spec):
@@ -621,11 +617,10 @@ def install_hooks(mu, spec, RET_SENTINEL):
             xmm = uc.reg_read(reg_const("xmm0"))
             e = uc.reg_read(reg_const("xmm1")) & 0xFFFFFFFF
             uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | powf_f32_bits(xmm & 0xFFFFFFFF, e))
-        elif kind in ("sinf_xmm0", "cosf_xmm0"):
-            # libm (stubs.json, op sinf / cosf): xmm0 low float = sinf / cosf(xmm0); bits 32-127 kept.
+        elif kind in [op + "_xmm0" for op in LIBM1]:
+            # libm (stubs.json, ops in LIBM1): xmm0 low float = op(xmm0); bits 32-127 kept.
             xmm = uc.reg_read(reg_const("xmm0"))
-            fn = sinf_f32_bits if kind == "sinf_xmm0" else cosf_f32_bits
-            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | fn(xmm & 0xFFFFFFFF))
+            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | libm1_f32_bits(kind[:-5], xmm & 0xFFFFFFFF))
         else:
             uc._bad = "stub %s has unknown do=%s" % (name, kind)
             uc.emu_stop()

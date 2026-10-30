@@ -27,6 +27,8 @@ import run  # noqa: E402  (the harness's Python models)
 INF, NAN = math.inf, math.nan
 SNAP = os.environ.get("PES_UCRT_SNAP", "")  # a full snapshot of PES running (rendezvous live2/pid1694737/seq009)
 LOGF_THUNK_SLOT_VALUE, POWF_THUNK_SLOT_VALUE = 0x6FFFFEC7D5E0, 0x6FFFFEC7F090  # image slots 0x142530278 / 0x142530290
+# image slots 0x142530218 / 0x142530208 / 0x142530228 (stubs.json 1415A1792 / 1415A178C / 1415A1798)
+LIBM1_SLOT_VALUE = {"S": 0x6FFFFEC80D90, "C": 0x6FFFFEC7B9C0, "A": 0x6FFFFEC829D0}
 MIN_DENORMAL = 2.0 ** -149
 DRIVER = r"""
 #include "pes_stubs.hpp"
@@ -36,7 +38,7 @@ int main() {
   char op; unsigned a, b;
   while (std::scanf(" %c %x %x", &op, &a, &b) == 3) {
     float x, y; std::memcpy(&x, &a, 4); std::memcpy(&y, &b, 4);
-    float r = op == 'L' ? pes_model_logf(x) : op == 'S' ? pes_model_sinf(x) : op == 'C' ? pes_model_cosf(x) : pes_model_powf(x, y);
+    float r = op == 'L' ? pes_model_logf(x) : op == 'S' ? pes_model_sinf(x) : op == 'C' ? pes_model_cosf(x) : op == 'A' ? pes_model_acosf(x) : pes_model_powf(x, y);
     unsigned o; std::memcpy(&o, &r, 4); std::printf("%08x\n", o);
   }
 }
@@ -117,11 +119,12 @@ class Cpp:
         return [int(v, 16) for v in out]
 
 
+LIBM1_OP = {"S": "sinf", "C": "cosf", "A": "acosf"}
+
+
 def python_model(op, x, y):
-    if op == "S":
-        return run.sinf_f32_bits(bits(x))
-    if op == "C":
-        return run.cosf_f32_bits(bits(x))
+    if op in LIBM1_OP:
+        return run.libm1_f32_bits(LIBM1_OP[op], bits(x))
     return run.logf_f32_bits(bits(x)) if op == "L" else run.powf_f32_bits(bits(x), bits(y))
 
 
@@ -146,23 +149,24 @@ class Models(unittest.TestCase):
         for (x, y, want), g in zip(POW_ROWS, got):
             self.assertTrue(expected_ok(g, want), "powf(%r, %r) = %#x, want %r" % (x, y, g, want))
 
-    def test_sinf_cosf_special_values_follow_annex_f(self):
-        rows = [(0.0, 0.0, 1.0), (-0.0, -0.0, 1.0), (INF, NAN, NAN), (-INF, NAN, NAN), (NAN, NAN, NAN)]
-        sines = Cpp.run([("S", x, 0.0) for x, _, _ in rows])
-        cosines = Cpp.run([("C", x, 0.0) for x, _, _ in rows])
-        for (x, s, c), gs, gc in zip(rows, sines, cosines):
-            self.assertTrue(expected_ok(gs, s), "sinf(%r) = %#x, want %r" % (x, gs, s))
-            self.assertTrue(expected_ok(gc, c), "cosf(%r) = %#x, want %r" % (x, gc, c))
+    def test_sinf_cosf_acosf_special_values_follow_annex_f(self):
+        pi, half_pi = flt(bits(math.pi)), flt(bits(math.pi / 2))
+        rows = [("S", 0.0, 0.0), ("S", -0.0, -0.0), ("S", INF, NAN), ("S", -INF, NAN), ("S", NAN, NAN),
+                ("C", 0.0, 1.0), ("C", -0.0, 1.0), ("C", INF, NAN), ("C", -INF, NAN), ("C", NAN, NAN),
+                ("A", 1.0, 0.0), ("A", -1.0, pi), ("A", 0.0, half_pi), ("A", -0.0, half_pi), ("A", 1.0000001, NAN),
+                ("A", -1.0000001, NAN), ("A", INF, NAN), ("A", -INF, NAN), ("A", NAN, NAN), ("A", 0.5, flt(bits(math.acos(0.5)))),
+                ("A", MIN_DENORMAL, half_pi)]
+        for (op, x, want), g in zip(rows, Cpp.run([(op, x, 0.0) for op, x, _ in rows])):
+            self.assertTrue(expected_ok(g, want), "%s(%r) = %#x, want %r" % (LIBM1_OP[op], x, g, want))
 
-    def test_sinf_cosf_are_the_trigonometric_functions_to_one_ulp_and_the_harness_agrees(self):
+    def test_sinf_cosf_acosf_are_the_functions_to_one_ulp_and_the_harness_agrees(self):
         xs = [flt(bits(i * 0.37 - 9.0)) for i in range(50)] + [flt(bits(v)) for v in (1e-3, 1.5707964, 3.1415927, 100.0)]
-        sines = Cpp.run([("S", x, 0.0) for x in xs])
-        cosines = Cpp.run([("C", x, 0.0) for x in xs])
-        for x, gs, gc in zip(xs, sines, cosines):
-            self.assertLessEqual(ulp_gap(gs, bits(math.sin(x))), 1, "sinf(%r) = %#x" % (x, gs))
-            self.assertLessEqual(ulp_gap(gc, bits(math.cos(x))), 1, "cosf(%r) = %#x" % (x, gc))
-            self.assertEqual(gs, python_model("S", x, 0.0), "sinf harness model at %r" % x)
-            self.assertEqual(gc, python_model("C", x, 0.0), "cosf harness model at %r" % x)
+        ys = [flt(bits(i / 20.0 - 1.0)) for i in range(41)]  # acos domain [-1, 1]
+        want = {"S": math.sin, "C": math.cos, "A": math.acos}
+        for op, args in (("S", xs), ("C", xs), ("A", ys)):
+            for x, g in zip(args, Cpp.run([(op, x, 0.0) for x in args])):
+                self.assertLessEqual(ulp_gap(g, bits(want[op](x))), 1, "%s(%r) = %#x" % (LIBM1_OP[op], x, g))
+                self.assertEqual(g, python_model(op, x, 0.0), "%s harness model at %r" % (LIBM1_OP[op], x))
 
     def test_cpp_and_harness_models_agree_on_every_input(self):
         logs, pows = sample()
@@ -232,6 +236,27 @@ class AgainstUcrtbase(unittest.TestCase):
                 self.assertLessEqual(ulp_gap(u, g), 1, "%s(%r, %r): model %#x, ucrtbase %#x" % (op, x, y, g, u))
         print("\nucrtbase vs model: logf %d of %d inputs differ by one ulp, powf %d of %d" %
               (diffs["L"], count["L"], diffs["P"], count["P"]))
+
+    def test_sinf_cosf_acosf_equal_ucrtbase_on_special_values_and_within_one_ulp_elsewhere(self):
+        rnd = random.Random(2)
+        specials = [0.0, -0.0, 1.0, -1.0, 0.5, -0.5, INF, -INF, NAN, MIN_DENORMAL, -MIN_DENORMAL, 1.0000001, -1.0000001,
+                    2.0, -2.0, 1e-30, 3.4028235e38, flt(bits(math.pi)), flt(bits(math.pi / 2)), flt(0x7FC00001), flt(0xFFC00000)]
+        domains = {"S": [rnd.uniform(-10, 10) for _ in range(3000)] + [flt(rnd.getrandbits(32)) for _ in range(1500)],
+                   "C": [rnd.uniform(-10, 10) for _ in range(3000)] + [flt(rnd.getrandbits(32)) for _ in range(1500)],
+                   "A": [rnd.uniform(-1, 1) for _ in range(4500)] + [flt(rnd.getrandbits(32)) for _ in range(1500)]}
+        report = []
+        for op, dom in domains.items():
+            args = [flt(bits(x)) for x in dom] + specials
+            diffs = 0
+            for x, g in zip(args, Cpp.run([(op, x, 0.0) for x in args])):
+                u = self.call(LIBM1_SLOT_VALUE[op], x)
+                if u != g:
+                    diffs += 1
+                    self.assertNotIn(bits(x), {bits(s) for s in specials},
+                                     "%s(%r): model %#x, ucrtbase %#x" % (LIBM1_OP[op], x, g, u))
+                    self.assertLessEqual(ulp_gap(u, g), 1, "%s(%r): model %#x, ucrtbase %#x" % (LIBM1_OP[op], x, g, u))
+            report.append("%s %d of %d" % (LIBM1_OP[op], diffs, len(args)))
+        print("\nucrtbase vs model, inputs differing by one ulp: " + ", ".join(report))
 
 
 if __name__ == "__main__":

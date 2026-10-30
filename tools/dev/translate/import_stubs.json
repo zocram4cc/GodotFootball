@@ -168,6 +168,26 @@
         "Contract: copies n bytes as if through a temporary, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code (which is vectorised).",
         "Model: mov rax, rcx; push rdi; push rsi; mov rdi, rcx; mov rsi, rdx; mov rcx, r8; if dst <= src or dst >= src + n copy forward (rep movsb), else copy backward from the last byte (std; rep movsb; cld); pop rsi; pop rdi; ret. rcx is 0 after the copy and r9 = src + n when dst > src. Checked by test_memmove_model.py; the C++ mirror (xlate.import_model_lines) is compared with it by snapdiff on the danger-writer captures."
       ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "_finite",
+      "do": "finite",
+      "code_hex": "48b9ffffffffffffff7ff20f11442408488b4424084823c148b9000000000000f07f482bc148c1e83fc3",
+      "why": [
+        "int _finite(double x): x in xmm0, result in eax (0 or 1). The kick-kind feasibility test 0x140829E80 calls it through the IAT slot 0x1425301D0 (call at 0x14082B127); the replay stops at 0x6FFFFEC86E31 = the export entry 0x6FFFFEC86E30 + 1 (live2/pid615629/seq15863, SnapMem.export_of names it ucrtbase.dll!_finite).",
+        "The model is ucrtbase's own code, read from that snapshot (the export is 42 bytes, no calls): movabs rcx, 0x7FFFFFFFFFFFFFFF; movsd [rsp+8], xmm0 (the caller's home slot); mov rax, [rsp+8]; and rax, rcx; movabs rcx, 0x7FF0000000000000; sub rax, rcx; shr rax, 0x3F; ret. rax = 1 when the exponent field is not all ones; rcx ends as 0x7FF0000000000000. Checked by test_finite_model.py."
+      ]
+    }
+    ,{
+      "module": "ucrtbase.dll",
+      "export": "_isnan",
+      "do": "isnan",
+      "code_hex": "48b8ffffffffffffff7ff20f11442408488b4c240848ba000000000000f07f4823c833c0483bca0f97c0c3",
+      "why": [
+        "int _isnan(double x): x in xmm0, result in eax (0 or 1). The kick-kind feasibility test 0x140829E80 calls it through the IAT slot 0x1425301C8 (call at 0x14082B13C); the replay stops at 0x6FFFFEC8A481 = the export entry 0x6FFFFEC8A480 + 1 (live2/pid615629/seq15863, SnapMem.export_of names it ucrtbase.dll!_isnan).",
+        "The model is ucrtbase's own code, read from that snapshot (43 bytes, no calls): movabs rax, 0x7FFFFFFFFFFFFFFF; movsd [rsp+8], xmm0 (the caller's home slot); mov rcx, [rsp+8]; movabs rdx, 0x7FF0000000000000; and rcx, rax; xor eax, eax; cmp rcx, rdx; seta al; ret. rax = 1 when |x| bits are above 0x7FF0000000000000 (a NaN); rcx ends as the masked bits, rdx as 0x7FF0000000000000. Checked by test_finite_model.py."
+      ]
     }
   ]
 }

@@ -1172,10 +1172,14 @@
    "kind": "unmapped"
   },
   "0x1425301C8": {
-   "kind": "unmapped"
+   "export": "_isnan",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301D0": {
-   "kind": "unmapped"
+   "export": "_finite",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301D8": {
    "kind": "unmapped"

@@ -3629,6 +3629,25 @@
    }
   },
   {
+   "va": "1415A1798",
+   "callers": [
+    "140829E80"
+   ],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530228] (FF25 at 1415A1798); the slot's dump-time value 0x6FFFFEC829D0 is ucrtbase.dll!acosf (the harness stopped 'unmodelled OS export ucrtbase.dll!acosf' on live2/pid615629/seq15863); one-xmm call shape acosf(x)->xmm0",
+    "called by the kick-kind feasibility test 0x140829E80 (call at 0x14082B0E6; 30 other callers outside the closure)"
+   ],
+   "model": {
+    "op": "acosf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F (test_libm_models.py); an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
    "va": "141863350",
    "callers": [
     "1405CE4F0",
