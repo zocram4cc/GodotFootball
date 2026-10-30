@@ -7,6 +7,8 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image window @ 0x1429BDD4C (12 bytes, read-only)
+static constexpr uint8_t k_t1429BDD4C_C[12] = {0x1F, 0x18, 0x10, 0x1C, 0x1C, 0x1E, 0x10, 0x18, 0x10, 0x18, 0x10, 0x10};
 
 void pes_fn_1400EC680(PesState& s);
 
@@ -32,7 +34,7 @@ void pes_fn_1400EC680(PesState& s) {
   } else {
     s.gpr[1] = (uint64_t)(uint32_t)(((uint64_t)(uint16_t)s.gpr[1]));
     s.gpr[0] = (uint64_t)(((0x140000000ULL)));
-    s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + ((s.gpr[1])*1ULL) + (0x29BDD4CULL)), 1));
+    s.gpr[0] = (uint64_t)(uint32_t)(ro_rd(k_t1429BDD4C_C, 12, (uint64_t)(((s.gpr[0]) + ((s.gpr[1])*1ULL) + (0x29BDD4CULL))) - 0x1429BDD4CULL, 1));
     { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[2]))) & 0xFFFFFFFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
       s.cf = false; s.of = false;

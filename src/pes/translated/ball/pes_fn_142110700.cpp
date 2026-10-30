@@ -10,6 +10,8 @@
 // image constant @ 0x14259A764 (4 bytes)
 static constexpr uint32_t k_c14259A764_w = 0x42700000U;
 static constexpr float k_c14259A764_f = 60.0f; // 60.0
+// image window @ 0x142BEF098 (60 bytes, read-only)
+static constexpr uint8_t k_t142BEF098_3C[60] = {0x00, 0x00, 0x70, 0x42, 0x00, 0x00, 0x20, 0x42, 0x00, 0x00, 0xF0, 0x41, 0x00, 0x00, 0xA0, 0x41, 0x00, 0x00, 0x20, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x42, 0x00, 0x00, 0xF0, 0x41, 0x00, 0x00, 0xA0, 0x41, 0x00, 0x00, 0x20, 0x41, 0x00, 0x00, 0xA0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void pes_fn_142110700(PesState& s);
 void pes_fn_140A60340(PesState& s);
@@ -78,7 +80,7 @@ void pes_fn_142110700(PesState& s) {
   s.gpr[0] = (uint64_t)(uint32_t)(((s.cond("s")) ? (uint64_t)(((uint64_t)(uint32_t)s.gpr[14])) : (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))));
   L_142110754:;
   s.gpr[0] = (uint64_t)(int64_t)(int32_t)s.gpr[0];
-  s.gpr[5] = (uint64_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 9.223372036854776e18f || _f < -9.223372036854776e18f) return (int64_t)INT64_MIN; return (int64_t)_f; }((s.rdf(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x2BEF098ULL)))))));
+  s.gpr[5] = (uint64_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 9.223372036854776e18f || _f < -9.223372036854776e18f) return (int64_t)INT64_MIN; return (int64_t)_f; }((PesState::f32((uint32_t)ro_rd(k_t142BEF098_3C, 60, (uint64_t)(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x2BEF098ULL))) - 0x142BEF098ULL, 4))))));
   L_142110760:;
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[7])), _b = (uint64_t)((3ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -99,7 +101,7 @@ void pes_fn_142110700(PesState& s) {
   s.gpr[3] = (uint64_t)(uint32_t)(((s.cond("s")) ? (uint64_t)(((uint64_t)(uint32_t)s.gpr[14])) : (uint64_t)(((uint64_t)(uint32_t)s.gpr[3]))));
   L_14211077A:;
   s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[3])) << 32))) >> 32));
-  s.gpr[5] = (uint64_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 9.223372036854776e18f || _f < -9.223372036854776e18f) return (int64_t)INT64_MIN; return (int64_t)_f; }((s.rdf(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x2BEF0B8ULL)))))));
+  s.gpr[5] = (uint64_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 9.223372036854776e18f || _f < -9.223372036854776e18f) return (int64_t)INT64_MIN; return (int64_t)_f; }((PesState::f32((uint32_t)ro_rd(k_t142BEF098_3C, 60, (uint64_t)(((s.gpr[15]) + ((s.gpr[0])*4ULL) + (0x2BEF0B8ULL))) - 0x142BEF098ULL, 4))))));
   L_142110787:;
   s.gpr[3] = (uint64_t)(s.rd(((s.gpr[4]) + (0x40ULL)), 8));
   s.gpr[15] = (uint64_t)(s.rd(((s.gpr[4]) + (0x48ULL)), 8));

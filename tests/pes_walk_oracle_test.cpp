@@ -7,7 +7,9 @@
 // GF_PES_WALK_ORACLE names a directory of per-capture directories (PES-derived, never committed), each made by
 // tools/dev/translate/danger_oracle.py ... walk. A directory named syn_* is a SYNTHETIC state (tools/dev/translate/synth_walk.py
 // --patch-clear: a real danger-builder capture run forward to the walk's entry with the kind-1 record's type set to 5, the Clear
-// unit's output; everything else is PES's state); the others are real calls. Without the variable the oracle tests skip.
+// unit's output; everything else is PES's state); the others are real: the walk's own captures, and the states
+// tools/dev/translate/synth_walk.py (no --patch-clear) runs forward from a danger-predicated carrier_clear_2109EB0 capture to the
+// walk's entry, whose kind-1 record is PES's own type 5. Without the variable the oracle tests skip.
 
 #include <gtest/gtest.h>
 
@@ -58,7 +60,7 @@ class WalkOracle : public ::testing::Test {
 };
 
 TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
-  std::set<uint32_t> realKinds, syntheticKinds;
+  std::set<uint32_t> realKinds, syntheticKinds, clearRecordKinds;
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
@@ -69,6 +71,7 @@ TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
     const uint32_t got = b.world->RunWalk(b.side, b.ext);
     EXPECT_EQ(got, want) << dir << (Synthetic(dir) ? " (synthetic)" : " (real)");
     (Synthetic(dir) ? syntheticKinds : realKinds).insert(want);
+    if (!Synthetic(dir) && LoadU32(KindRecord(*b.world, b.side, kClearKind), 0) == kClearType) clearRecordKinds.insert(want);
     // GF's production run holds no capture bytes outside the window: the kind must not depend on them.
     Built production;
     Build(o, production, false, true);
@@ -77,30 +80,33 @@ TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
   EXPECT_TRUE(realKinds.count(pes::kWalkNoKind)) << "the real set holds a call PES answers 'no kind' for";
   EXPECT_TRUE(realKinds.count(3)) << "the real set holds a call PES answers a chain kind (3) for";
   EXPECT_TRUE(syntheticKinds.count(kClearKind)) << "the synthetic set reaches the Clear arm and PES keeps the clear";
+  EXPECT_TRUE(clearRecordKinds.count(kClearKind)) << "the real set holds a call whose own Clear record PES keeps";
+  EXPECT_GT(clearRecordKinds.size(), 1u) << "the real set holds a call whose own Clear record PES does not keep";
 }
 
-// The Clear arm is live on the synthetic states: the kind-1 record's type word (5) is what the walk keys on, so a window whose
-// record answers nothing must not come back with the clear.
-TEST_F(WalkOracle, TheSyntheticClearArmKeysOnTheClearRecordsType) {
-  int checked = 0;
+// The Clear arm keys on the kind-1 record's type word (5): where PES keeps the clear (synthetic or real), a window whose record
+// answers nothing must not come back with the clear.
+TEST_F(WalkOracle, TheClearArmKeysOnTheClearRecordsType) {
+  int syntheticChecked = 0, realChecked = 0;
   for (const std::string& dir : dirs_) {
-    if (!Synthetic(dir)) continue;
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
     SetOverlay(o);
     Built b;
     Build(o, b, true, true);
-    ASSERT_EQ(LoadU32(KindRecord(*b.world, b.side, kClearKind), 0), kClearType) << dir << ": the patched type";
+    if (LoadU32(KindRecord(*b.world, b.side, kClearKind), 0) != kClearType || PesReturn(o) != kClearKind) continue;
     StoreU32(KindRecord(*b.world, b.side, kClearKind), 0, 0);
     EXPECT_NE(b.world->RunWalk(b.side, b.ext), kClearKind) << dir;
-    ++checked;
+    ++(Synthetic(dir) ? syntheticChecked : realChecked);
   }
-  EXPECT_GT(checked, 0) << "no synthetic state in the oracle set";
+  EXPECT_GT(syntheticChecked, 0) << "no synthetic Clear-arm state in the oracle set";
+  EXPECT_GT(realChecked, 0) << "no real Clear-arm state in the oracle set";
 }
 
-// The list GF writes is PES's list: read each capture's list back (count, kinds, the record at each kind's slot), rewrite it with
-// SetUnitList over a zeroed list region, and the walk must still return PES's kind. A wrong rank byte or a record at the wrong
-// slot changes the walk's order or its answers.
+// The list GF writes is PES's list: read each capture's list from the capture's own memory (count, kinds, the record at each
+// kind's slot; the window holds only the bytes the walk read, and the Clear arm's chain reads a kind's record without reading its
+// position, as seq15049's kind 6), rewrite it with SetUnitList over a zeroed list region, and the walk must still return PES's
+// kind. A wrong rank byte or a record at the wrong slot changes the walk's order or its answers.
 TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
   for (const std::string& dir : dirs_) {
     Oracle o;
@@ -109,25 +115,27 @@ TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
     Built b;
     Build(o, b, true, true);
     uint8_t* list = b.world->Carrier(b.side) + pes::kBpListOffset;
+    const uint64_t pesList = o.regs.at("rcx") + pes::kBpListOffset;
+    std::vector<uint8_t> captured(pes::kListBytes);
+    for (std::size_t at = 0; at < captured.size(); ++at) captured[at] = static_cast<uint8_t>(Read(o, pesList + at, 1));
     std::vector<pes::PesWorld::WalkEntry> entries;
-    for (uint32_t position = 0, count = LoadU32(list, 0); position < count; ++position) {
+    for (uint32_t position = 0, count = LoadU32(captured.data(), 0); position < count; ++position) {
       pes::PesWorld::WalkEntry e;
-      e.kind = LoadU32(list, sizeof(uint32_t) * (1 + position));
-      std::copy_n(KindRecord(*b.world, b.side, e.kind), e.record.size(), e.record.begin());
+      e.kind = LoadU32(captured.data(), sizeof(uint32_t) * (1 + position));
+      std::copy_n(captured.begin() + pes::kListRecordOffset + pes::kListRecordStride * e.kind, e.record.size(), e.record.begin());
       entries.push_back(e);
     }
-    const std::vector<uint8_t> captured(list, list + pes::kListBytes);
     ASSERT_FALSE(entries.empty()) << dir;
     b.world->SetUnitList(b.side, entries);
-    // PES's own list bytes: the count, the kinds, every rank byte (-1 unlisted) and each listed kind's record.
+    // PES's own list bytes: the count, the kinds, every single-listed kind's rank byte and each listed kind's record.
     for (std::size_t at = 0; at < sizeof(uint32_t) * (1 + entries.size()); ++at) EXPECT_EQ(list[at], captured[at]) << dir << " list+" << at;
-    // A rank byte is the kind's position in the list (PES's own bytes, where the call read them: the rest of the window is zero).
-    // PES's list can name a kind twice (seq5878 lists kind 0 at two positions); GF's builder never does, so only single kinds count.
+    // A rank byte is the kind's position in the list. PES's list can name a kind twice (seq5878 lists kind 0 at two positions); GF's
+    // builder never does, so only single kinds count.
     for (std::size_t position = 0; position < entries.size(); ++position) {
       const uint32_t kind = entries[position].kind;
       if (std::count_if(entries.begin(), entries.end(), [kind](const auto& e) { return e.kind == kind; }) != 1) continue;
       const std::size_t at = pes::kListRankOffset + kind;
-      EXPECT_TRUE(captured[at] == position || captured[at] == 0) << dir << " captured rank of kind " << kind;
+      EXPECT_EQ(captured[at], position) << dir << " captured rank of kind " << kind;
       EXPECT_EQ(list[at], position) << dir << " rank of kind " << kind;
     }
     for (const auto& e : entries)

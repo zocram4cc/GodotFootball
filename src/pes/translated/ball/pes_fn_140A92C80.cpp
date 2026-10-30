@@ -82,7 +82,7 @@ void pes_fn_140A92C80(PesState& s) {
   s.set_x_f32(2, (float)((s.x_f32(2)) * ((PesState::f32((uint32_t)ro_rd(k_t142655950_804, 2052, (uint64_t)(s.gpr[0]) * 4ULL, 4))))));
   s.gpr[0] = (uint64_t)(uint32_t)(((s.gpr[1]) + (0x1ULL)));
   s.gpr[1] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) << 32))) >> 32));
-  s.set_x_f32(3, (float)((s.x_f32(3)) * ((s.rdf(((s.gpr[2]) + ((s.gpr[1])*4ULL)))))));
+  s.set_x_f32(3, (float)((s.x_f32(3)) * ((PesState::f32((uint32_t)ro_rd(k_t142655950_804, 2052, (uint64_t)(((s.gpr[2]) + ((s.gpr[1])*4ULL))) - 0x142655950ULL, 4))))));
   s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(3))));
   s.set_x_f32(2, (float)((s.x_f32(2)) * (s.x_f32(1))));
   s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];

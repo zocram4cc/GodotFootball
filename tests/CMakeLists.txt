@@ -253,8 +253,29 @@ add_test(NAME translate_setcc_store_test
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_setcc_store.py'")
 set_tests_properties(translate_setcc_store_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
+# A switch's own byte map and dword table are baked (the GF runtime maps no image, so a live read is 0): synthetic image,
+# translated, compiled and run with no image view. Needs g++. Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_switch_tables_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_tables.py'")
+set_tests_properties(translate_switch_tables_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# The lint behind gen_translated: every live read of a read-only image address is found (reaching definitions) and every
+# declared or constant one is baked. Synthetic image, compiled and run with no image view. Needs g++. Skips (77) without
+# GF_DIFF_PYTHON.
+add_test(NAME translate_image_reads_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_image_reads.py'")
+set_tests_properties(translate_image_reads_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
 # Fast-gate selector: a mutated closure callee selects its recorded caller, an unrelated change selects nothing.
 # Plain python3 (no harness Python), so it always runs.
 add_test(NAME translate_select_recorded_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_select_recorded.py)
 set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
+
+# Adding one translated function must not recompile the layer: no pes_fn TU includes translated.hpp or the dispatch
+# table, and one added member changes only its TU, translated.hpp and pes_dispatch_gen.cpp. Plain python3.
+add_test(NAME translate_layer_headers_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_layer_headers.py)
+set_tests_properties(translate_layer_headers_test PROPERTIES TIMEOUT 300)
