@@ -225,14 +225,15 @@ inline constexpr std::size_t kSideAttackAngleOffset = 0x250;
 inline constexpr std::size_t kSideAttackSignOffset = 0x254;
 inline constexpr std::size_t kSideModeOffset = 0x6D4;
 inline constexpr std::size_t kSideUnitWordsOffset = 0x4C00;
-// The carrier walk's reads of the team-info record (G's table B; 0x14063E960 skills, 0x140A3AF90, 0x14210F110's kicker test): u32 side id at +0,
-// the slot-in-team -> player-info index map at +4 + 4 * slot%11, the player-info array at +0xA8 (stride 0x128) with the u64 skill
-// mask at +0x78 of each, and the designated taker's slot at +0x7C.
+// The carrier walk's reads of the team-info record (G's table B; 0x14063E960 skills, 0x140A3AF90): u32 side id at +0, the
+// slot-in-team -> player-info index map at +4 + 4 * slot%11, the player-info array at +0xA8 (stride 0x128) with the u64 skill
+// mask at +0x78 of each.
 inline constexpr std::size_t kSideIdOffset = 0x0;
 inline constexpr std::size_t kSideInfoIndexOffset = 0x4;
 inline constexpr std::size_t kSidePlayerInfoOffset = 0xA8;
 inline constexpr std::size_t kSidePlayerInfoStride = 0x128;
 inline constexpr std::size_t kSideSkillMaskOffset = 0x78;
+// The designated taker's slot: u32 at +0x7C of the SIDE record (G's first table, 0x140A48A30; `CMP EDX,[RAX+0x7C]` 0x1421101C7).
 inline constexpr std::size_t kSideKickerOffset = 0x7C;
 // The unit info's tier word BP+0x60 (0x14063C9F0 stores *0x140A40BD0(side record)): the side record's u32 at +0xA294 unless its
 // byte +0xA29C is set (the match setting the menus write, 0x140A424E0; GF's match writes it once).
@@ -554,8 +555,8 @@ class PesWorld {
   // Writes the walk's priority list into the side's BP (count, kinds, ranks = list position, the records at their kind's slot;
   // every unlisted record is zeroed: type 0 answers nothing).
   void SetUnitList(int side, const std::vector<WalkEntry>& list);
-  // The walk's reads of the side record: the carrier's skill mask and designated taker (the side id and the slot-in-team map are
-  // identities of the window), and the carrier's height stat byte 0x31 (cm).
+  // The walk's reads of the carrier's profile: the skill mask in the team-info record (the side id and the slot-in-team map are
+  // identities of the window), the designated taker in the side record, and the carrier's height stat byte 0x31 (cm).
   void SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, uint8_t heightStatCm);
   // The unit updater's two record writers, in the driver's order (0x142110C90): the unit info BP+0x1C by 0x14063C9F0(unit info,
   // ctx, slot) and the state BP+0x78 by 0x14063A490(state, ctx, unit info), both on the window's own records (side, man, anime,

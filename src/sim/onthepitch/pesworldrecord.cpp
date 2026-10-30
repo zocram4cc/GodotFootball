@@ -119,7 +119,10 @@ void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, ui
   for (uint32_t k = 0; k < kSlotsPerSide; ++k) StoreU32(record, kSideInfoIndexOffset + sizeof(uint32_t) * k, k);
   const std::size_t info = kSidePlayerInfoOffset + kSidePlayerInfoStride * (slot % kSlotsPerSide);
   std::memcpy(record + info + kSideSkillMaskOffset, &skillMask, sizeof skillMask);
-  StoreU32(record, kSideKickerOffset, slot);  // ponytail: the designated taker (T+0x7C) is the carrier: a set-piece decider is the taker; the writer is the restart set-up, undecoded
+  // The walk reads the taker from G's FIRST side table (0x14210F110: FUN_140A48A30(G, side) -> +0x7C), the side record, not the
+  // team-info table the skill reads go through.
+  // ponytail: the designated taker is the carrier: a set-piece decider is the taker; the writer is the restart set-up, undecoded
+  StoreU32(SideRecord(side), kSideKickerOffset, slot);
   Block(static_cast<int>(slot))[kSlotRecordOffset + kSlotByteA1Offset] = heightStatCm;
 }
 

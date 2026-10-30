@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include "pes/translated/translated.hpp"
+#include "onthepitch/pescarrier.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes_oracle_snap.hpp"
 #include "pes_oracle_world.hpp"
@@ -211,6 +213,63 @@ TEST_F(UnitOracle, DangerBuilderOnTheWindowWritesTheWalksDangerByteAndZone) {
     EXPECT_EQ(bp[pes::kBpGuardOffset], wantDanger) << dir << " danger byte";
     for (std::size_t i = 0; i < kZoneBytes; ++i)
       EXPECT_EQ(bp[pes::kBpZoneOffset + i], wantZone[i]) << dir << " zone+0x" << std::hex << i;
+  }
+}
+
+// What GF's production profile writer (SetCarrierProfile, called by the carrier controller before every walk) puts in the window,
+// read back through PES's own readers: the skill bit 0x14063E960(ctx, slot, bit) and the height stat byte 0x14063D8A0(ctx, slot,
+// 0x31). Both go through the slot -> info map (0x140A3AF90) of G's team-info table, so a record written under the wrong index, a
+// wrong side record or a wrong map entry changes what PES reads for some slot.
+uint64_t PesRead(pes::PesWorld& w, void (*reader)(PesState&), uint32_t slot, uint32_t arg) {
+  PesState s;
+  w.BindCall(s);
+  s.gpr[2] = slot;
+  s.gpr[8] = arg;
+  reader(s);
+  return s.gpr[0];
+}
+
+TEST(CarrierProfile, PesReadersSeeTheCarriersMaskAndHeightAndNobodyElses) {
+  constexpr uint32_t kHeightStatIndex = 0x31;  // the walk's `MOV R8D,0x31` for 0x14063D8A0 (height cm)
+  constexpr int kSkills[] = {pes::kSkillOneTouchShot, pes::kSkillOneTouchPass, pes::kSkillPinpointCross};
+  constexpr uint32_t kPlace = 7;
+  const uint64_t masks[2] = {(1ull << pes::kSkillOneTouchShot) | (1ull << pes::kSkillPinpointCross), 1ull << pes::kSkillOneTouchPass};
+  const uint8_t heights[2] = {171, 193};
+  pes::PesWorld w;
+  BindWorld(w);
+  for (int side = 0; side < 2; ++side) w.SetCarrierProfile(side, side * pes::kSlotsPerSide + kPlace, masks[side], heights[side]);
+  for (uint32_t slot = 0; slot < 2 * pes::kSlotsPerSide; ++slot) {
+    const int side = static_cast<int>(slot / pes::kSlotsPerSide);
+    const bool carrier = slot % pes::kSlotsPerSide == kPlace;
+    for (int skill : kSkills)
+      EXPECT_EQ(PesRead(w, &pes_fn_14063E960, slot, skill) & 1, carrier && ((masks[side] >> skill) & 1) ? 1u : 0u)
+          << "slot " << slot << " skill " << skill;
+    EXPECT_EQ(PesRead(w, &pes_fn_14063D8A0, slot, kHeightStatIndex) & 0xFF, carrier ? heights[side] : 0u)
+        << "slot " << slot;
+  }
+}
+
+// 0x14210F110 in a stopped play state 3: a carrier who is not the side record's designated taker (+0x7C of G's first side table,
+// 0x140A48A30; `CMP EDX,[RAX+0x7C]` 0x1421101C7) is handed the first listed kind; the taker himself skips a dribble answer (record
+// type 3) and, with nothing else listed, gets no kind. SetCarrierProfile names the carrier the taker (a ponytail: the restart
+// set-up writer is undecoded), so the carrier's own walk skips; the unit object's slot is what the walk reads as the carrier.
+TEST(CarrierProfile, TheWalkReadsTheTakerFromTheSideRecordAndTheCarrierFromTheUnitObject) {
+  constexpr uint32_t kPlayStateStopped = 3;
+  constexpr uint32_t kListedKind = 3;
+  if (std::getenv("PES21_ROOT") == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the install's tables are bound from its exe)";
+  for (int side = 0; side < 2; ++side) {
+    pes::PesWorld w;
+    BindWorld(w);
+    w.BindImageTables(InstallTables());
+    w.Period().playState = kPlayStateStopped;
+    const uint32_t slot = side * pes::kSlotsPerSide + 4;
+    StoreU32(w.Carrier(side), pes::kBpUnitInfoOffset + pes::kUnitSideOffset, side);
+    w.SetCarrierProfile(side, slot, 0, 180);
+    w.SetUnitList(side, {{kListedKind, pes::EncodeAnswerRecord({pes::kAnswerDribble, 0, 0.0f})}});
+    StoreU32(w.Carrier(side), pes::kBpUnitInfoOffset + pes::kUnitSlotOffset, slot);
+    EXPECT_EQ(w.RunWalk(side), pes::kWalkNoKind) << "the taker himself, side " << side;
+    StoreU32(w.Carrier(side), pes::kBpUnitInfoOffset + pes::kUnitSlotOffset, slot + 1);
+    EXPECT_EQ(w.RunWalk(side), kListedKind) << "another carrier, side " << side;
   }
 }
 
