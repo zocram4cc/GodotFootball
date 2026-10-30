@@ -172,6 +172,12 @@ add_executable(pes_fixdemo_select_test pes_fixdemo_select_test.cpp)
 target_link_libraries(pes_fixdemo_select_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fixdemo_select_test)
 
+# The timeline is pure: the test compiles it directly instead of linking pesfmt (and the whole translated layer).
+add_executable(pes_cutscene_timeline_test pes_cutscene_timeline_test.cpp ${CMAKE_SOURCE_DIR}/src/pes/cutscene_timeline.cpp)
+target_include_directories(pes_cutscene_timeline_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(pes_cutscene_timeline_test PRIVATE GTest::gtest_main)
+gtest_discover_tests(pes_cutscene_timeline_test)
+
 add_executable(pes_goal_anchor_test pes_goal_anchor_test.cpp)
 target_link_libraries(pes_goal_anchor_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_goal_anchor_test)
