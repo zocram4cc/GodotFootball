@@ -1228,6 +1228,29 @@ TEST(PesCarrierTable, KindOneCarriesTheClearUnitsAnswerAndItsAngle) {
   EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone) << "no unit answer, no clear";
 }
 
+
+// The answer record the walk reads (0x1C bytes, the units' writers 0x142119D20, 0x142109EB0, 0x14212A700): type at +0, 0x19 at +4,
+// a pass's receiver lane slot at +8 and its PassKind at +0xC with the one-touch flag byte at +0x10, the Clear unit's angle at +8.
+TEST(PesCarrierTable, TheAnswerRecordCarriesTheFieldsTheWalkReads) {
+  const auto word = [](const std::array<uint8_t, 0x1C>& r, size_t at) {
+    uint32_t v;
+    std::memcpy(&v, r.data() + at, sizeof v);
+    return v;
+  };
+  const auto pass = pes::EncodeAnswerRecord({pes::kAnswerPass, pes::kPassThrough, 0.0f, 7, true});
+  EXPECT_EQ(word(pass, 0), static_cast<uint32_t>(pes::kAnswerPass));
+  EXPECT_EQ(word(pass, 4), 0x19u);
+  EXPECT_EQ(word(pass, 8), 7u);
+  EXPECT_EQ(word(pass, 0xC), static_cast<uint32_t>(pes::kPassThrough));
+  EXPECT_EQ(pass[0x10], 1);
+  const auto clear = pes::EncodeAnswerRecord({pes::kAnswerClear, 0, 123.5f});
+  EXPECT_EQ(word(clear, 0), static_cast<uint32_t>(pes::kAnswerClear));
+  float angle;
+  std::memcpy(&angle, clear.data() + 8, sizeof angle);
+  EXPECT_FLOAT_EQ(angle, 123.5f);
+  const auto none = pes::EncodeAnswerRecord({});
+  EXPECT_EQ(word(none, 0), 0u) << "no answer: type 0, the walk skips the kind";
+}
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---
 
 namespace {
