@@ -1699,6 +1699,14 @@ class Emitter:
             if tgt:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ %s(s); return; }" % fn]
+            if "[" in o:
+                # JMP qword ptr [reg + disp] (a vtable tail call): the target is read now and looked up in the dispatch
+                # table like an indirect CALL; an untranslated target aborts naming its VA.
+                tgt_expr = self.mem_val(o[o.find("["):], 64, None)
+                return ["{ uint64_t _t = (uint64_t)(%s); PesDispatch _d = pes_dispatch_lookup(_t);" % tgt_expr,
+                        "  if (_d.fn == 0) pes_dispatch_missing(_t);",
+                        "  _d.fn(s); }",
+                        "return;"]
             # Loud, like an untaken out-of-body Jcc: a jump the prepass could not resolve trapped when reached, never a
             # silent return (the silent return hid a switch dispatch in 141F5F330 until lockstep found it).
             return ["__builtin_trap(); /* UNRESOLVED JMP %s */" % o]

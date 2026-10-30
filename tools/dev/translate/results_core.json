@@ -98412,6 +98412,44 @@
    "stubs": [],
    "translated": true,
    "va": "0x14047D280"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {"0x140476C50": {"fraction": 0.4098, "reached": 25, "total": 61}},
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 128,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: 7 synthetic calls from goal snapshots replayed bit-exact (pes-port-CutAnchor3.md); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 64,
+   "snapdiff": {"calls": 7, "mismatches": 0, "own_block": {"fraction": 0.4098, "reached": 25, "total": 61}, "replayed": 7, "source": "tools/dev/translate/results_snapdiff_cutanchor3.json"},
+   "stubs": [],
+   "translated": true,
+   "va": "0x140476C50"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {"0x140474CF0": {"fraction": 0.1308, "reached": 28, "total": 214}},
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 128,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: 7 synthetic calls from goal snapshots replayed bit-exact (pes-port-CutAnchor3.md); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 64,
+   "snapdiff": {"calls": 7, "mismatches": 0, "own_block": {"fraction": 0.1308, "reached": 28, "total": 214}, "replayed": 7, "source": "tools/dev/translate/results_snapdiff_cutanchor3.json"},
+   "stubs": [],
+   "translated": true,
+   "va": "0x140474CF0"
   }
  ]
 }
