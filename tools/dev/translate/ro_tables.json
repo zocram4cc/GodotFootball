@@ -38,5 +38,9 @@
   {"va": "0x142AC2230", "bytes": "0x24", "evidence": "CONFIRMED 0x141B40150: base-36 digit string, index = n mod 0x24"},
   {"va": "0x142AD1EC4", "bytes": "0x40", "evidence": "CONFIRMED 0x141B972D0: 0x10 dwords walked by a pointer"},
   {"va": "0x142BD06C0", "bytes": "0x400", "evidence": "CONFIRMED 0x1420A7260: dword table indexed by a byte (256 entries)"},
-  {"va": "0x142BEF098", "bytes": "0x3C", "evidence": "CONFIRMED 0x142110700: two 7-float tables at 0x142BEF098 and 0x142BEF0B8 indexed 0..6"}
+  {"va": "0x142BEF098", "bytes": "0x3C", "evidence": "CONFIRMED 0x142110700: two 7-float tables at 0x142BEF098 and 0x142BEF0B8 indexed 0..6"},
+  {"va": "0x1425DC5A0", "bytes": "0x84", "evidence": "CONFIRMED 0x1406B0180: index (flag word >> 0x1B) + 1 = 1..0x20"},
+  {"va": "0x1425F1C20", "bytes": "0x450", "evidence": "INF 0x140846ED0: dword tables 0x1425F1E20 and 0x1425F1E70 indexed by *(param_1+0x24), which must equal the signed-char answer of 0x1406EB100 (-0x80..0x7F); the window spans that range for both"},
+  {"va": "0x1425F1D30", "bytes": "0x1D8", "evidence": "INF 0x140847090: dword table [0x1425F1EC0 + state*4], state int < 0x12 (not 0, not 0x11), unguarded below; spans the harness corpus domain (-100..)"},
+  {"va": "0x142644F10", "bytes": "0x130", "evidence": "CONFIRMED 0x140A59B20: three tables 0x142644F10 / F80 / FF0, index < 0x16 (the `uVar7 < 0x16` guard)"}
 ]
