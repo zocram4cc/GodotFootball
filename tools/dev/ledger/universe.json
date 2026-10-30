@@ -1290611,6 +1290611,13 @@
      "0x140477BC0"
     ]
    },
+   "cutanchor6": {
+    "members": 225,
+    "roots": [
+     "0x1404B6BD0",
+     "0x1404B88B0"
+    ]
+   },
    "danger": {
     "members": 193,
     "roots": [
