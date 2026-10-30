@@ -87,6 +87,15 @@ TARGETS = [
     # The actor's action switch (TrapTick2): the trap end handler 0x14079E5C0 calls it; it runs PES's per-action objects.
     ("action_switch_6EEBB0", 0x1406EEBB0, "actor action switch (P+0xAC8 action id; per-action objects)"),
     ("trap_end_other_79D4B0", 0x14079D4B0, "trap end handler's other branch"),
+    # Goal cutscene kind-3 recompute (CutAnchor6): per-tick DemoInfo recompute and the A0+0xBC writer.
+    ("recompute_471A80", 0x140471A80, "goal DemoInfo recompute (A0+0x30 for kind-3 rows)"),
+    ("bcwriter_4B88B0", 0x1404B88B0, "A0+0xBC writer"),
+    # Cutscene timing (CutsceneTiming): step end, step machine and the DemoInfo update (start delay, scene end).
+    ("fixdemo_step_end_141F572F0", 0x141F572F0, "FixDemo step end (player state finished)"),
+    ("fixdemo_step_machine_141F59380", 0x141F59380, "FixDemo step machine (frame after each step start)"),
+    ("demoinfo_update_47C830", 0x14047C830, "DemoInfo update (go flag, first manager update, scene end)"),
+    # Trap end handler (diagnostic): does the live game reach it at all? (no action_switch/trap_end_other capture yet)
+    ("trap_end_handler_79E5C0", 0x14079E5C0, "Trap action end handler"),
 ]
 
 

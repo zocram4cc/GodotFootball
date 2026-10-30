@@ -52,7 +52,7 @@ then runs `driver.py --check --select`. With no selection for a set the test pas
 `GF_RECORDED_SELECT` (the full tier) they re-check every recorded function.
 
 Not seen by the selector (full tier covers them): calls through the indirect-dispatch table, `driver.py` and
-`gen_dispatch.py` edits, `translated.hpp` / `pes_dispatch_gen.hpp` (derived lists).
+`gen_dispatch.py` edits, `translated.hpp` / `pes_dispatch_gen.cpp` (derived lists).
 The selector's oracle is `ctest -R translate_select_recorded_test`: a changed callee two calls down selects its recorded caller,
 an unrelated change selects nothing.
 

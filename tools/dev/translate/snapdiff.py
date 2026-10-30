@@ -159,7 +159,7 @@ def build_binary(va, spec, args, pilot, reached, native=False):
     subprocess.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"), "--out", gen]
                    + (["--native"] if native else []) + ["--vas"] + sorted(need), check=True)
     bin_p = os.path.join(gen, "snapdiff_%s%s" % (tag, sfx))
-    srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need] + [os.path.join(gen, "pes_dispatch_gen.cpp")]
     if native:
         srcs.append(os.path.join(gen, "pes_native.cpp"))
     trace = ["-include", os.path.join(HERE, "lockstep_trace.h")] if os.environ.get("GF_XLATE_TRACE") else []
