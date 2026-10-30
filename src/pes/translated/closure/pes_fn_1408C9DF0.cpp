@@ -18,5 +18,6 @@ void pes_fn_1408C9DF0(PesState& s) {
     s.cf = false; s.of = false;
     s.gpr[2] = (uint64_t)(uint32_t)(_r);
   }
-  /*OUT-OF-RANGE JMP 0x1408C8FC0*/return;
+  /*OUT-OF-RANGE JMP 0x1408C8FC0*/ pes_dispatch_missing(0x1408C8FC0);
+  return;
 }

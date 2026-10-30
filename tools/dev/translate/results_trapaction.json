@@ -1,0 +1,41 @@
+{
+ "note": "trapaction results. diffed = bit-exact vs the unicorn harness over the 14 captured Trap action ticks (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapaction.json",
+   "coverage": {
+    "0x140797CD0": {
+     "fraction": 0.7407,
+     "reached": 20,
+     "total": 27
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 14 of 14 (pes-port-TrapS5.md); the closure is capture-bounded (154 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 14,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 20,
+     "total": 27,
+     "fraction": 0.7407
+    },
+    "replayed": 14,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140797CD0"
+  }
+ ]
+}

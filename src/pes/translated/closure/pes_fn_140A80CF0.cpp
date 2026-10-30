@@ -15,14 +15,16 @@ void pes_fn_140A80CF0(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[1]) & (uint64_t)(s.gpr[1])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("nz")) goto L_140A80CF8;
-  { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
-    s.cf = false; s.of = false;
-    s.gpr[0] = (uint64_t)(uint32_t)(_r);
+  if (s.cond("nz")) {
+    s.gpr[1] = (uint64_t)(s.rd(((s.gpr[1]) + (0xE0ULL)), 8));
+    /*OUT-OF-RANGE JMP 0x140A80C50*/ pes_dispatch_missing(0x140A80C50);
+    return;
+  } else {
+    { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
+      s.cf = false; s.of = false;
+      s.gpr[0] = (uint64_t)(uint32_t)(_r);
+    }
+    return;
   }
-  return;
-  L_140A80CF8:;
-  s.gpr[1] = (uint64_t)(s.rd(((s.gpr[1]) + (0xE0ULL)), 8));
-  /*OUT-OF-RANGE JMP 0x140A80C50*/return;
 }
