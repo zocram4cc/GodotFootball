@@ -34,6 +34,18 @@ inline constexpr uint64_t kFrameFloatSourceVa = 0x14259D624;
 inline constexpr uint64_t kTierTableVa = 0x142645A40;
 inline constexpr uint64_t kTierRows = 0x22;
 inline constexpr uint64_t kTierRowBytes = 0x20;
+// The event store's none record: the global every failed event query returns (`LEA RAX,[0x1436F3A40]` 0x140A3E97C in 0x140A3E940;
+// the same address in 0x140A3E5D0's tail and 0x140A3E190's out-of-range arm), 0x320 bytes (`IMUL RAX,RAX,0x320` 0x140A3E971, the
+// slot stride). It lies in .data's zero-initialised tail (past the exe's raw bytes), so the install holds no bytes for it: PES
+// builds it at start-up with the event record's constructor 0x140A3CDD0, called by the static initialiser at 0x1401C2944
+// (`LEA RCX,[0x1436F3A40]`, `CALL 0x140A3CDD0`). The constructor zeroes the record (memset, size `MOV R8D,0x320` 0x140A3CDD8) and
+// stores the kind word 0x37 (`MOV dword ptr [RBX],0x37` 0x140A3CDF9) and the word +0x10 (`MOV dword ptr [RBX+0x10],0xB`
+// 0x140A3CDE8); the stores are read from the exe, opcode-checked, when the tables load.
+inline constexpr uint64_t kEventNoneRecordVa = 0x1436F3A40;
+inline constexpr uint64_t kEventNoneRecordBytes = 0x320;
+inline constexpr uint64_t kEventCtorKindStoreVa = 0x140A3CDF9;
+inline constexpr uint64_t kEventCtorWordStoreVa = 0x140A3CDE8;
+inline constexpr std::size_t kEventCtorWordOffset = 0x10;
 
 struct PesImageTables {
   std::vector<PesTrapSegment> segments;

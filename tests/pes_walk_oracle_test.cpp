@@ -168,10 +168,6 @@ class UnitOracle : public ::testing::Test {
 TEST_F(UnitOracle, UnitInfoAndStateFromTheWindowEqualPesOnEveryCapture) {
   constexpr std::size_t kTickCounter = pes::kBpStateOffset + 2 * sizeof(uint32_t);   // state word 2: ticks since the unit began
   constexpr std::size_t kOwnedCounter = pes::kBpStateOffset + 3 * sizeof(uint32_t);  // state word 3: ticks owned
-  // OPEN (report 3): the two bytes that read the event store's none record 0x1436F3A40 through a register-held address, which the
-  // window does not hold: state word 4 (BP+0x88, ticks since the last event) and the state's sticky flag byte (BP+0xC8). Binding
-  // the record as an image segment fixed them but moved BP+0xB4 on every capture, cause not found.
-  constexpr std::size_t kEventTicks = pes::kBpStateOffset + 4 * sizeof(uint32_t), kStickyFlag = 0xC8;
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
@@ -190,7 +186,6 @@ TEST_F(UnitOracle, UnitInfoAndStateFromTheWindowEqualPesOnEveryCapture) {
     EXPECT_EQ(LoadU32(bp, pes::kBpChosenKindOffset), wantKind) << dir << ": the previous kind the walk read";
     for (std::size_t i = pes::kBpUnitInfoOffset; i < want.size(); ++i) {
       if ((i >= kTickCounter && i < kTickCounter + 4) || (i >= kOwnedCounter && i < kOwnedCounter + 4)) continue;
-      if ((i >= kEventTicks && i < kEventTicks + 4) || i == kStickyFlag) continue;
       EXPECT_EQ(bp[i], want[i]) << dir << " BP+0x" << std::hex << i;
     }
   }
