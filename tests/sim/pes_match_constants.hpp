@@ -59,6 +59,7 @@ struct PesMatchConstants {
   std::optional<pes::DodgeConstants> dodge;
   std::optional<pes::Animetable> animetable;
   std::optional<pes::Mbinfo> mbinfo;
+  std::optional<pes::KickMotionConstants> kickMotion;
   std::optional<pes::TackleConstants> tackle;
   std::optional<pes::StrategyConstants> strategy;
   std::optional<pes::TeamConceptConstants> teamConcepts;
@@ -110,6 +111,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted) c.dodge = pes::LoadDodgeConstants(*exe, &err);
   if (mounted) c.animetable = pes::LoadAnimetable(*exe, vfs, &err);
   if (mounted) c.mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  if (mounted) c.kickMotion = pes::LoadKickMotionConstants(*exe, vfs, &err);
   if (mounted) c.tackle = pes::LoadTackleConstants(*exe, &err);
     c.strategy = pes::LoadStrategyConstants(*exe, &err);
     c.substitutions = pes::LoadSubstitutionConstants(*exe, &err);
@@ -143,6 +145,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesForfeitConstants, c.forfeit);
   fill(setup->pesRestartSpotConstants, c.restartSpot);
   fill(setup->pesKickErrorConstants, c.kickError);
+  fill(setup->pesKickMotionConstants, c.kickMotion);
   fill(setup->pesSetPieceTakerConstants, c.setPieceTaker);
   fill(setup->pesSetPieceTeamConstants, c.setPieceTeam);
   fill(setup->pesStaminaConstants, c.stamina);

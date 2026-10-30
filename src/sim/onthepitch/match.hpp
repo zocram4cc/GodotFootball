@@ -31,6 +31,7 @@ class PlayerData;
 #include "officials.hpp"
 #include "pesstoppage.hpp"
 #include "peskickerror.hpp"
+#include "peskickmotion.hpp"
 #include "pesworldrecord.hpp"
 #include "pesdodge.hpp"
 #include "pestackle.hpp"
@@ -307,6 +308,10 @@ public:
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md).
   const pes::KickErrorConstants& GetPesKickErrorConstants() const {
     return pesKickErrorConstants;
+  }
+  // PES 2021's kick motion pick (docs/ports/pes-port-KickMotion.md).
+  const pes::KickMotionConstants& GetPesKickMotionConstants() const {
+    return pesKickMotionConstants;
   }
   const pes::StoppageConstants& GetPesStoppageConstants() const {
     return pesStoppageConstants;
@@ -688,6 +693,7 @@ protected:
   pes::ForfeitConstants pesForfeitConstants{};
   pes::RestartSpotConstants pesRestartSpotConstants{};
   pes::KickErrorConstants pesKickErrorConstants{};
+  pes::KickMotionConstants pesKickMotionConstants{};
   pes::CarrierConstants pesCarrierConstants{};
   pes::DefenderDecisionConstants pesDefenderDecisionConstants{};
   pes::ContactConstants pesContactConstants{};

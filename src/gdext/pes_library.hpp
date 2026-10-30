@@ -198,6 +198,10 @@ class PesLibrary : public RefCounted {
   const pes::KickErrorConstants* kick_error_constants() const {
     return kickErrorConstants_ ? &*kickErrorConstants_ : nullptr;
   }
+  // PES 2021's kick motion pick (docs/ports/pes-port-KickMotion.md).
+  const pes::KickMotionConstants* kick_motion_constants() const {
+    return kickMotionConstants_ ? &*kickMotionConstants_ : nullptr;
+  }
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   const pes::offball::OffBallConstants* off_ball_constants() const {
     return offBallConstants_ ? &*offBallConstants_ : nullptr;
@@ -257,6 +261,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::ForfeitConstants> forfeitConstants_;
   std::optional<pes::RestartSpotConstants> restartSpotConstants_;
   std::optional<pes::KickErrorConstants> kickErrorConstants_;
+  std::optional<pes::KickMotionConstants> kickMotionConstants_;
   std::optional<pes::offball::OffBallConstants> offBallConstants_;
   std::optional<pes::MoveStepConstants> moveStepConstants_;
   std::optional<pes::PressConstants> pressConstants_;

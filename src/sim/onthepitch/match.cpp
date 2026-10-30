@@ -147,6 +147,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES kick error constants missing: read them from the install with "
         "pes::LoadKickErrorConstants into MatchSetup::pesKickErrorConstants");
   pesKickErrorConstants = *setup.pesKickErrorConstants;
+  if (setup.pesKickMotionConstants == nullptr)
+    throw std::runtime_error(
+        "PES kick motion constants missing: read them from the install with "
+        "pes::LoadKickMotionConstants into MatchSetup::pesKickMotionConstants");
+  pesKickMotionConstants = *setup.pesKickMotionConstants;
   if (setup.pesJudgeConstants == nullptr)
     throw std::runtime_error(
         "PES judge constants missing: read them from the install with "

@@ -229,6 +229,11 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 kick error constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  if (exe) kickMotionConstants_ = pes::LoadKickMotionConstants(*exe, vfs_, &err);
+  if (!kickMotionConstants_) {
+    UtilityFunctions::push_error("PES21 kick motion constants unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   // PES 2021's set-piece taker wait: the corner/free-kick/penalty gates
   // (docs/re/pes-re-setpiece-choreography.md 9 item 2).
   if (exe) setPieceTakerConstants_ = pes::LoadSetPieceTakerConstants(vfs_, *exe, &err);
