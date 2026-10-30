@@ -576,12 +576,14 @@ class PesWorld {
   uint32_t RunWalk(int side, const PesDangerExternals& ext = {});
   // PES's carrier-block constructor 0x14210D320(BP, side) (proved bit-exact on three live BPs, results_dribble.json): the unit
   // info, state, imageA's lists, the carrier manager at BP+0x32C0 with its nine step objects, and the 25 unit-kind objects, vtables
-  // included. RunCarrierUpdate runs it once per side, before its first writer; a test that loaded a capture's BP calls
-  // AdoptCarrierState instead.
+  // included. NOT yet called from RunCarrierUpdate: on an empty block it aborts in a virtual call (open, see pes-port-DribbleProposal.md);
+  // a test that loaded a capture's BP (whose objects exist) calls AdoptCarrierState.
   void RunCarrierConstruct(int side, const PesDangerExternals& ext = {});
   // PES's turn-reference builder 0x14211D710(BP+0x32C0, ctx, unit info, state, imageA, BP+0x32B0, side record, BP+0x4204): while the
   // state's word 0 is 0 it ticks the carrier manager (0x14211E2D0, 0x14211E210) and writes BP+0x3380, the angle the walk's Clear
-  // gate (0x14210F4E8) measures the dribble proposal against. Call after RunDangerBuilder and the plan word BP+0x32B8.
+  // gate (0x14210F4E8) measures the dribble proposal against. Call after RunDangerBuilder and the plan word BP+0x32B8. NOT yet called
+  // from the controller: GF's BP is never constructed (RunCarrierConstruct), and the two upper bytes of BP+0x3380 differ from PES's on
+  // two of the ten captured entries (open, pes_dribble_oracle_test).
   void RunTurnReference(int side, const PesDangerExternals& ext = {});
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.

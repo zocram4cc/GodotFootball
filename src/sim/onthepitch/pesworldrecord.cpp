@@ -143,7 +143,6 @@ void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternal
     s.mem.wlog = ext.writeLog;
     fn(s);
   };
-  if (!constructed_[side]) RunCarrierConstruct(side, ext);
   // The driver 0x142110C90 resets the block (0x14210E5F0 -> the state's constructor 0x14063A3B0) when its unit goes inactive: a
   // new carrier starts a fresh state, whose counters then run from zero.
   if (!stateReady_[side] || LoadU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset) != slot) {
