@@ -519,7 +519,7 @@ void pes_fn_1405B7470(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
-  /*SET-MEM*/(void)0;
+  s.wr(((s.gpr[4]) + (0x41ULL)), (uint64_t)((s.cond("z") ? 1ULL : 0ULL)), 1);
   L_1405B7923:;
   s.wr(((s.gpr[3]) + ((s.gpr[6])*1ULL) + (0xE0ULL)), (uint64_t)((0ULL)), 1);
   s.wr(((s.gpr[6]) + ((s.gpr[3])*4ULL) + (0x130ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[5])), 4);

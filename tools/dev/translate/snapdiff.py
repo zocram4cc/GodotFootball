@@ -27,10 +27,13 @@ sys.path.insert(0, HERE)
 import driver as drv  # noqa: E402
 import diffmain  # noqa: E402
 import frame_trace as ft  # noqa: E402
+import xlate  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 
 JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
+
+
 
 
 def build_closure(va, spec, args, pilot, reached):
@@ -39,9 +42,20 @@ def build_closure(va, spec, args, pilot, reached):
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
     os.makedirs(gen, exist_ok=True)
-    # Every image address the replay executed as an indirect site or target is a root: an indirect-only thunk
-    # (reached through a table, never by a direct CALL) is a function the harness runs, so the build translates it.
-    targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts} | set(reached)
+    # Every image address the replay executed as an indirect target is a root, and so is an indirect site that starts a
+    # function (an indirect-only thunk, reached through a table and never by a direct CALL, is a function the harness
+    # runs). A site inside a function is no root: the function holding it is already in the closure, and translating
+    # from mid-function decodes garbage (0x140864175 is a `call [rdx]` inside 0x140864084). Nor is a target that lies in
+    # the same function as its site: a `jmp reg` switch case (0x1406EA953, inside 0x1406EA840). A `jmp reg` site is a
+    # switch dispatch, never a function start, and its targets in the same body are cases even where no .pdata entry
+    # says where the leaf ends (0x140848B40 and its case 0x140848B6E, inside the leaf 0x140848AF0). Any other target
+    # that is not a function boundary fails the closure.
+    pd = xlate.pdata_of(args.image)
+    roots, bad = drv.reached_roots(args.image, reached)
+    if bad:
+        return [va], bad
+    targets = set(roots) | {s for s in reached
+                            if pd.is_boundary(int(s, 16)) and pd.indirect_kind(int(s, 16)) != "jmp reg"}
     # The harness runs each replayed indirect target's image bytes (no stub entry), and so do the walks of
     # their direct callees: the build closes over those too, or a plain callee is an out-of-set abort.
     reached_seed = {"harness": {"out_of_set_callees": [
@@ -64,7 +78,7 @@ def build_closure(va, spec, args, pilot, reached):
             seen.add(c)
             need.append(c)
             queue.append(c)
-    targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts}
+    targets = roots  # the filtered indirect targets and function-start sites: a switch case is no root
     for t in sorted(targets):
         if CODE_LO <= int(t, 16) < CODE_HI and t not in seen:
             seen.add(t)
@@ -104,6 +118,10 @@ def build_closure(va, spec, args, pilot, reached):
             for m in re.finditer(r"OUT-OF-(?:RANGE JMP|SET CALL) 0x([0-9A-Fa-f]+)", text):
                 t = "0x" + m.group(1).upper()
                 if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and int(t, 16) not in drv.STUB_TABLE:
+                    if not pd.is_boundary(int(t, 16)):
+                        # An address inside a function or an instruction is no callee: the build never translates it,
+                        # and the closure is reported as not built rather than compared without it.
+                        return need, "closure walk: %s (from %s) is not a function boundary" % (t, v)
                     missing.add(t)
         if missing:
             build_pilot |= missing
@@ -331,6 +349,12 @@ def main():
         with open(args.results, "w") as f:
             json.dump(doc, f, indent=1)
     print("proven %d of %d" % (proven, len(results)), flush=True)
+    # A verdict with nothing compiled compared nothing: that is an error exit, never a pass.
+    nothing = [r["va"] for r in results if not r["translated"]]
+    if nothing:
+        print("ERROR: nothing compiled for %s (no replay was compared with a translated body)" % ", ".join(nothing),
+              file=sys.stderr, flush=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

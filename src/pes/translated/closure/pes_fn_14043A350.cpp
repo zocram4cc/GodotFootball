@@ -8,23 +8,12 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x142588218 (4 bytes)
-static constexpr uint32_t k_c142588218_w = 0xBF800000U;
-static constexpr float k_c142588218_f = -1.0f; // -1.0;
-// image constant @ 0x142598578 (4 bytes)
-static constexpr uint32_t k_c142598578_w = 0x3E4CCCCDU;
-static constexpr float k_c142598578_f = 0.20000000298023224f; // 0.20000000298023224;
 
 void pes_fn_14043A350(PesState& s);
 void pes_fn_140436820(PesState& s);
 void pes_fn_140438F10(PesState& s);
-void pes_fn_14043A7E0(PesState& s);
-void pes_fn_14043B9D0(PesState& s);
 void pes_fn_14043DBA0(PesState& s);
-void pes_fn_140A3E190(PesState& s);
-void pes_fn_140A48A10(PesState& s);
 void pes_fn_140A62690(PesState& s);
-void pes_fn_140A65B30(PesState& s);
 
 void pes_fn_14043A350(PesState& s) {
   s.wr(((s.gpr[4]) + (0x18ULL)), (uint64_t)(s.gpr[3]), 8);

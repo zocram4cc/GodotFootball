@@ -80,6 +80,8 @@ TARGETS = [
     ("judge_decide_5B7470", 0x1405B7470, "judge level decision: points, thresholds, overrides, builds the pending foul"),
     ("judge_whistle_50E770", 0x14050E770, "whistle writer: JR restart/side/reason/spot/kind/fouler/victim"),
     ("judge_commit_43F546F0", 0x143F546F0, "Judge::Commit (protected): JR+0x38 card level"),
+    # The Trap action's own tick (S5 of docs/re/pes-re-trap-inputs.md; TrapCutover2): plays the committed clip.
+    ("trap_action_tick_797CD0", 0x140797CD0, "Trap action tick (plays the clip the kind-0 chain committed)"),
 ]
 
 

@@ -1,0 +1,120 @@
+{
+ "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 2,
+ "results": [
+  {
+   "va": "0x14079A470",
+   "calls": 7,
+   "replayed": 7,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq4310": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4329": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4351": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4402": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4469": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4531": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq019": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 64,
+    "total": 103,
+    "fraction": 0.6214
+   },
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14079AFD0",
+   "calls": 12,
+   "replayed": 12,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq4310": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4329": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4351": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4402": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4469": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4531": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4273": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4274": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4275": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4276": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4277": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4278": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 7,
+    "total": 63,
+    "fraction": 0.1111
+   },
+   "proven": true,
+   "blocked_callees": []
+  }
+ ]
+}

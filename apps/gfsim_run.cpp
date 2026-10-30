@@ -72,6 +72,7 @@ class ParityLog {
     const bool live = match.IsInPlay() && !match.IsInSetPiece();
     if (live) ++liveTicks_;
     ObserveMoveSteps(match);
+    ObservePhases(match);
     ObserveRestart(match, live);
   }
 
@@ -82,9 +83,12 @@ class ParityLog {
     for (int s = 0; s < pes::kMoveStateCount; s++)
       std::fprintf(out, "%s%d:%lu", s ? " " : "", s, stopFrom_[s]);
     std::fprintf(out, "\n");
-    for (const Restart& r : restarts_)
+    for (const Restart& r : restarts_) {
       std::fprintf(out, "[parity-restart] %s whistle=%lu release=%lu frames=%lu\n", r.name, r.whistle,
                    r.release, r.release - r.whistle);
+      std::fprintf(out, "[parity-phase] %s whistle=%lu prepare=%lu play3=%lu start=%lu play1=%lu\n", r.name,
+                   r.whistle, r.prepare, r.play3, r.start, r.play1);
+    }
     MatchData* data = match.GetMatchData();
     std::fprintf(out, "[parity-actions] passes %d-%d crosses %d-%d shots %d-%d tackles %d-%d slides %d-%d\n",
                  data->GetPassAttempts(0), data->GetPassAttempts(1), data->GetCrosses(0), data->GetCrosses(1),
@@ -96,7 +100,11 @@ class ParityLog {
   struct Restart {
     const char* name;
     unsigned long whistle;
-    unsigned long release;
+    unsigned long release;  // the first live tick: in play and not in a set piece
+    unsigned long prepare;  // the referee's prepare point (the wipe is done), in ticks
+    unsigned long play3;    // the first tick PES's play state reads 3 (armed)
+    unsigned long start;    // the referee's armed point, in ticks
+    unsigned long play1;    // the first tick the match is in play (PES's play-1 onset)
   };
 
   // Every active player's MOVESTEP state this tick (M1), and each entry into STOP by the state
@@ -116,6 +124,22 @@ class ParityLog {
     }
   }
 
+  // PES's play-state marks inside the current stoppage, as the first tick each is seen: play 1 (in play)
+  // and play 3 (armed, pes::PlayStateFor). Runs before ObserveRestart, which opens and closes the stoppage.
+  void ObservePhases(Match& match) {
+    if (!inStoppage_) return;
+    const RefereeBuffer& buffer = match.GetRefereeBuffer();
+    if (play1_ == 0 && match.IsInPlay()) play1_ = ticks_;
+    if (play3_ == 0 && pes::PlayStateFor(match.IsInPlay(), buffer.active,
+                                          buffer.ReadyForTake(match.GetActualTime_ms()) || buffer.started) == 3)
+      play3_ = ticks_;
+  }
+
+  // Ticks from `from_ms` to `at_ms`, 0 when `at_ms` is not later.
+  static unsigned long TicksAfter(unsigned long at_ms, unsigned long from_ms) {
+    return at_ms > from_ms ? static_cast<unsigned long>(static_cast<double>(at_ms - from_ms) / Match::kTick_ms) : 0;
+  }
+
   // A stoppage runs from the first tick the match is not live to the first live tick after it, as
   // RestartWatch measures it. Kept: a kick-off, throw-in, goal kick, corner or free kick, except the
   // opening kick-off (no play before it). A period start is kept too: the referee moves the match phase
@@ -129,6 +153,10 @@ class ParityLog {
         phase_ = match.GetMatchPhase();
         opening_ = liveTicks_ == 0;
         setPiece_ = e_SetPiece_None;
+        const RefereeBuffer& buffer = match.GetRefereeBuffer();
+        prepare_ = whistle_ + TicksAfter(buffer.prepareTime, buffer.stopTime);
+        start_ = whistle_ + TicksAfter(buffer.startTime, buffer.stopTime);
+        play1_ = play3_ = 0;
       }
       for (int teamID = 0; teamID < 2; teamID++) {
         const e_SetPiece setPiece = match.GetTeam(teamID)->GetController()->GetSetPieceType();
@@ -140,7 +168,7 @@ class ParityLog {
     inStoppage_ = false;
     const char* name = ParityRestartName(setPiece_);
     if (name && !opening_ && match.GetMatchPhase() == phase_)
-      restarts_.push_back({name, whistle_, ticks_});
+      restarts_.push_back({name, whistle_, ticks_, prepare_, play3_, start_, play1_});
   }
 
   unsigned long ticks_ = 0, liveTicks_ = 0;
@@ -149,6 +177,7 @@ class ParityLog {
   std::vector<Player*> players_;
   bool inStoppage_ = false;
   unsigned long whistle_ = 0;
+  unsigned long prepare_ = 0, play3_ = 0, start_ = 0, play1_ = 0;
   e_MatchPhase phase_ = e_MatchPhase_PreMatch;
   bool opening_ = false;
   e_SetPiece setPiece_ = e_SetPiece_None;

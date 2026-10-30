@@ -248,7 +248,7 @@ void pes_fn_1405DC350(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)((5ULL));
   s.set_x_f32(9, k_c142588218_f); s.xmm[9][0] &= 0xFFFFFFFFull; s.xmm[9][1] = 0;
   s.gpr[2] = (uint64_t)(uint32_t)(s.rd(((s.gpr[12]) + (0x110ULL)), 4));
-  /*SET-MEM*/(void)0;
+  s.wr(((s.gpr[5]) + (0x230ULL)), (uint64_t)((s.cond("be") ? 1ULL : 0ULL)), 1);
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[12]) + (0xF8ULL)), 8));
   s.wr(((s.gpr[4]) + (0x74ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[9])), 4);
   s.gpr[9] = (uint64_t)(uint32_t)((255ULL));

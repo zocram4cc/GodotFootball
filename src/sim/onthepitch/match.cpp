@@ -21,6 +21,7 @@
 #include "pesclips.hpp"
 #include "pesteamtick.hpp"
 #include "pespossession.hpp"
+#include "pesreceive.hpp"
 #include "pesstoppage.hpp"
 #include "player/playerofficial.hpp"
 #include "simcontext.hpp"
@@ -803,6 +804,21 @@ void Match::UpdateBallHeatmap() {
     MatchAnalytics::AddSample(teamBallHeatmap[GetLastTouchTeamID()], ball->Predict(0).Get2D());
 }
 
+// PES's designated owner MA+0x2600C: FUN_140457070's ring-0 scan (d_a.c:1248-1283) over NewestOrRing0(0..8).
+// The shoot-out is period 9 (pes-re-A6Writers.md §5); there the first kind-5 record names the owner.
+void Match::RecomputePesDesignatedOwner() {
+  std::array<pes::Ring0Entry, pes::kRing0ScanCount> ring{};
+  for (int n = 0; n < static_cast<int>(pes::kRing0ScanCount); ++n) {
+    const pes::EventRecord* rec = pesEvents.NewestOrRing0(n);
+    if (!rec) continue;  // an empty slot: the default entry, which owns nobody
+    ring[n].kind = rec->ActionKind();
+    ring[n].tag = rec->U32(0x30);  // payload+0x1C (d_a.c:1263 reads piVar13[7])
+    ring[n].actor = pes::ActorKey{rec->U32(0x18), rec->U32(0x1c)};
+  }
+  pesDesignatedOwner =
+      pes::DesignatedOwnerScan(ring, matchPhase == e_MatchPhase_Penalties, pesDesignatedOwner);
+}
+
 void Match::ProcessRefereeStage() {
   tickStages.push_back(TickStage::Referee);
   // The shootout owns the pitch during the penalties phase: normal play and
@@ -912,6 +928,7 @@ void Match::Process() {
       static_cast<float>(actualTime_ms - stalemateLastRealAction_ms) / 1000.0f,
       ball->GetMovement().GetLength());
 
+  if (pesLoop) RecomputePesDesignatedOwner();
   if (GetBallRetainer() == 0) {
     signed int bestTeamID = GetBestPossessionTeamID();
     if (bestTeamID != -1) {

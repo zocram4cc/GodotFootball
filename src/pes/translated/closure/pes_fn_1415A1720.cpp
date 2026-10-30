@@ -259,7 +259,6 @@ static constexpr uint64_t k_c1425306F8_q = 0x00006FFFFECE05F0ULL;
 static constexpr double k_c1425306F8_d = 6.0841853411307e-310; // 6.0841853411307e-310
 
 void pes_fn_1415A1720(PesState& s);
-void pes_fn_1415A1938(PesState& s);
 
 void pes_fn_1415A1720(PesState& s) {
   { uint64_t _t = (uint64_t)(k_c14252FD98_q); PesDispatch _d = pes_dispatch_lookup(_t);

@@ -23,6 +23,10 @@ add_executable(pes_animetable_test pes_animetable_test.cpp)
 target_link_libraries(pes_animetable_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_animetable_test)
 
+add_executable(pes_fdc_test pes_fdc_test.cpp)
+target_link_libraries(pes_fdc_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_fdc_test)
+
 add_executable(pes_mbinfo_test pes_mbinfo_test.cpp)
 target_link_libraries(pes_mbinfo_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_mbinfo_test)
@@ -68,6 +72,9 @@ set_tests_properties(godot_pes_loop_kickoff_test PROPERTIES SKIP_RETURN_CODE 77 
 add_test(NAME godot_camera_test
   COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_camera.gd)
 set_tests_properties(godot_camera_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+add_test(NAME godot_cutscene_camera_test
+  COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_cutscene_camera.gd)
+set_tests_properties(godot_cutscene_camera_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 add_test(NAME godot_model_test
   COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_model.gd)
 set_tests_properties(godot_model_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
@@ -141,6 +148,10 @@ add_executable(pes_camera_test pes_camera_test.cpp)
 target_link_libraries(pes_camera_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_camera_test)
 
+add_executable(pes_fixdemo_table_test pes_fixdemo_table_test.cpp)
+target_link_libraries(pes_fixdemo_table_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_fixdemo_table_test)
+
 add_executable(pes_fox2_test pes_fox2_test.cpp)
 target_link_libraries(pes_fox2_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fox2_test)
@@ -200,3 +211,30 @@ add_test(NAME translate_recorded_call_test
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_recorded_call.py'")
 set_tests_properties(translate_recorded_call_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# Closure walk (xlate.capstone_decode bound, pdata.is_boundary, snapdiff's nothing-compiled exit): synthetic image,
+# harness Python (capstone). Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_closure_walk_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_closure_walk.py'")
+set_tests_properties(translate_closure_walk_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# Function extent (.pdata range + chained chunks: pdata.Pdata.extent/decode, xlate, closure, classify): a synthetic image,
+# plus the real PES image when PES_EXE is set. Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_extent_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_extent.py'")
+set_tests_properties(translate_extent_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+
+# SETcc to memory stores the condition byte (found by lockstep at 0x14084CE60, trap kind-0 closure): compiles a translated
+# synthetic function and runs it. Needs g++. Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_setcc_store_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_setcc_store.py'")
+set_tests_properties(translate_setcc_store_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# Fast-gate selector: a mutated closure callee selects its recorded caller, an unrelated change selects nothing.
+# Plain python3 (no harness Python), so it always runs.
+add_test(NAME translate_select_recorded_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_select_recorded.py)
+set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)

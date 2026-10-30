@@ -6,6 +6,7 @@
 // relations, not pinned numbers.
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <vector>
@@ -459,7 +460,7 @@ TEST(PesReceiveEventKind, StoreActionKindsMapOntoTheReceiveKinds) {
   EXPECT_EQ(pes::ReceiveEventKindOf(0x10), pes::BallEventKind::kTouch);
 }
 
-// --- Designated owner (first-touch §7.2 gate 4c, MA+0x2600C) ---
+// --- Designated owner (MA+0x2600C, FUN_140457070's ring-0 scan d_a.c:1248-1283; gate 4c d_b.c:91) ---
 
 namespace {
 pes::ActorKey Man(uint32_t team, uint32_t slot) {
@@ -468,38 +469,115 @@ pes::ActorKey Man(uint32_t team, uint32_t slot) {
   k.slot = slot;
   return k;
 }
+// One ring-0 entry as the scan reads it: the action kind, the tag word at payload+0x1C, the actor key.
+pes::Ring0Entry Entry(uint32_t kind, uint32_t tag, pes::ActorKey actor) {
+  pes::Ring0Entry e;
+  e.kind = kind;
+  e.tag = tag;
+  e.actor = actor;
+  return e;
+}
+// Nine empty entries: the store's sentinel kind (0x37), no tag, no actor.
+std::array<pes::Ring0Entry, pes::kRing0ScanCount> EmptyRing() {
+  std::array<pes::Ring0Entry, pes::kRing0ScanCount> ring;
+  for (auto& e : ring) e = Entry(0x37, 0, pes::NoActorKey());
+  return ring;
+}
 }  // namespace
 
-TEST(PesReceiveOwner, ChaserOfAnUnownedBallIsNotRefused) {
-  // The newest touch was the other side's and nobody holds the ball: no owner.
-  pes::OwnerInput in;
-  in.newestActor = Man(1, 4);
-  in.newestActorHoldsBall = false;
-  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+TEST(PesReceiveOwner, ATaggedNewestTouchIsTheDesignatedOwner) {
+  auto ring = EmptyRing();
+  ring[0] = Entry(1, 6, Man(0, 5));
+  EXPECT_EQ(pes::DesignatedOwnerScan(ring, false, pes::NoActorKey()), Man(0, 5));
 }
 
-TEST(PesReceiveOwner, ANewestToucherIsNotTheOwnerOnceTheBallRollsAway) {
-  pes::OwnerInput in;
-  in.newestActor = Man(0, 7);
-  in.newestActorHoldsBall = false;
-  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+TEST(PesReceiveOwner, AnUntaggedTouchIsNoOwner) {
+  auto ring = EmptyRing();
+  ring[8] = Entry(1, 0, Man(0, 5));  // last slot: the empty slots after an untagged touch would reset a mutant's owner
+  EXPECT_EQ(pes::DesignatedOwnerScan(ring, false, pes::NoActorKey()), pes::NoActorKey());
 }
 
-TEST(PesReceiveOwner, TheManWhoHoldsTheBallAfterTheNewestTouchIsRefused) {
-  pes::OwnerInput in;
-  in.newestActor = Man(0, 7);
-  in.newestActorHoldsBall = true;
-  EXPECT_TRUE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
-  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 8)));
+TEST(PesReceiveOwner, AnEventOfKindEIsSkippedByTheScan) {
+  auto ring = EmptyRing();
+  ring[0] = Entry(0xE, 6, Man(0, 5));
+  ring[1] = Entry(1, 6, Man(1, 2));
+  EXPECT_EQ(pes::DesignatedOwnerScan(ring, false, pes::NoActorKey()), Man(1, 2));
 }
 
-TEST(PesReceiveOwner, TheRestartTakerOwnsTheBallWhileTheRestartIsHeld) {
-  pes::OwnerInput in;
-  in.restartTaker = Man(0, 10);
-  in.newestActor = Man(1, 4);
-  in.newestActorHoldsBall = true;
-  EXPECT_TRUE(pes::RefusedAsDesignatedOwner(in, Man(0, 10)));
-  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(1, 4)));
+TEST(PesReceiveOwner, TheScanStopsWhenTheOwnerDiffersFromThePreviousOne) {
+  auto ring = EmptyRing();
+  ring[0] = Entry(1, 6, Man(0, 5));
+  ring[1] = Entry(1, 6, Man(1, 2));
+  ring[2] = Entry(1, 6, Man(1, 9));
+  EXPECT_EQ(pes::DesignatedOwnerScan(ring, false, Man(0, 5)), Man(1, 2));
+}
+
+TEST(PesReceiveOwner, InPeriodNineTheFirstKindFiveShotIsTheOwnerWhateverTheTag) {
+  auto ring = EmptyRing();
+  ring[0] = Entry(1, 6, Man(0, 5));
+  ring[3] = Entry(5, 0, Man(1, 7));
+  EXPECT_EQ(pes::DesignatedOwnerScan(ring, true, pes::NoActorKey()), Man(1, 7));
+}
+
+TEST(PesReceiveOwner, AShotFromOutsideTheRosterTeamsIsNoOwner) {
+  auto ring = EmptyRing();
+  ring[0] = Entry(5, 0, Man(2, 7));
+  EXPECT_EQ(pes::DesignatedOwnerScan(ring, true, pes::NoActorKey()), pes::NoActorKey());
+}
+
+TEST(PesReceiveOwner, TheDesignatedOwnerIsRefusedTheTrap) {
+  EXPECT_TRUE(pes::RefusedAsDesignatedOwner(Man(0, 5), Man(0, 5)));
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(Man(0, 5), Man(0, 6)));
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(Man(0, 5), Man(1, 5)));
+}
+
+TEST(PesReceiveOwner, WithNoDesignatedOwnerNobodyIsRefused) {
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(pes::NoActorKey(), Man(0, 5)));
+}
+
+// --- Kick branch 0x5D (reaction entry 3, d_a.c:610-662): FUN_1409fbb40 action gate, FUN_1409fbba0 ball gate ---
+
+TEST(PesReceiveKickBranch, NoActionAdmitsNothingEvenInStageFive) {
+  EXPECT_FALSE(pes::KickBranchActionGate(false, 0x4A, 5));
+}
+
+TEST(PesReceiveKickBranch, AHeldAiStageDecidesAloneAndOnlyFiveAdmits) {
+  EXPECT_TRUE(pes::KickBranchActionGate(true, 0x00, 5));
+  EXPECT_FALSE(pes::KickBranchActionGate(true, 0x4A, 3));
+}
+
+TEST(PesReceiveKickBranch, ActionFourAAdmitsWithItsHighBitIgnored) {
+  EXPECT_TRUE(pes::KickBranchActionGate(true, 0x4A, 0));
+  EXPECT_TRUE(pes::KickBranchActionGate(true, 0xCA, 0));
+  EXPECT_FALSE(pes::KickBranchActionGate(true, 0x4B, 0));
+}
+
+namespace {
+// Fixed test thresholds: height limit 0.5 m; speed limit 40 / (fps * 4), which is exactly 1.0 m per tick at 10 fps.
+pes::ReceiveConstants KickConstants() {
+  pes::ReceiveConstants c;
+  c.kickMaxBallHeight_m = 0.5f;
+  c.kickSpeedNumerator = 40.0f;
+  c.kickSpeedDivisor = 4.0f;
+  return c;
+}
+}  // namespace
+
+TEST(PesReceiveKickBranch, ABallAtTheHeightLimitAdmitsAndAboveItDoesNot) {
+  const pes::ReceiveConstants c = KickConstants();
+  EXPECT_TRUE(pes::KickBranchBallGate(c, 0.5f, {0.f, 0.f}, {0.f, 0.f}, 10.0f));
+  EXPECT_FALSE(pes::KickBranchBallGate(c, 0.5001f, {0.f, 0.f}, {0.f, 0.f}, 10.0f));
+}
+
+TEST(PesReceiveKickBranch, TheRelativeSpeedMustBeUnderTheLimitStrictly) {
+  const pes::ReceiveConstants c = KickConstants();
+  EXPECT_TRUE(pes::KickBranchBallGate(c, 0.1f, {0.9f, 0.f}, {0.f, 0.f}, 10.0f));
+  EXPECT_FALSE(pes::KickBranchBallGate(c, 0.1f, {1.0f, 0.f}, {0.f, 0.f}, 10.0f));
+}
+
+TEST(PesReceiveKickBranch, AManMovingWithTheBallIsWithinTheSpeedLimit) {
+  const pes::ReceiveConstants c = KickConstants();
+  EXPECT_TRUE(pes::KickBranchBallGate(c, 0.1f, {3.f, 2.f}, {3.f, 2.f}, 10.0f));
 }
 
 // --- Carrier (MA+0x2601C, FUN_140457070; first-touch §5.1) ---

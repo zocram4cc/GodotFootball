@@ -9,7 +9,7 @@ Branch `FdcCamera`, pushed `88bbb155` (`git ls-remote origin FdcCamera` = `88bbb
 | 1. worktree, godot-cpp symlink, first gdext build | DONE. Worktree on `FdcCamera`. Build of `godotfootball` (rc 0) took about 41 min: it compiles the whole translated layer (5,242 steps, `pestranslated`), not only godot-cpp. It writes `gen/` and `bin/` into the symlinked godot-cpp, i.e. into the main checkout (brief-prescribed layout; noted for Main). |
 | 2. C++ `.fdc` reader, consumes every byte | DONE. `src/pes/fdc.{hpp,cpp}`. Install: **4,925 listed, 4,925 parsed, 0 errors; 4,910 consume every byte; 15 fail with type-99 gaps (the OPEN class of `docs/re/pes-re-fdc-format.md` §5.1).** Embedded CANM: **5,330 streams, 0 bad**. |
 | 3. camera semantics with VAs | DONE with one OPEN item (§2). |
-| 4. Godot playback of one camera track, debug entry | DONE. `PesCutsceneCamera` (gdext), `match.gd --fdc-cut <VFS path> [--fdc-camera N]`. Scene id is not resolved in GF (§4). |
+| 4. Godot playback of one camera track, debug entry | DONE. `PesCutsceneCamera::load_scene` (gdext), `match.gd --fdc-scene 0xSCENE [--fdc-camera N]`: scene id resolved through the FixDemo table (`pes::FixDemoSceneFdcPaths`, §4). |
 | 5. Godot frame next to a PES frame of the same moment | Godot frame DONE. **PES frame of the same moment NOT obtained: not like-for-like, see §5.** |
 | 6. reader tests red-then-green, one mutation; frame pair | Tests DONE, 9/9 passing; one mutation run and reverted (§3). Frame pair: §5. |
 
@@ -45,10 +45,9 @@ Scratch: `<workdrive>/gf-FdcCamera-scratch/dec_camera.txt`, `dec_loader.txt` (no
 
 ## 4. Godot playback and scene ids
 
-- `src/gdext/pes_cutscene_camera.{hpp,cpp}`: `PesCutsceneCamera::load(library, vfs_path, camera_index)` reads the `.fdc` through `PesLibrary::vfs()`, takes camera record N, resolves its CANM (embedded, or external through the VFS), and `update(camera, t_s)` poses a `Camera3D`: `t` in seconds, record start in 1/60 s ticks, 2 ticks per frame at 30 fps (INF, §2). Clip planes from the record override the clip's; near is clamped at 0.1 m (PES21_CAMERA_TRACE §6.4). KEEP_HEIGHT aspect (fov is vertical).
-- `godot/match/match.gd`: `--fdc-cut <VFS path>` debug entry; when given, the cut's camera replaces the broadcast camera for the run (no delete; the broadcast path stays).
-- **Scene id → file is not in GF.** The table decoder lives on CutsceneSelect only. Resolved offline with its `scene_map.py` (scratch copy): scene `0x20009` = `FOUL_PINCH_CARD_Y`, steps: referee-oncoming (10 variants) and `foul_pinch_card_y01/02.fdc`. Those pinch-card cuts have **no CANM camera** (procedural; `camera_cut.py` finds no cameras). `0x20022` is the yellow-card "no demo" sentinel per `scene_map.py`. Foul referee cuts also have no cameras. So the chosen cut is `common/demo/fixdemo/pk/cut_data/pk_01_intro_setBall00_cam01.fdc` (the doc's exact-landmark shot), camera 0.
-- Merging the table decoder is the next step to take scene ids as input (Main decides whether to merge CutsceneSelect).
+- `src/gdext/pes_cutscene_camera.{hpp,cpp}`: `PesCutsceneCamera::load_scene(library, scene_id, camera_index)` decodes the scene's table (`table_<cat>.bin`, `pes::DecodeFixDemoTable`), walks the scene's steps to their first variant's `.fdc` layers (`pes::FixDemoSceneFdcPaths`, `src/pes/fixdemo_table.cpp`) and plays camera N of the first layer that has one. `update(camera, t_s)` poses a `Camera3D`: `t` in seconds, record start in 1/60 s ticks (reader: `f32` at record `+0x04`, `src/pes/fdc.cpp` l.41), 2 ticks per frame at 30 fps (INF, §2). Clip planes from the record override the clip's; near is clamped at 0.1 m (PES21_CAMERA_TRACE §6.4). KEEP_HEIGHT aspect (fov is vertical).
+- `godot/match/match.gd`: `--fdc-scene 0x<id>` debug entry (hex, e.g. `0x10001` ENT_LOADING); when given, the scene's camera replaces the broadcast camera for the run (no delete; the broadcast path stays).
+- Scene ids (offline, `tools/dev/cutscene/scene_map.py --json`, install): `0x20009` FOUL_PINCH_CARD_Y has no CANM camera (§5 note). `0x10001` ENT_LOADING (and anthem scenes `0x10002`+) list `ent_001_view_st000_cam2(_1).fdc` as a step layer (static map, not a live play record); that file's camera record 4 is `ent/canm/ent_001_view_st000_cam0021.canm` at `startCutTime` 540 ticks (install, decoded by `fdc_parse.py`). That clip is in the live `cut_create` capture (pid407792 `seq006`).
 
 ## 5. Frames
 
