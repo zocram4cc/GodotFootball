@@ -37,6 +37,73 @@ std::string Trim(std::string s) {
   return s;
 }
 
+// ---- sider Lua modules: what the resolution reads out of their source ----
+
+// A module that registers for one of the events that decide which file the
+// game opens (commented-out registrations do not count).
+const std::regex LIVECPK_EVENT(R"RE(register\(\s*"livecpk_(make_key|get_filepath|rewrite)")RE");
+const std::regex LUA_LINE_COMMENT(R"(--[^\n]*)");
+
+// The value of a Lua string literal: "\\" is one backslash.
+std::string LuaUnescape(const std::string& lit) {
+  std::string out;
+  for (size_t i = 0; i < lit.size(); ++i) out.push_back(lit[i] == '\\' && i + 1 < lit.size() ? lit[++i] : lit[i]);
+  return out;
+}
+
+// `local <name> = "<literal>"` in a module's source.
+std::optional<std::string> LuaStringVar(const std::string& src, const std::string& name) {
+  std::smatch m;
+  const std::regex re("\\blocal\\s+" + name + R"RE(\s*=\s*"((?:[^"\\]|\\.)*)")RE");
+  if (!std::regex_search(src, m, re)) return std::nullopt;
+  return LuaUnescape(m[1]);
+}
+
+// ".\\content\\netblock\\" -> "content/netblock", relative to the install root.
+std::string SiderRelDir(std::string s) {
+  std::replace(s.begin(), s.end(), '\\', '/');
+  if (s.starts_with("./")) s.erase(0, 2);
+  while (s.ends_with('/')) s.pop_back();
+  return s;
+}
+
+// The `string.match(filename, "<pattern>")` calls inside `function isGameplayFile`
+// of GameplayLoader.lua, as case-insensitive regexes (disk names carry their own
+// case). Lua patterns here are literals with '.' as the wildcard; any other Lua
+// magic character makes the whole list unreadable (nullopt).
+// ponytail: case-insensitive where Lua's match is case-sensitive; PES asks for
+// these paths in the case the files are stored in, so it only differs for a mod
+// that ships a differently-cased twin. Upgrade: match on the requested name.
+std::optional<std::vector<std::regex>> GameplayFilePatterns(const std::string& src) {
+  const auto fn = src.find("function isGameplayFile");
+  if (fn == std::string::npos) return std::nullopt;
+  const auto end = src.find("\nend", fn);
+  const std::string body = src.substr(fn, end == std::string::npos ? std::string::npos : end - fn);
+  const std::regex call(R"RE(string\.match\(\s*filename\s*,\s*"((?:[^"\\]|\\.)*)"\s*\))RE");
+  std::vector<std::regex> out;
+  for (auto it = std::sregex_iterator(body.begin(), body.end(), call); it != std::sregex_iterator(); ++it) {
+    std::string re;
+    for (char c : LuaUnescape((*it)[1])) {
+      if (std::strchr("%^$()[]*+-?", c)) return std::nullopt;
+      if (c != '.' && c != '_' && !std::isalnum(static_cast<unsigned char>(c))) re.push_back('\\');
+      re.push_back(c);
+    }
+    out.emplace_back(re, std::regex::icase);
+  }
+  if (out.empty()) return std::nullopt;
+  return out;
+}
+
+std::vector<std::string> Lines(const std::string& text) {
+  std::istringstream in(text);
+  std::vector<std::string> out;
+  for (std::string l; std::getline(in, l);) {
+    if (!l.empty() && l.back() == '\r') l.pop_back();
+    out.push_back(l);
+  }
+  return out;
+}
+
 }  // namespace
 
 std::string PesVfs::Fold(const std::string& path) {
@@ -79,7 +146,8 @@ void PesVfs::MountCpk(const std::string& file, const std::string& label) {
   }
 }
 
-void PesVfs::MountLooseRoot(const std::string& dir) {
+void PesVfs::MountLooseRoot(const std::string& dir, const std::function<bool(const std::string&)>& accept,
+                            const std::string& label) {
   const auto rootId = uint32_t(looseRoots_.size());
   looseRoots_.push_back(dir);
   size_t count = 0;
@@ -88,15 +156,90 @@ void PesVfs::MountLooseRoot(const std::string& dir) {
        it.increment(ec)) {
     if (!it->is_regular_file()) continue;
     const std::string rel = fs::relative(it->path(), dir).generic_string();
+    if (accept && !accept(rel)) continue;
     Add(rel, {LOOSE, uint32_t(loose_.size())});
     loose_.push_back(rel);
     looseRootOf_.push_back(rootId);
     ++count;
   }
-  report_ += "sider " + fs::relative(dir, root_).generic_string() + "  " + std::to_string(count) + " files\n";
+  report_ += label + " " + fs::relative(dir, root_).generic_string() + "  " + std::to_string(count) + " files\n";
 }
 
-bool PesVfs::Mount(const std::string& root, std::string* error) {
+bool PesVfs::MountModules(const std::vector<std::string>& modules, const VfsOptions& options, std::string* error) {
+  const fs::path rootPath(root_);
+  // sider asks the modules in listed order and takes the first file that exists: mount in reverse.
+  for (auto it = modules.rbegin(); it != modules.rend(); ++it) {
+    const std::string& name = *it;
+    const auto raw = Slurp(rootPath / "modules" / name);
+    if (!raw) {
+      report_ += "module " + name + "  absent\n";
+      continue;
+    }
+    const std::string src = std::regex_replace(*raw, LUA_LINE_COMMENT, "");
+    const std::string label = "module " + name;
+    if (name == "netblock.lua") {
+      // key = the requested name: serves content_root/<name> when that file exists.
+      const auto dir = LuaStringVar(src, "content_root");
+      if (dir && fs::is_directory(rootPath / SiderRelDir(*dir))) MountLooseRoot((rootPath / SiderRelDir(*dir)).string(), {}, label);
+      else report_ += label + "  content folder not found\n";
+    } else if (name == "GameplayLoader.lua") {
+      const auto content = LuaStringVar(src, "contentPath");
+      const auto patterns = GameplayFilePatterns(src);
+      if (!content || !patterns) {
+        report_ += label + "  UNMODELLED: contentPath or isGameplayFile not readable\n";
+        continue;
+      }
+      const fs::path base = rootPath / SiderRelDir(*content);
+      // init(): the list is "No Mod" + one line per mod; the favorite from config.ini, if listed, starts selected.
+      std::vector<std::string> mods{"No Mod"};
+      if (const auto csv = Slurp(base / "gameplay-mods.csv")) {
+        for (const std::string& l : Lines(*csv)) {
+          if (l.starts_with('#')) continue;
+          // Lua: l:split(";") keeps the non-empty runs; a line with exactly one is a mod name.
+          std::vector<std::string> fields;
+          std::istringstream parts(l);
+          for (std::string f; std::getline(parts, f, ';');)
+            if (!f.empty()) fields.push_back(f);
+          if (fields.size() == 1) mods.push_back(fields[0]);
+        }
+      }
+      std::string favorite;
+      if (const auto cfg = Slurp(base / "config.ini")) {
+        const std::regex setting(R"(^([A-Za-z0-9_]+)\s*=\s*([-A-Za-z0-9. ]+))");
+        for (const std::string& l : Lines(*cfg)) {
+          std::smatch m;
+          if (std::regex_search(l, m, setting) && m[1] == "favorite_gameplay_mod") favorite = m[2];
+        }
+      }
+      const auto listed = [&](const std::string& mod) { return std::find(mods.begin(), mods.end(), mod) != mods.end(); };
+      if (options.gameplayMod && !listed(*options.gameplayMod)) {
+        *error = "gameplay mod \"" + *options.gameplayMod + "\" is not in " + (base / "gameplay-mods.csv").string();
+        return false;
+      }
+      gameplayMod_ = options.gameplayMod ? *options.gameplayMod : listed(favorite) ? favorite : "No Mod";
+      if (gameplayMod_ == "No Mod") {
+        report_ += label + "  No Mod selected\n";
+        continue;
+      }
+      const fs::path dir = base / gameplayMod_;
+      if (!fs::is_directory(dir)) {
+        report_ += label + "  mod folder " + gameplayMod_ + " absent\n";
+        continue;
+      }
+      // livecpk_make_key keys only the files isGameplayFile accepts; the match is on the backslash path.
+      MountLooseRoot(dir.string(), [&](const std::string& rel) {
+        std::string win = rel;
+        std::replace(win.begin(), win.end(), '/', '\\');
+        return std::any_of(patterns->begin(), patterns->end(), [&](const std::regex& p) { return std::regex_search(win, p); });
+      }, label + " (" + gameplayMod_ + ")");
+    } else if (std::regex_search(src, LIVECPK_EVENT)) {
+      report_ += label + "  UNMODELLED: registers livecpk events\n";
+    }
+  }
+  return true;
+}
+
+bool PesVfs::Mount(const std::string& root, std::string* error, const VfsOptions& options) {
   root_ = root;
   const fs::path rootPath(root);
   if (!fs::is_directory(rootPath / "Data")) {
@@ -135,36 +278,39 @@ bool PesVfs::Mount(const std::string& root, std::string* error) {
     report_ += "download  no DpFileList.bin, skipped\n";
   }
 
-  // 3. sider live-cpk roots; the first listed root wins, so mount in reverse.
+  // 3. sider: livecpk.enabled gates everything below (it installs the hooks);
+  // Lua modules also need lua.enabled. Later settings override earlier ones.
+  std::vector<std::string> roots, modules;
+  bool livecpk = false, lua = false;
   if (auto ini = Slurp(rootPath / "sider.ini")) {
-    std::istringstream in(*ini);
-    std::string line;
-    bool enabled = false;
-    std::vector<std::string> roots;
-    while (std::getline(in, line)) {
+    for (std::string line : Lines(*ini)) {
       line = Trim(line.substr(0, line.find(';')));
       const auto eq = line.find('=');
       if (eq == std::string::npos) continue;
       const std::string key = Trim(line.substr(0, eq));
       std::string value = Trim(line.substr(eq + 1));
-      if (key == "livecpk.enabled") enabled = value == "1";
-      if (key != "cpk.root") continue;
+      if (key == "livecpk.enabled") livecpk = value == "1";
+      if (key == "lua.enabled") lua = value == "1";
+      if (key != "cpk.root" && key != "lua.module") continue;
       value.erase(std::remove(value.begin(), value.end(), '"'), value.end());
-      roots.push_back(value);
+      (key == "cpk.root" ? roots : modules).push_back(value);
     }
-    if (enabled) {
-      for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
-        std::string r = *it;
-        if (std::regex_search(r, WINDOWS_ABSOLUTE)) {
-          report_ += "sider root is an absolute Windows path, skipped\n";
-          continue;
-        }
-        std::replace(r.begin(), r.end(), '\\', '/');
-        const fs::path dir = (rootPath / r).lexically_normal();
-        if (fs::is_directory(dir)) MountLooseRoot(dir.string());
-        else report_ += "sider root " + r + "  absent\n";
+  }
+  if (livecpk) {
+    // sider's cpk.root folders: the first listed root that has the file wins, so mount in reverse.
+    for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
+      std::string r = *it;
+      if (std::regex_search(r, WINDOWS_ABSOLUTE)) {
+        report_ += "sider root is an absolute Windows path, skipped\n";
+        continue;
       }
+      std::replace(r.begin(), r.end(), '\\', '/');
+      const fs::path dir = (rootPath / r).lexically_normal();
+      if (fs::is_directory(dir)) MountLooseRoot(dir.string());
+      else report_ += "sider root " + r + "  absent\n";
     }
+    // The Lua modules are asked before the roots (sider have_content, then have_live_file).
+    if (lua && !MountModules(modules, options, error)) return false;
   }
   report_ += "total " + std::to_string(index_.size()) + " unique paths\n";
   return true;
