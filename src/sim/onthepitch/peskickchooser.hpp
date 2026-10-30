@@ -18,6 +18,7 @@ inline constexpr std::size_t kKickRequestActionOffset = 0x0;     // s32: the ani
 inline constexpr std::size_t kKickRequestSubtypeOffset = 0x4;    // s32: FUN_1407204E0(cmd.ptr, type, cmd[7])
 inline constexpr std::size_t kKickRequestFirstTimeOffset = 0x2C; // s32: req[0xB] = FUN_140837FC0(player), the first-time byte
 inline constexpr std::size_t kKickRequestTargetOffset = 0x64;    // 3 x f32: req[0x19..0x1B], the target point
+inline constexpr std::size_t kKickRequestActorOffset = 0x110;   // u64: the kicker's actor object P (FUN_140821050(req, ap) stores it)
 struct PesKickRequest {
   std::array<uint8_t, kKickRequestBytes> bytes{};
 };

@@ -232,6 +232,7 @@ PesKickDescriptor PesWorld::RunKickChooser(const PesKickRequest& request, const 
   const uint64_t requestVa = entry + kKickRequestFrameOffset, descriptorVa = entry + kKickDescriptorFrameOffset;
   s.wr(entry, 0, 8);
   for (std::size_t i = 0; i < kKickRequestBytes; ++i) s.wr(requestVa + i, request.bytes[i], 1);
+  s.wr(requestVa + kKickRequestActorOffset, PVa(), 8);  // the request names the window's P, whatever the caller's bytes held
   for (std::size_t i = 0; i < kKickDescriptorBytes; ++i) s.wr(descriptorVa + i, 0, 1);
   s.gpr[4] = entry;
   s.gpr[1] = descriptorVa;  // rcx: the descriptor out
