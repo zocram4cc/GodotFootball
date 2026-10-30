@@ -59,11 +59,36 @@ struct Staged {
   }
 };
 
-// 0x1405B7470 step 2 (docs 2.5): a fouler who did not play the ball is a foul only when his contact is aimed at the victim
-// (ai(B)+0x14A0 == A, the FORCE foul). A tackle on a man who went down, with the ball nowhere near the tackler, is no foul.
-TEST(JudgeDecide, ATackleThatNeverPlayedTheBallAndIsNotAimedAtTheManIsNoFoul) {
+// 0x1405B7470 step 2 (docs 2.5): a fouler who did not play the ball can only be called for a FORCE foul. A tackle that
+// never played the ball is a challenge whose "no play" 0x140A63DA0 reports through its out flag, so the contact rule
+// 0x140A639A0 refuses it and nothing is called, aimed or not (the aimed cases are below, with a no-challenge action).
+TEST(JudgeDecide, ATackleThatNeverPlayedTheBallIsNoFoul) {
   Staged s;
   EXPECT_FALSE(s.world.DecideContact(Staged::Tackle(false)).pending);
+}
+
+// The same step with a contact the rule 0x140A639A0 lets through (the fouler's action is no challenge, so 0x140A63DA0
+// does not swallow it): the FORCE foul is the contact aimed at the man (ai(B)+0x14A0 == A), PES's type 8 at level 1;
+// aimed anywhere else it is no foul.
+constexpr uint8_t kForceFoulType = 8;  // 0x1405B7470: the sanction type the FORCE foul writes
+constexpr uint32_t kLevelFoul = 1;
+
+TEST(JudgeDecide, ANoBallContactAimedAtTheManIsAForceFoul) {
+  Staged s;
+  PesWorld::ContactFacts facts = Staged::Tackle(false);
+  facts.foulerAction = 0;
+  facts.targeted = true;
+  const PesWorld::JudgeVerdict v = s.world.DecideContact(facts);
+  ASSERT_TRUE(v.pending);
+  EXPECT_EQ(v.level, kLevelFoul);
+  EXPECT_EQ(v.type, kForceFoulType);
+}
+
+TEST(JudgeDecide, ANoBallContactNotAimedAtTheManIsNoFoul) {
+  Staged s;
+  PesWorld::ContactFacts facts = Staged::Tackle(false);
+  facts.foulerAction = 0;
+  EXPECT_FALSE(s.world.DecideContact(facts).pending);
 }
 
 // Step 1: the victim's face flag (bit 29) outside the box is a forced yellow, whatever the contact scores.
