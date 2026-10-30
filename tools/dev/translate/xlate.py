@@ -258,24 +258,127 @@ def bounded_index(em, p, ia):
     return count
 
 
-def lea_const(em, breg, ia):
-    """The absolute VA register parent breg holds from a straight-line
-    LEA breg, [abs] before access ia; None where that is not known."""
-    lines = em.lines
-    k = ia - 1
-    while k >= 0:
-        a, m, ops = lines[k]
-        if ops and PARENT.get(ops[0].strip().lower()) == breg:
-            if m == "LEA" and len(ops) == 2 and "[" in ops[1]:
-                mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
-                if mp and mp["absolute"] is not None and mp["base"] is None \
-                        and mp["index"] is None:
-                    return mp["absolute"]
-            return None
-        if a in em.labels:
-            return None  # a join point between the LEA and the access
-        k -= 1
+# Instructions that write registers their operand list does not name; a CALL clobbers the caller-saved set.
+IMPLICIT_WRITERS = {"MUL", "DIV", "IDIV", "CDQ", "CQO", "CWD", "CDQE", "CBW", "CWDE", "CPUID", "RDTSC", "LEAVE", "MOVSB",
+                    "MOVSW", "MOVSD", "MOVSQ", "STOSB", "STOSW", "STOSD", "STOSQ", "LODSB", "LODSW", "LODSD", "LODSQ",
+                    "SCASB", "CMPSB", "SYSCALL"}
+NO_REG_WRITE = {"CMP", "TEST", "PUSH", "UCOMISS", "COMISS", "UCOMISD", "COMISD", "BT", "NOP", "RET"}
+CALLER_SAVED = ("rax", "rcx", "rdx", "r8", "r9", "r10", "r11")
+
+
+def written(m, ops):
+    """The register parents instruction (m, ops) may write."""
+    if m == "CALL":
+        return CALLER_SAVED
+    if m in IMPLICIT_WRITERS or (m == "IMUL" and len(ops) == 1):
+        return ("rax", "rcx", "rdx", "rsi", "rdi")
+    if not ops or m in NO_REG_WRITE or m.startswith("J"):
+        return ()
+    dests = [ops[0]] + (ops[1:2] if m in ("XCHG", "XADD") else [])
+    return tuple(r for r in (PARENT.get(o.strip().lower()) for o in dests) if r in GPR) + \
+        (("rax",) if m == "CMPXCHG" else ())
+
+
+def reaching_defs(lines, jmpreg):
+    """before[i]: register parent -> frozenset of the instruction indices whose write may reach instruction i (a
+    register missing from the map holds a value from outside the function). Forward may-analysis over the CFG."""
+    at = {a: i for i, (a, _, _) in enumerate(lines)}
+    before = [None] * len(lines)
+    before[0] = {}
+    work = [0]
+    while work:
+        i = work.pop()
+        a, m, ops = lines[i]
+        out = dict(before[i])
+        for r in written(m, ops):
+            out[r] = frozenset([i])
+        succ = []
+        info = jmpreg.get(a)
+        if m == "JMP":
+            if info and info.get("words"):
+                succ = [info["base"] + w for w in info["words"]]
+            elif ops and is_imm(ops[0]):
+                succ = [imm_val(ops[0])]
+        elif m != "RET":
+            succ = [lines[i + 1][0]] if i + 1 < len(lines) else []
+            if m.startswith("J") and ops and is_imm(ops[0]):
+                succ.append(imm_val(ops[0]))
+        for t in succ:
+            j = at.get(t)
+            if j is None:
+                continue
+            old = before[j]
+            outside = frozenset([-1])  # a path on which the register was never written here
+            new = out if old is None else {r: old.get(r, outside) | out.get(r, outside) for r in set(old) | set(out)}
+            if new != old:
+                before[j] = new
+                work.append(j)
+    return before
+
+
+def image_value(em, d):
+    """The image VA instruction d loads into its 64-bit register: a LEA of an image VA, or a MOV of a pointer stored in a
+    read-only image slot. None for any other write."""
+    if d < 0:
+        return None
+    _, m, ops = em.lines[d]
+    if m not in ("LEA", "MOV") or len(ops) != 2 or "[" not in ops[1] or ops[0].strip().lower() not in GPR:
+        return None
+    mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
+    if not mp or mp["absolute"] is None or mp["base"] is not None or mp["index"] is not None or mp.get("seg"):
+        return None
+    va = mp["absolute"]
+    if m == "LEA":
+        return va if BASE <= va < BASE + em.img.size else None
+    if BASE <= va and va + 8 <= BASE + em.img.size and not em.img.writable(va):
+        p = struct.unpack("<Q", em.img.read(va, 8))[0]
+        return p if BASE <= p < BASE + em.img.size else None
     return None
+
+
+def reg_defs(em, breg, ia):
+    return em.defs[ia].get(breg, frozenset()) if em.defs[ia] else frozenset()
+
+
+def image_pointer(em, breg, ia):
+    """The image VA register parent breg holds before instruction ia when every definition reaching it loads the same one
+    (image_value); None otherwise."""
+    vals = {image_value(em, d) for d in reg_defs(em, breg, ia)}
+    return vals.pop() if len(vals) == 1 and None not in vals else None
+
+
+def image_origins(em, breg, ia, seen=None):
+    """The image VAs register parent breg before instruction ia may be derived from: image_value defs, followed through
+    pointer arithmetic, register copies and LEAs (a loop-walked pointer keeps its origin)."""
+    seen = set() if seen is None else seen
+    out = set()
+    for d in reg_defs(em, breg, ia):
+        if (breg, d) in seen:
+            continue
+        seen.add((breg, d))
+        v = image_value(em, d)
+        if v is not None:
+            out.add(v)
+            continue
+        if d < 0:
+            continue
+        _, m, ops = em.lines[d]
+        if not ops or ops[0].strip().lower() not in GPR:
+            continue
+        if m in ("ADD", "SUB", "INC", "DEC", "AND"):
+            regs = [ops[0]] + (ops[1:2] if m == "ADD" else [])
+        elif m == "MOV":
+            regs = ops[1:2]
+        elif m == "LEA" and len(ops) == 2 and "[" in ops[1]:
+            mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
+            regs = [r for r in (mp["base"], mp["index"]) if r] if mp else []
+        else:
+            continue
+        for r in regs:
+            p = PARENT.get(r.strip().lower())
+            if p in GPR:
+                out |= image_origins(em, p, d, seen)
+    return out
 
 
 def parse_mem(inner):
@@ -460,6 +563,31 @@ def import_model_lines(op, jump):
                      % (e["do"], slot["module"], slot["export"]))
 
 
+# function VA -> {(site VA, image VA)}: the live reads of read-only image bytes each translated function still carries
+# (Emitter.note_live_ro). gen_translated fails the generation on any: the GF runtime maps no image, so such a read returns 0.
+LIVE_RO = {}
+
+# Declared read-only tables (ro_tables.json): the extent of each table a register-formed read walks without a guard the
+# translator can bound (a loop pointer, a parameter-driven index). Each is baked whole, so the read is the image's bytes.
+# An entry with a "bound" note is NOT baked: a runtime binding serves it (the note names it), and the read stays live.
+RO_TABLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ro_tables.json")
+_RO_WINDOWS = []
+
+
+def ro_windows():
+    """[(lo, hi, bound note or None)] of the declared tables (RO_TABLES)."""
+    if not _RO_WINDOWS:
+        with open(RO_TABLES) as f:
+            _RO_WINDOWS.extend((int(t["va"], 0), int(t["va"], 0) + int(t["bytes"], 0), t.get("bound"))
+                               for t in json.load(f))
+    return _RO_WINDOWS
+
+
+def live_reads(found):
+    """The lint's findings (LIVE_RO shape in), as sorted (function VA, site VA, image VA)."""
+    return sorted((fn, site, va) for fn, reads in found.items() for site, va in reads)
+
+
 class Emitter:
     """One function body. Collects baked constants + switch tables."""
     def __init__(self, img, va, pilot):
@@ -475,6 +603,20 @@ class Emitter:
         self.guards = []
         self.cur = None  # index of the instruction being emitted
         self.ro_tabs = {}  # (window VA, span) -> bytes of baked table windows
+        self.sw_tabs = {}  # window VA -> span: the byte map / dword table of each resolved JMP-reg switch (prepass)
+        self.live_ro = set()  # (site VA, read VA): live reads of a read-only image address no bake served (lint, LIVE_RO)
+
+    def note_live_ro(self, mp):
+        """The read emitted live below goes through a base or index register that may hold an image VA (image_origins)
+        and lands in a read-only section: the GF runtime maps no image there, so it reads 0. Record it for
+        gen_translated's lint, unless a runtime binding serves it (a `bound` table in RO_TABLES)."""
+        if self.cur is None or mp.get("seg"):
+            return
+        for reg in (mp["base"], mp["index"]):
+            for o in image_origins(self, PARENT.get(reg, reg), self.cur) if reg else ():
+                v = o + mp["disp"]
+                if not self.img.writable(v) and not any(lo <= v < hi and bound for lo, hi, bound in ro_windows()):
+                    self.live_ro.add((self.lines[self.cur][0], v))
 
     def bake(self, va, n):
         if (va, n) not in self.consts:
@@ -495,22 +637,55 @@ class Emitter:
             terms.append("(0x%XULL)" % (d & 0xFFFFFFFFFFFFFFFF) if d >= 0 else "(0ULL - 0x%XULL)" % (-d))
         return ("(%s)" % " + ".join(terms)) if terms else "0ULL"
 
+    def bake_window(self, mp, width, flt):
+        """A register-formed read of a read-only image table that no guard bounds, whose every origin lies in a declared
+        table (RO_TABLES): bake the hull of the declared tables holding it (the harness corpus drives a parameter-indexed
+        read over a wide domain, and a wider window only adds image bytes) and read it at the address's offset into it.
+        None when the read is not image-derived, lies in no declared table, is served by a runtime binding, or is a
+        128-bit read."""
+        if self.cur is None or width == 128 or mp.get("seg"):
+            return None
+        starts = {o + mp["disp"] for reg in (mp["base"], mp["index"]) if reg
+                  for o in image_origins(self, PARENT.get(reg, reg), self.cur)}
+        if not starts or any(self.img.writable(v) for v in starts):
+            return None
+        held = [(lo, hi, bound) for lo, hi, bound in ro_windows() if all(lo <= v < hi for v in starts)]
+        fit = [(lo, hi) for lo, hi, bound in held if not bound]
+        if not fit or len(fit) < len(held):
+            return None
+        lo, span = min(l for l, _ in fit), max(h for _, h in fit) - min(l for l, _ in fit)
+        n = 4 if (flt == "f32" or width == 32) else width // 8
+        if flt == "f64":
+            n = 8
+        self.ro_tabs[(lo, span)] = self.img.read(lo, span)
+        rd = "ro_rd(k_t%X_%X, %d, (uint64_t)(%s) - 0x%XULL, %d)" % (lo, span, span, self.addr_expr(mp), lo, n)
+        if flt == "f32":
+            return "PesState::f32((uint32_t)%s)" % rd
+        if flt == "f64":
+            return "PesState::f64(%s)" % rd
+        return rd
+
     def bake_ro(self, mp, width, flt):
         """A register-indexed read of a read-only image table whose base is a
         LEA constant and whose index a guard bounds: bake the window the guard
         admits (build-time bytes, VA-cited). None when any part is unknown."""
         if self.cur is None or width == 128 or mp.get("seg"):  # a segment-relative read is never a baked table
             return None
-        base = lea_const(self, PARENT.get(mp["base"], mp["base"]), self.cur)
+        base = image_pointer(self, PARENT.get(mp["base"], mp["base"]), self.cur)
         count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
                               self.cur)
-        if base is None or count is None:
+        if base is None:
             return None
         n = 4 if (flt == "f32" or width == 32) else width // 8
         if flt == "f64":
             n = 8
         start = base + mp["disp"]
-        span = count * mp["scale"] + n
+        if count is not None:
+            span = count * mp["scale"] + n
+        elif start in self.sw_tabs:  # a switch's own table: its size is the prepass's, not a guard's
+            span = self.sw_tabs[start]
+        else:
+            return None
         if not (BASE <= start and start + span <= BASE + self.img.size):
             return None
         if self.img.writable(start) or self.img.writable(start + span - 1):
@@ -565,10 +740,20 @@ class Emitter:
             if n == 2:
                 return "k_c%X_h" % va
             return "k_c%X_b" % va
+        if mp["base"] is not None and mp["index"] is None and self.cur is not None and not mp.get("seg"):
+            # A base register holding an image VA makes the address a constant: read it as the absolute operand.
+            c = image_pointer(self, PARENT.get(mp["base"], mp["base"]), self.cur)
+            if c is not None and BASE <= c + mp["disp"] and c + mp["disp"] + width // 8 <= BASE + self.img.size \
+                    and not self.img.writable(c + mp["disp"]):
+                return self.mem_val("[0x%X]" % (c + mp["disp"]), width, flt)
         if mp["base"] is not None and mp["index"] is not None:
             baked = self.bake_ro(mp, width, flt)
             if baked is not None:
                 return baked
+        baked = self.bake_window(mp, width, flt)
+        if baked is not None:
+            return baked
+        self.note_live_ro(mp)
         a = self.addr_expr(mp)
         if width == 128:
             return "s.rd128(%s)" % a
@@ -1973,17 +2158,22 @@ def prepass(lines, img):
                             PARENT.get(mp["base"].lower(), mp["base"].lower()) == basep:
                         bmap = baseva + mp["disp"]
                         break
+            # The windows the switch itself reads (byte map, dword table): the loads that feed the JMP register are baked
+            # (Emitter.bake_ro) even where no guard walk finds the index bound (CDQE; an index that is a byte-map value),
+            # else the GF runtime, which has no image view, reads 0 and every case falls to default.
             if bmap is not None:
                 braw = img.read(bmap, count)
                 bvals = list(struct.unpack("<%dB" % count, braw))
                 n2 = max(bvals) + 1
                 raw = img.read(tva, n2 * 4)
                 words = list(struct.unpack("<%dI" % n2, raw))
+                tabs = {bmap: count, tva: n2 * 4}
             else:
                 raw = img.read(tva, count * 4)
                 words = list(struct.unpack("<%dI" % count, raw))
+                tabs = {tva: count * 4}
             jmpreg[addr] = {"table": tva, "words": words, "base": baseva,
-                            "default": default}
+                            "default": default, "tabs": tabs}
             for w in words:
                 if baseva + w in addrs:
                     labels.add(baseva + w)
@@ -2015,6 +2205,9 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     trace_pc = bool(os.environ.get("GF_XLATE_TRACE"))  # lockstep: one GF_TRACE_PC per instruction (snapdiff build only)
     body = []
     em.lines, em.labels, em.guards = lines, labels, find_guards(lines)
+    for info in jmpreg.values():
+        em.sw_tabs.update(info.get("tabs", {}))
+    em.defs = reaching_defs(lines, jmpreg)
     for idx, (addr, mnem, ops) in enumerate(lines):
         em.cur = idx
         if addr in labels:
@@ -2125,6 +2318,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
     labels, jmpreg = prepass(lines, img)
     em = Emitter(img, va, pilot)
     body = emit_function(em, va, lines, labels, jmpreg, pilot, stubs)
+    LIVE_RO[va] = em.live_ro
     # tail jumps to in-set VAs: fill from the sibling set
     out = []
     for b in body:

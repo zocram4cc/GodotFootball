@@ -20,6 +20,8 @@ static constexpr float k_c14259BDF4_f = 8.0f; // 8.0
 // image constant @ 0x14259BE04 (4 bytes)
 static constexpr uint32_t k_c14259BE04_w = 0x41400000U;
 static constexpr float k_c14259BE04_f = 12.0f; // 12.0
+// image window @ 0x140A732A8 (48 bytes, read-only)
+static constexpr uint8_t k_t140A732A8_30[48] = {0x92, 0x31, 0xA7, 0x00, 0x9D, 0x31, 0xA7, 0x00, 0xC4, 0x31, 0xA7, 0x00, 0x09, 0x32, 0xA7, 0x00, 0x2D, 0x32, 0xA7, 0x00, 0xEA, 0x31, 0xA7, 0x00, 0x51, 0x32, 0xA7, 0x00, 0x24, 0x30, 0xA7, 0x00, 0x24, 0x30, 0xA7, 0x00, 0x24, 0x30, 0xA7, 0x00, 0x24, 0x30, 0xA7, 0x00, 0x24, 0x30, 0xA7, 0x00};
 
 void pes_fn_140A72FB0(PesState& s);
 
@@ -62,7 +64,7 @@ void pes_fn_140A72FB0(PesState& s) {
   if (s.cond("a")) goto L_140A7327C;
   s.gpr[9] = (uint64_t)(((0x140000000ULL)));
   s.gpr[0] = (uint64_t)(int64_t)(int32_t)s.gpr[0];
-  s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[9]) + ((s.gpr[0])*4ULL) + (0xA732A8ULL)), 4));
+  s.gpr[1] = (uint64_t)(uint32_t)(ro_rd(k_t140A732A8_30, 48, (uint64_t)(s.gpr[0]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[9]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
