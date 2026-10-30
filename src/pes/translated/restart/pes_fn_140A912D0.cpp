@@ -13,7 +13,7 @@ static constexpr unsigned __int128 k_c14254DED0 = ((unsigned __int128)0xFFFFFFFF
 static constexpr unsigned __int128 k_c142552690 = ((unsigned __int128)0x3F8000003F800000ULL << 64) | 0x3F8000003F800000ULL;
 // image constant @ 0x1425568D0 (4 bytes)
 static constexpr uint32_t k_c1425568D0_w = 0x3727C5ACU;
-static constexpr float k_c1425568D0_f = 9.999999747378752e-06f; // 9.999999747378752e-06;
+static constexpr float k_c1425568D0_f = 9.999999747378752e-06f; // 9.999999747378752e-06
 // image constant @ 0x1425C5650 (16 bytes)
 static constexpr unsigned __int128 k_c1425C5650 = ((unsigned __int128)0x0000000300000002ULL << 64) | 0x0000000100000000ULL;
 

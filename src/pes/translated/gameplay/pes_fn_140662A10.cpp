@@ -11,46 +11,46 @@
 static constexpr unsigned __int128 k_c142565D30 = ((unsigned __int128)0x7FFFFFFFFFFFFFFFULL << 64) | 0x7FFFFFFFFFFFFFFFULL;
 // image constant @ 0x14256AE1C (4 bytes)
 static constexpr uint32_t k_c14256AE1C_w = 0x3F800000U;
-static constexpr float k_c14256AE1C_f = 1.0f; // 1.0;
+static constexpr float k_c14256AE1C_f = 1.0f; // 1.0
 // image constant @ 0x142588210 (4 bytes)
 static constexpr uint32_t k_c142588210_w = 0x41200000U;
-static constexpr float k_c142588210_f = 10.0f; // 10.0;
+static constexpr float k_c142588210_f = 10.0f; // 10.0
 // image constant @ 0x14259222C (4 bytes)
 static constexpr uint32_t k_c14259222C_w = 0x40A00000U;
-static constexpr float k_c14259222C_f = 5.0f; // 5.0;
+static constexpr float k_c14259222C_f = 5.0f; // 5.0
 // image constant @ 0x14259857C (4 bytes)
 static constexpr uint32_t k_c14259857C_w = 0x41D00000U;
-static constexpr float k_c14259857C_f = 26.0f; // 26.0;
+static constexpr float k_c14259857C_f = 26.0f; // 26.0
 // image constant @ 0x14259A760 (4 bytes)
 static constexpr uint32_t k_c14259A760_w = 0x420C0000U;
-static constexpr float k_c14259A760_f = 35.0f; // 35.0;
+static constexpr float k_c14259A760_f = 35.0f; // 35.0
 // image constant @ 0x14259BDF4 (4 bytes)
 static constexpr uint32_t k_c14259BDF4_w = 0x41000000U;
-static constexpr float k_c14259BDF4_f = 8.0f; // 8.0;
+static constexpr float k_c14259BDF4_f = 8.0f; // 8.0
 // image constant @ 0x14259BE04 (4 bytes)
 static constexpr uint32_t k_c14259BE04_w = 0x41400000U;
-static constexpr float k_c14259BE04_f = 12.0f; // 12.0;
+static constexpr float k_c14259BE04_f = 12.0f; // 12.0
 // image constant @ 0x14259BE0C (4 bytes)
 static constexpr uint32_t k_c14259BE0C_w = 0x41700000U;
-static constexpr float k_c14259BE0C_f = 15.0f; // 15.0;
+static constexpr float k_c14259BE0C_f = 15.0f; // 15.0
 // image constant @ 0x14259BE20 (4 bytes)
 static constexpr uint32_t k_c14259BE20_w = 0x41C80000U;
-static constexpr float k_c14259BE20_f = 25.0f; // 25.0;
+static constexpr float k_c14259BE20_f = 25.0f; // 25.0
 // image constant @ 0x14259BE30 (4 bytes)
 static constexpr uint32_t k_c14259BE30_w = 0x42340000U;
-static constexpr float k_c14259BE30_f = 45.0f; // 45.0;
+static constexpr float k_c14259BE30_f = 45.0f; // 45.0
 // image constant @ 0x14259BE7C (4 bytes)
 static constexpr uint32_t k_c14259BE7C_w = 0xC0A00000U;
-static constexpr float k_c14259BE7C_f = -5.0f; // -5.0;
+static constexpr float k_c14259BE7C_f = -5.0f; // -5.0
 // image constant @ 0x14259BE80 (4 bytes)
 static constexpr uint32_t k_c14259BE80_w = 0xC0E00000U;
-static constexpr float k_c14259BE80_f = -7.0f; // -7.0;
+static constexpr float k_c14259BE80_f = -7.0f; // -7.0
 // image constant @ 0x14259BE84 (4 bytes)
 static constexpr uint32_t k_c14259BE84_w = 0xC1200000U;
-static constexpr float k_c14259BE84_f = -10.0f; // -10.0;
+static constexpr float k_c14259BE84_f = -10.0f; // -10.0
 // image constant @ 0x1425C65E8 (4 bytes)
 static constexpr uint32_t k_c1425C65E8_w = 0x41980000U;
-static constexpr float k_c1425C65E8_f = 19.0f; // 19.0;
+static constexpr float k_c1425C65E8_f = 19.0f; // 19.0
 
 void pes_fn_140662A10(PesState& s);
 void pes_fn_140439EF0(PesState& s);

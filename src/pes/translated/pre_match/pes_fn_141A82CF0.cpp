@@ -9,28 +9,28 @@
 
 // image constant @ 0x14259BE68 (4 bytes)
 static constexpr uint32_t k_c14259BE68_w = 0x43160000U;
-static constexpr float k_c14259BE68_f = 150.0f; // 150.0;
+static constexpr float k_c14259BE68_f = 150.0f; // 150.0
 // image constant @ 0x1425C6784 (4 bytes)
 static constexpr uint32_t k_c1425C6784_w = 0x431B0000U;
-static constexpr float k_c1425C6784_f = 155.0f; // 155.0;
+static constexpr float k_c1425C6784_f = 155.0f; // 155.0
 // image constant @ 0x1425CCC3C (4 bytes)
 static constexpr uint32_t k_c1425CCC3C_w = 0x431C0000U;
-static constexpr float k_c1425CCC3C_f = 156.0f; // 156.0;
+static constexpr float k_c1425CCC3C_f = 156.0f; // 156.0
 // image constant @ 0x1425CFDA0 (4 bytes)
 static constexpr uint32_t k_c1425CFDA0_w = 0x431D0000U;
-static constexpr float k_c1425CFDA0_f = 157.0f; // 157.0;
+static constexpr float k_c1425CFDA0_f = 157.0f; // 157.0
 // image constant @ 0x142AAD76C (4 bytes)
 static constexpr uint32_t k_c142AAD76C_w = 0x43170000U;
-static constexpr float k_c142AAD76C_f = 151.0f; // 151.0;
+static constexpr float k_c142AAD76C_f = 151.0f; // 151.0
 // image constant @ 0x142AAD770 (4 bytes)
 static constexpr uint32_t k_c142AAD770_w = 0x43180000U;
-static constexpr float k_c142AAD770_f = 152.0f; // 152.0;
+static constexpr float k_c142AAD770_f = 152.0f; // 152.0
 // image constant @ 0x142AAD774 (4 bytes)
 static constexpr uint32_t k_c142AAD774_w = 0x43190000U;
-static constexpr float k_c142AAD774_f = 153.0f; // 153.0;
+static constexpr float k_c142AAD774_f = 153.0f; // 153.0
 // image constant @ 0x142AAD778 (4 bytes)
 static constexpr uint32_t k_c142AAD778_w = 0x431A0000U;
-static constexpr float k_c142AAD778_f = 154.0f; // 154.0;
+static constexpr float k_c142AAD778_f = 154.0f; // 154.0
 // image window @ 0x141A82D58 (32 bytes, read-only)
 static constexpr uint8_t k_t141A82D58_20[32] = {0x54, 0x2D, 0xA8, 0x01, 0x1F, 0x2D, 0xA8, 0x01, 0x28, 0x2D, 0xA8, 0x01, 0x31, 0x2D, 0xA8, 0x01, 0x3A, 0x2D, 0xA8, 0x01, 0x43, 0x2D, 0xA8, 0x01, 0x4C, 0x2D, 0xA8, 0x01, 0xCC, 0xCC, 0xCC, 0xCC};
 

@@ -9,7 +9,7 @@
 
 // image constant @ 0x14258C264 (4 bytes)
 static constexpr uint32_t k_c14258C264_w = 0x40400000U;
-static constexpr float k_c14258C264_f = 3.0f; // 3.0;
+static constexpr float k_c14258C264_f = 3.0f; // 3.0
 
 void pes_fn_140A84850(PesState& s);
 void pes_fn_140A3E5D0(PesState& s);

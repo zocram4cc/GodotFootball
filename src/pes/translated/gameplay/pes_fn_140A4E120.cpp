@@ -9,12 +9,12 @@
 
 // image constant @ 0x142565600 (4 bytes)
 static constexpr uint32_t k_c142565600_w = 0x3F000000U;
-static constexpr float k_c142565600_f = 0.5f; // 0.5;
+static constexpr float k_c142565600_f = 0.5f; // 0.5
 // image constant @ 0x142565D30 (16 bytes)
 static constexpr unsigned __int128 k_c142565D30 = ((unsigned __int128)0x7FFFFFFFFFFFFFFFULL << 64) | 0x7FFFFFFFFFFFFFFFULL;
 // image constant @ 0x14260B390 (4 bytes)
 static constexpr uint32_t k_c14260B390_w = 0x45BB8000U;
-static constexpr float k_c14260B390_f = 6000.0f; // 6000.0;
+static constexpr float k_c14260B390_f = 6000.0f; // 6000.0
 
 void pes_fn_140A4E120(PesState& s);
 void pes_fn_140A401C0(PesState& s);

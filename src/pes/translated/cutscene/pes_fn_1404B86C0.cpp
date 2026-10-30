@@ -9,7 +9,7 @@
 
 // image constant @ 0x1425AA1BC (4 bytes)
 static constexpr uint32_t k_c1425AA1BC_w = 0x42960000U;
-static constexpr float k_c1425AA1BC_f = 75.0f; // 75.0;
+static constexpr float k_c1425AA1BC_f = 75.0f; // 75.0
 
 void pes_fn_1404B86C0(PesState& s);
 void pes_fn_140439E50(PesState& s);

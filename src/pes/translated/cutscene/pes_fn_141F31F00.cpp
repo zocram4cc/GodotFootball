@@ -9,13 +9,13 @@
 
 // image constant @ 0x14256AE18 (4 bytes)
 static constexpr uint32_t k_c14256AE18_w = 0x3C23D70AU;
-static constexpr float k_c14256AE18_f = 0.009999999776482582f; // 0.009999999776482582;
+static constexpr float k_c14256AE18_f = 0.009999999776482582f; // 0.009999999776482582
 // image constant @ 0x14256AE1C (4 bytes)
 static constexpr uint32_t k_c14256AE1C_w = 0x3F800000U;
-static constexpr float k_c14256AE1C_f = 1.0f; // 1.0;
+static constexpr float k_c14256AE1C_f = 1.0f; // 1.0
 // image constant @ 0x14259858C (4 bytes)
 static constexpr uint32_t k_c14259858C_w = 0x43B40000U;
-static constexpr float k_c14259858C_f = 360.0f; // 360.0;
+static constexpr float k_c14259858C_f = 360.0f; // 360.0
 
 void pes_fn_141F31F00(PesState& s);
 void pes_fn_141F7A150(PesState& s);
