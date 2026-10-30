@@ -874,10 +874,12 @@ def finish_one(va, args, pilot):
                   for c in ((spec or {}).get("precheck", {}) or {}).get("calls", [])]
         vas = [va] + [c for c in in_set + extra if c != va]
         cov = block_coverage(args.image, vas, addrs or [])
-        res["coverage"] = {
-            v: {"reached": r, "total": t,
-                "fraction": round(r / t, 4) if t else 0.0}
-            for v, (r, t) in cov.items() if isinstance(cov[v], tuple)}
+        for v, rt in cov.items():
+            if not isinstance(rt, tuple):  # None: block_coverage could not decode v, so v is not counted
+                continue
+            r, t = rt
+            res["coverage"][v] = {"reached": r, "total": t,
+                                  "fraction": round(r / t, 4) if t else 0.0}
         try:
             res["dead_blocks"] = dead_blocks(args.image, va)
         except Exception:

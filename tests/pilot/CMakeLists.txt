@@ -100,6 +100,11 @@ add_test(NAME translate_libm_models
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_libm_models.py'")
 set_tests_properties(translate_libm_models PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
 
+# finish_one's coverage record skips an undecodable function (block_coverage's None), never unpacks it (plain python3).
+add_test(NAME translate_finish_coverage
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_finish_coverage.py)
+set_tests_properties(translate_finish_coverage PROPERTIES TIMEOUT 120)
+
 # Drift: regenerating every committed translated function from the image must reproduce the committed files.
 # Hand-refined functions are skipped by the check (their bit-exact proof is the harness check above).
 add_test(NAME diff_translated_drift
