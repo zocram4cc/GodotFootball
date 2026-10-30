@@ -1700,8 +1700,9 @@ class Emitter:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ %s(s); return; }" % fn]
             if "[" in o:
-                # JMP qword ptr [reg + disp] (a vtable tail call): the target is read now and looked up in the dispatch
-                # table like an indirect CALL; an untranslated target aborts naming its VA.
+                # JMP through memory (a vtable tail call: `pop rbx ; jmp qword ptr [rax + 0x98]` in 0x1408550A0): a tail
+                # jump to the target the memory holds now, looked up in the dispatch table like an indirect CALL; an
+                # untranslated target aborts. The return address stays the caller's.
                 tgt_expr = self.mem_val(o[o.find("["):], 64, None)
                 return ["{ uint64_t _t = (uint64_t)(%s); PesDispatch _d = pes_dispatch_lookup(_t);" % tgt_expr,
                         "  if (_d.fn == 0) pes_dispatch_missing(_t);",
@@ -1733,7 +1734,7 @@ class Emitter:
             e = "(s.cond(\"%s\") ? 1ULL : 0ULL)" % cc
             if d in GPR or d in SUB:
                 return [reg_write(d, e)]
-            return ["/*SET-MEM*/(void)0;"]
+            return [self.mem_store(d[d.find("["):], e, 8, None)]
         if m.startswith("CMOV"):
             cc = cc_of(m)
             d = ops[0]
@@ -1778,56 +1779,25 @@ def parse_lines(text):
     return out
 
 
-DECODE_WINDOW = 0x10000  # bytes decoded per function (1405DC350 spans > 0x2000)
+_PDATA = {}
+
+
+def pdata_of(image_path):
+    """The image's Pdata (cached): the one source of function extents (pdata.py)."""
+    from pdata import Pdata
+    if image_path not in _PDATA:
+        _PDATA[image_path] = Pdata(open(image_path, "rb"))  # kept open: decode reads the image
+    return _PDATA[image_path]
+
 
 def capstone_decode(image_path, va):
+    """The instructions of the function at va: its .pdata range plus the chunks chained to it, or a leaf's bytes to
+    the next .pdata start (pdata.Pdata.decode). Empty if va is not a function boundary."""
     from capstone import Cs, CS_ARCH_X86, CS_MODE_64
-    img = Image(image_path)
-    code = img.read(va, DECODE_WINDOW)
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = False
-    out = []
-    # Multi-ret functions: keep decoding past RET while a known branch
-    # target still lies ahead. Stop at the first RET with nothing pending.
-    pending = set()
-    for ins in md.disasm(bytes(code), va):
-        out.append((ins.address, ins.mnemonic.upper(),
-                    split_ops(ins.op_str)))
-        m = ins.mnemonic.lower()
-        # cc_of covers every Jcc alias (capstone prints JAE where the
-        # bridge prints JNC for opcode 0x73, etc.).
-        if m == "jmp" or cc_of(m) is not None:
-            try:
-                t = int(ins.op_str.strip().split(",")[0].strip(), 16)
-                if t >= va:
-                    pending.add(t)
-            except ValueError:
-                pass
-        if m == "ret":
-            pending = {t for t in pending if t > ins.address}
-            if not pending:
-                break
-        if m == "jmp":
-            # Unconditional JMP imm: a local goto continues the body.
-            # A tail jump to another VA ends it (call-closed set: the
-            # target is a different function, in-set or out; the bridge
-            # listings end there too) unless a branch target inside this
-            # body's window still lies ahead (dead code after the jump that
-            # a Jcc reaches, e.g. 140A533A0's JNZ->0x140A533EC). Targets
-            # outside the window never keep decoding: their code is not
-            # here (140A40820 and 140A42940 ran on into garbage and emitted
-            # gotos to labels that were never defined). JMP reg (switch)
-            # never ends the body here: its targets resolve in prepass.
-            try:
-                t = int(ins.op_str.strip().split(",")[0].strip(), 16)
-                if t < va or t >= va + DECODE_WINDOW:
-                    pending = {x for x in pending
-                               if va <= x < va + DECODE_WINDOW and x > ins.address}
-                    if not pending:
-                        break
-            except ValueError:
-                pass
-    return out
+    return [(i.address, i.mnemonic.upper(), split_ops(i.op_str))
+            for i in pdata_of(image_path).decode(md, va) or []]
 
 
 def resolve_rip(lines, image_path, va):
@@ -1840,14 +1810,18 @@ def resolve_rip(lines, image_path, va):
     if not any("rip" in (op.lower()) for _, _, ops in lines for op in ops):
         return lines
     from capstone import Cs, CS_ARCH_X86, CS_MODE_64
+    from pdata import MAX_RANGE
     img = Image(image_path)
-    code = img.read(va, DECODE_WINDOW)
+    p = pdata_of(image_path)
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = True
     sizes = {}
-    # Full window (no early stop): every rip-relative insn needs its size,
-    # including ones past an early RET that capstone_decode keeps.
-    for ins in md.disasm(bytes(code), va):
+    # Every rip-relative insn needs its size, including ones past an early RET that capstone_decode keeps: a linear
+    # pass over each range of the function's extent (never past it), then the decode's own sizes win.
+    for b, e in p.ranges_of(va) or [(va, va + MAX_RANGE)]:
+        for ins in md.disasm(bytes(img.read(b, min(e - b, MAX_RANGE))), b):
+            sizes[ins.address] = ins.size
+    for ins in p.decode(md, va) or []:
         sizes[ins.address] = ins.size
     fixed = []
     for addr, mnem, ops in lines:

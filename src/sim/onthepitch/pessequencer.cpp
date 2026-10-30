@@ -22,6 +22,7 @@ namespace {
 constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reproduced
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
+constexpr int kKickOffReleaseFrames = 134;    // live ready to release 134 in 4 of 4 (LiveFlow); pes-re-kickoff-trigger.md 132-134
 
 float Sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
@@ -29,6 +30,11 @@ unsigned long ToMs(float seconds) {
   return static_cast<unsigned long>(std::lround(seconds * 1000.0f));
 }
 
+// PES's late card (9.5, 9.8): the scene FOUL_CMN_CARD_Y_B is 340 ticks at 60 fps, and its REF_CARD_Y prop starts 40 ticks
+// in. The decode gives both; ponytail: read the scene length from foul_cmn_card_y02 once the scene table is loaded.
+constexpr unsigned long kSceneFps = 60;
+constexpr unsigned long kLateCardSceneTicks = 340;
+constexpr unsigned long kLateCardPropTick = 40;
 }  // namespace
 
 e_SetPiece EndLineRestart(int lastTouchSide, float ballX) {
@@ -78,8 +84,10 @@ int ReleaseFrames(e_SetPiece kind) {
       return kFreeKickReleaseFrames;
     case e_SetPiece_Penalty:
       return kPenaltyReleaseFrames;
+    case e_SetPiece_KickOff:
+      return kKickOffReleaseFrames;
     default:
-      return 0;  // kick-off and goal kick: no clock (the receiver's ball test, or the goal kick's ladder; pesgoalkick.hpp)
+      return 0;  // no clock: the goal kick's ladder releases it (pesgoalkick.hpp)
   }
 }
 
@@ -114,6 +122,7 @@ Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
         timing.prepareAt_ms = at_ms;
         break;
       case Beat::UiAndTeleport:
+        timing.readyAt_ms = at_ms + FoulSequence::ReadyDelay_ms();
         at_ms += FoulSequence::Tail_ms();
         break;
       case Beat::FadeHalf:
@@ -129,6 +138,15 @@ Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
   }
   timing.armedAt_ms = at_ms;
   return timing;
+}
+
+unsigned long LateCardStep_ms(unsigned long holdBase_ms) {
+  const unsigned long scene_ms = kLateCardSceneTicks * 1000 / kSceneFps;
+  return std::max(holdBase_ms, scene_ms);
+}
+
+unsigned long LateCardOnScreenAt_ms(unsigned long stopTime_ms) {
+  return stopTime_ms + kLateCardPropTick * 1000 / kSceneFps;
 }
 
 }  // namespace pes

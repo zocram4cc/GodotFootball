@@ -31,6 +31,9 @@ struct RefereeBuffer {
   unsigned long holdTime;
   unsigned long prepareTime;
   unsigned long startTime;
+  // PES's set-play ready state (MI+0x116c = 3) comes this many ms after prepareTime (pes::RunProgramme's readyAt);
+  // 0 when the schedule has no ready point, so the ready state is the prepared state (the GF path).
+  unsigned long readyDelay_ms = 0;
   Vector3 restartPos;
   Player* taker;
   bool endPhase;
@@ -42,6 +45,10 @@ struct RefereeBuffer {
   // 10x scale produced three kick-offs and not one other set piece.
   bool prepared;
   bool started;
+  // The set-play ready state is on: prepared, and past the ready point (see readyDelay_ms).
+  bool ReadyForTake(unsigned long now_ms) const {
+    return prepared && (readyDelay_ms == 0 || now_ms >= prepareTime + readyDelay_ms);
+  }
   // Where the chief referee stands for this restart (pes::ChiefRefereeSpot), held
   // until it is taken. Empty when PES leaves him where he is.
   std::optional<Vector3> chiefSpot;

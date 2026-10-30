@@ -118,6 +118,9 @@ std::optional<ReceiveConstants> LoadReceiveConstants(const PeImage& exe, const P
   f(0x14259222c, &c.arbitrationLength_m);
   f(0x14253ee30, &c.ballDistanceTableMaxSq_m2);
   f(0x1425e5ab8, &c.receivingPointMargin_m);
+  f(0x1425a9bd4, &c.kickMaxBallHeight_m);
+  f(0x14263e398, &c.kickSpeedNumerator);
+  f(0x142598590, &c.kickSpeedDivisor);
   if (!ok) {
     *error = "receive: PES2021.exe .rdata constants unmapped";
     return std::nullopt;
@@ -342,12 +345,50 @@ FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in
   return out;
 }
 
-bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me) {
-  if (!me.Valid()) return false;
-  // A held restart's taker owns the ball until he releases it.
-  if (in.restartTaker.Valid()) return in.restartTaker == me;
-  // Otherwise the ball is owned only by a man who still holds it after the newest touch.
-  return in.newestActorHoldsBall && in.newestActor.Valid() && in.newestActor == me;
+namespace {
+constexpr uint32_t kRing0ShotKind = 5;     // ring-0 action kind 5: a shot (pesevents.hpp)
+constexpr uint32_t kRing0NoTouchKind = 0xE;  // d_a.c:1262 skips this kind
+constexpr uint32_t kRing0TaggedTag = 6;    // payload+0x1C == 6 (d_a.c:1263)
+constexpr int kKickBranchAiStage = 5;      // FUN_1409fbb40: the AI stage that admits the kick branch
+constexpr uint8_t kKickBranchAction = 0x4A;  // FUN_1409fbb40: anime action 0x4A, bit 7 masked
+}  // namespace
+
+ActorKey DesignatedOwnerScan(const std::array<Ring0Entry, kRing0ScanCount>& ring, bool period9,
+                             const ActorKey& previous) {
+  // FUN_140a62e90: a key outside the two rosters (team < 2, slot < 0x28) names nobody.
+  auto ownerOf = [](const ActorKey& a) { return a.Valid() ? a : NoActorKey(); };
+  ActorKey owner = NoActorKey();
+  for (const Ring0Entry& e : ring) {
+    if (period9) {  // d_a.c:1251: only a kind-5 record counts, and the first one ends the scan
+      if (e.kind == kRing0ShotKind) return ownerOf(e.actor);
+      continue;
+    }
+    if (e.kind == kRing0NoTouchKind) continue;
+    if (e.tag == kRing0TaggedTag) owner = ownerOf(e.actor);
+    if (ownerOf(e.actor) != previous) break;  // d_a.c:1279
+  }
+  return owner;
+}
+
+bool RefusedAsDesignatedOwner(const ActorKey& designatedOwner, const ActorKey& me) {
+  return designatedOwner.Valid() && designatedOwner == me;
+}
+
+bool KickBranchActionGate(bool hasAction, uint8_t actionByte, int aiStage) {
+  if (!hasAction) return false;  // the branch needs the anime action (FUN_1409fbb40's param_1+0x28)
+  // A held AI stage decides alone. The decompile's byte < 0xF8 test is redundant: 0x4A and 0xCA are the
+  // only bytes whose low seven bits are 0x4A, and both are below 0xF8.
+  if (aiStage != 0) return aiStage == kKickBranchAiStage;
+  return (actionByte & 0x7F) == kKickBranchAction;
+}
+
+bool KickBranchBallGate(const ReceiveConstants& c, float ballHeightAt10_m, Point2 playerSample,
+                        Point2 ballSample, float fps) {
+  if (ballHeightAt10_m > c.kickMaxBallHeight_m) return false;
+  const float limit = c.kickSpeedNumerator / (fps * c.kickSpeedDivisor);  // FUN_1409fbba0: 38000/(gs*3600)
+  const float dx = playerSample.x - ballSample.x;
+  const float dy = playerSample.y - ballSample.y;
+  return dx * dx + dy * dy < limit * limit;
 }
 
 CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool carrierHoldsBall) {

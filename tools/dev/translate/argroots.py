@@ -31,9 +31,10 @@ import json
 import mmap
 import os
 import re
-import struct
 
 import capstone
+
+import pdata
 
 BASE = 0x140000000
 G_VA = 0x1436F3DC8
@@ -60,7 +61,6 @@ WRITE1 = {"mov", "movzx", "movsx", "movsxd", "lea", "add", "sub", "and", "or", "
           "neg", "not", "inc", "dec", "shl", "shr", "sar", "sal", "rol", "ror", "imul",
           "adc", "sbb", "pop", "bswap", "bsf", "bsr", "popcnt", "lzcnt", "tzcnt", "xadd"}
 DEPTH = 4
-MAX_FN = 0x100000   # a .pdata entry longer than 1 MB is corrupt (seen: one of 371 MB)
 GPR = {}
 for _base, _names in {"rax": ("eax", "ax", "al", "ah"), "rbx": ("ebx", "bx", "bl", "bh"),
                       "rcx": ("ecx", "cx", "cl", "ch"), "rdx": ("edx", "dx", "dl", "dh"),
@@ -222,31 +222,6 @@ def decode(mm, md, begin, end):
     return Fn(begin, end, snap, last < end)
 
 
-def pdata_functions(mm):
-    """Sorted (begin, end) VAs of the functions in the image's .pdata unwind table."""
-    e = struct.unpack_from("<I", mm, 0x3C)[0]
-    if mm[e:e + 4] != b"PE\0\0":
-        raise SystemExit("not a PE image: %s" % mm[e:e + 4])
-    nsec = struct.unpack_from("<H", mm, e + 6)[0]
-    optsz = struct.unpack_from("<H", mm, e + 20)[0]
-    sec = e + 24 + optsz
-    for i in range(nsec):
-        s = sec + 40 * i
-        if mm[s:s + 8].rstrip(b"\0") == b".pdata":
-            vsize, rva, rawsz, _ = struct.unpack_from("<IIII", mm, s + 8)
-            break
-    else:
-        raise SystemExit(".pdata section not found")
-    funcs, dropped = set(), 0
-    for k in range(min(vsize, rawsz) // 12):
-        b, en, _ = struct.unpack_from("<III", mm, rva + 12 * k)  # file offset == RVA
-        if b and 0 < en - b <= MAX_FN:
-            funcs.add((BASE + b, BASE + en))
-        else:
-            dropped += 1
-    return sorted(funcs), dropped
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--image", default=os.environ.get("PES_EXE"))
@@ -260,7 +235,8 @@ def main():
     spec_at = {int(s, 16): s for s in specs}
     with open(a.image, "rb") as f:
         mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-        funcs, dropped = pdata_functions(mm)
+        pd = pdata.Pdata(f)
+        funcs, dropped = sorted(pd.entries.items()), pd.dropped  # every entry, chunks included (as the old reader)
         begins = [b for b, _ in funcs]
         ends = [e for _, e in funcs]
         targets = set(begins) | set(spec_at)

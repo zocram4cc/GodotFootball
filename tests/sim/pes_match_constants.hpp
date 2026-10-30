@@ -34,6 +34,7 @@
 #include "onthepitch/pesstrategy.hpp"
 #include "onthepitch/pesteamconcepts.hpp"
 #include "pes/vfs.hpp"
+#include "pes/playerdb.hpp"
 
 namespace pestest {
 
@@ -70,6 +71,7 @@ struct PesMatchConstants {
   std::optional<pes::marktable::Constants> markTable;
   std::optional<pes::formation::FormationTables> formationTables;
   std::optional<pes::formation::SheetConstants> sheetConstants;
+  std::optional<pes::PlayerDatabase> playerDatabase;
 };
 
 inline const PesMatchConstants& SharedPesMatchConstants() {
@@ -116,6 +118,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   c.press = pes::LoadPressConstants(*exe, &err);
   c.markTable = pes::marktable::LoadMarkTableConstants(*exe, &err);
   if (mounted) c.formationTables = pes::formation::FormationTables::Load(vfs, &err);
+  if (mounted) c.playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
   c.sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
   return c;
 }
@@ -148,6 +151,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesEventRingTable, c.eventRing);
   fill(setup->pesFormations, c.formationTables);
   fill(setup->pesSheetConstants, c.sheetConstants);
+  fill(setup->pesPlayerDatabase, c.playerDatabase);
   fill(setup->pesEventConstants, c.event);
   fill(setup->pesClips, c.clips);
   fill(setup->pesDodgeConstants, c.dodge);

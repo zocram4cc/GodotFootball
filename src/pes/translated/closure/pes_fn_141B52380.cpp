@@ -10,8 +10,6 @@
 
 
 void pes_fn_141B52380(PesState& s);
-void pes_fn_1403FF430(PesState& s);
-void pes_fn_1403FF490(PesState& s);
 
 void pes_fn_141B52380(PesState& s) {
   s.gpr[1] = (uint64_t)(s.rd(0x1437F0A58ULL, 8));

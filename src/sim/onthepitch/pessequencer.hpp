@@ -54,6 +54,7 @@ std::vector<Beat> BuildProgramme(e_SetPiece kind);
 
 struct Timing {
   unsigned long prepareAt_ms = 0;  // the wipe has run: the taker may be placed
+  unsigned long readyAt_ms = 0;    // the set-play ready state (MI+0x116c = 3): after the UI and the teleport window
   unsigned long armedAt_ms = 0;    // the programme has reached the armed step
 };
 
@@ -61,5 +62,11 @@ struct Timing {
 // foul (table[1]), 5 for an out-of-play stop (table[5]); a downed player adds his extra hold.
 Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
                     const StoppageConstants& k, bool downed, int holdKind);
+
+// PES's late card (docs/re/pes-re-foul-choreography.md 9.5, 9.8): step 6 runs max(2.5 s, the 340-tick scene
+// FOUL_CMN_CARD_Y_B at 60 fps), replacing the out-of-play hold `holdBase_ms`. The card prop REF_CARD_Y shows 40 ticks
+// into that scene.
+unsigned long LateCardStep_ms(unsigned long holdBase_ms);
+unsigned long LateCardOnScreenAt_ms(unsigned long stopTime_ms);
 
 }  // namespace pes
