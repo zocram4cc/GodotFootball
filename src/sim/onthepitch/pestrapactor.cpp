@@ -198,4 +198,33 @@ void StartTrapAction(PesWorld& world, int slot) {
   p[kPPhaseOffset] = 0;
 }
 
+namespace {
+struct AnimPluginStore {
+  uint16_t offset;
+  uint8_t kind;  // 0: u64 constant, 1: pointer into the object (value = offset from its start)
+  uint64_t value;
+};
+constexpr AnimPluginStore kAnimPluginStores[] = {
+#include "onthepitch/pesanimplugin_stores.inc"
+};
+}  // namespace
+
+void ConstructAnimPlugin(PesWorld& world, int slot) {
+  uint8_t* o1 = world.O1(slot);
+  const uint64_t base = PesWorld::O1Va(slot);
+  for (const AnimPluginStore& s : kAnimPluginStores) {
+    const uint64_t v = s.kind == 1 ? base + s.value : s.value;
+    std::memcpy(o1 + s.offset, &v, sizeof v);
+  }
+}
+
+AnimPluginCell AnimPluginCellAt(std::size_t offset) {
+  for (const AnimPluginStore& s : kAnimPluginStores) {
+    if (offset < s.offset || offset >= s.offset + sizeof(uint64_t)) continue;
+    if (s.kind == 1) return AnimPluginCell::kSelfPointer;
+    return s.value >= kImageBaseVa ? AnimPluginCell::kImageAddress : AnimPluginCell::kState;
+  }
+  return AnimPluginCell::kNotStored;
+}
+
 }  // namespace pes

@@ -315,6 +315,7 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   b.slot = facts.slot;
   CopyActorMan(o, g, w, facts.slot);
   pes::ConstructActorP(w, facts.slot, g_derivation->actor);  // as a match does once, before the per-tick writes
+  pes::ConstructAnimPlugin(w, facts.slot);
   pes::WriteActorP(w, facts, OpenOf(o), g_derivation->actor, g_derivation->stamina, g_derivation->physique);
   // The request, as the dispatcher 0x1407A01C0 took it (kind 0): its words are the chain's stack arguments in the capture.
   const uint64_t rsp = o.regs.at("rsp"), action = rdx + pes::kPActionOffset;
@@ -903,8 +904,12 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
     for (size_t i = 0; i < len; ++i) {
       const uint8_t cap = static_cast<uint8_t>(Read(o, capAddr + i, 1));
       if (IsPointerCell(obj, rel + static_cast<uint32_t>(i))) continue;  // names a window object: its zero bytes are not gaps to fill
-      if (dst[i] == 0) {
-        if (cap != 0) {
+      const auto cell = obj == kObjO1 ? pes::AnimPluginCellAt(rel + i) : pes::AnimPluginCell::kNotStored;
+      if (cell == pes::AnimPluginCell::kSelfPointer) continue;  // likewise
+      // A layer's weights and blend state: the constructor's value is the start state, PES's animation engine (which GF does not run)
+      // has moved it by the time of the tick. OPEN input, taken from the capture (the animation engine's writers are not decoded).
+      if (dst[i] == 0 || cell == pes::AnimPluginCell::kState) {
+        if (cap != 0 && dst[i] != cap) {
           ++t.overlaid;
           t.overlaidAt.insert({obj, rel + static_cast<uint32_t>(i)});
         }

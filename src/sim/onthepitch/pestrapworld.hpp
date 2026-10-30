@@ -120,7 +120,9 @@ inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clampe
 // R is a joint chain header (+0x10 -> its pointer array at +0x30, +0x18 a length, +0x20 the joint count); S (P+0x3AE8 target) is a
 // small record whose +0x14 SetMotion writes.
 inline constexpr std::size_t kAChildO1Offset = 0x118, kAChildO2Offset = 0x188;
-inline constexpr std::size_t kO1Bytes = 0x600, kO2Bytes = 0x100, kQBytes = 0x10, kRBytes = 0x90, kSBytes = 0x20;
+// O1 is the AnimPlugin object FUN_141B158F0 constructs: 0x1378 bytes (nine layer objects embedded, the layer pointer array at +0xB0 pointing
+// back into it), rounded up to 0x1380. pesanimplugin_stores.inc is that constructor's output (gen_animplugin.py).
+inline constexpr std::size_t kO1Bytes = 0x1380, kO2Bytes = 0x100, kQBytes = 0x10, kRBytes = 0x90, kSBytes = 0x20;
 inline constexpr std::size_t kO2PointOffset = 0xD0;  // f32 x, y, z, w
 inline constexpr std::size_t kQChainPtrOffset = 8;   // Q+8 -> R
 inline constexpr std::size_t kRArrayPtrOffset = 0x10, kRArrayOffset = 0x30;

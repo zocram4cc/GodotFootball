@@ -284,7 +284,10 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
     throw std::runtime_error(
         "PES trap data missing: read them from the install with pes::LoadTrapSource into MatchSetup::pesTrapSource");
   pesActorConstants = setup.pesTrapSource->actor;
-  for (int slot = 0; slot < pes::kSlotCount; ++slot) pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
+  for (int slot = 0; slot < pes::kSlotCount; ++slot) {
+    pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
+    pes::ConstructAnimPlugin(*pesWorld, slot);
+  }
   pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;

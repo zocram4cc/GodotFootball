@@ -92,6 +92,16 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
 // tables), once per match when PES builds the actor, before any WriteActorP: the per-tick writes leave these bytes as the tick left them.
 void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c);
 
+// The AnimPlugin constructor FUN_141B158F0's stores into the slot's O1 (nine layer objects, the self-pointing layer array at +0xB0; a
+// recording of the constructor from the image, pesanimplugin_stores.inc), once per match. NOT built (the constructor's heap calls, OPEN):
+// the parameter blocks at +0x90/+0x98/+0xD40..+0xD88 and +0x1370, and the base-class fields FUN_142397EA0 / FUN_1403CF7E0 set.
+void ConstructAnimPlugin(PesWorld& world, int slot);
+// What a constructor cell is. The layers' weights and blend state the constructor also stores (kState) are rewritten by PES's animation
+// engine, which GF does not run; the other two are structure: a pointer into the object (window addresses differ from any capture's) and
+// an image VA (a vtable).
+enum class AnimPluginCell { kNotStored, kState, kSelfPointer, kImageAddress };
+AnimPluginCell AnimPluginCellAt(std::size_t offset);
+
 // The action switch's stores for a committed trap (FUN_1406EEBB0: the previous ids take the current pair, the current pair becomes
 // TRAP, TRAP) and the action's start phase 0 (P+0x245C), which the tick's phase machine switches on. The man's action object was
 // written by the chain; from here the tick owns the ids (PesActorFacts::trapActive).
