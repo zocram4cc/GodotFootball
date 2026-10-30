@@ -476,15 +476,15 @@ inline constexpr std::size_t kAnalyzeTeamLineOffset[kSideCount] = {0x40, 0x54};
 inline constexpr std::size_t kAnalyzeBlockReach = 0x26020;
 inline constexpr std::size_t kAnalyzeBlockBytes = kAnalyzeBlockReach;
 static_assert(kAnalyzeSideRecordsOffset + kSideCount * kAnalyzeSideRecordBytes <= kAnalyzeBlockBytes);
-// E, the event store: ten rings of eight 0x320-byte records at E + ring * 0x1908, the count at +0x1900 and the head at
-// +0x1904 (0x140A3E150 reads them; 0x140A3DAC0 writes them). Ring 4 holds the foul events (the tree reads the newest).
-// E is the window's last member: the card-count tables the card-history reader 0x140A80D10 reads at E+0x750D0 and
-// E+0xCE720 lie past the window's end and answer zero (a ponytail: PES's writer of those counters is not decoded;
-// until it is, the leading-team late-foul scenes never fire).
+// E, the event store, is the world window's own EventStoreImage (pesevents.hpp): the match writes the ball events into it and
+// A1+0xE0 names it (BindSanction), so the judge's "who made the newest ball event" reads (0x140A3E190) see them. Ten rings
+// of eight 0x320-byte records at E + ring * 0x1908, the count at +0x1900 and the head at +0x1904 (0x140A3E150 reads them;
+// 0x140A3DAC0 writes them). Ring 4 holds the foul events (the tree reads the newest). The card-count tables the card-history
+// reader 0x140A80D10 reads at E+0x750D0 and E+0xCE720 lie in the store's unwritten middle and answer zero (a ponytail:
+// PES's writer of those counters is not decoded; until it is, the leading-team late-foul scenes never fire).
 inline constexpr std::size_t kEventRingStride = 0x1908;
 inline constexpr std::size_t kEventRecordBytes = 0x320;
 inline constexpr std::size_t kEventFoulRing = 4;
-inline constexpr std::size_t kSanctionEventsBytes = (kEventFoulRing + 1) * kEventRingStride;
 // The foul event record at PES's offsets (docs/ports/pes-port-FoulSanction.md 2.2, read from seven foul captures).
 inline constexpr uint32_t kFoulEventKind = 0x1E;            // +0x00: the routing kind of a foul event (30 in every record)
 inline constexpr std::size_t kFoulEventKindOffset = 0x00;
@@ -529,7 +529,6 @@ struct PesSanctionImage {
   std::array<uint8_t, kJudgeBytes> judge{};             // the foul judge
   std::array<uint8_t, kJudgeResultBytes> judgeResult{};  // JR
   std::array<uint8_t, sizeof(uint64_t)> judgeCtx{};     // the cell the judge's +0x3B8 names: A1's VA
-  std::array<uint8_t, kSanctionEventsBytes> events{};   // E: last, so the counter tables past it read zero
 };
 inline constexpr std::size_t kSanctionOffset = kStackOffset + kStackBytes;
 
@@ -562,7 +561,7 @@ struct PesWorldImage {
   PesTrapImage trap{};                                    // P, the Trap action's owner (pestrapworld.hpp)
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points (kScratchVa)
   std::array<uint8_t, kStackBytes> stack{};      // the translated stoppage functions' stack (kStackVa)
-  PesSanctionImage sanction{};                   // the sanction tree's records (kSanctionOffset): E is the window's last bytes
+  PesSanctionImage sanction{};                   // the sanction tree's records (kSanctionOffset); E is `events` above
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -579,9 +578,6 @@ static_assert(offsetof(PesWorldImage, trap) == kTrapOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchOffset);
 static_assert(offsetof(PesWorldImage, stack) == kStackOffset);
 static_assert(offsetof(PesWorldImage, sanction) == kSanctionOffset);
-static_assert(sizeof(PesWorldImage) - (offsetof(PesWorldImage, sanction) + offsetof(PesSanctionImage, events) + kSanctionEventsBytes) <
-                  alignof(PesWorldImage),
-              "E is the window's last member (tail padding aside): the tree's counter tables past it read zero");
 
 // What the danger builder reads outside GF's window (tests: the capture's heap bytes) and the byte log of its writes.
 struct PesDangerExternals {

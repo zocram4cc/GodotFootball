@@ -130,4 +130,53 @@ TEST(JudgeDecide, TheStagedActionBytesAreRestored) {
   EXPECT_EQ(s.world.AnimeClass(kVictim), 0);
 }
 
+// ---- The ball-event store the judge reads through A1+0xE0 (0x140A3E190 on the match's own event store). ----
+// 0x1405B7470 step 3 switches on the newest ball event's kind (E+0x180698, payload+0) and names its maker through the
+// roster (payload+4: {team, squad place}, 0x140A62EE0). GF's match writes that store; the judge reads it, so a staged event
+// must change the verdict, and an event of the same kind by someone else must not.
+constexpr uint32_t kEventShortKick = 1;  // the switch's cases 1..4
+constexpr uint32_t kEventShot = 5;       // case 5
+
+void StageNewestEvent(Staged& s, uint32_t kind, int slot) {
+  uint8_t* payload = s.world.EventImage().newest.data();
+  StoreU32(payload, 0, kind);
+  StoreU32(payload, 4, static_cast<uint32_t>(slot / kSlotsPerSide));  // the maker's team
+  StoreU32(payload, 8, static_cast<uint32_t>(slot % kSlotsPerSide));  // and squad place (the identity roster BindSanction stages)
+}
+
+PesWorld::ContactFacts Block() {
+  PesWorld::ContactFacts facts = Staged::Tackle();
+  facts.foulerAction = kActionBlock;
+  return facts;
+}
+
+// Cases 1..4 of the switch with B's action 0xE (a block): the block alone scores no foul, but on a man whose own kick is the
+// newest ball event it is at least a foul (0x1405B7470 step 5, else-if "a contact on a man who just played the ball").
+// The same event made by another man changes nothing.
+TEST(JudgeDecide, ABlockOnAManWhoJustKickedIsAFoul) {
+  Staged none;
+  ASSERT_FALSE(none.world.DecideContact(Block()).pending);
+  for (uint32_t kind = kEventShortKick; kind < kEventShortKick + 4; ++kind) {
+    Staged mine;
+    StageNewestEvent(mine, kind, kVictim);
+    const PesWorld::JudgeVerdict v = mine.world.DecideContact(Block());
+    ASSERT_TRUE(v.pending) << "event kind " << kind;
+    EXPECT_EQ(v.level, kLevelFoul) << "event kind " << kind;
+    Staged theirs;
+    StageNewestEvent(theirs, kind, kFouler);
+    EXPECT_FALSE(theirs.world.DecideContact(Block()).pending) << "event kind " << kind;
+  }
+}
+
+// Case 5: the victim's own shot clears the foul a contact scored (the same tackle is pending without it, see
+// TheSameTackleWithoutIntentIsBelowAYellow), and another man's shot does not.
+TEST(JudgeDecide, TheVictimsOwnShotClearsAFoul) {
+  Staged shot;
+  StageNewestEvent(shot, kEventShot, kVictim);
+  EXPECT_FALSE(shot.world.DecideContact(Staged::Tackle()).pending);
+  Staged other;
+  StageNewestEvent(other, kEventShot, kFouler);
+  EXPECT_TRUE(other.world.DecideContact(Staged::Tackle()).pending);
+}
+
 }  // namespace

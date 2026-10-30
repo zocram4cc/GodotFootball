@@ -238,7 +238,7 @@ void PesWorld::BindSanction() {
       StoreU32(team, kSideInfoIndexOffset + sizeof(uint32_t) * place, static_cast<uint32_t>(place));
   }
   const uint64_t block = SanctionVa(offsetof(PesSanctionImage, analyzeBlock));
-  const uint64_t events = SanctionVa(offsetof(PesSanctionImage, events));
+  const uint64_t events = EventsVa();  // A1+0xE0 is the match's own store: the ball events the judge reads are the ones it wrote
   std::memcpy(z.analyze.data() + kAnalyzeBlockPtrOffset, &block, sizeof block);
   std::memcpy(z.analyze.data() + kAnalyzeEventsPtrOffset, &events, sizeof events);
   // The judge's ctx cell names A1, its +0x3C0 names JR: 0x1405B7470 reads the cell as **(judge+0x3B8).
@@ -275,7 +275,7 @@ void PesWorld::PushFoulEvent(const FoulEvent& event) {
   StoreU32(source, kFoulEventSideOffset, event.side);
   source[kFoulEventInjuredOffset] = event.injured ? 1 : 0;
   PesState s = NewCall(Bytes());
-  s.gpr[1] = SanctionVa(offsetof(PesSanctionImage, events) + kEventFoulRing * kEventRingStride);
+  s.gpr[1] = EventsVa() + kEventFoulRing * kEventRingStride;
   s.gpr[2] = SanctionVa(offsetof(PesSanctionImage, foulSource));
   ::pes_fn_140A3DAC0(s);
 }
