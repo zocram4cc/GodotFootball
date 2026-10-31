@@ -24,7 +24,10 @@ void pes_fn_14079DD40(PesState& s);
 void pes_fn_1406B0180(PesState& s);
 void pes_fn_1406B0250(PesState& s);
 void pes_fn_1406B0ED0(PesState& s);
+void pes_fn_1406E2C30(PesState& s);
+void pes_fn_1406E79F0(PesState& s);
 void pes_fn_1406EC260(PesState& s);
+void pes_fn_14079BD10(PesState& s);
 void pes_fn_140847F40(PesState& s);
 void pes_fn_141E532D0(PesState& s);
 
@@ -170,7 +173,7 @@ void pes_fn_14079DD40(PesState& s) {
   s.gpr[8] = (uint64_t)(s.gpr[12]);
   s.gpr[2] = (uint64_t)(s.gpr[5]);
   s.gpr[1] = (uint64_t)(s.gpr[14]);
-  /*OUT-OF-SET CALL 0x14079BD10*/ pes_dispatch_missing(0x14079BD10);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14079BD10(s); s.gpr[4] += 8; }
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[14]) + (0x38ULL)), 1)), _b = (uint64_t)((0ULL)), _r = (_a - _b) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
@@ -288,7 +291,7 @@ void pes_fn_14079DD40(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[13] >> 0)));
   s.gpr[1] = (uint64_t)(s.gpr[5]);
   L_14079DF5D:;
-  /*OUT-OF-SET CALL 0x1406E2C30*/ pes_dispatch_missing(0x1406E2C30);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406E2C30(s); s.gpr[4] += 8; }
   L_14079DF62:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[15])), 8));
   s.gpr[1] = (uint64_t)(s.gpr[15]);
@@ -333,7 +336,7 @@ void pes_fn_14079DD40(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   s.gpr[3] = (uint64_t)(uint32_t)(((s.cond("ge")) ? (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) : (uint64_t)(((uint64_t)(uint32_t)s.gpr[3]))));
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3]));
-  /*OUT-OF-SET CALL 0x1406E79F0*/ pes_dispatch_missing(0x1406E79F0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406E79F0(s); s.gpr[4] += 8; }
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)((2ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);

@@ -1293457,6 +1293457,12 @@
      "0x1406E85B0"
     ]
    },
+   "trapbef": {
+    "members": 1,
+    "roots": [
+     "0x1404BEF90"
+    ]
+   },
    "trapcallee": {
     "members": 1,
     "roots": [
