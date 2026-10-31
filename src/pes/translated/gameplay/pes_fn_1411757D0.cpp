@@ -28,7 +28,7 @@ void pes_fn_1411757D0(PesState& s) {
   s.xmm[3][0] = s.xmm[1][0]; s.xmm[3][1] = s.xmm[1][1];
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64))) & ((s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64))); s.xmm[2][0] = (uint64_t)_v; s.xmm[2][1] = (uint64_t)(_v >> 64); }
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[3][0] | ((unsigned __int128)s.xmm[3][1] << 64))) & ((s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64))); s.xmm[3][0] = (uint64_t)_v; s.xmm[3][1] = (uint64_t)(_v >> 64); }
-  /*UNHANDLED MAXSD xmm3, xmm2*/(void)0;
+  { double _a = s.x_f64(3), _b = PesState::f64(s.xmm[2][0]); s.set_x_f64(3, (_a > _b) ? _a : _b); }
   s.xmm[4][0] = s.xmm[1][0]; s.xmm[4][1] = s.xmm[1][1];
   s.xmm[2][0] = 0; s.xmm[2][1] = 0;
   s.cmp_sd(s.x_f64(3), PesState::f64(s.xmm[2][0]));

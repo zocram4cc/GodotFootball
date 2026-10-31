@@ -496,17 +496,16 @@ def import_model_lines(op, jump):
         # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
         return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
     if e["do"] == "memcmp":
-        # Win64 memcmp(rcx = a, rdx = b, r8 = n): eax = -1, 0 or 1 by the first differing byte, unsigned (the DLL's code: word
-        # compares on byte-swapped words, `sbb eax, eax; sbb eax, -1`); no stack write.
-        return ["{ " + push_ret +
-                " uint64_t _a = s.gpr[1], _b = s.gpr[2], _n = s.gpr[8]; int32_t _r = 0;"
-                " for (; _n != 0 && _r == 0; ++_a, ++_b, --_n) { uint8_t _x = (uint8_t)s.rd(_a, 1), _y = (uint8_t)s.rd(_b, 1); _r = _x < _y ? -1 : (_x > _y ? 1 : 0); }"
-                " s.gpr[0] = (uint32_t)_r;%s }" % pop_ret]
+        # Win64 memcmp(rcx = a, rdx = b, r8 = n): pes_model_memcmp (pes_stubs.hpp) mirrors the import_stubs.json code_hex
+        # register for register where a caller can see it (the scratch registers it leaves are spilled by callers).
+        return ["{ " + push_ret + " pes_model_memcmp(s);%s }" % pop_ret]
     if e["do"] == "memchr":
-        # Win64 memchr(rcx = p, dl = c, r8 = n): rax = the first byte equal to dl, or 0 (import_stubs.json code_hex; no stack write).
+        # Win64 memchr(rcx = p, dl = c, r8 = n): rax = the first byte equal to dl, or 0 (import_stubs.json code_hex; no stack
+        # write); rcx ends at the found byte or one past the scan, r8 at the bytes left, as the model's inc/dec leave them.
         return ["{ " + push_ret +
                 " uint64_t _p = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2]; s.gpr[0] = 0;"
-                " for (; _n != 0; ++_p, --_n) if ((uint8_t)s.rd(_p, 1) == _c) { s.gpr[0] = _p; break; }%s }" % pop_ret]
+                " for (; _n != 0; ++_p, --_n) if ((uint8_t)s.rd(_p, 1) == _c) { s.gpr[0] = _p; break; }"
+                " s.gpr[1] = _p; s.gpr[8] = _n;%s }" % pop_ret]
     if e["do"] == "qpc":
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
@@ -853,6 +852,9 @@ class Emitter:
             return self.do_xadd(m, ops)
         if m in ("IMUL", "MUL"):
             return self.do_mul(m, ops)
+        if m == "BSWAP":
+            w = self.op_width(ops[0])
+            return [reg_write(ops[0], "(uint64_t)__builtin_bswap%d((uint%d_t)(%s))" % (w, w, reg_read(ops[0].strip().lower())))]
         if m in ("BSF", "BSR"):
             return self.do_bitscan(m, ops)
         if m in ("BT", "BTC", "BTR", "BTS"):
@@ -1223,6 +1225,31 @@ class Emitter:
             return "s.xmm[%d][0]" % int(o[3:])
         return "(uint64_t)(%s)" % self.mem_val(op[op.find("["):], 64, None)
 
+    def do_packed_int(self, m, ops, x, d):
+        """Integer SSE forms with their own lane shapes: PMULLD (low 32 bits of each 32x32 product), PMOVSXBD (the low
+        four source bytes sign-extended to dwords; a memory source reads 4 bytes), PUNPCKLBW / PUNPCKLWD (interleave the
+        low eight bytes / four words of destination and source, destination first). SDM vol. 2 pages for each."""
+        if m == "PMOVSXBD":
+            o = ops[1].strip().lower()
+            src = ("(uint64_t)(%s)" % self.mem_val(ops[1][ops[1].find("["):], 32, None)
+                   if "[" in o else "(uint64_t)(%s)" % self.src128(ops[1]))
+            body = ("{ uint64_t _s = %s; unsigned __int128 _o = 0; "
+                    "for (int _i = 0; _i < 4; ++_i) _o = PesState::put_u32(_o, _i, (uint32_t)(int32_t)(int8_t)(_s >> (8 * _i))); "
+                    % src)
+        elif m == "PMULLD":
+            body = ("{ unsigned __int128 _d = %s, _s = %s, _o = 0; "
+                    "for (int _i = 0; _i < 4; ++_i) _o = PesState::put_u32(_o, _i, PesState::lane_u32(_d, _i) * PesState::lane_u32(_s, _i)); "
+                    % (d, self.src128(ops[1])))
+        else:
+            n, bits = (8, 8) if m == "PUNPCKLBW" else (4, 16)
+            ty = "uint%d_t" % bits
+            body = ("{ unsigned __int128 _d = %s, _s = %s, _o = 0; "
+                    "for (int _i = 0; _i < %d; ++_i) { "
+                    "_o |= (unsigned __int128)(%s)(_d >> (%d * _i)) << (%d * _i); "
+                    "_o |= (unsigned __int128)(%s)(_s >> (%d * _i)) << (%d * _i + %d); } "
+                    % (d, self.src128(ops[1]), n, ty, bits, 2 * bits, ty, bits, 2 * bits, bits))
+        return [body + "s.xmm[%d][0] = (uint64_t)_o; s.xmm[%d][1] = (uint64_t)(_o >> 64); }" % (x, x)]
+
     def do_packed(self, m, ops):
         """Packed 32-bit-lane SSE on the 128-bit value (PesState::lane_u32 / put_u32)."""
         dst = ops[0].strip().lower()
@@ -1231,6 +1258,8 @@ class Emitter:
         x = int(dst[3:])
         d = ("((unsigned __int128)s.xmm[%d][0] | "
              "((unsigned __int128)s.xmm[%d][1] << 64))" % (x, x))
+        if m in ("PMULLD", "PMOVSXBD", "PUNPCKLBW", "PUNPCKLWD"):
+            return self.do_packed_int(m, ops, x, d)
         if m in ("PSLLD", "PSRLD"):
             n = imm_val(ops[1]) & 0xFF
             sh = "<<" if m == "PSLLD" else ">>"
@@ -1391,6 +1420,12 @@ class Emitter:
         if not (dst.startswith("xmm") and "[" not in dst):
             return ["/*UNHANDLED %s %s*/(void)0;" % (m, ops)]
         x = int(dst[3:])
+        if m in ("MAXSD", "MINSD"):
+            # Intel MAXSD/MINSD as MAXSS/MINSS: the destination is kept only when dst > src (MAXSD) / dst < src (MINSD);
+            # equal values and NaN take the SOURCE.
+            cmp_ = ">" if m == "MAXSD" else "<"
+            return ["{ double _a = s.x_f64(%d), _b = PesState::f64(%s); s.set_x_f64(%d, (_a %s _b) ? _a : _b); }"
+                    % (x, self.sd_src(ops[1]), x, cmp_)]
         op = {"ADDSD": "+", "SUBSD": "-", "MULSD": "*", "DIVSD": "/"}[m]
         return ["s.set_x_f64(%d, s.x_f64(%d) %s PesState::f64(%s));"
                 % (x, x, op, self.sd_src(ops[1]))]
@@ -1591,12 +1626,14 @@ class Emitter:
                  "SQRTPS", "RCPPS", "RSQRTPS", "CMPEQPS", "CMPLTPS", "CMPLEPS", "CMPUNORDPS",
                  "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS"):
             return self.do_packed(m, ops)
-        if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD"):
+        if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD", "MAXSD", "MINSD"):
             return self.do_sd_arith(m, ops)
         if m in ("COMISD", "UCOMISD"):
             return self.do_comisd(ops)
         if m in ("CVTTSD2SI", "CVTSI2SD"):
             return self.do_cvt_sd(m, ops)
+        if m in ("PMULLD", "PMOVSXBD", "PUNPCKLBW", "PUNPCKLWD"):
+            return self.do_packed(m, ops)
         if m in ("MOVHLPS", "MOVLHPS", "PUNPCKLQDQ", "PUNPCKHQDQ", "PADDQ"):
             return self.do_qword(m, ops)
         if m == "CMPNLTSS":
@@ -1839,6 +1876,11 @@ class Emitter:
                     "  s.xmm[%d][0] = ((uint64_t)_l1 << 32) | _l0; "
                     "s.xmm[%d][1] = ((uint64_t)_l3 << 32) | _l2; }"
                     % (x, x)]
+        if m == "CVTDQ2PD":
+            # Two signed dwords (low quad of the source: xmm or m64) become two doubles.
+            return ["{ uint64_t _q = (uint64_t)(%s); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);"
+                    % self.sd_src(src),
+                    "  memcpy(&s.xmm[%d][0], &_lo, 8); memcpy(&s.xmm[%d][1], &_hi, 8); }" % (x, x)]
         return ["/*UNHANDLED-VEC %s %s*/(void)0;" % (m, ops)]
 
     # ---- branches ----
@@ -2248,6 +2290,23 @@ def stub_lines(do):
     raise ValueError("stub_lines: no model for %r" % (do,))
 
 
+# Instructions with no architectural effect on the state a translated function carries (cache hint, spin-loop hint).
+IGNORED_MNEMONICS = ("PREFETCHT0", "PREFETCHT1", "PREFETCHT2", "PREFETCHNTA", "PAUSE")
+
+
+def loud_unhandled(line):
+    """A mnemonic xlate has no semantics for was a silent no-op (`/*UNHANDLED m*/(void)0;`): the registry find of the
+    FixDemo camera constructor hashed its key with PMOVSXBD/PMULLD, both unhandled, got a wrong hash and missed (ProcCamera3).
+    Now it traps when executed, and gen_translated refuses a layer that still holds the `/*UNHANDLED` marker. Only the
+    hint instructions of IGNORED_MNEMONICS stay no-ops (marked IGNORED, not UNHANDLED)."""
+    if "/*UNHANDLED" not in line or not line.rstrip().endswith("(void)0;"):
+        return line
+    name = line.split("/*UNHANDLED", 1)[1].replace("-VEC", "").split()[0]
+    if name in IGNORED_MNEMONICS:
+        return line.replace("/*UNHANDLED", "/*IGNORED")
+    return line.rstrip()[:-len("(void)0;")] + "__builtin_trap();"
+
+
 def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
     ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
@@ -2270,7 +2329,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
         if m in ("MOV", "MOVABS", "MOVSX", "MOVSXD", "MOVZX", "LEA", "XCHG", "ADD",
                  "SUB", "CMP", "TEST", "AND", "OR", "XOR", "ADC", "SBB",
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
-                 "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR",
+                 "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR", "BSWAP",
                  "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
                  "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
             out = em.emit_alu(m, ops)
@@ -2289,7 +2348,8 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                    "CVTPS2DQ", "CVTPD2DQ", "CVTDQ2PD", "MOVQ", "MOVHLPS", "MOVLHPS",
                    "PUNPCKLQDQ", "PUNPCKHQDQ", "PADDQ", "MINPS", "MAXPS", "HADDPS",
                   "SQRTPS", "RCPPS", "RSQRTPS", "CMPNLTSS", "CMPEQPS", "CMPLTPS", "CMPLEPS",
-                  "CMPUNORDPS", "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS"):
+                  "CMPUNORDPS", "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS",
+                  "PMULLD", "PMOVSXBD", "PUNPCKLBW", "PUNPCKLWD", "MAXSD", "MINSD"):
             out = em.emit_sse(m, ops)
         elif m.startswith("REP ") and m[4:] in ("STOSB", "STOSW", "STOSD", "STOSQ",
                                                   "MOVSB", "MOVSW", "MOVSD", "MOVSQ"):
@@ -2307,7 +2367,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
             out = em.emit_set_cmov(m, ops)
         if out is None:
             out = ["/*UNHANDLED %s %s*/(void)0;" % (m, ", ".join(ops))]
-        body.extend(out)
+        body.extend(loud_unhandled(l) for l in out)
     return body
 
 

@@ -55,8 +55,8 @@ void pes_fn_141884EA0(PesState& s) {
   }
   (void)0;
   L_141884ED0:;
-  /*UNHANDLED PREFETCHT0 byte ptr [rdx + 0x40]*/(void)0;
-  /*UNHANDLED PREFETCHT0 byte ptr [rdx + 0x80]*/(void)0;
+  /*IGNORED PREFETCHT0 byte ptr [rdx + 0x40]*/(void)0;
+  /*IGNORED PREFETCHT0 byte ptr [rdx + 0x80]*/(void)0;
   { unsigned __int128 _v = s.rd128(((s.gpr[2]) + (0x10ULL))); s.xmm[1][0] = (uint64_t)_v; s.xmm[1][1] = (uint64_t)(_v >> 64); }
   { unsigned __int128 _v = s.rd128(((s.gpr[2]) + (0x20ULL))); s.xmm[2][0] = (uint64_t)_v; s.xmm[2][1] = (uint64_t)(_v >> 64); }
   { unsigned __int128 _v = s.rd128(((s.gpr[2]) + (0x30ULL))); s.xmm[3][0] = (uint64_t)_v; s.xmm[3][1] = (uint64_t)(_v >> 64); }

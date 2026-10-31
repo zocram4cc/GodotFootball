@@ -80,7 +80,7 @@ void pes_fn_1403F7FE0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("nc")) goto L_1403F802B;
-  /*UNHANDLED PAUSE */(void)0;
+  /*IGNORED PAUSE */(void)0;
   goto L_1403F8050;
   L_1403F802B:;
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _b = (uint64_t)((8191ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
@@ -88,7 +88,7 @@ void pes_fn_1403F7FE0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("nc")) goto L_1403F8037;
-  /*UNHANDLED PAUSE */(void)0;
+  /*IGNORED PAUSE */(void)0;
   goto L_1403F8050;
   L_1403F8037:;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;

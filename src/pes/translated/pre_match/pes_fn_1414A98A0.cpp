@@ -37,7 +37,7 @@ void pes_fn_1414A98A0(PesState& s) {
         s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
         s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
       if (!s.cond("nz")) {
-        /*UNHANDLED BSWAP edx*/(void)0;
+        s.gpr[2] = (uint64_t)(uint32_t)((uint64_t)__builtin_bswap32((uint32_t)(((uint64_t)(uint32_t)s.gpr[2]))));
       }
       s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
       { uint64_t _a = (uint64_t)(s.gpr[0]), _b = (uint64_t)(s.rd(((s.gpr[8]) + (0x8ULL)), 8)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;

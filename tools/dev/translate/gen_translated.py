@@ -132,6 +132,26 @@ def silent_tail_sites(members):
                          % (len(bad), "\n  ".join(bad[:30])))
 
 
+# Functions whose only unhandled instructions are decode noise: linear decode runs past the function's last reachable
+# ret/int3 into data, and the noise (FADD/FILD/FDIV/OUT/OUTSD) has no label any reachable branch targets.
+UNHANDLED_DEAD_NOISE = {
+    "0x140480030": "FADD/FILD/OUT after the cold path's final int3 (labels L_1404803A9..C5 end in traps)",
+    "0x1404B6ED0": "FDIV/OUTSD after the unconditional goto L_1404B74FF, behind no reached label",
+}
+
+
+def silent_unhandled_sites(members):
+    """Refuse a layer holding an instruction xlate has no semantics for. It was a silent no-op: the FixDemo camera
+    constructor's registry find hashed with PMOVSXBD/PMULLD, got the wrong hash and missed (ProcCamera3). xlate now
+    emits a trap for it; here the generation fails, so a missing instruction is found at translate time, not by a proof
+    that happens to execute it. UNHANDLED_DEAD_NOISE lists the functions where the only ones are unreachable decode noise."""
+    bad = ["%s: %s" % (va, ", ".join(sorted(set(re.findall(r"/\*UNHANDLED(?:-VEC)? ([A-Za-z0-9_]+)", m["raw"])))))
+           for va, m in sorted(members.items()) if "/*UNHANDLED" in m["raw"] and va not in UNHANDLED_DEAD_NOISE]
+    if bad:
+        raise SystemExit("gen_translated: %d function(s) hold instructions the translator does not implement:\n  %s"
+                         % (len(bad), "\n  ".join(bad[:30])))
+
+
 
 def subsystem_of(spec, name):
     return (spec.get("subsystem") or name).lower().replace(" ", "_").replace("-", "_")
@@ -195,6 +215,7 @@ def build(image):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
                 raise SystemExit("gen_translated: %s calls %s, which is not committed" % (cur, c))
     silent_tail_sites(members)
+    silent_unhandled_sites(members)
     return members
 
 

@@ -82,6 +82,15 @@ class TestSlots(unittest.TestCase):
         uc = run(bytes(code))
         self.assertEqual(uc.reg_read(xc.UC_X86_REG_RAX), 0x55)
 
+    def test_a_partial_write_over_a_slot_leaves_zeros_in_the_other_bytes(self):
+        # call f ; mov word [rsp-8], 0x100 ; mov rax,[rsp-8] ; hlt ; f: ret. The translation holds 0 in the slot, so the six
+        # bytes the word store does not cover read 0, not the real return address's bytes (the registry find of the FixDemo
+        # camera constructor stores one byte of a struct and reads the qword: ProcCamera3).
+        code = bytearray.fromhex("e800000000" "66c74424f80001" "488b4424f8" "f4" "c3")
+        code[1:5] = (7 + 5 + 1).to_bytes(4, "little")
+        uc = run(bytes(code))
+        self.assertEqual(uc.reg_read(xc.UC_X86_REG_RAX), 0x100)
+
     def test_a_call_ending_at_a_page_end_is_decoded_with_the_next_page_unmapped(self):
         # call +0 at 0x10FFB..0x10FFF: the push happens with 0x11000 unmapped for a 16-byte fetch.
         r = replayer()

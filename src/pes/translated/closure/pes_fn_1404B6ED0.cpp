@@ -806,7 +806,7 @@ void pes_fn_1404B6ED0(PesState& s) {
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14159F850(s); s.gpr[4] += 8; }
   goto L_1404B74FF;
   (void)0;
-  /*UNHANDLED FDIV dword ptr [rax + 0x4b]*/(void)0;
+  /*UNHANDLED FDIV dword ptr [rax + 0x4b]*/__builtin_trap();
   { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), _b = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[3] >> 0))), _r = (_a + _b) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_r < (_a & 0xFFULL));
@@ -833,7 +833,7 @@ void pes_fn_1404B6ED0(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 7) & 1;
     s.gpr[15] = (s.gpr[15] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)(_r));
   }
-  /*UNHANDLED OUTSD dx, dword ptr [rsi]*/(void)0;
+  /*UNHANDLED OUTSD dx, dword ptr [rsi]*/__builtin_trap();
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[8]) + (0x75ULL)), 1)), _b = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[6] >> 0))), _r = (_a + _b) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_r < (_a & 0xFFULL));

@@ -26,7 +26,7 @@ void pes_fn_1414A9900(PesState& s) {
     s.gpr[0] = (uint64_t)(s.rd(((s.gpr[8]) + (0x18ULL)), 8));
     s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + ((s.gpr[1])*4ULL) + (0x4ULL)), 4));
     if (!s.cond("nz")) {
-      /*UNHANDLED BSWAP eax*/(void)0;
+      s.gpr[0] = (uint64_t)(uint32_t)((uint64_t)__builtin_bswap32((uint32_t)(((uint64_t)(uint32_t)s.gpr[0]))));
     }
     return;
   } else {

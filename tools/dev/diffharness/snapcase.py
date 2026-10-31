@@ -202,7 +202,12 @@ class Replayer:
                 u._call_real[addr] = struct.pack("<Q", value & (2 ** 64 - 1))
         if not pushed:
             for base in range(addr & ~7, addr + size, 8):
-                u._call_slots.discard(base)
+                if base in u._call_slots:
+                    # The translation holds 0 in the slot, so the bytes this write does not cover are 0 there; the
+                    # hook runs before the store, so zeroing the slot here lets the store land on zeros (the registry
+                    # find's `mov [rsp+0x60], 0x100` then `mov rax, [rsp+0x60]`, ProcCamera3).
+                    u.mem_write(base, bytes(8))
+                    u._call_slots.discard(base)
         u._writes.append((addr, size, v))
 
     def run(self, rec, pages):
