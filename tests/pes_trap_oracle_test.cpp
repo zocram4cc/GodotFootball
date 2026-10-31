@@ -1249,12 +1249,11 @@ TEST_F(TrapTickOracle, ListWhatTheOverlaySupplies) {
 // EyesTarget table and the Animetable buffer) equals what GF's loader built from the install: the loader is the input the window
 // cannot overlay (it holds no copy of the capture's heap), so a record GF built differently changes the solver's output unseen.
 // A read byte that lies in none of these structures, nor in the window's objects, is reported as unexplained.
-// KNOWN RED (31-10-26, settled): the 14 oracle dirs are captures of launches that predate the "No Mod" pin (30-10-26 14:35); sider's
-// GameplayLoader.lua had selected a gameplay mod for their match, and its constant_player.bin carries a different trap.o (+0x8 = 0x0a;
-// the VFS rule that mounts the loader's answer landed with VfsOrder, and a default mount is "No Mod"). Captures of the pinned launch
-// (live2/pid3061186 seq2016, seq2028, seq2035; live2/pid3439759 seq3244) hold +0x8 = 0x07 = what GF's default mount reads: stock, not a
-// GF defect. The oracle is re-taken from FULL No-Mod trap_action_tick captures (a slim capture lacks the actor-fact pages
-// trap_oracle.py reads); the first full one (seq3244) also shows the loader lacks Mbinfo kind 4 (motion 0xda9 count +0x4: PES 1, GF 0).
+// Oracle dirs for this test (GF_PES_TRAP_TICK_ORACLE) are captures of the No-Mod launch (live2/pid3741448, after the 30-10-26 14:35 pin;
+// trap_action_tick_797CD0 seq1877, 1883, 1889, 1895, 1917, 1924, 1938, 1948, 1982, 4790, 4798, 4803, FULL: a slim capture lacks the
+// actor-fact pages trap_oracle.py reads). The older oracle dirs were mod captures (sider's GameplayLoader.lua had selected a gameplay mod;
+// its constant_player.bin carries a different trap.o, +0x8 = 0x0a against stock 0x07), which GF's default "No Mod" mount rightly differs from.
+// Mbinfo kind 4 (JumpData.bin, FUN_1406AD810) is in kTrapMbinfoKinds: motion 0xDA9's count +0x4 was 1 in the capture and 0 in GF without it.
 TEST_F(TrapTickOracle, LoaderDataTheTickReadsEqualsTheCapture) {
   constexpr uint64_t kMotionTableGlobal = 0x1436F23C0ULL, kAnimeGlobal = 0x1436F2378ULL, kEyesGlobal = 0x1436F2648ULL;
   for (const std::string& dir : dirs_) {
