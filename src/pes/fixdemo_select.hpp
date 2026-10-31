@@ -66,7 +66,6 @@ struct FixDemoRequest {
 // What GF knows about a goal, in PES's units and axes (PES x, y up, z): the inputs of the goal's event position
 // (0x140476C50), run radius (0x140474CF0) and scene anchor (0x140474F00) as they read them, with the PES site of each.
 struct GoalAnchorFacts {
-  uint32_t sceneId = 0;            // A0+8: the goal scene (category 3); picks the scene row at DB+0x448
   uint32_t scorerSlot = 0;         // side * 11 + the scorer's index in the side (< 22); MI+0x15C8 = {side, index}, MI+0x1590
   std::array<float, 3> pos{};      // the scorer's man record +0x55C: metres
   std::array<float, 3> vel{};      // +0x574: metres per PES frame
@@ -77,10 +76,26 @@ struct GoalAnchorFacts {
   // The side's attacking bearing in degrees, the object behind ctx+0x18: +0x228D8 for side 0 (team info +0x254 = 1),
   // +0x228D4 for side 1 (+0x254 = 0xFF). 0x140476190 puts the corner spot at the end this bearing points to.
   std::array<float, 2> attackDeg{};
-  // ponytail: the scene list the builder 0x140477BC0 makes (the picked scene plus the scenes around it: the lead-in, the
-  // goalkeeper and the closing scene; 27 functions of closure, reading the goal event record), the list 0x140474CF0 sums the
-  // radius over. Until 0x140477BC0 is translated GF passes the scenes it will play.
-  std::vector<uint32_t> cuts;
+  // The scenes the goal plays. Given (`build` unset): the scene PES picked and the list it made, for goals whose list was recorded
+  // (the tests' kind-3 and slim captures). Unset in GF: `build` set runs the builder 0x140477BC0 on the arena and ignores both.
+  uint32_t sceneId = 0;            // A0+8: the goal scene (category 3); picks the scene row at DB+0x448
+  std::vector<uint32_t> cuts;      // the scene list 0x140474CF0 sums the radius over
+  // What the builder 0x140477BC0 (the pick 0x140475A90 and the list around it) reads from the match, in PES's units.
+  struct SceneBuild {
+    uint32_t period = 1;        // MI+0x1168: the match period (1 first half; 9 is the shoot-out)
+    float clock_s = 0;          // the match clock as 0x140A3C050 returns it (protected float MI+0x1178 + MI+0x1174), split into minutes by 0x140A6BD80
+    uint32_t previousPick = 0;  // A0+0x13C: the scene the DemoInfo picked for the previous goal (persists from goal to goal)
+    std::optional<uint32_t> assistSlot;  // MI+0x162C = {side, index}: the scorer's team-mate who made it; none = PES's invalid pair
+    std::array<uint32_t, 2> score{};     // each side's goals with this one counted: the team counters 0x140A80D10 sums (0x1408C9DF0 kind 5)
+    // ponytail: the scorer's two edit-mode celebration slots (1-based indices into the goal table's edit-scene list, 0 = none: bytes 2
+    // and 3 of his player record's u64 at +0x10, 0x140471280). GF's player data does not carry them; 0 takes PES's generic pick. Removed
+    // with the player record's writer (the squad record builder).
+    std::array<uint8_t, 2> celebration{};
+    // Every man's ground position, PES axes (x, y, z): the builder reads the keepers' (the closing scene's keeper test, 0x14047A850) and the
+    // assisting man's. The scorer's own comes from `pos`.
+    std::array<std::array<float, 3>, 22> men{};
+  };
+  std::optional<SceneBuild> build;
   // ponytail: A0+0x114, the state of the generator at A0+0x108 that 0x140476190 draws its corner-spot jitter from. PES seeds
   // it where the DemoInfo is built (the 0x14047DF00 construction, from its clock); the site that removes this is that seed.
   uint32_t rngState = 0;
@@ -94,6 +109,8 @@ struct GoalAnchor {
   bool flip = false;  // 0x140478FF0
   std::array<float, 3> target{};  // A0+0x30 = the scorer's run object +0x18: the celebration spot (0x140476C50)
   float radius = 0;               // A0+0xC: the scene's run radius (0x140474CF0)
+  uint32_t sceneId = 0;           // A0+8: the scene the goal plays first (the builder's pick when `build` was set)
+  std::vector<uint32_t> scenes;   // the scene list the DemoInfo plays, in order (the builder's, or the given `cuts`)
 };
 
 // The scorer as the goal run object's gate 0x140472640 reads him each PES frame (man record +0x554/+0x55C/+0x564, anime record

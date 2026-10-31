@@ -1,6 +1,7 @@
 #include "pes/fixdemo_select.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cstring>
 
 #include "pes/exe.hpp"
@@ -86,10 +87,16 @@ constexpr uint64_t kMathTablesVa = 0x1426550D0, kMathTablesBytes = 0x1090;
 // The FixDemo list object's vtable (0x141F5EC60 stores its VA in a stack object; 0x141F61CC0 jumps through slot 3 and
 // 0x141F616F0 calls slot 4), read from the install.
 constexpr uint64_t kListVtableVa = 0x142BA67D0, kListVtableBytes = 0x40;
+// The generic pick 0x140477400 calls slot +0x88 of the object behind [0x1434A2D40] (a static at 0x1434A2D48 holding its vtable
+// 0x142644638, the vtable read from the install; slot +0x88 = 0x141863350, translated, answers false) and reads the byte
+// [0x143446058], which is 0 in the file and 1 in every live capture (set at startup). ponytail: that byte is a game-mode flag
+// whose writer is not decoded; 1 stands in for it, the value of the exhibition match all captured goals were played in.
+constexpr uint64_t kStageSlotVa = 0x1434A2D40, kStageObjectVa = 0x1434A2D48, kStageVtableVa = 0x142644638, kStageVtableBytes = 0x90,
+                   kStageFlagVa = 0x143446058, kStagePageVa = 0x1434A2000, kStageFlagPageVa = 0x143446000, kPageBytes = 0x1000;
 // The run object (G+0x21E8 table): 0x140A73E30 reads its flag byte at +0x6C and 0x1419E0900 its target at +0x18, so the object
 // must reach past +0x6C (a 0x40 object let the flag read the neighbouring allocation: a nonzero byte sent the side-1 goal's
 // 0x140476190 down the "run object has a target" arm and left T.x unassigned). INF: PES's own object size is not decoded.
-constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x70, kA0Bytes = 0x200;
+constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1800, kManBytes = 0x700, kRunBytes = 0x70, kA0Bytes = 0x200;
 constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManTable = 0x1DD8, kWorldRunTable = 0x21E8;
 constexpr uint64_t kWorldTableStride = 0x28;
 constexpr uint64_t kWorldTeamInfoTable = 0xA1 * kWorldTableStride, kWorldSquadTable = 0xA3 * kWorldTableStride;
@@ -105,7 +112,10 @@ constexpr uint64_t kA0Ready = 0xEC, kDemoInfoBytes = 0x40, kDemoInfoCut = 0x10, 
 constexpr uint64_t kFoulBytes = 0x20, kFoulScene = 0, kFoulCountdown = 8, kFoulReady = 0xC, kMiFouler = 0x1590, kMiVictim = 0x1594;
 constexpr uint32_t kFoulCountdownSeconds = 3;  // 0x14047FEB0: `fps * 3 / scale`
 constexpr uint32_t kAnimeFlagBit10 = 1u << 10;  // 0x14047EB00: `*(u32*)(anime + 8) >> 10 & 1`
-constexpr uint64_t kSquadBytes = 0x30, kTeamInfoBytes = 0x300, kTeamInfoAttackSign = 0x254;
+// A squad object (G+(0xA3+side)*0x28): the key table at +0 (u32 side, then 0x28 keys) and a 0x128-byte player record per key from
+// +0xE0 (0x140A3B0E0). 0x140471280 reads the scorer's record u64 at +0x10: bytes 2 and 3 are his two edit-mode celebration slots.
+constexpr uint64_t kSquadBytes = 0xE0 + 0x28 * 0x128, kSquadRecords = 0xE0, kSquadRecordBytes = 0x128, kRecordCelebration = 0x12;
+constexpr uint64_t kTeamInfoBytes = 0x300, kTeamInfoAttackSign = 0x254;
 constexpr uint64_t kFieldInfoBytes = 18 * sizeof(float);
 constexpr uint64_t kMiSlotMode = 0x1588, kMiSlot = 0x1590;  // MI+0x1588 == 1: the scorer's slot is MI+0x1590 (0x140474F00)
 constexpr uint64_t kMiScorerSide = 0x15C8, kMiScorerPlace = 0x15CC;  // the pair 0x140A62EA0 maps to a slot (0x140476C50)
@@ -119,6 +129,33 @@ constexpr uint64_t kVectorVa = kScratchVa + 0x200;  // the std::vector<u32> of c
 constexpr uint64_t kMapScratchVa = kScratchVa + 0x300;  // the node allocator's key pointer and result slots
 constexpr uint64_t kDbSceneRows = 0x448, kDbSceneRowsEnd = 0x450;  // a std::vector's begin/end: the goal scene rows (0x140A7CBA0)
 constexpr uint64_t kSceneRowBytes = 0x3C, kSceneRowFloats = 8, kSceneRowTail = 0x38;
+// The scene-list builder 0x140477BC0 (docs/ports/pes-port-CutsceneTiming6.md section 3: its 1139 reads over goal A, by structure):
+// the slot table G+0x180 (0x140477359 and 0x140479490 read each record's +0x20 designation byte: 0xFF = none), the setup struct
+// G+0x2AD0 (byte 0 only, 0x140471247), the event history behind event+0xE0 (0x140A3E6D0: count +0x74FC0, newest index +0x74FC4,
+// entries of 8 at +0x74990 {u32 block, u16 slot}, records at +0x27400 + slot * 0x640 + block * 0x26AC8; the pick reads the newest
+// record's +0x14C and +0x168 (the side), +0x150 (the squad key)), and the match info words below.
+constexpr uint64_t kWorldSlotTable = 0x180, kSlotRecords = 24, kSlotRecordBytes = 0x74, kSlotDesignation = 0x20;
+constexpr uint64_t kWorldSetup = 0x2AD0, kSetupBytes = 0x100;
+constexpr uint64_t kEventHistory = 0xE0, kHistoryBytes = 0x128000, kHistoryCount = 0x74FC0, kHistoryNewest = 0x74FC4,
+                   kHistoryRecords = 0x27400;
+constexpr uint64_t kRecordSide = 0x14C, kRecordKey = 0x150, kRecordSideAgain = 0x168;
+// The team counters 0x140A80D10 reads (0x140A3E8A0 = history + 0x750D0, 0x59650 per team; 0x1408C9DF0(team, 5) sums nine 0x20-byte
+// blocks 0..7 through 0x1408C9190): a block holds a u32 behind a byte-wise mask keyed by the nonce at +0x59538 (nonce 0: the value
+// itself, at +0x59540 + (index & 3) * 4, index at +0x5953C) and the FNV-1a hash of the four decoded bytes at +0x59530, which the
+// reader checks and aborts on. Goal A's counters: team 0 block 0 = 1, team 1 block 1 = 1 (the split of the sum is INF; only
+// the sum is read here).
+constexpr uint64_t kTeamStats = 0x750D0, kTeamStatsStride = 0x59650, kStatBlocks = 9, kStatBlockBytes = 0x20, kStatHash = 0x59530;
+constexpr uint64_t kFnvOffset = 0xCBF29CE484222325ull, kFnvPrime = 0x100000001B3ull;
+constexpr uint64_t kMiPeriod = 0x1168, kMiPlayState = 0x116C, kMiClock = 0x1174, kMiClockProtected = 0x1178, kMiEventKind = 0x1574,
+                   kMiSide = 0x15C0,
+                   kMiScorerSlot = 0x162C, kMiPresent = 0x1748, kMiOther = 0x175E;
+constexpr uint32_t kPlayStateStopped = 2, kEventKindGoal = 3;  // MI+0x116C == 2 (PlayStateFor), MI+0x1574 == 3 (a goal)
+constexpr uint64_t kA0Level = 0, kA0PreviousPick = 0x13C;
+// ponytail: the goal's level (A0+0): PES's writer 0x140477570 (with 0x1404794C0 and 0x1404793B0 for its argument) reads the
+// setup struct's records, both squads' stat bytes and the event history's counters; none is in GF. All five captured goals
+// (goal A and seq12946/31076/40581/53099) held 2; the builder's pool filter reads it. Removed with 0x140477570.
+constexpr uint32_t kGoalLevel = 2;
+constexpr uint64_t kDbEditScenes = 0x428, kDbEditSceneCount = 0x430;  // the goal table's edit-scene ids (u32 array, count u32)
 
 }  // namespace
 
@@ -129,7 +166,7 @@ struct FixDemoSelector::Impl {
   uint64_t ctx = 0, db = 0;
   uint64_t world = 0, matchInfo = 0, fieldInfo = 0, a0 = 0, event = 0, matchRecord = 0;
   std::array<uint64_t, kPitchSlots> anime{};
-  uint64_t referee = 0, demo = 0, foul = 0, timeScale = 0;
+  uint64_t referee = 0, demo = 0, foul = 0, timeScale = 0, slotTable = 0, history = 0;
   uint32_t gateSlot = 0, foulerSlot = 0, victimSlot = 0;
   bool goalPlaced = false;
   std::array<uint64_t, kPitchSlots> man{}, run{};
@@ -137,16 +174,20 @@ struct FixDemoSelector::Impl {
   float fullTurnDeg = 0;
 
   Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables,
-       std::vector<uint8_t> listVtable, float fullTurn)
+       std::vector<uint8_t> listVtable, std::vector<uint8_t> stageVtable, float fullTurn)
       : tables(std::move(t)), fullTurnDeg(fullTurn) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
     s.mem.img.push_back({kMathTablesVa, std::move(mathTables)});
     s.mem.img.push_back({kListVtableVa, std::move(listVtable)});
+    s.mem.img.push_back({kStageVtableVa, std::move(stageVtable)});
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
-                             {kWorldSlotPageVa, kWorldSlotPageBytes}})
+                             {kWorldSlotPageVa, kWorldSlotPageBytes}, {kStagePageVa, kPageBytes}, {kStageFlagPageVa, kPageBytes}})
       s.mem.segs.push_back({va, std::vector<uint8_t>(bytes)});
+    s.wr(kStageSlotVa, kStageObjectVa, 8);
+    s.wr(kStageObjectVa, kStageVtableVa, 8);
+    s.wr(kStageFlagVa, 1, 1);
     s.gpr[4] = kStackVa + kStackBytes - 0x100;
     ctx = heap->Alloc(kCtxBytes, 0x10);
     s.wr(kFixDemoCtxSlotVa, ctx, 8);
@@ -264,6 +305,15 @@ struct FixDemoSelector::Impl {
     s.wr(event + kEventMatchRecord, matchRecord, 8);
     s.wr(world + kWorldMatchInfo, matchInfo, 8);
     s.wr(world + kWorldFieldInfo, fieldInfo, 8);
+    // The builder's arena (constants above): the slot table (no designation), the setup struct (byte 0 = 0) and the event history.
+    // ponytail: GF keeps no event history, setup struct or slot designations; one history record (the goal) and zeroed setup
+    // stand in. They go with the event ring 0x140A3E6D0 reads (the event builder 0x14047C500) and the match setup.
+    slotTable = Zalloc(kSlotRecords * kSlotRecordBytes);
+    for (uint64_t i = 0; i < kSlotRecords; ++i) s.wr(slotTable + i * kSlotRecordBytes + kSlotDesignation, 0xFF, 4);
+    s.wr(world + kWorldSlotTable, slotTable, 8);
+    s.wr(world + kWorldSetup, Zalloc(kSetupBytes), 8);
+    history = Zalloc(kHistoryBytes);
+    s.wr(event + kEventHistory, history, 8);
     for (unsigned slot = 0; slot < kPitchSlots; ++slot) {
       man[slot] = Zalloc(kManBytes);
       run[slot] = Zalloc(kRunBytes);
@@ -309,6 +359,61 @@ struct FixDemoSelector::Impl {
     }
     s.wr(db + kDbSceneRows, base, 8);
     s.wr(db + kDbSceneRowsEnd, base + rows.size() * kSceneRowBytes, 8);
+    const auto& edits = goal->second.goalEditScenes;
+    const uint64_t list = Zalloc(std::max<size_t>(edits.size(), 1) * 4);
+    for (size_t i = 0; i < edits.size(); ++i) s.wr(list + 4 * i, edits[i], 4);
+    s.wr(db + kDbEditScenes, list, 8);
+    s.wr(db + kDbEditSceneCount, edits.size(), 4);
+  }
+
+  // A protected u32 as PES stores it (0x1408C9190, 0x140A3C070 read them; the two mask and check it the same way): the hash of
+  // the four decoded bytes at `at`, the nonce at +8 (0: no mask), the index at +0xC (0: the first word) and the value at +0x10.
+  void WriteProtected(uint64_t at, uint32_t value) {
+    uint64_t hash = kFnvOffset;
+    for (unsigned i = 0; i < 4; ++i) hash = (hash ^ ((value >> (8 * i)) & 0xFF)) * kFnvPrime;
+    s.wr(at, hash, 8);
+    s.wr(at + 8, 0, 4);
+    s.wr(at + 0xC, 0, 4);
+    s.wr(at + 0x10, value, 4);
+  }
+
+  // The match facts the builder 0x140477BC0 reads, laid into the arena where PES keeps them.
+  void WriteSceneBuildArena(const GoalAnchorFacts& f, const GoalAnchorFacts::SceneBuild& b) {
+    const uint32_t side = f.scorerSlot / kSideSlots, place = f.scorerSlot % kSideSlots;
+    s.wr(a0 + kA0Level, kGoalLevel, 4);
+    s.wr(a0 + kA0PreviousPick, b.previousPick, 4);
+    s.wr(matchInfo + kMiPeriod, b.period, 4);
+    s.wr(matchInfo + kMiPlayState, kPlayStateStopped, 4);
+    // The match clock 0x140A3C050 returns: a protected float at MI+0x1178 plus the float at MI+0x1174 (goal A: 60590.0 + 616.0).
+    // GF puts the whole clock in the protected one.
+    WriteProtected(matchInfo + kMiClockProtected, std::bit_cast<uint32_t>(b.clock_s));
+    s.wrf(matchInfo + kMiClock, 0.0f);
+    for (unsigned slot = 0; slot < kPitchSlots; ++slot)  // the scorer's record is written from `pos`
+      if (slot != f.scorerSlot)
+        for (unsigned i = 0; i < 3; ++i) s.wrf(man[slot] + kManPos + 4 * i, b.men[slot][i]);
+    s.wr(matchInfo + kMiEventKind, kEventKindGoal, 4);
+    s.wr(matchInfo + kMiSide, side, 4);
+    // The invalid pair {-1, -1} when nobody made it (0x140A60530 accepts a side < 2 and a key < 0x28).
+    s.wr(matchInfo + kMiScorerSlot, b.assistSlot ? *b.assistSlot / kSideSlots : 0xFFFFFFFFu, 4);
+    s.wr(matchInfo + kMiScorerSlot + 4, b.assistSlot ? *b.assistSlot % kSideSlots : 0xFFFFFFFFu, 4);
+    for (unsigned i = 0; i < kPitchSlots; ++i) {  // every man on the pitch is present and not flagged
+      s.wr(matchInfo + kMiPresent + i, 1, 1);
+      s.wr(matchInfo + kMiOther + i, 0, 1);
+    }
+    for (uint64_t team = 0; team < 2; ++team)  // block 0 of each team holds its goals, the others 0
+      for (uint64_t block = 0; block < kStatBlocks; ++block)
+        WriteProtected(history + kTeamStats + team * kTeamStatsStride + block * kStatBlockBytes + kStatHash,
+                       block == 0 ? b.score[team] : 0);
+    // The scorer's player record (squad + 0xE0 + key * 0x128; GF's keys are the places): his celebration slots, bytes 2 and 3 of +0x10.
+    const uint64_t scorerRecord = squad[side] + kSquadRecords + place * kSquadRecordBytes;
+    s.wr(scorerRecord + kRecordCelebration, b.celebration[0], 1);
+    s.wr(scorerRecord + kRecordCelebration + 1, b.celebration[1], 1);
+    s.wr(history + kHistoryCount, 1, 4);  // the newest record is the goal: side, the scorer's squad key, side again
+    s.wr(history + kHistoryNewest, 0, 4);
+    const uint64_t record = history + kHistoryRecords;
+    s.wr(record + kRecordSide, side, 4);
+    s.wr(record + kRecordKey, place, 4);
+    s.wr(record + kRecordSideAgain, side, 4);
   }
 
   // The goal's anchor and the two inputs PES computes for it before the anchor (the builder 0x140478190): the scene's run
@@ -316,10 +421,7 @@ struct FixDemoSelector::Impl {
   // his target; the scene anchor 0x140474F00 and the flip 0x140478FF0 follow, as the DemoInfo's first tick runs them.
   std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
     const auto goal = tables.find(kFixDemoGoal);
-    const uint32_t index = (f.sceneId & 0xFFFF) - 1;
-    if (goal == tables.end() || (f.sceneId >> 16) != static_cast<uint32_t>(kFixDemoGoal) ||
-        index >= goal->second.goalSceneRows.size() || f.scorerSlot >= kPitchSlots)
-      return std::nullopt;
+    if (goal == tables.end() || f.scorerSlot >= kPitchSlots) return std::nullopt;
     const uint32_t side = f.scorerSlot / kSideSlots, place = f.scorerSlot % kSideSlots;
     s.wr(matchInfo + kMiSlotMode, 1, 4);
     s.wr(matchInfo + kMiSlot, f.scorerSlot, 4);
@@ -342,20 +444,43 @@ struct FixDemoSelector::Impl {
     for (uint64_t off = 0; off < kA0Bytes; off += 8) s.wr(a0 + off, 0, 8);
     s.gpr[1] = a0;
     Call(&pes_fn_140478090);
-    s.wr(a0 + kA0SceneId, f.sceneId, 4);
     s.wr(a0 + kA0RngState, f.rngState, 4);
-    // 0x140474CF0(A0, std::vector<u32>* of the scenes): {begin, end, capacity} over the ids.
-    const uint64_t ids = Zalloc(std::max<size_t>(f.cuts.size(), 1) * 4);
-    for (size_t i = 0; i < f.cuts.size(); ++i) s.wr(ids + 4 * i, f.cuts[i], 4);
-    s.wr(kVectorVa, ids, 8);
-    s.wr(kVectorVa + 8, ids + 4 * f.cuts.size(), 8);
-    s.wr(kVectorVa + 0x10, ids + 4 * f.cuts.size(), 8);
+    uint32_t sceneId = f.sceneId;
+    std::vector<uint32_t> scenes = f.cuts;
+    uint64_t listBegin = 0;
+    if (f.build) {
+      // The builder 0x140477BC0(A0, &list, event): its pick sets A0+8 and its list is the vector 0x140474CF0 sums over next.
+      WriteSceneBuildArena(f, *f.build);
+      s.gpr[1] = a0;
+      s.gpr[2] = kVectorVa;
+      s.gpr[8] = event;
+      Call(&pes_fn_140477BC0);
+      sceneId = static_cast<uint32_t>(s.rd(a0 + kA0SceneId, 4));
+      listBegin = s.rd(kVectorVa, 8);
+      scenes.clear();
+      for (uint64_t p = listBegin; p < s.rd(kVectorVa + 8, 8); p += 4) scenes.push_back(static_cast<uint32_t>(s.rd(p, 4)));
+    } else {
+      s.wr(a0 + kA0SceneId, sceneId, 4);
+      // 0x140474CF0(A0, std::vector<u32>* of the scenes): {begin, end, capacity} over the ids.
+      listBegin = Zalloc(std::max<size_t>(scenes.size(), 1) * 4);
+      for (size_t i = 0; i < scenes.size(); ++i) s.wr(listBegin + 4 * i, scenes[i], 4);
+      s.wr(kVectorVa, listBegin, 8);
+      s.wr(kVectorVa + 8, listBegin + 4 * scenes.size(), 8);
+      s.wr(kVectorVa + 0x10, listBegin + 4 * scenes.size(), 8);
+    }
+    const uint32_t index = (sceneId & 0xFFFF) - 1;
+    if ((sceneId >> 16) != static_cast<uint32_t>(kFixDemoGoal) || index >= goal->second.goalSceneRows.size()) {
+      if (listBegin) heap->Free(listBegin);
+      return std::nullopt;
+    }
     s.gpr[1] = a0;
     s.gpr[2] = kVectorVa;
     Call(&pes_fn_140474CF0);
     GoalAnchor out;
+    out.sceneId = sceneId;
+    out.scenes = scenes;
     out.radius = ReturnedFloat();
-    heap->Free(ids);
+    if (listBegin) heap->Free(listBegin);
     s.wrf(a0 + kA0Radius, out.radius);
     // 0x140476C50(A0, &out, event record, 0): the celebration spot.
     s.gpr[1] = a0;
@@ -395,7 +520,7 @@ struct FixDemoSelector::Impl {
     // not translated, GF has no setup struct); it stays 0 here, as on the 13 captured goals of the default arm. A goal where PES
     // sets it takes the timer's other arm (INF: the logged 0x30126 ran a 162-frame timer = fps x 3) and the gate's +0x131 hold; removed with
     // 0x1404790B0.
-    s.wr(demo + kDemoInfoCut, f.cuts.empty() ? f.sceneId : f.cuts.front(), 4);
+    s.wr(demo + kDemoInfoCut, scenes.empty() ? sceneId : scenes.front(), 4);
     s.gpr[1] = a0;
     s.gpr[2] = event;
     Call(&pes_fn_14047A710);
@@ -539,6 +664,11 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
     if (error) *error = "the image does not map the FixDemo list's vtable";
     return nullptr;
   }
+  std::vector<uint8_t> stage(kStageVtableBytes);
+  if (!exe.ReadVa(kStageVtableVa, stage.size(), stage.data())) {
+    if (error) *error = "the image does not map the stage interface's vtable";
+    return nullptr;
+  }
   uint8_t turn[sizeof(float)];
   float fullTurn;
   if (!exe.ReadVa(kFullTurnVa, sizeof turn, turn)) {
@@ -546,8 +676,8 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
     return nullptr;
   }
   std::memcpy(&fullTurn, turn, sizeof fullTurn);
-  return std::unique_ptr<FixDemoSelector>(
-      new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), fullTurn)));
+  return std::unique_ptr<FixDemoSelector>(new FixDemoSelector(
+      std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), std::move(stage), fullTurn)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}

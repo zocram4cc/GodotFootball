@@ -541,4 +541,43 @@ TEST(FoulGate, StaysOpenOnceOpened) {
   EXPECT_TRUE(sel->FoulGateReady(FoulFacts(50.0f, 50.0f)));
 }
 
+// The scene list: PES's builder 0x140477BC0 (the pick 0x140475A90 and the list around it) run on GF's arena from the facts GF has.
+// Goal A (pid2621613, the builder's own call at seq1532 over seq1531's memory; tools/dev/cutscene/goal_event_calls.py): the
+// DemoInfo's list was {0x30034, 0x30134, 0x3011C}: the scorer's own celebration (edit-scene slot 53 of his two, 0x30034), the closing
+// scene 0x30130 + A0+0x20 - 1 with A0+0x20 = 5, the lead 0x3011C. Pinned from that call (snapshot read by script): the generator at
+// entry (A0+0x114 = 179127131: the snapshot's state rewound three draws, two in the builder and the one T draws, the oracle's rngPre
+// above), the previous pick A0+0x13C = 0x30129, the clock 60590.0 + 616.0 (MI+0x1178 protected + MI+0x1174), the team counters (1, 1),
+// MI+0x162C = {1, key 0x14} = the team-mate in slot 7 of PES's squad table, the scorer's celebration slots {53, 98}, period 1.
+pes::GoalAnchorFacts SceneBuildFacts(const Case& c, const Oracle& o) {
+  pes::GoalAnchorFacts f = FactsOf(c, o);
+  f.sceneId = 0;
+  f.cuts.clear();
+  f.rngState = 179127131u;
+  f.build = pes::GoalAnchorFacts::SceneBuild{1, F(0x476F1600), 0x30129, 7u, {1, 1}, {53, 98}, {}};
+  // The men the builder reads (man records +0x55C / +0x564 in the snapshot): the keepers (slots 0 and 11) and the assisting man (18).
+  f.build->men[0] = {F(0xC228A737), 0.0f, F(0xC0DC705D)};
+  f.build->men[11] = {F(0x42164A65), 0.0f, F(0x3E85BFBF)};
+  f.build->men[18] = {F(0xC202A283), 0.0f, 0.0f};
+  return f;
+}
+
+TEST(GoalScenes, BuilderListsGoalAsScenesOnTheCapturedInputs) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  pes::FixDemoTable table;
+  auto sel = MakeInstalled(*exe, &table, &why);
+  if (!sel) GTEST_SKIP() << why;
+  const Case& c = kCases[0];
+  const Oracle& o = kOracle[0];
+  for (const auto& [cut, row] : o.picks) sel->RestorePick(cut, row);
+  const auto got = sel->PlaceGoal(SceneBuildFacts(c, o));
+  ASSERT_TRUE(got);
+  EXPECT_EQ(got->sceneId, 0x30034u);
+  EXPECT_EQ(got->scenes, o.cuts);
+  // The radius and the spot are computed over the builder's own list, as PES does.
+  EXPECT_EQ(got->radius, c.radius);
+  for (int i = 0; i < 3; ++i) EXPECT_EQ(got->target[i], c.target[i]) << "T[" << i << "]";
+}
+
 }  // namespace
