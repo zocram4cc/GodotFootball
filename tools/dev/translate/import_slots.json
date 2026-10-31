@@ -380,6 +380,16 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F478": {
+   "export": "RtlReleaseSRWLockShared",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F488": {
+   "export": "RtlAcquireSRWLockShared",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
   "0x14252F490": {
    "export": "LoadLibraryA",
    "kind": "export",

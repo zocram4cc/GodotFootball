@@ -27,7 +27,7 @@ import sys
 import tempfile
 
 import capstone
-from capstone.x86 import X86_OP_IMM
+from capstone.x86 import X86_OP_IMM, X86_OP_MEM, X86_REG_RIP
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
@@ -72,7 +72,11 @@ class ClosurePdata(Pdata):
                 if imm:
                     callees.setdefault(ops[0].imm, "direct")
                 else:
-                    indirect.append({"site": "%X" % ins.address, "text": ("%s %s" % (ins.mnemonic, ins.op_str))[:80]})
+                    text = "%s %s" % (ins.mnemonic, ins.op_str)
+                    if ops[0].type == X86_OP_MEM and ops[0].mem.base == X86_REG_RIP:
+                        # the bridge's form for a call through an import slot (import_slots.py reads it): absolute, upper case
+                        text = "CALL qword ptr [0x%x]" % (ins.address + ins.size + ops[0].mem.disp)
+                    indirect.append({"site": "%X" % ins.address, "text": text[:80]})
             elif (ins.mnemonic.startswith("j") and ins.mnemonic not in ("jrcxz", "jecxz") and imm
                   and not any(b <= ops[0].imm < e for b, e in ranges) and self.is_boundary(ops[0].imm)):
                 # a JMP, or a Jcc (a conditional tail call: `jnz 0x1423D43D0` in 0x141EAE0F0) to another function start
