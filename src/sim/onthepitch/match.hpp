@@ -100,6 +100,14 @@ public:
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
   Player* GetLastGoalScorer() const { return lastGoalScorer; }
+  // Where PES's goal scene wants the scorer: the celebration spot T of 0x140476C50 (A0+0x30), in GF coordinates. Set by the
+  // layer that runs PES's goal builder (GfMatch); the scorer runs to it and the goal gate (0x140472640) opens on arrival.
+  // Cleared with the goal state.
+  void SetGoalCelebrationSpot(const Vector3& spot) { goalCelebrationSpot = spot; goalCelebrationSpotSet = true; }
+  bool GetGoalCelebrationSpot(Vector3* spot) const {
+    if (goalCelebrationSpotSet) *spot = goalCelebrationSpot;
+    return goalCelebrationSpotSet;
+  }
   // PES's last ball event (a3e190(ctx+0xe0, 0)) as far as the run stop test
   // reads it: the newest pass, its kind (1 ground, 2 through, 3 lofted), the
   // kick point, its intended receiver and when it was kicked.
@@ -621,6 +629,8 @@ protected:
   bool ballIsInGoal = false;
   int lastGoalTeamID = 0;
   Player* lastGoalScorer = nullptr;
+  Vector3 goalCelebrationSpot;
+  bool goalCelebrationSpotSet = false;
   int pendingPenaltyTeamID = -1;
   Player* pendingPenaltyTaker = nullptr;
   unsigned long pendingPenaltyDeadline_ms = 0;

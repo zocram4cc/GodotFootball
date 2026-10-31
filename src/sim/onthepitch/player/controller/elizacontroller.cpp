@@ -3561,6 +3561,12 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
   float runX = player->GetPosition().coords[0], runY = player->GetPosition().coords[1];
   GoalCelebration::RunTarget(runX, runY, xSide, ySide, pitchHalfW, pitchHalfH, &runX, &runY);
   Vector3 celebrationPosition = Vector3(runX, runY, 0);
+  // The scorer runs to PES's celebration spot T where a PES goal scene gave one (Match::GetGoalCelebrationSpot, 0x140476C50's
+  // answer), not the capped run above: PES's scorer runs the whole way and its goal gate opens on his arrival.
+  // ponytail: the run's driver in PES (the controller that moves the scorer to T) is not decoded; this sprint stands in for it.
+  // The capped RunTarget stays for the headless sim, which builds no PES goal scene.
+  Vector3 pesSpot;
+  if (match->GetLastGoalScorer() == player && match->GetGoalCelebrationSpot(&pesSpot)) celebrationPosition = pesSpot;
 
   // Flat by contract: Humanoid::SelectAnim asserts a movement direction has no
   // height. A scorer lifted off the turf by his own anim would otherwise hand it

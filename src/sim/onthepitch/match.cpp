@@ -1037,8 +1037,10 @@ void Match::Process() {
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;
-  else
+  else {
     goalScoredTimer = 0;
+    goalCelebrationSpotSet = false;
+  }
 
   if (IsInPlay() && !IsInSetPiece())
     GetMatchData()->AddPossessionTime(designatedPossessionPlayer->GetTeamID(), kTick_ms);

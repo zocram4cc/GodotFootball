@@ -54,7 +54,10 @@ void RunTarget(float fromX, float fromY, int attackedSide, int nearSide, float p
 
 // Whether he has arrived and may perform. `waited_ms` is the time since the goal: a
 // scorer who cannot get there - blocked, or knocked over - still celebrates.
-constexpr unsigned long kApproachCap_ms = 2800;
+// ponytail: long enough for the scorer to run the whole way to PES's spot while the goal gate can still open: PES's gate
+// times out at fps x 4 / scale (0x14047A710, 4 s), so a scorer still running at 4 s is the gate's, and this cap (6 s) only
+// catches a blocked one. Removed with the decode of PES's own scorer run.
+constexpr unsigned long kApproachCap_ms = 6000;
 constexpr float kArrivalRadius_m = 2.0f;
 
 bool HasArrived(float distanceToTarget_m, unsigned long waited_ms);

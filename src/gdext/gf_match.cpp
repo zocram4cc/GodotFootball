@@ -286,6 +286,8 @@ void GfMatch::PollCutscenes() {
     // The gate runs on the run object the anchor's PlaceGoal built: a goal whose scorer is not in the active set (no anchor, no
     // run object) plays no scene.
     if (!pendingAnchor_) pendingCutscene_.reset();
+    // The scorer runs to PES's celebration spot (T = A0+0x30; PES x, up, z are GF's x, -y, up).
+    if (pendingAnchor_) match_->SetGoalCelebrationSpot(blunted::Vector3(pendingAnchor_->target[0], -pendingAnchor_->target[2], 0));
     if (pendingCutscene_) StartTimeline(*pendingCutscene_);
   } else if (foul) {
     foulStopSeen_ = true;
