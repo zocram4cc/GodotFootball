@@ -36,7 +36,7 @@ inline constexpr std::size_t kMotionRecordBytes = 0x390;
 inline constexpr std::size_t kAnimetableCellCount = 0xBE5 * 0x12;  // rows x columns, FUN_1406AA440
 inline constexpr std::size_t kTrapRuntimeBytes = 0x1D8;  // constant::Trap: the slot-2 loader's last store is +0x1D5
 
-// The five Mbinfo files the chain and the action tick read, as FUN_1406AEF60 files them: kind (the file's index in the path table 0x14344DC40),
+// The six Mbinfo files the chain and the action tick read, as FUN_1406AEF60 files them: kind (the file's index in the path table 0x14344DC40),
 // the list offset FUN_1406AE810 gives it inside a motion record, the record size, the motion key.
 struct TrapMbinfoKind {
   int kind;
@@ -52,6 +52,9 @@ inline constexpr TrapMbinfoKind kTrapMbinfoKinds[] = {
     {13, "common/anime/Mbinfo/bin/BallData.bin", 20, 0x210, 0},   // FUN_1406AC660
     // The action tick's kind 5 (FUN_1406AC990, accessor FUN_1406AF9xx: rec+0xA0): CancelData, 12 bytes a record, key word0 & 0x1FFF.
     {5, "common/anime/Mbinfo/bin/CancelData.bin", 12, 0xA0, 0},   // FUN_1406AC990
+    // Kind 4 (FUN_1406AD810, JumpData.bin): 4 bytes a record, key (word0 & 0x1FFF) + 0x11 like HitData, list at rec+0x90 (FUN_1406AE810 slot 4),
+    // cap 2 (DAT_1425DC370[4]). The trap tick's candidate test reads its count at rec+4 (capture: motion 0xDA9 count +0x4 = 1).
+    {4, "common/anime/Mbinfo/bin/JumpData.bin", 4, 0x90, 0x11},  // FUN_1406AD810
 };
 
 // Where the loader objects sit in the window: one segment from kTrapLoaderVa (above the world window, kWorldWindowVa).
