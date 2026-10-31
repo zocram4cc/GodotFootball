@@ -266,10 +266,11 @@ TEST_F(UnitOracle, DangerBuilderOnTheWindowWritesTheWalksDangerByteAndZone) {
   }
 }
 
-// What GF's production profile writer (SetCarrierProfile, called by the carrier controller before every walk) puts in the window,
-// read back through PES's own readers: the skill bit 0x14063E960(ctx, slot, bit) and the height stat byte 0x14063D8A0(ctx, slot,
-// 0x31). Both go through the slot -> info map (0x140A3AF90) of G's team-info table, so a record written under the wrong index, a
-// wrong side record or a wrong map entry changes what PES reads for some slot.
+// What GF's production profile writers (SetCarrierProfile for the carrier's skill mask, StoreLiveAbility for every slot's ability
+// bytes, both called by the carrier controller before every walk) put in the window, read back through PES's own readers: the
+// skill bit 0x14063E960(ctx, slot, bit) and the height stat byte 0x14063D8A0(ctx, slot, 0x31). The skill goes through the slot ->
+// info map (0x140A3AF90) of G's team-info table, the ability byte through the slot's record (0x140A489F0), so a record written
+// under the wrong index, a wrong side record or a wrong map entry changes what PES reads for some slot.
 uint64_t PesRead(pes::PesWorld& w, void (*reader)(PesState&), uint32_t slot, uint32_t arg) {
   PesState s;
   w.BindCall(s);
@@ -279,23 +280,23 @@ uint64_t PesRead(pes::PesWorld& w, void (*reader)(PesState&), uint32_t slot, uin
   return s.gpr[0];
 }
 
-TEST(CarrierProfile, PesReadersSeeTheCarriersMaskAndHeightAndNobodyElses) {
-  constexpr uint32_t kHeightStatIndex = 0x31;  // the walk's `MOV R8D,0x31` for 0x14063D8A0 (height cm)
+TEST(CarrierProfile, PesReadersSeeTheCarriersMaskAndEverySlotsHeight) {
+  constexpr uint32_t kHeightStatIndex = pes::kAbilityHeightId;  // the walk's `MOV R8D,0x31` for 0x14063D8A0 (height cm)
   constexpr int kSkills[] = {pes::kSkillOneTouchShot, pes::kSkillOneTouchPass, pes::kSkillPinpointCross};
   constexpr uint32_t kPlace = 7;
+  constexpr uint8_t kHeightFloor = 150;  // slot k is k cm above it: no two slots share a height, so a byte in the wrong record shows
   const uint64_t masks[2] = {(1ull << pes::kSkillOneTouchShot) | (1ull << pes::kSkillPinpointCross), 1ull << pes::kSkillOneTouchPass};
-  const uint8_t heights[2] = {171, 193};
   pes::PesWorld w;
   BindWorld(w);
-  for (int side = 0; side < 2; ++side) w.SetCarrierProfile(side, side * pes::kSlotsPerSide + kPlace, masks[side], heights[side]);
+  for (int side = 0; side < 2; ++side) w.SetCarrierProfile(side, side * pes::kSlotsPerSide + kPlace, masks[side]);
+  for (uint32_t slot = 0; slot < 2 * pes::kSlotsPerSide; ++slot) w.StoreLiveAbility(static_cast<int>(slot), kHeightStatIndex, kHeightFloor + slot);
   for (uint32_t slot = 0; slot < 2 * pes::kSlotsPerSide; ++slot) {
     const int side = static_cast<int>(slot / pes::kSlotsPerSide);
     const bool carrier = slot % pes::kSlotsPerSide == kPlace;
     for (int skill : kSkills)
       EXPECT_EQ(PesRead(w, &pes_fn_14063E960, slot, skill) & 1, carrier && ((masks[side] >> skill) & 1) ? 1u : 0u)
           << "slot " << slot << " skill " << skill;
-    EXPECT_EQ(PesRead(w, &pes_fn_14063D8A0, slot, kHeightStatIndex) & 0xFF, carrier ? heights[side] : 0u)
-        << "slot " << slot;
+    EXPECT_EQ(PesRead(w, &pes_fn_14063D8A0, slot, kHeightStatIndex) & 0xFF, kHeightFloor + slot) << "slot " << slot;
   }
 }
 
@@ -314,7 +315,7 @@ TEST(CarrierProfile, TheWalkReadsTheTakerFromTheSideRecordAndTheCarrierFromTheUn
     w.Period().playState = kPlayStateStopped;
     const uint32_t slot = side * pes::kSlotsPerSide + 4;
     StoreU32(w.Carrier(side), pes::kBpUnitInfoOffset + pes::kUnitSideOffset, side);
-    w.SetCarrierProfile(side, slot, 0, 180);
+    w.SetCarrierProfile(side, slot, 0);
     w.SetUnitList(side, {{kListedKind, pes::EncodeAnswerRecord({pes::kAnswerDribble, 0, 0.0f})}});
     StoreU32(w.Carrier(side), pes::kBpUnitInfoOffset + pes::kUnitSlotOffset, slot);
     EXPECT_EQ(w.RunWalk(side), pes::kWalkNoKind) << "the taker himself, side " << side;

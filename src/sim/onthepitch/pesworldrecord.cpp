@@ -113,7 +113,7 @@ void PesWorld::SetUnitList(int side, const std::vector<WalkEntry>& list) {
   }
 }
 
-void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, uint8_t heightStatCm) {
+void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask) {
   uint8_t* record = TeamInfoRecord(side);
   StoreU32(record, kSideIdOffset, static_cast<uint32_t>(side));
   for (uint32_t k = 0; k < kSlotsPerSide; ++k) StoreU32(record, kSideInfoIndexOffset + sizeof(uint32_t) * k, k);
@@ -123,7 +123,26 @@ void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, ui
   // team-info table the skill reads go through.
   // ponytail: the designated taker is the carrier: a set-piece decider is the taker; the writer is the restart set-up, undecoded
   StoreU32(SideRecord(side), kSideKickerOffset, slot);
-  Block(static_cast<int>(slot))[kSlotRecordOffset + kSlotByteA1Offset] = heightStatCm;
+}
+
+void PesWorld::StoreLiveAbility(int slot, uint32_t id, uint8_t base, const AbilityCells& cells) {
+  uint8_t* block = Block(slot) + kSlotRecordOffset + kSlotAbilityOffset;
+  block[id] = base;
+  // 0x14092B849-0x14092B86D: the cells' product in PES's order (A2, A1, A3, A4, A5), 0x14092B890/0x14092B894: the base times it,
+  // truncated (CVTTSS2SI) and read as a byte.
+  const float product = cells.a2 * cells.a1 * cells.a3 * cells.a4 * cells.a5;
+  const uint8_t value = static_cast<uint8_t>(static_cast<int64_t>(static_cast<float>(base) * product));
+  if (value == block[id]) return;  // 0x14092B8B7: an unchanged byte is not written
+  // 0x14092B8CF: the clamp bounds 0x1408CAF60(&lo, &hi, id) (lo at rcx, hi at rdx), answering 0 for an id past the table.
+  PesState s = NewCall(Bytes());
+  const uint64_t loVa = kScratchVa, hiVa = kScratchVa + 1;
+  s.gpr[1] = loVa;
+  s.gpr[2] = hiVa;
+  s.gpr[8] = id;
+  ::pes_fn_1408CAF60(s);
+  if ((s.gpr[0] & 0xFF) == 0) return;  // 0x14092B8F3: the byte stays the roster's
+  const uint8_t lo = *InWindow(Bytes(), loVa), hi = *InWindow(Bytes(), hiVa);
+  block[id] = value > hi ? hi : (value < lo ? lo : value);  // 0x14092B8DD-0x14092B8F1
 }
 
 void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternals& ext) {

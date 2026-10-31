@@ -1025,6 +1025,29 @@ bool DeepDefensiveMode(const TeamInstructions::State& instructions) {
 // 1 for a field man. ponytail: remove when the array lands; this accessor is the one place to change.
 int CarrierRoleClass(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK ? 0 : 1; }
 
+// The ability bytes the carrier manager's candidate scores read (0x14211CBD0: Speed 0x27, the aerial byte 0x2C, height 0x31), written
+// to a slot's record the way PES's stat rebuild 0x14092AF10 does (StoreLiveAbility): the player's own stat as the base byte and the
+// cells GF carries (A2 the condition arrow, A3 the position familiarity, A5 the fatigue factor on the ids it covers, 0x14092B6CB /
+// 0x14092B5DB / the A5 writer in 0x14092AF10, pes-re-stamina-drain.md 4: 0x28..0x2C, not Speed).
+// ponytail: A4 (the super-sub pair table 0x142632F74, 0x14092B7FC) is 1.0: GF has no super-sub state; the base byte is the GF stat
+// over 100 where PES reads the roster row (Player.bin ability + 40: PlayerDatabase would carry it), whose writer is unlocated.
+void WriteSlotAbilities(pes::PesWorld& world, int slot, Player& p) {
+  PlayerData* data = p.GetPlayerData();
+  const auto byteOf = [&](const char* stat) {
+    return static_cast<uint8_t>(std::lround(std::clamp(data->GetStat(stat) * pes::kAbilityBytesPerStat, 0.0f, 255.0f)));
+  };
+  const auto cellsOf = [&](const char* stat, bool fatigued) {
+    pes::AbilityCells cells;
+    cells.a2 = FormState::ArrowMultiplierFor(p.GetConditionArrow(), stat);
+    cells.a3 = FormState::FamiliarityMultiplierFor(p.GetDeployedFamiliarity(), stat);
+    if (fatigued) cells.a5 = p.GetFatigueFactor();
+    return cells;
+  };
+  world.StoreLiveAbility(slot, pes::kAbilitySpeedId, byteOf("physical_velocity"), cellsOf("physical_velocity", false));
+  world.StoreLiveAbility(slot, pes::kAbilityJumpId, byteOf("physical_jump"), cellsOf("physical_jump", true));
+  world.StoreLiveAbility(slot, pes::kAbilityHeightId, static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
+}
+
 }  // namespace
 
 Player* ElizaController::_Carrier() {
@@ -3354,15 +3377,14 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot)) skillMask |= 1ull << pes::kSkillOneTouchShot;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass)) skillMask |= 1ull << pes::kSkillOneTouchPass;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing)) skillMask |= 1ull << pes::kSkillPinpointCross;
-  const float heightCm = std::clamp(CastPlayer()->GetStat("physical_height") * 100.0f, 0.0f, 255.0f);
-  pesWorld.SetCarrierProfile(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())), skillMask,
-                             static_cast<uint8_t>(heightCm));
+  pesWorld.SetCarrierProfile(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())), skillMask);
+  for (const std::vector<Player*>* squad : {&ownActive, &oppActive})
+    for (Player* p : *squad) WriteSlotAbilities(pesWorld, match->PesSlotOf(p), *p);
   // The dribble-proposal chain of the unit driver 0x142110D30, in PES's order after the danger builder and the plan word above:
   // the turn-reference builder 0x14211D710 (BP+0x3380, the angle the kind-4 tail measures the facing against), the step object
   // 0x14211ED10 and the proposal writer 0x1421102D0 (BP+0x4204), all translated and equal to PES on seven forward-emulated states
   // (pes_dribble_oracle_test TheProposalChain...). The kind objects evolve across steps on the window like PES's.
-  // ponytail: the slot records' stat bytes the manager's candidate scores read (+0x31, +0x2C, +0x27 of 0x140A489F0's record) are
-  // written only for the carrier (SetCarrierProfile: +0xA1); the other slots read zero until the player-record writer is ported.
+  // The slot records' ability bytes the manager's candidate scores read are written for every slot above (WriteSlotAbilities).
   pesWorld.RunDribbleProposal(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
   std::vector<pes::PesWorld::WalkEntry> entries;
   for (const pes::UnitSlot& slot : table) entries.push_back({static_cast<uint32_t>(slot.kind), pes::EncodeAnswerRecord(slot.answer)});

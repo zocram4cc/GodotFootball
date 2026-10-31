@@ -178,6 +178,21 @@ inline constexpr std::size_t kManRecordBytes = kSlotRecordOffset - kManRecordOff
 // no GF writer yet), and +0x12A4 (FUN_140A58320: a state byte, clamped to 0..4).
 inline constexpr std::size_t kSlotByteA1Offset = 0xA1;      // u8
 inline constexpr std::size_t kSlotByteA4Offset = 0xA4;      // u8
+// The slot record's ability block: `0x14124DAD0(record)` is `record + 0x70`, the base of the bytes the stat rebuild 0x14092AF10
+// writes (one byte per stat id, 0x3C ids) and the carrier manager's candidate scores 0x14211CBD0 read through it: the Speed byte
+// 0x27 (the (S - 40) term), the aerial byte 0x2C (labelled Jump, INF high: docs/re/pes-re-matchlogic.md 1.3) and the height byte
+// 0x31 (cm). The record of slot k is `G + (k + 0xF3) * 0x28` (0x140A489F0), the window's `Block(k) + kSlotRecordOffset`.
+inline constexpr std::size_t kSlotAbilityOffset = 0x70;
+inline constexpr uint32_t kAbilitySpeedId = 0x27;
+inline constexpr uint32_t kAbilityJumpId = 0x2C;
+inline constexpr uint32_t kAbilityHeightId = 0x31;
+// GF stores PES's 40..99 ability bytes as 0.40..0.99 (pesstamina.cpp MoveTopRate), so a GF stat is its byte over 100.
+inline constexpr float kAbilityBytesPerStat = 100.0f;
+// The five per-id multiplier cells of the player object (P+0xC798 A1, +0xC888 A2 the condition arrow, +0xC978 A3 the position
+// familiarity, +0xCA68 A4 the super-sub pair, +0xCB58 A5 the fatigue factor), the ones 0x14092AF10 multiplies a base byte by.
+struct AbilityCells {
+  float a1 = 1.0f, a2 = 1.0f, a3 = 1.0f, a4 = 1.0f, a5 = 1.0f;
+};
 inline constexpr std::size_t kSlotStateOffset = 0x12A4;     // u8
 inline constexpr std::size_t kSlotAnchorXOffset = 0x1414;   // f32, AI target point x
 inline constexpr std::size_t kSlotCounterAOffset = 0x1430;  // s32 counter A
@@ -579,8 +594,16 @@ class PesWorld {
   // every unlisted record is zeroed: type 0 answers nothing).
   void SetUnitList(int side, const std::vector<WalkEntry>& list);
   // The walk's reads of the carrier's profile: the skill mask in the team-info record (the side id and the slot-in-team map are
-  // identities of the window), the designated taker in the side record, and the carrier's height stat byte 0x31 (cm).
-  void SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, uint8_t heightStatCm);
+  // identities of the window) and the designated taker in the side record.
+  void SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask);
+  // The store step of the stat rebuild 0x14092AF10 for one id of one slot (0x14092B849-0x14092B904): the live byte is
+  // `(u8)trunc(base * (A2 * A1 * A3 * A4 * A5))`, written (when it differs from the block's byte) through the install's clamp
+  // bounds 0x1408CAF60 (above the bound the bound, below it the lower, else itself). `base` is the roster row's byte (the player's
+  // own ability; the row starts the block, `0x14092AF10` rewrites only the ids whose cells changed).
+  // ponytail: the breath penalty of ids 0x1A/0x1B/0x1C/0x2A (0x14092B8A8) is not applied (no GF caller reads those four), and the
+  // writer of the roster row and its copy into the AI record is unlocated (pes-re-publisher-link.md 2): the block's byte starts as
+  // `base`, which is where 0x14092AF10's first call finds it.
+  void StoreLiveAbility(int slot, uint32_t id, uint8_t base, const AbilityCells& cells = {});
   // The unit updater's two record writers, in the driver's order (0x142110C90): the unit info BP+0x1C by 0x14063C9F0(unit info,
   // ctx, slot) and the state BP+0x78 by 0x14063A490(state, ctx, unit info), both on the window's own records (side, man, anime,
   // slot, MA, MI, ball, events). The state keeps counters across calls (tick count, owned ticks), so the block must persist. The
