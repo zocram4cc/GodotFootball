@@ -1,7 +1,7 @@
-// The order PES resolves a file in: sider's Lua modules (livecpk_make_key /
-// livecpk_get_filepath, in sider.ini module order), then sider's cpk.root
-// folders (first listed wins), then the game's own cpks. Synthetic installs
-// pin the rule; the install tests at the bottom check it against the owner's
+// The order PES resolves a file in. The default mount is stock PES: the game's own cpks, Data/ then
+// download/. With VfsOptions::sider, sider's layers answer first: its Lua modules (livecpk_make_key /
+// livecpk_get_filepath, in sider.ini module order), then its cpk.root folders (first listed wins).
+// Synthetic installs pin the rules; the install tests at the bottom check them against the owner's
 // files and the live process (docs/ports/pes-port-VfsOrder.md).
 #include <gtest/gtest.h>
 
@@ -97,7 +97,7 @@ TEST(VfsOrder, LoaderModBeatsLiveRoots) {
   in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
   pes::PesVfs vfs;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.sider = true, .gameplayMod = "modA"})) << err;
   EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "MODA");
 }
 
@@ -111,13 +111,13 @@ TEST(VfsOrder, NoModFallsThroughToFirstListedRoot) {
   in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
   pes::PesVfs vfs;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.sider = true})) << err;
   EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
 }
 
-// The default mount is stock PES: no gameplay mod answers unless one is named, so
-// config.ini's favorite is not the selection and the first listed root wins.
-TEST(VfsOrder, DefaultMountIgnoresTheBootFavorite) {
+// With sider on and no mod named, the loader answers nothing: config.ini's favorite is not the selection,
+// and the first listed root wins.
+TEST(VfsOrder, SiderWithoutAModIgnoresTheBootFavorite) {
   SyntheticInstall in("defaultnomod");
   in.Sider(kTwoRoots, "lua.module = \"GameplayLoader.lua\"\n");
   in.LoaderState("modA");
@@ -125,7 +125,7 @@ TEST(VfsOrder, DefaultMountIgnoresTheBootFavorite) {
   in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
   pes::PesVfs vfs;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.sider = true})) << err;
   EXPECT_EQ(vfs.GameplayMod(), "No Mod");
   EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
 }
@@ -141,7 +141,7 @@ TEST(VfsOrder, LoaderServesOnlyWhatIsGameplayFileAccepts) {
   in.Put("content/gameplay-loader/modA/common/render/thumbnail/y.dds", "NOT_GAMEPLAY");
   pes::PesVfs vfs;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.sider = true, .gameplayMod = "modA"})) << err;
   EXPECT_EQ(ReadStr(vfs, "common/match/constant/constant_positionCK.bin"), "CK");
   EXPECT_EQ(ReadStr(vfs, "common/anime/FoxAnim/Body/x.mtar"), "ANIME");
   EXPECT_FALSE(vfs.Exists("common/render/thumbnail/y.dds"));
@@ -159,7 +159,7 @@ TEST(VfsOrder, ModulesAnswerInSiderIniOrder) {
     in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
     pes::PesVfs vfs;
     std::string err;
-    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
+    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.sider = true, .gameplayMod = "modA"})) << err;
     EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), netblockFirst ? "NETBLOCK" : "MODA");
   }
 }
@@ -174,7 +174,7 @@ TEST(VfsOrder, DisabledModulesAnswerNothing) {
     in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
     pes::PesVfs vfs;
     std::string err;
-    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
+    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.sider = true, .gameplayMod = "modA"})) << err;
     EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
   }
   {
@@ -185,7 +185,7 @@ TEST(VfsOrder, DisabledModulesAnswerNothing) {
     in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
     pes::PesVfs vfs;
     std::string err;
-    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
+    ASSERT_TRUE(vfs.Mount(in.Root(), &err, {.sider = true, .gameplayMod = "modA"})) << err;
     EXPECT_EQ(ReadStr(vfs, CONSTANT_PLAYER), "ROOT_A");
   }
 }
@@ -201,7 +201,7 @@ TEST(VfsOrder, ExplicitGameplayModSelectsThatMod) {
   in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
   in.Put("content/gameplay-loader/modB/common/match/constant/constant_player.bin", "MODB");
   const auto mount = [&](const std::string& mod, pes::PesVfs& vfs, std::string* err) {
-    return vfs.Mount(in.Root(), err, {.gameplayMod = mod});
+    return vfs.Mount(in.Root(), err, {.sider = true, .gameplayMod = mod});
   };
   std::string err;
   pes::PesVfs b, none, unknown;
@@ -224,9 +224,9 @@ TEST(VfsOrder, ExplicitModIsReadFromTheLoadersList) {
   in.Put("content/gameplay-loader/modB/common/match/constant/constant_player.bin", "MODB");
   pes::PesVfs listed, commented;
   std::string err;
-  ASSERT_TRUE(listed.Mount(in.Root(), &err, {.gameplayMod = "modA"})) << err;
+  ASSERT_TRUE(listed.Mount(in.Root(), &err, {.sider = true, .gameplayMod = "modA"})) << err;
   EXPECT_EQ(ReadStr(listed, CONSTANT_PLAYER), "MODA");
-  EXPECT_FALSE(commented.Mount(in.Root(), &err, {.gameplayMod = "modB"}));
+  EXPECT_FALSE(commented.Mount(in.Root(), &err, {.sider = true, .gameplayMod = "modB"}));
   EXPECT_NE(err.find("modB"), std::string::npos);
 }
 
@@ -320,7 +320,7 @@ TEST(VfsOrderInstall, GameplayFilesAreTheSelectedModsBytes) {
   for (const std::string& mod : loader->mods) {
     pes::PesVfs vfs;
     std::string err;
-    ASSERT_TRUE(vfs.Mount(root, &err, {.gameplayMod = mod})) << err;
+    ASSERT_TRUE(vfs.Mount(root, &err, {.sider = true, .gameplayMod = mod})) << err;
     for (const char* file : kConstantFiles) {
       const auto disk = Slurp(loader->base / mod / file);
       if (!disk) continue;
@@ -341,7 +341,7 @@ TEST(VfsOrderInstall, NoModServesACpkVariant) {
   if (!loader || loader->mods.empty()) GTEST_SKIP() << "no GameplayLoader in this install";
   pes::PesVfs none;
   std::string err;
-  ASSERT_TRUE(none.Mount(root, &err, {.gameplayMod = "No Mod"})) << err;
+  ASSERT_TRUE(none.Mount(root, &err)) << err;
   EXPECT_EQ(none.GameplayMod(), "No Mod");
   std::vector<std::string> variants;
   for (const char* sub : {"Data", "download"}) {
@@ -368,7 +368,7 @@ TEST(VfsOrderInstall, DefaultMountIsNoMod) {
   pes::PesVfs def, none;
   std::string err;
   ASSERT_TRUE(def.Mount(root, &err)) << err;
-  ASSERT_TRUE(none.Mount(root, &err, {.gameplayMod = "No Mod"})) << err;
+  ASSERT_TRUE(none.Mount(root, &err, {.sider = true, .gameplayMod = "No Mod"})) << err;
   EXPECT_EQ(def.GameplayMod(), "No Mod");
   for (const char* file : kConstantFiles) EXPECT_EQ(ReadStr(def, file), ReadStr(none, file)) << file;
 }
@@ -394,7 +394,7 @@ TEST(VfsOrderInstall, LiveSelectedModsTrapIsTheStockTrap) {
     if (pes::PesVfs::Fold(e.path) == kConstantFiles[1] || e.path == kConstantFiles[1]) stock = cpk.Read(e, &err);
   ASSERT_TRUE(stock) << err;
   pes::PesVfs vfs;
-  ASSERT_TRUE(vfs.Mount(root, &err, {.gameplayMod = "sixteen"})) << err;
+  ASSERT_TRUE(vfs.Mount(root, &err, {.sider = true, .gameplayMod = "sixteen"})) << err;
   const auto mounted = vfs.Read(kConstantFiles[1], &err);
   ASSERT_TRUE(mounted) << err;
   const auto a = pes::ParseUniformTable(*mounted, &err), b = pes::ParseUniformTable(*stock, &err);
@@ -412,7 +412,7 @@ TEST(VfsOrderInstall, DownloadCpkOverridesDataCpk) {
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   pes::PesVfs vfs;
   std::string err;
-  ASSERT_TRUE(vfs.Mount(root, &err, {.gameplayMod = "No Mod"})) << err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
   const fs::path data = fs::path(root) / "Data", dl = fs::path(root) / "download";
   if (!fs::is_directory(dl)) GTEST_SKIP() << "no download/ folder";
   // Data side: first Data cpk's file sizes, keyed by folded path, for the three Data cpks that carry the demo files.
@@ -485,4 +485,16 @@ TEST(VfsOrderInstall, DefaultMountServesTheBallFromTheCpks) {
   const auto& layer = download.empty() ? data : download;
   ASSERT_FALSE(layer.empty()) << "no Data/ or download/ cpk holds the ball";
   EXPECT_NE(std::find(layer.begin(), layer.end(), served), layer.end()) << "the ball is not a cpk copy";
+}
+
+// The sider option still serves what sider serves: a tool that opts in sees the sider ball.
+TEST(VfsOrderInstall, SiderOptInServesTheSiderBall) {
+  const char* root = InstallRoot();
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  const auto siderBall = Slurp(fs::path(root) / "livecpk" / "ball-root" / BALL);
+  if (!siderBall) GTEST_SKIP() << "no sider ball root in this install";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err, {.sider = true})) << err;
+  EXPECT_EQ(ReadStr(vfs, BALL), *siderBall);
 }

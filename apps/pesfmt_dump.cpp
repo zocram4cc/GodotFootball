@@ -55,7 +55,7 @@ std::string Q4(pes::Quat q) {
 }
 
 int Usage() {
-  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|rig|motions [NO ...]> --pes21-root DIR [--gameplay-mod NAME]\n");
+  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|rig|motions [NO ...]> --pes21-root DIR [--sider] [--gameplay-mod NAME]\n");
   return 2;
 }
 
@@ -64,12 +64,14 @@ int Usage() {
 int main(int argc, char** argv) {
   std::vector<std::string> pos;
   std::string root;
-  std::optional<std::string> gameplayMod;  // GameplayLoader's mod; unset = "No Mod" (stock PES)
+  bool sider = false;  // --sider: sider's live layer (cpk.root folders, Lua modules); off = stock PES
+  std::optional<std::string> gameplayMod;  // GameplayLoader's mod (needs --sider); unset = "No Mod"
   if (const char* env = std::getenv("PES21_ROOT")) root = env;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     if (a == "--pes21-root" && i + 1 < argc) root = argv[++i];
     else if (a == "--gameplay-mod" && i + 1 < argc) gameplayMod = argv[++i];
+    else if (a == "--sider") sider = true;
     else pos.push_back(a);
   }
   if (pos.empty() || root.empty()) return Usage();
@@ -77,7 +79,7 @@ int main(int argc, char** argv) {
 
   pes::PesVfs vfs;
   std::string err;
-  if (!vfs.Mount(root, &err, {.gameplayMod = gameplayMod})) {
+  if (!vfs.Mount(root, &err, {.sider = sider, .gameplayMod = gameplayMod})) {
     std::fprintf(stderr, "mount failed: %s\n", err.c_str());
     return 1;
   }

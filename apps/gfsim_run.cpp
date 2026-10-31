@@ -47,7 +47,7 @@ constexpr int EXIT_USAGE = 2;
 int Usage(const char* why) {
   std::fprintf(stderr, "%s\nusage: gfsim_run --db-sql FILE --home ID --away ID --pes21-root DIR "
                        "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]... [--pes-loop] [--parity-log] "
-                       "[--gameplay-mod NAME]\n", why);
+                       "[--sider] [--gameplay-mod NAME]\n", why);
   return EXIT_USAGE;
 }
 
@@ -189,7 +189,8 @@ class ParityLog {
 
 int main(int argc, char** argv) {
   std::string dbSql, root, anims = DEFAULT_ANIMS;
-  std::optional<std::string> gameplayMod;  // GameplayLoader's mod; unset = "No Mod" (stock PES)
+  bool sider = false;  // --sider: sider's live layer (cpk.root folders, Lua modules); off = stock PES
+  std::optional<std::string> gameplayMod;  // GameplayLoader's mod (needs --sider); unset = "No Mod"
   if (const char* env = std::getenv("PES21_ROOT")) root = env;
   int home = 0, away = 0, minutes = DEFAULT_MINUTES;
   unsigned int seed = DEFAULT_SEED;
@@ -204,6 +205,10 @@ int main(int argc, char** argv) {
     }
     if (a == "--parity-log") {
       parityLog = true;
+      continue;
+    }
+    if (a == "--sider") {  // sider's live layer: a flag, no value
+      sider = true;
       continue;
     }
     if (i + 1 >= argc) return Usage(("missing value for " + a).c_str());
@@ -230,7 +235,7 @@ int main(int argc, char** argv) {
 
   std::string err;
   pes::PesVfs vfs;
-  if (!vfs.Mount(root, &err, {.gameplayMod = gameplayMod})) return std::fprintf(stderr, "PES21 mount failed: %s\n", err.c_str()), 1;
+  if (!vfs.Mount(root, &err, {.sider = sider, .gameplayMod = gameplayMod})) return std::fprintf(stderr, "PES21 mount failed: %s\n", err.c_str()), 1;
   auto rig = pesrig::BuildRig(vfs, &err);
   if (!rig) return std::fprintf(stderr, "PES21 rig failed: %s\n", err.c_str()), 1;
   // PES 2021's match-clock constants, read from the install's own exe

@@ -11,17 +11,17 @@
 
 namespace pes {
 
-// The PES 2021 file system as the game sees it, in the order sider resolves a
-// path (docs/ports/pes-port-VfsOrder.md): the Lua modules of sider.ini that answer
-// livecpk events (first listed module that has the file wins), then sider's
-// cpk.root folders (first listed wins), then the game's own cpks: Data/ cpks,
-// then download/ cpks in DpFileList.bin order, the later cpk winning on equal
-// paths. Paths are case-insensitive, '/'-separated, no leading '/'.
+// The PES 2021 file system as the game sees it: the game's own cpks, Data/ then download/ (the later cpk
+// winning on equal paths, so download/ beats Data/ as PES does). With VfsOptions::sider, sider's live layer
+// answers first: the Lua modules of sider.ini (first listed module that has the file wins), then its cpk.root
+// folders (first listed wins). Paths are case-insensitive, '/'-separated, no leading '/'.
 struct VfsOptions {
-  // The gameplay mod GameplayLoader.lua answers for. PES re-rolls its choice at every
-  // match when is_random_gameplay_mod_enabled is set (os.clock seeded), so GF takes it
-  // as an input. Unset = "No Mod", stock PES: the loader answers nothing and the game's
-  // own cpks decide (download/ over Data/).
+  // sider's live layer. Off by default: GF resolves files as stock PES does (owner ruling 30-10-26). Tools that
+  // must see what sider serves opt in.
+  bool sider = false;
+  // The gameplay mod GameplayLoader.lua answers for: a sider selection, so it needs sider. PES re-rolls its
+  // choice at every match when is_random_gameplay_mod_enabled is set (os.clock seeded), so GF takes it as an
+  // input. Unset = "No Mod": the loader answers nothing and the game's own cpks decide.
   std::optional<std::string> gameplayMod;
 };
 

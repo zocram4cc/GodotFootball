@@ -234,6 +234,10 @@ bool PesVfs::MountModules(const std::vector<std::string>& modules, const VfsOpti
 
 bool PesVfs::Mount(const std::string& root, std::string* error, const VfsOptions& options) {
   root_ = root;
+  if (options.gameplayMod && !options.sider) {
+    *error = "gameplayMod needs VfsOptions::sider: GameplayLoader.lua is a sider module";
+    return false;
+  }
   const fs::path rootPath(root);
   if (!fs::is_directory(rootPath / "Data")) {
     *error = "no Data/ folder under the PES21 root";
@@ -271,39 +275,44 @@ bool PesVfs::Mount(const std::string& root, std::string* error, const VfsOptions
     report_ += "download  no DpFileList.bin, skipped\n";
   }
 
-  // 3. sider: livecpk.enabled gates everything below (it installs the hooks);
-  // Lua modules also need lua.enabled. Later settings override earlier ones.
-  std::vector<std::string> roots, modules;
-  bool livecpk = false, lua = false;
-  if (auto ini = Slurp(rootPath / "sider.ini")) {
-    for (std::string line : Lines(*ini)) {
-      line = Trim(line.substr(0, line.find(';')));
-      const auto eq = line.find('=');
-      if (eq == std::string::npos) continue;
-      const std::string key = Trim(line.substr(0, eq));
-      std::string value = Trim(line.substr(eq + 1));
-      if (key == "livecpk.enabled") livecpk = value == "1";
-      if (key == "lua.enabled") lua = value == "1";
-      if (key != "cpk.root" && key != "lua.module") continue;
-      value.erase(std::remove(value.begin(), value.end(), '"'), value.end());
-      (key == "cpk.root" ? roots : modules).push_back(value);
-    }
-  }
-  if (livecpk) {
-    // sider's cpk.root folders: the first listed root that has the file wins, so mount in reverse.
-    for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
-      std::string r = *it;
-      if (std::regex_search(r, WINDOWS_ABSOLUTE)) {
-        report_ += "sider root is an absolute Windows path, skipped\n";
-        continue;
+  // 3. sider's live layer, opt-in (VfsOptions::sider). Without it GF resolves the game's own cpks alone, as stock PES does.
+  if (!options.sider) {
+    report_ += "sider  not mounted: stock PES (VfsOptions::sider opts in)\n";
+  } else {
+    // livecpk.enabled gates everything below (it installs the hooks); Lua modules also need lua.enabled.
+    // Later settings override earlier ones.
+    std::vector<std::string> roots, modules;
+    bool livecpk = false, lua = false;
+    if (auto ini = Slurp(rootPath / "sider.ini")) {
+      for (std::string line : Lines(*ini)) {
+        line = Trim(line.substr(0, line.find(';')));
+        const auto eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        const std::string key = Trim(line.substr(0, eq));
+        std::string value = Trim(line.substr(eq + 1));
+        if (key == "livecpk.enabled") livecpk = value == "1";
+        if (key == "lua.enabled") lua = value == "1";
+        if (key != "cpk.root" && key != "lua.module") continue;
+        value.erase(std::remove(value.begin(), value.end(), '"'), value.end());
+        (key == "cpk.root" ? roots : modules).push_back(value);
       }
-      std::replace(r.begin(), r.end(), '\\', '/');
-      const fs::path dir = (rootPath / r).lexically_normal();
-      if (fs::is_directory(dir)) MountLooseRoot(dir.string());
-      else report_ += "sider root " + r + "  absent\n";
     }
-    // The Lua modules are asked before the roots (sider have_content, then have_live_file).
-    if (lua && !MountModules(modules, options, error)) return false;
+    if (livecpk) {
+      // sider's cpk.root folders: the first listed root that has the file wins, so mount in reverse.
+      for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
+        std::string r = *it;
+        if (std::regex_search(r, WINDOWS_ABSOLUTE)) {
+          report_ += "sider root is an absolute Windows path, skipped\n";
+          continue;
+        }
+        std::replace(r.begin(), r.end(), '\\', '/');
+        const fs::path dir = (rootPath / r).lexically_normal();
+        if (fs::is_directory(dir)) MountLooseRoot(dir.string());
+        else report_ += "sider root " + r + "  absent\n";
+      }
+      // The Lua modules are asked before the roots (sider have_content, then have_live_file).
+      if (lua && !MountModules(modules, options, error)) return false;
+    }
   }
   report_ += "total " + std::to_string(index_.size()) + " unique paths\n";
   return true;
