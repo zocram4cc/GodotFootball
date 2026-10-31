@@ -1293437,6 +1293437,12 @@
      "0x140472640"
     ]
    },
+   "proccam": {
+    "members": 1,
+    "roots": [
+     "0x141F7BFE0"
+    ]
+   },
    "trapchain": {
     "members": 170,
     "roots": [
