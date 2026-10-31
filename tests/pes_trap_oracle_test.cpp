@@ -1249,10 +1249,12 @@ TEST_F(TrapTickOracle, ListWhatTheOverlaySupplies) {
 // EyesTarget table and the Animetable buffer) equals what GF's loader built from the install: the loader is the input the window
 // cannot overlay (it holds no copy of the capture's heap), so a record GF built differently changes the solver's output unseen.
 // A read byte that lies in none of these structures, nor in the window's objects, is reported as unexplained.
-// KNOWN RED (30-10-26, a VFS-resolution slice owns it): on the 12 captures that read constant::Trap +0x8 the capture holds 0x0a and
-// GF's VFS winner gives 0x07. The live PES (pid951851, read through the registry 0x1437F4808 -> entry[0x3E] -> +8) holds the STOCK
-// Data/dt18_all.cpk trap.o in all 120 loader fields (0 differ from stock, 31 from the 4cc_06_gameplay.cpk copy) although 4cc_06 is
-// open in the process: PES does not resolve trap.o to the mod. The fix is the general VFS rule PES uses, not a per-file exception.
+// KNOWN RED (31-10-26, settled): the 14 oracle dirs are captures of launches that predate the "No Mod" pin (30-10-26 14:35); sider's
+// GameplayLoader.lua had selected a gameplay mod for their match, and its constant_player.bin carries a different trap.o (+0x8 = 0x0a;
+// the VFS rule that mounts the loader's answer landed with VfsOrder, and a default mount is "No Mod"). Captures of the pinned launch
+// (live2/pid3061186 seq2016, seq2028, seq2035; live2/pid3439759 seq3244) hold +0x8 = 0x07 = what GF's default mount reads: stock, not a
+// GF defect. The oracle is re-taken from FULL No-Mod trap_action_tick captures (a slim capture lacks the actor-fact pages
+// trap_oracle.py reads); the first full one (seq3244) also shows the loader lacks Mbinfo kind 4 (motion 0xda9 count +0x4: PES 1, GF 0).
 TEST_F(TrapTickOracle, LoaderDataTheTickReadsEqualsTheCapture) {
   constexpr uint64_t kMotionTableGlobal = 0x1436F23C0ULL, kAnimeGlobal = 0x1436F2378ULL, kEyesGlobal = 0x1436F2648ULL;
   for (const std::string& dir : dirs_) {
