@@ -8,6 +8,8 @@ The harness maps the image flat, so a live read passes every diff. The generator
   C  parameter-indexed byte read (no guard)
 Undeclared, A and C are findings. Declared in ro_tables.json (here: the window list), they are baked and the compiled
 function, run with NO image view, answers from the table.
+  D  a read of a word in a stable `.impdata` page (rwx, the protector's section): a constant in every capture, baked like
+     read-only data (xlate.Image.writable). Unbaked it is a live read, which is 0 at GF runtime.
 
 usage: test_image_reads.py   (harness Python: capstone; g++ on PATH)
 """
@@ -26,7 +28,9 @@ import xlate  # noqa: E402
 BASE = pdata.IMAGE_BASE
 TAB_RVA = 0x1700
 TAB = BASE + TAB_RVA
-FA_RVA, FB_RVA, FC_RVA = 0x1600, 0x1640, 0x1680
+FA_RVA, FB_RVA, FC_RVA, FD_RVA = 0x1600, 0x1640, 0x1680, 0x16C0
+IMP_RVA = 0x1A000  # the synthetic `.impdata` page (not one of full_snapshot.IMPDATA_VOLATILE_RVA)
+IMP_WORD = 0xA1B2C3D4
 RT = os.path.join(HERE, "..", "..", "..", "src", "pes", "translated")
 
 
@@ -41,7 +45,8 @@ FA = (lea_rcx(FA_RVA) + bytes.fromhex("31c0")                                # l
 FB = lea_rcx(FB_RVA) + bytes.fromhex("8b4104") + bytes.fromhex("c3")         # lea rcx,[table]; mov eax,[rcx+4]; ret
 FC = lea_rcx(FC_RVA) + bytes.fromhex("0fb60411") + bytes.fromhex("c3")       # lea rcx,[table]; movzx eax,[rcx+rdx]; ret
 TABLE = bytes([3, 4, 5, 0, 0x11, 0x22, 0x33, 0x44])
-FUNCS = ((FA_RVA, FA), (FB_RVA, FB), (FC_RVA, FC))
+FD = bytes.fromhex("8b05") + struct.pack("<i", IMP_RVA + 8 - (FD_RVA + 6)) + bytes.fromhex("c3")  # mov eax,[.impdata word]; ret
+FUNCS = ((FA_RVA, FA), (FB_RVA, FB), (FC_RVA, FC), (FD_RVA, FD))
 MAIN = r"""
 #include "pes_state.hpp"
 #include <cstdio>
@@ -60,7 +65,7 @@ def image(path):
     img = bytearray(0x20000)
     struct.pack_into("<I", img, 0x3C, 0x80)
     img[0x80:0x84] = b"PE\0\0"
-    struct.pack_into("<HHIIIHH", img, 0x84, 0x8664, 1, 0, 0, 0, 240, 0)  # one section
+    struct.pack_into("<HHIIIHH", img, 0x84, 0x8664, 2, 0, 0, 0, 240, 0)  # two sections
     struct.pack_into("<Q", img, 0x80 + 24 + 24, BASE)
     struct.pack_into("<II", img, 0x98 + 112 + 24, 0x400, 12 * len(FUNCS))
     for i, (rva, code) in enumerate(FUNCS):
@@ -70,6 +75,9 @@ def image(path):
     # .text: read-only code and data (flags: no 0x80000000 write bit)
     img[0x188:0x188 + 40] = b".text\0\0\0" + struct.pack("<IIIIIIHHI", 0x2000, 0x1000, 0x2000, 0x1000, 0, 0, 0, 0, 0x60000020)
     img[TAB_RVA:TAB_RVA + len(TABLE)] = TABLE
+    # .impdata: rwx (write bit set), a stable page: the baked constants of the protector's xor-masked reads
+    img[0x1B0:0x1B0 + 40] = b".impdata" + struct.pack("<IIIIIIHHI", 0x1000, IMP_RVA, 0x1000, IMP_RVA, 0, 0, 0, 0, 0xE0000020)
+    struct.pack_into("<I", img, IMP_RVA + 8, IMP_WORD)
     open(path, "wb").write(img)
 
 
@@ -140,6 +148,11 @@ class ImageReads(unittest.TestCase):
         va, src = self.translate(FC_RVA, bound)
         self.assertEqual(xlate.LIVE_RO[va], set())
         self.assertIn("s.rd(", "\n".join(src))
+
+    def test_a_stable_impdata_word_is_baked_into_the_function(self):
+        # the protector's rwx section outside the volatile pages: baked, so the function answers with NO image view
+        self.assertEqual(self.findings(FD_RVA), [])
+        self.assertEqual(self.run_fn(FD_RVA, 0), "%x" % IMP_WORD)
 
 
 if __name__ == "__main__":

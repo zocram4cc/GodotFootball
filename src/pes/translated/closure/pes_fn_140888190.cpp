@@ -12,28 +12,28 @@
 static constexpr unsigned __int128 k_c142565D30 = ((unsigned __int128)0x7FFFFFFFFFFFFFFFULL << 64) | 0x7FFFFFFFFFFFFFFFULL;
 // image constant @ 0x142598580 (4 bytes)
 static constexpr uint32_t k_c142598580_w = 0x43340000U;
-static constexpr float k_c142598580_f = 180.0f; // 180.0
+static constexpr float k_c142598580_f = 180.0f; // 180.0;
 // image constant @ 0x14259858C (4 bytes)
 static constexpr uint32_t k_c14259858C_w = 0x43B40000U;
-static constexpr float k_c14259858C_f = 360.0f; // 360.0
+static constexpr float k_c14259858C_f = 360.0f; // 360.0;
 // image constant @ 0x142598598 (4 bytes)
 static constexpr uint32_t k_c142598598_w = 0xC3B40000U;
-static constexpr float k_c142598598_f = -360.0f; // -360.0
+static constexpr float k_c142598598_f = -360.0f; // -360.0;
 // image constant @ 0x14259BE40 (4 bytes)
 static constexpr uint32_t k_c14259BE40_w = 0x42652EE0U;
-static constexpr float k_c14259BE40_f = 57.2957763671875f; // 57.2957763671875
+static constexpr float k_c14259BE40_f = 57.2957763671875f; // 57.2957763671875;
 // image constant @ 0x1425EF874 (4 bytes)
 static constexpr uint32_t k_c1425EF874_w = 0x42526666U;
-static constexpr float k_c1425EF874_f = 52.599998474121094f; // 52.599998474121094
+static constexpr float k_c1425EF874_f = 52.599998474121094f; // 52.599998474121094;
 // image constant @ 0x14260AACC (4 bytes)
 static constexpr uint32_t k_c14260AACC_w = 0x42086666U;
-static constexpr float k_c14260AACC_f = 34.099998474121094f; // 34.099998474121094
+static constexpr float k_c14260AACC_f = 34.099998474121094f; // 34.099998474121094;
 // image constant @ 0x14260AAE8 (4 bytes)
 static constexpr uint32_t k_c14260AAE8_w = 0xC2086666U;
-static constexpr float k_c14260AAE8_f = -34.099998474121094f; // -34.099998474121094
+static constexpr float k_c14260AAE8_f = -34.099998474121094f; // -34.099998474121094;
 // image constant @ 0x14260AAEC (4 bytes)
 static constexpr uint32_t k_c14260AAEC_w = 0xC2526666U;
-static constexpr float k_c14260AAEC_f = -52.599998474121094f; // -52.599998474121094
+static constexpr float k_c14260AAEC_f = -52.599998474121094f; // -52.599998474121094;
 
 void pes_fn_140888190(PesState& s);
 void pes_fn_140898B70(PesState& s);

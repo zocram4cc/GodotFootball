@@ -8,6 +8,12 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image constant @ 0x1540FE2F8 (4 bytes)
+static constexpr uint32_t k_c1540FE2F8_w = 0xC1490000U;
+static constexpr float k_c1540FE2F8_f = -12.5625f; // -12.5625;
+// image constant @ 0x1540FE2FC (4 bytes)
+static constexpr uint32_t k_c1540FE2FC_w = 0x314920E2U;
+static constexpr float k_c1540FE2FC_f = 2.926804132385996e-09f; // 2.926804132385996e-09;
 
 void pes_fn_143F24070(PesState& s);
 void pes_fn_140A48A30(PesState& s);
@@ -48,7 +54,7 @@ void pes_fn_143F24070(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("be")) goto L_143F240AD;
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(0x1540FE2F8ULL, 4));
+  s.gpr[0] = (uint64_t)(uint32_t)(k_c1540FE2F8_w);
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)((3242786826ULL))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;
@@ -82,7 +88,7 @@ void pes_fn_143F24070(PesState& s) {
   }
   goto L_143F240E3;
   L_143F240D5:;
-  s.gpr[2] = (uint64_t)(uint32_t)(s.rd(0x1540FE2FCULL, 4));
+  s.gpr[2] = (uint64_t)(uint32_t)(k_c1540FE2FC_w);
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) ^ (uint64_t)((827002542ULL))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;

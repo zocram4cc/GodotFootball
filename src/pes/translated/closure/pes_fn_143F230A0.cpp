@@ -10,9 +10,15 @@
 
 // image constant @ 0x1425656C0 (4 bytes)
 static constexpr uint32_t k_c1425656C0_w = 0x40800000U;
-static constexpr float k_c1425656C0_f = 4.0f; // 4.0
+static constexpr float k_c1425656C0_f = 4.0f; // 4.0;
 // image constant @ 0x142565D30 (16 bytes)
 static constexpr unsigned __int128 k_c142565D30 = ((unsigned __int128)0x7FFFFFFFFFFFFFFFULL << 64) | 0x7FFFFFFFFFFFFFFFULL;
+// image constant @ 0x1449BBCB0 (4 bytes)
+static constexpr uint32_t k_c1449BBCB0_w = 0x00000000U;
+static constexpr float k_c1449BBCB0_f = 0.0f; // 0.0;
+// image constant @ 0x1540FE2F4 (4 bytes)
+static constexpr uint32_t k_c1540FE2F4_w = 0x0000B99CU;
+static constexpr float k_c1540FE2F4_f = 6.658409783085801e-41f; // 6.658409783085801e-41;
 
 void pes_fn_143F230A0(PesState& s);
 void pes_fn_140A3BDC0(PesState& s);
@@ -35,7 +41,7 @@ void pes_fn_143F230A0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
   if (s.cond("z")) goto L_143F230C8;
-  s.gpr[3] = (uint64_t)(uint32_t)(s.rd(0x1540FE2F4ULL, 4));
+  s.gpr[3] = (uint64_t)(uint32_t)(k_c1540FE2F4_w);
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[3])) ^ (uint64_t)((47517ULL))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;
@@ -83,7 +89,7 @@ void pes_fn_143F230A0(PesState& s) {
   L_143F2310C:;
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A48A10(s); s.gpr[4] += 8; }
-  { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[3])) & (uint64_t)(s.rd(0x1449BBCB0ULL, 4))) & 0xFFFFFFFFULL;
+  { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[3])) & (uint64_t)(k_c1449BBCB0_w)) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;
     s.gpr[3] = (uint64_t)(uint32_t)(_r);

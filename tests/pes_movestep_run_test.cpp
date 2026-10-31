@@ -316,6 +316,8 @@ pes::RunConstants SyntheticRun() {
 
 // The interface tables, filled the way the exe fills them for the synthetic set: the class
 // ladder {-1, 0, 1, 2, 3, -1} of FUN_1406b8de0 and the band rates of FUN_1406b9e50.
+constexpr int32_t kSyntheticStyleBase = 0xe31;  // the synthetic style table's word i is this + i
+
 pes::RunTables SyntheticTables() {
   pes::RunTables t{};
   t.commandClass = {-1, 0, 1, 2, 3, -1, 0, 0};
@@ -327,7 +329,7 @@ pes::RunTables SyntheticTables() {
   for (int i = 0; i < 32; ++i) t.stopRow[i] = 0x576 + i;
   for (int i = 0; i < 32; ++i) t.gotoRow[i] = 0x551 + i;
   for (int i = 0; i < 32; ++i) t.turnStopRow[i] = 0x58e + i;
-  for (int i = 0; i < 64; ++i) t.styleGroup[i] = 0xe31 + i;
+  for (std::size_t i = 0; i < t.styleGroup.size(); ++i) t.styleGroup[i] = kSyntheticStyleBase + static_cast<int32_t>(i);
   return t;
 }
 
@@ -418,10 +420,10 @@ TEST(RunTablesInstall, LoadsTheInterfaceTablesWithTheirRelations) {
     EXPECT_GT(t->turnStopRow[i], 0) << "turn-stop row " << i;
   }
   for (int i = 0; i < 16; ++i) EXPECT_GT(t->styleGroup[i], 0) << "style member " << i;
-  // FUN_1406d2030's representative-motion table (DAT_1425ddcf0) is 16 styles x 4 members: the
-  // ladder returns styles 0..15, so a 16-word load leaves every style past 3 reading motion 0,
-  // and a SetMotion of motion 0 plays no clip.
-  for (int style = 0; style < 16; ++style)
+  // FUN_1406d2030's representative-motion table (DAT_1425ddcf0) is 17 styles x 4 members: the ladder returns styles
+  // 0..15 and the jostle loop's override (FUN_1406c0170) style 0x10, so a shorter load leaves the jostle style reading
+  // motion 0 (or past the table), and a SetMotion of motion 0 plays no clip.
+  for (int style = 0; style < pes::kRunStyleCount; ++style)
     for (int band = 0; band < 4; ++band)
       EXPECT_GT(t->styleGroup[style * 4 + band], 0) << "style " << style << " band " << band;
 }
@@ -2398,6 +2400,24 @@ TEST(RunLoopJostle, ExactlyOneHundredTwelvePointFiveDegreesIsStyleSeven) {
 
 TEST(RunLoopJostle, PastOneHundredTwelvePointFiveWithAShortPlayerIsStyleSixteen) {
   EXPECT_EQ(JostledStyle(113.0f, 1u), 0x10u);
+}
+
+// The style change plays the style's representative motion, style * 4 + band, and the jostle loop's style 0x10 is a row of
+// that table like any other (PES reads it unbounded; the port's table must hold it: a 16-row table made RunLoop index
+// word 64..67, past its end, and aborted the 2-minute pes-loop smoke at the first stalemate).
+TEST(RunLoopJostle, TheStyleSixteenMotionIsTheTablesRowSixteenAtTheBand) {
+  SyntheticHost h = JostleHost(157.5f);
+  h.runTables = SyntheticTables();
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kFacing, 157.5f);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  pes::probe::Reset();
+  pes::movestep::RunLoop(h, req);
+  ASSERT_EQ(req.U(pes::moveword::kStyle) & 0xffu, 0x10u);
+  const uint32_t band = req.U(pes::moveword::kCommandSpeedClass);  // the style change stores the band it indexed with
+  ASSERT_LT(band, 4u);
+  EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(kSyntheticStyleBase + 0x10 * 4) + band);
 }
 
 TEST(RunLoopJostle, PastOneHundredTwelvePointFiveWithAPlayerOfClassTwoIsStyleSeven) {

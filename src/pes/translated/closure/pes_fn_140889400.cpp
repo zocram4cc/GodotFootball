@@ -10,25 +10,25 @@
 
 // image constant @ 0x142588218 (4 bytes)
 static constexpr uint32_t k_c142588218_w = 0xBF800000U;
-static constexpr float k_c142588218_f = -1.0f; // -1.0
+static constexpr float k_c142588218_f = -1.0f; // -1.0;
 // image constant @ 0x14259BE28 (4 bytes)
 static constexpr uint32_t k_c14259BE28_w = 0x42000000U;
-static constexpr float k_c14259BE28_f = 32.0f; // 32.0
+static constexpr float k_c14259BE28_f = 32.0f; // 32.0;
 // image constant @ 0x14259BE30 (4 bytes)
 static constexpr uint32_t k_c14259BE30_w = 0x42340000U;
-static constexpr float k_c14259BE30_f = 45.0f; // 45.0
+static constexpr float k_c14259BE30_f = 45.0f; // 45.0;
 // image constant @ 0x1425C7674 (4 bytes)
 static constexpr uint32_t k_c1425C7674_w = 0xBF4CCCCDU;
-static constexpr float k_c1425C7674_f = -0.800000011920929f; // -0.800000011920929
+static constexpr float k_c1425C7674_f = -0.800000011920929f; // -0.800000011920929;
 // image constant @ 0x14260AABC (4 bytes)
 static constexpr uint32_t k_c14260AABC_w = 0x415F8D70U;
-static constexpr float k_c14260AABC_f = 13.972030639648438f; // 13.972030639648438
+static constexpr float k_c14260AABC_f = 13.972030639648438f; // 13.972030639648438;
 // image constant @ 0x14260AAC0 (4 bytes)
 static constexpr uint32_t k_c14260AAC0_w = 0x41835C28U;
-static constexpr float k_c14260AAC0_f = 16.419998168945312f; // 16.419998168945312
+static constexpr float k_c14260AAC0_f = 16.419998168945312f; // 16.419998168945312;
 // image constant @ 0x14260AADC (4 bytes)
 static constexpr uint32_t k_c14260AADC_w = 0x45500000U;
-static constexpr float k_c14260AADC_f = 3328.0f; // 3328.0
+static constexpr float k_c14260AADC_f = 3328.0f; // 3328.0;
 // image window @ 0x140889614 (44 bytes, read-only)
 static constexpr uint8_t k_t140889614_2C[44] = {0x39, 0x94, 0x88, 0x00, 0x8D, 0x94, 0x88, 0x00, 0xE1, 0x94, 0x88, 0x00, 0x25, 0x95, 0x88, 0x00, 0x40, 0x95, 0x88, 0x00, 0x78, 0x95, 0x88, 0x00, 0x95, 0x95, 0x88, 0x00, 0x85, 0x95, 0x88, 0x00, 0xA5, 0x95, 0x88, 0x00, 0xDB, 0x95, 0x88, 0x00, 0xEB, 0x95, 0x88, 0x00};
 

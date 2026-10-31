@@ -10,50 +10,50 @@
 
 // image constant @ 0x142565600 (4 bytes)
 static constexpr uint32_t k_c142565600_w = 0x3F000000U;
-static constexpr float k_c142565600_f = 0.5f; // 0.5
+static constexpr float k_c142565600_f = 0.5f; // 0.5;
 // image constant @ 0x142565604 (4 bytes)
 static constexpr uint32_t k_c142565604_w = 0x40000000U;
-static constexpr float k_c142565604_f = 2.0f; // 2.0
+static constexpr float k_c142565604_f = 2.0f; // 2.0;
 // image constant @ 0x142565D30 (8 bytes)
 static constexpr uint64_t k_c142565D30_q = 0x7FFFFFFFFFFFFFFFULL;
 // image constant @ 0x142565D30 (16 bytes)
 static constexpr unsigned __int128 k_c142565D30 = ((unsigned __int128)0x7FFFFFFFFFFFFFFFULL << 64) | 0x7FFFFFFFFFFFFFFFULL;
 // image constant @ 0x14256AE1C (4 bytes)
 static constexpr uint32_t k_c14256AE1C_w = 0x3F800000U;
-static constexpr float k_c14256AE1C_f = 1.0f; // 1.0
+static constexpr float k_c14256AE1C_f = 1.0f; // 1.0;
 // image constant @ 0x14257A194 (4 bytes)
 static constexpr uint32_t k_c14257A194_w = 0x3F333333U;
-static constexpr float k_c14257A194_f = 0.699999988079071f; // 0.699999988079071
+static constexpr float k_c14257A194_f = 0.699999988079071f; // 0.699999988079071;
 // image constant @ 0x14259BDDC (4 bytes)
 static constexpr uint32_t k_c14259BDDC_w = 0x3FC00000U;
-static constexpr float k_c14259BDDC_f = 1.5f; // 1.5
+static constexpr float k_c14259BDDC_f = 1.5f; // 1.5;
 // image constant @ 0x14259BE10 (4 bytes)
 static constexpr uint32_t k_c14259BE10_w = 0x41800000U;
-static constexpr float k_c14259BE10_f = 16.0f; // 16.0
+static constexpr float k_c14259BE10_f = 16.0f; // 16.0;
 // image constant @ 0x14259BE30 (4 bytes)
 static constexpr uint32_t k_c14259BE30_w = 0x42340000U;
-static constexpr float k_c14259BE30_f = 45.0f; // 45.0
+static constexpr float k_c14259BE30_f = 45.0f; // 45.0;
 // image constant @ 0x14259D5D4 (4 bytes)
 static constexpr uint32_t k_c14259D5D4_w = 0x3F99999AU;
-static constexpr float k_c14259D5D4_f = 1.2000000476837158f; // 1.2000000476837158
+static constexpr float k_c14259D5D4_f = 1.2000000476837158f; // 1.2000000476837158;
 // image constant @ 0x1425AA1C8 (4 bytes)
 static constexpr uint32_t k_c1425AA1C8_w = 0xC2340000U;
-static constexpr float k_c1425AA1C8_f = -45.0f; // -45.0
+static constexpr float k_c1425AA1C8_f = -45.0f; // -45.0;
 // image constant @ 0x1425F1F14 (4 bytes)
 static constexpr uint32_t k_c1425F1F14_w = 0x409E0653U;
-static constexpr float k_c1425F1F14_f = 4.938271999359131f; // 4.938271999359131
+static constexpr float k_c1425F1F14_f = 4.938271999359131f; // 4.938271999359131;
 // image constant @ 0x1425F1F1C (4 bytes)
 static constexpr uint32_t k_c1425F1F1C_w = 0x419E0653U;
-static constexpr float k_c1425F1F1C_f = 19.753087997436523f; // 19.753087997436523
+static constexpr float k_c1425F1F1C_f = 19.753087997436523f; // 19.753087997436523;
 // image constant @ 0x1425F1F20 (4 bytes)
 static constexpr uint32_t k_c1425F1F20_w = 0x421561FBU;
-static constexpr float k_c1425F1F20_f = 37.34568405151367f; // 37.34568405151367
+static constexpr float k_c1425F1F20_f = 37.34568405151367f; // 37.34568405151367;
 // image constant @ 0x1425F1F28 (4 bytes)
 static constexpr uint32_t k_c1425F1F28_w = 0x429E0653U;
-static constexpr float k_c1425F1F28_f = 79.0123519897461f; // 79.0123519897461
+static constexpr float k_c1425F1F28_f = 79.0123519897461f; // 79.0123519897461;
 // image constant @ 0x1425F1F2C (4 bytes)
 static constexpr uint32_t k_c1425F1F2C_w = 0x42BD0B10U;
-static constexpr float k_c1425F1F2C_f = 94.5216064453125f; // 94.5216064453125
+static constexpr float k_c1425F1F2C_f = 94.5216064453125f; // 94.5216064453125;
 // image window @ 0x1408487A4 (56 bytes, read-only)
 static constexpr uint8_t k_t1408487A4_38[56] = {0x74, 0x84, 0x84, 0x00, 0x16, 0x85, 0x84, 0x00, 0xB4, 0x84, 0x84, 0x00, 0x5D, 0x83, 0x84, 0x00, 0x48, 0x83, 0x84, 0x00, 0xE5, 0x84, 0x84, 0x00, 0x34, 0x84, 0x84, 0x00, 0xDD, 0x83, 0x84, 0x00, 0xEF, 0x82, 0x84, 0x00, 0xAE, 0x83, 0x84, 0x00, 0x45, 0x85, 0x84, 0x00, 0x59, 0x85, 0x84, 0x00, 0xC3, 0x85, 0x84, 0x00, 0xF1, 0x86, 0x84, 0x00};
 // image window @ 0x1408487DC (239 bytes, read-only)

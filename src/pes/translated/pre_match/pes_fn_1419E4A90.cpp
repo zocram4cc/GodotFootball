@@ -9,13 +9,13 @@
 
 // image constant @ 0x142A96C08 (4 bytes)
 static constexpr uint32_t k_c142A96C08_w = 0x3DCC0000U;
-static constexpr float k_c142A96C08_f = 0.099609375f; // 0.099609375
+static constexpr float k_c142A96C08_f = 0.099609375f; // 0.099609375;
 // image constant @ 0x142A97348 (4 bytes)
 static constexpr uint32_t k_c142A97348_w = 0x3CF00000U;
-static constexpr float k_c142A97348_f = 0.029296875f; // 0.029296875
+static constexpr float k_c142A97348_f = 0.029296875f; // 0.029296875;
 // image constant @ 0x142A9734C (4 bytes)
 static constexpr uint32_t k_c142A9734C_w = 0x3DC80000U;
-static constexpr float k_c142A9734C_f = 0.09765625f; // 0.09765625
+static constexpr float k_c142A9734C_f = 0.09765625f; // 0.09765625;
 
 void pes_fn_1419E4A90(PesState& s);
 
