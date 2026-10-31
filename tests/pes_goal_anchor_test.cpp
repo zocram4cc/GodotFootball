@@ -580,4 +580,31 @@ TEST(GoalScenes, BuilderListsGoalAsScenesOnTheCapturedInputs) {
   for (int i = 0; i < 3; ++i) EXPECT_EQ(got->target[i], c.target[i]) << "T[" << i << "]";
 }
 
+// The team counters reach the builder: on goal A's inputs a goal that leaves the scorer's side level (1-1, the captured case) picks the
+// scorer's own celebration, and the same goal leaving him one behind (1-2) does not: PES's pick (0x140475A90, through the decider tests
+// 0x1404770A0/0x140471590/0x140479210 over the score difference 0x140A80D10) is 0, not a goal scene. OPEN: PES then plays the list
+// {0, 0, closing, lead} (the builder's list for that input); GF's PlaceGoal refuses a pick outside the goal table, so such a goal
+// plays no scene until PES's handling of a 0 pick is decoded (what its anchor and radius read for scene 0).
+TEST(GoalScenes, ATrailingScorersGoalDoesNotPickTheScorersCelebration) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  const Case& c = kCases[0];
+  const Oracle& o = kOracle[0];
+  const auto pickFor = [&](std::array<uint32_t, 2> score) -> uint32_t {
+    pes::FixDemoTable table;
+    auto sel = MakeInstalled(*exe, &table, &why);
+    if (!sel) return ~0u;
+    for (const auto& [cut, row] : o.picks) sel->RestorePick(cut, row);
+    pes::GoalAnchorFacts f = SceneBuildFacts(c, o);
+    f.build->score = score;
+    const auto got = sel->PlaceGoal(f);
+    return got ? got->sceneId : 0;
+  };
+  const uint32_t level = pickFor({1, 1});
+  if (level == ~0u) GTEST_SKIP() << why;
+  EXPECT_EQ(level, 0x30034u);
+  EXPECT_NE(pickFor({1, 2}), level);
+}
+
 }  // namespace
