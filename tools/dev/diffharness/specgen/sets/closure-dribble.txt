@@ -261,3 +261,7 @@
 0x140A3B320	stand-in	AI	callee
 0x140A3E7D0	stand-in	referee	callee
 0x140A60500	stand-in	referee	callee
+0x140A57450	stand-in	AI	seed
+0x14063D2F0	stand-in	ball	seed
+0x14211CA50	stand-in	ball	seed
+0x14211CB00	stand-in	ball	seed
