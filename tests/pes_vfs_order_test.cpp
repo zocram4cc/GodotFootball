@@ -230,6 +230,43 @@ TEST(VfsOrder, ExplicitModIsReadFromTheLoadersList) {
   EXPECT_NE(err.find("modB"), std::string::npos);
 }
 
+// The default mount is stock PES: sider's cpk.root folders are not mounted, so a file that only a
+// root holds is not in the game's VFS.
+TEST(VfsOrder, DefaultMountDoesNotServeASiderRootFile) {
+  SyntheticInstall in("defaultnoroot");
+  in.Sider(kTwoRoots, "");
+  in.Put("livecpk/a/common/match/constant/constant_player.bin", "ROOT_A");
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+  EXPECT_FALSE(vfs.Exists(CONSTANT_PLAYER));
+}
+
+// Nor are sider's Lua modules: netblock.lua would answer for content/netblock by default.
+TEST(VfsOrder, DefaultMountAnswersNoLuaModule) {
+  SyntheticInstall in("defaultnomodule");
+  in.Sider("", "lua.module = \"netblock.lua\"\n");
+  in.Put("modules/netblock.lua", kNetblockLua);
+  in.Put("content/netblock/common/match/constant/constant_player.bin", "NETBLOCK");
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(in.Root(), &err)) << err;
+  EXPECT_FALSE(vfs.Exists(CONSTANT_PLAYER));
+}
+
+// A named gameplay mod is a sider selection. Without sider the loader is not mounted, so the mod
+// would be silently ignored: the mount refuses instead.
+TEST(VfsOrder, NamedGameplayModNeedsSider) {
+  SyntheticInstall in("modneedssider");
+  in.Sider(kTwoRoots, "lua.module = \"GameplayLoader.lua\"\n");
+  in.LoaderState("modA");
+  in.Put("content/gameplay-loader/modA/common/match/constant/constant_player.bin", "MODA");
+  pes::PesVfs vfs;
+  std::string err;
+  EXPECT_FALSE(vfs.Mount(in.Root(), &err, {.gameplayMod = "modA"}));
+  EXPECT_NE(err.find("sider"), std::string::npos) << err;
+}
+
 // ---- the owner's install (PES21_ROOT) -----------------------------------
 
 
@@ -407,4 +444,45 @@ TEST(VfsOrderInstall, DownloadCpkOverridesDataCpk) {
     }
   }
   EXPECT_GT(checked, 0u) << "no differing fixdemo file shared by Data and download";
+}
+
+namespace {
+
+constexpr const char* BALL = "Asset/model/ball/ball021/#Win/ball.fpk";
+
+// Every copy of `path` in the cpks of root/sub (Data or download), read from the archives.
+std::vector<std::string> CpkCopies(const fs::path& root, const char* sub, const std::string& path) {
+  std::vector<std::string> out;
+  if (!fs::is_directory(root / sub)) return out;
+  std::string err;
+  for (const auto& d : fs::directory_iterator(root / sub)) {
+    if (d.path().extension() != ".cpk") continue;
+    pes::CpkArchive a;
+    if (!a.Open(d.path().string(), &err)) continue;
+    for (const auto& e : a.Entries())
+      if (pes::PesVfs::Fold(e.path) == pes::PesVfs::Fold(path))
+        if (auto b = a.Read(e, &err)) out.emplace_back(b->begin(), b->end());
+  }
+  return out;
+}
+
+}  // namespace
+
+// The owner's install keeps the ball model in sider's livecpk\ball-root. The default mount must not
+// serve it: the ball resolves to the game's cpks, the download/ copy when one holds it, else Data/'s.
+TEST(VfsOrderInstall, DefaultMountServesTheBallFromTheCpks) {
+  const char* root = InstallRoot();
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  const auto siderBall = Slurp(fs::path(root) / "livecpk" / "ball-root" / BALL);
+  if (!siderBall) GTEST_SKIP() << "no sider ball root in this install";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  const std::string served = ReadStr(vfs, BALL);
+  EXPECT_NE(served, *siderBall) << "sider's cpk.root answered the ball";
+  const auto download = CpkCopies(root, "download", BALL);
+  const auto data = CpkCopies(root, "Data", BALL);
+  const auto& layer = download.empty() ? data : download;
+  ASSERT_FALSE(layer.empty()) << "no Data/ or download/ cpk holds the ball";
+  EXPECT_NE(std::find(layer.begin(), layer.end(), served), layer.end()) << "the ball is not a cpk copy";
 }
