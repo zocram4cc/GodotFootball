@@ -98,6 +98,10 @@ TARGETS = [
     ("trap_end_handler_79E5C0", 0x14079E5C0, "Trap action end handler"),
     # SetMotion's anime interface slot +0x80 (TrapTick6): reached when FUN_1406AFBC0 returns 0 for the motion.
     ("anime_iface_80_6E72A0", 0x1406E72A0, "anime interface vtable slot +0x80 (SetMotion branch)"),
+    # The FixDemo procedural camera engine (CutsceneTiming7): drives the cameras of records with no anime path.
+    ("proc_camera_141F7BFE0", 0x141F7BFE0, "FixDemo procedural camera engine"),
+    # SetMotion-adjacent displacement (TrapTick7): the trap tick phase fn calls it when action+0x26 == 0.
+    ("anime_displace_6E85B0", 0x1406E85B0, "anime position displacement (trap tick phase)"),
 ]
 
 
