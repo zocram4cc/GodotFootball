@@ -2,6 +2,7 @@
 // 8.1 (FUN_14140e0f0 cryptStream, FUN_14140ea40 keys, FUN_14140f470 load).
 #include "pes/editsave.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cstring>
 
@@ -247,6 +248,34 @@ PlayerLook DecodeLook(const AppearanceRecord& r) {
   out.bootsId = int((x >> 4) & 0x3fff);
   out.gloveId = int(x >> 18);
   return out;
+}
+
+// The descriptor getters' shift and mask: `width` bits from absolute bit `bit` of the record, LSB-first.
+static uint32_t RecordBits(const EditPlayerRecord& rec, size_t bit, size_t width) {
+  uint32_t v = 0;
+  for (size_t i = 0; i < width; ++i) v |= uint32_t((rec[(bit + i) / 8] >> ((bit + i) % 8)) & 1u) << i;
+  return v;
+}
+
+// FUN_141F10CE0 (save field -> live record, range-gated) then FUN_141FE9B00 (live record -> row byte, clamped); see editsave.hpp.
+EditRow DecodeEditRow(const EditPlayerRecord& rec) {
+  EditRow row;
+  for (const EditRowField& f : kEditRowFields) {
+    uint32_t v = RecordBits(rec, f.bit, f.width);
+    if (v < f.gateMin || v > f.gateMax) continue;
+    if (f.row == kRowPosition) {
+      // The live record's position field is 4 bits (setter 0x1414C6E90 case 0); FUN_141FEA000 turns a value above 12 into 1.
+      v &= 0xF;
+      v = v > 12 ? 1 : v;
+    }
+    row.byte[f.row] = uint8_t(std::clamp<uint32_t>(v, f.clampMin, f.clampMax));
+    row.set[f.row] = true;
+  }
+  for (size_t k = 0; k < std::size(kEditSkillBit); ++k) {
+    const uint64_t mask = uint64_t{1} << kEditSkillBit[k];
+    row.skills = RecordBits(rec, kEditSkillFirstBit + k, 1) ? (row.skills | mask) : (row.skills & ~mask);
+  }
+  return row;
 }
 
 }  // namespace pes

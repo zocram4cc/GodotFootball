@@ -72,10 +72,14 @@ void PlayerDatabase::ApplyEditSave(const EditSave& save) {
     auto it = byId_.find(int(id));
     if (it == byId_.end()) continue;
     PlayerTraits& traits = it->second;
-    traits.speed = uint8_t(Field(rec.data(), kEditSpeedBit, kEditAbilityBits));
-    traits.jump = uint8_t(Field(rec.data(), kEditJumpBit, kEditAbilityBits));
-    traits.heightCm = rec[kEditHeightOffset];
-    traits.leftFooted = Field(rec.data(), kEditStrongerFootBit, 1) == 1;
+    // The roster row's bytes, field by field as PES builds them; a field the save holds out of range keeps Player.bin's value.
+    const EditRow row = DecodeEditRow(rec);
+    if (row.set[kRowSpeed]) traits.speed = row.byte[kRowSpeed];
+    if (row.set[kRowJump]) traits.jump = row.byte[kRowJump];
+    if (row.set[kRowHeightCm]) traits.heightCm = row.byte[kRowHeightCm];
+    if (row.set[kRowStrongerFoot]) traits.leftFooted = row.byte[kRowStrongerFoot] == 1;
+    if (row.set[kRowInjuryResistance]) traits.injuryResistance = row.byte[kRowInjuryResistance];
+    if (row.set[kRowForm]) traits.form = row.byte[kRowForm];
   }
 }
 

@@ -72,10 +72,10 @@ class PlayerDatabase {
   // The traits of the player with this id; nullopt when no record carries that id or its tier is not C, B or A.
   std::optional<PlayerTraits> Find(int playerId) const;
   size_t Size() const { return byId_.size(); }
-  // PES's roster takes a player's Speed, Jump, Height and stronger foot from the EDIT save's record when the save holds his id
-  // and from Player.bin otherwise (pes-re-condition-import.md 1 step 1: the save overrides the install's Player.bin per id).
-  // The save's record layout is not Player.bin's (editsave.hpp). A save id with no Player.bin record is left out: the other
-  // traits (injury tier, Form) have no source for it.
+  // PES's roster takes a player's row bytes from the EDIT save's record when the save holds his id and from Player.bin otherwise
+  // (pes-re-condition-import.md 1 step 1: the save overrides the install's Player.bin per id). Speed, Jump, Height, the stronger
+  // foot, the injury tier and Form come from the save through DecodeEditRow (editsave.hpp: the record layout is not Player.bin's).
+  // A save id with no Player.bin record is left out: its Parse-only traits (the condition byte) have no source for it.
   void ApplyEditSave(const EditSave& save);
 
  private:

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "pes/exe.hpp"
@@ -288,23 +289,32 @@ TEST(PlayerDatabaseInstall, AbilityOffsetsEqualTheExesAccessors) {
 }
 
 // --- the EDIT save's records over Player.bin ---
-// The save's player record is its own layout (editsave.hpp); the offsets are pinned here as literals.
-constexpr size_t kEditHeightAt = 0x0A, kEditFootAt = 381, kEditAbilityWidth = 7, kEditSpeedAt = 256, kEditJumpAt = 358;
+// The save's player record is its own layout (editsave.hpp), read through PES's descriptor table 0x1434F2B20: the offsets are pinned
+// here as literals (pes_editsave_test re-derives them from the exe): Speed is save id 0x1C (bit 174), Jump id 0x1F (bit 192), Height
+// id 0x10 (byte 0x0A), the foot id 0x0F (bit 381), Form id 0x2D (bit 252, 3 bits), the injury tier id 0x2E (bit 327, 2 bits).
+constexpr size_t kEditHeightAt = 0x0A, kEditFootAt = 381, kEditAbilityWidth = 7, kEditSpeedAt = 174, kEditJumpAt = 192;
+constexpr size_t kEditFormAt = 252, kEditFormWidth = 3, kEditInjuryAt = 327, kEditInjuryWidth = 2;
 
-pes::EditPlayerRecord EditRecord(uint32_t id, uint32_t speed, uint32_t jump, uint8_t heightCm, bool left) {
+pes::EditPlayerRecord EditRecord(uint32_t id, uint32_t speed, uint32_t jump, uint8_t heightCm, bool left, uint32_t form = 0,
+                                 uint32_t injury = 0) {
   pes::EditPlayerRecord rec{};
   std::memcpy(rec.data(), &id, 4);
   SetBits(rec, kEditSpeedAt, kEditAbilityWidth, speed);
   SetBits(rec, kEditJumpAt, kEditAbilityWidth, jump);
   rec[kEditHeightAt] = heightCm;
   SetBits(rec, kEditFootAt, 1, left ? 1 : 0);
+  SetBits(rec, kEditFormAt, kEditFormWidth, form);
+  SetBits(rec, kEditInjuryAt, kEditInjuryWidth, injury);
   // The bits and bytes beside each field belong to other fields: a reader that is off by one sees a different value.
   SetBits(rec, kEditSpeedAt - 1, 1, 1);
-  SetBits(rec, kEditSpeedAt + kEditAbilityWidth, 1, 1);
   SetBits(rec, kEditJumpAt - 1, 1, 1);
   SetBits(rec, kEditJumpAt + kEditAbilityWidth, 1, 1);
   SetBits(rec, kEditFootAt - 1, 1, left ? 0 : 1);
   SetBits(rec, kEditFootAt + 1, 1, left ? 0 : 1);
+  SetBits(rec, kEditFormAt - 1, 1, 1);
+  SetBits(rec, kEditFormAt + kEditFormWidth, 1, 1);
+  SetBits(rec, kEditInjuryAt - 1, 1, 1);
+  SetBits(rec, kEditInjuryAt + kEditInjuryWidth, 1, 1);
   rec[kEditHeightAt - 1] = 0xFF;
   rec[kEditHeightAt + 1] = 0xFF;
   return rec;
@@ -319,12 +329,12 @@ Blob PlaceholderRecord(uint32_t id) {
   return rec;
 }
 
-TEST(PlayerDatabaseEditSave, TheSavesRecordOverridesSpeedJumpHeightAndFootOfItsIdOnly) {
+TEST(PlayerDatabaseEditSave, TheSavesRecordOverridesSpeedJumpHeightFootFormAndInjuryTierOfItsIdOnly) {
   std::string err;
   auto db = pes::PlayerDatabase::Parse(Concat({PlaceholderRecord(kFirstId), PlaceholderRecord(kSecondId)}), &err);
   ASSERT_TRUE(db.has_value()) << err;
   pes::EditSave save;
-  save.players.push_back(EditRecord(kFirstId, 77, 88, 199, true));
+  save.players.push_back(EditRecord(kFirstId, 77, 88, 199, true, 6, 1));
   db->ApplyEditSave(save);
 
   auto edited = db->Find(kFirstId);
@@ -333,14 +343,35 @@ TEST(PlayerDatabaseEditSave, TheSavesRecordOverridesSpeedJumpHeightAndFootOfItsI
   EXPECT_EQ(edited->jump, 88);
   EXPECT_EQ(edited->heightCm, 199);
   EXPECT_TRUE(edited->leftFooted);
-  EXPECT_EQ(edited->injuryResistance, 2) << "the save's override does not reach the injury tier";
-  EXPECT_EQ(edited->form, 5);
+  EXPECT_EQ(edited->injuryResistance, 1) << "the placeholder says A (2), the save B (1)";
+  EXPECT_EQ(edited->form, 6) << "the placeholder says 5";
   // Another id keeps its Player.bin record.
   auto untouched = db->Find(kSecondId);
   ASSERT_TRUE(untouched.has_value());
   EXPECT_EQ(untouched->speed, pes::kAbilityBias);
   EXPECT_EQ(untouched->heightCm, pes::kHeightBiasCm);
   EXPECT_FALSE(untouched->leftFooted);
+  EXPECT_EQ(untouched->injuryResistance, 2);
+  EXPECT_EQ(untouched->form, 5);
+}
+
+// FUN_141F10CE0 skips a save field outside its descriptor's [min, max] (Speed 40..99, Height 100..250, injury tier 0..2, Form 0..7):
+// the row keeps the other source's byte.
+TEST(PlayerDatabaseEditSave, AFieldOutsideItsDescriptorRangeKeepsPlayerBinsValue) {
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(PlaceholderRecord(kFirstId), &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  pes::EditSave save;
+  save.players.push_back(EditRecord(kFirstId, 20, 120, 50, true, 0, 3));  // Speed 20, Jump 120 (7 bits), Height 50, injury code 3
+  db->ApplyEditSave(save);
+  auto edited = db->Find(kFirstId);
+  ASSERT_TRUE(edited.has_value());
+  EXPECT_EQ(edited->speed, pes::kAbilityBias);
+  EXPECT_EQ(edited->jump, pes::kAbilityBias);
+  EXPECT_EQ(edited->heightCm, pes::kHeightBiasCm);
+  EXPECT_EQ(edited->injuryResistance, 2);
+  EXPECT_EQ(edited->form, 0) << "in range: Form 0 is the save's";
+  EXPECT_TRUE(edited->leftFooted);
 }
 
 TEST(PlayerDatabaseEditSave, ASaveIdWithoutAPlayerBinRecordAddsNothing) {
@@ -367,11 +398,12 @@ TEST(PlayerDatabaseEditSave, ARightFootedRecordClearsAPlaceholderLeftFoot) {
   EXPECT_FALSE(db->Find(kFirstId)->leftFooted);
 }
 
-// The captured rows: one line per player, `id speed jump height foot`, read from the roster row PES's match held (the byte the
-// store step starts from) by tools/dev/rendezvous/roster_rows.py. The owner's install holds placeholders for these players in
-// Player.bin (flat Speed/Jump 40, height 180 with a stock record) while PES's rows hold the save's values: GF's database, with
-// the save applied, must give PES's row for every captured player. The rows are PES's data and are never committed.
-TEST(PlayerDatabaseInstall, EveryCapturedRosterRowEqualsTheDatabaseWithTheSaveApplied) {
+// The captured rows: one line per player, `id` and the 0x50 hex bytes of the roster row PES's match held (the block the store step
+// starts from, tools/dev/rendezvous/roster_rows.py). The owner's install holds placeholders for these players in Player.bin (flat
+// Speed/Jump 40, height 180 with a stock record) while PES's rows hold the save's values: every row byte the save decode writes
+// (DecodeEditRow: bytes 0x00..0x3B and the skill mask at +0x40) and every trait of the database with the save applied must equal
+// PES's row, for every captured player. The rows are PES's data and are never committed.
+TEST(PlayerDatabaseInstall, EveryCapturedRosterRowEqualsTheSavesDecodeAndTheDatabaseWithTheSaveApplied) {
   const pes::PesVfs* vfs = Vfs();
   const char* savePath = std::getenv("PES21_EDIT_SAVE");
   const char* rowsPath = std::getenv("GF_PES_ROSTER_ROWS");
@@ -388,17 +420,38 @@ TEST(PlayerDatabaseInstall, EveryCapturedRosterRowEqualsTheDatabaseWithTheSaveAp
   auto save = pes::ReadEditSave(saveBytes, &err);  // a stale block digest is reported in err and kept
   ASSERT_TRUE(save.has_value()) << err;
   db->ApplyEditSave(*save);
+  std::unordered_map<uint32_t, const pes::EditPlayerRecord*> recordOf;
+  for (const pes::EditPlayerRecord& rec : save->players) {
+    uint32_t id;
+    std::memcpy(&id, rec.data() + pes::kEditIdOffset, sizeof id);
+    recordOf.emplace(id, &rec);
+  }
 
   std::ifstream rows(rowsPath);
   ASSERT_TRUE(rows);
-  int id, speed, jump, height, foot, checked = 0;
-  while (rows >> id >> speed >> jump >> height >> foot) {
+  int id, checked = 0;
+  std::string hex;
+  while (rows >> id >> hex) {
+    ASSERT_EQ(hex.size(), 0x50u * 2) << "id " << id;
+    uint8_t row[0x50];
+    for (size_t i = 0; i < sizeof row; ++i) row[i] = uint8_t(std::stoi(hex.substr(i * 2, 2), nullptr, 16));
+    const auto rec = recordOf.find(uint32_t(id));
+    ASSERT_NE(rec, recordOf.end()) << "id " << id;
+    const pes::EditRow decoded = pes::DecodeEditRow(*rec->second);
+    for (size_t i = 0; i < pes::kEditRowBytes; ++i) {
+      if (decoded.set[i]) EXPECT_EQ(decoded.byte[i], row[i]) << "id " << id << " row byte 0x" << std::hex << i;
+    }
+    uint64_t skills;
+    std::memcpy(&skills, row + 0x40, sizeof skills);
+    EXPECT_EQ(decoded.skills, skills) << "id " << id;
     auto traits = db->Find(id);
     ASSERT_TRUE(traits.has_value()) << "id " << id;
-    EXPECT_EQ(traits->speed, speed) << "id " << id;
-    EXPECT_EQ(traits->jump, jump) << "id " << id;
-    EXPECT_EQ(traits->heightCm, height) << "id " << id;
-    EXPECT_EQ(traits->leftFooted, foot == 1) << "id " << id;
+    EXPECT_EQ(traits->speed, row[pes::kRowSpeed]) << "id " << id;
+    EXPECT_EQ(traits->jump, row[pes::kRowJump]) << "id " << id;
+    EXPECT_EQ(traits->heightCm, row[pes::kRowHeightCm]) << "id " << id;
+    EXPECT_EQ(traits->leftFooted, row[pes::kRowStrongerFoot] == 1) << "id " << id;
+    EXPECT_EQ(traits->injuryResistance, row[pes::kRowInjuryResistance]) << "id " << id;
+    EXPECT_EQ(traits->form, row[pes::kRowForm]) << "id " << id;
     ++checked;
   }
   EXPECT_GT(checked, 0);

@@ -4,8 +4,8 @@
 For every slot of each full rendezvous capture (mem.bin + index.json) read PES's roster row, the block the stat rebuild
 0x14092AF10 starts from (G = [0x1436F3DC8]; team t's roster at G+(0xA3+t)*0x28, row = roster+0xA8+e*0x128+0x38, e = the
 slot's entry at roster+4+4*(slot%11); the row's player id is the u32 at +0xE0), and write one line per distinct player:
-`id speed jump height foot` = row bytes 0x27, 0x2C, 0x31, 0x34. GF reads the same four through the save-patched
-PlayerDatabase (tests/pes_playerdb_test.cpp EveryCapturedRosterRowEqualsTheDatabaseWithTheSaveApplied,
+`id hex` = the id and the row's first 0x50 bytes in hex. GF compares them with the save decode and the save-patched
+PlayerDatabase (tests/pes_playerdb_test.cpp EveryCapturedRosterRowEqualsTheSavesDecodeAndTheDatabaseWithTheSaveApplied,
 env GF_PES_ROSTER_ROWS). The output is PES's data: keep it out of the repository. A capture that does not map the roster
 (slim, or taken outside a match) is skipped with a note on stderr.
 """
@@ -17,7 +17,7 @@ SLOTS = 22
 ROSTER_STRIDE = 0x28
 ROSTER_TABLE_FIRST = 0xA3
 ROW_ID_AT = 0xE0
-SPEED, JUMP, HEIGHT, FOOT = 0x27, 0x2C, 0x31, 0x34
+SHOWN_BYTES = 0x50
 
 
 class Capture:
@@ -54,7 +54,7 @@ def rows_of(cap):
         roster = cap.u64(g + (ROSTER_TABLE_FIRST + slot // 11) * ROSTER_STRIDE)
         entry = cap.u32(roster + 4 + 4 * (slot % 11))
         row = cap.read(roster + 0xA8 + entry * ROW_BYTES + 0x38, ROW_BYTES)
-        yield int.from_bytes(row[ROW_ID_AT:ROW_ID_AT + 4], 'little'), (row[SPEED], row[JUMP], row[HEIGHT], row[FOOT])
+        yield int.from_bytes(row[ROW_ID_AT:ROW_ID_AT + 4], 'little'), row[:SHOWN_BYTES].hex()
 
 
 def main():
@@ -69,7 +69,7 @@ def main():
             print('skip', d, type(e).__name__, e, file=sys.stderr)
     with open(out, 'w') as f:
         for pid in sorted(seen):
-            f.write('%d %d %d %d %d\n' % ((pid,) + seen[pid]))
+            f.write('%d %s\n' % (pid, seen[pid]))
     print(len(seen), 'players')
 
 
