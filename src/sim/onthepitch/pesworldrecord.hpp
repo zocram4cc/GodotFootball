@@ -179,6 +179,21 @@ inline constexpr std::size_t kManRecordBytes = kSlotRecordOffset - kManRecordOff
 // no GF writer yet), and +0x12A4 (FUN_140A58320: a state byte, clamped to 0..4).
 inline constexpr std::size_t kSlotByteA1Offset = 0xA1;      // u8
 inline constexpr std::size_t kSlotByteA4Offset = 0xA4;      // u8
+// The slot record's ability block: `0x14124DAD0(record)` is `record + 0x70`, the base of the bytes the stat rebuild 0x14092AF10
+// writes (one byte per stat id, 0x3C ids) and the carrier manager's candidate scores 0x14211CBD0 read through it: the Speed byte
+// 0x27 (the (S - 40) term), the aerial byte 0x2C (labelled Jump, INF high: docs/re/pes-re-matchlogic.md 1.3) and the height byte
+// 0x31 (cm). The record of slot k is `G + (k + 0xF3) * 0x28` (0x140A489F0), the window's `Block(k) + kSlotRecordOffset`.
+inline constexpr std::size_t kSlotAbilityOffset = 0x70;
+inline constexpr uint32_t kAbilitySpeedId = 0x27;
+inline constexpr uint32_t kAbilityJumpId = 0x2C;
+inline constexpr uint32_t kAbilityHeightId = 0x31;
+// GF stores PES's 40..99 ability bytes as 0.40..0.99 (pesstamina.cpp MoveTopRate), so a GF stat is its byte over 100.
+inline constexpr float kAbilityBytesPerStat = 100.0f;
+// The five per-id multiplier cells of the player object (P+0xC798 A1, +0xC888 A2 the condition arrow, +0xC978 A3 the position
+// familiarity, +0xCA68 A4 the super-sub pair, +0xCB58 A5 the fatigue factor), the ones 0x14092AF10 multiplies a base byte by.
+struct AbilityCells {
+  float a1 = 1.0f, a2 = 1.0f, a3 = 1.0f, a4 = 1.0f, a5 = 1.0f;
+};
 inline constexpr std::size_t kSlotStateOffset = 0x12A4;     // u8
 inline constexpr std::size_t kSlotAnchorXOffset = 0x1414;   // f32, AI target point x
 inline constexpr std::size_t kSlotCounterAOffset = 0x1430;  // s32 counter A
@@ -376,6 +391,29 @@ inline constexpr std::size_t kZoneColumnOffset = 0x17C;  // s32
 inline constexpr std::size_t kBpGuardOffset = 0x32AD;
 inline constexpr std::size_t kBpIntentionOffset = 0x32B8;
 inline constexpr std::size_t kBpTurnReferenceOffset = 0x3380;
+inline constexpr std::size_t kBpPlanOffset = 0x32B0;         // the carrier plan record (its path word is kBpIntentionOffset)
+inline constexpr std::size_t kBpManagerOffset = 0x32C0;      // the carrier manager 0x14211D710 steps (+0xC0 = kBpTurnReferenceOffset)
+inline constexpr std::size_t kBpProposalOffset = 0x4204;     // the dribble-proposal record (type word, id, +0xC target, +0x10 heading)
+// 0x14211D710's call frame: the return address at rsp, then past the 0x20 shadow the fifth to eighth arguments.
+inline constexpr std::size_t kTurnArg5Offset = 0x28;
+inline constexpr std::size_t kTurnArg6Offset = 0x30;
+inline constexpr std::size_t kTurnArg7Offset = 0x38;
+inline constexpr std::size_t kTurnArg8Offset = 0x40;
+inline constexpr std::size_t kTurnFrameBytes = 0x80;
+// The unit driver 0x142110D30's step input S (rdx; the same object 0x142110C90 reads: S+4 = the unit slot, S+0x38 = the side's ctx)
+// and the 72-byte step object 0x14211ED10 builds from it (the kind objects' virtual step reads it). CONFIRMED on the seq16184 capture
+// (S at 0x1e00ACF8: slot 19, S+0x30 = BP+0x4258, S+0x38 = ctx). GF's S and step object live at the top of the window's stack.
+inline constexpr std::size_t kStepInputBytes = 0x40;
+inline constexpr std::size_t kStepInputSlotOffset = 0x4;
+inline constexpr std::size_t kStepInputOutputOffset = 0x30;
+inline constexpr std::size_t kStepInputCtxOffset = 0x38;
+inline constexpr std::size_t kStepObjectBytes = 0x48;
+inline constexpr std::size_t kBpStepOutputOffset = 0x4258;  // S+0x30: the output-buffer record, inside the BP block
+inline constexpr std::size_t kBpAdoptedOffset = 0x41E8;     // the adopted answer's copy (0x1C bytes: the proposal's, BP+0x4204..)
+inline constexpr std::size_t kProposalRecordBytes = 0x1C;
+inline constexpr std::size_t kStepScratchBytes = 0x90;     // the step object and S, at the top of the stack (16-aligned)
+inline constexpr std::size_t kSlotClassWordOffset = 0x14;  // the slot record's word 0x142110D30 tests with 0x140A6E320
+inline constexpr uint32_t kProposalKindTaker = 0x13;        // 0x142110D30: the proposal kind when 0x140A638C0(ctx, slot) holds, else kBpDefaultKind
 inline constexpr std::size_t kBpListOffset = 0x3E20;
 inline constexpr std::size_t kListRankOffset = 0x68;
 inline constexpr std::size_t kListRecordOffset = 0x84;
@@ -543,7 +581,7 @@ class PesWorld {
   // E as the store's own view: every event the match routes lands in the window.
   EventStore Events() { return EventStore(image_->events); }
   // The block's state is already live (a test that loaded a capture's BP): RunCarrierUpdate continues it instead of resetting.
-  void AdoptCarrierState(int side) { stateReady_[side] = true; }
+  void AdoptCarrierState(int side) { stateReady_[side] = constructed_[side] = true; }
   // A side's carrier block BP (kBp* offsets) and the Clear unit object beside it (the unit's r8).
   static constexpr uint64_t CarrierVa(int side) {
     return kWorldWindowVa + kCarrierOffset + static_cast<uint64_t>(side) * sizeof(PesCarrierBlock);
@@ -568,15 +606,39 @@ class PesWorld {
   // every unlisted record is zeroed: type 0 answers nothing).
   void SetUnitList(int side, const std::vector<WalkEntry>& list);
   // The walk's reads of the carrier's profile: the skill mask in the team-info record (the side id and the slot-in-team map are
-  // identities of the window), the designated taker in the side record, and the carrier's height stat byte 0x31 (cm).
-  void SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, uint8_t heightStatCm);
+  // identities of the window) and the designated taker in the side record.
+  void SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask);
+  // The store step of the stat rebuild 0x14092AF10 for one id of one slot (0x14092B849-0x14092B904): the live byte is
+  // `(u8)trunc(base * (A2 * A1 * A3 * A4 * A5))`, written (when it differs from the block's byte) through the install's clamp
+  // bounds 0x1408CAF60 (above the bound the bound, below it the lower, else itself). `base` is the roster row's byte (the player's
+  // own ability; the row starts the block, `0x14092AF10` rewrites only the ids whose cells changed).
+  // ponytail: the breath penalty of ids 0x1A/0x1B/0x1C/0x2A (0x14092B8A8) is not applied (no GF caller reads those four), and the
+  // writer of the roster row and its copy into the AI record is unlocated (pes-re-publisher-link.md 2): the block's byte starts as
+  // `base`, which is where 0x14092AF10's first call finds it.
+  void StoreLiveAbility(int slot, uint32_t id, uint8_t base, const AbilityCells& cells = {});
   // The unit updater's two record writers, in the driver's order (0x142110C90): the unit info BP+0x1C by 0x14063C9F0(unit info,
   // ctx, slot) and the state BP+0x78 by 0x14063A490(state, ctx, unit info), both on the window's own records (side, man, anime,
-  // slot, MA, MI, ball, events). The state keeps counters across calls (tick count, owned ticks), so the block must persist.
+  // slot, MA, MI, ball, events). The state keeps counters across calls (tick count, owned ticks), so the block must persist. The
+  // first call builds the block (RunCarrierConstruct); a new carrier slot resets it as the driver does when its unit goes inactive
+  // (0x14210E5F0).
   void RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternals& ext = {});
   // Runs PES's carrier walk 0x14210F110 on the side's BP (rdx = its unit object): the chosen kind, or kWalkNoKind. `ext` carries
   // bytes outside the window (tests); allocates through the world's PesHeap like the builder.
   uint32_t RunWalk(int side, const PesDangerExternals& ext = {});
+  // PES's carrier-block constructor 0x14210D320(BP, side) (proved bit-exact on three live BPs, results_dribble.json): the unit
+  // info, state, imageA's lists, the carrier manager at BP+0x32C0 with its nine step objects, and the 25 unit-kind objects, vtables
+  // included. RunCarrierUpdate runs it on a side's first call; a test that loaded a capture's BP calls AdoptCarrierState.
+  void RunCarrierConstruct(int side, const PesDangerExternals& ext = {});
+  // PES's turn-reference builder 0x14211D710(BP+0x32C0, ctx, unit info, state, imageA, BP+0x32B0, side record, BP+0x4204): while the
+  // state's word 0 is 0 it ticks the carrier manager (0x14211E2D0, 0x14211E210) and writes BP+0x3380, the angle the walk's Clear
+  // gate (0x14210F4E8) measures the dribble proposal against. Call after RunDangerBuilder and the plan word BP+0x32B8
+  // (RunDribbleProposal does).
+  void RunTurnReference(int side, const PesDangerExternals& ext = {});
+  // The unit driver 0x142110D30's proposal chain, in its order: RunTurnReference; the step object 0x14211ED10 builds (the step input S
+  // lives at the top of the window's stack); while the state's word 0 is 0 the proposal writer 0x1421102D0(BP, kind, step object,
+  // BP+0x4204) with kind 0x10 (0x13 when 0x140A638C0(ctx, slot) holds); then the copy BP+0x41E8 <- BP+0x4204 (0x1C bytes) and the
+  // previous-kind word BP+0x41E4 = 0x10. BP+0x4204 is the dribble-proposal record the carrier walk's Clear gate reads.
+  void RunDribbleProposal(int side, uint32_t slot, const PesDangerExternals& ext = {});
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
   void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }
@@ -771,6 +833,7 @@ class PesWorld {
   std::array<TickPlan, kSlotCount> tickPlan_{};
   std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
+  std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)
   PesImageTables imageTables_;     // the install's table bytes the window runs read at register-held addresses (BindImageTables)
 };
 

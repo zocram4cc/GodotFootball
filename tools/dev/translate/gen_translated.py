@@ -40,7 +40,8 @@ ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"),
         ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
-        ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"))
+        ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"),
+        ("results_dribble.json", "dribble"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"

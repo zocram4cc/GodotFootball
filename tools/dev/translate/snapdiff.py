@@ -147,9 +147,9 @@ def build_closure(va, spec, args, pilot, reached, executed=None):
 
 
 def build_binary(va, spec, args, pilot, reached, executed=None, native=False):
-    """The diff main and the translated closure, compiled. Returns (binary path, error). executed: the bounded build's
-    entered-address set. native: the production dispatch (gen_dispatch --native), GF's PesHeap attached per call, and PES's
-    allocator targets left out of the closure."""
+    """The diff main and the translated closure, compiled. Returns (binary path, error). executed: the addresses the replays
+    ran (--bounded), else None. native: the production dispatch (gen_dispatch --native), GF's PesHeap attached per call, and
+    PES's allocator targets left out of the closure."""
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
     need, err = build_closure(va, spec, args, pilot, reached, executed)
@@ -311,11 +311,10 @@ def run_one(va, args, pilot, pairs):
             res["excluded"], res["calls"], "; ".join("%s x%d" % kv for kv in top) or "none recorded",
             ",".join(res.get("blocked_callees") or []) or "none")
         return res
-    executed = addrs if args.bounded else None
-    bin_p, err = build_binary(va, spec, args, pilot, reached, executed)
+    bin_p, err = build_binary(va, spec, args, pilot, reached, addrs if args.bounded else None)
     nbin_p = None
     if not err and args.native:
-        nbin_p, err = build_binary(va, spec, args, pilot, reached, executed, native=True)
+        nbin_p, err = build_binary(va, spec, args, pilot, reached, addrs if args.bounded else None, native=True)
     if err:
         # A closure that did not build compares nothing: its replays are unverified, never passed.
         res["unverified"] = res["replayed"]
