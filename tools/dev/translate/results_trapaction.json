@@ -111,6 +111,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x1406EEBB0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapanime.json",
+   "coverage": {
+    "0x1406E72A0": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 12 of 12 (live2/pid3061186, FULL captures of hook anime_iface_80_6E72A0: seq707..715, 726, 727, 733; pes-port-TrapTick7.md); every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 12,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 9,
+     "total": 10,
+     "fraction": 0.9
+    },
+    "replayed": 12,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E72A0"
   }
  ]
 }

@@ -218555,6 +218555,32 @@
    "vtables": [],
    "walked": true
   },
+  "1406E72A0": {
+   "boundary": null,
+   "callees": {
+    "1406AF6D0": "direct",
+    "1406B0ED0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406e72a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "restart"
+   ],
+   "scope": "in",
+   "size": 52,
+   "source": "pdata",
+   "subsystem": "restart",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406E7380": {
    "boundary": null,
    "callees": {},
@@ -1290602,6 +1290628,12 @@
      "0x14063A290",
      "0x14063A490",
      "0x14063D2F0"
+    ]
+   },
+   "trapanime": {
+    "members": 1,
+    "roots": [
+     "0x1406E72A0"
     ]
    },
    "trapchain": {
