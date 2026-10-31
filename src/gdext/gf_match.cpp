@@ -381,7 +381,11 @@ bool GfMatch::RunGate() {
     const Vector3 dir = ToFox(gateScorer_->GetBodyDirectionVec());
     g.facing = float(Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0));  // PES's bearing: atan2(dx, dz)
     g.animeClass = uint8_t(AnimeClassOf(gateScorer_));
-    const Vector3 v = ToFox(gateScorer_->GetMovement()) / TICK_S;  // m/s, Y up: the ground speed is x and z
+    // Ground speed from the last tick's displacement (the pose taken before the step): Player::GetMovement() is not a world velocity
+    // (measured 160..1141 on a man walking at 2 m/s).
+    const size_t index = size_t(std::find(players_.begin(), players_.end(), gateScorer_) - players_.begin());
+    const Vector3 stepped = index < previousPlayers_.size() ? ToFox(gateScorer_->GetPosition()) - ToFox(previousPlayers_[index]) : Vector3();
+    const Vector3 v = stepped / TICK_S;  // m/s, Y up: the ground speed is x and z
     g.animeSpeed = kAnimeSpeedPerMps * float(Math::sqrt(double(v.x) * v.x + double(v.z) * v.z));
     return fixdemo_->GoalGateReady(g);
   }
