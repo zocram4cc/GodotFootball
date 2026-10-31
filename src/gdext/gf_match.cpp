@@ -16,6 +16,7 @@
 #include "onthepitch/pesgoalscene.hpp"
 #include "onthepitch/referee.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/player/playerofficial.hpp"
 #include "onthepitch/player/controller/elizacontroller.hpp"
 #include "simcontext.hpp"
 #include "utils/database.hpp"
@@ -320,6 +321,7 @@ std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const V
   Player* scorer = match_->GetLastGoalScorer();
   const int slot = PesSlot(scorer);
   if (!scorer || slot < 0) return std::nullopt;
+  const int side = slot / pes::designation::kSideSlots;
   const Vector3 pos = ToFox(scorer->GetPosition());
   const Vector3 vel = ToFox(scorer->GetMovement()) / TICK_S / pes::offball::kPesFps;  // metres per PES frame
   const Vector3 dir = ToFox(scorer->GetBodyDirectionVec());
