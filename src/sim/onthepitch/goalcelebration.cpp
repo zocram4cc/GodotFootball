@@ -64,8 +64,8 @@ void RunTarget(float fromX, float fromY, int attackedSide, int nearSide, float p
   *outY = fromY + dy * t;
 }
 
-bool HasArrived(float distanceToTarget_m, unsigned long waited_ms) {
-  return distanceToTarget_m <= kArrivalRadius_m || waited_ms >= kApproachCap_ms;
+bool HasArrived(float distanceToTarget_m, unsigned long waited_ms, unsigned long cap_ms) {
+  return distanceToTarget_m <= kArrivalRadius_m || waited_ms >= cap_ms;
 }
 
 Phase_e Phase(unsigned long elapsed_ms, unsigned long introHold_ms) {
