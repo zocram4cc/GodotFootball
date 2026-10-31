@@ -464,7 +464,7 @@ def import_model_lines(op, jump):
     if not slot or slot.get("kind") != "export":
         return None
     e = models.get((slot["module"].lower(), slot["export"]))
-    if e is None:
+    if e is None or "do" not in e:  # no translator mirror (a harness-only code_hex model): the call stays on the dispatch path
         return None
     push_ret = "" if jump else "s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8);"
     pop_ret = "" if jump else " s.gpr[4] += 8;"

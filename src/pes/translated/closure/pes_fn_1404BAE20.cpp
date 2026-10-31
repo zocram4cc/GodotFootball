@@ -16,7 +16,6 @@ static constexpr uint32_t k_c1425A0C48_w = 0x3C8EFA35U;
 static constexpr float k_c1425A0C48_f = 0.01745329238474369f; // 0.01745329238474369
 
 void pes_fn_1404BAE20(PesState& s);
-void pes_fn_1415A17D4(PesState& s);
 
 void pes_fn_1404BAE20(PesState& s) {
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((56ULL)), _r = (_a - _b) & 0xFFFFFFFFFFFFFFFFULL;
@@ -39,7 +38,7 @@ void pes_fn_1404BAE20(PesState& s) {
     s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c14259858C_f))));
   }
   s.set_x_f32(0, (float)((s.x_f32(0)) * ((k_c1425A0C48_f))));
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1415A17D4(s); s.gpr[4] += 8; }
+  s.set_x_f32(0, pes_model_tanf(s.x_f32(0)));
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(6))));
   { unsigned __int128 _v = s.rd128(((s.gpr[4]) + (0x20ULL))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((56ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;

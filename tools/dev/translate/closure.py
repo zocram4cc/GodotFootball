@@ -136,6 +136,9 @@ def main(argv=None):
     ap.add_argument("--regenerate", action="store_true",
                     help="rewrite the committed specs of members too (default: only missing specs are written)")
     ap.add_argument("--dry-run", action="store_true", help="report the closure; write nothing")
+    ap.add_argument("--no-specs", action="store_true",
+                    help="write the universe rows and the set file only (a capture-bounded closure needs the root's spec, "
+                         "made by an earlier run over the root alone; specgen over hundreds of members does not finish)")
     ap.add_argument("--members-file", help="capture-bounded closure: a JSON list of VAs (snapdiff --bounded writes it as "
                     "<out-dir>/gen/<VA>/members.json). The closure is exactly those functions; a call to any other function "
                     "stays the translator's loud abort")
@@ -175,6 +178,9 @@ def main(argv=None):
     save_universe(doc)
     set_path = os.path.join(DIFFH, "specgen", "sets", "closure-%s.txt" % args.tag)
     SETS.write_set(set_path, [(("0x" + key), status, sub, role) for key, status, sub, role in rows])
+    if args.no_specs:
+        print("closure %s: universe rows and set file written (%d members), no specs (--no-specs)" % (args.tag, len(members)))
+        return 0
     spec_dir = os.path.join(DIFFH, "specs", args.spec_set)
     os.makedirs(spec_dir, exist_ok=True)
     out = tempfile.mkdtemp(prefix="closure-%s-" % args.tag, dir=os.environ.get("GF_CLOSURE_TMP") or None)

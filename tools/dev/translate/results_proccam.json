@@ -1,0 +1,41 @@
+{
+ "note": "proccam results. diffed = bit-exact vs the unicorn harness over the captured calls named in each record (snapdiff --bounded); pes-port-ProcCamera.md.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_proccam.json",
+   "coverage": {
+    "0x141F7BFE0": {
+     "reached": 83,
+     "total": 226,
+     "fraction": 0.3673
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 83,
+     "total": 226,
+     "fraction": 0.3673
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_proccam.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141F7BFE0",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid3234533 seq6220 the init call of the goal scene's procedural camera, state 1; seq6224 and seq6228 per-frame updates, state 2); FixDemoCamera vslot 11, the procedural camera engine; the closure is capture-bounded (235 functions), every other call stays the translator's loud abort."
+  }
+ ]
+}
