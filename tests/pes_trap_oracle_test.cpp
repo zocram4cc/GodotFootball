@@ -1064,8 +1064,16 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
       const size_t len = std::strtoul(line[2].c_str(), nullptr, 10);
       uint8_t* dst = w.Bytes() + (kTickEntry - pes::kWorldWindowVa) + rel;
       for (size_t i = 0; i < len; ++i) dst[i] = static_cast<uint8_t>(Read(o, o.regs.at("rsp") + rel + i, 1));
+      // PES's caller frame F lives on the stack (rsp+0x128..), so the manifest files the reads of F's first bytes as S lines (within 0x300
+      // of rsp), not H. GF's F is its own object (TickFrameVa): the part of the line that falls in F goes there too.
+      const uint64_t fLo = captured[kObjFrame].base, fHi = fLo + captured[kObjFrame].size, sLo = o.regs.at("rsp") + rel;
+      const uint64_t from = std::max(sLo, fLo), to = std::min(sLo + len, fHi);
+      if (from < to) put(kObjFrame, static_cast<uint32_t>(from - fLo), from, static_cast<size_t>(to - from));
     }
   }
+  // PesMem looks segments up by base address: the ones this build adds after the loader's are put in order.
+  std::sort(t.built.ext.segments.begin(), t.built.ext.segments.end(),
+            [](const pes::PesTrapSegment& a, const pes::PesTrapSegment& b) { return a.va < b.va; });
 }
 
 struct TickRun {
