@@ -34,6 +34,9 @@ constexpr int kMinutes = 2;
 // Seed 7's two minutes release no throw-in (its first is past tick 15000: docs/ports/pes-port-StoppageFlow5.md §3), so the
 // tests search matches in turn until one has a throw-in. Seed 3's first walker is at tick 2461 on the path-A census.
 constexpr unsigned int kThrowInSeeds[] = {kSeed, 3u, 13u, 11u};
+// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take: seeds 2, 15 and 16 each have one in
+// their first two minutes on the translated judge (a 1..40 seed census, docs/ports/pes-port-CardLevel7.md); 3, 13 and 11 have none.
+constexpr unsigned int kCeremonySeeds[] = {2u, 15u, 16u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).
@@ -149,7 +152,7 @@ TEST(PesThrowInRelease, ACeremonyThrowInIsReleasedFromTheHandOverTheSpot) {
   constexpr int kThrowInKeyMotion = 0xcfa;
   int ceremony = 0, mismatched = 0;
   float worstHeight_m = 0.0f, worstReach_m = 0.0f;
-  for (const unsigned int seed : kThrowInSeeds) {
+  for (const unsigned int seed : kCeremonySeeds) {
     if (ceremony > 0) break;
     bool throwInTaking = false, placed = false;
     Vector3 heldBall, heldRoot, rootEndingLastTick;
