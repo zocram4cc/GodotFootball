@@ -492,6 +492,21 @@ def import_model_lines(op, jump):
                 " if (_dst > _src && _dst < _src + _n) { for (uint64_t _i = _n; _i-- > 0;) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " else { for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " s.gpr[1] = 0; s.gpr[4] += 16;%s }" % pop_ret]
+    if e["do"] == "vsprintf_s":
+        # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
+        return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "memcmp":
+        # Win64 memcmp(rcx = a, rdx = b, r8 = n): eax = -1, 0 or 1 by the first differing byte, unsigned (the DLL's code: word
+        # compares on byte-swapped words, `sbb eax, eax; sbb eax, -1`); no stack write.
+        return ["{ " + push_ret +
+                " uint64_t _a = s.gpr[1], _b = s.gpr[2], _n = s.gpr[8]; int32_t _r = 0;"
+                " for (; _n != 0 && _r == 0; ++_a, ++_b, --_n) { uint8_t _x = (uint8_t)s.rd(_a, 1), _y = (uint8_t)s.rd(_b, 1); _r = _x < _y ? -1 : (_x > _y ? 1 : 0); }"
+                " s.gpr[0] = (uint32_t)_r;%s }" % pop_ret]
+    if e["do"] == "memchr":
+        # Win64 memchr(rcx = p, dl = c, r8 = n): rax = the first byte equal to dl, or 0 (import_stubs.json code_hex; no stack write).
+        return ["{ " + push_ret +
+                " uint64_t _p = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2]; s.gpr[0] = 0;"
+                " for (; _n != 0; ++_p, --_n) if ((uint8_t)s.rd(_p, 1) == _c) { s.gpr[0] = _p; break; }%s }" % pop_ret]
     if e["do"] == "qpc":
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
