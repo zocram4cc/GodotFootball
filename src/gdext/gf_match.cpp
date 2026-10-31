@@ -13,7 +13,6 @@
 #include "onthepitch/pesdesignation.hpp"
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/matchsetup.hpp"
-#include "onthepitch/pesgoalscene.hpp"
 #include "onthepitch/referee.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/player/playerofficial.hpp"
@@ -125,7 +124,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   match_ = std::make_unique<Match>(new MatchData(home, away), setup, config);  // owns the MatchData
   // PES's FixDemo selection (foul and goal tables) on GF's arena. Without the install's tables there is no cutscene.
   fixdemo_.reset();
-  goalTable_.reset();
+  previousGoalPick_ = 0;
   pendingCutscene_.reset();
   timeline_.reset();
   tick_ = 0;
@@ -145,7 +144,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
     tables[category] = std::move(*table);
   }
   if (!tables.empty() && library->rng_constants() && library->exe()) {
-    goalTable_ = tables.at(pes::kFixDemoGoal);
+    // (the goal table's scenes, edit list and rows reach the builder through the selector's arena)
     std::string err;
     fixdemo_ = pes::FixDemoSelector::Create(std::move(tables), *library->exe(), &err);
     if (!fixdemo_) UtilityFunctions::push_warning(String("GfMatch: FixDemo selection unavailable: ") + err.c_str());
@@ -233,9 +232,8 @@ void GfMatch::step() {
 // state does not feed its inputs. 0x20008 (FOUL_WARN_CARD_N) is the id every ordinary foul stop of the live captures returned
 // (live2 seq090, case 0). Card, injury and penalty stops play it too until the tree is translated.
 constexpr uint32_t kOrdinaryFoulScene = 0x20008;
-// ponytail: the goal level (goal ctx [0]) and stage gate of the generic pick 0x140477400 come from a goal context GF does not
-// have (pesgoalscene.hpp); an ordinary goal is level 0.
-constexpr pes::GoalSceneRule kGoalRule{0, false};
+// ponytail: the scorer's two edit-mode celebration slots (his player record's bytes 2 and 3, PES's squad record builder) are not
+// in GF's player data: 0 takes PES's generic pick. The assisting man (MI+0x162C) is not tracked either: PES's invalid pair.
 // ponytail: the scorer's move word man+0x5B0 (PES's per-frame man update), which picks velocity or facing for the anchor's
 // rotation: GF has no such word; 0 is what two captured goals held (the velocity's heading). The anchor's run target and
 // radius are no longer stand-ins: the translated 0x140476C50 and 0x140474CF0 compute them from the facts below.
@@ -248,7 +246,7 @@ void GfMatch::set_cutscene_environment(int stadium, int time_of_day, int weather
 }
 
 void GfMatch::PollCutscenes() {
-  if (!fixdemo_ || !goalRng_ || !goalTable_) return;
+  if (!fixdemo_ || !goalRng_) return;
   pes::FixDemoFacts facts = cutsceneEnvironment_;
   switch (match_->GetMatchPhase()) {  // 0x141F51630's switch on the period, as GF's phases
     case e_MatchPhase_2ndHalf: facts.matchPhase = 1; break;
@@ -270,22 +268,28 @@ void GfMatch::PollCutscenes() {
                     (!foulStopSeen_ || stop.stopTime != lastFoulStop_ms_);
   if (timeline_) return;  // one scene at a time: PES's DemoInfo is a singleton (a stop during a scene is not asked)
   if (scored) {
-    // The goal scene: PES's generic pick (pesgoalscene), then the variant of each of its cuts.
-    const auto scene = pes::PickGoalScene(*goalTable_, kGoalRule, *goalRng_);
-    if (!scene) return;
+    // The goal scene: PES's builder 0x140477BC0 (the pick and the list around it) on the arena, then the variant of each scene's cuts.
     const Vector3 ball = ToFox(match_->GetBall()->Predict(0));
     facts.subjectSide = uint32_t(scorer);
     facts.eventX = ball.x;
     facts.eventY = ball.y;
     facts.eventZ = ball.z;
     fixdemo_->BeginEvent(facts);
-    pendingCutscene_ = fixdemo_->Request(*scene);
     gateScorer_ = match_->GetLastGoalScorer();
     gateIsGoal_ = true;
-    pendingAnchor_ = PlaceGoalScene(*scene, ball);
+    pendingAnchor_ = PlaceGoalScene(ball);
     // The gate runs on the run object the anchor's PlaceGoal built: a goal whose scorer is not in the active set (no anchor, no
     // run object) plays no scene.
-    if (!pendingAnchor_) pendingCutscene_.reset();
+    pendingCutscene_.reset();
+    if (pendingAnchor_) {
+      previousGoalPick_ = pendingAnchor_->sceneId;
+      // One DemoInfo list: each scene is its own steps, played in order (the 07:00 goal: 0x3006C, 0x30136, 0x3011C).
+      pes::FixDemoRequest list;
+      list.sceneId = pendingAnchor_->sceneId;
+      for (const uint32_t id : pendingAnchor_->scenes)
+        if (const auto one = fixdemo_->Request(id)) list.steps.insert(list.steps.end(), one->steps.begin(), one->steps.end());
+      if (!list.steps.empty()) pendingCutscene_ = std::move(list);
+    }
     // The scorer runs to PES's celebration spot (T = A0+0x30; PES x, up, z are GF's x, -y, up).
     if (pendingAnchor_) match_->SetGoalCelebrationSpot(blunted::Vector3(pendingAnchor_->target[0], -pendingAnchor_->target[2], 0));
     if (pendingCutscene_) StartTimeline(*pendingCutscene_);
@@ -319,7 +323,7 @@ void GfMatch::PollCutscenes() {
 // The goal scene's anchor (the scorer's celebration spot PES places the cut's player at: writer 0x14047D280 over the calc
 // 0x140474F00) from GF's goal: the scorer's pose, the side and squad index, the pitch and PES's tick rate. The scorer is
 // the last touch of the scoring team (Match::GetLastGoalScorer), as the goal celebration finds him.
-std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const Vector3& event) {
+std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(const Vector3& event) {
   Player* scorer = match_->GetLastGoalScorer();
   const int slot = PesSlot(scorer);
   if (!scorer || slot < 0) return std::nullopt;
@@ -328,7 +332,6 @@ std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const V
   const Vector3 vel = ToFox(scorer->GetMovement()) / TICK_S / pes::offball::kPesFps;  // metres per PES frame
   const Vector3 dir = ToFox(scorer->GetBodyDirectionVec());
   pes::GoalAnchorFacts f;
-  f.sceneId = sceneId;
   f.scorerSlot = uint32_t(slot);
   f.pos = {pos.x, pos.y, pos.z};
   f.vel = {vel.x, vel.y, vel.z};
@@ -344,11 +347,28 @@ std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const V
   // opposite (the second half swaps them).
   f.attackDeg[side] = event.x > 0 ? 90.0f : 270.0f;
   f.attackDeg[1 - side] = event.x > 0 ? 270.0f : 90.0f;
-  // ponytail: the scenes the builder 0x140477BC0 lists around the picked one are not built (27 functions of closure); the
-  // radius sums over the scene GF plays.
-  f.cuts = {sceneId};
-  // ponytail: PES seeds the DemoInfo generator (A0+0x108) from its clock where the DemoInfo is built (0x14047DF00); GF lends
-  // it the goal pick's own generator state, unadvanced.
+  // The builder's inputs: the period, the match clock (seconds), the previous goal's pick, the score with this goal, the men.
+  pes::GoalAnchorFacts::SceneBuild build;
+  switch (match_->GetMatchPhase()) {
+    case e_MatchPhase_2ndHalf: build.period = 2; break;
+    case e_MatchPhase_1stExtraTime: build.period = 3; break;
+    case e_MatchPhase_2ndExtraTime: build.period = 4; break;
+    case e_MatchPhase_Penalties: build.period = 9; break;  // INF: the pick's only test is `period != 9` (0x140475AF5)
+    default: build.period = 1; break;
+  }
+  build.clock_s = float(match_->GetMatchTime_ms()) / 1000.0f;
+  build.previousPick = previousGoalPick_;
+  build.score = {uint32_t(match_->GetScore(0)), uint32_t(match_->GetScore(1))};
+  for (size_t i = 0; i < players_.size() && i < build.men.size(); ++i) {
+    const int s = PesSlot(players_[i]);
+    if (s < 0 || s >= int(build.men.size())) continue;
+    const Vector3 at = ToFox(players_[i]->GetPosition());
+    build.men[size_t(s)] = {at.x, at.y, at.z};
+  }
+  f.build = build;
+  // ponytail: PES seeds the DemoInfo generator (A0+0x108) from its clock where the DemoInfo is built (0x14047DF00); GF draws the
+  // state from the goal generator, which moves on at each goal.
+  goalRng_->Range0(2);
   f.rngState = goalRng_->State(pes::kRange0Slot);
   return fixdemo_->PlaceGoal(f);
 }

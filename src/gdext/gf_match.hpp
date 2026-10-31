@@ -75,7 +75,7 @@ class GfMatch : public RefCounted {
  private:
   void RefreshPlayers();
   void PollCutscenes();
-  std::optional<pes::GoalAnchor> PlaceGoalScene(uint32_t sceneId, const Vector3& event);
+  std::optional<pes::GoalAnchor> PlaceGoalScene(const Vector3& event);
   void StartTimeline(const pes::FixDemoRequest& request);
   // PES's gate function for the scene in force (goal 0x140472640, foul 0x14047EB00) on this frame's players; true once open.
   bool RunGate();
@@ -93,7 +93,7 @@ class GfMatch : public RefCounted {
   bool previousValid_ = false;
   // PES's FixDemo selection on GF memory, fed by the goal and foul stops the poll sees.
   std::unique_ptr<pes::FixDemoSelector> fixdemo_;
-  std::optional<pes::FixDemoTable> goalTable_;
+  uint32_t previousGoalPick_ = 0;  // A0+0x13C: the scene the previous goal's DemoInfo picked (the builder's repeat filter)
   std::unique_ptr<pes::Random> goalRng_;
   pes::FixDemoFacts cutsceneEnvironment_;
   std::optional<pes::FixDemoRequest> pendingCutscene_;
