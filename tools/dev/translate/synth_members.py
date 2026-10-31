@@ -8,7 +8,7 @@ scratch stack space) of a call of the member; the harness runs PES's bytes on it
 pages, and snapdiff.py --bounded compares the return value and every written byte. The records are merged into
 results_dribble.json marked `synthetic`, with the case count.
 
-Usage: PES_EXE=<pes_full.bin> python3 synth_members.py STATE_DIR WORK_DIR [--only 0xVA ...] [--merge]
+Usage: PES_EXE=<pes_full.bin> RV_HOOKS=<hooks.cfg> python3 synth_members.py STATE_DIR WORK_DIR [--only 0xVA ...] [--merge]
   STATE_DIR  synth_walk.py --entry 0x14212FE70 output (keep it whole: it is PES's memory)
   WORK_DIR   scratch: one small dir per case (mem.bin is a link, or a sparse copy where bytes are poked; deleted per case)
 Harness Python (unicorn). Not part of the gate: the proofs are committed as results_dribble.json records.
@@ -141,7 +141,7 @@ def main():
                     help="a function a real capture calls: its calls are replayed as they are (not synthetic)")
     a = ap.parse_args()
     image = os.environ["PES_EXE"]
-    hooks = os.environ.get("RV_HOOKS", "/mnt/Extra4/PES21/rendezvous/hooks.cfg")
+    hooks = os.environ["RV_HOOKS"]  # the rv.dll config of the capture's launch (hook displaced bytes)
     st = State(a.state)
     records = []
     for va, cs in cases(st).items():
