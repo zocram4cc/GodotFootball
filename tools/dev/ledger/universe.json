@@ -1293426,6 +1293426,12 @@
      "0x1406E72A0"
     ]
    },
+   "trapanime2": {
+    "members": 1,
+    "roots": [
+     "0x1406E85B0"
+    ]
+   },
    "trapchain": {
     "members": 170,
     "roots": [

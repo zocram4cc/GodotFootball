@@ -1523,6 +1523,7 @@ void pes_fn_1406E7CE0(PesState& s);
 void pes_fn_1406E80B0(PesState& s);
 void pes_fn_1406E8320(PesState& s);
 void pes_fn_1406E8480(PesState& s);
+void pes_fn_1406E85B0(PesState& s);
 void pes_fn_1406E8690(PesState& s);
 void pes_fn_1406E8790(PesState& s);
 void pes_fn_1406E8B70(PesState& s);

@@ -1,9 +1,14 @@
 {
- "note": "the functions snapdiff --bounded built for the proof of 0x1406E72A0 (SetMotion's anime interface slot +0x80, the motion displacement writer): the root and each function the replays entered (12 captured calls, live2/pid3061186/seq707..733). Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
- "root": "0x1406E72A0",
+ "note": "the functions snapdiff --bounded built for the proofs of 0x1406E72A0 (SetMotion's anime interface slot +0x80, the motion displacement writer; 12 captured calls, live2/pid3061186/seq707..733) and 0x1406E85B0 (the trap tick's anime displace, called at 0x14079C5EC; live2/pid3439759/seq10956): each root and each function its replays entered. Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "roots": ["0x1406E72A0", "0x1406E85B0"],
  "members": [
   "0x1406AF6D0",
+  "0x1406AFF90",
+  "0x1406B05E0",
   "0x1406B0ED0",
-  "0x1406E72A0"
+  "0x1406E72A0",
+  "0x1406E85B0",
+  "0x1406E8B70",
+  "0x140A92C80"
  ]
 }

@@ -148,6 +148,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x1406E72A0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapanime.json",
+   "coverage": {
+    "0x1406E85B0": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 1 of 1 (live2/pid3439759/seq10956, FULL capture of hook anime_displace_6E85B0, rv hooks.cfg line 57 for the displaced bytes); every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E85B0"
   }
  ]
 }
