@@ -108,7 +108,9 @@ TEST_F(ProcCamera, ThreeCapturedFramesTieToPesBitForBit) {
     float t;
     std::memcpy(&t, &f.timeBits, 4);
     rig->SetTarget(kScorerSlot, TargetOf(f.scorer));
-    const pes::ProcCameraPose pose = rig->Step(cam, t);
+    const std::optional<pes::ProcCameraPose> stepped = rig->Step(cam, t);
+    ASSERT_TRUE(stepped);
+    const pes::ProcCameraPose& pose = *stepped;
     const std::vector<uint8_t> want = Hex(f.params);
     ASSERT_EQ(want.size(), pes::kCameraParamsBytes);
     for (size_t i = 0; i < want.size(); i += 4) {
@@ -134,7 +136,7 @@ TEST_F(ProcCamera, TheTargetFollowsTheActor) {
     PesCameraRegistry::Target t = TargetOf(kFrames[0].scorer);
     t.ground[0] += shift, t.pointA[0] += shift, t.pointB[0] += shift;
     r.SetTarget(kScorerSlot, t);
-    return r.Step(cam, 0.0f);
+    return *r.Step(cam, 0.0f);
   };
   std::string err;
   auto other = pes::FixDemoCameraRig::Create(*exe, &err);
@@ -215,23 +217,28 @@ TEST(ProcCameraGodot, TheFrameIsATorsoShotAtTheCapturedDistance) {
   EXPECT_LT(frame, 2.0f);
 }
 
-// The engine is translated only as far as the captures reach: a record is covered when its zoom stages are the captured ones
-// (stage 2 at tick 0, the rest unused); any other stage selects a preset or a later transition the translation aborts on.
-TEST(ProcCameraGodot, EngineCoversOnlyTheCapturedZoomStages) {
+// A record the captures did not reach (zoom stage 1 at tick 0 selects preset 0x140892100, which the bounded engine closure does
+// not hold) does not end the process: Step reports the missing call, and the rig and the next camera are unharmed.
+// If the closure grows to cover this record, pick another uncovered zoom stage here.
+TEST_F(ProcCamera, AnUncapturedRecordFailsTheFrameNotTheProcess) {
   constexpr size_t kZoomOffset = 0xB8;
-  std::vector<uint8_t> record = Hex(kRecord);
-  EXPECT_TRUE(pes::EngineCovers(record));
-  auto withStage = [&](size_t stage, int32_t value) {
-    std::vector<uint8_t> r = record;
-    std::memcpy(r.data() + kZoomOffset + 4 * stage, &value, 4);
-    return r;
-  };
-  EXPECT_FALSE(pes::EngineCovers(withStage(2, -1)));   // no stage at all: the first-zero search falls off the table
-  EXPECT_FALSE(pes::EngineCovers(withStage(1, 0)));    // preset 0x140892100 (the cmnCam_outM00 shape)
-  EXPECT_FALSE(pes::EngineCovers(withStage(4, 180)));  // a later transition at tick 180
-  EXPECT_FALSE(pes::EngineCovers(withStage(2, 90)));   // stage 2 not at tick 0
-  record.resize(0xB8 + 4 * 8 - 1);
-  EXPECT_FALSE(pes::EngineCovers(record));
+  constexpr int32_t kStageAtZero = 0, kStageUnused = -1;
+  constexpr uint64_t kPreset = 0x140892100;
+  std::vector<uint8_t> uncaptured = Hex(kRecord);
+  std::memcpy(uncaptured.data() + kZoomOffset + 4, &kStageAtZero, 4);
+  std::memcpy(uncaptured.data() + kZoomOffset + 8, &kStageUnused, 4);
+  const size_t bad = rig->AddCamera(uncaptured);
+  rig->SetTarget(kScorerSlot, TargetOf(kFrames[0].scorer));
+  uint64_t missing = 0;
+  EXPECT_FALSE(rig->Step(bad, 0.0f, &missing));
+  EXPECT_EQ(missing, kPreset);
+  // The recovery is cleared: a camera of the captured record on the same rig still ties PES's first frame.
+  const size_t good = rig->AddCamera(Hex(kRecord));
+  const std::optional<pes::ProcCameraPose> pose = rig->Step(good, 0.0f, &missing);
+  ASSERT_TRUE(pose);
+  const std::vector<uint8_t> want = Hex(kFrames[0].params);
+  EXPECT_EQ(FloatAt(want, 0x0C), pose->eye[0]);
+  EXPECT_EQ(FloatAt(want, 0x30), pose->fovRad);
 }
 
 }  // namespace

@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <csetjmp>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
 #include "pes/exe.hpp"
+#include "pes_dispatch.hpp"
 #include "translated.hpp"
 
 namespace pes {
@@ -26,7 +28,6 @@ constexpr uint64_t kCameraBytes = 0x228, kCameraAlign = 0x10;
 constexpr uint64_t kCamState = 0x128, kCamRecord = 0x130, kCamTime = 0x214, kCamTimeStep = 0x218, kCamDirty = 0x220,
                    kCamTime0 = 0x210, kCamTime1 = 0x21C, kCamFlag2 = 0x222, kCamTarget = 0x224;
 constexpr uint64_t kRecordTargetNo = 0xB1;  // record byte read by SetProcedural: the first target slot, sign-extended
-constexpr size_t kZoomStages = 8, kRecordZoom = 0xB8, kCoveredStage = 2;  // stage 2 = preset 0x140892660, the captured one
 
 // The camera manager singleton (read by 0x141E9BA30) and the effect list (0x141E92C20): PES's are render-layer owners; the
 // engine hands them the record's layer-visibility flags (0x141E9D2F0, 0x141E9CE80) and reads nothing back that the pose uses.
@@ -75,6 +76,15 @@ uint64_t ReadChunked(const PeImage& exe, uint64_t va, uint64_t n, std::vector<ui
 [[noreturn]] void Die(const char* what, uint64_t v) {
   std::fprintf(stderr, "PES_CAMERA_RIG: %s %#llx\n", what, static_cast<unsigned long long>(v));
   std::abort();
+}
+
+// The recovery point of the engine frame in flight (Step) and the call it could not make.
+std::jmp_buf* gRecover = nullptr;
+uint64_t gMissingVa = 0;
+
+[[noreturn]] void OnMissingCall(uint64_t target) {
+  gMissingVa = target;
+  std::longjmp(*gRecover, 1);
 }
 
 }  // namespace
@@ -162,7 +172,7 @@ void FixDemoCameraRig::SetTarget(unsigned slot, const PesCameraRegistry::Target&
   impl_->registry->Set(impl_->s, slot, target);
 }
 
-ProcCameraPose FixDemoCameraRig::Step(size_t camera, float timeTicks) {
+std::optional<ProcCameraPose> FixDemoCameraRig::Step(size_t camera, float timeTicks, uint64_t* missingVa) {
   Impl& m = *impl_;
   PesState& s = m.s;
   if (camera >= m.cameras.size()) Die("no such camera", camera);
@@ -175,7 +185,17 @@ ProcCameraPose FixDemoCameraRig::Step(size_t camera, float timeTicks) {
   s.wrf(cam + kCamTimeStep, timeTicks - old);
   s.gpr[1] = cam;
   s.gpr[2] = kCameraParamsVa;
-  m.Call(&pes_fn_141F7BFE0);
+  std::jmp_buf recover;
+  gRecover = &recover;
+  pes_dispatch_missing_handler = &OnMissingCall;
+  const bool returned = setjmp(recover) == 0;
+  if (returned) m.Call(&pes_fn_141F7BFE0);
+  pes_dispatch_missing_handler = nullptr;
+  gRecover = nullptr;
+  if (!returned) {
+    if (missingVa) *missingVa = gMissingVa;
+    return std::nullopt;
+  }
   ProcCameraPose pose;
   for (size_t i = 0; i < kCameraParamsBytes; ++i) pose.raw[i] = static_cast<uint8_t>(s.rd(kCameraParamsVa + i, 1));
   auto f3 = [&](uint64_t off) { return std::array<float, 3>{s.rdf(kCameraParamsVa + off), s.rdf(kCameraParamsVa + off + 4), s.rdf(kCameraParamsVa + off + 8)}; };
@@ -186,16 +206,6 @@ ProcCameraPose FixDemoCameraRig::Step(size_t camera, float timeTicks) {
   pose.nearM = s.rdf(kCameraParamsVa + 0x34);
   pose.farM = s.rdf(kCameraParamsVa + 0x38);
   return pose;
-}
-
-bool EngineCovers(const std::vector<uint8_t>& record) {
-  if (record.size() < kRecordZoom + 4 * kZoomStages) return false;
-  for (size_t i = 0; i < kZoomStages; ++i) {
-    int32_t t;
-    std::memcpy(&t, record.data() + kRecordZoom + 4 * i, 4);
-    if (t != (i == kCoveredStage ? 0 : -1)) return false;
-  }
-  return true;
 }
 
 GodotCameraPose ToGodotCamera(const ProcCameraPose& p, float degPerRad) {

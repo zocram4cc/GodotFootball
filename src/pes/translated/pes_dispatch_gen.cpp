@@ -9603,7 +9603,9 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     default: return {0};
   }
 }
+void (*pes_dispatch_missing_handler)(uint64_t) = nullptr;
 [[noreturn]] void pes_dispatch_missing(uint64_t t) {
+  if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(t);
   std::fprintf(stderr, "PES_DISPATCH_UNTRANSLATED: %#llx\n",
                (unsigned long long)t);
   std::abort();

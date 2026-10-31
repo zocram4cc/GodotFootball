@@ -7,6 +7,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
+#include <algorithm>
 #include <string>
 
 namespace godot {
@@ -18,9 +19,10 @@ constexpr uint8_t kProceduralMode = 4;
 // empty anime path is procedural (PES slot +0x50 SetProcedural 0x141F7B630, update 0x141F7BFE0): a mode-4 one (the record's
 // +0xB0) becomes a FixDemoCamera of the step's rig, whose engine frames pose it (advance); a procedural record of another
 // mode keeps a track without a clip, and update() returns false while it is in force.
-// ponytail: modes other than 4 (the foul cut 0x20007 and other cmnCam layers) and mode-4 records whose zoom stages are not the
-// captured ones (pes::EngineCovers) are not proven on the translated engine, which aborts the process on a call it was not
-// captured in; the caller keeps its broadcast camera for them until a capture proves them.
+// ponytail: the translated engine is proven only on the captured calls (pes::FixDemoCameraRig::Step): a record or a target
+// motion that reaches an uncaptured function kills that camera (advance reports the VA) and update() returns false for it, so the
+// caller keeps its broadcast camera, until a capture proves the call. Modes other than 4 (the foul cut 0x20007, other cmnCam
+// layers) are not given a rig at all.
 Error PesCutsceneCamera::AddTrack(const Ref<PesLibrary>& library, const pes::fdc::File& file, const pes::fdc::CameraRecord& cam) {
   Track track;
   track.record = cam;
@@ -46,7 +48,7 @@ Error PesCutsceneCamera::AddTrack(const Ref<PesLibrary>& library, const pes::fdc
       return ERR_PARSE_ERROR;
     }
     track.canm = std::move(canm);
-  } else if (cam.targetBytes[0] == kProceduralMode && pes::EngineCovers(cam.raw) && library->exe()) {
+  } else if (cam.targetBytes[0] == kProceduralMode && library->exe()) {
     if (!rig_) {
       std::string err;
       rig_ = pes::FixDemoCameraRig::Create(*library->exe(), &err);
@@ -136,7 +138,16 @@ void PesCutsceneCamera::advance(double t_s) {
   const float clock = float(t_s) * k_->sixty;
   const Track* force = InForce(clock);
   if (!force || force->rigId < 0) return;
-  pose_ = rig_->Step(size_t(force->rigId), RecordTicks(force->record, clock));
+  const int id = force->rigId;
+  if (std::find(deadRigs_.begin(), deadRigs_.end(), id) != deadRigs_.end()) return;
+  uint64_t missing = 0;
+  pose_ = rig_->Step(size_t(id), RecordTicks(force->record, clock), &missing);
+  if (!pose_) {
+    deadRigs_.push_back(id);
+    UtilityFunctions::push_error(String("PesCutsceneCamera: procedural camera ") + String::num_int64(id) +
+                                 " stopped: the engine 0x141F7BFE0 called untranslated 0x" + String::num_int64(int64_t(missing), 16) +
+                                 "; the broadcast camera stays");
+  }
 }
 
 bool PesCutsceneCamera::update(Camera3D* camera, double t_s) {

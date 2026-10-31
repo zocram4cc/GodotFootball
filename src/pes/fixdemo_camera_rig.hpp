@@ -14,6 +14,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -32,15 +33,6 @@ struct ProcCameraPose {
   float fovRad = 0, nearM = 0, farM = 0;       // +0x30, +0x34, +0x38
   std::array<uint8_t, kCameraParamsBytes> raw{};  // the whole block, for the oracle
 };
-
-// Whether the translated engine can pose a procedural camera record. The engine's closure is bounded by the captured calls
-// (docs/ports/pes-port-ProcCamera.md): it picks its rig preset by the first zero zoom stage (record +0xB8.., eight words,
-// 0x141F7C03E..) and only the call of stage 2 (preset 0x140892660) is in the translation; a record whose stages differ reaches
-// calls the translator left as a loud abort (0x140892100, 0x140892420, 0x1408921A0, ...) and ends the process. A record is
-// covered when its stage 2 is the only stage set: the captured goal's records (goal_2018_run_cmnCam_S_*).
-// ponytail: this is the shape of the proven captures, not a decode of every branch; it widens as captures of other presets
-// (the hook proc_camera_141F7BFE0, armed at goals) are proven and the closure grows.
-bool EngineCovers(const std::vector<uint8_t>& record);
 
 // The pose as a Godot camera: Fox space is Godot space (Y up, metres), so no axis change, only the basis. Godot's camera
 // looks down its own -Z with +Y up: z = eye - target (normalised), x = up x z, y = z x x. The vertical fov in degrees (the
@@ -69,7 +61,14 @@ class FixDemoCameraRig {
 
   // One engine frame of camera `camera`: the time setter (0x141F7B4A0) with `timeTicks` (1/60 s ticks of the step's player
   // clock), then 0x141F7BFE0 with the params block. The first call of a camera is its initialisation (camera+0x128 == 1).
-  ProcCameraPose Step(size_t camera, float timeTicks);
+  // Empty when the engine called a function the layer does not hold; *missingVa then names it (PES's VA) and the camera is
+  // spoiled (the engine stopped part-way): drop it.
+  // ponytail: the engine's closure is capture-bounded (docs/ports/pes-port-ProcCamera.md): a record (another zoom stage
+  // selects another preset, 0x140892100, 0x140892420, ...) or a target motion the captures did not reach calls a function the
+  // layer does not hold, and the translator's loud abort would end the process. The engine runs under a recovery for that one
+  // case (pes_dispatch_missing_handler) so the caller can fall back to its own camera. Removed when the closure covers the
+  // engine (more captures of the hook proc_camera_141F7BFE0, proven).
+  std::optional<ProcCameraPose> Step(size_t camera, float timeTicks, uint64_t* missingVa = nullptr);
 
   PesState& State();
 
