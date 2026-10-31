@@ -27,6 +27,10 @@ const PITCH_SURROUND_ALBEDO := Color(0.22, 0.42, 0.18)
 const FACE_DIR := "Asset/model/character/face/real/"
 const FOLLOW_OFFSET := Vector3(4.0, 2.2, 6.0)  # inspection camera, metres from the followed player
 const FOLLOW_TARGET_HEIGHT_M := 1.0
+# The registry slot of the goal scene's scorer (CAMERA_TARGET_0201) and the bones standing for the actor's joints 10 and 0.
+const CAMERA_TARGET_SCORER := 1
+const BONE_JOINT_10 := "sk_head"
+const BONE_JOINT_0 := "sk_root_hip"
 
 var args := {}
 var library: PesLibrary
@@ -153,6 +157,27 @@ func _poll_cutscene() -> void:
 		_cut_state = {}
 	elif int(_cut_state["step_started"]) >= 0:
 		print("frame %d cutscene scene 0x%x step %d starts" % [Engine.get_process_frames(), _cutscene_scene, int(_cut_state["step_started"])])
+	if not _cut_state.is_empty() and int(_cut_state["step"]) >= 0:
+		_advance_cut_camera(_cut_steps[int(_cut_state["step"])], float(_cut_state["clock_s"]))
+
+
+# One logic frame of the step's procedural camera (PES's engine 0x141F7BFE0 on the translated layer): the goal scene's actor, the
+# scorer, is written into CAMERA_TARGET_0201 (ground position and bearing from the sim, the two body points from his skeleton),
+# then the engine runs on the step's player clock.
+# ponytail: PES's actor update (the writer of CAMERA_TARGET_02nn, source object vtable 0x142BB1048) keeps its 20 joint points
+# at +0x7C; the record's points are joints 0 and 10 (CONFIRMED by value in the captured goal: 0.94 m and 1.59 m above the
+# scorer). Which bones those are is INF: sk_root_hip and sk_head. The skeleton is the render frame's, up to a logic frame old.
+func _advance_cut_camera(cam: PesCutsceneCamera, clock_s: float) -> void:
+	var actor: Dictionary = sim.cutscene_actor()
+	if not actor.is_empty():
+		var skeleton: Skeleton3D = _skeletons[int(actor["index"])]
+		if skeleton != null:
+			cam.set_target(CAMERA_TARGET_SCORER, actor["ground"], _bone_point(skeleton, BONE_JOINT_10), _bone_point(skeleton, BONE_JOINT_0), actor["facing_deg"])
+	cam.advance(clock_s)
+
+
+func _bone_point(skeleton: Skeleton3D, bone: String) -> Vector3:
+	return skeleton.to_global(skeleton.get_bone_global_pose(skeleton.find_bone(bone)).origin)
 
 
 func _load_cutscene(req: Dictionary) -> void:
@@ -207,8 +232,8 @@ func _place(delta: float) -> void:
 		var t: float = _cut_state["clock_s"]
 		if int(_cut_state["step_started"]) < 0:  # the clock moved one tick: show the pose between the two, as the players are
 			t = lerpf(_cut_state["clock_prev_s"], t, clampf(_accumulator / TICK_S, 0.0, 1.0))
-		# False: no clip camera is in force (before the first record starts, or a procedural record, PES 0x141F7BFE0): the
-		# broadcast camera stays.
+		# False: no camera is in force (before the first record starts, or a procedural record of a mode the engine 0x141F7BFE0
+		# is not proven in: only mode 4 is): the broadcast camera stays.
 		if _cut_steps[int(_cut_state["step"])].update(_camera, t):
 			return
 	if args.has("follow"):

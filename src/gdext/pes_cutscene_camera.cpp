@@ -120,8 +120,8 @@ const PesCutsceneCamera::Track* PesCutsceneCamera::InForce(float clock) const {
 static float RecordTicks(const pes::fdc::CameraRecord& r, float clock) { return r.timeMode ? clock - r.startTime : clock; }
 
 void PesCutsceneCamera::set_target(int slot, const Vector3& ground, const Vector3& point_a, const Vector3& point_b, double facing_deg) {
-  if (!rig_ || slot < 0 || slot >= int(pes::PesCameraRegistry::kTargets)) return;
-  pes::PesCameraRegistry::Target t;
+  if (!rig_ || slot < 0 || slot >= int(PesCameraRegistry::kTargets)) return;
+  PesCameraRegistry::Target t;
   t.valid = true;
   t.ground[0] = float(ground.x), t.ground[1] = float(ground.y), t.ground[2] = float(ground.z);
   t.pointA[0] = float(point_a.x), t.pointA[1] = float(point_a.y), t.pointA[2] = float(point_a.z);

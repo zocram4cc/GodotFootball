@@ -9,7 +9,7 @@
 // emulating the call). The record and the target are the only inputs: the rig builds everything else, so a tie of the full
 // 0x60-byte block (eye, target, up, fov, near, far and the rig's other outputs) justifies every stand-in in the rig.
 //
-// Needs the unpacked image (PES_EXE); skips without it.
+// Needs the install (PES21_ROOT/PES2021.exe); skips without it.
 
 #include <gtest/gtest.h>
 
@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -39,9 +40,9 @@ float FloatAt(const std::vector<uint8_t>& b, size_t off) {
 }
 
 // The registry record (0x30 bytes: a header word, then the info the readers 0x14089AD80 / 0x14089AC40 take) as the target.
-pes::PesCameraRegistry::Target TargetOf(const std::string& recordHex) {
+PesCameraRegistry::Target TargetOf(const std::string& recordHex) {
   const std::vector<uint8_t> r = Hex(recordHex);
-  pes::PesCameraRegistry::Target t;
+  PesCameraRegistry::Target t;
   t.valid = r[4] != 0;
   for (size_t i = 0; i < 3; ++i) {
     t.ground[i] = FloatAt(r, 0x08 + 4 * i);
@@ -81,18 +82,22 @@ const Frame kFrames[] = {
 };
 
 constexpr unsigned kScorerSlot = 1;  // CAMERA_TARGET_0201 held the scorer; the record's target byte (+0xB1) is 0, the actor's slot + 1
+// params +0x54 (0.002 in all three captures) is not written by the engine: a trace of PES's own bytes over seq6220 stores 27 words
+// of the block, none there, so the capture's value is an earlier writer's and the pre-state of the block, not an output.
+constexpr size_t kNotWrittenByEngine = 0x54;
 
 class ProcCamera : public ::testing::Test {
  protected:
   void SetUp() override {
-    const char* path = std::getenv("PES_EXE");
-    if (!path) GTEST_SKIP() << "PES_EXE (the unpacked image) is not set";
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root) GTEST_SKIP() << "PES21_ROOT is not set";
     std::string err;
-    auto exe = pes::PeImage::Open(path, &err);
+    exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
     ASSERT_TRUE(exe) << err;
     rig = pes::FixDemoCameraRig::Create(*exe, &err);
     ASSERT_TRUE(rig) << err;
   }
+  std::optional<pes::PeImage> exe;
   std::unique_ptr<pes::FixDemoCameraRig> rig;
 };
 
@@ -105,19 +110,38 @@ TEST_F(ProcCamera, ThreeCapturedFramesTieToPesBitForBit) {
     const pes::CameraPose pose = rig->Step(cam, t);
     const std::vector<uint8_t> want = Hex(f.params);
     ASSERT_EQ(want.size(), pes::kCameraParamsBytes);
-    for (size_t i = 0; i < want.size(); ++i) EXPECT_EQ(pose.raw[i], want[i]) << "frame time bits " << std::hex << f.timeBits << " params +0x" << i;
+    for (size_t i = 0; i < want.size(); i += 4) {
+      if (i == kNotWrittenByEngine) continue;
+      uint32_t got, wantWord;
+      std::memcpy(&got, pose.raw.data() + i, 4);
+      std::memcpy(&wantWord, want.data() + i, 4);
+      float gotF, wantF;
+      std::memcpy(&gotF, &got, 4);
+      std::memcpy(&wantF, &wantWord, 4);
+      EXPECT_EQ(got, wantWord) << "frame time bits " << std::hex << f.timeBits << " params +0x" << i << std::dec << ": got " << gotF
+                               << ", PES " << wantF;
+    }
   }
 }
 
-// The target is read from the registry slot the record names, not from any other: the scorer in slot 0 poses a camera that
-// frames nothing.
-TEST_F(ProcCamera, TheTargetComesFromTheRecordsSlot) {
-  const size_t cam = rig->AddCamera(Hex(kRecord));
-  float t = 0;
-  rig->SetTarget(0, TargetOf(kFrames[0].scorer));
-  const pes::CameraPose pose = rig->Step(cam, t);
-  const std::vector<uint8_t> want = Hex(kFrames[0].params);
-  EXPECT_NE(std::memcmp(pose.raw.data(), want.data(), pes::kCameraParamsBytes), 0);
+// The camera frames the actor, not a fixed spot: the scorer two metres further along x (ground position and both body points)
+// moves the pose's target by about as much, and the telephoto's eye (a rig constant for this pitch side) stays.
+TEST_F(ProcCamera, TheTargetFollowsTheActor) {
+  constexpr float kShift = 2.0f, kSlack = 0.5f;
+  auto first = [&](pes::FixDemoCameraRig& r, float shift) {
+    const size_t cam = r.AddCamera(Hex(kRecord));
+    PesCameraRegistry::Target t = TargetOf(kFrames[0].scorer);
+    t.ground[0] += shift, t.pointA[0] += shift, t.pointB[0] += shift;
+    r.SetTarget(kScorerSlot, t);
+    return r.Step(cam, 0.0f);
+  };
+  std::string err;
+  auto other = pes::FixDemoCameraRig::Create(*exe, &err);
+  ASSERT_TRUE(other) << err;
+  const pes::CameraPose base = first(*rig, 0.0f), moved = first(*other, kShift);
+  EXPECT_NEAR(moved.target[0] - base.target[0], kShift, kSlack);
+  EXPECT_FLOAT_EQ(moved.eye[0], base.eye[0]);
+  EXPECT_FLOAT_EQ(moved.eye[2], base.eye[2]);
 }
 
 }  // namespace

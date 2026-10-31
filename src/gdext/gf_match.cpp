@@ -61,6 +61,7 @@ void GfMatch::_bind_methods() {
                        &GfMatch::set_cutscene_environment);
   ClassDB::bind_method(D_METHOD("take_cutscene"), &GfMatch::take_cutscene);
   ClassDB::bind_method(D_METHOD("cutscene_state"), &GfMatch::cutscene_state);
+  ClassDB::bind_method(D_METHOD("cutscene_actor"), &GfMatch::cutscene_actor);
 }
 
 Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const String& anims_dir, int home,
@@ -492,6 +493,25 @@ void GfMatch::StartTimeline(const pes::FixDemoRequest& request) {
   clockPrevTicks_ = 0;
   // The pick step has run this far: DemoInfo exists kPickToDemoInfoTicks frames after it, the timeline's first Tick the next.
   timelineStartTick_ = tick_ + 1 + kPickToDemoInfoTicks + 1;
+}
+
+// The goal scene's actor: the man PES's FixDemo player mirrors into CAMERA_TARGET_0201 (the registry record the procedural
+// camera frames; the captured goal's record held the scorer's ground position and bearing). {index: into the match's players
+// (the Godot player nodes' order), ground: his position on the pitch (Fox axes, y = 0), facing_deg: PES's bearing atan2(dx, dz)}.
+// Empty when no goal scene is in force.
+// ponytail: CAMERA_TARGET_02nn's writer (the FixDemo actor's per-frame update; its source object's vtable 0x142BB1048, ctor
+// 0x141F7D010) is not decoded, so the scorer in slot 1 is the one case a capture shows; every other slot stays unset (valid 0).
+Dictionary GfMatch::cutscene_actor() const {
+  Dictionary out;
+  if (!timeline_ || !gateIsGoal_ || !gateScorer_) return out;
+  const auto it = std::find(players_.begin(), players_.end(), gateScorer_);
+  if (it == players_.end()) return out;
+  const Vector3 pos = ToFox(gateScorer_->GetPosition());
+  const Vector3 dir = ToFox(gateScorer_->GetBodyDirectionVec());
+  out["index"] = int(it - players_.begin());
+  out["ground"] = Vector3(pos.x, 0, pos.z);
+  out["facing_deg"] = Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0);
+  return out;
 }
 
 Dictionary GfMatch::cutscene_state() const {

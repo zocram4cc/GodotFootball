@@ -18,7 +18,6 @@ constexpr uint64_t kStackVa = 0x10000000, kStackBytes = 0x20000;
 // image starts with). Section extents are the image's own (the PE section table of PES2021.exe).
 constexpr uint64_t kRdataVa = 0x14252F000, kRdataBytes = 0xE6C000;
 constexpr uint64_t kDataVa = 0x14339B000, kDataBytes = 0x72A000;
-constexpr size_t kReadChunk = 0x10000;
 
 // FixDemoCamera (RTTI .?AVFixDemoCamera@@, vtable 0x142BB0D90): the size the arena block needs (docs/ports/pes-port-ProcCamera3.md
 // section 4 item 3) and the fields the scene-start stores and the time setter touch.
@@ -34,13 +33,39 @@ constexpr uint64_t kRecordTargetNo = 0xB1;  // record byte read by SetProcedural
 // render layers are PES's own objects (the writers of [0x1437F4820] and [0x1437F4810]).
 constexpr uint64_t kManagerSlotVa = 0x1437F4820, kEffectListSlotVa = 0x1437F4810, kManagerBytes = 0x1000;
 
+// Statics PES's startup code fills in (the install's file holds zeros or its pre-load values there; docs/ports/pes-port-ProcCamera4.md
+// section 3 lists every one the engine and the constructor read). Each is the value the live capture pid3234533/seq6220 held at the
+// first engine call, which no later write had changed. ponytail: GF stands for PES's startup writers (the CRT's CPU-feature and
+// timer setup, the static initialisers of the allocator's forwarder and heap objects, the camera RNG object's constructor); the
+// values are those of the owner's machine class, removed when those initialisers are translated.
+constexpr uint64_t kIsaLevelVa = 0x14350B360;  // u32: the CPU feature level the SSE paths test (5 on the capture's CPU)
+constexpr uint32_t kIsaLevel = 5;
+constexpr uint64_t kQpcFrequencyVa = 0x1436EDE58, kQpcFrequency = 10000000;  // u64: QueryPerformanceFrequency (10 MHz)
+constexpr uint64_t kForwarderStaticVa = 0x1437F0110, kForwarderVtable = 0x142AC0090, kForwarderPool = 1;  // vtable, pool id at +8
+constexpr uint64_t kHeapStaticVa = 0x1437F1000, kHeapStaticVtable = 0x14258E390, kHeapStaticFlagsOff = 0x48, kHeapStaticFlags = 4;
+constexpr uint64_t kUnnamedStaticVa = 0x143AC3DD0, kUnnamedStatic = 4;  // read by the allocator's pool scan; writer undecoded
+// The camera noise generator's object (0x140899030 -> 0x140A92470 on 0x1436F36A8): vtable and four consecutive words, the
+// third of which (+0x10, 0x1436F36B8) is the state (it equalled 0x2F3D2 before the first draw).
+constexpr uint64_t kRngVa = 0x1436F36A8, kRngVtable = 0x1425DEF28, kRngWordsOff = 0x8, kRngFirstWord = 0x2F3D0;
+constexpr unsigned kRngWords = 4;
+
+constexpr size_t kReadChunk = 0x10000, kFileSector = 0x200;
+
 uint64_t ReadChunked(const PeImage& exe, uint64_t va, uint64_t n, std::vector<uint8_t>* out) {
-  // Raw-size tails of a section are not in the file; a chunk the image does not map stays zero, as the loader zero-fills it.
+  // A section holds only its raw size in the file (the tail up to its virtual size is zero-filled by the loader): a chunk the
+  // image does not map whole is read sector by sector, and a sector it does not map stays zero.
   out->assign(n, 0);
   uint64_t mapped = 0;
   for (uint64_t off = 0; off < n; off += kReadChunk) {
     const uint64_t len = std::min<uint64_t>(kReadChunk, n - off);
-    if (exe.ReadVa(va + off, len, out->data() + off)) mapped += len;
+    if (exe.ReadVa(va + off, len, out->data() + off)) {
+      mapped += len;
+      continue;
+    }
+    for (uint64_t sub = 0; sub < len; sub += kFileSector) {
+      const uint64_t part = std::min<uint64_t>(kFileSector, len - sub);
+      if (exe.ReadVa(va + off + sub, part, out->data() + off + sub)) mapped += part;
+    }
   }
   return mapped;
 }
@@ -89,6 +114,15 @@ std::unique_ptr<FixDemoCameraRig> FixDemoCameraRig::Create(const PeImage& exe, s
   impl->registry = std::make_unique<PesCameraRegistry>(*impl->heap, s);
   s.wr(kManagerSlotVa, impl->Alloc(kManagerBytes, PesHeap::kMinAlign, "no room for the camera manager stand-in"), 8);
   s.wr(kEffectListSlotVa, 0, 8);
+  s.wr(kIsaLevelVa, kIsaLevel, 4);
+  s.wr(kQpcFrequencyVa, kQpcFrequency, 8);
+  s.wr(kForwarderStaticVa, kForwarderVtable, 8);
+  s.wr(kForwarderStaticVa + 8, kForwarderPool, 4);
+  s.wr(kHeapStaticVa, kHeapStaticVtable, 8);
+  s.wr(kHeapStaticVa + kHeapStaticFlagsOff, kHeapStaticFlags, 4);
+  s.wr(kUnnamedStaticVa, kUnnamedStatic, 8);
+  s.wr(kRngVa, kRngVtable, 8);
+  for (unsigned i = 0; i < kRngWords; ++i) s.wr(kRngVa + kRngWordsOff + 4 * i, kRngFirstWord + i, 4);
   return std::unique_ptr<FixDemoCameraRig>(new FixDemoCameraRig(std::move(impl)));
 }
 
