@@ -160,7 +160,7 @@ void FixDemoCameraRig::SetTarget(unsigned slot, const PesCameraRegistry::Target&
   impl_->registry->Set(impl_->s, slot, target);
 }
 
-CameraPose FixDemoCameraRig::Step(size_t camera, float timeTicks) {
+ProcCameraPose FixDemoCameraRig::Step(size_t camera, float timeTicks) {
   Impl& m = *impl_;
   PesState& s = m.s;
   if (camera >= m.cameras.size()) Die("no such camera", camera);
@@ -174,7 +174,7 @@ CameraPose FixDemoCameraRig::Step(size_t camera, float timeTicks) {
   s.gpr[1] = cam;
   s.gpr[2] = kCameraParamsVa;
   m.Call(&pes_fn_141F7BFE0);
-  CameraPose pose;
+  ProcCameraPose pose;
   for (size_t i = 0; i < kCameraParamsBytes; ++i) pose.raw[i] = static_cast<uint8_t>(s.rd(kCameraParamsVa + i, 1));
   auto f3 = [&](uint64_t off) { return std::array<float, 3>{s.rdf(kCameraParamsVa + off), s.rdf(kCameraParamsVa + off + 4), s.rdf(kCameraParamsVa + off + 8)}; };
   pose.target = f3(0x00);

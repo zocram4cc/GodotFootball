@@ -68,7 +68,7 @@ class PesCutsceneCamera : public RefCounted {
   std::vector<Track> tracks_;
   const Track* InForce(float clock) const;
   std::shared_ptr<pes::FixDemoCameraRig> rig_;
-  std::optional<pes::CameraPose> pose_;  // the last engine frame of the track in force
+  std::optional<pes::ProcCameraPose> pose_;  // the last engine frame of the track in force
   std::optional<pes::fdc::PoseConstants> k_;
   pes::fdc::CutOffset stageDefault_;
   pes::fdc::File cutHolder_;  // only .cuts is filled: the Cut records the player's map holds

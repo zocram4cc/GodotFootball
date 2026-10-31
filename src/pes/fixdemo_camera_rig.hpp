@@ -27,7 +27,7 @@ class PeImage;
 // The camera params block the engine fills (0x1437F4A40, FixDemoCamera::Update's output; docs/re/pes-re-camera-pose.md 1.4).
 constexpr uint64_t kCameraParamsVa = 0x1437F4A40;
 constexpr size_t kCameraParamsBytes = 0x60;
-struct CameraPose {
+struct ProcCameraPose {
   std::array<float, 3> target{}, eye{}, up{};  // params +0x00, +0x0C, +0x18: Fox space, metres
   float fovRad = 0, nearM = 0, farM = 0;       // +0x30, +0x34, +0x38
   std::array<uint8_t, kCameraParamsBytes> raw{};  // the whole block, for the oracle
@@ -51,7 +51,7 @@ class FixDemoCameraRig {
 
   // One engine frame of camera `camera`: the time setter (0x141F7B4A0) with `timeTicks` (1/60 s ticks of the step's player
   // clock), then 0x141F7BFE0 with the params block. The first call of a camera is its initialisation (camera+0x128 == 1).
-  CameraPose Step(size_t camera, float timeTicks);
+  ProcCameraPose Step(size_t camera, float timeTicks);
 
   PesState& State();
 

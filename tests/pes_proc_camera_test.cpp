@@ -107,7 +107,7 @@ TEST_F(ProcCamera, ThreeCapturedFramesTieToPesBitForBit) {
     float t;
     std::memcpy(&t, &f.timeBits, 4);
     rig->SetTarget(kScorerSlot, TargetOf(f.scorer));
-    const pes::CameraPose pose = rig->Step(cam, t);
+    const pes::ProcCameraPose pose = rig->Step(cam, t);
     const std::vector<uint8_t> want = Hex(f.params);
     ASSERT_EQ(want.size(), pes::kCameraParamsBytes);
     for (size_t i = 0; i < want.size(); i += 4) {
@@ -138,7 +138,7 @@ TEST_F(ProcCamera, TheTargetFollowsTheActor) {
   std::string err;
   auto other = pes::FixDemoCameraRig::Create(*exe, &err);
   ASSERT_TRUE(other) << err;
-  const pes::CameraPose base = first(*rig, 0.0f), moved = first(*other, kShift);
+  const pes::ProcCameraPose base = first(*rig, 0.0f), moved = first(*other, kShift);
   EXPECT_NEAR(moved.target[0] - base.target[0], kShift, kSlack);
   EXPECT_FLOAT_EQ(moved.eye[0], base.eye[0]);
   EXPECT_FLOAT_EQ(moved.eye[2], base.eye[2]);
