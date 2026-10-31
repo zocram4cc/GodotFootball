@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 3f317410f118cb26 -->
+<!-- LEDGER-STAMP cc7373343efe51b8 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,15 +13,15 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 18584 | 19481 | 38065 |
+| total | 18592 | 19481 | 38073 |
 | ported | 411 | 0 | 411 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
 | stand-in | 102 | 0 | 102 |
 | decoded | 1209 | 0 | 1209 |
-| leaf accessor | 1900 | 0 | 1900 |
+| leaf accessor | 1905 | 0 | 1905 |
 | engine | 1242 | 0 | 1242 |
-| undecoded | 13502 | 0 | 13502 |
+| undecoded | 13505 | 0 | 13505 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 19481 | 19481 |
 
@@ -159,8 +159,9 @@ Rows per subsystem and status:
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
 | dribble | 97 | 2 | 0 | 0 | 2 | 5 | 35 | 0 | 53 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 2 | 0 |
+| proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
 | trapchain | 105 | 1 | 0 | 0 | 0 | 8 | 46 | 0 | 50 | 0 |
-| total | 18584 | 411 | 154 | 63 | 102 | 1209 | 1900 | 1242 | 13502 | 1 |
+| total | 18592 | 411 | 154 | 63 | 102 | 1209 | 1905 | 1242 | 13505 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -183,8 +184,9 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 289 |
 | dribble | 97 | 56 | 4 | 2 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
 | trapchain | 105 | 68 | 1 | 1 | 0 | 0 | 0 |
-| total | 18584 | 5790 | 667 | 381 | 9946 | 8139 | 289 |
+| total | 18592 | 5796 | 667 | 381 | 9946 | 8139 | 289 |
 
 ## Roots
 
@@ -392,7 +394,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 1900 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 1905 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 471 | 470 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -2136,7 +2138,7 @@ Not found (owner's list):
 | 0x1403FAFA0 | FUN_1403fafa0 | undecoded | - | - | - | 3 | 11 | y | doc | 14118BE40>14116E670>1403FAFA0 |
 | 0x1403FB0F0 | FUN_1403fb0f0 | leaf accessor | - | - | - | 2 | 5 | y | doc | 14116E670>1411CB6F0>1403FB0F0 |
 | 0x1403FB210 | FUN_1403fb210 | undecoded | - | - | - | 11 | 14 | - | doc | 14116E670>1411CB6F0>1403FB210 |
-| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1689 | 62 | - | doc | 140418940>1403FB410 |
+| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1690 | 62 | - | doc | 140418940>1403FB410 |
 | 0x1403FB860 | FUN_1403fb860 | undecoded | - | - | - | 2 | 21 | - | doc | 140418940>1403FB410>1403FB860 |
 | 0x140401120 | FUN_140401120 | undecoded | - | - | - | 2 | 16 | - | doc | 140418940>141B501C0>140401120 |
 | 0x1404063C0 | FUN_1404063c0 | undecoded | - | - | - | 2 | 24 | y | doc | 14158EB80>140406B80>1404063C0 |
@@ -7257,8 +7259,8 @@ Not found (owner's list):
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 0x1403FF430 | FUN_1403ff430 | undecoded | - | pes-re-possession-latch.md | - | 432 | 10 | - | doc | 14044C880>141F15FC0>1403FF430 |
-| 0x1403FF490 | FUN_1403ff490 | undecoded | - | pes-re-motion-remap.md | - | 432 | 10 | - | doc | 14044C880>141F15FC0>1403FF490 |
+| 0x1403FF430 | FUN_1403ff430 | undecoded | - | pes-re-possession-latch.md | - | 433 | 10 | - | doc | 14044C880>141F15FC0>1403FF430 |
+| 0x1403FF490 | FUN_1403ff490 | undecoded | - | pes-re-motion-remap.md | - | 433 | 10 | - | doc | 14044C880>141F15FC0>1403FF490 |
 | 0x140413CE0 | FUN_140413ce0 | undecoded | - | - | - | 2 | 154 | y | doc | 140422030>140413CE0 |
 | 0x140413FF0 | FUN_140413ff0 | undecoded | - | - | - | 2 | 46 | y | doc | 140422030>140413FF0 |
 | 0x140414E90 | FUN_140414e90 | undecoded | - | - | - | 2 | 144 | y | doc | 140422030>140A3CD80>140414E90 |
@@ -18883,7 +18885,7 @@ Not found (owner's list):
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 0x1403FB600 | FUN_1403fb600 | leaf accessor | - | - | - | 2 | 4 | y | closure |  |
+| 0x1403FB600 | FUN_1403fb600 | leaf accessor | - | - | - | 3 | 4 | y | closure |  |
 | 0x1403FCEF0 | FUN_1403fcef0 | undecoded | - | - | - | 1 | 121 | - | closure |  |
 | 0x1403FD350 | FUN_1403fd350 | undecoded | - | - | - | 0 | 2 | - | closure |  |
 | 0x1403FD360 | FUN_1403fd360 | undecoded | - | - | - | 1 | 345 | - | closure |  |
@@ -18988,6 +18990,19 @@ Not found (owner's list):
 | 0x14063A290 | FUN_14063a290 | decoded | OBS | pes-re-carrier-units.md | - | 1 | 33 | - | closure |  |
 | 0x142108630 | FUN_142108630 | undecoded | - | - | - | 1 | 1448 | - | closure |  |
 | 0x142109EB0 | FUN_142109eb0 | undecoded | - | - | - | 0 | 17 | - | closure |  |
+
+## proccam (8)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x1403FE800 | FUN_1403fe800 | leaf accessor | - | - | - | 1 | 344 | y | closure |  |
+| 0x140895890 | FUN_140895890 | leaf accessor | - | - | - | 0 | 6 | y | closure |  |
+| 0x1408958B0 | FUN_1408958b0 | leaf accessor | - | - | - | 0 | 6 | y | closure |  |
+| 0x1408C8970 | FUN_1408c8970 | leaf accessor | - | - | - | 0 | 4 | y | closure |  |
+| 0x141957C60 | FUN_141957c60 | leaf accessor | - | - | - | 0 | 18 | y | closure |  |
+| 0x141B34C30 | FUN_141b34c30 | undecoded | - | - | - | 0 | 11 | y | closure |  |
+| 0x141B3D6E0 | FUN_141b3d6e0 | undecoded | - | - | - | 0 | 1 | - | closure |  |
+| 0x141B3DE00 | FUN_141b3de00 | undecoded | - | - | - | 1 | 108 | - | closure |  |
 
 ## trapchain (105)
 
