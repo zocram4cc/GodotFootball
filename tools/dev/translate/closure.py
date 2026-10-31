@@ -85,9 +85,10 @@ class ClosurePdata(Pdata):
                 "unresolved": False, "overspill": None}
 
 
-def crawl(roots, universe, pdata, tag):
+def crawl(roots, universe, pdata, tag, allowed=None):
     """Walk the closure from roots, in discovery order. Adds the missing rows to universe (in place).
-    Returns (members in order, rows added)."""
+    allowed (a set of VAs): the capture-bounded closure; a callee outside it is no member and is not walked (the translator
+    leaves its call as the loud abort). Returns (members in order, rows added)."""
     members, added, seen = [], [], set()
     queue = list(roots)
     while queue:
@@ -109,7 +110,7 @@ def crawl(roots, universe, pdata, tag):
             added.append(key)
         members.append(va)
         for c, kind in sorted(universe[key]["callees"].items(), key=lambda kv: kv[0]):
-            if kind in DIRECT_KINDS and int(c, 16) not in seen:
+            if kind in DIRECT_KINDS and int(c, 16) not in seen and (allowed is None or int(c, 16) in allowed):
                 queue.append(int(c, 16))
     return members, added
 
@@ -134,6 +135,9 @@ def main(argv=None):
     ap.add_argument("--regenerate", action="store_true",
                     help="rewrite the committed specs of members too (default: only missing specs are written)")
     ap.add_argument("--dry-run", action="store_true", help="report the closure; write nothing")
+    ap.add_argument("--members-file", help="capture-bounded closure: a JSON list of VAs (snapdiff --bounded writes it as "
+                    "<out-dir>/gen/<VA>/members.json). The closure is exactly those functions; a call to any other function "
+                    "stays the translator's loud abort")
     ap.add_argument("roots", nargs="*")
     args = ap.parse_args(argv)
     roots = [int(r.split("#")[0].strip(), 16) for r in args.roots]
@@ -142,12 +146,20 @@ def main(argv=None):
             roots += [int(line.split("#")[0].strip(), 16) for line in f if line.split("#")[0].strip()]
     if not roots:
         ap.error("no root VAs")
+    allowed, walk_roots = None, roots
+    if args.members_file:
+        with open(args.members_file, encoding="utf8") as f:
+            listed = [int(v, 16) for v in json.load(f)]
+        allowed = set(listed)
+        if not set(roots) <= allowed:
+            ap.error("a root is not in the members file")
+        walk_roots = roots + [v for v in listed if v not in roots]
     doc = load_universe()
     universe = doc["functions"]
     with open(args.image, "rb") as img:
         pdata = ClosurePdata(img)
         # Pre-existing rows keep their subsystem (the layer's directory); new rows take --subsystem, else the tag.
-        members, added = crawl(roots, universe, pdata, args.subsystem or args.tag)
+        members, added = crawl(walk_roots, universe, pdata, args.subsystem or args.tag, allowed)
     rows = [("%08X" % va, SETS.DEFAULT_STATUS, universe["%08X" % va]["subsystem"], "seed" if va in roots else "callee")
             for va in members]
     print("closure %s: %d members from %d roots (%d universe rows added, %d already in the universe)"

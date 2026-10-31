@@ -97,8 +97,9 @@ class ClosureWalk(unittest.TestCase):
     def walk_args(self):
         return types.SimpleNamespace(out_dir=self.dir.name, image=self.image, asm_dir=None, spec_dir=self.dir.name)
 
-    def run_closure(self, jmp_target, reached=None):
-        """build_closure over a root whose translation tail-jumps to jmp_target (the translator is a stub)."""
+    def run_closure(self, jmp_target, reached=None, executed=None, unmodellable=()):
+        """build_closure over a root whose translation tail-jumps to jmp_target (the translator is a stub). executed: the
+        bounded mode's instruction addresses; unmodellable: VAs stubs.json lists as unmodellable."""
         src = ["void pes_fn_%X(PesState& s) {" % A, "  // OUT-OF-RANGE JMP 0x%X" % jmp_target, "}"]
         real = (snapdiff.drv.translate_one, snapdiff.drv.runnable_extra, snapdiff.drv.load_spec, snapdiff.drv.asm_for)
         calls = []
@@ -112,11 +113,15 @@ class ClosureWalk(unittest.TestCase):
         snapdiff.drv.runnable_extra = lambda spec, image, depth_cap=80: (
             [c["va"] for c in spec.get("harness", {}).get("out_of_set_callees", [])], {})
         snapdiff.drv.load_spec = lambda d, v: (None, None)
+        real_stubs = snapdiff.drv.STUB_TABLE
+        snapdiff.drv.STUB_TABLE = {int(v, 16) if isinstance(v, str) else v: {"do": "unmodellable"} for v in unmodellable}
         snapdiff.drv.asm_for = lambda d, v: ""
         try:
-            need, err = snapdiff.build_closure("0x%X" % A, {}, self.walk_args(), {"0x%X" % A}, reached or {})
+            need, err = snapdiff.build_closure("0x%X" % A, {}, self.walk_args(), {"0x%X" % A}, reached or {},
+                                               None if executed is None else {"0x%X" % a for a in executed})
         finally:
             snapdiff.drv.translate_one, snapdiff.drv.runnable_extra, snapdiff.drv.load_spec, snapdiff.drv.asm_for = real
+            snapdiff.drv.STUB_TABLE = real_stubs
         return need, err
 
     def test_walk_refuses_an_address_inside_an_instruction(self):
@@ -128,6 +133,35 @@ class ClosureWalk(unittest.TestCase):
         need, err = self.run_closure(T)
         self.assertIsNone(err)
         self.assertIn("0x%X" % T, need)
+
+    # Bounded closure (snapdiff --bounded): a tail jump or call joins the build only if the replays entered it; any other
+    # keeps the translator's loud abort, so a case the captures do not cover stops instead of running silently.
+    def test_bounded_closure_leaves_an_unentered_tail_target_to_the_loud_abort(self):
+        need, err = self.run_closure(T, executed={A})
+        self.assertIsNone(err)
+        self.assertEqual(need, ["0x%X" % A])
+
+    def test_bounded_closure_builds_a_tail_target_the_replays_entered(self):
+        need, err = self.run_closure(T, executed={A, T})
+        self.assertIsNone(err)
+        self.assertIn("0x%X" % T, need)
+
+    def test_bounded_closure_builds_an_entered_callee_stubs_json_calls_unmodellable(self):
+        # The harness ran its image bytes, so the build must; the unbounded walk leaves an unmodellable callee out.
+        need, err = self.run_closure(T, executed={A, T}, unmodellable=[T])
+        self.assertIn("0x%X" % T, need)
+        need, err = self.run_closure(T, unmodellable=[T])
+        self.assertNotIn("0x%X" % T, need)
+
+    def test_crawl_of_a_bounded_closure_walks_only_the_members(self):
+        # closure.py --members-file: a direct callee outside the member set is no member and is not walked.
+        row = lambda callees: {"callees": {"%08X" % c: "direct" for c in callees}}
+        universe = {"%08X" % A: row([B, C]), "%08X" % B: row([]), "%08X" % C: row([T])}
+        with open(self.image, "rb") as f:
+            members, _ = closure.crawl([A, B], universe, closure.ClosurePdata(f), "t", {A, B})
+            whole, _ = closure.crawl([A], universe, closure.ClosurePdata(f), "t")
+        self.assertEqual(members, [A, B])
+        self.assertEqual(sorted(whole), sorted([A, B, C, T]))
 
     def test_an_indirect_site_inside_a_function_is_no_root(self):
         # The harness traces call sites; B+1 is a site inside B, so the function holding it is the root, not the site.

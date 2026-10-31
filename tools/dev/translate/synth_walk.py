@@ -16,8 +16,11 @@ state except that type word. A carrier_clear source needs no patch (the unit wro
 libm calls of the forward run (cosf, sinf, ...) use Python float32 models, not Wine's ucrtbase, so lane lists the forward run
 builds can differ from a live run's in the last ulp. The walk itself calls no libm.
 
-Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py CAPTURE_DIR OUT_DIR [--hooks hooks.cfg] [--patch-clear] [--entry VA --hook-name NAME]
-   (harness Python: unicorn). --entry writes the entry state of another call the unit step runs after the source (default: the walk).
+--entry VA [--hook-name NAME] (default: the walk): stop at another function's entry inside the same unit step instead, e.g. the
+turn-reference builder 0x14211D710 or the proposal writer 0x1421102D0 that run before the walk. The state is then a real
+(forward-emulated) entry state of that function; only the walk (--entry omitted) may take --patch-clear.
+
+Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py CAPTURE_DIR OUT_DIR [--hooks hooks.cfg] [--patch-clear] [--entry VA --hook-name NAME]   (harness Python: unicorn)
 """
 import argparse
 import json
@@ -41,14 +44,14 @@ ANSWER_RECORD = 0x84
 ANSWER_STRIDE = 0x1C
 KIND_CLEAR = 1
 TYPE_CLEAR = 5
-# ucrtbase's float classifier, which the builder's closure calls: FP_NAN 2, FP_INFINITE 1, FP_ZERO 0, FP_SUBNORMAL -2, else -1.
-FDTEST = ("8B01 25FFFFFF7F 7427 3D0000807F 730D 3D00008000 721C B8FFFFFFFF C3 3D0000807F 7406 B802000000 C3 B801000000 C3 "
-          "31C0 C3 B8FEFFFFFF C3").replace(" ", "")
+BP_UNIT_INFO = 0x1C      # the unit info's offset in BP (r8 of the builders)
+BP_SIDE = 0x24           # the side word (unit info +8)
+# __stdio_common_vsprintf_s: a debug-log line (the unit step's "Adopt Answer" prints); the count 0, nothing written.
 LIBM1 = {"sinf": math.sin, "cosf": math.cos, "tanf": math.tan, "atanf": math.atan, "acosf": math.acos, "asinf": math.asin,
          "logf": math.log, "expf": math.exp, "floorf": math.floor, "ceilf": math.ceil}
 LIBM2 = {"atan2f": math.atan2, "powf": math.pow, "fmodf": math.fmod}
 NOOP1 = ("SetEvent", "ResetEvent", "EnterCriticalSection", "LeaveCriticalSection")  # return TRUE; the replay is one thread
-ZERO1 = ("_crt_atexit", "atexit", "_onexit")  # a function-local static's registration: return 0 (success), run nothing
+ZERO1 = ("_crt_atexit", "atexit", "_onexit", "__stdio_common_vsprintf_s")  # a function-local static's registration: return 0 (success), run nothing
 
 
 def f32(bits):
@@ -69,16 +72,19 @@ def xmm_low(uc, n):
 
 def patch_imports():
     """The replay harness stops at an unmodelled OS export; give the float libm and the lock calls these models."""
-    real_models, real_intr = ft.load_import_models, ft.LazyMap._intr
-
-    def models(path=None):
-        m = real_models()
-        m[("ucrtbase.dll", "_fdtest")] = bytes.fromhex(FDTEST)
-        return m
+    real_intr = ft.LazyMap._intr
 
     def intr(self, uc, intno, data):
         rip = uc.reg_read(xc.UC_X86_REG_RIP)
         _, name, _ = self.sm.export_of(rip)
+        if name == "_finite":  # int _finite(double): 1 unless the exponent field is all ones
+            xmm0 = uc.reg_read(xc.UC_X86_REG_XMM0)
+            bits = (int.from_bytes(xmm0, "little") if isinstance(xmm0, (bytes, bytearray)) else xmm0) & 0xFFFFFFFFFFFFFFFF
+            uc.reg_write(xc.UC_X86_REG_RAX, 0 if (bits >> 52) & 0x7FF == 0x7FF else 1)
+            rsp = uc.reg_read(xc.UC_X86_REG_RSP)
+            uc.reg_write(xc.UC_X86_REG_RIP, struct.unpack("<Q", bytes(uc.mem_read(rsp, 8)))[0])
+            uc.reg_write(xc.UC_X86_REG_RSP, rsp + 8)
+            return
         if name in LIBM1 or name in LIBM2 or name in NOOP1 or name in ZERO1:
             if name in NOOP1 or name in ZERO1:
                 uc.reg_write(xc.UC_X86_REG_RAX, 1 if name in NOOP1 else 0)
@@ -95,7 +101,7 @@ def patch_imports():
             return
         return real_intr(self, uc, intno, data)
 
-    ft.load_import_models, ft.LazyMap._intr = models, intr
+    ft.LazyMap._intr = intr
 
 
 def main():
@@ -107,13 +113,13 @@ def main():
     ap.add_argument("--patch-clear", action="store_true",
                     help="write type 5 into the kind-1 answer record (a danger_builder source: the Clear unit never ran); "
                          "off for a carrier_clear_2109EB0 source, whose unit wrote the record itself")
-    ap.add_argument("--entry", type=lambda s: int(s, 0), default=WALK,
-                    help="the call whose entry state is written (default the walk 0x14210F110; any function the unit step 0x142110D30 "
-                         "runs after the source's return, e.g. the dribble proposal 0x14211D710 from a danger_builder capture)")
-    ap.add_argument("--hook-name", default="carrier_walk_210F110", help="the index.json rv.hook label of the written state")
+    ap.add_argument("--entry", type=lambda s: int(s, 16), default=WALK, help="stop at this function's entry (default: the walk)")
+    ap.add_argument("--hook-name", default="carrier_walk_210F110", help="rv.hook of the written state")
+    ap.add_argument("--bp-ctor", type=lambda s: int(s, 16), default=None,
+                    help="with --entry 0x14211D710 (r8 = the unit info BP+0x1C): write the state of a call of this BP constructor "
+                         "(0x14210D320: rcx = BP, edx = its side word BP+0x24) on that live BP instead; the ctor re-initialises "
+                         "every sub-object, so the call is a full-input case for the proof (rv.entry_va = the ctor)")
     a = ap.parse_args()
-    if a.patch_clear and a.entry != WALK:
-        sys.exit("--patch-clear patches the walk's answer list: it needs the walk entry")
     patch_imports()
     orig = ft.hook_bytes(a.hooks) if a.hooks else None
     call = ft.load_recorded_call(a.src)
@@ -129,7 +135,11 @@ def main():
     def on_code(u, address, size, data):
         if address == a.entry:
             bp = u.reg_read(xc.UC_X86_REG_RCX)
-            if a.patch_clear:
+            if a.bp_ctor is not None:
+                bp = u.reg_read(xc.UC_X86_REG_R8) - BP_UNIT_INFO
+                u.reg_write(xc.UC_X86_REG_RCX, bp)
+                u.reg_write(xc.UC_X86_REG_RDX, struct.unpack("<I", bytes(u.mem_read(bp + BP_SIDE, 4)))[0])
+            if a.patch_clear and a.entry == WALK:
                 u.mem_write(bp + ANSWER_LIST + ANSWER_RECORD + ANSWER_STRIDE * KIND_CLEAR, struct.pack("<I", TYPE_CLEAR))
             reached.append(True)
             u.emu_stop()
@@ -138,11 +148,15 @@ def main():
     uc.hook_add(UC_HOOK_CODE, on_code)
     uc.emu_start(call["ret"], 0, count=a.budget)
     if not reached:
-        sys.exit("the walk was not reached from this capture: rip %#x, %s" % (uc.reg_read(xc.UC_X86_REG_RIP), getattr(uc, "_bad", None)))
+        rsp = uc.reg_read(xc.UC_X86_REG_RSP)
+        sys.exit("the entry %#x was not reached from this capture: rip %#x, %s (return %#x, rcx %#x, rdx %#x, r8 %#x)" % (
+            a.entry, uc.reg_read(xc.UC_X86_REG_RIP), getattr(uc, "_bad", None),
+            struct.unpack("<Q", bytes(uc.mem_read(rsp, 8)))[0], uc.reg_read(xc.UC_X86_REG_RCX),
+            uc.reg_read(xc.UC_X86_REG_RDX), uc.reg_read(xc.UC_X86_REG_R8)))
 
     index = json.load(open(os.path.join(a.src, "index.json")))
     rv = index["rv"]
-    rv.update(hook=a.hook_name, entry_va=a.entry, flags=uc.reg_read(xc.UC_X86_REG_EFLAGS),
+    rv.update(hook=a.hook_name, entry_va=a.bp_ctor or a.entry, flags=uc.reg_read(xc.UC_X86_REG_EFLAGS),
               mxcsr=uc.reg_read(xc.UC_X86_REG_MXCSR))
     index["label"] = os.path.basename(a.out.rstrip("/"))
     os.makedirs(a.out, exist_ok=True)

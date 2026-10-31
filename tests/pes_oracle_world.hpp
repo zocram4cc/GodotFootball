@@ -92,13 +92,19 @@ inline const pes::PesImageTables& InstallTables() {
 
 // `osBytes`: also hand the call the capture's bytes outside the window (the allocator's and the thread block's words the PES
 // run read); GF's production run has none of them. `walk`: the capture is a carrier-walk call (its BP flags are not a stack word).
-inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = false) {
+// `flagsFromStack` false: a builder-shaped call (bp = r8 - 0x1C) whose sixth argument is not the refresh flags (0x14211D710's is
+// the plan record's address).
+// `construct`: run PES's block constructor 0x14210D320 on the empty window first (the objects the capture's reads did not touch,
+// the kind objects among them, then exist as PES's constructor leaves them); the capture's bytes are overlaid after it.
+inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = false, bool flagsFromStack = true,
+                  bool construct = false) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
   w.BindImageTables(InstallTables());
   const uint64_t g = Read(o, kImageG, 8);
   const uint64_t bp = walk ? o.regs.at("rcx") : o.regs.at("r8") - pes::kBpUnitInfoOffset;
   b.side = static_cast<int>(Read(o, bp + pes::kBpUnitInfoOffset + pes::kUnitSideOffset, 4));
+  if (construct) w.RunCarrierConstruct(b.side);
   for (const auto& line : o.manifest) {
     if (line[0] == "T") {
       uint8_t* dst = RecordOf(w, b.side, line[1], std::atoi(line[2].c_str()));
@@ -118,7 +124,7 @@ inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = fa
     }
   }
   // A builder call: BP+0x18 is the caller's sixth argument (the refresh flags): the capture's stack word.
-  if (!walk)
+  if (!walk && flagsFromStack)
     pes::StoreU32(w.Carrier(b.side), pes::kBpFlagsOffset,
                   static_cast<uint32_t>(Read(o, o.regs.at("rsp") + pes::kDangerArg6Offset, 4)));
 }
@@ -127,18 +133,25 @@ inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = fa
 
 namespace pes_oracle {
 
-// Every record the window holds, copied whole from a capture through its G (the carrier-walk call: bp = rcx, ctx = *(rdx + 8)),
-// for tests that run a PES writer on the window and compare its output to the capture's bytes (the walk's live-in manifest
-// holds only what the walk read). The window's own ctx pointers to MA and E stay.
+// Every record the window holds, copied whole from a capture through its G (a carrier-walk call (`walk`): bp = rcx, ctx = *(rdx + 8);
+// a builder-shaped call: bp = r8 - 0x1C, ctx = rdx), for tests that run a PES writer on the window and compare its output to the
+// capture's bytes (a live-in manifest holds only what the capture's own call read; a longer chain reads more). The window's own ctx
+// pointers to MA and E stay.
+inline void CopyRecords(const Oracle& o, Built& b, bool walk);
 inline void BuildFull(const Oracle& o, Built& b) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
   w.BindImageTables(InstallTables());
-  const uint64_t g = Read(o, kImageG, 8);
   b.side = static_cast<int>(Read(o, o.regs.at("rcx") + pes::kBpUnitInfoOffset + pes::kUnitSideOffset, 4));
+  CopyRecords(o, b, true);
+}
+
+inline void CopyRecords(const Oracle& o, Built& b, bool walk) {
+  pes::PesWorld& w = *b.world;
+  const uint64_t g = Read(o, kImageG, 8);
   const auto copy = [&](const char* kind, int idx, size_t bytes, size_t skipLo = 0, size_t skipHi = 0) {
     uint8_t* dst = RecordOf(w, b.side, kind, idx);
-    const uint64_t base = CapturedBase(o, g, kind, idx, true);
+    const uint64_t base = CapturedBase(o, g, kind, idx, walk);
     ASSERT_NE(dst, nullptr) << kind;
     if (base == 0) return;  // an official the capture's table does not hold (the fourth official has no entry)
     for (size_t i = 0; i < bytes; ++i)
