@@ -126,6 +126,8 @@ TEST_F(TurnReferenceOracle, TheProposalChainLeavesPesTurnReferenceAndProposalRec
     for (bool captureBytes : {true, false}) {
       Built b;
       Build(o, b, captureBytes, false, false, true);
+      // The chain reads far more than the builder's own call did (the kind objects, BP+0x4258, the slot records): all of it from the capture.
+      CopyRecords(o, b, false);
       const uint8_t* block = b.world->Carrier(b.side);
       b.world->RunDribbleProposal(b.side, pes::LoadU32(block, pes::kBpUnitInfoOffset + pes::kUnitSlotOffset), b.ext);
       for (const RefField& f : ref)

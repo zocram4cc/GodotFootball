@@ -133,18 +133,25 @@ inline void Build(const Oracle& o, Built& b, bool osBytes = true, bool walk = fa
 
 namespace pes_oracle {
 
-// Every record the window holds, copied whole from a capture through its G (the carrier-walk call: bp = rcx, ctx = *(rdx + 8)),
-// for tests that run a PES writer on the window and compare its output to the capture's bytes (the walk's live-in manifest
-// holds only what the walk read). The window's own ctx pointers to MA and E stay.
+// Every record the window holds, copied whole from a capture through its G (a carrier-walk call (`walk`): bp = rcx, ctx = *(rdx + 8);
+// a builder-shaped call: bp = r8 - 0x1C, ctx = rdx), for tests that run a PES writer on the window and compare its output to the
+// capture's bytes (a live-in manifest holds only what the capture's own call read; a longer chain reads more). The window's own ctx
+// pointers to MA and E stay.
+inline void CopyRecords(const Oracle& o, Built& b, bool walk);
 inline void BuildFull(const Oracle& o, Built& b) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
   w.BindImageTables(InstallTables());
-  const uint64_t g = Read(o, kImageG, 8);
   b.side = static_cast<int>(Read(o, o.regs.at("rcx") + pes::kBpUnitInfoOffset + pes::kUnitSideOffset, 4));
+  CopyRecords(o, b, true);
+}
+
+inline void CopyRecords(const Oracle& o, Built& b, bool walk) {
+  pes::PesWorld& w = *b.world;
+  const uint64_t g = Read(o, kImageG, 8);
   const auto copy = [&](const char* kind, int idx, size_t bytes, size_t skipLo = 0, size_t skipHi = 0) {
     uint8_t* dst = RecordOf(w, b.side, kind, idx);
-    const uint64_t base = CapturedBase(o, g, kind, idx, true);
+    const uint64_t base = CapturedBase(o, g, kind, idx, walk);
     ASSERT_NE(dst, nullptr) << kind;
     if (base == 0) return;  // an official the capture's table does not hold (the fourth official has no entry)
     for (size_t i = 0; i < bytes; ++i)

@@ -102,10 +102,14 @@ def main():
     typed = [t for t in typed if t[2]]
 
     def which(a):
-        for kind, idx, base, size in typed:
-            if base <= a < base + size:
-                return kind, idx, a - base
-        return None
+        # Slot records sit 0x2B90 apart (slot 20 -> 21) but are typed 0x2E50 long (danger_oracle.py, the same defect): a byte of
+        # slot 21 also lies in slot 20's range, so the record it belongs to is the nearest base below it among the ranges of the
+        # first match's kind.
+        hits = [(kind, idx, base) for kind, idx, base, size in typed if base <= a < base + size]
+        if not hits:
+            return None
+        kind, idx, base = max((h for h in hits if h[0] == hits[0][0]), key=lambda h: h[2])
+        return kind, idx, a - base
 
     lines = ["R\t%s\t%#x" % (r, regs[r]) for r in REGS]
     for off in range(0, 0x80, 8):
