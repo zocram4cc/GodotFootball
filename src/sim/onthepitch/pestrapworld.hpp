@@ -30,6 +30,17 @@ inline constexpr std::size_t kPHeadingOffset = 0x20;
 // P+0x2FC: the actor's velocity (x, height, z; m per frame, INF).
 inline constexpr std::size_t kPVelocityOffset = 0x2FC;
 inline constexpr std::size_t kPWord430Offset = 0x430;  // u32
+// P+0x354: the anime's current-motion table (FUN_1406EBEE0 and FUN_1406E68C0 search it; the trap end handler 0x14079E5C0 returns
+// at once while the playing motion is listed, CONFIRMED 6/6 on live2/pid2122415 seq884..896): up to 10 entries of 0x14 bytes,
+// the live count (u32) at +0x420. Entry: motion u32 (+0), a flag u32 (+4, 1 in every capture), seconds the motion has played
+// f32 (+8, grows 0.02 s a call in the six captures); +0xC and +0x10 are two f32 (about 0.02 and 1.0..1.1) nothing on the chain reads.
+inline constexpr std::size_t kPMotionTableOffset = 0x354;
+inline constexpr std::size_t kPMotionEntryBytes = 0x14;
+inline constexpr std::size_t kPMotionTableMax = 10;
+inline constexpr std::size_t kPMotionCountOffset = 0x420;
+inline constexpr std::size_t kMotionEntryFlagOffset = 4;
+inline constexpr std::size_t kMotionEntrySecondsOffset = 8;
+inline constexpr uint32_t kMotionEntryListed = 1;
 // P+0xA08: pointer to a record whose +0xF0 points to a record holding an f32 at +0xC0 (a per-actor scale, INF).
 inline constexpr std::size_t kPScalePtrOffset = 0xA08;
 // P+0xAB8 / +0xAC0: two embedded interface objects, each a vtable pointer into the image (the chain calls through them);

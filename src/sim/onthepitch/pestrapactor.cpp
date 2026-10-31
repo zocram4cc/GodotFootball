@@ -139,6 +139,17 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   StoreU32(p, kPWord430Offset, f.kickApproach);
   StoreF32(p, kPWord277COffset, f.word277C);
   StoreF32(p, kPWord277COffset + 4, f.word2780);
+  // The anime's current-motion table: one entry while the body's clip plays (PesActorFacts::playingMotion's ponytail), else
+  // empty. The count is only cleared when set, so a window that never listed a motion stays untouched.
+  if (f.playingMotion != kPNoMotion) {
+    uint8_t* entry = p + kPMotionTableOffset;
+    StoreU32(entry, 0, f.playingMotion);
+    StoreU32(entry, kMotionEntryFlagOffset, kMotionEntryListed);
+    StoreF32(entry, kMotionEntrySecondsOffset, f.playingSeconds);
+    StoreU32(p, kPMotionCountOffset, 1);
+  } else if (LoadU32(p, kPMotionCountOffset) != 0) {
+    StoreU32(p, kPMotionCountOffset, 0);
+  }
   if (!f.trapActive) p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
   const uint64_t slotPtr = PesWorld::SlotVa(f.slot) + kSlotPPtrTargetOffset;  // FUN_140925470: slot record + 0x15C0
   std::memcpy(p + kPSlotPtrOffset, &slotPtr, sizeof slotPtr);

@@ -46,6 +46,7 @@
 #include "pes/exe.hpp"
 #include "pes/physique.hpp"
 #include "pes/vfs.hpp"
+#include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
 
 namespace {
@@ -576,6 +577,39 @@ TEST_F(TrapOracle, LocomotionClassBranches) {
   EXPECT_EQ(classOf(), table1);
   f.word2780 = 0.5f;
   EXPECT_EQ(classOf(), table1);
+}
+
+// The trap end handler 0x14079E5C0 returns 0 at once while the clip that plays is in the anime's motion table (FUN_1406EBEE0:
+// true for a listed motion; the six live captures seq884..896 all take that exit). The window lists the body's playing clip
+// (PesActorFacts::playingMotion) and PES's own FUN_1406EBEE0, run on the window, must answer by the listing: true for the
+// clip that plays, false for another motion, false again once the clip has finished and the entry is dropped.
+TEST_F(TrapOracle, TheMotionTableListsThePlayingClipSoTheEndHandlerWaits) {
+  auto world = std::make_unique<pes::PesWorld>();
+  for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  constexpr int kSlot = 7;
+  constexpr uint16_t kPlaying = 0x0D18, kOther = 0x001F;
+  const auto listed = [&](uint16_t motion) {
+    ::PesState s;
+    world->BindCall(s);
+    s.gpr[1] = pes::PesWorld::PVa(kSlot);  // rcx: P
+    s.gpr[2] = motion;                     // dx: the motion number
+    ::pes_fn_1406EBEE0(s);
+    return (s.gpr[0] & 0xFF) != 0;
+  };
+  pes::PesActorFacts f;
+  f.slot = kSlot;
+  pes::PesActorOpenInputs open;
+  const pes::PesActorConstants& c = g_derivation->actor;
+  pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
+  EXPECT_FALSE(listed(kPlaying)) << "nothing plays: nothing is listed";
+  f.playingMotion = kPlaying;
+  f.playingSeconds = 0.05f;
+  pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
+  EXPECT_TRUE(listed(kPlaying));
+  EXPECT_FALSE(listed(kOther));
+  f.playingMotion = pes::kPNoMotion;
+  pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
+  EXPECT_FALSE(listed(kPlaying)) << "a finished clip is dropped from the table";
 }
 
 // Every fact lands in its own field of P. The captures have action id == sub id (and the previous pair equal too), so only

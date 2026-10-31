@@ -43,6 +43,12 @@ struct PesActorFacts {
                                // FUN_141AD98B0); 0 is neutral
   int side = 0;                // the actor's side: P+0x3AC0 is that side's AI context (the window's ctx record)
   StaminaState stamina;        // slot record: tank cur/max, breath reserve
+  // ponytail: the anime's current-motion table (P+0x354, pestrapworld.hpp kPMotionTableOffset) is written by PES's per-tick
+  // anime update after the action tick (FUN_1406E5FC0's tail: FUN_1406F8060 / FUN_1406F8B20 / FUN_1406F6790, writer not yet
+  // located; no tick write reaches it, 14/14 captures), which GF does not run. The one motion the body's own clip is playing
+  // and has frames left stands in for the table; the PES writer removes this. kPNoMotion: nothing is playing.
+  uint16_t playingMotion = kPNoMotion;
+  float playingSeconds = 0.0f;  // seconds that clip has played (GF's 10 ms frames)
   // The man is in the Trap action: the tick owns the action ids (P+0xAC8..0xACB), the phase byte (P+0x245C), the motion
   // (P+0xAE0) and the class (P+0xB08), so WriteActorP leaves them as the last tick wrote them.
   bool trapActive = false;

@@ -37,6 +37,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x140797CD0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapend.json",
+   "coverage": {
+    "0x14079E5C0": {
+     "fraction": 0.1045,
+     "reached": 7,
+     "total": 67
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 6 of 6 (live2/pid2122415 seq884, 887, 889, 892, 894, 896, FULL captures of hook trap_end_handler_79E5C0; pes-port-TrapTick4.md); all six take the first early return (the playing motion is in the anime's motion table, FUN_1406EBEE0 true, so the handler returns 0), every other exit aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 67,
+     "fraction": 0.1045
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14079E5C0"
   }
  ]
 }
