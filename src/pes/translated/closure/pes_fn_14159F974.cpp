@@ -13,6 +13,7 @@ static constexpr uint64_t k_c14252F6A0_q = 0x00006FFFFF9D124CULL;
 static constexpr double k_c14252F6A0_d = 6.0841860115341e-310; // 6.0841860115341e-310
 
 void pes_fn_14159F974(PesState& s);
+void pes_fn_1415A01DC(PesState& s);
 
 void pes_fn_14159F974(PesState& s) {
   s.wr(((s.gpr[4]) + (0x8ULL)), (uint64_t)(s.gpr[3]), 8);
@@ -77,7 +78,7 @@ void pes_fn_14159F974(PesState& s) {
       s.gpr[3] = (uint64_t)(_r);
     }
     s.gpr[1] = (uint64_t)(s.gpr[3]);
-    /* stub: engine-noop, no effect on the success path */
+    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1415A01DC(s); s.gpr[4] += 8; }
     s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[6]));
     s.gpr[2] = (uint64_t)(((0x143706758ULL)));
     s.gpr[1] = (uint64_t)(((0x143706780ULL)));

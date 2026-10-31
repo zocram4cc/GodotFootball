@@ -1,0 +1,113 @@
+{
+ "note": "dribble results. diffed = bit-exact vs the unicorn harness over the forward-emulated entry states named in each record (snapdiff --bounded); pes-port-DribbleProposal.md.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribble_turn.json",
+   "coverage": {
+    "0x14211D710": {
+     "reached": 32,
+     "total": 36,
+     "fraction": 0.8889
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 10 of 10 (10 forward-emulated entry states (synth_walk.py --entry 0x14211D710 from the danger_builder_2119390 captures live2 pid1792161 seq16184, seq16456; pid1965411 seq033, seq495; pid1981120 seq4046, seq4444, seq4891, seq5314, seq5769, seq6161)); the BP+0x3380 turn-reference builder (0x14211D710: the carrier manager step through 0x14211E2D0, 0x14211E210, 0x14211E650); the closure is capture-bounded (148 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 10,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 32,
+     "total": 36,
+     "fraction": 0.8889
+    },
+    "replayed": 10,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14211D710"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribble_proposal.json",
+   "coverage": {
+    "0x1421102D0": {
+     "reached": 10,
+     "total": 10,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6 (forward-emulated entry states (synth_walk.py --entry 0x1421102D0 from the danger_builder_2119390 captures)); the dribble-proposal writer (0x1421102D0: BP+0x4204's record from the kind object's virtual step); the closure is capture-bounded (93 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 10,
+     "total": 10,
+     "fraction": 1.0
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1421102D0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribble_ctor.json",
+   "coverage": {
+    "0x14210D320": {
+     "reached": 58,
+     "total": 58,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (3 states (synth_walk.py --entry 0x14211D710 --bp-ctor 0x14210D320: the constructor called on the live BP of the danger_builder captures pid1792161 seq16184, pid1965411 seq495, pid1981120 seq4046)); the BP constructor (0x14210D320: every sub-object of the carrier block, vtables included); the closure is capture-bounded (67 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 58,
+     "total": 58,
+     "fraction": 1.0
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14210D320"
+  }
+ ]
+}

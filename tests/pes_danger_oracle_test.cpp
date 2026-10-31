@@ -132,8 +132,10 @@ TEST(DangerBuilder, ZeroWorldRunsAndPressureRecordNamesTheCarrier) {
 // side, the side's heading and sign, the man record's position and that position times the sign (a side that attacks -x holds
 // -1); the state's owned byte follows the ball owner in MA.
 TEST(DangerBuilder, CarrierInputsAreTheWindowsRecordsTimesTheAttackSign) {
+  if (std::getenv("PES21_ROOT") == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the block's constructor reads the install's vtables)";
   pes::PesWorld w;
   BindWorld(w);
+  w.BindImageTables(InstallTables());  // RunCarrierUpdate builds the block on its first call (0x14210D320)
   const uint32_t slot = 17;
   w.SetAttackSign(1, -1);
   w.SetAttackAngle(1, 270.0f);

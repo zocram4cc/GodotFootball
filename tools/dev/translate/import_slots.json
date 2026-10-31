@@ -1169,7 +1169,9 @@
    "kind": "unmapped"
   },
   "0x1425301C0": {
-   "kind": "unmapped"
+   "export": "_fdtest",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301C8": {
    "kind": "unmapped"
