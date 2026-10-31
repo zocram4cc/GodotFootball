@@ -18,8 +18,9 @@ constexpr uint8_t kProceduralMode = 4;
 // empty anime path is procedural (PES slot +0x50 SetProcedural 0x141F7B630, update 0x141F7BFE0): a mode-4 one (the record's
 // +0xB0) becomes a FixDemoCamera of the step's rig, whose engine frames pose it (advance); a procedural record of another
 // mode keeps a track without a clip, and update() returns false while it is in force.
-// ponytail: modes other than 4 (the foul cut 0x20007 and other cmnCam layers) are not proven on the translated engine, which
-// aborts loudly on a mode it was not captured in; the caller keeps its broadcast camera for them until a capture proves them.
+// ponytail: modes other than 4 (the foul cut 0x20007 and other cmnCam layers) and mode-4 records whose zoom stages are not the
+// captured ones (pes::EngineCovers) are not proven on the translated engine, which aborts the process on a call it was not
+// captured in; the caller keeps its broadcast camera for them until a capture proves them.
 Error PesCutsceneCamera::AddTrack(const Ref<PesLibrary>& library, const pes::fdc::File& file, const pes::fdc::CameraRecord& cam) {
   Track track;
   track.record = cam;
@@ -45,7 +46,7 @@ Error PesCutsceneCamera::AddTrack(const Ref<PesLibrary>& library, const pes::fdc
       return ERR_PARSE_ERROR;
     }
     track.canm = std::move(canm);
-  } else if (cam.targetBytes[0] == kProceduralMode && library->exe()) {
+  } else if (cam.targetBytes[0] == kProceduralMode && pes::EngineCovers(cam.raw) && library->exe()) {
     if (!rig_) {
       std::string err;
       rig_ = pes::FixDemoCameraRig::Create(*library->exe(), &err);
@@ -146,14 +147,13 @@ bool PesCutsceneCamera::update(Camera3D* camera, double t_s) {
   if (force && force->rigId >= 0) {
     if (!pose_) return false;  // advance() has not run for this camera yet
     // The engine's params: eye, target and up (Fox space), the vertical fov in radians, near and far.
-    const Vector3 eye(pose_->eye[0], pose_->eye[1], pose_->eye[2]), target(pose_->target[0], pose_->target[1], pose_->target[2]);
-    const Vector3 back = (eye - target).normalized();
-    const Vector3 right = Vector3(pose_->up[0], pose_->up[1], pose_->up[2]).cross(back).normalized();
+    const pes::GodotCameraPose g = pes::ToGodotCamera(*pose_, k.oneEighty / k.pi);
     camera->set_keep_aspect_mode(Camera3D::KEEP_HEIGHT);
-    camera->set_fov(pose_->fovRad * k.oneEighty / k.pi);
-    camera->set_near(pose_->nearM);
-    camera->set_far(pose_->farM);
-    camera->set_global_transform(Transform3D(Basis(right, back.cross(right), back), eye));
+    camera->set_fov(g.vfovDeg);
+    camera->set_near(g.nearM);
+    camera->set_far(g.farM);
+    const auto v = [](const std::array<float, 3>& a) { return Vector3(a[0], a[1], a[2]); };
+    camera->set_global_transform(Transform3D(Basis(v(g.x), v(g.y), v(g.z)), v(g.origin)));
     return true;
   }
   if (!force || !force->canm) return false;

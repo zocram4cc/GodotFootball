@@ -33,6 +33,24 @@ struct ProcCameraPose {
   std::array<uint8_t, kCameraParamsBytes> raw{};  // the whole block, for the oracle
 };
 
+// Whether the translated engine can pose a procedural camera record. The engine's closure is bounded by the captured calls
+// (docs/ports/pes-port-ProcCamera.md): it picks its rig preset by the first zero zoom stage (record +0xB8.., eight words,
+// 0x141F7C03E..) and only the call of stage 2 (preset 0x140892660) is in the translation; a record whose stages differ reaches
+// calls the translator left as a loud abort (0x140892100, 0x140892420, 0x1408921A0, ...) and ends the process. A record is
+// covered when its stage 2 is the only stage set: the captured goal's records (goal_2018_run_cmnCam_S_*).
+// ponytail: this is the shape of the proven captures, not a decode of every branch; it widens as captures of other presets
+// (the hook proc_camera_141F7BFE0, armed at goals) are proven and the closure grows.
+bool EngineCovers(const std::vector<uint8_t>& record);
+
+// The pose as a Godot camera: Fox space is Godot space (Y up, metres), so no axis change, only the basis. Godot's camera
+// looks down its own -Z with +Y up: z = eye - target (normalised), x = up x z, y = z x x. The vertical fov in degrees (the
+// render camera's fov is vertical at 16:9, docs/re/pes-re-camera-pose.md 1.5). `degPerRad` = oneEighty / pi from the install.
+struct GodotCameraPose {
+  std::array<float, 3> origin{}, x{}, y{}, z{};
+  float vfovDeg = 0, nearM = 0, farM = 0;
+};
+GodotCameraPose ToGodotCamera(const ProcCameraPose& pose, float degPerRad);
+
 class FixDemoCameraRig {
  public:
   // Null with *error when the install's image does not map the data sections.

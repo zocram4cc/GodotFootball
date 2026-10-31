@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -142,6 +143,95 @@ TEST_F(ProcCamera, TheTargetFollowsTheActor) {
   EXPECT_NEAR(moved.target[0] - base.target[0], kShift, kSlack);
   EXPECT_FLOAT_EQ(moved.eye[0], base.eye[0]);
   EXPECT_FLOAT_EQ(moved.eye[2], base.eye[2]);
+}
+
+// The pose the engine wrote (the params block of a captured frame) as the struct the Godot camera is built from.
+pes::ProcCameraPose PoseOfParams(const char* paramsHex) {
+  const std::vector<uint8_t> b = Hex(paramsHex);
+  pes::ProcCameraPose p;
+  for (size_t i = 0; i < 3; ++i) {
+    p.target[i] = FloatAt(b, 4 * i);
+    p.eye[i] = FloatAt(b, 0x0C + 4 * i);
+    p.up[i] = FloatAt(b, 0x18 + 4 * i);
+  }
+  p.fovRad = FloatAt(b, 0x30), p.nearM = FloatAt(b, 0x34), p.farM = FloatAt(b, 0x38);
+  return p;
+}
+
+float Dot(const std::array<float, 3>& a, const std::array<float, 3>& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+std::array<float, 3> Minus(const std::array<float, 3>& a, const std::array<float, 3>& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
+
+// The camera as Godot builds it from the pose (Basis columns x, y, z at origin; Godot looks down -z with +y up, right handed):
+// a world point's place in the picture, in units of the half-height of the frame (vertical fov), x right and y up.
+struct Screen {
+  float x, y, depth;
+};
+Screen Project(const pes::GodotCameraPose& g, const std::array<float, 3>& world) {
+  const std::array<float, 3> d = Minus(world, g.origin);
+  const float cx = Dot(d, g.x), cy = Dot(d, g.y), cz = -Dot(d, g.z);
+  const float halfTan = std::tan(g.vfovDeg * 3.14159265f / 360.0f);
+  return {cx / cz / halfTan, cy / cz / halfTan, cz};
+}
+
+constexpr float kDegPerRad = 57.29578f;
+
+// The captured telephoto (eye 3 m behind the goal line, looking along -x at the scorer): the scorer is the centre of the
+// picture and in front of the camera, the pose's up is up in the picture, and the vertical fov is the engine's radians in
+// degrees. Fox space is used as Godot space, unmirrored, so the line of sight's right is the cross product f x up: looking
+// along -x with +y up, Godot's right is -z (a point 1 m to -z of the scorer lands on the right half of the picture).
+TEST(ProcCameraGodot, TheScorerIsCentredAndTheBasisIsRightHanded) {
+  const pes::ProcCameraPose pose = PoseOfParams(kFrames[0].params);
+  const pes::GodotCameraPose g = pes::ToGodotCamera(pose, kDegPerRad);
+  const Screen centre = Project(g, pose.target);
+  EXPECT_NEAR(centre.x, 0.0f, 1e-4f);
+  EXPECT_NEAR(centre.y, 0.0f, 1e-4f);
+  EXPECT_GT(centre.depth, 0.0f);
+  EXPECT_NEAR(Dot(g.x, g.x), 1.0f, 1e-5f);
+  EXPECT_NEAR(Dot(g.y, g.y), 1.0f, 1e-5f);
+  EXPECT_NEAR(Dot(g.z, g.z), 1.0f, 1e-5f);
+  EXPECT_NEAR(Dot(g.x, g.y), 0.0f, 1e-5f);
+  EXPECT_NEAR(Dot(g.y, g.z), 0.0f, 1e-5f);
+  // x cross y = z (right handed): a mirrored basis would flip this sign.
+  const std::array<float, 3> xy = {g.x[1] * g.y[2] - g.x[2] * g.y[1], g.x[2] * g.y[0] - g.x[0] * g.y[2], g.x[0] * g.y[1] - g.x[1] * g.y[0]};
+  EXPECT_NEAR(Dot(xy, g.z), 1.0f, 1e-5f);
+  std::array<float, 3> above = pose.target, minusZ = pose.target;
+  above[1] += 0.5f, minusZ[2] -= 1.0f;
+  EXPECT_GT(Project(g, above).y, 0.0f);
+  EXPECT_GT(Project(g, minusZ).x, 0.0f);
+  EXPECT_NEAR(g.vfovDeg / kDegPerRad, pose.fovRad, 1e-6f);
+  EXPECT_EQ(g.nearM, pose.nearM);
+  EXPECT_EQ(g.farM, pose.farM);
+}
+
+// The telephoto's vertical fov is tight: at the captured distance the picture is about a metre and a half tall, so a man
+// 1.7 m tall does not fit. That is the shot (the PES frames of the goal scene show torsos), not a unit slip: the frame height
+// at the target, 2 d tan(fov/2), is between a metre and two.
+TEST(ProcCameraGodot, TheFrameIsATorsoShotAtTheCapturedDistance) {
+  const pes::ProcCameraPose pose = PoseOfParams(kFrames[0].params);
+  const pes::GodotCameraPose g = pes::ToGodotCamera(pose, kDegPerRad);
+  const std::array<float, 3> d = Minus(pose.target, pose.eye);
+  const float frame = 2.0f * std::sqrt(Dot(d, d)) * std::tan(g.vfovDeg * 3.14159265f / 360.0f);
+  EXPECT_GT(frame, 1.0f);
+  EXPECT_LT(frame, 2.0f);
+}
+
+// The engine is translated only as far as the captures reach: a record is covered when its zoom stages are the captured ones
+// (stage 2 at tick 0, the rest unused); any other stage selects a preset or a later transition the translation aborts on.
+TEST(ProcCameraGodot, EngineCoversOnlyTheCapturedZoomStages) {
+  constexpr size_t kZoomOffset = 0xB8;
+  std::vector<uint8_t> record = Hex(kRecord);
+  EXPECT_TRUE(pes::EngineCovers(record));
+  auto withStage = [&](size_t stage, int32_t value) {
+    std::vector<uint8_t> r = record;
+    std::memcpy(r.data() + kZoomOffset + 4 * stage, &value, 4);
+    return r;
+  };
+  EXPECT_FALSE(pes::EngineCovers(withStage(2, -1)));   // no stage at all: the first-zero search falls off the table
+  EXPECT_FALSE(pes::EngineCovers(withStage(1, 0)));    // preset 0x140892100 (the cmnCam_outM00 shape)
+  EXPECT_FALSE(pes::EngineCovers(withStage(4, 180)));  // a later transition at tick 180
+  EXPECT_FALSE(pes::EngineCovers(withStage(2, 90)));   // stage 2 not at tick 0
+  record.resize(0xB8 + 4 * 8 - 1);
+  EXPECT_FALSE(pes::EngineCovers(record));
 }
 
 }  // namespace

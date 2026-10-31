@@ -1,6 +1,7 @@
 #include "pes/fixdemo_camera_rig.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -25,6 +26,7 @@ constexpr uint64_t kCameraBytes = 0x228, kCameraAlign = 0x10;
 constexpr uint64_t kCamState = 0x128, kCamRecord = 0x130, kCamTime = 0x214, kCamTimeStep = 0x218, kCamDirty = 0x220,
                    kCamTime0 = 0x210, kCamTime1 = 0x21C, kCamFlag2 = 0x222, kCamTarget = 0x224;
 constexpr uint64_t kRecordTargetNo = 0xB1;  // record byte read by SetProcedural: the first target slot, sign-extended
+constexpr size_t kZoomStages = 8, kRecordZoom = 0xB8, kCoveredStage = 2;  // stage 2 = preset 0x140892660, the captured one
 
 // The camera manager singleton (read by 0x141E9BA30) and the effect list (0x141E92C20): PES's are render-layer owners; the
 // engine hands them the record's layer-visibility flags (0x141E9D2F0, 0x141E9CE80) and reads nothing back that the pose uses.
@@ -184,6 +186,36 @@ ProcCameraPose FixDemoCameraRig::Step(size_t camera, float timeTicks) {
   pose.nearM = s.rdf(kCameraParamsVa + 0x34);
   pose.farM = s.rdf(kCameraParamsVa + 0x38);
   return pose;
+}
+
+bool EngineCovers(const std::vector<uint8_t>& record) {
+  if (record.size() < kRecordZoom + 4 * kZoomStages) return false;
+  for (size_t i = 0; i < kZoomStages; ++i) {
+    int32_t t;
+    std::memcpy(&t, record.data() + kRecordZoom + 4 * i, 4);
+    if (t != (i == kCoveredStage ? 0 : -1)) return false;
+  }
+  return true;
+}
+
+GodotCameraPose ToGodotCamera(const ProcCameraPose& p, float degPerRad) {
+  auto cross = [](const std::array<float, 3>& a, const std::array<float, 3>& b) {
+    return std::array<float, 3>{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+  };
+  auto unit = [](std::array<float, 3> v) {
+    const float n = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    for (float& c : v) c /= n;
+    return v;
+  };
+  GodotCameraPose g;
+  g.origin = p.eye;
+  g.z = unit({p.eye[0] - p.target[0], p.eye[1] - p.target[1], p.eye[2] - p.target[2]});
+  g.x = unit(cross(p.up, g.z));
+  g.y = cross(g.z, g.x);
+  g.vfovDeg = p.fovRad * degPerRad;
+  g.nearM = p.nearM;
+  g.farM = p.farM;
+  return g;
 }
 
 }  // namespace pes
