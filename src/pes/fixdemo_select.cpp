@@ -329,6 +329,7 @@ struct FixDemoSelector::Impl {
     s.wrf(matchRecord + kAttackBearingSide0, f.attackDeg[0]);
     s.wrf(matchRecord + kAttackBearingSide1, f.attackDeg[1]);
     s.wrf(kFpsVa, f.fps);
+    s.wr(kFpsIntVa, static_cast<uint32_t>(f.fps), 4);  // the integer copy 0x14047A710 multiplies (0x141E532E0 returns it)
     const uint64_t m = man[f.scorerSlot], r = run[f.scorerSlot];
     s.wrf(m + kManFacing, f.facing);
     s.wr(m + kManMoveMode, f.moveMode, 4);
@@ -390,6 +391,10 @@ struct FixDemoSelector::Impl {
     out.flip = (s.gpr[0] & 0xFF) != 0;
     // The goal builder's last calls: the run object's timers (0x14047A710(A0, event): A0+0x14 = fps x 4 / scale, 10 for
     // 0x3013D..F, A0+0x18 = fps x 30 / scale), and the DemoInfo's first cut id the tail's scene flag test reads (+0x10).
+    // ponytail: the builder first sets A0+0x130 = 0x1404790B0(A0, event) (the match setup's decider-goal flag read from G+0x2AD0:
+    // not translated, GF has no setup struct); it stays 0 here, as on the 13 captured goals of the default arm. A goal where PES
+    // sets it takes the timer's other arm (INF: the logged 0x30126 ran a 162-frame timer = fps x 3) and the gate's +0x131 hold; removed with
+    // 0x1404790B0.
     s.wr(demo + kDemoInfoCut, f.cuts.empty() ? f.sceneId : f.cuts.front(), 4);
     s.gpr[1] = a0;
     s.gpr[2] = event;

@@ -353,4 +353,192 @@ TEST(GoalAnchor, TheInstallsSceneRowIsTheRowPesHeld) {
   if (compared == 0) GTEST_SKIP() << "the install's goal table matches none of the captured scenes' rows";
 }
 
+// ---- The goal run object's gate 0x140472640 (the DemoInfo state 2 wait), on the arena of PlaceGoal ----
+//
+// The scorer as PES held him at the frame two goals' gates had opened (cut_anchor_write_47D280 snapshots pid2621613/seq1531, case A
+// = g4, and pid132854/seq2151, case B; read by script: his anime record's class byte +1 and +0x54, as floats' bits; position and
+// facing are the anchor cases'). A is 15.8 m from the spot with a radius of 13.5 m: PES's run-object timer decided it. B is 21.1 m
+// from the spot inside a radius of 28.8 m and faces it within 26 degrees: the distance decided it.
+struct GateScorer {
+  size_t anchorCase;
+  uint8_t animeClass;
+  uint32_t speedBits;
+};
+constexpr GateScorer kGateA = {0, 74, 0x41DF5EFF}, kGateB = {1, 73, 0x416002DC};
+constexpr uint8_t kShootClass = 10;  // PES's anime class SHOOT: in neither class set the gate's tail accepts
+
+pes::GoalGateFacts GateFacts(const GateScorer& g) {
+  const Case& c = kCases[g.anchorCase];
+  pes::GoalGateFacts f;
+  f.pos = c.pos;
+  f.facing = c.facing;
+  f.animeClass = g.animeClass;
+  f.animeSpeed = F(g.speedBits);
+  return f;
+}
+
+// A selector with the goal of kCases[g.anchorCase] placed on the install's tables; null (with the skip reason in *why) without them.
+std::unique_ptr<pes::FixDemoSelector> PlacedGoal(const pes::PeImage& exe, const GateScorer& g, pes::FixDemoTable* table, std::string* why) {
+  auto sel = MakeInstalled(exe, table, why);
+  if (!sel) return nullptr;
+  const Case& c = kCases[g.anchorCase];
+  const Oracle& o = kOracle[g.anchorCase];
+  for (const auto& [cut, row] : o.picks) sel->RestorePick(cut, row);
+  if (!sel->PlaceGoal(FactsOf(c, o))) {
+    *why = "the install's goal table has no row for the scene";
+    return nullptr;
+  }
+  return sel;
+}
+
+// The 1-based call on which the gate answers true, 0 if it does not within `limit` calls.
+unsigned CallsToOpen(pes::FixDemoSelector& sel, const pes::GoalGateFacts& f, unsigned limit) {
+  for (unsigned call = 1; call <= limit; ++call)
+    if (sel.GoalGateReady(f)) return call;
+  return 0;
+}
+
+// Every GoalGate test needs the install; they skip together.
+#define GATE_SETUP(g, sel)                                    \
+  std::string why;                                            \
+  const auto exe = OpenExe(&why);                             \
+  if (!exe) GTEST_SKIP() << why;                              \
+  pes::FixDemoTable table;                                    \
+  auto sel = PlacedGoal(*exe, g, &table, &why);               \
+  if (!sel) GTEST_SKIP() << why
+
+// A scorer outside the radius waits for the run object's timer: four seconds of PES frames (A0+0x14, 0x14047A710), the 216th
+// call of the gate. (g4's logged gate was 215 on PES's poll: the gate call of the DemoInfo's creation frame comes before the
+// timeline's first tick, gf_match.cpp step().)
+TEST(GoalGate, ScorerOutsideTheRadiusWaitsForTheTimer) {
+  GATE_SETUP(kGateA, sel);
+  const unsigned frames = static_cast<unsigned>(kCases[kGateA.anchorCase].fps) * 4;
+  EXPECT_EQ(CallsToOpen(*sel, GateFacts(kGateA), 400), frames);
+}
+
+// A scorer inside the radius and facing the spot opens it at once (g2's logged gate opened 213 frames in, before its timer).
+TEST(GoalGate, ScorerInsideTheRadiusAndFacingTheSpotOpensAtOnce) {
+  GATE_SETUP(kGateB, sel);
+  EXPECT_EQ(CallsToOpen(*sel, GateFacts(kGateB), 400), 1u);
+}
+
+// Facing away (more than 30 degrees off the bearing to the spot) clears it again each call: only the timer opens it.
+TEST(GoalGate, ScorerFacingAwayHoldsTheGateUntilTheTimer) {
+  GATE_SETUP(kGateB, sel);
+  pes::GoalGateFacts f = GateFacts(kGateB);
+  f.facing += 90.0f;
+  EXPECT_EQ(CallsToOpen(*sel, f, 400), static_cast<unsigned>(kCases[kGateB.anchorCase].fps) * 4);
+}
+
+// What he is doing counts: a scorer still shooting (anime class SHOOT) holds it, a runner does not.
+TEST(GoalGate, ScorerStillShootingHoldsTheGateUntilTheTimer) {
+  GATE_SETUP(kGateB, sel);
+  pes::GoalGateFacts f = GateFacts(kGateB);
+  f.animeClass = kShootClass;
+  EXPECT_EQ(CallsToOpen(*sel, f, 400), static_cast<unsigned>(kCases[kGateB.anchorCase].fps) * 4);
+}
+
+// The gate runs on the scorer of each frame: he arrives after 100 frames and it opens on the next call, the timer counting on.
+TEST(GoalGate, OpensTheFrameTheScorerArrives) {
+  GATE_SETUP(kGateB, sel);
+  pes::GoalGateFacts away = GateFacts(kGateB);
+  away.pos[0] += 200.0f;
+  constexpr unsigned kWaited = 100;
+  for (unsigned i = 0; i < kWaited; ++i) ASSERT_FALSE(sel->GoalGateReady(away)) << "call " << i + 1;
+  EXPECT_TRUE(sel->GoalGateReady(GateFacts(kGateB)));
+}
+
+// It latches: once open the run object's ready byte stays set, whatever the scorer does next (PES copies it every frame).
+TEST(GoalGate, StaysOpenOnceOpened) {
+  GATE_SETUP(kGateB, sel);
+  ASSERT_TRUE(sel->GoalGateReady(GateFacts(kGateB)));
+  pes::GoalGateFacts away = GateFacts(kGateB);
+  away.pos[0] += 200.0f;
+  away.animeClass = kShootClass;
+  EXPECT_TRUE(sel->GoalGateReady(away));
+}
+
+// Before a goal is placed there is no run object: the gate is closed.
+TEST(GoalGate, IsClosedBeforeAGoalIsPlaced) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  pes::FixDemoTable table;
+  auto sel = MakeInstalled(*exe, &table, &why);
+  if (!sel) GTEST_SKIP() << why;
+  EXPECT_FALSE(sel->GoalGateReady(GateFacts(kGateB)));
+}
+
+// ---- The foul run object's gate 0x14047EB00 ----
+//
+// PES's foul object counts down from fps x 3 (0x14047FEB0); each frame the gate opens it once the count is down to the integer
+// frame rate (0x141E532E0 returns 0x14351AE50) and the referee is within 5 m of the fouler (2 m between the fouler and the
+// fouled man for the scenes 0x20015..0x20018). Ordinary foul scene 0x20008.
+constexpr uint32_t kFoulScene = 0x20008, kFoulerSlot = 3, kVictimSlot = 14;
+constexpr float kFps = 54.0f;
+
+pes::FoulGateStart FoulStart(uint32_t scene = kFoulScene) {
+  pes::FoulGateStart s;
+  s.sceneId = scene;
+  s.foulerSlot = kFoulerSlot;
+  s.victimSlot = kVictimSlot;
+  s.fps = kFps;
+  return s;
+}
+
+pes::FoulGateFacts FoulFacts(float refereeDistance, float victimDistance) {
+  pes::FoulGateFacts f;
+  f.foulerPos = {10.0f, 0.0f, 10.0f};
+  f.victimPos = {10.0f + victimDistance, 0.0f, 10.0f};
+  f.refereePos = {10.0f, 0.0f, 10.0f + refereeDistance};
+  return f;
+}
+
+unsigned FoulCallsToOpen(pes::FixDemoSelector& sel, const pes::FoulGateFacts& f, unsigned limit) {
+  for (unsigned call = 1; call <= limit; ++call)
+    if (sel.FoulGateReady(f)) return call;
+  return 0;
+}
+
+#define FOUL_SETUP(sel, scene)                                \
+  std::string why;                                            \
+  const auto exe = OpenExe(&why);                             \
+  if (!exe) GTEST_SKIP() << why;                              \
+  pes::FixDemoTable table;                                    \
+  auto sel = MakeInstalled(*exe, &table, &why);               \
+  if (!sel) GTEST_SKIP() << why;                              \
+  sel->BeginFoulGate(FoulStart(scene))
+
+// With the referee at the fouler the gate opens when the countdown is down to the frame rate: call 3 x fps - fps (the count
+// decrements before the test, so the 108th call sees 54, which is not above the frame rate).
+TEST(FoulGate, OpensWhenTheCountdownIsDownToTheFrameRateWithTheRefereeAtTheFouler) {
+  FOUL_SETUP(sel, kFoulScene);
+  EXPECT_EQ(FoulCallsToOpen(*sel, FoulFacts(1.0f, 10.0f), 400), static_cast<unsigned>(2 * kFps));
+}
+
+// A referee 20 m away holds it: the countdown runs out (call 3 x fps, count 0 skips the tests) and PES opens it then.
+TEST(FoulGate, ARefereeFarFromTheFoulerHoldsItUntilTheCountdownRunsOut) {
+  FOUL_SETUP(sel, kFoulScene);
+  EXPECT_EQ(FoulCallsToOpen(*sel, FoulFacts(20.0f, 10.0f), 400), static_cast<unsigned>(3 * kFps));
+}
+
+// The scenes 0x20015..0x20018 test the fouler against the fouled man instead (2 m): far apart holds, together opens.
+TEST(FoulGate, ExciteScenesWaitForTheTwoMenToBeWithinTwoMetres) {
+  {
+    FOUL_SETUP(sel, 0x20016);
+    EXPECT_EQ(FoulCallsToOpen(*sel, FoulFacts(1.0f, 10.0f), 400), static_cast<unsigned>(3 * kFps));
+  }
+  {
+    FOUL_SETUP(sel, 0x20016);
+    EXPECT_EQ(FoulCallsToOpen(*sel, FoulFacts(20.0f, 1.0f), 400), static_cast<unsigned>(2 * kFps));
+  }
+}
+
+// It latches too.
+TEST(FoulGate, StaysOpenOnceOpened) {
+  FOUL_SETUP(sel, kFoulScene);
+  ASSERT_GT(FoulCallsToOpen(*sel, FoulFacts(1.0f, 10.0f), 400), 0u);
+  EXPECT_TRUE(sel->FoulGateReady(FoulFacts(50.0f, 50.0f)));
+}
+
 }  // namespace
