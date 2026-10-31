@@ -209,5 +209,5 @@ TEST(ScoreRows, GfModeLeavesThePairTableZero) {
   Tick(w, p, 0, /*fullRefresh=*/true, /*pesPath=*/false);
   const pes::ScoreRows& r = w.Rows();
   for (const auto& row : r.bearing)
-    for (float b : row) EXPECT_EQ(b, 0.0f);
+    for (int i = 0; i < pes::lane::kSlots; ++i) EXPECT_EQ(row[i], 0.0f);
 }

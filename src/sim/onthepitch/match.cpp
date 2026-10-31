@@ -322,6 +322,12 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES mark table constants missing: read them from the install with "
         "pes::marktable::LoadMarkTableConstants into MatchSetup::pesMarkTableConstants");
   pesMarkTableConstants = *setup.pesMarkTableConstants;
+  // The install's table bytes the window's translated runs read (pesimagetables.hpp).
+  if (setup.pesImageTables == nullptr)
+    throw std::runtime_error(
+        "PES image tables missing: read them from the install with "
+        "pes::LoadPesImageTables into MatchSetup::pesImageTables");
+  pesWorld->BindImageTables(*setup.pesImageTables);
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);

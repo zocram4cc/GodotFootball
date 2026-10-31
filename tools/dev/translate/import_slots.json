@@ -818,7 +818,9 @@
    "kind": "unmapped"
   },
   "0x14252FD68": {
-   "kind": "unmapped"
+   "export": "memmove",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD70": {
    "export": "memcpy",

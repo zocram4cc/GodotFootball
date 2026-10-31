@@ -8,6 +8,10 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image window @ 0x140851710 (20 bytes, read-only)
+static constexpr uint8_t k_t140851710_14[20] = {0xC6, 0x16, 0x85, 0x00, 0xD5, 0x16, 0x85, 0x00, 0xF8, 0x16, 0x85, 0x00, 0x2B, 0x16, 0x85, 0x00, 0xC5, 0x15, 0x85, 0x00};
+// image window @ 0x140851724 (30 bytes, read-only)
+static constexpr uint8_t k_t140851724_1E[30] = {0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x01, 0x00, 0x02, 0x04, 0x04, 0x03, 0x03, 0x04, 0x03, 0x04, 0x03, 0x00, 0x04, 0x04, 0x03, 0x04, 0x03, 0x03, 0x04, 0x04, 0x03, 0x03};
 
 void pes_fn_140851580(PesState& s);
 void pes_fn_1406EAD40(PesState& s);
@@ -104,8 +108,8 @@ void pes_fn_140851580(PesState& s) {
   if (s.cond("a")) goto L_1408515C5;
   s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[1])) << 32))) >> 32));
   s.gpr[1] = (uint64_t)(((0x140000000ULL)));
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + ((s.gpr[0])*1ULL) + (0x851724ULL)), 1));
-  s.gpr[2] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + ((s.gpr[0])*4ULL) + (0x851710ULL)), 4));
+  s.gpr[0] = (uint64_t)(uint32_t)(ro_rd(k_t140851724_1E, 30, (uint64_t)(s.gpr[0]) * 1ULL, 1));
+  s.gpr[2] = (uint64_t)(uint32_t)(ro_rd(k_t140851710_14, 20, (uint64_t)(s.gpr[0]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[2]), _b = (uint64_t)(s.gpr[1]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));

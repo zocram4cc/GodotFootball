@@ -39,9 +39,9 @@ IMG_LO, IMG_GLOBALS, IMG_HI = 0x140000000, 0x143000000, 0x143800000  # code and 
 REGS = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
 G_CELL = 0x1436F3DC8  # the image global that holds G
 # The records the window holds: (kind, table offset in G or None, entry stride, count, record bytes). The sizes are the window's.
-TABLES = (("side", 0x1928, 0x28, 2, 0x260), ("anime", 0x19C8, 0x28, 26, 0x32C), ("man", 0x1DD8, 0x28, 26, 0xDC4),
+TABLES = (("side", 0x1928, 0x28, 2, 0x4C30), ("anime", 0x19C8, 0x28, 26, 0x32C), ("man", 0x1DD8, 0x28, 26, 0xDC4),
           ("slot", 0x25F8, 0x28, 22, 0x2E50))
-POINTERS = (("B", 0x40, 0x2960), ("MI", 0x270, 0x1760), ("fr", 0x360, 0x10), ("pitch", 0x2AA8, 0x48))
+POINTERS = (("B", 0x40, 0x2960), ("MI", 0x270, 0x1770), ("fr", 0x360, 0x10), ("pitch", 0x2AA8, 0x48))
 P_BYTES = 0x3B40
 STACK_SPAN = 0x300  # the entry frame: rsp .. rsp + STACK_SPAN is the caller's call frame
 
@@ -168,13 +168,14 @@ def main():
     typed = [t for t in typed if t[2]]
 
     def which(a):
-        # PES's records of one kind sit closer than the window's record size (slot 20 and 21 are 0x2B90 apart, the table's
-        # size is 0x2E50): an address belongs to the record that starts last at or before it.
-        best = None
-        for kind, idx, base, size in typed:
-            if base <= a < base + size and (best is None or base > best[3]):
-                best = (kind, idx, a - base, base)
-        return best[:3] if best else None
+        # Slot records sit 0x2B90 apart (slot 20 -> 21) but are typed 0x2E50 long (danger_oracle.py, the same defect): a byte of
+        # slot 21 also lies in slot 20's range, so the record it belongs to is the nearest base below it among the ranges of the
+        # first match's kind.
+        hits = [(kind, idx, base) for kind, idx, base, size in typed if base <= a < base + size]
+        if not hits:
+            return None
+        kind, idx, base = max((h for h in hits if h[0] == hits[0][0]), key=lambda h: h[2])
+        return kind, idx, a - base
 
     lines = ["R\t%s\t%#x" % (r, regs[r]) for r in REGS]
     for off in range(0, 0x80, 8):

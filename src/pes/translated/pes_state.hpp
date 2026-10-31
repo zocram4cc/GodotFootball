@@ -77,7 +77,16 @@ struct PesMem {
   bool window_hit(uint64_t addr, unsigned n) const {
     return (window.ro || window.rw) && window.base <= addr && addr + n <= window.base + window.size;
   }
+  // GF-owned runtime services the translated code addresses by VA (the native heap's allocator table page and arena,
+  // pes_native.hpp). They win over every other source, the snapshot included, so a snapshot replay can run on GF's heap.
+  std::vector<Window> services;
+  uint8_t* service_at(uint64_t addr, unsigned n) const {
+    for (const Window& w : services)
+      if (w.rw && w.base <= addr && addr + n <= w.base + w.size) return w.rw + (addr - w.base);
+    return nullptr;
+  }
   const uint8_t* find(uint64_t addr, unsigned n) const {
+    if (uint8_t* p = service_at(addr, n)) return p;
     if (window_hit(addr, n)) return (window.rw ? window.rw : window.ro) + (addr - window.base);
     for (const auto& r : img) {
       if (r.va <= addr && addr + n <= r.va + r.bytes.size())
@@ -92,6 +101,7 @@ struct PesMem {
     return nullptr;
   }
   uint8_t* wfind(uint64_t addr, unsigned n) {
+    if (uint8_t* p = service_at(addr, n)) return p;
     if (window_hit(addr, n)) return window.rw ? window.rw + (addr - window.base) : nullptr;
     for (auto& s : segs) {
       if (s.base <= addr && addr + n <= s.base + s.bytes.size())
@@ -102,6 +112,11 @@ struct PesMem {
     return nullptr;
   }
   uint64_t rd(uint64_t addr, unsigned n) const {
+    if (const uint8_t* p = service_at(addr, n)) {
+      uint64_t v = 0;
+      std::memcpy(&v, p, n);
+      return v;
+    }
     if (snap) {
       uint64_t v = 0;
       for (unsigned i = 0; i < n; ++i)
@@ -114,6 +129,11 @@ struct PesMem {
     return v;
   }
   void wr(uint64_t addr, uint64_t v, unsigned n) {
+    if (uint8_t* p = service_at(addr, n)) {
+      std::memcpy(p, &v, n);
+      log_bytes(addr, v, n);
+      return;
+    }
     if (snap) {
       for (unsigned i = 0; i < n; ++i)
         if (uint8_t* b = snap->at(addr + i)) {
@@ -166,6 +186,9 @@ struct PesState {
   // The GS segment base (the thread environment block). gs:-relative operands read at gs_base + disp. The caller sets
   // it: the snapshot diff main from the same TEB the harness maps; the game's runtime sets the thread's TEB.
   uint64_t gs_base = 0;
+  // The native allocator behind the services windows (pes_native.hpp PesHeap::Attach sets it); the dispatch table's
+  // native targets (pes_native_heap_*) allocate through it. Null when no heap is attached.
+  struct PesHeap* heap = nullptr;
   // XMM as raw u128: u64[2]; lane views reinterpreted per op.
   uint64_t xmm[16][2] = {};
   bool zf = false, pf = false, cf = false, sf = false, of = false;

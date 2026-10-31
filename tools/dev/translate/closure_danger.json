@@ -1,0 +1,15 @@
+{
+ "note": "the functions snapdiff built for the proof of 0x142119390 (its 10 real calls) beyond the layer's direct-callee closure: the indirect targets the replays reached (vtable methods, CRT thunks). The harness's own allocator bytes (0x1403F*, 0x141B34*) are not members: GF's allocator is the native heap (stubs.json native_services). gen_translated seeds the layer with them; regenerate with snapdiff.py after the closure changes. VAs only.",
+ "root": "0x142119390",
+ "members": [
+  "0x14063CD60",
+  "0x14063EA50",
+  "0x14159F670",
+  "0x14159F974",
+  "0x1415A18F4",
+  "0x1415A18FA",
+  "0x1421399A0",
+  "0x1421399C0",
+  "0x1421399E0"
+ ]
+}

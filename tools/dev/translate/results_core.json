@@ -95106,8 +95106,8 @@
      "total": 366
     },
     "0x142109EB0": {
-     "fraction": 0.5,
-     "reached": 2,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     }
    },
@@ -95117,18 +95117,18 @@
    "failure_class": null,
    "icount_max": 10,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-EndClear3.md \u00a72); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "note": "proof snapdiff: every real call replayed bit-exact. 14 calls: pes-port-ForcedClearReal.md section 1 (12 danger-predicated captures live2 pid483669 seq8889, 11497, 13209, 14088, 15049, 17213, 18365, 20019, 20021, 20023, 20026, 20029: the danger-1 arm, own-block 4/4) plus pid407792 seq019, seq047 (danger-0; pes-port-EndClear3.md section 2, whose other three captures are no longer on disk); the unicorn harness has no corpus for it, so driver --check does not re-run it",
    "proof": "snapdiff",
    "requested": 64,
    "snapdiff": {
-    "calls": 5,
+    "calls": 14,
     "mismatches": 0,
     "own_block": {
-     "fraction": 0.5,
-     "reached": 2,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     },
-    "replayed": 5,
+    "replayed": 14,
     "source": "tools/dev/translate/results_endclear_clear.json"
    },
    "stubs": [],
@@ -98413,6 +98413,147 @@
    "subsystem": "pre-match",
    "translated": true,
    "va": "0x1423D32A0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 20,
+   "coverage": {
+    "0x140699960": {
+     "fraction": 0.8023,
+     "reached": 142,
+     "total": 177
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo5: danger_writer_699960 captures live2 pid1792161 seq16185, seq16457; pid1965411 seq034, seq496; pid1981120 seq4048, 5316, 5771, 6464, 6755, 7080, plus the 10 writer calls inside the builder captures); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 20,
+   "snapdiff": {
+    "calls": 20,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 142,
+     "total": 177,
+     "fraction": 0.8023
+    },
+    "replayed": 20,
+    "source": "tools/dev/translate/results_danger.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140699960"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 16,
+   "coverage": {
+    "0x14069A500": {
+     "fraction": 0.9697,
+     "reached": 96,
+     "total": 99
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo5: pressure_build_69A500 captures live2 pid1981120 seq4047, 5315, 5770, 6463, 6754, 7079, plus the 10 pressure calls inside the builder captures); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 16,
+   "snapdiff": {
+    "calls": 16,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 96,
+     "total": 99,
+     "fraction": 0.9697
+    },
+    "replayed": 16,
+    "source": "tools/dev/translate/results_danger.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14069A500"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 10,
+   "closure_file": "closure_danger.json",
+   "coverage": {
+    "0x142119390": {
+     "fraction": 0.6275,
+     "reached": 32,
+     "total": 51
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo5: danger_builder_2119390 captures live2 pid1792161 seq16184, seq16456; pid1965411 seq033, seq495; pid1981120 seq4046, 4444, 4891, 5314, 5769, 6161; the harness runs PES's own allocator bytes for the 11 allocations per call and the host-libm powf model, both sides alike; one case ends with danger 1); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 10,
+   "snapdiff": {
+    "calls": 10,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 32,
+     "total": 51,
+     "fraction": 0.6275
+    },
+    "replayed": 10,
+    "source": "tools/dev/translate/results_danger.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142119390"
+  }
+  ,{
+   "aborted": 0,
+   "capped": 0,
+   "cases": 22,
+   "coverage": {
+    "0x14210F110": {
+     "fraction": 0.5182,
+     "reached": 185,
+     "total": 357
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every call replayed bit-exact. 8 real walk calls (pes-port-MatchInfo6: carrier_walk_210F110 captures live2 pid1965411 seq035, seq627; pid1981120 seq3914, 4518, 5130, 5878, 6294, 6695; seven return 0x19 (no kind), seq5878 returns 3); 2 SYNTHETIC calls (pes-port-ForcedClear: PES forward-emulated from danger_builder captures pid1981120 seq4046 and seq4444 to the walk's entry, the kind-1 answer record patched to type 5); and 12 REAL calls (pes-port-ForcedClearReal: synth_walk.py without --patch-clear from the 12 danger-predicated carrier_clear_2109EB0 captures live2 pid483669 seq8889, 11497, 13209, 14088, 15049, 17213, 18365, 20019, 20021, 20023, 20026, 20029: PES's own kind-1 type-5 record; six reach the Clear block 0x14210F4F2: returns 1 on five, 6 on seq15049); own-block coverage 0.5182; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 22,
+   "snapdiff": {
+    "calls": 22,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 185,
+     "total": 357,
+     "fraction": 0.5182
+    },
+    "replayed": 22,
+    "source": "tools/dev/translate/results_walk.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14210F110"
   }
  ]
 }

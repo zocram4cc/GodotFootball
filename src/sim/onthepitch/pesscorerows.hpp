@@ -8,7 +8,9 @@
 #define _HPP_ONTHEPITCH_PESSCOREROWS
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace pes {
 class PesWorld;
@@ -45,11 +47,22 @@ struct RowEntry {
   float value = 0.0f;
 };
 
-// A PES row: each team's listed players ascending by value (team 1 is slots 11..21), and each
-// id's position within its team (the rank byte at +0xB2 + id).
+// A sorted block's layout in MA (pes-re-A4Carrier.md section 4: the 200-byte per-player block): team t's 11 entries of
+// (slot id u32, value f32) at +0x58 t, the two count bytes at +0xB0, the rank bytes at +0xB2 + id. The unlisted fill is
+// 0xFF (INF: the count and rank bytes' width is the NearestEntry layout of pesoffball.hpp).
+inline constexpr std::size_t kRowBytes = 200;
+inline constexpr std::size_t kRowTeamStride = 0x58;
+inline constexpr std::size_t kRowCountOffset = 0xB0;
+inline constexpr std::size_t kRowRankOffset = 0xB2;
+inline constexpr uint8_t kRowUnlisted = 0xFF;
+
+// A PES row, a view over its block in the world window: each team's listed players ascending by value (team 1 is slots
+// 11..21), and each id's position within its team (the rank byte at +0xB2 + id). The block is the store; the view holds
+// no state, and an unbound view is an empty row.
 class SortedRow {
  public:
-  SortedRow();
+  SortedRow() = default;
+  explicit SortedRow(uint8_t* block) : block_(block) {}
   void Clear();
   // Lists `id` with `value`. Seal() sorts the teams and sets the ranks.
   void Add(int id, float value);
@@ -61,16 +74,33 @@ class SortedRow {
   // The head of team `side`'s list (its nearest), or lane::kNoSlot when that team lists nobody.
   int Nearest(int side) const;
   // The block `side` (0: lanes 0..10, 1: lanes 11..21): its count, and its entry at `rank`, nearest first.
-  int Count(int side) const { return count_[side]; }
-  const RowEntry& Entry(int side, int rank) const { return entry_[side][rank]; }
+  int Count(int side) const { return block_ != nullptr ? block_[kRowCountOffset + side] : 0; }
+  RowEntry Entry(int side, int rank) const;
 
  private:
-  std::array<std::array<RowEntry, lane::kSideSize>, 2> entry_{};
-  std::array<int, 2> count_{};
-  std::array<int, lane::kSlots> rank_{};
+  uint8_t* block_ = nullptr;
 };
 
+// A row of f32 in the window (a 22-slot angle or bearing row).
+class FloatRow {
+ public:
+  FloatRow() = default;
+  explicit FloatRow(uint8_t* p) : p_(p) {}
+  float operator[](int i) const;
+  void Set(int i, float v) const;
+  void Fill(float v) const;
+
+ private:
+  uint8_t* p_ = nullptr;
+};
+
+// The S1 rows are views over the side's MA record; Bind() points them at it. A default ScoreRows owns a scratch MA of its
+// own for the unit tests that build rows with no world; the match binds the window's.
 struct ScoreRows {
+  ScoreRows();
+  ScoreRows(const ScoreRows&) = delete;
+  ScoreRows& operator=(const ScoreRows&) = delete;
+  void Bind(uint8_t* ma);
   // score[0]: squared distance to (-xg, 0), block MA+0x228EC. score[1]: to (+xg, 0), MA+0x22AD4.
   std::array<SortedRow, 2> score{};
   // list[0]: |-xg - x|, block MA+0x229B4. list[1]: |+xg - x|, MA+0x22B9C.
@@ -79,14 +109,18 @@ struct ScoreRows {
   std::array<SortedRow, 2> pair{};
   // angle[0]: bearing about (-xg, 0), MA+0x22A7C. angle[1]: about (+xg, 0), MA+0x22C64. Degrees
   // in [0, 360); 0 for a slot that is off the pitch.
-  std::array<std::array<float, lane::kSlots>, 2> angle{};
+  std::array<FloatRow, 2> angle{};
   // bearing[a][b]: the bearing of (a - b) in degrees in [0, 360), 0 when the two coincide
   // (MA+0x23F7C + 0x58 a + 4 b, writer FUN_14045B420, reader FUN_140439FE0). Rebuilt on every
   // call, whatever the mask. Off-pitch rows stay 0.
-  std::array<std::array<float, lane::kSlots>, lane::kSlots> bearing{};
+  std::array<FloatRow, lane::kSlots> bearing{};
   // nearest[i]: every other on-pitch player by squared distance from i, MA+0x22E4C + 200 i.
   // Empty when i is off the pitch.
   std::array<SortedRow, lane::kSlots> nearest{};
+
+ private:
+  std::vector<uint8_t> scratch_;
+  uint8_t* bound_ = nullptr;  // a fresh bind starts every row empty (PES's zeroed record would list slot 0 at rank 0)
 };
 
 // The row FUN_140A714C0(T, k) reads for attack sign k: score0 (MA+0x228EC, the goal at -xg) when
@@ -114,8 +148,11 @@ class ScoreRowWriter {
   const ScoreRows& Rows() const { return rows_; }
   bool Latched() const { return latched_; }
 
+  // Points the rows at the side's MA record in the world window.
+  void Bind(uint8_t* ma) { rows_.Bind(ma); }
+
  private:
-  ScoreRows rows_{};
+  ScoreRows rows_;
   bool latched_ = false;
 };
 

@@ -191,14 +191,14 @@ void TeamAIController::TickScoreRows() {
   // FUN_140457070's argument; Match::Process). A match opens stopped (inPlay starts false), so its first
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
+  scoreRows_.Bind(world.Ma(team->GetID()));  // the rows are views over this side's MA record: the window is the store
   scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(), pesPath, world);
   WriteMaRecord();
 }
 
 void TeamAIController::WriteMaRecord() {
-  // The side's AI record MA in the world window (PES layout, pesworldrecord.hpp): the sorted lane lists the score-row
-  // writer builds (the rows are the writer's own state, this is the block the carrier units' angle reads), the ball copy,
-  // and the holder's id.
+  // The side's AI record MA in the world window (PES layout, pesworldrecord.hpp): the ball copy and the holder's id. The
+  // sorted lane lists the carrier units' angle reads are the score-row writer's own blocks in the same record.
   // ponytail: MA+0x2482C's writer is not decoded (it changes every frame, pes-re-advance.md); the ball's record 0 stands
   // in for it, as the press gate's stand-in does (teamAIcontroller.cpp's MA ball copy). Replace with the PES writer.
   // ponytail: MA+0x2483C is the T7a holder (FUN_140A627E0 else MA+0x2483C): the match's holder slot stands in for it.
@@ -209,34 +209,7 @@ void TeamAIController::WriteMaRecord() {
   world.SetMaBall(side, ball[0], ball[1], ball[2]);
   const Player* holder = match->GetPesHolder();
   world.SetMaCarrier(side, holder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(holder)) : pes::kMaNoCarrier);
-  // MA+0x2601C (FUN_140457070's holder store, 0x14045725A) and the NearestList (MA+0x22E4C + 200 slot, FUN_14045B420): the cells
-  // the Trap chain reads through P+0x3AC0 (docs/ports/pes-port-TrapOpen2.md). The holder's slot is the match's (0xFF: none).
-  world.SetMaHolder(side, holder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(holder)) : 0xFFu);
-  for (int slot = 0; slot < pes::lane::kSlots; ++slot) {
-    const pes::SortedRow& row = scoreRows_.Rows().nearest[slot];
-    for (int teamSide = 0; teamSide < 2; ++teamSide) {
-      for (int rank = 0; rank < pes::kMaListEntries; ++rank) {
-        if (rank < row.Count(teamSide))
-          world.SetMaNearestEntry(side, slot, teamSide, rank, static_cast<uint32_t>(row.Entry(teamSide, rank).id),
-                                  row.Entry(teamSide, rank).value);
-        else
-          world.ClearMaNearestEntry(side, slot, teamSide, rank);
-      }
-    }
-  }
-  const pes::ScoreRows& rows = scoreRows_.Rows();
-  for (int list = 0; list < 2; ++list) {
-    for (int teamSide = 0; teamSide < 2; ++teamSide) {
-      const pes::SortedRow& row = rows.list[list];
-      for (int rank = 0; rank < pes::kMaListEntries; ++rank) {
-        if (rank < row.Count(teamSide))
-          world.SetMaListEntry(side, list, teamSide, rank, static_cast<uint32_t>(row.Entry(teamSide, rank).id),
-                               row.Entry(teamSide, rank).value);
-        else
-          world.ClearMaListEntry(side, list, teamSide, rank);
-      }
-    }
-  }
+  // The sorted lane lists are not copied here: the score-row writer builds them in this side's MA block in place.
 }
 
 void TeamAIController::TickMarkTable() {
@@ -1426,21 +1399,45 @@ Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
   return inside;
 }
 
+namespace {
+
+// PES's throw-in key clip (ThrowinLoop's SetKick and release clip, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1): the
+// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1).
+// ponytail: the body scale (PES's player +0x3B18) is taken as 1.
+constexpr int kThrowInKeyMotion = 0xcfa;
+pes::Vec3 ThrowInKeyOffset(Match& match) {
+  const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+  const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
+  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
+                               pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
+}
+
+}  // namespace
+
 void TeamAIController::PinBallAtRelease() {
-  if (!IsCarryingBall()) return;
-  // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
-  if (pieceReleaseRow == 0) {
-    Player* mate = ThrowInTargetMate(taker);
-    const Vector3 to = mate ? mate->GetPosition() : taker->GetPosition();
-    pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
-                                                  match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
+  // A carrier holds the ball at his release row's key; a placed (ceremony) taker holds it at his SetKick key, the point the
+  // stand puts over the spot (3.3). PES places him with the ball (3.1), so it is in his hand from the take, never on the ground.
+  const bool carried = IsCarryingBall();
+  const bool placed = pieceHeld && setPieceType == e_SetPiece_ThrowIn && taker != nullptr;
+  if (!carried && !placed) return;
+  pes::Vec3 offset;
+  if (carried) {
+    // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
+    if (pieceReleaseRow == 0) {
+      Player* mate = ThrowInTargetMate(taker);
+      const Vector3 to = mate ? mate->GetPosition() : taker->GetPosition();
+      pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
+                                                    match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
+    }
+    constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
+    constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
+    const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
+    const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+    const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+    offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  } else {
+    offset = ThrowInKeyOffset(*match);
   }
-  constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
-  constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
-  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
-  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
-  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
-  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   const Vector3 pos = taker->GetPosition();
   const Vector3 facing = taker->GetDirectionVec();
   const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
@@ -1476,14 +1473,9 @@ int CeremonyRoleClass(e_PlayerRole role) {
 }
 
 // A placed throw-in taker's stand point (PES's ThrowinLoop SetKick, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1):
-// the release key's ball offset from clip 0xcfa's second record (FUN_1406E8CC0 at index 1), its horizontal length outside
-// the touchline over the restart point. ponytail: the body scale (PES's player +0x3B18) is taken as 1.
-constexpr int kThrowInKeyMotion = 0xcfa;
+// the release key's horizontal length outside the touchline over the restart point.
 float ThrowInStandLength_m(Match& match) {
-  const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
-  const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
-  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
-                                                 pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
+  const pes::Vec3 offset = ThrowInKeyOffset(match);
   return std::hypot(offset.x, offset.z);
 }
 

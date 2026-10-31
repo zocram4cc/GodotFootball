@@ -1175,9 +1175,11 @@ TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
   lng.index = 5;
   lng.kind = pes::kPassLong;
   const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
-  const pes::UnitSlot won = pes::WalkCarrierUnits(table, pes::WalkContext{});
-  EXPECT_EQ(won.kind, 9);
-  EXPECT_EQ(won.answer.sub, pes::kPassLong);
+  const auto slot = std::find_if(table.begin(), table.end(), [](const pes::UnitSlot& s) { return s.kind == 9; });
+  ASSERT_TRUE(slot != table.end());
+  EXPECT_EQ(slot->answer.type, pes::kAnswerPass);
+  EXPECT_EQ(slot->answer.sub, pes::kPassLong);
+  EXPECT_EQ(slot->answer.target, 5);
 }
 
 TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
@@ -1191,7 +1193,10 @@ TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
   cross.index = 3;
   cross.kind = pes::kPassCentering;
   const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
-  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 7);
+  const auto slot = std::find_if(table.begin(), table.end(), [](const pes::UnitSlot& s) { return s.kind == 7; });
+  ASSERT_TRUE(slot != table.end());
+  EXPECT_EQ(slot->answer.type, pes::kAnswerPass);
+  EXPECT_EQ(slot->answer.target, 3);
 }
 
 TEST(PesCarrierTable, KindThreeCarriesOnlyTheBackSpaceAnswer) {
@@ -1223,21 +1228,29 @@ TEST(PesCarrierTable, KindOneCarriesTheClearUnitsAnswerAndItsAngle) {
   EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone) << "no unit answer, no clear";
 }
 
-// The walk keeps a clear only when rule 7 lets it: a pass kind that answers replaces it unless the forced-clear test holds.
-TEST(PesCarrierTable, ARulesSevenClearGivesWayToAnAnsweringPassUnlessForced) {
-  pes::PassAnswer none, fwd;
-  fwd.index = 4;
-  fwd.kind = pes::kPassShort;
-  const pes::CarrierAnswer clear{pes::kAnswerClear, 0, 10.0f};
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable({1, 4}, false, fwd, none, none, none, none, none, none, none, clear);
-  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 4) << "the pass replaces the clear";
-  pes::WalkContext forced;
-  forced.forcedClear = true;
-  const pes::UnitSlot won = pes::WalkCarrierUnits(table, forced);
-  EXPECT_EQ(won.kind, 1);
-  EXPECT_FLOAT_EQ(won.answer.angle_deg, 10.0f);
-}
 
+// The answer record the walk reads (0x1C bytes, the units' writers 0x142119D20, 0x142109EB0, 0x14212A700): type at +0, 0x19 at +4,
+// a pass's receiver lane slot at +8 and its PassKind at +0xC with the one-touch flag byte at +0x10, the Clear unit's angle at +8.
+TEST(PesCarrierTable, TheAnswerRecordCarriesTheFieldsTheWalkReads) {
+  const auto word = [](const std::array<uint8_t, 0x1C>& r, size_t at) {
+    uint32_t v;
+    std::memcpy(&v, r.data() + at, sizeof v);
+    return v;
+  };
+  const auto pass = pes::EncodeAnswerRecord({pes::kAnswerPass, pes::kPassThrough, 0.0f, 7, true});
+  EXPECT_EQ(word(pass, 0), static_cast<uint32_t>(pes::kAnswerPass));
+  EXPECT_EQ(word(pass, 4), 0x19u);
+  EXPECT_EQ(word(pass, 8), 7u);
+  EXPECT_EQ(word(pass, 0xC), static_cast<uint32_t>(pes::kPassThrough));
+  EXPECT_EQ(pass[0x10], 1);
+  const auto clear = pes::EncodeAnswerRecord({pes::kAnswerClear, 0, 123.5f});
+  EXPECT_EQ(word(clear, 0), static_cast<uint32_t>(pes::kAnswerClear));
+  float angle;
+  std::memcpy(&angle, clear.data() + 8, sizeof angle);
+  EXPECT_FLOAT_EQ(angle, 123.5f);
+  const auto none = pes::EncodeAnswerRecord({});
+  EXPECT_EQ(word(none, 0), 0u) << "no answer: type 0, the walk skips the kind";
+}
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---
 
 namespace {
@@ -1339,137 +1352,6 @@ TEST(PesCarrierDispatch, AnOverrideTurnsABlockedModeThreeIntoAHeading) {
   EXPECT_EQ(pes::DribbleSubKind(in, true, Synthetic()), pes::kDribbleMode4);
 }
 
-// --- the arbitration walk (0x14210f110): rules 1, 3, 5, 6, 9, 10 and the set-piece branch ---
-
-namespace {
-pes::UnitSlot Slot(int kind, int type, int sub = 0) {
-  pes::UnitSlot s;
-  s.kind = kind;
-  s.answer = {type, sub};
-  return s;
-}
-}  // namespace
-
-TEST(PesCarrierWalk, TheTableOrderNotTheKindNumberDecides) {
-  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, pes::kPassShort),
-                                            Slot(0, pes::kAnswerShoot, 1)};
-  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 4);
-}
-
-TEST(PesCarrierWalk, KindTwentyTwoWinsOutsideSetPieces) {
-  // The walk reads the table in its build order, and GKCoaching (22) is the second slot of every
-  // list, ahead of Shoot (0): it answers before the shot does.
-  const std::vector<pes::UnitSlot> table = {Slot(22, pes::kAnswerPass, pes::kPassShort),
-                                            Slot(0, pes::kAnswerShoot, 1)};
-  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 22);
-}
-
-TEST(PesCarrierWalk, ThePKAndClearStatesVetoPassesButNotShots) {
-  const std::vector<pes::UnitSlot> pass = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
-  pes::WalkContext c;
-  c.restartState = 9;
-  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, -1);
-  c.restartState = 0;
-  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
-}
-
-TEST(PesCarrierWalk, StoppedPlayAcceptsOnlyPasses) {
-  pes::WalkContext c;
-  c.restartMode = 2;
-  EXPECT_EQ(pes::WalkCarrierUnits({Slot(0, pes::kAnswerShoot, 1)}, c).kind, -1);
-  EXPECT_EQ(pes::WalkCarrierUnits({Slot(4, pes::kAnswerPass, pes::kPassShort)}, c).kind, 4);
-}
-
-TEST(PesCarrierWalk, ACutBackReplacesAShotOutsideTheCloseBand) {
-  const std::vector<pes::UnitSlot> table = {Slot(0, pes::kAnswerShoot, 1),
-                                            Slot(3, pes::kAnswerPass, pes::kPassThrough)};
-  pes::WalkContext c;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 3);
-  c.closeBand = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 0);
-}
-
-TEST(PesCarrierWalk, ACrossOverrideNeedsSkillFourteenAndAListedCross) {
-  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, pes::kPassShort),
-                                            Slot(7, pes::kAnswerPass, 2)};
-  pes::WalkContext c;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
-  c.skill14 = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 7);
-}
-
-TEST(PesCarrierWalk, AnOpponentWithTheBallRejectsAPassButATeammateDoesNot) {
-  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
-  pes::WalkContext c;
-  c.ballOwnerTeam = 1;  // the opponent
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
-  c.ballOwnerTeam = 0;  // the carrier's side
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
-}
-
-TEST(PesCarrierWalk, InASetPieceTheKickerPassesOnlyWhenAllowed) {
-  const std::vector<pes::UnitSlot> pass = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
-  pes::WalkContext c;
-  c.restartMode = 3;
-  c.carrierIsKicker = true;
-  c.passAllowedInSetPiece = false;
-  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, -1);
-  c.carrierIsKicker = false;
-  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
-  c.carrierIsKicker = true;
-  EXPECT_EQ(pes::WalkCarrierUnits({Slot(0, pes::kAnswerShoot, 1)}, c).kind, 0);
-}
-
-TEST(PesCarrierWalk, TheFirstTimeGateNeedsAHighBallOrTheSkillForAPass) {
-  const std::vector<pes::UnitSlot> pass = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
-  pes::WalkContext c;
-  c.firstTimeGate = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, -1);
-  c.skill12 = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
-}
-
-TEST(PesCarrierWalk, AClearFallsBackToTheFirstListedPassKindInOrder) {
-  // Rule 7 (0x14210F110, carunits5.c:330): with the forced-clear test failing,
-  // a clear is replaced by the first of 3, 4, 9, 6 listed after it that holds
-  // an answer - here 4, even though 9 also answers.
-  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(4, pes::kAnswerPass, 0),
-                                            Slot(9, pes::kAnswerPass, 1)};
-  pes::WalkContext c;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
-}
-
-TEST(PesCarrierWalk, AForcedClearKeepsItsClearingKick) {
-  // The same table, but the forced-clear test passes (surrounded): the clear
-  // stands and no pass replaces it.
-  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(4, pes::kAnswerPass, 0)};
-  pes::WalkContext c;
-  c.forcedClear = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 1);
-}
-
-TEST(PesCarrierWalk, ASafetyBackPassToTheKeeperNeedsHimCloseOrOwned) {
-  // Rule 7's keeper proviso: with the close band dropping Safety's own slot
-  // too, an unowned back-pass to a far keeper leaves the clear standing, but
-  // a near keeper takes it through the clear's fallback chain; owned always
-  // takes it.
-  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(6, pes::kAnswerPass, 0)};
-  pes::WalkContext c;
-  c.safetyToKeeper = true;
-  c.owned = false;
-  c.closeBand = true;
-  c.keeperWithinNinety = false;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 1);
-  c.keeperWithinNinety = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
-  c.owned = true;
-  c.keeperWithinNinety = false;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
-}
-TEST(PesCarrierWalk, WithNothingAnsweringTheWalkReturnsNone) {
-  EXPECT_EQ(pes::WalkCarrierUnits({}, pes::WalkContext{}).kind, -1);
-}
-
 TEST(PesCarrierArming, AFeintNeedsItsTeamCapability) {
   // Rule 11 (0x142111610): kind 17 answers only with the 0x1E team cap.
   EXPECT_FALSE(pes::UnitArmed(17, false, true, true, 0.0f, Synthetic()));
@@ -1491,48 +1373,6 @@ TEST(PesCarrierArming, APassKindBeyondFiveMetresStaysDisarmed) {
   EXPECT_TRUE(pes::UnitArmed(4, true, true, true, 25.0f, Synthetic()));
 }
 
-TEST(PesCarrierWalk, ASafetyAnswerDiesInTheCloseBand) {
-  // Rule 8 (0x14210F110, carunits5.c:393): a Safety pass in the close
-  // shooting band is dropped.
-  const std::vector<pes::UnitSlot> table = {Slot(6, pes::kAnswerPass, 0)};
-  pes::WalkContext c;
-  c.closeBand = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
-  c.closeBand = false;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
-}
-
-TEST(PesCarrierWalk, AForwardAnswerDiesOnAnInstantReturn) {
-  // Rule 8 (carunits5.c:421): a Forward pass to the man who just passed to
-  // the carrier (inside two frames) is dropped.
-  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, 0)};
-  pes::WalkContext c;
-  c.forwardIsInstantReturn = true;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
-  c.forwardIsInstantReturn = false;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
-}
-
-TEST(PesCarrierWalk, AnAnsweredOneTwoTakesThePassWhenTheForwardReturnsToThePasser) {
-  // Mate 7 passed to the carrier one second ago, so a Forward answer back to 7 is an instant return
-  // and drops; the OneTwo answer to mate 5 stands and the walk returns it (kind 10).
-  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, 7), Slot(10, pes::kAnswerPass, 5)};
-  pes::WalkContext c;
-  c.forwardIsInstantReturn = pes::ForwardIsInstantReturn(7, 7, true, 1.0f);
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 10);
-  // Two seconds on it is no instant return: the Forward pass stands again.
-  c.forwardIsInstantReturn = pes::ForwardIsInstantReturn(7, 7, true, 2.5f);
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
-}
-
-TEST(PesCarrierWalk, ANonConformingDribbleKindIsDropped) {
-  // Rule 8's class filters (0x14063C9C0/0x14063C9A0): a dribble answer from
-  // a kind that is neither the Dribble kind nor a pass kind is dropped.
-  const std::vector<pes::UnitSlot> table = {Slot(0, pes::kAnswerDribble, 3)};
-  pes::WalkContext c;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
-}
-
 // A carrier at GF (20, 0) attacks -x (attack 270) and passes to a mate at GF (5, 10). PES's z is -GF y, so the
 // pass runs toward -x and -z: atan2(-15, -10) = 236.31 degrees. The old +y conversion gave 303.69.
 TEST(PesCarrierBearing, APassFromAManAttackingMinusXRunsAtThePesBearing) {
@@ -1550,6 +1390,19 @@ TEST(PesCarrierLaneSlots, AnAwayCarriersSlotNamesHisOwnTeamNotTheOtherSide) {
   EXPECT_EQ(pes::LaneSlotToGlobalId(9, away, home), 20);
   EXPECT_EQ(pes::LaneSlotToGlobalId(11, away, home), 0);
   EXPECT_EQ(pes::LaneSlotToGlobalId(22, away, home), -1);
+}
+
+// The walk reads an answer record's +8 as a man-record slot (side * 11 + squad place): an away carrier's receiver is slot 11 or
+// more whichever way the answer named him (lane slot or global id), and the active-list order is not the squad order.
+TEST(PesCarrierLaneSlots, AReceiverIsNamedByHisPesSlotWhateverNamedHim) {
+  const std::vector<int> ownIds = {111, 112, 113}, ownSlots = {14, 11, 15};  // an away side: active order differs from squad place
+  const std::vector<int> oppIds = {5, 6}, oppSlots = {2, 0};
+  EXPECT_EQ(pes::ReceiverPesSlot(0, true, ownIds, oppIds, ownSlots, oppSlots), 14);    // lane 0: his first active man
+  EXPECT_EQ(pes::ReceiverPesSlot(11, true, ownIds, oppIds, ownSlots, oppSlots), 2);    // lane 11: the opponents' first
+  EXPECT_EQ(pes::ReceiverPesSlot(113, false, ownIds, oppIds, ownSlots, oppSlots), 15); // a pass answer's global id
+  EXPECT_EQ(pes::ReceiverPesSlot(6, false, ownIds, oppIds, ownSlots, oppSlots), 0);
+  EXPECT_EQ(pes::ReceiverPesSlot(99, false, ownIds, oppIds, ownSlots, oppSlots), -1);
+  EXPECT_EQ(pes::ReceiverPesSlot(5, true, ownIds, oppIds, ownSlots, oppSlots), -1);  // lane 5 names nobody (3 own men)
 }
 
 TEST(PesCarrierLongUnit, ANonOwnedCarrierWithNoDangerStaysSilent) {

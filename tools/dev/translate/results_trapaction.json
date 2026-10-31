@@ -3,6 +3,7 @@
  "results": [
   {
    "aborted": 0,
+   "bounded": true,
    "capped": 0,
    "cases": 0,
    "closure_file": "closure_trapaction.json",

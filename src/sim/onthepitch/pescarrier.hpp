@@ -825,6 +825,8 @@ struct CarrierAnswer {
   int type = kAnswerNone;
   int sub = 0;
   float angle_deg = 0.0f;  // the Clear unit's corridor angle (answer+8, 0x142109EB0); 0 for every other kind
+  int target = -1;         // a pass's receiver, the lane slot (own team 0..10, opponents 11..21): record +8
+  bool oneTouch = false;   // a pass's one-touch flag: record +0x10
   bool operator==(const CarrierAnswer&) const = default;
 };
 
@@ -875,32 +877,23 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
                                     const PassAnswer& directHigh = PassAnswer{},
                                     const CarrierAnswer& clear = CarrierAnswer{});
 
+// The 0x1C-byte answer record PES's carrier walk reads at BP+0x3E20+0x84+0x1C*kind, as the units write it: u32 type at +0, u32 id
+// at +4 (0x19 = none: 0x142119D20's default; 0x14210F090), u32 `a` at +8 (a pass's receiver lane slot 0x14212A700, a shot's
+// sub-kind, a dribble's sub 0x142119E20, the Clear unit's corridor angle f32 0x142109EB0), u32 `b` at +0xC (a pass's PassKind
+// 0..3), and the one-touch flag byte at +0x10 (0x14212A700). ponytail: a shot's aim vector (+0xC..+0x14, 0x14210F090 via
+// 0x142119D40) and a dribble's direction (+0xC) are not carried by GF's answers; they stay zero.
+std::array<uint8_t, 0x1C> EncodeAnswerRecord(const CarrierAnswer& answer);
+
 // A lane unit's answer names a lane slot (own team 0..10, opponents 11..21, each side in its active-list order); the
 // pass command takes a global player id, so the answer converts through the two active lists. -1 when the slot
 // names no player.
 int LaneSlotToGlobalId(int slot, const std::vector<int>& ownIds, const std::vector<int>& oppIds);
-
-// The walk's context (0x14210f110's reads): the match restart mode and the FSM state, the ball's
-// owner and the carrier's own side, and the skill and zone bits the rules test.
-struct WalkContext {
-  int restartMode = 1;             // MI+0x116C: 1 in play, 2 stopped, 3 set piece
-  int restartState = 0;            // MI+0x1775: 3, 9 and 10 veto passes and clears
-  bool carrierIsKicker = false;    // the carrier is the designated kicker, MA+0x7C
-  int ballOwnerTeam = -1;          // the team index of the ball's owner, -1 when nobody has it
-  int ownTeam = 0;                 // BP+0x24: the carrier's team index
-  bool passAllowedInSetPiece = true;  // 0x14063E3A0, not decoded: the caller supplies it
-  bool firstTimeGate = false;      // rule 3: tier 0-1 and capability 0x14 off
-  bool ballHeightOk = false;       // height/100 <= ball height (rule 3)
-  bool skill11 = false;            // ONE_TOUCH_SHOOT
-  bool skill12 = false;            // ONE_TOUCH_PASS
-  bool skill14 = false;            // PINPOINT_CROSS (rule 9)
-  bool closeBand = false;          // IsClose(shot zone): rules 6 and 8
-  bool forcedClear = false;        // rule 7: the opponent-count test keeps the clear
-  bool owned = false;              // BP+0xE4: the ball at the carrier's feet
-  bool safetyToKeeper = false;     // rule 7: kind 6 answers a back-pass to the keeper
-  bool keeperWithinNinety = false;  // rule 7: keeper within 90 deg of the body
-  bool forwardIsInstantReturn = false;  // rule 8: kind 4 answers the last passer
-};
+// A receiver's PES slot (side * 11 + squad place): an answer record's +8 is read by the walk as a man-record index (0x14063E3A0,
+// 0x140A638C0, 0x140A62FE0 -> 0x140A48A10), not a lane slot and not GF's global id. `index` is a lane slot when `isLane`, else a
+// global player id; `ownIds`/`oppIds` are the two sides' active lists (lane order) and `ownPesSlots`/`oppPesSlots` the PES slot of
+// each entry. -1 when the receiver is on neither list.
+int ReceiverPesSlot(int index, bool isLane, const std::vector<int>& ownIds, const std::vector<int>& oppIds,
+                    const std::vector<int>& ownPesSlots, const std::vector<int>& oppPesSlots);
 
 // --- the Long unit (report 5.2, kind 9, 0x14212AD40) ---
 //
@@ -1365,11 +1358,6 @@ PassAnswer DirectHighBallUnit(const DirectHighBallInput& in, const CarrierConsta
 // cap; shoot/clear/pass kinds need the ball within 5 m (dist^2 <= 25).
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
                const CarrierConstants& k);
-UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c);
-
-// Rule 8's instant return (carunits5.c:421): a Forward answer to the man who passed to the carrier less than two
-// seconds ago is dropped. `passedToCarrier` is true when that pass ended at the carrier.
-bool ForwardIsInstantReturn(int forwardTarget, int passer, bool passedToCarrier, float secondsSincePass);
 
 // The Dribble sub-kind chooser (report 2.1, 0x14212f1c0): the gates in decompiled order, returning
 // kDribbleMode3 (4), kDribbleMode4 (5) or kDribbleFeint (6). Its callee-derived inputs are named at

@@ -441,32 +441,22 @@ TEST(PesA1Sim, TheTeamAisRecordMaIsWrittenEachTickFromTheBallAndTheRows) {
   EXPECT_GT(checked, 0) << "the rows list somebody";
 }
 
-// The cells the Trap chain reads through P+0x3AC0 are written too: the holder's slot at MA+0x2601C and every player's NearestList
-// block (MA+0x22E4C + 200 slot, a team's 11 entries at +0x58 per team: slot id u32, value f32), from the score rows.
-TEST(PesA1Sim, TheTeamAisRecordMaCarriesTheHolderAndTheNearestList) {
+// The score rows are views over MA, not a copy of it: a value written into the window's list block (MA+0x229B4) and into a
+// player's nearest block (MA+0x22E4C + 200 slot) is what the team's rows read back. A rows object with a store of its own
+// (the old serialization into MA) reads its own value instead.
+TEST(PesA1Sim, TheScoreRowsAreViewsOverTheWindowsMaBlocks) {
   REQUIRE_PES_MATCH();
   match->StartPlay();
-  for (int i = 0; i < 4; ++i) match->Process();
+  for (int i = 0; i < 3; ++i) match->Process();
   pes::PesWorld& world = match->PesWorldOf();
-  const Player* holder = match->GetPesHolder();
-  int checked = 0;
-  for (int side = 0; side < 2; ++side) {
-    const uint8_t* ma = world.Ma(side);
-    EXPECT_EQ(pes::LoadU32(ma, pes::kMaHolderOffset), holder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(holder)) : 0xFFu);
-    const pes::ScoreRows& rows = match->GetTeam(side)->GetController()->Rows();
-    for (int slot = 0; slot < pes::lane::kSlots; ++slot) {
-      for (int team = 0; team < 2; ++team) {
-        const uint8_t* block = ma + pes::kMaNearestOffset + static_cast<std::size_t>(slot) * pes::kMaNearestBlockBytes +
-                               static_cast<std::size_t>(team) * pes::kMaListTeamStride;
-        for (int rank = 0; rank < rows.nearest[slot].Count(team); ++rank) {
-          EXPECT_EQ(pes::LoadU32(block, rank * 8), static_cast<uint32_t>(rows.nearest[slot].Entry(team, rank).id));
-          EXPECT_FLOAT_EQ(pes::LoadF32(block, rank * 8 + 4), rows.nearest[slot].Entry(team, rank).value);
-          ++checked;
-        }
-      }
-    }
-  }
-  EXPECT_GT(checked, 0) << "the nearest lists list somebody";
+  const pes::ScoreRows& rows = match->GetTeam(0)->GetController()->Rows();
+  ASSERT_GT(rows.list[0].Count(0), 0);
+  ASSERT_GT(rows.nearest[0].Count(1), 0);
+  world.SetMaListEntry(0, 0, 0, 0, static_cast<uint32_t>(rows.list[0].Entry(0, 0).id), 777.0f);
+  EXPECT_FLOAT_EQ(rows.list[0].Entry(0, 0).value, 777.0f);
+  constexpr std::size_t kNearestBlock = 0x22E4C;  // slot 0's nearest block; team 1's entries follow at +0x58
+  pes::StoreF32(world.Ma(0), kNearestBlock + pes::kMaListTeamStride + 4, 555.0f);
+  EXPECT_FLOAT_EQ(rows.nearest[0].Entry(1, 0).value, 555.0f);
 }
 
 // The Clear unit 0x142109EB0 runs on the window: nothing is stored while the danger byte (imageA+0x31C1) is clear; with it
@@ -483,6 +473,29 @@ TEST(PesA1Sim, TheClearUnitRunsOnTheWindowAndAnswersOnlyOnTheDangerByte) {
   EXPECT_EQ(answer.type, static_cast<uint32_t>(pes::kAnswerClear));
   EXPECT_GE(answer.angle_deg, 0.0f);
   EXPECT_LE(answer.angle_deg, 360.0f);
+}
+
+// The answer record GF's walk list holds for a Clear (EncodeAnswerRecord) is the record PES's own Clear unit writes: type at +0 and
+// the corridor angle at +8 (kAnswerAngleOffset, 0x142109EB0). A record with the angle at another offset hands the walk's Clear arm
+// (and anything that reads the record) a different heading than the unit computed.
+TEST(PesA1Sim, TheClearRecordGfListsEqualsTheRecordPesClearUnitWrites) {
+  REQUIRE_PES_MATCH();
+  match->StartPlay();
+  for (int i = 0; i < 3; ++i) match->Process();
+  pes::PesWorld& world = match->PesWorldOf();
+  world.SetClearDanger(0, true);
+  int nonzeroAngles = 0;
+  for (uint32_t slot = 0; slot < pes::kSlotsPerSide; ++slot) {
+    const pes::PesWorld::ClearAnswer answer = world.RunClearUnit(0, slot);
+    ASSERT_EQ(answer.type, static_cast<uint32_t>(pes::kAnswerClear));
+    const auto gf = pes::EncodeAnswerRecord({pes::kAnswerClear, 0, answer.angle_deg});
+    const uint8_t* pesRecord = world.Carrier(0) + pes::kClearAnswerOffset;
+    EXPECT_EQ(std::memcmp(gf.data(), pesRecord, sizeof(uint32_t)), 0) << "type, slot " << slot;
+    EXPECT_EQ(std::memcmp(gf.data() + pes::kAnswerAngleOffset, pesRecord + pes::kAnswerAngleOffset, sizeof(float)), 0)
+        << "angle, slot " << slot;
+    nonzeroAngles += answer.angle_deg != 0.0f;
+  }
+  EXPECT_GT(nonzeroAngles, 0) << "an angle of 0 everywhere cannot tell the offsets apart";
 }
 
 // MI+0x1198 counts logic frames, one per tick, and is the frame every reader takes (PES 0x140A128E4).

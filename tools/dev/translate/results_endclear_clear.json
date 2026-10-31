@@ -1,31 +1,67 @@
 {
- "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; floor = bit-exact on every replayed call and own-block coverage >= 0.5 over the replayed calls.",
- "floor_count": 1,
+ "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 1,
  "results": [
   {
    "va": "0x142109EB0",
-   "calls": 5,
-   "replayed": 5,
+   "calls": 14,
+   "replayed": 14,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
-    "seq019": {
+    "pid407792_seq019": {
      "calls": 1,
      "replayed": 1
     },
-    "seq047": {
+    "pid407792_seq047": {
      "calls": 1,
      "replayed": 1
     },
-    "seq076": {
+    "pid483669_seq11497": {
      "calls": 1,
      "replayed": 1
     },
-    "seq095": {
+    "pid483669_seq13209": {
      "calls": 1,
      "replayed": 1
     },
-    "seq116": {
+    "pid483669_seq14088": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq15049": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq17213": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq18365": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq20019": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq20021": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq20023": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq20026": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq20029": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid483669_seq8889": {
      "calls": 1,
      "replayed": 1
     }
@@ -34,11 +70,11 @@
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 2,
+    "reached": 4,
     "total": 4,
-    "fraction": 0.5
+    "fraction": 1.0
    },
-   "floor": true,
+   "proven": true,
    "blocked_callees": []
   }
  ]

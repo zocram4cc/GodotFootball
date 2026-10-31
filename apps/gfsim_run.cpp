@@ -339,6 +339,9 @@ int main(int argc, char** argv) {
     return std::fprintf(stderr, "PES_EXE (the game's memory dump, tools/pes21_import/README.md) is not set\n"), 1;
   auto trapSource = pes::LoadTrapSource(*exe, vfs, imagePath, &err);
   if (!trapSource) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // The install's table bytes the translated window runs read (pesimagetables.hpp).
+  auto imageTables = pes::LoadPesImageTables(*exe, &err);
+  if (!imageTables) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
 
   blunted::Database db;
   if (!db.LoadSqlScript(dbSql)) return std::fprintf(stderr, "cannot load %s\n", dbSql.c_str()), 1;
@@ -386,6 +389,7 @@ int main(int argc, char** argv) {
   setup.pesMoveStepConstants = &*moveStepConstants;
   setup.pesMarkTableConstants = &*markTableConstants;
   setup.pesTrapSource = &*trapSource;
+  setup.pesImageTables = &*imageTables;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
   // A stalled restart freezes the match clock (it only moves while play is on and no

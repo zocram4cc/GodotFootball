@@ -211,6 +211,12 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 trap data unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  // The install's table bytes the translated window runs read (pesimagetables.hpp).
+  if (exe) imageTables_ = pes::LoadPesImageTables(*exe, &err);
+  if (!imageTables_) {
+    UtilityFunctions::push_error("PES21 image tables unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   if (exe) stoppageConstants_ = pes::LoadStoppageConstants(*exe, &err);
   if (!stoppageConstants_) {
     UtilityFunctions::push_error("PES21 stoppage constants unavailable: ", ToGd(err));

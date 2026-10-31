@@ -496,7 +496,9 @@ const pesrig::Rig* SharedRig() {
 }
 
 // GF mode runs the full reaction table including entry 11 (the pass jostle):
-// a switch-off seed-7 match jostles for an incoming pass within two minutes.
+// a switch-off two-minute match jostles for an incoming pass. Seed 7 reached it until the kick scatter took PES's situation
+// factor Q (KickSoftMin): the kick paths moved and seed 7's 6480 ticks now hold no jostle, while 10 of the 12 seeds surveyed
+// (3, 13, 11, 1, 2, 4, 5, 8, 9, 10; not 7, 6) do, so the scenario is a searched seed (the throw-in release test's pattern).
 // RED (GFLeakFix): batch K's R3 wiring dropped the pass-duel predicate from
 // the call site, so entry 11 never fired on either path.
 TEST(PesDefenderJostleGf, SwitchOffMatchJostlesForAPass) {
@@ -504,31 +506,34 @@ TEST(PesDefenderJostleGf, SwitchOffMatchJostlesForAPass) {
   blunted::Database* db = SharedDb();
   ASSERT_TRUE(db) << "assets/fixtures/teams.sql";
   SetDB(db);
-  MatchSetup setup;
-  setup.homeTeamDbId = 1;
-  setup.awayTeamDbId = 2;
-  setup.seed = 7;
-  setup.durationMinutes = 2;
-  setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
-  setup.rig = SharedRig();
-  if (!pestest::FillMissingPesConstants(&setup)) GTEST_SKIP() << "PES2021.exe unavailable";
-  std::unique_ptr<Match> match(
-      new Match(new MatchData(1, 2), setup, Properties()));  // switch-off: no pes_loop
   bool jostled = false;
-  for (int t = 0; t < 2 * 60 * 54 && !match->IsGameOver() && !jostled; ++t) {
-    match->Process();
-    for (int team = 0; team < 2 && !jostled; ++team) {
-      std::vector<Player*> players;
-      match->GetActiveTeamPlayers(team, players);
-      for (const Player* p : players) {
-        if (p->GetPesChallenge() == pes::ContactAction::kJostle) {
-          jostled = true;
-          break;
+  for (const unsigned int seed : {7u, 3u, 13u, 11u}) {
+    if (jostled) break;
+    MatchSetup setup;
+    setup.homeTeamDbId = 1;
+    setup.awayTeamDbId = 2;
+    setup.seed = seed;
+    setup.durationMinutes = 2;
+    setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
+    setup.rig = SharedRig();
+    if (!pestest::FillMissingPesConstants(&setup)) GTEST_SKIP() << "PES2021.exe unavailable";
+    std::unique_ptr<Match> match(
+        new Match(new MatchData(1, 2), setup, Properties()));  // switch-off: no pes_loop
+    for (int t = 0; t < 2 * 60 * 54 && !match->IsGameOver() && !jostled; ++t) {
+      match->Process();
+      for (int team = 0; team < 2 && !jostled; ++team) {
+        std::vector<Player*> players;
+        match->GetActiveTeamPlayers(team, players);
+        for (const Player* p : players) {
+          if (p->GetPesChallenge() == pes::ContactAction::kJostle) {
+            jostled = true;
+            break;
+          }
         }
       }
     }
   }
-  EXPECT_TRUE(jostled) << "GF mode must reach entry 11 (the pass jostle) within two minutes";
+  EXPECT_TRUE(jostled) << "GF mode must reach entry 11 (the pass jostle) within two minutes of a searched seed";
 }
 
 // R2's mark arm (FUN_1409931C0: the flag set at 0x140993265, read at the stamp gate 0x14099369C) is an

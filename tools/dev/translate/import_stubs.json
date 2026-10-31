@@ -167,6 +167,17 @@
         "Model: sqrtss xmm0, xmm0; ret. IEEE sqrt is correctly rounded, the exact claim stubs.json makes for the thunk. The export's own code (movss spills, a classify of the argument, the errno path for a negative) only differs for NaN and negative arguments (OPEN: not checked against the captured calls' arguments).",
         "Reached from the Trap action tick's captures (rendezvous hook trap_action_tick_797CD0, pid 483669)."
       ]
+    },
+    {
+      "module": "VCRUNTIME140.dll",
+      "export": "memmove",
+      "do": "memmove",
+      "code_hex": "4889c857564889cf4889d64c89c14839f776194c8d0c0e4c39cf7310488d7c0fff488d740efffdf3a4fceb02f3a45e5fc3",
+      "why": [
+        "void *memmove(void *dst, const void *src, size_t n): rcx, rdx, r8; returns dst in rax. Export of the PES prefix's VCRUNTIME140.dll at RVA 0x12F0 (the danger-writer replay stops at 0x6FFFFBC712F1 = base 0x6FFFFBC70000 + 0x12F1 with the module named by the snapshot's export directory; the IAT slot is 0x14252FD68, called from the lane-list insert 0x140A790AB).",
+        "Contract: copies n bytes as if through a temporary, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code (which is vectorised).",
+        "Model: mov rax, rcx; push rdi; push rsi; mov rdi, rcx; mov rsi, rdx; mov rcx, r8; if dst <= src or dst >= src + n copy forward (rep movsb), else copy backward from the last byte (std; rep movsb; cld); pop rsi; pop rdi; ret. rcx is 0 after the copy and r9 = src + n when dst > src. Checked by test_memmove_model.py; the C++ mirror (xlate.import_model_lines) is compared with it by snapdiff on the danger-writer captures."
+      ]
     }
   ]
 }
