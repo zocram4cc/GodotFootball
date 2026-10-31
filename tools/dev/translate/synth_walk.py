@@ -16,7 +16,8 @@ state except that type word. A carrier_clear source needs no patch (the unit wro
 libm calls of the forward run (cosf, sinf, ...) use Python float32 models, not Wine's ucrtbase, so lane lists the forward run
 builds can differ from a live run's in the last ulp. The walk itself calls no libm.
 
-Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py CAPTURE_DIR OUT_DIR [--hooks hooks.cfg] [--patch-clear]   (harness Python: unicorn)
+Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py CAPTURE_DIR OUT_DIR [--hooks hooks.cfg] [--patch-clear] [--entry VA --hook-name NAME]
+   (harness Python: unicorn). --entry writes the entry state of another call the unit step runs after the source (default: the walk).
 """
 import argparse
 import json
@@ -106,7 +107,13 @@ def main():
     ap.add_argument("--patch-clear", action="store_true",
                     help="write type 5 into the kind-1 answer record (a danger_builder source: the Clear unit never ran); "
                          "off for a carrier_clear_2109EB0 source, whose unit wrote the record itself")
+    ap.add_argument("--entry", type=lambda s: int(s, 0), default=WALK,
+                    help="the call whose entry state is written (default the walk 0x14210F110; any function the unit step 0x142110D30 "
+                         "runs after the source's return, e.g. the dribble proposal 0x14211D710 from a danger_builder capture)")
+    ap.add_argument("--hook-name", default="carrier_walk_210F110", help="the index.json rv.hook label of the written state")
     a = ap.parse_args()
+    if a.patch_clear and a.entry != WALK:
+        sys.exit("--patch-clear patches the walk's answer list: it needs the walk entry")
     patch_imports()
     orig = ft.hook_bytes(a.hooks) if a.hooks else None
     call = ft.load_recorded_call(a.src)
@@ -120,7 +127,7 @@ def main():
     reached = []
 
     def on_code(u, address, size, data):
-        if address == WALK:
+        if address == a.entry:
             bp = u.reg_read(xc.UC_X86_REG_RCX)
             if a.patch_clear:
                 u.mem_write(bp + ANSWER_LIST + ANSWER_RECORD + ANSWER_STRIDE * KIND_CLEAR, struct.pack("<I", TYPE_CLEAR))
@@ -135,7 +142,7 @@ def main():
 
     index = json.load(open(os.path.join(a.src, "index.json")))
     rv = index["rv"]
-    rv.update(hook="carrier_walk_210F110", entry_va=WALK, flags=uc.reg_read(xc.UC_X86_REG_EFLAGS),
+    rv.update(hook=a.hook_name, entry_va=a.entry, flags=uc.reg_read(xc.UC_X86_REG_EFLAGS),
               mxcsr=uc.reg_read(xc.UC_X86_REG_MXCSR))
     index["label"] = os.path.basename(a.out.rstrip("/"))
     os.makedirs(a.out, exist_ok=True)

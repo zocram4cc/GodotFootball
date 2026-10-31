@@ -12,8 +12,8 @@ its behaviour is proven only through their diffs.
 Output:
   <root>/<subsystem>/pes_fn_<VA>.cpp   recorded functions, one per file
   <root>/closure/pes_fn_<VA>.cpp       callee closure members
-  <root>/translated.hpp                declarations of every committed function
-  <root>/pes_dispatch_gen.hpp          indirect-call table over the same set
+  <root>/translated.hpp                declarations of every committed function (for GF-side callers only)
+  <root>/pes_dispatch_gen.cpp          indirect-call table over the same set (the one TU naming every function)
 
 Usage:
   gen_translated.py --image IMG [--root DIR]     regenerate the layer
@@ -33,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import driver  # noqa: E402  (the universe, stub map and translator the diff runs use)
 import gen_dispatch  # noqa: E402
+import xlate  # noqa: E402
 
 ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 # (committed results file, spec subdirectory of tools/dev/diffharness/specs).
@@ -188,6 +189,17 @@ def build(image):
     return members
 
 
+def lint(members):
+    """Fail loudly on a committed function that reads a read-only image address live: the GF runtime maps no image there,
+    so the read returns 0, while the harness maps the image flat and its diffs stay bit-exact. The translator must bake
+    every such read (a guard-bounded window, a switch table, or a declared table in ro_tables.json)."""
+    bad = xlate.live_reads({va: r for va, r in xlate.LIVE_RO.items() if va in members})
+    if bad:
+        raise SystemExit("gen_translated: %d live read(s) of a read-only image address (declare the table in ro_tables.json "
+                         "or teach xlate to bake it):\n  %s"
+                         % (len(bad), "\n  ".join("function %s site 0x%X reads image 0x%X" % b for b in bad)))
+
+
 def member_text(va, m):
     if m["recorded"]:
         return m["raw"]
@@ -207,7 +219,7 @@ def layer_files(members):
             "#pragma once",
             "struct PesState;"]
     files["translated.hpp"] = "\n".join(head + ["void pes_fn_%s(PesState& s);" % va[2:] for va in vas]) + "\n"
-    files["pes_dispatch_gen.hpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
+    files["pes_dispatch_gen.cpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
     return files
 
 
@@ -250,6 +262,7 @@ def main():
                     help="regenerate in memory and fail on any drift from the committed layer")
     args = ap.parse_args()
     members = build(args.image)
+    lint(members)
     files = layer_files(members)
     recorded = sum(1 for m in members.values() if m["recorded"])
     summary = "%d functions (%d recorded bit-exact, %d closure)" % (

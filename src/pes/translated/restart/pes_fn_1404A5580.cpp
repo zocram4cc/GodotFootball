@@ -7,6 +7,8 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image window @ 0x1404A5698 (28 bytes, read-only)
+static constexpr uint8_t k_t1404A5698_1C[28] = {0x29, 0x56, 0x4A, 0x00, 0x2E, 0x56, 0x4A, 0x00, 0x35, 0x56, 0x4A, 0x00, 0x3C, 0x56, 0x4A, 0x00, 0x3C, 0x56, 0x4A, 0x00, 0x43, 0x56, 0x4A, 0x00, 0x4A, 0x56, 0x4A, 0x00};
 
 void pes_fn_1404A5580(PesState& s);
 void pes_fn_1408E1C50(PesState& s);
@@ -95,7 +97,7 @@ void pes_fn_1404A5580(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("a")) goto L_1404A564F;
   s.gpr[9] = (uint64_t)(((0x140000000ULL)));
-  s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[9]) + ((s.gpr[5])*4ULL) + (0x4A5698ULL)), 4));
+  s.gpr[1] = (uint64_t)(uint32_t)(ro_rd(k_t1404A5698_1C, 28, (uint64_t)(s.gpr[5]) * 4ULL, 4));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[9]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));

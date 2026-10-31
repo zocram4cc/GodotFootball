@@ -7,6 +7,8 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image window @ 0x142951A48 (8 bytes, read-only)
+static constexpr uint8_t k_t142951A48_8[8] = {0x71, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void pes_fn_14144E010(PesState& s);
 
@@ -25,7 +27,7 @@ void pes_fn_14144E010(PesState& s) {
     s.gpr[0] = (uint64_t)(uint32_t)(_r);
   }
   L_14144E026:;
-  { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), _b = (uint64_t)(s.rd(((s.gpr[1])), 4)), _r = (_a - _b) & 0xFFFFFFFFULL;
+  { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), _b = (uint64_t)(ro_rd(k_t142951A48_8, 8, (uint64_t)(((s.gpr[1]))) - 0x142951A48ULL, 4)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
@@ -50,6 +52,6 @@ void pes_fn_14144E010(PesState& s) {
   s.gpr[0] = (uint64_t)(uint32_t)((1ULL));
   return;
   L_14144E03B:;
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[8]) + ((s.gpr[0])*8ULL) + (0x4ULL)), 4));
+  s.gpr[0] = (uint64_t)(uint32_t)(ro_rd(k_t142951A48_8, 8, (uint64_t)(((s.gpr[8]) + ((s.gpr[0])*8ULL) + (0x4ULL))) - 0x142951A48ULL, 4));
   return;
 }
