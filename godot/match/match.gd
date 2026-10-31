@@ -29,8 +29,8 @@ const FOLLOW_OFFSET := Vector3(4.0, 2.2, 6.0)  # inspection camera, metres from 
 const FOLLOW_TARGET_HEIGHT_M := 1.0
 # The registry slot of the goal scene's scorer (CAMERA_TARGET_0201) and the bones standing for the actor's joints 10 and 0.
 const CAMERA_TARGET_SCORER := 1
-const BONE_JOINT_10 := "sk_head"
-const BONE_JOINT_0 := "sk_root_hip"
+const BONE_JOINT_10 := "head"  # GF's name for PES's sk_head (src/rig/rig_names.hpp)
+const BONE_JOINT_0 := "hip"  # GF's name for PES's dsk_hip, the root joint's child
 
 var args := {}
 var library: PesLibrary
@@ -166,14 +166,18 @@ func _poll_cutscene() -> void:
 # then the engine runs on the step's player clock.
 # ponytail: PES's actor update (the writer of CAMERA_TARGET_02nn, source object vtable 0x142BB1048) keeps its 20 joint points
 # at +0x7C; the record's points are joints 0 and 10 (CONFIRMED by value in the captured goal: 0.94 m and 1.59 m above the
-# scorer). Which bones those are is INF: sk_root_hip and sk_head. The skeleton is the render frame's, up to a logic frame old.
+# scorer). Which bones those are is INF: hip and head. The skeleton is the render frame's, up to a logic frame old.
 func _advance_cut_camera(cam: PesCutsceneCamera, clock_s: float) -> void:
 	var actor: Dictionary = sim.cutscene_actor()
 	if not actor.is_empty():
-		var skeleton: Skeleton3D = _skeletons[int(actor["index"])]
-		if skeleton != null:
-			cam.set_target(CAMERA_TARGET_SCORER, actor["ground"], _bone_point(skeleton, BONE_JOINT_10), _bone_point(skeleton, BONE_JOINT_0), actor["facing_deg"])
+		_set_cut_target(cam, int(actor["index"]), actor["ground"], actor["facing_deg"])
 	cam.advance(clock_s)
+
+
+func _set_cut_target(cam: PesCutsceneCamera, index: int, ground: Vector3, facing_deg: float) -> void:
+	var skeleton: Skeleton3D = _skeletons[index]
+	if skeleton != null:
+		cam.set_target(CAMERA_TARGET_SCORER, ground, _bone_point(skeleton, BONE_JOINT_10), _bone_point(skeleton, BONE_JOINT_0), facing_deg)
 
 
 func _bone_point(skeleton: Skeleton3D, bone: String) -> Vector3:
@@ -226,14 +230,20 @@ func _place(delta: float) -> void:
 		return
 	if _cutscene != null:
 		_cut_t += delta
+		if args.has("fdc-target"):  # debug: the --fdc-file procedural camera frames this player, as a goal scene's does its scorer
+			var i := int(args["fdc-target"])
+			var p: Vector3 = players[i].global_position
+			var f: Vector3 = sim.player_facing(i)
+			_set_cut_target(_cutscene, i, Vector3(p.x, 0.0, p.z), fposmod(rad_to_deg(atan2(f.x, f.z)), 360.0))
+			_cutscene.advance(_cut_t)
 		_cutscene.update(_camera, _cut_t)
 		return
 	if _cutscene_scene != 0 and int(_cut_state.get("step", -1)) >= 0:
 		var t: float = _cut_state["clock_s"]
 		if int(_cut_state["step_started"]) < 0:  # the clock moved one tick: show the pose between the two, as the players are
 			t = lerpf(_cut_state["clock_prev_s"], t, clampf(_accumulator / TICK_S, 0.0, 1.0))
-		# False: no camera is in force (before the first record starts, or a procedural record of a mode the engine 0x141F7BFE0
-		# is not proven in: only mode 4 is): the broadcast camera stays.
+		# False: no camera is in force (before the first record starts, a procedural record of another mode than 4, or a mode-4
+		# camera whose engine frame reached a call outside the captured closure and was dropped): the broadcast camera stays.
 		if _cut_steps[int(_cut_state["step"])].update(_camera, t):
 			return
 	if args.has("follow"):
