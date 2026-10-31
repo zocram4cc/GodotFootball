@@ -127,7 +127,7 @@ def build_closure(va, spec, args, pilot, reached, executed=None):
             # the build translates it too. A call to a stubbed or blocked callee is excluded by the harness, not added.
             # Bounded: a callee the replays entered is built even when stubs.json calls it unmodellable (the harness ran
             # its bytes; only a modelled callee is inlined), and one they never entered keeps its loud abort.
-            for m in re.finditer(r"OUT-OF-(?:RANGE JMP|SET CALL) 0x([0-9A-Fa-f]+)", text):
+            for m in re.finditer(r"OUT-OF-(?:RANGE (?:JMP|JCC)|SET CALL) 0x([0-9A-Fa-f]+)", text):
                 t = "0x" + m.group(1).upper()
                 runs_real = (int(t, 16) in ran and t not in drv.MODEL_MAP) if bounded else int(t, 16) not in drv.STUB_TABLE
                 if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and runs_real:

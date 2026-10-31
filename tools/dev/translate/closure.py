@@ -73,8 +73,9 @@ class ClosurePdata(Pdata):
                     callees.setdefault(ops[0].imm, "direct")
                 else:
                     indirect.append({"site": "%X" % ins.address, "text": ("%s %s" % (ins.mnemonic, ins.op_str))[:80]})
-            elif (ins.mnemonic == "jmp" and imm and not any(b <= ops[0].imm < e for b, e in ranges)
-                  and self.is_boundary(ops[0].imm)):
+            elif (ins.mnemonic.startswith("j") and ins.mnemonic not in ("jrcxz", "jecxz") and imm
+                  and not any(b <= ops[0].imm < e for b, e in ranges) and self.is_boundary(ops[0].imm)):
+                # a JMP, or a Jcc (a conditional tail call: `jnz 0x1423D43D0` in 0x141EAE0F0) to another function start
                 callees.setdefault(ops[0].imm, "tail")
         callees = {t: k for t, k in callees.items() if t != va}
         return {"name": "FUN_%08x" % va, "size": len(insns), "subsystem": tag, "how": "closure",

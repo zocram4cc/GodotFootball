@@ -1942,8 +1942,19 @@ class Emitter:
         if cc:
             tgt = imm_val(ops[0])
             if ctx.get("addrs") and tgt not in ctx["addrs"]:
-                # No label exists for a target outside the decoded body: trap when taken, never an undefined goto.
-                return ["if (s.cond(\"%s\")) __builtin_trap();" % cc]
+                # No label exists for a target outside the decoded body, so it is a conditional tail call to another
+                # function (`jnz 0x1423D43D0` in 0x141EAE0F0), the Jcc form of the unconditional JMP above: taken, it
+                # calls the sibling and returns; a stubbed target runs its model; any other target is the loud abort
+                # naming the VA (the JCC marker is what snapdiff's closure walk reads; it is no TAIL_GAP refusal, since
+                # a bounded closure leaves targets no replay entered as aborts).
+                t = "0x%X" % tgt
+                stub = (ctx.get("stubs") or {}).get(t)
+                if stub is not None and stub.get("do") != "unmodellable":
+                    return ["if (s.cond(\"%s\")) { %s return; }" % (cc, " ".join(stub_lines(stub["do"])))]
+                if t in self.pilot:
+                    self.siblings.add(t)
+                    return ["if (s.cond(\"%s\")) { pes_fn_%s(s); return; }" % (cc, t[2:])]
+                return ["if (s.cond(\"%s\")) { /*OUT-OF-RANGE JCC %s*/ pes_dispatch_missing(%s); return; }" % (cc, t, t)]
             return ["if (s.cond(\"%s\")) goto L_%X;" % (cc, tgt)]
         return None
 

@@ -184,17 +184,25 @@ class Replayer:
         """A written byte run. The translator's CALL does not push the return address: a call to a
         stub pushes nothing (stubs.py's model stands for the call), and a call to a translated function
         pushes 0 (its return is a C++ return). So a CALL's return-address push is recorded as the
-        translation does it: dropped for a stub, 0 otherwise. Counted in uc._call_pushes."""
+        translation does it: dropped for a stub, 0 otherwise. Counted in uc._call_pushes.
+        Any other write over a recorded return-address slot (the frame reused it for a push, a spill or a home-slot save,
+        as 0x14089AB80's `mov [rsp+0x10], rbx`) makes it live data: the translation holds that data there, so the slot
+        leaves _call_slots and a later read gets what was written, not the dead-slot 0."""
         v = value & ((1 << (8 * size)) - 1)
+        pushed = False
         if size == 8 and addr == u.reg_read(self._rsp) - 8:
             ins = self._insn(u)
             if ins is not None and ins.mnemonic == "call":
                 if ins.operands and ins.operands[0].type == 2 and ins.operands[0].imm in self.stub_vas:
                     return
+                pushed = True
                 v = 0
                 u._call_pushes += 1
                 u._call_slots.add(addr)
                 u._call_real[addr] = struct.pack("<Q", value & (2 ** 64 - 1))
+        if not pushed:
+            for base in range(addr & ~7, addr + size, 8):
+                u._call_slots.discard(base)
         u._writes.append((addr, size, v))
 
     def run(self, rec, pages):

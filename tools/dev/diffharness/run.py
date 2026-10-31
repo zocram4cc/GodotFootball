@@ -664,7 +664,8 @@ def install_hooks(mu, spec, RET_SENTINEL):
             if lazy.handle(address):
                 return True
             uc._bad = (lazy.unmapped_reason(address)
-                       or "unmapped %s at %#x (size %d): a snapshot hole or outside the process" % (kind, address, size))
+                       or "unmapped %s at %#x (size %d, last RIP %#x): a snapshot hole or outside the process"
+                       % (kind, address, size, uc._last_rip))
         else:
             uc._bad = ("unmodelled %s at %#x (size %d): no region or global covers it; "
                        "extend the spec" % (kind, address, size))
