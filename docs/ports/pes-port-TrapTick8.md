@@ -70,3 +70,8 @@ See the final message of this run (`GATE fast` line or the interim). Sims ran di
 
 - `0x1406E85B0`: no code mutation (generated unit, bit-exact replay). Hash mutations of section 2 (each rebuilt, run, reverted): `PhysiqueG` = 1.0; old `TopRate`; both; `BallDodgeEntryGate` off (with and without the old arithmetic). No engine code changed on this branch in this run besides the test comment.
 - Ran: `pes_forfeit_test` (6 tests, all OK), `pes_stall_test` (1 OK, 1 FAILED as before), `pes_trap_oracle_test` on the new oracle dir (`EveryCapturedTickOnGfsWindowEqualsPes` and `LoaderDataTheTickReadsEqualsTheCapture` red on seq3244 as section 4; the other two TrapTickOracle tests not read), `snapdiff`/`gen_translated.py --check` rc 0.
+
+## 9. Addendum (later in the session): 0x14084F140 PROVEN
+
+`snapdiff.py --bounded --hooks hooks.cfg --only 0x14084F140` over the 6 FULL `trap_tick_callee_84F140` captures of `live2/pid3741448` (seq4762, 9095, 9107, 9541, 9978, 10028): `calls=6 replayed=6 mismatches=0 own_block=1.0 (4/4) proven=True` (CONFIRMED). Closure members `0x140470D60, 0x14084F140` added to `closure_trapanime.json` (10 members); record in `results_trapaction.json`; the function moved from the closure/ directory to restart/ (3703 recorded + 852 closure = 4555); `gen_translated.py --check` rc 0. Commit `387bd193`. Those 6 captures are cited and can be slimmed.
+Still open (section 7 items 1 and 3): the stall fix and the LoaderData oracle re-take (the 12 FULL `trap_action_tick_797CD0` of `pid3741448`, seq1877..4803, must stay full until then); the queued `GATE fast` was abandoned (slots held by other gates).
