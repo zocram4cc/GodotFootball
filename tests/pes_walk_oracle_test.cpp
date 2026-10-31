@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <set>
 #include <string>
@@ -145,6 +146,47 @@ TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
       }
     EXPECT_EQ(b.world->RunWalk(b.side, b.ext), PesReturn(o)) << dir;
   }
+}
+
+// The stand-down gate (0x14210F4E8): a carrier whose Clear unit answered (kind-1 record type 5) is NOT cleared where PES's dribble
+// proposal heads within 60 degrees of the turn reference (BP+0x3380 against BP+0x4210). GF's window never wrote those two inputs, so
+// on such a state it answered kind 1 (the Clear block) where PES answered 0x19 or 0xB. The chain RunDribbleProposal (0x14211D710,
+// 0x14211ED10, 0x1421102D0) writes them: from each state's whole records, with BP+0x3380 and the proposal record BP+0x4204 zeroed
+// (as GF's window held them), the walk must return PES's kind, on the window with the capture's out-of-window bytes and on the
+// production window. The state is the one the walk saw, after PES's own writers ran once: the chain ticks the kind objects again.
+TEST_F(WalkOracle, TheDribbleProposalChainStandsTheClearDownWherePesDoes) {
+  int compared = 0, zeroedWrong = 0;
+  std::set<uint32_t> kinds;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    const uint32_t want = PesReturn(o);
+    for (bool captureBytes : {true, false}) {
+      const auto window = [&](Built& b) {
+        Build(o, b, captureBytes, true);
+        CopyRecords(o, b, true);
+        uint8_t* bp = b.world->Carrier(b.side);
+        std::memset(bp + pes::kBpProposalOffset, 0, pes::kProposalRecordBytes);
+        StoreU32(bp, pes::kBpTurnReferenceOffset, 0);
+      };
+      Built chained;
+      window(chained);
+      if (LoadU32(KindRecord(*chained.world, chained.side, kClearKind), 0) != kClearType) break;  // no Clear answer: the gate is not reached
+      const uint8_t* bp = chained.world->Carrier(chained.side);
+      chained.world->RunDribbleProposal(chained.side, LoadU32(bp, pes::kBpUnitInfoOffset + pes::kUnitSlotOffset), chained.ext);
+      EXPECT_EQ(chained.world->RunWalk(chained.side, chained.ext), want) << dir << (captureBytes ? " (capture bytes)" : " (production window)");
+      if (!captureBytes) continue;
+      Built held;  // the window as GF held it before the chain: the gate's two inputs zero
+      window(held);
+      ++compared;
+      kinds.insert(want);
+      if (held.world->RunWalk(held.side, held.ext) != want) ++zeroedWrong;
+    }
+  }
+  EXPECT_GT(compared, 0) << "no state in the oracle set whose Clear record is PES's type 5";
+  EXPECT_GT(zeroedWrong, 0) << "the zeroed window answered PES's kind everywhere: the set holds no stand-down state, the chain proves nothing";
+  EXPECT_GT(kinds.size(), 1u) << "every compared state answers one kind";
 }
 
 // A list whose records all answer nothing: the walk skips every kind and returns PES's 'no kind' word.

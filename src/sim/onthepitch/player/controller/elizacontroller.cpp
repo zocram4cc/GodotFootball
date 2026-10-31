@@ -3349,12 +3349,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // (0x141FC0335), not by a match in play; the 9 and 10 vetoes have no writer. Open play reads 0 in all 9 readable captures.
   pesWorld.MatchInfo()[pes::kMiWalkStateOffset] = 0;
   pes::StoreU32(bp, pes::kBpIntentionOffset, static_cast<uint32_t>(intention));  // 0x141052E30(BP+0x32B0)
-  // ponytail: BP+0x3380 (the turn reference the kind-4 tail measures the facing against) is written inside 0x14211D710's
-  // sub-builders 0x14211E2D0 / 0x14211E210 / 0x14211E650 (translated, run by PesWorld::RunDribbleProposal, proven equal to PES on
-  // ten states): the carrier's facing stands in until the proposal writer 0x1421102D0's heading (BP+0x4210) matches PES and the
-  // controller can call the chain (pes_dribble_oracle_test, TheProposalChain...). BP+0x4204 is not written either.
-  const Vector3 walkDir = CastPlayer()->GetDirectionVec();
-  pes::StoreF32(bp, pes::kBpTurnReferenceOffset, pes::PesBearingDeg(0.0f, 0.0f, walkDir.coords[0], walkDir.coords[1]));
   // The zone record at BP+0xAB8 is the danger builder run's own output (run above; equal to PES on the unslimmed captures).
   uint64_t skillMask = 0;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot)) skillMask |= 1ull << pes::kSkillOneTouchShot;
@@ -3363,6 +3357,13 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   const float heightCm = std::clamp(CastPlayer()->GetStat("physical_height") * 100.0f, 0.0f, 255.0f);
   pesWorld.SetCarrierProfile(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())), skillMask,
                              static_cast<uint8_t>(heightCm));
+  // The dribble-proposal chain of the unit driver 0x142110D30, in PES's order after the danger builder and the plan word above:
+  // the turn-reference builder 0x14211D710 (BP+0x3380, the angle the kind-4 tail measures the facing against), the step object
+  // 0x14211ED10 and the proposal writer 0x1421102D0 (BP+0x4204), all translated and equal to PES on seven forward-emulated states
+  // (pes_dribble_oracle_test TheProposalChain...). The kind objects evolve across steps on the window like PES's.
+  // ponytail: the slot records' stat bytes the manager's candidate scores read (+0x31, +0x2C, +0x27 of 0x140A489F0's record) are
+  // written only for the carrier (SetCarrierProfile: +0xA1); the other slots read zero until the player-record writer is ported.
+  pesWorld.RunDribbleProposal(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
   std::vector<pes::PesWorld::WalkEntry> entries;
   for (const pes::UnitSlot& slot : table) entries.push_back({static_cast<uint32_t>(slot.kind), pes::EncodeAnswerRecord(slot.answer)});
   pesWorld.SetUnitList(sideIndex, entries);

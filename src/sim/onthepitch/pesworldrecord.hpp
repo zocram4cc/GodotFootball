@@ -583,14 +583,16 @@ class PesWorld {
   void SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask, uint8_t heightStatCm);
   // The unit updater's two record writers, in the driver's order (0x142110C90): the unit info BP+0x1C by 0x14063C9F0(unit info,
   // ctx, slot) and the state BP+0x78 by 0x14063A490(state, ctx, unit info), both on the window's own records (side, man, anime,
-  // slot, MA, MI, ball, events). The state keeps counters across calls (tick count, owned ticks), so the block must persist.
+  // slot, MA, MI, ball, events). The state keeps counters across calls (tick count, owned ticks), so the block must persist. The
+  // first call builds the block (RunCarrierConstruct); a new carrier slot resets it as the driver does when its unit goes inactive
+  // (0x14210E5F0).
   void RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternals& ext = {});
   // Runs PES's carrier walk 0x14210F110 on the side's BP (rdx = its unit object): the chosen kind, or kWalkNoKind. `ext` carries
   // bytes outside the window (tests); allocates through the world's PesHeap like the builder.
   uint32_t RunWalk(int side, const PesDangerExternals& ext = {});
   // PES's carrier-block constructor 0x14210D320(BP, side) (proved bit-exact on three live BPs, results_dribble.json): the unit
   // info, state, imageA's lists, the carrier manager at BP+0x32C0 with its nine step objects, and the 25 unit-kind objects, vtables
-  // included. Production does not run it yet (RunCarrierUpdate's ponytail); a test that loaded a capture's BP calls AdoptCarrierState.
+  // included. RunCarrierUpdate runs it on a side's first call; a test that loaded a capture's BP calls AdoptCarrierState.
   void RunCarrierConstruct(int side, const PesDangerExternals& ext = {});
   // PES's turn-reference builder 0x14211D710(BP+0x32C0, ctx, unit info, state, imageA, BP+0x32B0, side record, BP+0x4204): while the
   // state's word 0 is 0 it ticks the carrier manager (0x14211E2D0, 0x14211E210) and writes BP+0x3380, the angle the walk's Clear

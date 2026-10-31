@@ -143,14 +143,14 @@ void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternal
     s.mem.wlog = ext.writeLog;
     fn(s);
   };
-  // The driver 0x142110C90 resets the block (0x14210E5F0 -> the state's constructor 0x14063A3B0) when its unit goes inactive: a
-  // new carrier starts a fresh state, whose counters then run from zero.
-  // ponytail: only the state constructor of the block reset runs; the full reset 0x14210E5F0 walks the kind objects the constructor
-  // 0x14210D320 builds (RunCarrierConstruct), which production does not run until the proposal chain's heading matches PES
-  // (pes_dribble_oracle_test TheProposalChain...: BP+0x4210 differs on six of seven states) and a 2-min smoke finishes.
-  if (!stateReady_[side] || LoadU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset) != slot) {
-    call(&::pes_fn_14063A3B0, bp + kBpStateOffset, 0);
-    StoreU32(Carrier(side), kBpChosenKindOffset, kWalkNoKind);  // 0x14210E6B8
+  // The driver 0x142110C90 resets the block (0x14210E5F0: the state's constructor 0x14063A3B0, the previous kind 0x19, the proposal
+  // records, the carrier manager and every kind object) when its unit goes inactive: a new carrier starts a fresh block, whose
+  // counters then run from zero. The first call builds the block (0x14210D320, whose last call is that reset).
+  if (!constructed_[side]) {
+    RunCarrierConstruct(side, ext);
+    stateReady_[side] = true;
+  } else if (!stateReady_[side] || LoadU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset) != slot) {
+    call(&::pes_fn_14210E5F0, bp, 0);
     stateReady_[side] = true;
   }
   call(&::pes_fn_14063C9F0, bp + kBpUnitInfoOffset, slot);                      // FUN_14063C9F0(unit info, ctx, slot)
