@@ -78,3 +78,35 @@ The sixteen result in §1 is a path string for all nine files in sider's own buf
 `PesVfs::Mount` with no `gameplayMod` selects no mod: GameplayLoader answers nothing and the game's own cpks decide, download/ over Data/ (the stock constants). The live PES is pinned to "No Mod" the same way. `favorite_gameplay_mod` in config.ini is no longer read: it is the loader's own boot state, not a GF input. A mod is selected only by `{.gameplayMod = NAME}` or `--gameplay-mod NAME` (gfsim_run, pesfmt_dump), and the sider order of §3 applies then.
 
 Install state read 30-10-26: `content/gameplay-loader/config.ini` says `favorite_gameplay_mod = No Mod`, so §2's `righetti4` no longer matches the install. On that install `VfsOrderInstall.DefaultMountIsNoMod` is green before and after the change. The red test is the synthetic `VfsOrder.DefaultMountIgnoresTheBootFavorite` (favourite `modA` listed).
+
+## 10. Owner ruling 30-10-26 (later): the default mount is stock PES; sider's live layer is opt-in
+
+Supersedes §3's default mount, §9's sentence on mod selection, and the open item in `pes-port-VfsDefault` (main) that sider's `cpk.root` still mounts by default.
+
+- `PesVfs::Mount(root, &err)` mounts the game's own cpks only: `Data/` then `download/`, download over Data. No `cpk.root` folder and no Lua module.
+- `VfsOptions::sider` (`--sider` for `gfsim_run` and `pesfmt_dump`) mounts sider's live layer as §3 describes: Lua modules first, then `cpk.root` folders.
+- `VfsOptions::gameplayMod` is a sider selection. Without `sider` the mount fails with an error that names `sider`, so a named mod is never ignored silently.
+
+Winners that change on this install: `pesfmt_dump cat PATH` with `--sider` (before) and without (after). Both mounts list the same 121075 paths, so sider only overrides; it never adds or hides a file.
+
+| path (sider root `livecpk\ball-root`, plus netblock) | before: sider | after: stock | read by GF |
+|---|---|---|---|
+| `Asset/model/ball/ball021/#Win/ball.fpk` | 44816 d6f4350aff3a | 100800 7932d0a1f29f | only when a match asks for ball 21 (`match.gd` `ball%03d`; default ball 1) |
+| `Asset/model/ball/ball021/#Win/ball.fpkd` | 48 dfcad71e4692 | 48 dfcad71e4692 | unchanged bytes |
+| `Asset/model/ball/ball021/#windx11/ball021_c_bsm_alp.ftex` | 349480 3913673576bc | 607856 cbb95e551a60 | ball 21's textures (INF: loaded with the ball) |
+| `Asset/model/ball/ball021/#windx11/ball021_n_nrm.ftex` | 264936 a9956bc5b1d0 | 708784 a4c5d38eae6a | ball 21's textures (INF) |
+| `Asset/model/ball/ball021/#windx11/ball021_s_srm.ftex` | 30248 16420c00df29 | 296352 05a34b8a8c98 | ball 21's textures (INF) |
+| `common/menu/general/topModeSelectDMM.bin` | 760296 2a4d7ed75907 | 762517 f9dca18f834e | no reader in src, godot, apps or tests (grep) |
+| `common/render/thumbnail/ball/ball_021.dds` | 87536 e587447c6300 | 87536 f4000e3a3c43 | no reader (grep) |
+| `common/script/flow/Exhibition/ExhibiUgcCheck.json` (netblock.lua) | 261 7ade7be6daae | 222 b62ed2d79db8 | no reader (grep) |
+
+Smokes (2 min, seed 7, one run per path, this tree): switch-off `e663d1e917d6c4f4` and pes-loop `980c54e27f93ced2`, both equal to main, both reached full time (33628 and 25942 ticks).
+
+Tests: `pes_vfs_order_test` 18/18 (13 at 949be2b2). Red first on 7034ca75 (c35abc70): `DefaultMountDoesNotServeASiderRootFile`, `DefaultMountAnswersNoLuaModule`, `NamedGameplayModNeedsSider`, `VfsOrderInstall.DefaultMountServesTheBallFromTheCpks`. Green in 41723be3. `DefaultMountIgnoresTheBootFavorite` is renamed `SiderWithoutAModIgnoresTheBootFavorite` (it opts in to sider now). `VfsOrderInstall.SiderOptInServesTheSiderBall` is new. `pes_movestep_test` 114/114, `pes_uniform_test` 36/36, `pes_camera_test` 17/17.
+
+Mutation (one): the gate `if (!options.sider)` replaced by `if (false)`. Fails `DefaultMountDoesNotServeASiderRootFile`, `DefaultMountAnswersNoLuaModule` and `DefaultMountServesTheBallFromTheCpks`; the other 15 pass. `NamedGameplayModNeedsSider` has its own check and stays green. Reverted: `vfs.cpp` equal to 41723be3, 18/18 again.
+
+Open items:
+1. The live PES reads this install's `sider.ini` (`livecpk.enabled = 1`, `cpk.root` = `livecpk\ball-root`, Lua modules), so the default GF now differs from the live game on the eight files above. The ruling is stock; this is flagged, not changed.
+2. The after-winners are identified by md5, not by the cpk they come from. The install test checks that the default winner is a `download/` copy when one exists (`Data/` otherwise) and not the sider file.
+3. `PesLibrary::open` (gdext) takes the default, so Godot gets stock too. There is no Godot-side `sider` switch.
