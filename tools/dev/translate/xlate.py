@@ -549,6 +549,15 @@ def import_model_lines(op, jump):
         # RtlSetLastWin32Error(ecx): TEB.LastErrorValue (gs:[0x30]+0x68) = ecx; rax = the TEB self pointer (the machine code).
         return ["{ " + push_ret + " uint64_t _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[0] = _self;"
                 " s.wr(_self + 0x68ULL, s.gpr[1] & 0xFFFFFFFFULL, 4);%s }" % pop_ret]
+    if e["do"] == "memset":
+        # memset(rcx=dst, edx=c, r8=n), the code_hex model register for register: mov r9,rcx; push rdi; rep stosb (n bytes of the low
+        # byte of c from dst, direction flag clear); mov rax,r9; pop rdi. rcx ends 0, r9 = rax = dst, rdi restored.
+        return ["{ " + push_ret +
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
+                " uint64_t _dst = s.gpr[1], _n = s.gpr[8];"
+                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.gpr[2] & 0xFFULL, 1);"
+                " s.gpr[9] = _dst; s.gpr[0] = _dst; s.gpr[1] = 0;"
+                " s.gpr[4] += 8;%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
 

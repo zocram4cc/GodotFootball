@@ -661,6 +661,33 @@ TEST_F(TrapOracle, TheMotionTableAdvancesEachEntryFromTheOldTable) {
   EXPECT_EQ(pes::LoadU32(entry(0), 0), 0u);
 }
 
+// FUN_1406D9010(table, id): slot[id] when id < 0x5E and the slot is set, else slot[1]. P+0xC40 is built once per man; the switch calls the
+// exit and enter methods of the objects it returns, so each must be a window object of this man with a vtable.
+TEST_F(TrapOracle, TheActionTableResolvesEveryIdToThisMansOwnObject) {
+  auto world = std::make_unique<pes::PesWorld>();
+  for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  constexpr int kSlot = 7, kOther = 8;
+  pes::ConstructActorP(*world, kSlot, g_derivation->actor);
+  pes::ConstructActorP(*world, kOther, g_derivation->actor);
+  const auto resolve = [&](int slot, std::size_t id) {
+    const uint8_t* p = world->P(slot);
+    const auto at = [&](std::size_t i) { return pes::LoadU64(p, pes::kPActionTableOffset + pes::kActionTablePointersOffset + 8 * i); };
+    return id < pes::kActionTableSlots && at(id) != 0 ? at(id) : at(1);
+  };
+  const uint64_t base = pes::PesWorld::PVa(kSlot) + pes::kPActionTableOffset;
+  for (std::size_t id = 0; id < pes::kActionTableSlots; ++id) {
+    const uint64_t object = resolve(kSlot, id);
+    ASSERT_GE(object, base + 8) << "id " << id;
+    ASSERT_LT(object, base + pes::kActionTablePointersOffset) << "id " << id << ": an action object lies before the pointer array";
+    EXPECT_GE(pes::LoadU64(world->P(kSlot), object - pes::PesWorld::PVa(kSlot)), pes::kImageBaseVa) << "id " << id << ": no vtable";
+  }
+  EXPECT_EQ(resolve(kSlot, pes::kAnimeActionTrap), pes::PesWorld::PVa(kSlot) + pes::kPActionOffset) << "the chain's action object is the table's Trap";
+  EXPECT_NE(resolve(kSlot, pes::kAnimeActionMove), resolve(kSlot, pes::kAnimeActionTrap));
+  EXPECT_EQ(resolve(kSlot, pes::kActionTableSlots), resolve(kSlot, 1)) << "an id past the table falls back to slot 1";
+  EXPECT_EQ(resolve(kOther, pes::kAnimeActionMove) - pes::PesWorld::PVa(kOther), resolve(kSlot, pes::kAnimeActionMove) - pes::PesWorld::PVa(kSlot))
+      << "each man's table names its own P";
+}
+
 // Every fact lands in its own field of P. The captures have action id == sub id (and the previous pair equal too), so only
 // distinct values tell those bytes apart; position, previous position and heading come from the man record's own fields.
 TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
@@ -944,7 +971,7 @@ bool IsPointerCell(int obj, uint32_t rel) {
   switch (obj) {
     case kObjP:
       return in(pes::kPScalePtrOffset) || in(pes::kPQPtrOffset) || in(pes::kPSPtrOffset) || in(pes::kPPtr3AC0Offset) ||
-             in(pes::kPSlotPtrOffset);
+             in(pes::kPSlotPtrOffset) || pes::IsActionTablePointer(rel);
     case kObjA: return in(pes::kPhysiqueNextOffset) || in(pes::kAChildO1Offset) || in(pes::kAChildO2Offset);
     case kObjQ: return in(pes::kQChainPtrOffset);
     case kObjR: return in(pes::kRArrayPtrOffset) || in(pes::kRArrayOffset, 88);  // the joint pointer array
@@ -991,7 +1018,10 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
       if (cell == pes::AnimPluginCell::kSelfPointer) continue;  // likewise
       // A layer's weights and blend state: the constructor's value is the start state, PES's animation engine (which GF does not run)
       // has moved it by the time of the tick. OPEN input, taken from the capture (the animation engine's writers are not decoded).
-      if (dst[i] == 0 || cell == pes::AnimPluginCell::kState) {
+      // An action object's cells: the constructor's value is the start state; the action has run since (the chain commits and the
+      // tick write it), so the capture's cell is the tick's input.
+      const bool actionState = obj == kObjP && rel + i >= pes::kPActionTableOffset && rel + i < pes::kPActionTableOffset + pes::kActionTableBytes;
+      if (dst[i] == 0 || cell == pes::AnimPluginCell::kState || actionState) {
         if (cap != 0 && dst[i] != cap) {
           ++t.overlaid;
           t.overlaidAt.insert({obj, rel + static_cast<uint32_t>(i)});

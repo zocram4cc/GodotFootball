@@ -19,8 +19,6 @@ struct Site {
 // FUN_1406E03D0 (the constructor): `lea rax,[vtable]` before each of the two vtable stores.
 constexpr Site kVtable0Site{0x1406E0412, {0x48, 0x8D, 0x05}, 3, 7};
 constexpr Site kVtable1Site{0x1406E0420, {0x48, 0x8D, 0x05}, 3, 7};
-// FUN_140795630 (the Trap action's constructor): `lea rax,[vtable]` before the store into [rbx].
-constexpr Site kActionVtableSite{0x1407956BB, {0x48, 0x8D, 0x05}, 3, 7};
 // FUN_1406D8BF0: `movss xmm1,[standing speed]` (class 3 above it, 1 at or below).
 constexpr Site kStandingSite{0x1406D8C35, {0xF3, 0x0F, 0x10, 0x0D}, 4, 8};
 // FUN_1406EA110 (the root speed in km/h): rate * 60 * 60 / 1000 * |displacement|.
@@ -73,11 +71,9 @@ std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::str
   PesActorConstants c;
   float again = 0.0f;
   const uint64_t vt0 = img.Target(kVtable0Site), vt1 = img.Target(kVtable1Site);
-  const uint64_t actionVtable = img.Target(kActionVtableSite);
-  bool ok = vt0 != 0 && vt1 != 0 && actionVtable != 0;
+  bool ok = vt0 != 0 && vt1 != 0;
   c.interfaceVtable[0] = vt0;
   c.interfaceVtable[1] = vt1;
-  c.actionVtable = actionVtable;
   for (int k = 0; k < 3; ++k) {
     c.memberVtable[k] = img.Target(kMemberVtableSite[k]);
     ok = ok && c.memberVtable[k] != 0;
@@ -159,7 +155,6 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   p[kPByte2458Offset] = static_cast<uint8_t>(f.slot);  // FUN_1406EB670's store 0x1406EB6C1
   std::memcpy(p + kPInterfaceVtable0Offset, &c.interfaceVtable[0], sizeof(uint64_t));
   std::memcpy(p + kPInterfaceVtable1Offset, &c.interfaceVtable[1], sizeof(uint64_t));
-  std::memcpy(p + kPActionVtableOffset, &c.actionVtable, sizeof(uint64_t));
   if (!f.trapActive) {  // else the tick owns these (PesActorFacts::trapActive)
     p[kPPhaseOffset] = f.phase;
     p[kPByteAC8Offset] = f.action;  // FUN_1406EEBB0's stores: current id and sub, then the previous pair
@@ -220,6 +215,7 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
   uint8_t* p = world.P(slot);  // the constructor FUN_1406E03D0's tail stores
   for (const std::size_t at : kPTailNoneOffsets) StoreU32(p, at, 0xFFFFFFFFu);
   for (const std::size_t at : kPTailOneOffsets) StoreF32(p, at, 1.0f);
+  ConstructActionTable(world, slot);
 }
 
 void StartTrapAction(PesWorld& world, int slot) {
@@ -240,6 +236,10 @@ struct AnimPluginStore {
 constexpr AnimPluginStore kAnimPluginStores[] = {
 #include "onthepitch/pesanimplugin_stores.inc"
 };
+// The action table's stores (same row shape; the generator is tools/dev/translate/gen_actiontable.py).
+constexpr AnimPluginStore kActionTableStores[] = {
+#include "onthepitch/pesactiontable_stores.inc"
+};
 }  // namespace
 
 void ConstructAnimPlugin(PesWorld& world, int slot) {
@@ -258,6 +258,23 @@ AnimPluginCell AnimPluginCellAt(std::size_t offset) {
     return s.value >= kImageBaseVa ? AnimPluginCell::kImageAddress : AnimPluginCell::kState;
   }
   return AnimPluginCell::kNotStored;
+}
+
+void ConstructActionTable(PesWorld& world, int slot) {
+  uint8_t* table = world.P(slot) + kPActionTableOffset;
+  const uint64_t base = PesWorld::PVa(slot) + kPActionTableOffset;
+  for (const AnimPluginStore& s : kActionTableStores) {
+    const uint64_t v = s.kind == 1 ? base + s.value : s.value;
+    std::memcpy(table + s.offset, &v, sizeof v);
+  }
+}
+
+bool IsActionTablePointer(std::size_t pOffset) {
+  for (const AnimPluginStore& s : kActionTableStores) {
+    const std::size_t at = kPActionTableOffset + s.offset;
+    if (s.kind == 1 && pOffset >= at && pOffset < at + sizeof(uint64_t)) return true;
+  }
+  return false;
 }
 
 }  // namespace pes

@@ -214,6 +214,11 @@ inline uint32_t LoadU32(const uint8_t* record, std::size_t offset) {
 inline void StoreU32(uint8_t* record, std::size_t offset, uint32_t value) {
   std::memcpy(record + offset, &value, sizeof value);
 }
+inline uint64_t LoadU64(const uint8_t* record, std::size_t offset) {
+  uint64_t value;
+  std::memcpy(&value, record + offset, sizeof value);
+  return value;
+}
 inline void StoreU64(uint8_t* record, std::size_t offset, uint64_t value) {
   std::memcpy(record + offset, &value, sizeof value);
 }

@@ -81,7 +81,6 @@ struct PesActorOpenInputs {
 // The image's bytes P is made from.
 struct PesActorConstants {
   uint64_t interfaceVtable[2] = {0, 0};  // P+0xAB8, +0xAC0 (the constructor 0x1406E03D0 stores them)
-  uint64_t actionVtable = 0;             // P+0xC78: the Trap action's vtable (its constructor 0x140795630, store 0x1407956C2)
   std::array<uint8_t, kLocomotionPhases> locomotionClass{};  // DAT_14344E1F0[4 * phase]: P+0xB08 (0x1406D8C92)
   float standingSpeedKmh = 0.0f;  // 0x14259222C: the root speed above which phase 0 is class 3, else 1 (0x1406D8C35)
   float tickRate = 0.0f;          // 0x14351AE54 (FUN_141E532D0): ticks per second
@@ -118,6 +117,13 @@ void ConstructAnimPlugin(PesWorld& world, int slot);
 // an image VA (a vtable).
 enum class AnimPluginCell { kNotStored, kState, kSelfPointer, kImageAddress };
 AnimPluginCell AnimPluginCellAt(std::size_t offset);
+
+// The action table's constructors (FUN_1406DF630 objects + FUN_1406D9040 pointers; pesactiontable_stores.inc) into the slot's P+0xC40, once
+// per match, with each pointer naming a window object. Its stores include the Trap action's vtable (P+0xC78) and the other 89 actions'
+// start states, which the action switch's exit/enter calls run on. IsActionTablePointer: P offset is one of the 94 pointer cells (window
+// addresses differ from any capture's heap addresses).
+void ConstructActionTable(PesWorld& world, int slot);
+bool IsActionTablePointer(std::size_t pOffset);
 
 // The action switch's stores for a committed trap (FUN_1406EEBB0: the previous ids take the current pair, the current pair becomes
 // TRAP, TRAP) and the action's start phase 0 (P+0x245C), which the tick's phase machine switches on. The man's action object was

@@ -151,6 +151,7 @@
     {
       "module": "VCRUNTIME140.dll",
       "export": "memset",
+      "do": "memset",
       "code_hex": "4989c9574889cf89d04c89c1f3aa4c89c85fc3",
       "why": [
         "void *memset(void *dst, int c, size_t n): rcx, edx, r8; returns dst in rax. Export of the PES prefix's VCRUNTIME140.dll (module name from its export directory), RVA 0x19A0 in a full capture (pid407792/seq001, 0x6FFFFB8219A0).",

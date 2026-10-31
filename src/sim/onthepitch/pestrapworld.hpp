@@ -144,7 +144,11 @@ inline constexpr std::size_t kQChainPtrOffset = 8;   // Q+8 -> R
 inline constexpr std::size_t kRArrayPtrOffset = 0x10, kRArrayOffset = 0x30;
 inline constexpr std::size_t kPQPtrOffset = 0x3AA8, kPSPtrOffset = 0x3AE8;  // P -> Q, P -> S
 inline constexpr std::size_t kPSegmentOffset = 0x2471, kPMirrorOffset = 0x2472;  // u8: the clip's segment index, the mirror byte
-inline constexpr std::size_t kPActionVtableOffset = kPActionOffset;  // the Trap action's vtable word (constructor 0x140795630)
+// The action table object (FUN_1406E0540 builds it at P+0xAC8+0x178): the action objects from +8 (id 1 at P+0xC48, MOVE id 2 at P+0xC50, the
+// Trap action id 7 at P+0xC78) and the 94 id -> object pointers at +0x1528 (FUN_1406D9010: slot[id], else slot[1]). pesactiontable_stores.inc is
+// its constructors' output (gen_actiontable.py).
+inline constexpr std::size_t kPActionTableOffset = 0xC40, kActionTableBytes = 0x1818;
+inline constexpr std::size_t kActionTablePointersOffset = 0x1528, kActionTableSlots = 0x5E;
 
 // The caller's frame object F (*r8 of the tick): its +0x870 is the ball record; the other fields the captured ticks read are
 // named in docs/ports/pes-port-TrapTick.md 3.

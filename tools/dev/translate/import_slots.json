@@ -837,7 +837,9 @@
    "kind": "unmapped"
   },
   "0x14252FD98": {
-   "kind": "unmapped"
+   "export": "memset",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FDA0": {
    "kind": "unmapped"
