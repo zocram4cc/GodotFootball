@@ -37,9 +37,12 @@ CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image r
 
 
 
-def build_closure(va, spec, args, pilot, reached):
+def build_closure(va, spec, args, pilot, reached, executed=None):
     """Translate va and every function its build links (direct callees in the pilot universe, the
-    runnable out-of-set callees, and harness-reached indirect targets). Returns (need, build_error)."""
+    runnable out-of-set callees, and harness-reached indirect targets). Returns (need, build_error).
+    executed (bounded mode, --bounded): the instruction addresses the replays ran. The build is then only the root, the
+    reached indirect targets, and each direct callee or tail target whose entry ran; any other call or tail jump keeps
+    the translator's loud abort (pes_dispatch_missing), so a case the captures do not cover stops, never runs silently."""
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
     os.makedirs(gen, exist_ok=True)
@@ -57,14 +60,20 @@ def build_closure(va, spec, args, pilot, reached):
         return [va], bad
     targets = set(roots) | {s for s in reached
                             if pd.is_boundary(int(s, 16)) and pd.indirect_kind(int(s, 16)) != "jmp reg"}
-    # The harness runs each replayed indirect target's image bytes (no stub entry), and so do the walks of
-    # their direct callees: the build closes over those too, or a plain callee is an out-of-set abort.
-    reached_seed = {"harness": {"out_of_set_callees": [
-        {"va": t, "how": "call"} for t in sorted(targets) if CODE_LO <= int(t, 16) < CODE_HI]}}
-    extra, _ = drv.runnable_extra(spec, args.image)
-    walked, _ = drv.runnable_extra(reached_seed, args.image)
-    extra = list(extra) + [v for v in walked if v not in extra]
-    build_pilot = set(pilot) | set(extra)
+    bounded = executed is not None
+    if bounded:
+        ran = {int(a, 16) for a in executed}
+        extra = ["0x%X" % v for v, e in sorted(drv.STUB_TABLE.items()) if e["do"] is None and v in ran]
+        build_pilot = {va} | {t for t in targets if CODE_LO <= int(t, 16) < CODE_HI} | set(extra)
+    else:
+        # The harness runs each replayed indirect target's image bytes (no stub entry), and so do the walks of
+        # their direct callees: the build closes over those too, or a plain callee is an out-of-set abort.
+        reached_seed = {"harness": {"out_of_set_callees": [
+            {"va": t, "how": "call"} for t in sorted(targets) if CODE_LO <= int(t, 16) < CODE_HI]}}
+        extra, _ = drv.runnable_extra(spec, args.image)
+        walked, _ = drv.runnable_extra(reached_seed, args.image)
+        extra = list(extra) + [v for v in walked if v not in extra]
+        build_pilot = set(pilot) | set(extra)
     cache = {va: spec}
 
     def calls_of(v):
@@ -116,9 +125,12 @@ def build_closure(va, spec, args, pilot, reached):
                     need.append(dep)
             # A tail jump or a direct call to plain image code (no stub entry) is run by the harness as image bytes:
             # the build translates it too. A call to a stubbed or blocked callee is excluded by the harness, not added.
+            # Bounded: a callee the replays entered is built even when stubs.json calls it unmodellable (the harness ran
+            # its bytes; only a modelled callee is inlined), and one they never entered keeps its loud abort.
             for m in re.finditer(r"OUT-OF-(?:RANGE JMP|SET CALL) 0x([0-9A-Fa-f]+)", text):
                 t = "0x" + m.group(1).upper()
-                if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and int(t, 16) not in drv.STUB_TABLE:
+                runs_real = (int(t, 16) in ran and t not in drv.MODEL_MAP) if bounded else int(t, 16) not in drv.STUB_TABLE
+                if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and runs_real:
                     if not pd.is_boundary(int(t, 16)):
                         # An address inside a function or an instruction is no callee: the build never translates it,
                         # and the closure is reported as not built rather than compared without it.
@@ -134,12 +146,16 @@ def build_closure(va, spec, args, pilot, reached):
             return need, None
 
 
-def build_binary(va, spec, args, pilot, reached, native=False):
-    """The diff main and the translated closure, compiled. Returns (binary path, error). native: the production
-    dispatch (gen_dispatch --native), GF's PesHeap attached per call, and PES's allocator targets left out of the closure."""
+def build_binary(va, spec, args, pilot, reached, executed=None, native=False):
+    """The diff main and the translated closure, compiled. Returns (binary path, error). executed: the addresses the replays
+    ran (--bounded), else None. native: the production dispatch (gen_dispatch --native), GF's PesHeap attached per call, and
+    PES's allocator targets left out of the closure."""
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
-    need, err = build_closure(va, spec, args, pilot, reached)
+    need, err = build_closure(va, spec, args, pilot, reached, executed)
+    if not err and executed is not None:
+        with open(os.path.join(gen, "members.json"), "w") as f:
+            json.dump(sorted(need), f)
     if err:
         return None, err
     # The committed runtime headers, always refreshed (a stale copy in the build tree would link old code).
@@ -295,10 +311,10 @@ def run_one(va, args, pilot, pairs):
             res["excluded"], res["calls"], "; ".join("%s x%d" % kv for kv in top) or "none recorded",
             ",".join(res.get("blocked_callees") or []) or "none")
         return res
-    bin_p, err = build_binary(va, spec, args, pilot, reached)
+    bin_p, err = build_binary(va, spec, args, pilot, reached, addrs if args.bounded else None)
     nbin_p = None
     if not err and args.native:
-        nbin_p, err = build_binary(va, spec, args, pilot, reached, native=True)
+        nbin_p, err = build_binary(va, spec, args, pilot, reached, addrs if args.bounded else None, native=True)
     if err:
         # A closure that did not build compares nothing: its replays are unverified, never passed.
         res["unverified"] = res["replayed"]
@@ -366,6 +382,9 @@ def main():
                     help="rv.dll config (rendezvous captures): each hook entry replays as the code it displaced")
     ap.add_argument("--block-entry", action="append", default=[],
                     help="an extra VA a replayed case must not enter (proves an init path unreached)")
+    ap.add_argument("--bounded", action="store_true",
+                    help="capture-bounded closure: only the functions the replays entered; every other call aborts loudly. "
+                         "The member list goes to <out-dir>/gen/<VA>/members.json")
     args = ap.parse_args()
     pairs = [tuple(s.split("=", 1)) for s in args.snapshot]
     pilot = drv.universe_of(args.spec_dir)

@@ -49,6 +49,8 @@ def main():
         cov = drv.block_coverage(a.image, [va], sorted(union))[va]
         for name, d in per_run.items():
             pc = drv.block_coverage(a.image, [va], d["hits"])[va] if d["hits"] else (0, cov[1] if cov else 0)
+            if pc is None:  # undecodable va (block_coverage's None): never counted, as in driver.finish_one
+                pc = (0, 0)
             d["reached"], d["total"] = pc
             d["fraction"] = round(pc[0] / pc[1], 4) if pc and pc[1] else 0.0
             del d["hits"]
@@ -56,7 +58,7 @@ def main():
             "va": va,
             "calls": sum(d["calls"] for d in per_run.values()),
             "reached": sum(d["calls"] for d in per_run.values()) > 0,
-            "own": {"reached": cov[0], "total": cov[1],
+            "own": {"reached": cov[0] if cov else 0, "total": cov[1] if cov else 0,
                     "fraction": round(cov[0] / cov[1], 4) if cov and cov[1] else None},
             "per_run": per_run,
         }

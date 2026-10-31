@@ -168,6 +168,25 @@
         "Contract: copies n bytes as if through a temporary, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code (which is vectorised).",
         "Model: mov rax, rcx; push rdi; push rsi; mov rdi, rcx; mov rsi, rdx; mov rcx, r8; if dst <= src or dst >= src + n copy forward (rep movsb), else copy backward from the last byte (std; rep movsb; cld); pop rsi; pop rdi; ret. rcx is 0 after the copy and r9 = src + n when dst > src. Checked by test_memmove_model.py; the C++ mirror (xlate.import_model_lines) is compared with it by snapdiff on the danger-writer captures."
       ]
+    },
+    {
+      "module": "VCRUNTIME140.dll",
+      "export": "memcmp",
+      "code_hex": "2bd14983f8087222f6c107741466908a013a0411752c48ffc149ffc8f6c10775ee4d8bc849c1e903751f4d85c0740f8a013a0411750c48ffc149ffc875f14833c0c31bc083d8ffc39049c1e9027437488b01483b0411755b488b4108483b441108754c488b4110483b441110753d488b4118483b441118752e4883c12049ffc975cd4983e01f4d8bc849c1e903749b488b01483b0411751b4883c10849ffc975ee4983e007eb834883c1084883c1084883c108488b0c0a480fc8480fc9483bc11bc083d8ffc3",
+      "why": [
+        "int memcmp(const void *a, const void *b, size_t n): rcx, rdx, r8; returns -1, 0 or 1 in eax (sbb eax,eax; sbb eax,-1 after the last compare). The DLL's own code, the first 0xC6 bytes of the export at RVA 0x11F1 of the prefix's VCRUNTIME140.dll (0x6FFFFBC711F1 in the full capture pid1965411/seq033, read by SnapMem.read; every branch inside is a rel8 inside these bytes), position independent, so the harness runs it as it is.",
+        "Reached by the unit step's forward run from the danger builder to the dribble-proposal writer (synth_walk.py --entry 0x1421102D0): 0x141B36107 compares 10 bytes."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "_fdtest",
+      "do": "fdtest",
+      "code_hex": "0fb75102b8807f00006623d0663bd07518f641027f750c33c0663901b8010000007422b802000000c30fb74102a9ff7fffff750733c0663901740a66f7da1bc0f7d883c0fec3",
+      "why": [
+        "int _fdtest(const float *p): the float classifier: 2 = NaN, 1 = infinity, 0 = zero, -2 = subnormal, -1 = normal; rcx = p, eax = the class. The DLL's own code, the first 0x46 bytes of the export (ucrtbase 0x6FFFFECF6370 in the full capture pid1965411/seq033, read by SnapMem.read; the slot 0x1425301C0 holds it there). The turn-reference builder 0x14211E650 calls it through that slot on its angle.",
+        "Registers: rdx = the exponent field (word [p+2] & 0x7F80) on every path but the last two (subnormal/normal: negated, low word); rax = the class zero-extended. The translator's mirror (xlate.import_model_lines, do = fdtest) computes the class and rdx."
+      ]
     }
   ]
 }
