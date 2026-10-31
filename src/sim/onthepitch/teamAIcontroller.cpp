@@ -3484,14 +3484,15 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
   // P+0xAE0: the PES motion number of the clip the humanoid plays; the AI's own clip has none, so the no-motion sentinel.
   const int motion = pesmovestep::CurrentMotionOf(pl);
   f.motion = motion < 0 ? pes::kPNoMotion : static_cast<uint16_t>(motion);
-  // The anime's motion table stand-in (PesActorFacts::playingMotion): the PES clip on the body, while it has frames left (the
+  // The anime player's motion list (PesActorFacts::playing's ponytail): the PES clip on the body, while it has frames left (the
   // finished test is PlayIssuedClip's). GF's animation frames are 10 ms.
   constexpr float kGfAnimFrame_s = 0.01f;
   if (motion >= 0) {
     const Anim* clip = pl.GetCurrentAnim();
     if (pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
-      f.playingMotion = static_cast<uint16_t>(motion);
-      f.playingSeconds = static_cast<float>(pl.GetFrameNum()) * kGfAnimFrame_s;
+      f.playing[0].id = static_cast<uint16_t>(motion);
+      f.playing[0].seconds = static_cast<float>(pl.GetFrameNum()) * kGfAnimFrame_s;
+      f.playingCount = 1;
     }
   }
   f.kickApproach = 0;  // the kick approach (adjuster A) is never armed in GF

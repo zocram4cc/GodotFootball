@@ -581,7 +581,7 @@ TEST_F(TrapOracle, LocomotionClassBranches) {
 
 // The trap end handler 0x14079E5C0 returns 0 at once while the clip that plays is in the anime's motion table (FUN_1406EBEE0:
 // true for a listed motion; the six live captures seq884..896 all take that exit). The window lists the body's playing clip
-// (PesActorFacts::playingMotion) and PES's own FUN_1406EBEE0, run on the window, must answer by the listing: true for the
+// (PesActorFacts::playing) and PES's own FUN_1406EBEE0, run on the window, must answer by the listing: true for the
 // clip that plays, false for another motion, false again once the clip has finished and the entry is dropped.
 TEST_F(TrapOracle, TheMotionTableListsThePlayingClipSoTheEndHandlerWaits) {
   auto world = std::make_unique<pes::PesWorld>();
@@ -602,14 +602,63 @@ TEST_F(TrapOracle, TheMotionTableListsThePlayingClipSoTheEndHandlerWaits) {
   const pes::PesActorConstants& c = g_derivation->actor;
   pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
   EXPECT_FALSE(listed(kPlaying)) << "nothing plays: nothing is listed";
-  f.playingMotion = kPlaying;
-  f.playingSeconds = 0.05f;
+  f.playing[0].id = kPlaying;
+  f.playing[0].seconds = 0.05f;
+  f.playingCount = 1;
   pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
   EXPECT_TRUE(listed(kPlaying));
   EXPECT_FALSE(listed(kOther));
-  f.playingMotion = pes::kPNoMotion;
+  f.playingCount = 0;
   pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
   EXPECT_FALSE(listed(kPlaying)) << "a finished clip is dropped from the table";
+}
+
+// FUN_141EB4650's table block: each entry carries the seconds played, the seconds it advanced since the last rebuild (the new
+// seconds minus the old table's seconds for the same motion, else the member rate P+0x41C) and the layer's rate; a motion that
+// left the list is gone, and an empty list clears the cells. (Entry layout CONFIRMED against seq884's table: pestrapworld.hpp.)
+TEST_F(TrapOracle, TheMotionTableAdvancesEachEntryFromTheOldTable) {
+  auto world = std::make_unique<pes::PesWorld>();
+  for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  constexpr int kSlot = 7;
+  constexpr float kMemberRate = 0.0125f;  // a value no other cell holds
+  uint8_t* p = world->P(kSlot);
+  pes::StoreF32(p, pes::kPMemberOffset + pes::kMemberRateOffset, kMemberRate);
+  pes::PesActorFacts f;
+  f.slot = kSlot;
+  pes::PesActorOpenInputs open;
+  const pes::PesActorConstants& c = g_derivation->actor;
+  const auto rebuild = [&] { pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique); };
+  const auto entry = [&](std::size_t i) { return p + pes::kPMotionTableOffset + i * pes::kPMotionEntryBytes; };
+  constexpr uint16_t kA = 0x0D18, kB = 0x001F;
+  f.playing[0] = {kA, pes::kMotionEntryListed, 0.05f, 1.25f};
+  f.playingCount = 1;
+  rebuild();
+  EXPECT_EQ(pes::LoadU32(p, pes::kPMotionCountOffset), 1u);
+  EXPECT_EQ(pes::LoadU32(entry(0), 0), kA);
+  EXPECT_EQ(entry(0)[pes::kMotionEntryFlagOffset], pes::kMotionEntryListed);
+  EXPECT_EQ(pes::LoadF32(entry(0), pes::kMotionEntrySecondsOffset), 0.05f);
+  EXPECT_EQ(pes::LoadF32(entry(0), pes::kMotionEntryAdvanceOffset), kMemberRate) << "a motion new to the table advances by the member rate";
+  EXPECT_EQ(pes::LoadF32(entry(0), pes::kMotionEntryRateOffset), 1.25f);
+  f.playing[0].seconds = 0.0725f;
+  f.playing[1] = {kB, pes::kMotionEntryListed, 0.0565f, 1.0f};
+  f.playingCount = 2;
+  rebuild();
+  EXPECT_EQ(pes::LoadU32(p, pes::kPMotionCountOffset), 2u);
+  EXPECT_EQ(pes::LoadF32(entry(0), pes::kMotionEntryAdvanceOffset), 0.0725f - 0.05f) << "the same motion advances by the new seconds minus the old";
+  EXPECT_EQ(pes::LoadF32(entry(1), pes::kMotionEntryAdvanceOffset), kMemberRate);
+  f.playing[0] = f.playing[1];  // kA left the list: the table lists only kB, which keeps its old seconds
+  f.playing[1] = {};
+  f.playing[0].seconds = 0.0765f;
+  f.playingCount = 1;
+  rebuild();
+  EXPECT_EQ(pes::LoadU32(p, pes::kPMotionCountOffset), 1u);
+  EXPECT_EQ(pes::LoadU32(entry(0), 0), kB);
+  EXPECT_EQ(pes::LoadF32(entry(0), pes::kMotionEntryAdvanceOffset), 0.0765f - 0.0565f);
+  EXPECT_EQ(pes::LoadU32(entry(1), 0), 0u) << "the cleared entries stay zero";
+  f.playingCount = 0;
+  rebuild();
+  EXPECT_EQ(pes::LoadU32(p, pes::kPMotionCountOffset), 0u);
+  EXPECT_EQ(pes::LoadU32(entry(0), 0), 0u);
 }
 
 // Every fact lands in its own field of P. The captures have action id == sub id (and the previous pair equal too), so only

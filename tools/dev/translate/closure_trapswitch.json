@@ -1,0 +1,11 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of 0x1406EEBB0 (the action switch, nine captured calls (P, sub 2 or 3, action 0x5E) that all leave at the same-action early exit): the root and each function the replays entered. Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "root": "0x1406EEBB0",
+ "members": [
+  "0x1406D9010",
+  "0x1406E66B0",
+  "0x1406EEBB0",
+  "0x140A6E340",
+  "0x141794410"
+ ]
+}

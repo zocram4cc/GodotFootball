@@ -14,6 +14,7 @@
 #include <string>
 
 #include "pes/exe.hpp"
+#include "onthepitch/pestrapworld.hpp"
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes/physique.hpp"
@@ -27,6 +28,15 @@ inline constexpr std::size_t kLocomotionPhases = 0x18;  // P+0x245C below this i
 inline constexpr uint8_t kAnimeActionMove = 2;
 inline constexpr uint16_t kPNoMotion = 0xBE5;
 inline constexpr uint8_t kAnimeActionTrap = 7;
+
+// One motion of the anime player's list, as FUN_141EB4650 reads it (FUN_141AF3070 id, FUN_141AF4160 flag byte, FUN_141AF3100
+// seconds played, FUN_141AF3330 the layer's rate).
+struct PesPlayingMotion {
+  uint16_t id = kPNoMotion;
+  uint8_t flag = kMotionEntryListed;
+  float seconds = 0.0f;
+  float rate = 1.0f;  // ponytail: GF's clip has no layer rate; 1.0 is the neutral rate (the captures read 1.02..1.09)
+};
 
 // What the actor's fields are made from, in PES's units. `speedByte` is the Speed ability byte (slot record +0x97, 40..99).
 struct PesActorFacts {
@@ -43,12 +53,13 @@ struct PesActorFacts {
                                // FUN_141AD98B0); 0 is neutral
   int side = 0;                // the actor's side: P+0x3AC0 is that side's AI context (the window's ctx record)
   StaminaState stamina;        // slot record: tank cur/max, breath reserve
-  // ponytail: the anime's current-motion table (P+0x354, pestrapworld.hpp kPMotionTableOffset) is written by PES's per-tick
-  // anime update after the action tick (FUN_1406E5FC0's tail: FUN_1406F8060 / FUN_1406F8B20 / FUN_1406F6790, writer not yet
-  // located; no tick write reaches it, 14/14 captures), which GF does not run. The one motion the body's own clip is playing
-  // and has frames left stands in for the table; the PES writer removes this. kPNoMotion: nothing is playing.
-  uint16_t playingMotion = kPNoMotion;
-  float playingSeconds = 0.0f;  // seconds that clip has played (GF's 10 ms frames)
+  // ponytail: the anime player's motion list. PES's FUN_141EB4650 reads it from the AnimePlayer's layer tables (P+0xA08: count
+  // FUN_141AF34B0, entry i FUN_141AF3070 / 4160 / 3100 / 3330), which the anime engine fills and GF does not run (the closure of
+  // that update is 4277 instructions over the player's blend structures, not in the window). The body's own clip, while it has
+  // frames left, is the one listed motion; FUN_141EB4650's table block then builds the table from it (RebuildMotionTable). The
+  // AnimePlayer's layer tables (the writer of those cells: SetMotion FUN_141AF61C0 and the engine update FUN_141AF7A90) remove it.
+  std::array<PesPlayingMotion, kPMotionTableMax> playing{};
+  std::size_t playingCount = 0;
   // The man is in the Trap action: the tick owns the action ids (P+0xAC8..0xACB), the phase byte (P+0x245C), the motion
   // (P+0xAE0) and the class (P+0xB08), so WriteActorP leaves them as the last tick wrote them.
   bool trapActive = false;

@@ -32,15 +32,20 @@ inline constexpr std::size_t kPVelocityOffset = 0x2FC;
 inline constexpr std::size_t kPWord430Offset = 0x430;  // u32
 // P+0x354: the anime's current-motion table (FUN_1406EBEE0 and FUN_1406E68C0 search it; the trap end handler 0x14079E5C0 returns
 // at once while the playing motion is listed, CONFIRMED 6/6 on live2/pid2122415 seq884..896): up to 10 entries of 0x14 bytes,
-// the live count (u32) at +0x420. Entry: motion u32 (+0), a flag u32 (+4, 1 in every capture), seconds the motion has played
-// f32 (+8, grows 0.02 s a call in the six captures); +0xC and +0x10 are two f32 (about 0.02 and 1.0..1.1) nothing on the chain reads.
+// the live count (u32) at +0x420. PES rebuilds it every tick in the anime update FUN_141EB4650 (stores 0x141EB483C..0x141EB488E,
+// CONFIRMED by running PES's bytes on seq884: the motion list of the AnimePlayer's layers, FUN_141AF34B0 count, entry i:
+// FUN_141AF3070 id, FUN_141AF4160 flag byte, FUN_141AF3100 seconds, FUN_141AF3330 rate). Entry: motion u32 (+0), flag byte (+4, 1
+// in every capture), seconds the motion has played f32 (+8), the seconds it advanced since the last rebuild f32 (+0xC: the new
+// seconds minus the seconds the same motion had in the old table, else P+0x41C, the member rate), and the layer's rate f32 (+0x10).
 inline constexpr std::size_t kPMotionTableOffset = 0x354;
 inline constexpr std::size_t kPMotionEntryBytes = 0x14;
 inline constexpr std::size_t kPMotionTableMax = 10;
 inline constexpr std::size_t kPMotionCountOffset = 0x420;
 inline constexpr std::size_t kMotionEntryFlagOffset = 4;
 inline constexpr std::size_t kMotionEntrySecondsOffset = 8;
-inline constexpr uint32_t kMotionEntryListed = 1;
+inline constexpr std::size_t kMotionEntryAdvanceOffset = 0xC;
+inline constexpr std::size_t kMotionEntryRateOffset = 0x10;
+inline constexpr uint8_t kMotionEntryListed = 1;
 // P+0xA08: pointer to a record whose +0xF0 points to a record holding an f32 at +0xC0 (a per-actor scale, INF).
 inline constexpr std::size_t kPScalePtrOffset = 0xA08;
 // P+0xAB8 / +0xAC0: two embedded interface objects, each a vtable pointer into the image (the chain calls through them);

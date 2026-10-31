@@ -1,5 +1,6 @@
 #include "onthepitch/pestrapactor.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <initializer_list>
@@ -116,6 +117,37 @@ uint8_t LocomotionClass(const PesActorConstants& c, const PesActorFacts& f, cons
   return c.locomotionClass[f.phase];
 }
 
+// FUN_141EB4650's table block (0x141EB46B7..0x141EB4899): the anime update keeps the old table, clears all ten entries and the
+// count (memset 0xC8 at P+0x354, count 0: 0x141EB4749, 0x141EB474E), then appends one entry per motion of the player's list
+// while fewer than ten are stored (0x141EB4833 cmp 0xA, jae). The advance field is the new seconds minus the seconds the same
+// motion had in the old table (0x141EB4819: the first old entry with the same id, among the old count), else P+0x41C, the member
+// rate read before the lookup (0x141EB47E3). The five reads of the list are PesActorFacts::playing's ponytail.
+void RebuildMotionTable(uint8_t* p, const PesActorFacts& f) {
+  std::array<uint8_t, kPMotionTableMax * kPMotionEntryBytes> old;
+  std::memcpy(old.data(), p + kPMotionTableOffset, old.size());
+  const std::size_t oldCount = std::min<std::size_t>(LoadU32(p, kPMotionCountOffset), kPMotionTableMax);
+  std::memset(p + kPMotionTableOffset, 0, old.size());
+  StoreU32(p, kPMotionCountOffset, 0);
+  const float memberRate = LoadF32(p, kPMemberOffset + kMemberRateOffset);
+  for (std::size_t i = 0; i < f.playingCount; ++i) {
+    const PesPlayingMotion& m = f.playing[i];
+    float advance = memberRate;
+    for (std::size_t k = 0; k < oldCount; ++k) {
+      if (LoadU32(old.data(), k * kPMotionEntryBytes) == m.id) {
+        advance = m.seconds - LoadF32(old.data(), k * kPMotionEntryBytes + kMotionEntrySecondsOffset);
+        break;
+      }
+    }
+    uint8_t* entry = p + kPMotionTableOffset + i * kPMotionEntryBytes;  // ten at most: PesActorFacts::playing is PES's stored cap
+    StoreU32(entry, 0, m.id);
+    entry[kMotionEntryFlagOffset] = m.flag;
+    StoreF32(entry, kMotionEntrySecondsOffset, m.seconds);
+    StoreF32(entry, kMotionEntryAdvanceOffset, advance);
+    StoreF32(entry, kMotionEntryRateOffset, m.rate);
+    StoreU32(p, kPMotionCountOffset, static_cast<uint32_t>(i + 1));
+  }
+}
+
 void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInputs& open, const PesActorConstants& c,
                  const StaminaConstants& stamina, const PhysiqueConstants& physique) {
   uint8_t* p = world.P(f.slot);
@@ -139,17 +171,7 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   StoreU32(p, kPWord430Offset, f.kickApproach);
   StoreF32(p, kPWord277COffset, f.word277C);
   StoreF32(p, kPWord277COffset + 4, f.word2780);
-  // The anime's current-motion table: one entry while the body's clip plays (PesActorFacts::playingMotion's ponytail), else
-  // empty. The count is only cleared when set, so a window that never listed a motion stays untouched.
-  if (f.playingMotion != kPNoMotion) {
-    uint8_t* entry = p + kPMotionTableOffset;
-    StoreU32(entry, 0, f.playingMotion);
-    StoreU32(entry, kMotionEntryFlagOffset, kMotionEntryListed);
-    StoreF32(entry, kMotionEntrySecondsOffset, f.playingSeconds);
-    StoreU32(p, kPMotionCountOffset, 1);
-  } else if (LoadU32(p, kPMotionCountOffset) != 0) {
-    StoreU32(p, kPMotionCountOffset, 0);
-  }
+  RebuildMotionTable(p, f);
   if (!f.trapActive) p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
   const uint64_t slotPtr = PesWorld::SlotVa(f.slot) + kSlotPPtrTargetOffset;  // FUN_140925470: slot record + 0x15C0
   std::memcpy(p + kPSlotPtrOffset, &slotPtr, sizeof slotPtr);
