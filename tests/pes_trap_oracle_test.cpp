@@ -335,6 +335,9 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   b.ext.image = const_cast<uint8_t*>(image);
   b.ext.imageBytes = imageBytes;
   g_loader->AddTo(b.ext);  // the loader data (motion table, Animetable, registry, trap.o): built from the install, never copied from the capture
+  // The pad manager's connected-pad mask is the named open input (PesTrapLoaderData::padMaskVa): the capture's, as the live game polled it.
+  const uint32_t padMask = static_cast<uint32_t>(Read(o, Read(o, pes::kPadManagerGlobalVa, 8) + pes::kPadMaskOffset, 4));
+  std::memcpy(b.ext.segments.back().bytes.data() + (g_loader->padMaskVa - b.ext.segments.back().va), &padMask, sizeof padMask);
 }
 
 struct Image {
@@ -1021,7 +1024,9 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
       // An action object's cells: the constructor's value is the start state; the action has run since (the chain commits and the
       // tick write it), so the capture's cell is the tick's input.
       const bool actionState = obj == kObjP && rel + i >= pes::kPActionTableOffset && rel + i < pes::kPActionTableOffset + pes::kActionTableBytes;
-      if (dst[i] == 0 || cell == pes::AnimPluginCell::kState || actionState) {
+      // The member constructor's start-state cells (blend counters, unit tables): PES's trap start path has moved them (IsMemberStateCell).
+      const bool memberState = obj == kObjP && pes::IsMemberStateCell(rel + i);
+      if (dst[i] == 0 || cell == pes::AnimPluginCell::kState || actionState || memberState) {
         if (cap != 0 && dst[i] != cap) {
           ++t.overlaid;
           t.overlaidAt.insert({obj, rel + static_cast<uint32_t>(i)});
@@ -1314,6 +1319,16 @@ TEST_F(TrapTickOracle, LoaderDataTheTickReadsEqualsTheCapture) {
       const uint64_t registry = Read(o, 0x1437F4808ULL, 8), array = Read(o, registry, 8);
       const uint64_t entry = Read(o, array + 8 * pes::kTrapRegistryId, 8);
       compare(Read(o, entry + 8, 8), g_loader->At(g_loader->trapVa, pes::kTrapRuntimeBytes), pes::kTrapRuntimeBytes, "constant::Trap");
+    }
+    {  // constant::Ball (registry id 4): the ball integrator's constants the tick's trajectory prediction reads
+      const uint64_t registry = Read(o, 0x1437F4808ULL, 8), array = Read(o, registry, 8);
+      const uint64_t entry = Read(o, array + 8 * pes::kBallRegistryId, 8);
+      compare(Read(o, entry + 8, 8), g_loader->At(g_loader->ballVa, pes::kBallRuntimeBytes), pes::kBallRuntimeBytes, "constant::Ball");
+    }
+    {  // the pad manager (global 0x1437F0A58): the vtable word and the critical section's initialised flag are built; the mask is the open input
+      const uint64_t pad = Read(o, pes::kPadManagerGlobalVa, 8), gfPad = g_loader->padMaskVa - pes::kPadMaskOffset;
+      compare(pad, g_loader->At(gfPad, 8), 8, "pad manager vtable");
+      compare(pad + 0x10 + 0x28, g_loader->At(gfPad + 0x10 + 0x28, 1), 1, "pad manager lock flag");
     }
     (void)gfAnime;
     const ObjSpans captured = CapturedObjects(o);

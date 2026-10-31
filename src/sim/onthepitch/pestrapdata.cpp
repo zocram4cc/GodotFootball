@@ -12,6 +12,7 @@
 
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "pes/animetable.hpp"
+#include "onthepitch/pesball.hpp"
 
 namespace pes {
 namespace {
@@ -24,6 +25,13 @@ constexpr uint64_t kCapsVa = 0x1425DC370ULL;
 constexpr uint64_t kTrapVtableVa = 0x142B53158ULL;
 constexpr uint64_t kTrapLoaderFnVa = 0x141E67B70ULL;
 constexpr std::size_t kVtableLoaderSlotOffset = 0x10;
+// constant::Ball (registry id 4: object 4 of constant_match.bin, ball.o): vtable, slot 2 loader FUN_141E73720.
+constexpr uint64_t kBallVtableVa = 0x142B57448ULL;
+constexpr uint64_t kBallLoaderFnVa = 0x141E73720ULL;
+// The pad manager's class: vtable slot +0x68 is the mask reader FUN_141B52340. Checked against the exe likewise.
+constexpr uint64_t kPadVtableVa = 0x142AC5B68ULL;
+constexpr uint64_t kPadMaskFnVa = 0x141B52340ULL;
+constexpr std::size_t kPadVtableMaskSlot = 0x68, kPadObjectBytes = 0x118, kPadLockOffset = 0x10, kPadLockFlagOffset = 0x28;
 
 constexpr std::size_t kAnimetableCellBytes = 2;  // s16
 constexpr std::size_t kEyesObjectBytes = 0x10, kEyesTablePtrOffset = 8;  // FUN_1406B4EA0's 0x10-byte object
@@ -46,6 +54,9 @@ struct TrapField {
 };
 constexpr TrapField kTrapFields[] = {
 #include "onthepitch/pestrapconstant_fields.inc"
+};
+constexpr TrapField kBallFields[] = {
+#include "onthepitch/pesballconstant_fields.inc"
 };
 
 template <typename T>
@@ -85,17 +96,19 @@ bool Child(const std::vector<uint8_t>& blob, std::size_t at, uint32_t index, std
   return true;
 }
 
-bool BuildTrapObject(const std::vector<uint8_t>& blob, uint8_t* object, std::string* error) {
-  for (const TrapField& f : kTrapFields) {
+template <std::size_t N>
+bool BuildConstantObject(const std::vector<uint8_t>& blob, const TrapField (&fields)[N], const char* what, uint8_t* object,
+                         std::string* error) {
+  for (const TrapField& f : fields) {
     std::size_t node = 0;
     for (int d = 0; d < f.depth; ++d) {
       if (!Child(blob, node, f.chain[d], &node)) {
-        *error = "trap.o: offset chain of runtime +0x" + std::to_string(f.dst) + " leaves the object";
+        *error = std::string(what) + ": offset chain of runtime +0x" + std::to_string(f.dst) + " leaves the object";
         return false;
       }
     }
     if (node + f.leaf + f.bytes > blob.size()) {
-      *error = "trap.o: leaf of runtime +" + std::to_string(f.dst) + " is past the end";
+      *error = std::string(what) + ": leaf of runtime +" + std::to_string(f.dst) + " is past the end";
       return false;
     }
     std::memcpy(object + f.dst, &blob[node + f.leaf], f.bytes);
@@ -119,6 +132,18 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
     *error = "trap: constant::Trap's loader slot is not FUN_141E67B70 in this exe";
     return std::nullopt;
   }
+  const auto padMaskFn = exe.ReadU64(kPadVtableVa + kPadVtableMaskSlot);
+  if (!padMaskFn || *padMaskFn != kPadMaskFnVa) {
+    *error = "trap: the pad manager's vtable slot +0x68 is not FUN_141B52340 in this exe";
+    return std::nullopt;
+  }
+  const auto ballLoader = exe.ReadU64(kBallVtableVa + kVtableLoaderSlotOffset);
+  if (!ballLoader || *ballLoader != kBallLoaderFnVa) {
+    *error = "trap: constant::Ball's loader slot is not FUN_141E73720 in this exe";
+    return std::nullopt;
+  }
+  std::vector<uint8_t> ball;
+  if (!ReadBallObject(vfs, &ball, error)) return std::nullopt;
   const auto animetable = LoadAnimetable(exe, vfs, error);
   if (!animetable) return std::nullopt;
   std::vector<uint8_t> trap;
@@ -150,6 +175,10 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
                     entry = arena.Alloc(kEntryBytes), object = arena.Alloc(kTrapRuntimeBytes),
                     cells = arena.Alloc(kAnimetableBufferBytes), records = arena.Alloc(kMotionSlotCount * kMotionRecordBytes);
   const std::size_t eyesObject = arena.Alloc(kEyesObjectBytes), eyesTable = arena.Alloc(kEyesTargetTableBytes);
+  const std::size_t pad = arena.Alloc(kPadObjectBytes);
+  const std::size_t ballEntry = arena.Alloc(kEntryBytes), ballObject = arena.Alloc(kBallRuntimeBytes);
+  Store64(arena.At(pad), kPadVtableVa);
+  arena.At(pad)[kPadLockOffset + kPadLockFlagOffset] = 1;  // FUN_1403FF3E0: set when the critical section initialised (always, on the live game)
   std::memcpy(arena.At(eyesTable), eyes->data(), eyes->size());  // FUN_1415A1708: the file's bytes, in once
   arena.At(eyesObject)[0] = 1;                                    // FUN_1406B4D40's loaded flag
   Store64(arena.At(eyesObject) + kEyesTablePtrOffset, arena.Va(eyesTable));
@@ -184,7 +213,11 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
 
   // constant::Trap: the class's vtable, then the slot-2 loader's stores.
   Store64(arena.At(object), kTrapVtableVa);
-  if (!BuildTrapObject(trap, arena.At(object), error)) return std::nullopt;
+  if (!BuildConstantObject(trap, kTrapFields, "trap.o", arena.At(object), error)) return std::nullopt;
+
+  // constant::Ball (registry id 4): the class's vtable, then its slot-2 loader's stores, from ball.o.
+  Store64(arena.At(ballObject), kBallVtableVa);
+  if (!BuildConstantObject(ball, kBallFields, "ball.o", arena.At(ballObject), error)) return std::nullopt;
 
   // The objects between the globals and the data.
   Store64(arena.At(table), arena.Va(records));
@@ -194,14 +227,19 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   Store64(arena.At(registry) + kRegistryCapOffset, arena.Va(array + 8 * (kTrapRegistryId + 1)));
   Store64(arena.At(array) + 8 * kTrapRegistryId, arena.Va(entry));
   Store64(arena.At(entry) + kEntryPayloadOffset, arena.Va(object));
+  Store64(arena.At(array) + 8 * kBallRegistryId, arena.Va(ballEntry));
+  Store64(arena.At(ballEntry) + kEntryPayloadOffset, arena.Va(ballObject));
 
   PesTrapLoaderData out;
   out.motionTableVa = arena.Va(table), out.motionRecordsVa = arena.Va(records), out.animeManagerVa = arena.Va(manager);
   out.animetableVa = arena.Va(cells), out.registryVa = arena.Va(registry), out.trapVa = arena.Va(object);
+  out.ballVa = arena.Va(ballObject);
   out.globals = {{kMotionTableGlobalVa, out.motionTableVa},
                  {kAnimeManagerGlobalVa, out.animeManagerVa},
                  {kRegistryGlobalVa, out.registryVa},
-                 {kEyesTargetGlobalVa, arena.Va(eyesObject)}};
+                 {kEyesTargetGlobalVa, arena.Va(eyesObject)},
+                 {kPadManagerGlobalVa, arena.Va(pad)}};
+  out.padMaskVa = arena.Va(pad + kPadMaskOffset);
   out.segment.va = kTrapLoaderVa;
   out.segment.bytes = arena.Take();
   return out;

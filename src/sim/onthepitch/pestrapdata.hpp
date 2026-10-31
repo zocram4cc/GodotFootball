@@ -26,6 +26,11 @@ inline constexpr uint64_t kRegistryGlobalVa = 0x1437F4808ULL;     // -> the cons
 // global is {u8 loaded = 1, +8 -> the file's bytes}; its loader FUN_1406B4D40 (class 0x1425DCE48) takes Eyestarget.bin whole.
 inline constexpr uint64_t kEyesTargetGlobalVa = 0x1436F2648ULL;
 inline constexpr const char* kEyesTargetPath = "common/anime/EyesTarget/bin/Eyestarget.bin";
+// The pad manager (FUN_141B51E80 makes the one object, 0x118 bytes, FUN_141B51400 constructs it): the singleton the action tick's input
+// gate reads (FUN_141B52380 -> vtable +0x68 = FUN_141B52340: u32 at +0xC8 under the critical section at +0x10, whose initialised flag
+// FUN_1403FF3E0 stores at +0x10+0x28). +0xC8 is the connected-pad bit mask, copied from +0xC0 by the device poll FUN_141B53060.
+inline constexpr uint64_t kPadManagerGlobalVa = 0x1437F0A58ULL;
+inline constexpr std::size_t kPadMaskOffset = 0xC8;
 
 // FUN_141E5CA20(registry, id): payload = *(*(array[id]) + 8). trap.o is object 35 of constant_player.bin, which follows
 // constant_match.bin's objects 0..26.
@@ -35,6 +40,10 @@ inline constexpr std::size_t kEyesTargetTableBytes = kMotionSlotCount * 4;  // F
 inline constexpr std::size_t kMotionRecordBytes = 0x390;
 inline constexpr std::size_t kAnimetableCellCount = 0xBE5 * 0x12;  // rows x columns, FUN_1406AA440
 inline constexpr std::size_t kTrapRuntimeBytes = 0x1D8;  // constant::Trap: the slot-2 loader's last store is +0x1D5
+// constant::Ball, registry id 4 (FUN_140874820): ball.o of constant_match.bin, the object the ball integrator FUN_140876360 reads as its
+// param_5; the slot-2 loader FUN_141E73720's last store is +0x2E8.
+inline constexpr uint32_t kBallRegistryId = 4;
+inline constexpr std::size_t kBallRuntimeBytes = 0x2EC;
 
 // The six Mbinfo files the chain and the action tick read, as FUN_1406AEF60 files them: kind (the file's index in the path table 0x14344DC40),
 // the list offset FUN_1406AE810 gives it inside a motion record, the record size, the motion key.
@@ -63,7 +72,10 @@ inline constexpr uint64_t kTrapLoaderVa = 0x2100000000ULL;
 struct PesTrapLoaderData {
   PesTrapSegment segment;                               // every loader object, at kTrapLoaderVa
   std::vector<std::pair<uint64_t, uint64_t>> globals;   // (image VA, pointer into the segment)
-  uint64_t motionTableVa = 0, motionRecordsVa = 0, animeManagerVa = 0, animetableVa = 0, registryVa = 0, trapVa = 0;
+  uint64_t motionTableVa = 0, motionRecordsVa = 0, animeManagerVa = 0, animetableVa = 0, registryVa = 0, trapVa = 0, ballVa = 0;
+  // The pad manager's connected-pad mask (u32). ponytail: 0 = no pad connected; PES's device poll FUN_141B53060 copies it from +0xC0
+  // (the input device layer's bits), which GF's input layer replaces; a test that replays a capture sets the capture's mask.
+  uint64_t padMaskVa = 0;
 
   // The segment's bytes at a VA, or null when [va, va + n) is outside it.
   const uint8_t* At(uint64_t va, std::size_t n) const {

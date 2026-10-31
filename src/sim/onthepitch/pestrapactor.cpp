@@ -218,6 +218,20 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
   ConstructActionTable(world, slot);
 }
 
+bool IsMemberStateCell(std::size_t pOffset) {
+  if (pOffset < kPMemberOffset) return false;
+  const std::size_t m = pOffset - kPMemberOffset;
+  const auto in = [m](std::size_t at, std::size_t n) { return m >= at && m < at + n; };
+  for (const std::size_t at : kMemberNoneOffset)
+    if (in(at, sizeof kMemberNoneIndex)) return true;
+  if (in(kMemberMinusOneOffset, 4) || in(kMemberOneOffset, 4) || in(kMemberFlagsOffset, sizeof kMemberFlagsInit) ||
+      in(kMemberScaleOffset, 4) || in(kMemberPairOffset, sizeof kMemberPairInit) || in(kMemberUnitRunOffset, 4 * kMemberUnitRunCount))
+    return true;
+  for (std::size_t k = 0; k < kMemberUnitTableCount; ++k)
+    if (in(kMemberUnitTableOffset + k * kMemberUnitTableStride + kMemberUnitTableCellOffset, 4)) return true;
+  return false;
+}
+
 void StartTrapAction(PesWorld& world, int slot) {
   uint8_t* p = world.P(slot);
   p[kPPrevActionOffset] = p[kPByteAC8Offset];

@@ -108,6 +108,11 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
 // tables), once per match when PES builds the actor, before any WriteActorP: the per-tick writes leave these bytes as the tick left them.
 void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c);
 
+// Whether P offset is a cell of the member constructor's start state (the "none" indices, -1/1 cells, flags, unit tables, scale, pair):
+// PES's trap start path (FUN_141EB3900 sets the +0x47E/+0x480 blend counters, the unit-table cells follow the layers) moves them in the
+// ticks before a mid-action window, which a GF match runs itself. The vtables and the member rate are not state: they stay derived.
+bool IsMemberStateCell(std::size_t pOffset);
+
 // The AnimPlugin constructor FUN_141B158F0's stores into the slot's O1 (nine layer objects, the self-pointing layer array at +0xB0; a
 // recording of the constructor from the image, pesanimplugin_stores.inc), once per match. NOT built (the constructor's heap calls, OPEN):
 // the parameter blocks at +0x90/+0x98/+0xD40..+0xD88 and +0x1370, and the base-class fields FUN_142397EA0 / FUN_1403CF7E0 set.
