@@ -81,3 +81,45 @@ void pes_native_heap_alloc(PesState& s);
 void pes_native_heap_free(PesState& s);
 void pes_native_heap_owns(PesState& s);
 void pes_native_heap_trim(PesState& s);
+
+// The CAMERA_TARGET registry the FixDemo camera's target tables look their records up in. PES keeps them in the game's
+// registry (a GameImpl at [0x1437F0AC8], +0x20 the RegistryImpl, whose find is vslot +0x70 = 0x141B6EAB0: hash the name,
+// walk a std::map behind an SRW lock, answer the node's typed handle). The table lookup 0x141B55730 reads a handle H
+// (vtable 0x142608698, refcount at +8) and keeps it in the entry's ref; the entry's info is *(H+0x10)+4. PesCameraRegistry
+// is the same object graph in GF memory for the 28 names "CAMERA_TARGET_%02d%02d" of one group: the GameImpl singleton,
+// a RegistryImpl whose vtable slot +0x70 is the dispatch table's native pes_native_registry_find (stubs.json
+// native_services) and whose +0x68 (insert) aborts, a handle table, and one record per slot in the arena. A name outside
+// the group answers 0: the lookup's not-found callback then runs and its creator reaches the aborting insert, a loud miss.
+struct PesCameraRegistry {
+  static constexpr uint64_t kGameImplSlotVa = 0x1437F0AC8;  // the singleton slot 0x141B55F40 reads
+  static constexpr uint64_t kGameSlotPageVa = 0x1437F0000, kGameSlotPageBytes = 0x1000;
+  // GF-private code VAs of the vtable slots: no PES function lives here; the dispatch table maps them to the natives.
+  static constexpr uint64_t kFindVa = 0x2500000070, kInsertVa = 0x2500000068;
+  static constexpr uint64_t kGameImplSlotWrapper = 0x14217D310;  // GameImpl vslot +0x38: returns this + 0x20 (translated)
+  static constexpr uint64_t kHandleVtableVa = 0x142608698;       // a registry handle's vtable (read from the install)
+  static constexpr unsigned kTargets = 28, kGroup = 2;
+  // A record's info (record + 4), the layout the readers 0x14089AD80 / 0x14089AC40 take: valid byte, ground position,
+  // two body points, facing. Units and axes are PES's (metres, y up; facing in degrees).
+  struct Target {
+    bool valid = false;
+    float ground[3] = {0, 0, 0};  // info +0x04
+    float pointA[3] = {0, 0, 0};  // info +0x10
+    float pointB[3] = {0, 0, 0};  // info +0x1C
+    float facingDeg = 0;          // info +0x28
+  };
+
+  // Builds the graph in `heap`'s arena and points the singleton slot at it in `s`. `s.mem` needs a writable segment over the
+  // slot's page (kGameSlotPageVa, kGameSlotPageBytes) and `s.heap` attached to `heap`.
+  PesCameraRegistry(PesHeap& heap, PesState& s);
+  // Writes slot's record (the camera-side readers see it at once: they hold the handle, not a copy).
+  void Set(PesState& s, unsigned slot, const Target& t) const;
+
+ private:
+  uint64_t handles_[kTargets] = {};
+  uint64_t records_[kTargets] = {};
+};
+
+// The dispatch table's native targets for the registry's vtable slots. rcx = the RegistryImpl, rdx = the name key
+// ({char* ptr, u64 length}), r8 = the type key; the answer is rax = the slot's handle, 0 for an unknown name.
+void pes_native_registry_find(PesState& s);
+void pes_native_registry_insert(PesState& s);

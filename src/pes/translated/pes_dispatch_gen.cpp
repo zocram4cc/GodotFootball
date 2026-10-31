@@ -4797,6 +4797,8 @@ void pes_native_heap_alloc(PesState& s);
 void pes_native_heap_free(PesState& s);
 void pes_native_heap_owns(PesState& s);
 void pes_native_heap_trim(PesState& s);
+void pes_native_registry_find(PesState& s);
+void pes_native_registry_insert(PesState& s);
 PesDispatch pes_dispatch_lookup(uint64_t t) {
   switch (t) {
     case 0x140001480ULL: return {pes_fn_140001480};
@@ -9596,6 +9598,8 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x141B34CB0ULL: return {pes_native_heap_alloc};
     case 0x141B34D80ULL: return {pes_native_heap_free};
     case 0x141B34DB0ULL: return {pes_native_heap_trim};
+    case 0x2500000068ULL: return {pes_native_registry_insert};
+    case 0x2500000070ULL: return {pes_native_registry_find};
     default: return {0};
   }
 }

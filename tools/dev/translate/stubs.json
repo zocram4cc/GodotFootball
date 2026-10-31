@@ -18,7 +18,9 @@
   {"va": "141B34CB0", "op": "heap_alloc", "why": ["forwarder vtable 0x142AC0090 +0x10: pool 1's alloc, same contract"]},
   {"va": "141B34D80", "op": "heap_free", "why": ["forwarder vtable 0x142AC0090 +0x08: pool 1's free, same contract"]},
   {"va": "141B34C30", "op": "heap_owns", "why": ["forwarder vtable 0x142AC0090 +0x30: pool 1's owns, same contract"]},
-  {"va": "141B34DB0", "op": "heap_trim", "why": ["forwarder vtable 0x142AC0090 +0x50: pool 1's trim, same contract"]}
+  {"va": "141B34DB0", "op": "heap_trim", "why": ["forwarder vtable 0x142AC0090 +0x50: pool 1's trim, same contract"]},
+  {"va": "2500000070", "op": "registry_find", "why": ["GF-private VA (no PES function): vtable slot +0x70 of PesCameraRegistry's RegistryImpl, standing for PES's find 0x141B6EAB0 (hash, tree walk behind an SRW lock, typed handle) over the 28 CAMERA_TARGET_%02d%02d records of one group"]},
+  {"va": "2500000068", "op": "registry_insert", "why": ["GF-private VA (no PES function): vtable slot +0x68 of PesCameraRegistry's RegistryImpl, standing for PES's insert 0x141B6EB70; aborts: GF's registry is fixed"]}
  ],
  "stubs": [
   {

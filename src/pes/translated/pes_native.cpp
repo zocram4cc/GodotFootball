@@ -114,3 +114,92 @@ void pes_native_heap_owns(PesState& s) { s.gpr[0] = 1; }
 
 // 0x1403FBEB0 hands free pages back to the OS: nothing to give back from a GF arena.
 void pes_native_heap_trim(PesState&) {}
+
+namespace {
+
+// The registry objects' layout (0x141B55730's reads): GameImpl +0 vtable (slot +0x38 = 0x14217D310, which returns this + 0x20)
+// and +0x20 the RegistryImpl; RegistryImpl +0 vtable (+0x68 insert, +0x70 find); a handle +0 vtable, +8 refcount, +0x10 the
+// record. A record is 0x30 bytes in the capture (pid3234533/seq6224, handle 0x33F4490: record +0 = 1, info from +4); the
+// registry's own tree sits at RegistryImpl +0x10, where GF keeps its handle table.
+constexpr uint64_t kGameVtableBytes = 0x40, kGameObjectBytes = 0x30, kGameVtableWrapperSlot = 0x38, kGameRegistryOff = 0x20;
+constexpr uint64_t kRegistryObjectBytes = 0x20, kRegistryVtableBytes = 0x78, kRegistryInsertSlot = 0x68, kRegistryFindSlot = 0x70,
+                   kRegistryTableOff = 0x10;
+constexpr uint64_t kHandleBytes = 0x18, kHandleRefcountOff = 8, kHandleRecordOff = 0x10, kRecordBytes = 0x30, kRecordHeader = 1;
+constexpr uint64_t kInfoOff = 4;  // info = record + 4: +0 valid byte, +4 ground, +0x10 point A, +0x1C point B, +0x28 facing
+constexpr uint64_t kInfoGround = 4, kInfoPointA = 0x10, kInfoPointB = 0x1C, kInfoFacing = 0x28;
+constexpr char kNamePrefix[] = "CAMERA_TARGET_";  // the format 0x142608750 up to its first conversion
+constexpr uint64_t kNamePrefixLen = sizeof(kNamePrefix) - 1, kNameDigits = 4;
+
+uint64_t HeapBlock(PesHeap& heap, uint64_t bytes, const char* what) {
+  const uint64_t va = heap.Alloc(bytes, PesHeap::kMinAlign);
+  if (!va) Die(what, bytes);
+  return va;
+}
+
+void PutFloats(PesState& s, uint64_t va, const float* f, unsigned n) {
+  for (unsigned i = 0; i < n; ++i) {
+    uint32_t bits;
+    std::memcpy(&bits, f + i, 4);
+    s.wr(va + 4 * i, bits, 4);
+  }
+}
+
+}  // namespace
+
+PesCameraRegistry::PesCameraRegistry(PesHeap& heap, PesState& s) {
+  const uint64_t game = HeapBlock(heap, kGameObjectBytes, "registry: no room for the GameImpl");
+  const uint64_t gameVt = HeapBlock(heap, kGameVtableBytes, "registry: no room for the GameImpl vtable");
+  const uint64_t reg = HeapBlock(heap, kRegistryObjectBytes, "registry: no room for the RegistryImpl");
+  const uint64_t regVt = HeapBlock(heap, kRegistryVtableBytes, "registry: no room for the RegistryImpl vtable");
+  const uint64_t table = HeapBlock(heap, 8ull * kTargets, "registry: no room for the handle table");
+  s.wr(game, gameVt, 8);
+  s.wr(gameVt + kGameVtableWrapperSlot, kGameImplSlotWrapper, 8);
+  s.wr(game + kGameRegistryOff, reg, 8);
+  s.wr(reg, regVt, 8);
+  s.wr(regVt + kRegistryInsertSlot, kInsertVa, 8);
+  s.wr(regVt + kRegistryFindSlot, kFindVa, 8);
+  s.wr(reg + kRegistryTableOff, table, 8);
+  for (unsigned i = 0; i < kTargets; ++i) {
+    records_[i] = HeapBlock(heap, kRecordBytes, "registry: no room for a record");
+    handles_[i] = HeapBlock(heap, kHandleBytes, "registry: no room for a handle");
+    s.wr(records_[i], kRecordHeader, 4);
+    s.wr(handles_[i], kHandleVtableVa, 8);
+    s.wr(handles_[i] + kHandleRefcountOff, 1, 4);  // the registry's own reference
+    s.wr(handles_[i] + kHandleRecordOff, records_[i], 8);
+    s.wr(table + 8ull * i, handles_[i], 8);
+  }
+  s.wr(kGameImplSlotVa, game, 8);
+}
+
+void PesCameraRegistry::Set(PesState& s, unsigned slot, const Target& t) const {
+  if (slot >= kTargets) Die("registry: no such camera target slot", slot);
+  const uint64_t info = records_[slot] + kInfoOff;
+  s.wr(info, t.valid ? 1 : 0, 1);
+  PutFloats(s, info + kInfoGround, t.ground, 3);
+  PutFloats(s, info + kInfoPointA, t.pointA, 3);
+  PutFloats(s, info + kInfoPointB, t.pointB, 3);
+  PutFloats(s, info + kInfoFacing, &t.facingDeg, 1);
+}
+
+// A name "CAMERA_TARGET_GGSS" of this group: the slot SS, else kTargets. Anything else (another group, a longer name, a
+// foreign prefix) is not in this registry.
+void pes_native_registry_find(PesState& s) {
+  const uint64_t key = s.gpr[2];
+  const uint64_t ptr = s.rd(key, 8), len = s.rd(key + 8, 8);
+  s.gpr[0] = 0;
+  if (len != kNamePrefixLen + kNameDigits) return;
+  for (uint64_t i = 0; i < kNamePrefixLen; ++i)
+    if (s.rd(ptr + i, 1) != static_cast<uint8_t>(kNamePrefix[i])) return;
+  unsigned digit[kNameDigits];
+  for (uint64_t i = 0; i < kNameDigits; ++i) {
+    const uint64_t c = s.rd(ptr + kNamePrefixLen + i, 1);
+    if (c < '0' || c > '9') return;
+    digit[i] = static_cast<unsigned>(c - '0');
+  }
+  const unsigned group = digit[0] * 10 + digit[1], slot = digit[2] * 10 + digit[3];
+  if (group != PesCameraRegistry::kGroup || slot >= PesCameraRegistry::kTargets) return;
+  s.gpr[0] = s.rd(s.rd(s.gpr[1] + kRegistryTableOff, 8) + 8ull * slot, 8);
+}
+
+// PES's insert adds a node; GF's registry is fixed, so a lookup that missed and tried to create is a bug upstream.
+void pes_native_registry_insert(PesState& s) { Die("registry insert of a name this registry does not hold; key", s.rd(s.gpr[2], 8)); }

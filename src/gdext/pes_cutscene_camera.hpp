@@ -3,11 +3,13 @@
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/packed_string_array.hpp>
+#include <memory>
 #include <optional>
 #include <vector>
 
 #include "gdext/pes_library.hpp"
 #include "pes/fdc.hpp"
+#include "pes/fixdemo_camera_rig.hpp"
 
 namespace godot {
 
@@ -26,9 +28,18 @@ class PesCutsceneCamera : public RefCounted {
   Error load_step(const Ref<PesLibrary>& library, int category, const PackedStringArray& names);
   // Opens vfs_path (a common/demo/fixdemo/... .fdc) and takes its camera record camera_index (the --fdc-file debug track).
   Error load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
-  // Poses camera for t_s seconds of the player clock. False when no clip camera is in force: before the first record's
-  // startCutTime, or when the record in force is procedural; the caller keeps its own camera then.
+  // Poses camera for t_s seconds of the player clock: a clip camera on the clock, a mode-4 procedural camera by its last
+  // advance(). False when no such camera is in force: before the first record's startCutTime, or when the record in force is
+  // a procedural record of another mode (ponytail: the engine 0x141F7BFE0 is proven only for mode 4); the caller keeps its own
+  // camera then.
   bool update(Camera3D* camera, double t_s);
+  // The step's procedural cameras (records with no CANM clip, mode 4): PES's engine 0x141F7BFE0 runs on the translated layer
+  // (pes::FixDemoCameraRig), once per logic frame. advance() steps the record in force with the step's player clock
+  // (seconds, the value cutscene_state() gives) and keeps the pose update() poses the camera with; set_target() writes
+  // CAMERA_TARGET_02<slot>, the record of the scene's actor the camera frames: ground position, the two body points the
+  // readers 0x14089AC40 take (Fox space = Godot space), facing in degrees. A no-op without a procedural track.
+  void advance(double t_s);
+  void set_target(int slot, const Vector3& ground, const Vector3& point_a, const Vector3& point_b, double facing_deg);
   // The option byte G(0x141F500D0)+0x522E of PES's fov widening for displays narrower than 16:9
   // (0x141F7B250). ponytail: GF has no such option, so it defaults to off; wire it to that option's GF
   // source when the settings are ported.
@@ -51,9 +62,13 @@ class PesCutsceneCamera : public RefCounted {
   struct Track {
     pes::fdc::CameraRecord record;
     std::optional<pes::fdc::Canm> canm;  // empty: a procedural record (empty anime path)
+    int rigId = -1;                      // a mode-4 procedural record: its FixDemoCamera in rig_
   };
   Error AddTrack(const Ref<PesLibrary>& library, const pes::fdc::File& file, const pes::fdc::CameraRecord& cam);
   std::vector<Track> tracks_;
+  const Track* InForce(float clock) const;
+  std::shared_ptr<pes::FixDemoCameraRig> rig_;
+  std::optional<pes::CameraPose> pose_;  // the last engine frame of the track in force
   std::optional<pes::fdc::PoseConstants> k_;
   pes::fdc::CutOffset stageDefault_;
   pes::fdc::File cutHolder_;  // only .cuts is filled: the Cut records the player's map holds

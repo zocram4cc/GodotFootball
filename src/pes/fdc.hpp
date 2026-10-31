@@ -51,6 +51,9 @@ struct CameraRecord {
   std::array<uint8_t, 4> targetBytes{};  // +0xb0 raw: targetKind and targetNo[3] (0xff = none)
   uint32_t zoomingTimeRate = 0;          // +0xb4
   std::array<int32_t, 8> zoom{};         // +0xb8: ZOOM_HEADUP..FULLSHOT_X4, ticks, -1 = off
+  // The record's bytes as stored (284): the procedural camera engine 0x141F7BFE0 reads the record in this layout through
+  // FixDemoCamera+0x130 (mode +0xB0, target +0xB1, zoom stages +0xB8.., style bytes +0xD8..+0xEE, floats +0xFC..+0x114).
+  std::vector<uint8_t> raw;
 };
 
 // Type 2, 92 bytes.

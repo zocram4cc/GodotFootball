@@ -11,12 +11,15 @@
 
 namespace godot {
 
+// The camera record's mode byte (+0xB0) of the procedural camera captured at a goal (docs/ports/pes-port-ProcCamera.md section 1).
+constexpr uint8_t kProceduralMode = 4;
+
 // A track for one camera record of `file`: the record's CANM clip (embedded, or a VFS file the resource names). A record with an
-// empty anime path is procedural: it gets a track without a clip.
-// ponytail: a procedural record (PES slot +0x50 SetProcedural 0x141F7B630, update 0x141F7BFE0) frames the record's
-// targetKind/targetNo humans with its zoom stages. That update is not ported, so such a record has no pose here: when it is the
-// one in force, update() returns false and the caller keeps its broadcast camera. The foul cut 0x20007 and the goal cmnCam
-// layers are made of them.
+// empty anime path is procedural (PES slot +0x50 SetProcedural 0x141F7B630, update 0x141F7BFE0): a mode-4 one (the record's
+// +0xB0) becomes a FixDemoCamera of the step's rig, whose engine frames pose it (advance); a procedural record of another
+// mode keeps a track without a clip, and update() returns false while it is in force.
+// ponytail: modes other than 4 (the foul cut 0x20007 and other cmnCam layers) are not proven on the translated engine, which
+// aborts loudly on a mode it was not captured in; the caller keeps its broadcast camera for them until a capture proves them.
 Error PesCutsceneCamera::AddTrack(const Ref<PesLibrary>& library, const pes::fdc::File& file, const pes::fdc::CameraRecord& cam) {
   Track track;
   track.record = cam;
@@ -42,6 +45,16 @@ Error PesCutsceneCamera::AddTrack(const Ref<PesLibrary>& library, const pes::fdc
       return ERR_PARSE_ERROR;
     }
     track.canm = std::move(canm);
+  } else if (cam.targetBytes[0] == kProceduralMode && library->exe()) {
+    if (!rig_) {
+      std::string err;
+      rig_ = pes::FixDemoCameraRig::Create(*library->exe(), &err);
+      if (!rig_) {
+        UtilityFunctions::push_error(String("PesCutsceneCamera: no procedural camera rig: ") + err.c_str());
+        return ERR_UNAVAILABLE;
+      }
+    }
+    track.rigId = int(rig_->AddCamera(cam.raw));
   }
   tracks_.push_back(std::move(track));
   return OK;
@@ -92,16 +105,57 @@ Error PesCutsceneCamera::load_step(const Ref<PesLibrary>& library, int category,
   return OK;
 }
 
+// INF (docs/ports/pes-port-CutsceneTiming.md section 5): the record in force is the last one started on the clock; records
+// that start at the same tick are not told apart (ponytail: PES picks among them by the records' selectByRate, 23
+// percentages; the first of them in layer order stands in until 0x141F42110 is decoded).
+const PesCutsceneCamera::Track* PesCutsceneCamera::InForce(float clock) const {
+  const Track* force = nullptr;
+  for (const Track& t : tracks_)
+    if (t.record.startTime <= clock && (!force || t.record.startTime > force->record.startTime)) force = &t;
+  return force;
+}
+
+// The player time the engine takes (1/60 s ticks): the record's own clock, started at its startCutTime unless the record
+// plays on the player clock as is (timeMode 0), as the clip path reads it (docs/re/pes-re-camera-pose.md).
+static float RecordTicks(const pes::fdc::CameraRecord& r, float clock) { return r.timeMode ? clock - r.startTime : clock; }
+
+void PesCutsceneCamera::set_target(int slot, const Vector3& ground, const Vector3& point_a, const Vector3& point_b, double facing_deg) {
+  if (!rig_ || slot < 0 || slot >= int(pes::PesCameraRegistry::kTargets)) return;
+  pes::PesCameraRegistry::Target t;
+  t.valid = true;
+  t.ground[0] = float(ground.x), t.ground[1] = float(ground.y), t.ground[2] = float(ground.z);
+  t.pointA[0] = float(point_a.x), t.pointA[1] = float(point_a.y), t.pointA[2] = float(point_a.z);
+  t.pointB[0] = float(point_b.x), t.pointB[1] = float(point_b.y), t.pointB[2] = float(point_b.z);
+  t.facingDeg = float(facing_deg);
+  rig_->SetTarget(unsigned(slot), t);
+}
+
+void PesCutsceneCamera::advance(double t_s) {
+  if (!rig_ || !k_) return;
+  const float clock = float(t_s) * k_->sixty;
+  const Track* force = InForce(clock);
+  if (!force || force->rigId < 0) return;
+  pose_ = rig_->Step(size_t(force->rigId), RecordTicks(force->record, clock));
+}
+
 bool PesCutsceneCamera::update(Camera3D* camera, double t_s) {
   if (!camera || !k_) return false;
   const pes::fdc::PoseConstants& k = *k_;
   const float clock = float(t_s) * k.sixty;
-  // INF (docs/ports/pes-port-CutsceneTiming.md section 5): the record in force is the last one started on the clock; records
-  // that start at the same tick are not told apart (ponytail: PES picks among them by the records' selectByRate, 23
-  // percentages; the first of them in layer order stands in until 0x141F42110 is decoded).
-  const Track* force = nullptr;
-  for (const Track& t : tracks_)
-    if (t.record.startTime <= clock && (!force || t.record.startTime > force->record.startTime)) force = &t;
+  const Track* force = InForce(clock);
+  if (force && force->rigId >= 0) {
+    if (!pose_) return false;  // advance() has not run for this camera yet
+    // The engine's params: eye, target and up (Fox space), the vertical fov in radians, near and far.
+    const Vector3 eye(pose_->eye[0], pose_->eye[1], pose_->eye[2]), target(pose_->target[0], pose_->target[1], pose_->target[2]);
+    const Vector3 back = (eye - target).normalized();
+    const Vector3 right = Vector3(pose_->up[0], pose_->up[1], pose_->up[2]).cross(back).normalized();
+    camera->set_keep_aspect_mode(Camera3D::KEEP_HEIGHT);
+    camera->set_fov(pose_->fovRad * k.oneEighty / k.pi);
+    camera->set_near(pose_->nearM);
+    camera->set_far(pose_->farM);
+    camera->set_global_transform(Transform3D(Basis(right, back.cross(right), back), eye));
+    return true;
+  }
   if (!force || !force->canm) return false;
   // ponytail: a record's height correction (target height from 0x141F7E3C0) is 0 here: no FixDemo player
   // supplies a target. Replace it with that player's value when it is ported (the entrance records have rate 0).
@@ -125,6 +179,8 @@ void PesCutsceneCamera::_bind_methods() {
   ClassDB::bind_method(D_METHOD("load_step", "library", "category", "names"), &PesCutsceneCamera::load_step);
   ClassDB::bind_method(D_METHOD("load_file", "library", "vfs_path", "camera_index"), &PesCutsceneCamera::load_file);
   ClassDB::bind_method(D_METHOD("update", "camera", "t_s"), &PesCutsceneCamera::update);
+  ClassDB::bind_method(D_METHOD("advance", "t_s"), &PesCutsceneCamera::advance);
+  ClassDB::bind_method(D_METHOD("set_target", "slot", "ground", "point_a", "point_b", "facing_deg"), &PesCutsceneCamera::set_target);
   ClassDB::bind_method(D_METHOD("set_widescreen_fix", "on"), &PesCutsceneCamera::set_widescreen_fix);
   ClassDB::bind_method(D_METHOD("set_stage_default", "pos", "rot_y_deg", "flip"), &PesCutsceneCamera::set_stage_default);
 }

@@ -42,6 +42,7 @@ CameraRecord DecodeCamera(const uint8_t* r, size_t n) {
   auto u32 = [&](size_t off) { return off + 4 <= n ? Le32(r + off) : 0u; };
   auto f32 = [&](size_t off) { return off + 4 <= n ? LeF32(r + off) : 0.0f; };
   CameraRecord c;
+  c.raw.assign(r, r + n);
   c.key = u32(0x00);
   c.startTime = f32(0x04);
   c.originalCameraId = 0x08 + 2 <= n ? Le16(r + 0x08) : uint16_t(0);

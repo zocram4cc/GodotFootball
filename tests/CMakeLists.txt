@@ -190,6 +190,10 @@ add_executable(pes_goal_anchor_test pes_goal_anchor_test.cpp)
 target_link_libraries(pes_goal_anchor_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_goal_anchor_test)
 
+add_executable(pes_proc_camera_test pes_proc_camera_test.cpp)
+target_link_libraries(pes_proc_camera_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_proc_camera_test)
+
 add_executable(pes_fox2_test pes_fox2_test.cpp)
 target_link_libraries(pes_fox2_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fox2_test)
