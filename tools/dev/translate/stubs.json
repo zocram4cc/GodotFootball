@@ -3591,6 +3591,162 @@
    }
   },
   {
+   "va": "1415A187C",
+   "callers": [
+    "1422F97A0"
+   ],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x1425301C8] (FF25 at 1415A187C); the slot's dump-time value 0x6FFFFEC8A480 is ucrtbase.dll!_isnan (SnapMem.export_of on live2/pid3234533/seq6220); the FixDemo procedural camera's position setter 0x1422F97A0 calls it with cvtps2pd xmm0 (double in xmm0, int in eax)",
+    "the export's code (read from the snapshot, 0x6FFFFEC8A480): rcx = bits(xmm0) & 0x7FFFFFFFFFFFFFFF; eax = (rcx > 0x7FF0000000000000) as 0/1. The model is that comparison, exact"
+   ],
+   "model": {
+    "op": "_isnan",
+    "arg": "xmm0",
+    "ret": "eax",
+    "enc": "f64",
+    "caveat": "exact: the export's own integer test; clobbers nothing the callers read besides eax"
+   }
+  },
+  {
+   "va": "1415A1876",
+   "callers": [
+    "142139AB0"
+   ],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x1425301D8] (FF25 at 1415A1876); the slot's dump-time value 0x6FFFFEC84BF0 is ucrtbase.dll!floorf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape floorf(x)->xmm0 (the CANM evaluator 0x142139AB0 calls it at 0x142139B57, pes-re-camera-pose.md 1.2)"
+   ],
+   "model": {
+    "op": "floorf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "exact: floor is correctly rounded in every libm (the result is an integer-valued float or the input itself)"
+   }
+  },
+  {
+   "va": "1415A17AA",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530240] (FF25 at 1415A17AA); the slot's dump-time value 0x6FFFFEC83F20 is ucrtbase.dll!atanf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape atanf(x)->xmm0 (FixDemoCamera's fov widening 0x141F7B250 calls it)",
+    "entered by the procedural camera engine's replay of live2/pid3234533/seq6220 (ucrtbase.dll!atanf at 0x6FFFFEC83F20)"
+   ],
+   "model": {
+    "op": "atanf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A1798",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530228] (FF25 at 1415A1798); the slot's dump-time value 0x6FFFFEC829D0 is ucrtbase.dll!acosf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape acosf(x)->xmm0 (the CANM slerp 0x140A93210 calls it)",
+    "a sibling of the closure's asinf/atan2f thunks"
+   ],
+   "model": {
+    "op": "acosf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A1792",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530218] (FF25 at 1415A1792); the slot's dump-time value 0x6FFFFEC80D90 is ucrtbase.dll!sinf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape sinf(x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure (closure.py --dry-run 0x141F7BFE0)"
+   ],
+   "model": {
+    "op": "sinf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F (test_libm_models.py); an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A178C",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530208] (FF25 at 1415A178C); the slot's dump-time value 0x6FFFFEC7B9C0 is ucrtbase.dll!cosf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape cosf(x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure (closure.py --dry-run 0x141F7BFE0)"
+   ],
+   "model": {
+    "op": "cosf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F (test_libm_models.py); an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A17D4",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x1425301F8] (FF25 at 1415A17D4); the slot's dump-time value 0x6FFFFEC82070 is ucrtbase.dll!tanf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape tanf(x)->xmm0 (FixDemoCamera's fov widening 0x141F7B250 calls it)",
+    "a member of the FixDemo procedural camera's static closure"
+   ],
+   "model": {
+    "op": "tanf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A179E",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530230] (FF25 at 1415A179E); the slot's dump-time value 0x6FFFFEC82F00 is ucrtbase.dll!asinf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape asinf(x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure"
+   ],
+   "model": {
+    "op": "asinf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A17A4",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530238] (FF25 at 1415A17A4); the slot's dump-time value 0x6FFFFEC83AD0 is ucrtbase.dll!atan2f (SnapMem.export_of on live2/pid3234533/seq6220); two-xmm call shape atan2f(y,x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure"
+   ],
+   "model": {
+    "op": "atan2f",
+    "arg": "xmm0,xmm1",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
    "va": "141863350",
    "callers": [
     "1405CE4F0",

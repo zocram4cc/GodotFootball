@@ -549,6 +549,21 @@ def import_model_lines(op, jump):
         # RtlSetLastWin32Error(ecx): TEB.LastErrorValue (gs:[0x30]+0x68) = ecx; rax = the TEB self pointer (the machine code).
         return ["{ " + push_ret + " uint64_t _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[0] = _self;"
                 " s.wr(_self + 0x68ULL, s.gpr[1] & 0xFFFFFFFFULL, 4);%s }" % pop_ret]
+    if e["do"] == "isnan":
+        # ucrtbase _isnan(xmm0 = double): the code_hex model register for register. The caller's home slot [rsp+8] (the
+        # callee's rsp+8 after the return address) takes the bits of x; rcx = |x| bits; rdx = +inf bits; rax = 0 or 1.
+        return ["{ " + push_ret + " uint64_t _b = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _b, 8);"
+                " s.gpr[1] = _b & 0x7FFFFFFFFFFFFFFFULL; s.gpr[2] = 0x7FF0000000000000ULL;"
+                " s.gpr[0] = (s.gpr[1] > s.gpr[2]) ? 1ULL : 0ULL;%s }" % pop_ret]
+    if e["do"] == "floorf":
+        # floorf(xmm0 = float): roundss xmm0,xmm0,9 (the code_hex model): the low float is the floor, bits 32-127 stay.
+        return ["{ " + push_ret + " s.set_x_f32(0, pes_model_floorf(s.x_f32(0)));%s }" % pop_ret]
+    if e["do"] == "finite":
+        # ucrtbase _finite(xmm0 = double): the code_hex model register for register. The home slot [rsp+8] takes the bits of x;
+        # rcx = +inf bits; rax = ((|x| bits - +inf bits) >> 63) = 1 for a finite x, else 0.
+        return ["{ " + push_ret + " uint64_t _b = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _b, 8);"
+                " s.gpr[1] = 0x7FF0000000000000ULL;"
+                " s.gpr[0] = ((_b & 0x7FFFFFFFFFFFFFFFULL) - s.gpr[1]) >> 63;%s }" % pop_ret]
     if e["do"] == "fdtest":
         # ucrtbase _fdtest(rcx=float*): the code_hex model register for register. exp = the word at +2 & 0x7F80 (left in rdx);
         # all-ones exponent: 1 for an infinity (mantissa zero), else 2; else a zero is 0; else the exponent negated in dx
@@ -2191,6 +2206,14 @@ def stub_lines(do):
         return ["s.set_x_f32(0, pes_model_logf(s.x_f32(0)));"]
     if do == "powf_xmm0":
         return ["s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));"]
+    if do == "isnan_xmm0":
+        return ["s.gpr[0] = (uint64_t)pes_model_isnan(s.x_f64(0));"]
+    if do == "floorf_xmm0":
+        return ["s.set_x_f32(0, pes_model_floorf(s.x_f32(0)));"]
+    if do in ("sinf_xmm0", "cosf_xmm0", "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0"):
+        return ["s.set_x_f32(0, pes_model_%s(s.x_f32(0)));" % do[:-5]]
+    if do == "atan2f_xmm0":
+        return ["s.set_x_f32(0, pes_model_atan2f(s.x_f32(0), s.x_f32(1)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":

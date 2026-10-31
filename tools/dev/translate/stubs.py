@@ -36,12 +36,15 @@ DO_BY_KIND = {
     "return-input": {"sqrtf": "sqrt_xmm0"},
     "engine-noop": {None: "noop"},
     "abort-trap": {"abort": "abort"},
-    "libm": {"logf": "logf_xmm0", "powf": "powf_xmm0"},
+    "libm": {"logf": "logf_xmm0", "powf": "powf_xmm0", "_isnan": "isnan_xmm0", "floorf": "floorf_xmm0",
+             "sinf": "sinf_xmm0", "cosf": "cosf_xmm0", "tanf": "tanf_xmm0", "asinf": "asinf_xmm0",
+             "atanf": "atanf_xmm0", "acosf": "acosf_xmm0", "atan2f": "atan2f_xmm0"},
     "run-real": {None: None},
     "run-real-closure": {None: None},
     "unmodellable": {None: "unmodellable"},
 }
-KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0",
+KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0",
+            "cosf_xmm0", "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0",
             "unmodellable", None}
 
 
@@ -67,7 +70,8 @@ def load(path=DEFAULT):
     return table
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
-MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "noop", "abort"})
+MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0", "cosf_xmm0",
+                       "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0", "noop", "abort"})
 
 
 def models(table):

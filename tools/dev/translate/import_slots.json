@@ -322,9 +322,8 @@
    "module": "kernel32.dll"
   },
   "0x14252F3E0": {
-   "export": "ReadFile",
-   "kind": "export",
-   "module": "kernel32.dll"
+   "kind": "no-exact-export",
+   "module": "sider.dll"
   },
   "0x14252F3F0": {
    "export": "CreateEventA",
@@ -527,253 +526,419 @@
    "module": "ntdll.dll"
   },
   "0x14252F730": {
-   "kind": "unmapped"
+   "export": "?__ExceptionPtrCopy@@YAXPEAXPEBX@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F738": {
-   "kind": "unmapped"
+   "export": "?__ExceptionPtrAssign@@YAXPEAXPEBX@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F740": {
-   "kind": "unmapped"
+   "export": "?__ExceptionPtrToBool@@YA_NPEBX@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F750": {
-   "kind": "unmapped"
+   "export": "?__ExceptionPtrCopyException@@YAXPEAXPEBX1@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F758": {
-   "kind": "unmapped"
+   "export": "?_Syserror_map@std@@YAPEBDH@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F760": {
-   "kind": "unmapped"
+   "export": "_Cnd_broadcast",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F768": {
-   "kind": "unmapped"
+   "export": "_Cnd_register_at_thread_exit",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F770": {
-   "kind": "unmapped"
+   "export": "_Cnd_unregister_at_thread_exit",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F778": {
-   "kind": "unmapped"
+   "export": "?_Throw_future_error@std@@YAXAEBVerror_code@1@@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F780": {
-   "kind": "unmapped"
+   "export": "?_Rethrow_future_exception@std@@YAXVexception_ptr@1@@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F798": {
-   "kind": "unmapped"
+   "export": "??5?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@AEAI@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7A0": {
-   "kind": "unmapped"
+   "export": "_Mtx_trylock",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7A8": {
-   "kind": "unmapped"
+   "export": "?uflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7B0": {
-   "kind": "unmapped"
+   "export": "?sync@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@MEAAHXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7B8": {
-   "kind": "unmapped"
+   "export": "?setbuf@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@MEAAPEAV12@PEA_W_J@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7C0": {
-   "kind": "unmapped"
+   "export": "?isfx@?$basic_istream@_WU?$char_traits@_W@std@@@std@@QEAAXXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7C8": {
-   "kind": "unmapped"
+   "export": "?isfx@?$basic_istream@_WU?$char_traits@_W@std@@@std@@QEAAXXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7D0": {
-   "kind": "unmapped"
+   "export": "?isfx@?$basic_istream@_WU?$char_traits@_W@std@@@std@@QEAAXXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7D8": {
-   "kind": "unmapped"
+   "export": "?__ExceptionPtrDestroy@@YAXPEAX@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7E0": {
-   "kind": "unmapped"
+   "export": "?__ExceptionPtrCreate@@YAXPEAX@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F7E8": {
-   "kind": "unmapped"
+   "export": "?_Ipfx@?$basic_istream@DU?$char_traits@D@std@@@std@@QEAA_N_N@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F800": {
-   "kind": "unmapped"
+   "export": "??Bios_base@std@@QEBA_NXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F808": {
-   "kind": "unmapped"
+   "export": "?_Throw_Cpp_error@std@@YAXH@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F810": {
-   "kind": "unmapped"
+   "export": "?snextc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@QEAAHXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F818": {
-   "kind": "unmapped"
+   "export": "?sgetc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@QEAAHXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F820": {
-   "kind": "unmapped"
+   "export": "?_Xbad_function_call@std@@YAXXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F828": {
-   "kind": "unmapped"
+   "export": "_Cnd_init_in_situ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F830": {
-   "kind": "unmapped"
+   "export": "_Cnd_wait",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F838": {
-   "kind": "unmapped"
+   "export": "_Cnd_signal",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F840": {
-   "kind": "unmapped"
+   "export": "_Lock_shared_ptr_spin_lock",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F848": {
-   "kind": "unmapped"
+   "export": "_Unlock_shared_ptr_spin_lock",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F850": {
-   "kind": "unmapped"
+   "export": "??5?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@AEAG@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F858": {
-   "kind": "unmapped"
+   "export": "??5?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@AEAH@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F860": {
-   "kind": "unmapped"
+   "export": "_Xtime_get_ticks",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F868": {
-   "kind": "unmapped"
+   "export": "_Mtx_current_owns",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F870": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV01@P6AAEAVios_base@1@AEAV21@@Z@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F878": {
-   "kind": "unmapped"
+   "export": "?_Throw_C_error@std@@YAXH@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F880": {
-   "kind": "unmapped"
+   "export": "_Cnd_destroy_in_situ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F888": {
-   "kind": "unmapped"
+   "export": "_Mtx_unlock",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F890": {
-   "kind": "unmapped"
+   "export": "_Mtx_lock",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F898": {
-   "kind": "unmapped"
+   "export": "??5?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@AEA_K@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8A0": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@N@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8A8": {
-   "kind": "unmapped"
+   "export": "_Mtx_destroy_in_situ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8B0": {
-   "kind": "unmapped"
+   "export": "_Mtx_init_in_situ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8B8": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@G@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8C0": {
-   "kind": "unmapped"
+   "export": "?sbumpc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@QEAAHXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8D8": {
-   "kind": "unmapped"
+   "export": "?xsputn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JPEBD_J@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8E0": {
-   "kind": "unmapped"
+   "export": "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JPEAD_J@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8E8": {
-   "kind": "unmapped"
+   "export": "?sync@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@MEAAHXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F8F8": {
-   "kind": "unmapped"
+   "export": "?flush@?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV12@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F908": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@_K@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F910": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@K@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F918": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@H@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F928": {
-   "kind": "unmapped"
+   "export": "?_Osfx@?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAXXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F930": {
-   "kind": "unmapped"
+   "export": "??1?$basic_ostream@DU?$char_traits@D@std@@@std@@UEAA@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F938": {
-   "kind": "unmapped"
+   "export": "?_Xinvalid_argument@std@@YAXPEBD@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F940": {
-   "kind": "unmapped"
+   "export": "??0?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAA@PEAV?$basic_streambuf@DU?$char_traits@D@std@@@1@_N@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F948": {
-   "kind": "unmapped"
+   "export": "??0?$basic_ios@DU?$char_traits@D@std@@@std@@IEAA@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F958": {
-   "kind": "unmapped"
+   "export": "?setstate@?$basic_ios@_WU?$char_traits@_W@std@@@std@@QEAAXH_N@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F960": {
-   "kind": "unmapped"
+   "export": "?clear@?$basic_ios@_WU?$char_traits@_W@std@@@std@@QEAAXH_N@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F968": {
-   "kind": "unmapped"
+   "export": "??1?$basic_ios@_WU?$char_traits@_W@std@@@std@@UEAA@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F970": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@_N@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F978": {
-   "kind": "unmapped"
+   "export": "?_Random_device@std@@YAIXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F988": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@M@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F990": {
-   "kind": "unmapped"
+   "export": "?setw@std@@YA?AU?$_Smanip@_J@1@_J@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F9B0": {
-   "kind": "unmapped"
+   "export": "?getloc@ios_base@std@@QEBA?AVlocale@2@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F9B8": {
-   "kind": "unmapped"
+   "export": "?_Getcat@?$ctype@D@std@@SA_KPEAPEBVfacet@locale@2@PEBV42@@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F9E8": {
-   "kind": "unmapped"
+   "export": "?toupper@?$ctype@_W@std@@QEBAPEB_WPEA_WPEB_W@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F9F0": {
-   "kind": "unmapped"
+   "export": "?sputc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@QEAAHD@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252F9F8": {
-   "kind": "unmapped"
+   "export": "_Cnd_timedwait",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA08": {
-   "kind": "unmapped"
+   "export": "??1?$basic_streambuf@DU?$char_traits@D@std@@@std@@UEAA@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA10": {
-   "kind": "unmapped"
+   "export": "??0?$basic_streambuf@DU?$char_traits@D@std@@@std@@IEAA@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA28": {
-   "kind": "unmapped"
+   "export": "?_Xlength_error@std@@YAXPEBD@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA30": {
-   "kind": "unmapped"
+   "export": "?_Xout_of_range@std@@YAXPEBD@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA38": {
-   "kind": "unmapped"
+   "export": "??0_Lockit@std@@QEAA@H@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA40": {
-   "kind": "unmapped"
+   "export": "??1_Lockit@std@@QEAA@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA48": {
-   "kind": "unmapped"
+   "export": "?uncaught_exception@std@@YA_NXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA50": {
-   "kind": "unmapped"
+   "export": "?_Xbad_alloc@std@@YAXXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA58": {
-   "kind": "unmapped"
+   "export": "??Bid@locale@std@@QEAA_KXZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FA60": {
-   "kind": "unmapped"
+   "export": "?_Getgloballocale@locale@std@@CAPEAV_Locimp@12@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FAB0": {
-   "kind": "unmapped"
+   "export": "??1?$basic_iostream@DU?$char_traits@D@std@@@std@@UEAA@XZ",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FAC8": {
-   "kind": "unmapped"
+   "export": "??0?$basic_iostream@DU?$char_traits@D@std@@@std@@QEAA@PEAV?$basic_streambuf@DU?$char_traits@D@std@@@1@@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FB08": {
-   "kind": "unmapped"
+   "export": "??6?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV01@P6AAEAVios_base@1@AEAV21@@Z@Z",
+   "kind": "export",
+   "module": "MSVCP140.dll"
   },
   "0x14252FB28": {
    "export": "SHGetSpecialFolderPathW",
@@ -806,16 +971,24 @@
    "module": "user32.dll"
   },
   "0x14252FD48": {
-   "kind": "unmapped"
+   "export": "wcsstr",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD50": {
-   "kind": "unmapped"
+   "export": "__std_type_info_compare",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD58": {
-   "kind": "unmapped"
+   "export": "strrchr",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD60": {
-   "kind": "unmapped"
+   "export": "strchr",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD68": {
    "export": "memmove",
@@ -828,31 +1001,49 @@
    "module": "msvcrt.dll"
   },
   "0x14252FD80": {
-   "kind": "unmapped"
+   "export": "_purecall",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD88": {
-   "kind": "unmapped"
+   "export": "__std_exception_copy",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD90": {
-   "kind": "unmapped"
+   "export": "__std_exception_destroy",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FD98": {
-   "kind": "unmapped"
+   "export": "memset",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FDA0": {
-   "kind": "unmapped"
+   "export": "memcmp",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FDA8": {
-   "kind": "unmapped"
+   "export": "strstr",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FDC8": {
-   "kind": "unmapped"
+   "export": "memchr",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FDD0": {
-   "kind": "unmapped"
+   "export": "__intrinsic_setjmp",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FDE0": {
-   "kind": "unmapped"
+   "export": "_CxxThrowException",
+   "kind": "export",
+   "module": "VCRUNTIME140.dll"
   },
   "0x14252FDF0": {
    "export": "WinHttpCheckPlatform",
@@ -1100,73 +1291,119 @@
    "module": "ws2_32.dll"
   },
   "0x142530048": {
-   "kind": "unmapped"
+   "export": "wcstombs_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530050": {
-   "kind": "unmapped"
+   "export": "mbstowcs_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530058": {
-   "kind": "unmapped"
+   "export": "atol",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530078": {
-   "kind": "unmapped"
+   "export": "wcstombs",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530080": {
-   "kind": "unmapped"
+   "export": "mbstowcs",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530088": {
-   "kind": "unmapped"
+   "export": "_ui64tow_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530098": {
-   "kind": "unmapped"
+   "export": "strtoul",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425300A0": {
-   "kind": "unmapped"
+   "export": "strtol",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425300A8": {
-   "kind": "unmapped"
+   "export": "strtoll",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425300B0": {
-   "kind": "unmapped"
+   "export": "atof",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425300C8": {
-   "kind": "unmapped"
+   "export": "getenv",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425300D8": {
-   "kind": "unmapped"
+   "export": "remove",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425300F0": {
-   "kind": "unmapped"
+   "export": "rename",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425300F8": {
-   "kind": "unmapped"
+   "export": "_stat64i32",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530108": {
-   "kind": "unmapped"
+   "export": "free",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530110": {
-   "kind": "unmapped"
+   "export": "realloc",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530118": {
-   "kind": "unmapped"
+   "export": "malloc",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530158": {
-   "kind": "unmapped"
+   "export": "_free_locale",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530160": {
-   "kind": "unmapped"
+   "export": "_create_locale",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530190": {
-   "kind": "unmapped"
+   "export": "roundf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530198": {
-   "kind": "unmapped"
+   "export": "fmodf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301B0": {
-   "kind": "unmapped"
+   "export": "log10f",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301B8": {
-   "kind": "unmapped"
+   "export": "ceilf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301C0": {
    "export": "_fdtest",
@@ -1174,208 +1411,344 @@
    "module": "ucrtbase.dll"
   },
   "0x1425301C8": {
-   "kind": "unmapped"
+   "export": "_isnan",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301D0": {
-   "kind": "unmapped"
+   "export": "_finite",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301D8": {
-   "kind": "unmapped"
+   "export": "floorf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301E0": {
-   "kind": "unmapped"
+   "export": "pow",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301F0": {
-   "kind": "unmapped"
+   "export": "sqrtf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425301F8": {
-   "kind": "unmapped"
+   "export": "tanf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530208": {
-   "kind": "unmapped"
+   "export": "cosf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530218": {
-   "kind": "unmapped"
+   "export": "sinf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530228": {
-   "kind": "unmapped"
+   "export": "acosf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530230": {
-   "kind": "unmapped"
+   "export": "asinf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530238": {
-   "kind": "unmapped"
+   "export": "atan2f",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530240": {
-   "kind": "unmapped"
+   "export": "atanf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530248": {
-   "kind": "unmapped"
+   "export": "ceil",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530258": {
-   "kind": "unmapped"
+   "export": "expf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530260": {
-   "kind": "unmapped"
+   "export": "floor",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530278": {
-   "kind": "unmapped"
+   "export": "logf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530290": {
-   "kind": "unmapped"
+   "export": "powf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425302A8": {
-   "kind": "unmapped"
+   "export": "sqrt",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425302B8": {
-   "kind": "unmapped"
+   "export": "sin",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425302D8": {
-   "kind": "unmapped"
+   "export": "cos",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425302E0": {
-   "kind": "unmapped"
+   "export": "atan2",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530308": {
-   "kind": "unmapped"
+   "export": "_beginthreadex",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530368": {
-   "kind": "unmapped"
+   "export": "raise",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530378": {
-   "kind": "unmapped"
+   "export": "_errno",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530380": {
-   "kind": "unmapped"
+   "export": "_invalid_parameter_noinfo_noreturn",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425303A8": {
-   "kind": "unmapped"
+   "export": "_invalid_parameter_noinfo",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425303E8": {
-   "kind": "unmapped"
+   "export": "_exit",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425303F8": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vswprintf_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530410": {
-   "kind": "unmapped"
+   "export": "_write",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530418": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vswprintf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530428": {
-   "kind": "unmapped"
+   "export": "fclose",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530438": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vsprintf_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425304B0": {
-   "kind": "unmapped"
+   "export": "fwrite",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425304D0": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vsscanf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425304D8": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vsprintf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425304F8": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vfprintf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530518": {
-   "kind": "unmapped"
+   "export": "__acrt_iob_func",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530538": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vfwprintf",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530550": {
-   "kind": "unmapped"
+   "export": "_wfopen_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530560": {
-   "kind": "unmapped"
+   "export": "__stdio_common_vsnprintf_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530570": {
-   "kind": "unmapped"
+   "export": "wcsncmp",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530588": {
-   "kind": "unmapped"
+   "export": "_stricmp",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530590": {
-   "kind": "unmapped"
+   "export": "_strnicmp",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425305A0": {
-   "kind": "unmapped"
+   "export": "strcmp",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425305A8": {
-   "kind": "unmapped"
+   "export": "wcsncat_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425305B0": {
-   "kind": "unmapped"
+   "export": "isdigit",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425305B8": {
-   "kind": "unmapped"
+   "export": "isalpha",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425305C0": {
-   "kind": "unmapped"
+   "export": "tolower",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425305C8": {
-   "kind": "unmapped"
+   "export": "strncpy_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425305D8": {
-   "kind": "unmapped"
+   "export": "toupper",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530610": {
-   "kind": "unmapped"
+   "export": "isalnum",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530618": {
-   "kind": "unmapped"
+   "export": "strpbrk",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530628": {
-   "kind": "unmapped"
+   "export": "isspace",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530630": {
-   "kind": "unmapped"
+   "export": "strncpy",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530638": {
-   "kind": "unmapped"
+   "export": "strlen",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530640": {
-   "kind": "unmapped"
+   "export": "strcspn",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530648": {
-   "kind": "unmapped"
+   "export": "strnlen",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530650": {
-   "kind": "unmapped"
+   "export": "strncmp",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530658": {
-   "kind": "unmapped"
+   "export": "strcat_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530660": {
-   "kind": "unmapped"
+   "export": "strcpy_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530678": {
-   "kind": "unmapped"
+   "export": "strspn",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530698": {
-   "kind": "unmapped"
+   "export": "_time64",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425306D0": {
-   "kind": "unmapped"
+   "export": "_gmtime64_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425306D8": {
-   "kind": "unmapped"
+   "export": "_localtime64_s",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425306E8": {
-   "kind": "unmapped"
+   "export": "srand",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425306F0": {
-   "kind": "unmapped"
+   "export": "rand",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425306F8": {
-   "kind": "unmapped"
+   "export": "qsort",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x142530700": {
-   "kind": "unmapped"
+   "export": "_byteswap_ulong",
+   "kind": "export",
+   "module": "ucrtbase.dll"
   },
   "0x1425307D8": {
    "export": "SteamAPI_IsSteamRunning",

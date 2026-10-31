@@ -187,6 +187,36 @@
         "int _fdtest(const float *p): the float classifier: 2 = NaN, 1 = infinity, 0 = zero, -2 = subnormal, -1 = normal; rcx = p, eax = the class. The DLL's own code, the first 0x46 bytes of the export (ucrtbase 0x6FFFFECF6370 in the full capture pid1965411/seq033, read by SnapMem.read; the slot 0x1425301C0 holds it there). The turn-reference builder 0x14211E650 calls it through that slot on its angle.",
         "Registers: rdx = the exponent field (word [p+2] & 0x7F80) on every path but the last two (subnormal/normal: negated, low word); rax = the class zero-extended. The translator's mirror (xlate.import_model_lines, do = fdtest) computes the class and rdx."
       ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "_isnan",
+      "do": "isnan",
+      "code_hex": "48b8ffffffffffffff7ff20f11442408488b4c240848ba000000000000f07f4823c833c0483bca0f97c0c3",
+      "why": [
+        "int _isnan(double x): rax = 1 when the magnitude bits of xmm0 exceed the infinity's, else 0. The DLL's own code, all 0x2B bytes of the export (ucrtbase 0x6FFFFEC8A480 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301C8 holds it there). The FixDemo camera position setter 0x1422F97A0 and four more camera functions call it through that slot.",
+        "Effects the translator's mirror (xlate.import_model_lines, do = isnan) reproduces: the caller's home slot [rsp+8] (the movsd spill) = bits of x, rcx = bits & 0x7FFF..., rdx = 0x7FF0000000000000, rax = the result."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "floorf",
+      "do": "floorf",
+      "code_hex": "660f3a0ac009c3",
+      "why": [
+        "float floorf(float x): xmm0 = floor(xmm0), roundss xmm0,xmm0,9 (round down, precision exception suppressed); ret. A hand model of the export (ucrtbase 0x6FFFFEC84BF0 in live2/pid3234533/seq6220, the slot 0x1425301D8), not the DLL's bytes: floor is exact in every libm, so the value equals the DLL's. The DLL's code also leaves r8, rdx, eax and the home slot [rsp+8] as scratch; callers do not read them (the ABI's volatile registers and shadow space), and the translator's mirror (do = floorf) leaves them untouched too.",
+        "Called by the CANM evaluator 0x142139AB0 (0x142139B57) and the camera code through the slot."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "_finite",
+      "do": "finite",
+      "code_hex": "48b9ffffffffffffff7ff20f11442408488b4424084823c148b9000000000000f07f482bc148c1e83fc3",
+      "why": [
+        "int _finite(double x): rax = 1 for a finite x, else 0. The DLL's own code, all 0x2A bytes of the export (ucrtbase 0x6FFFFEC86E30 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301D0 holds it there). 0x14088C010 calls it through the slot beside _isnan.",
+        "Effects the translator's mirror (xlate.import_model_lines, do = finite) reproduces: the home slot [rsp+8] = bits of x, rcx = 0x7FF0000000000000, rax = (|bits| - rcx) >> 63."
+      ]
     }
   ]
 }

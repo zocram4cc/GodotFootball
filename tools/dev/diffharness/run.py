@@ -151,6 +151,13 @@ def sqrt_f32_bits(b):
 _LIBM = ctypes.CDLL(ctypes.util.find_library("m"))
 _LIBM.logf.restype, _LIBM.logf.argtypes = ctypes.c_float, [ctypes.c_float]
 _LIBM.powf.restype, _LIBM.powf.argtypes = ctypes.c_float, [ctypes.c_float, ctypes.c_float]
+_LIBM.floorf.restype, _LIBM.floorf.argtypes = ctypes.c_float, [ctypes.c_float]
+for _n in ("sinf", "cosf", "tanf", "asinf", "atanf", "acosf"):
+    getattr(_LIBM, _n).restype, getattr(_LIBM, _n).argtypes = ctypes.c_float, [ctypes.c_float]
+_LIBM.atan2f.restype, _LIBM.atan2f.argtypes = ctypes.c_float, [ctypes.c_float, ctypes.c_float]
+# stubs.json do -> libm function of one float argument (xmm0 -> xmm0)
+LIBM_UNARY = {"sinf_xmm0": "sinf", "cosf_xmm0": "cosf", "tanf_xmm0": "tanf", "asinf_xmm0": "asinf",
+              "atanf_xmm0": "atanf", "acosf_xmm0": "acosf"}
 
 
 def _f32(b):
@@ -169,6 +176,21 @@ def logf_f32_bits(b):
 def powf_f32_bits(b, e):
     """Bits of powf(x, y) for the floats with bits b, e (the powf_xmm0 hook's model, as pes_model_powf)."""
     return _bits(_LIBM.powf(_f32(b), _f32(e)))
+
+
+def floorf_f32_bits(b):
+    """Bits of floorf(x) for the float with bits b (the floorf_xmm0 hook's model, as pes_model_floorf)."""
+    return _bits(_LIBM.floorf(_f32(b)))
+
+
+def libm_unary_f32_bits(name, b):
+    """Bits of libm function name (LIBM_UNARY) of the float with bits b: the host C library, as pes_model_<name>."""
+    return _bits(getattr(_LIBM, name)(_f32(b)))
+
+
+def atan2f_f32_bits(y, x):
+    """Bits of atan2f(y, x) for the floats with bits y, x (the atan2f_xmm0 hook's model, as pes_model_atan2f)."""
+    return _bits(_LIBM.atan2f(_f32(y), _f32(x)))
 
 
 def resolve_stubs(spec):
@@ -609,6 +631,23 @@ def install_hooks(mu, spec, RET_SENTINEL):
             xmm = uc.reg_read(reg_const("xmm0"))
             e = uc.reg_read(reg_const("xmm1")) & 0xFFFFFFFF
             uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | powf_f32_bits(xmm & 0xFFFFFFFF, e))
+        elif kind == "isnan_xmm0":
+            # libm (stubs.json, op _isnan): rax = 1 if the double in xmm0 is a NaN, else 0 (ucrtbase's integer test).
+            xmm = uc.reg_read(reg_const("xmm0")) & 0xFFFFFFFFFFFFFFFF
+            uc.reg_write(reg_const("rax"), 1 if (xmm & 0x7FFFFFFFFFFFFFFF) > 0x7FF0000000000000 else 0)
+        elif kind == "floorf_xmm0":
+            # libm (stubs.json, op floorf): xmm0 low float = floorf(xmm0); bits 32-127 kept.
+            xmm = uc.reg_read(reg_const("xmm0"))
+            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | floorf_f32_bits(xmm & 0xFFFFFFFF))
+        elif kind in LIBM_UNARY:
+            # libm (stubs.json, ops sinf/cosf/tanf/asinf/atanf/acosf): xmm0 low float = f(xmm0); bits 32-127 kept.
+            xmm = uc.reg_read(reg_const("xmm0"))
+            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | libm_unary_f32_bits(LIBM_UNARY[kind], xmm & 0xFFFFFFFF))
+        elif kind == "atan2f_xmm0":
+            # libm (stubs.json, op atan2f): xmm0 low float = atan2f(xmm0, xmm1); bits 32-127 of xmm0 kept.
+            xmm = uc.reg_read(reg_const("xmm0"))
+            x = uc.reg_read(reg_const("xmm1")) & 0xFFFFFFFF
+            uc.reg_write(reg_const("xmm0"), (xmm & ~0xFFFFFFFF) | atan2f_f32_bits(xmm & 0xFFFFFFFF, x))
         else:
             uc._bad = "stub %s has unknown do=%s" % (name, kind)
             uc.emu_stop()
