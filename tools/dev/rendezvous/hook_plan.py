@@ -102,6 +102,8 @@ TARGETS = [
     ("proc_camera_141F7BFE0", 0x141F7BFE0, "FixDemo procedural camera engine"),
     # SetMotion-adjacent displacement (TrapTick7): the trap tick phase fn calls it when action+0x26 == 0.
     ("anime_displace_6E85B0", 0x1406E85B0, "anime position displacement (trap tick phase)"),
+    # Untranslated callee in the trap tick (TrapTick8): unbounded replays of trap_action_tick abort here.
+    ("trap_tick_callee_84F140", 0x14084F140, "trap tick callee"),
 ]
 
 
