@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <array>
 #include <unordered_map>
@@ -47,7 +49,7 @@ constexpr int EXIT_USAGE = 2;
 int Usage(const char* why) {
   std::fprintf(stderr, "%s\nusage: gfsim_run --db-sql FILE --home ID --away ID --pes21-root DIR "
                        "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]... [--pes-loop] [--parity-log] "
-                       "[--sider] [--gameplay-mod NAME]\n", why);
+                       "[--sider] [--gameplay-mod NAME] [--edit-save FILE]\n", why);
   return EXIT_USAGE;
 }
 
@@ -188,7 +190,7 @@ class ParityLog {
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::string dbSql, root, anims = DEFAULT_ANIMS;
+  std::string dbSql, root, anims = DEFAULT_ANIMS, editSavePath;  // --edit-save: an EDIT00000000 whose player records win over Player.bin
   bool sider = false;  // --sider: sider's live layer (cpk.root folders, Lua modules); off = stock PES
   std::optional<std::string> gameplayMod;  // GameplayLoader's mod (needs --sider); unset = "No Mod"
   if (const char* env = std::getenv("PES21_ROOT")) root = env;
@@ -222,6 +224,7 @@ int main(int argc, char** argv) {
     else if (a == "--minutes") minutes = std::atoi(v.c_str());
     else if (a == "--timescale") timeScale = std::strtof(v.c_str(), nullptr);
     else if (a == "--anims") anims = v;
+    else if (a == "--edit-save") editSavePath = v;
     else if (a == "--set") {
       const size_t eq = v.find('=');
       if (eq == std::string::npos) return Usage(("--set needs key=value: " + v).c_str());
@@ -269,6 +272,15 @@ int main(int argc, char** argv) {
   // PES 2021's player database (common/etc/pesdb/Player.bin): each player's injury tier and stronger foot.
   auto playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
   if (!playerDatabase) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  if (!editSavePath.empty()) {
+    // The same two calls as PesLibrary::load_edit_save (the Godot path): the save's records win over Player.bin per id.
+    std::ifstream saveFile(editSavePath, std::ios::binary);
+    const std::vector<uint8_t> saveBytes((std::istreambuf_iterator<char>(saveFile)), {});
+    std::string saveErr;  // a stale block digest is reported here and kept, as the game does
+    auto save = pes::ReadEditSave(saveBytes, &saveErr);
+    if (!save) return std::fprintf(stderr, "EDIT save %s: %s\n", editSavePath.c_str(), saveErr.c_str()), 1;
+    playerDatabase->ApplyEditSave(*save);
+  }
   auto formationTables = pes::formation::FormationTables::Load(vfs, &err);
   if (!formationTables) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
