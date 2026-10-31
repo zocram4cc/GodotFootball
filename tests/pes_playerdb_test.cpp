@@ -5,6 +5,8 @@
 #include <bit>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -30,7 +32,8 @@ constexpr int kFirstId = 9001;
 constexpr int kSecondId = 9002;
 
 // Writes `value` into `width` bits from absolute bit `bit` of a record, LSB-first.
-void SetBits(Blob& rec, size_t bit, size_t width, uint32_t value) {
+template <typename Record>
+void SetBits(Record& rec, size_t bit, size_t width, uint32_t value) {
   for (size_t i = 0; i < width; ++i) {
     const size_t b = bit + i;
     const uint8_t mask = uint8_t(1u << (b % 8));
@@ -282,6 +285,123 @@ TEST(PlayerDatabaseInstall, AbilityOffsetsEqualTheExesAccessors) {
     EXPECT_EQ(got.width, w.width) << w.name;
     EXPECT_EQ(got.bias, w.bias) << w.name;
   }
+}
+
+// --- the EDIT save's records over Player.bin ---
+// The save's player record is its own layout (editsave.hpp); the offsets are pinned here as literals.
+constexpr size_t kEditHeightAt = 0x0A, kEditFootAt = 381, kEditAbilityWidth = 7, kEditSpeedAt = 256, kEditJumpAt = 358;
+
+pes::EditPlayerRecord EditRecord(uint32_t id, uint32_t speed, uint32_t jump, uint8_t heightCm, bool left) {
+  pes::EditPlayerRecord rec{};
+  std::memcpy(rec.data(), &id, 4);
+  SetBits(rec, kEditSpeedAt, kEditAbilityWidth, speed);
+  SetBits(rec, kEditJumpAt, kEditAbilityWidth, jump);
+  rec[kEditHeightAt] = heightCm;
+  SetBits(rec, kEditFootAt, 1, left ? 1 : 0);
+  // The bits and bytes beside each field belong to other fields: a reader that is off by one sees a different value.
+  SetBits(rec, kEditSpeedAt - 1, 1, 1);
+  SetBits(rec, kEditSpeedAt + kEditAbilityWidth, 1, 1);
+  SetBits(rec, kEditJumpAt - 1, 1, 1);
+  SetBits(rec, kEditJumpAt + kEditAbilityWidth, 1, 1);
+  SetBits(rec, kEditFootAt - 1, 1, left ? 0 : 1);
+  SetBits(rec, kEditFootAt + 1, 1, left ? 0 : 1);
+  rec[kEditHeightAt - 1] = 0xFF;
+  rec[kEditHeightAt + 1] = 0xFF;
+  return rec;
+}
+
+// The placeholder Player.bin record the 4cc packs ship for an edit player: Speed/Jump 40, height 100, with an injury tier and
+// Form of its own that the save's override must leave alone.
+Blob PlaceholderRecord(uint32_t id) {
+  Blob rec = MakeRecord(id);
+  SetBits(rec, kInjuryBit, kInjuryBits, 2);
+  SetBits(rec, kFormBit, kFormBits, 5);
+  return rec;
+}
+
+TEST(PlayerDatabaseEditSave, TheSavesRecordOverridesSpeedJumpHeightAndFootOfItsIdOnly) {
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(Concat({PlaceholderRecord(kFirstId), PlaceholderRecord(kSecondId)}), &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  pes::EditSave save;
+  save.players.push_back(EditRecord(kFirstId, 77, 88, 199, true));
+  db->ApplyEditSave(save);
+
+  auto edited = db->Find(kFirstId);
+  ASSERT_TRUE(edited.has_value());
+  EXPECT_EQ(edited->speed, 77);
+  EXPECT_EQ(edited->jump, 88);
+  EXPECT_EQ(edited->heightCm, 199);
+  EXPECT_TRUE(edited->leftFooted);
+  EXPECT_EQ(edited->injuryResistance, 2) << "the save's override does not reach the injury tier";
+  EXPECT_EQ(edited->form, 5);
+  // Another id keeps its Player.bin record.
+  auto untouched = db->Find(kSecondId);
+  ASSERT_TRUE(untouched.has_value());
+  EXPECT_EQ(untouched->speed, pes::kAbilityBias);
+  EXPECT_EQ(untouched->heightCm, pes::kHeightBiasCm);
+  EXPECT_FALSE(untouched->leftFooted);
+}
+
+TEST(PlayerDatabaseEditSave, ASaveIdWithoutAPlayerBinRecordAddsNothing) {
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(PlaceholderRecord(kFirstId), &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  pes::EditSave save;
+  save.players.push_back(EditRecord(kSecondId, 77, 88, 199, true));
+  db->ApplyEditSave(save);
+  EXPECT_EQ(db->Size(), 1u);
+  EXPECT_FALSE(db->Find(kSecondId).has_value());
+}
+
+TEST(PlayerDatabaseEditSave, ARightFootedRecordClearsAPlaceholderLeftFoot) {
+  Blob placeholder = PlaceholderRecord(kFirstId);
+  SetBits(placeholder, kFootBit, 1, 1);  // the placeholder says left
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(placeholder, &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  ASSERT_TRUE(db->Find(kFirstId)->leftFooted);
+  pes::EditSave save;
+  save.players.push_back(EditRecord(kFirstId, 60, 60, 180, false));
+  db->ApplyEditSave(save);
+  EXPECT_FALSE(db->Find(kFirstId)->leftFooted);
+}
+
+// The captured rows: one line per player, `id speed jump height foot`, read from the roster row PES's match held (the byte the
+// store step starts from) by tools/dev/rendezvous/roster_rows.py. The owner's install holds placeholders for these players in
+// Player.bin (flat Speed/Jump 40, height 180 with a stock record) while PES's rows hold the save's values: GF's database, with
+// the save applied, must give PES's row for every captured player. The rows are PES's data and are never committed.
+TEST(PlayerDatabaseInstall, EveryCapturedRosterRowEqualsTheDatabaseWithTheSaveApplied) {
+  const pes::PesVfs* vfs = Vfs();
+  const char* savePath = std::getenv("PES21_EDIT_SAVE");
+  const char* rowsPath = std::getenv("GF_PES_ROSTER_ROWS");
+  if (!vfs || !savePath || !rowsPath) GTEST_SKIP() << "PES21_ROOT, PES21_EDIT_SAVE or GF_PES_ROSTER_ROWS not set";
+  std::string err;
+  auto blob = vfs->Read(pes::kPlayerDatabasePath, &err);
+  ASSERT_TRUE(blob.has_value()) << err;
+  auto db = pes::PlayerDatabase::Parse(*blob, &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  std::ifstream saveFile(savePath, std::ios::binary);
+  ASSERT_TRUE(saveFile);
+  const Blob saveBytes((std::istreambuf_iterator<char>(saveFile)), {});
+  err.clear();
+  auto save = pes::ReadEditSave(saveBytes, &err);  // a stale block digest is reported in err and kept
+  ASSERT_TRUE(save.has_value()) << err;
+  db->ApplyEditSave(*save);
+
+  std::ifstream rows(rowsPath);
+  ASSERT_TRUE(rows);
+  int id, speed, jump, height, foot, checked = 0;
+  while (rows >> id >> speed >> jump >> height >> foot) {
+    auto traits = db->Find(id);
+    ASSERT_TRUE(traits.has_value()) << "id " << id;
+    EXPECT_EQ(traits->speed, speed) << "id " << id;
+    EXPECT_EQ(traits->jump, jump) << "id " << id;
+    EXPECT_EQ(traits->heightCm, height) << "id " << id;
+    EXPECT_EQ(traits->leftFooted, foot == 1) << "id " << id;
+    ++checked;
+  }
+  EXPECT_GT(checked, 0);
 }
 
 }  // namespace

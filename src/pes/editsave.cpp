@@ -213,6 +213,7 @@ std::optional<EditSave> ReadEditSave(std::span<const uint8_t> file, std::string*
     AppearanceRecord appearance;
     std::memcpy(appearance.data(), rec + APPEARANCE_AT, kAppearanceRecordBytes);
     save.appearances.emplace(Load<uint32_t>(rec), appearance);
+    std::memcpy(save.players.emplace_back().data(), rec, PLAYER_STRIDE);
   }
   return save;
 }

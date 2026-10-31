@@ -46,6 +46,7 @@ SaveFile BuildSave(int mutation) {
     uint8_t* rec = &b2[PLAYERS_AT + STRIDE * r];
     const uint32_t id = 70101 + r;
     std::memcpy(rec, &id, 4);
+    rec[0x0A] = uint8_t(150 + r);  // the height byte (editsave.hpp kEditHeightOffset)
     uint8_t* ap = rec + APPEARANCE_AT;  // the 72-byte appearance record
     std::memcpy(ap, &id, 4);
     const uint32_t X = (38u << 4) | (12u << 18);  // boots 38, glove 12
@@ -237,6 +238,14 @@ TEST(EditSaveSave, RoundTripsAFileAndWarnsOnCorruption) {
   ASSERT_TRUE(save) << err;
   EXPECT_TRUE(err.empty());
   ASSERT_EQ(save->appearances.size(), 3u);
+  // The raw records come through in save order, whole.
+  ASSERT_EQ(save->players.size(), 3u);
+  for (uint32_t i = 0; i < 3; ++i) {
+    uint32_t id = 0;
+    std::memcpy(&id, save->players[i].data() + pes::kEditIdOffset, 4);
+    EXPECT_EQ(id, 70101 + i);
+    EXPECT_EQ(save->players[i][pes::kEditHeightOffset], 150 + i);
+  }
   for (uint32_t i = 0; i < 3; ++i) {
     const uint32_t id = 70101 + i;
     const pes::PlayerLook look = pes::DecodeLook(save->appearances.at(id));

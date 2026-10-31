@@ -37,8 +37,26 @@ inline constexpr size_t kAppearanceRecordBytes = 72;
 using AppearanceRecord = std::array<uint8_t, kAppearanceRecordBytes>;
 using AppearanceTable = std::unordered_map<uint32_t, AppearanceRecord>;
 
+// One 0x138-byte player record of the save's data block. NOT Player.bin's layout (the id is the u32 at +0, abilities are plain
+// 7-bit values with no +40 bias): the offsets below are the fields PES's roster row carries into a match, fitted on 34 players
+// captured live (tools/dev/rendezvous/roster_rows.py output; docs/ports/pes-port-DribbleProposal7.md 1). Height is also the
+// byte docs/re/pes-re-physique.md 1.1 read.
+inline constexpr size_t kEditPlayerRecordBytes = 0x138;
+using EditPlayerRecord = std::array<uint8_t, kEditPlayerRecordBytes>;
+inline constexpr size_t kEditIdOffset = 0;
+inline constexpr size_t kEditHeightOffset = 0x0A;     // u8 cm, the roster row's block byte 0x31
+inline constexpr size_t kEditStrongerFootBit = 381;   // 1 bit, 1 = left, block byte 0x34
+inline constexpr size_t kEditAbilityBits = 7;
+// The 25 ability fields sit at bits 112 119 128 135 142 149 160 167 174 181 192 199 206 213 224 231 238 245 | 256 288 295 302 320 358 365;
+// the roster row's ability bytes are 0x14..0x25 (18) then 0x27..0x2D (7), so the split lands on bit 245 | 256 and the fields run in
+// bit order (INF: every one of the save's 4830 players has all 25 equal, so no data tells the order apart). Speed is block byte 0x27,
+// Jump 0x2C.
+inline constexpr size_t kEditSpeedBit = 256;
+inline constexpr size_t kEditJumpBit = 358;
+
 struct EditSave {
   AppearanceTable appearances;  // by player id
+  std::vector<EditPlayerRecord> players;  // save order
 };
 // Decrypts the file, recomputes every block's SHA-512 against the header as
 // the game does (FUN_14140f470), and collects the appearance records. A stale

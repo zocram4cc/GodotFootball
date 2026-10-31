@@ -65,4 +65,18 @@ std::optional<PlayerTraits> PlayerDatabase::Find(int playerId) const {
   return it->second;
 }
 
+void PlayerDatabase::ApplyEditSave(const EditSave& save) {
+  for (const EditPlayerRecord& rec : save.players) {
+    uint32_t id = 0;
+    std::memcpy(&id, rec.data() + kEditIdOffset, sizeof id);
+    auto it = byId_.find(int(id));
+    if (it == byId_.end()) continue;
+    PlayerTraits& traits = it->second;
+    traits.speed = uint8_t(Field(rec.data(), kEditSpeedBit, kEditAbilityBits));
+    traits.jump = uint8_t(Field(rec.data(), kEditJumpBit, kEditAbilityBits));
+    traits.heightCm = rec[kEditHeightOffset];
+    traits.leftFooted = Field(rec.data(), kEditStrongerFootBit, 1) == 1;
+  }
+}
+
 }  // namespace pes

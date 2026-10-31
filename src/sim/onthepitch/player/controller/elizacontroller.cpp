@@ -1025,16 +1025,19 @@ bool DeepDefensiveMode(const TeamInstructions::State& instructions) {
 // 1 for a field man. ponytail: remove when the array lands; this accessor is the one place to change.
 int CarrierRoleClass(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK ? 0 : 1; }
 
+}  // namespace
+
 // The ability bytes the carrier manager's candidate scores and the corridor angle read (0x14211CBD0: Speed 0x27, the aerial byte
 // 0x2C, height 0x31; 0x142108630: height and the stronger-foot byte 0x34), written to a slot's record the way PES's stat rebuild
 // 0x14092AF10 does (StoreLiveAbility): the base byte is the roster row's, which for a player with a PES id is his Player.bin record
-// (PlayerDatabase: Speed id 0x1C, Jump id 0x1F, Height id 0x10, the stronger foot), and the cells GF carries (A2 the condition arrow,
-// A3 the position familiarity, A5 the fatigue factor on the ids it covers, 0x14092B6CB / 0x14092B5DB / the A5 writer in 0x14092AF10,
-// pes-re-stamina-drain.md 4: 0x28..0x2C, not Speed).
+// patched by the EDIT save's record of the same id (PlayerDatabase::ApplyEditSave: the row's Speed/Jump/Height/foot bytes equal the
+// save's fields on 34 captured players; for the install's 4cc players Player.bin holds placeholders), and the cells GF carries (A2
+// the condition arrow, A3 the position familiarity, A5 the fatigue factor on the ids it covers, 0x14092B6CB / 0x14092B5DB / the A5
+// writer in 0x14092AF10, pes-re-stamina-drain.md 4: 0x28..0x2C, not Speed).
 // ponytail: A4 (the super-sub pair table 0x142632F74, 0x14092B7FC) is 1.0: GF has no super-sub state. A player with no PES id (the
 // synthetic squads) takes GF's own stat over 100 and height as the base byte, and the right foot (Match::kFallbackLeftFooted); the
-// roster row's writer and its copy into the AI record are unlocated (pes-re-publisher-link.md 2), so the store step's base is the
-// row's value, not a copy PES made.
+// writer of PES's row bytes 0x00..0x4F into the AI record is unlocated (pes-re-publisher-link.md 2), so the store step's base is
+// the row's value, not a copy PES made.
 void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Player& p) {
   PlayerData* data = p.GetPlayerData();
   const std::optional<pes::PlayerTraits> bin = match.PesTraitsOf(data);
@@ -1055,8 +1058,6 @@ void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Play
                          bin ? bin->heightCm : static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
   world.StoreLiveAbility(slot, pes::kAbilityStrongerFootId, match.LeftFootedOf(data) ? 1 : 0);
 }
-
-}  // namespace
 
 Player* ElizaController::_Carrier() {
   // PES's FUN_140a50e00 (docs/re/pes-re-receiving-port.md): the ball's owner
