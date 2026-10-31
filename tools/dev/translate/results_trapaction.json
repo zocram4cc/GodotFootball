@@ -83,8 +83,8 @@
    "closure_file": "closure_trapswitch.json",
    "coverage": {
     "0x1406EEBB0": {
-     "fraction": 0.3864,
-     "reached": 17,
+     "fraction": 0.6818,
+     "reached": 30,
      "total": 44
     }
    },
@@ -94,18 +94,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 9 of 9 (live2/pid2122415 seq26383, 26384, 26385, 26388, 26389, 26391, 26399, 26402, 26411, FULL captures of hook action_switch_6EEBB0 with the action argument 0x5E; pes-port-TrapTick5.md); every call has the sub equal to the man's current action (P+0xAC8), so the switch takes the same-action early exit and writes only its stack spills; every other exit aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 31 of 31 (live2/pid2122415, FULL captures of hook action_switch_6EEBB0: seq26383, 26384, 26385, 26388, 26389, 26391, 26399, 26402, 26411, 26412, 26417, 26418 (same-action early exits and MOVE<->2/3 changes, action argument 0x5E), seq49986, 49987, 49990, 49995, 50002, 50005, 50045, 50058, 50068, 50081, 50089 (MOVE<->2/3 locomotion changes: no exit/enter block), seq50050 (MOVE -> TRAP: exit of MOVE, enter of TRAP), seq55280, 55536, 55760, 55933, 56216, 56436, 56906 (TRAP -> 9, 8, 4, 9, 4, 8, 4: exit of TRAP 0x140797C90, enter of the new action); pes-port-TrapTick6.md); every other exit aborts loudly; no capture leaves TRAP for MOVE (2): its enter and exit are the vtable 0x1425E13F0 slots +0x18/+0x28 = 0x141794410 (a `ret`, image read), which seq49986 and seq50050 replay; the unicorn harness has no corpus for it, so driver --check does not re-run it",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 9,
+    "calls": 31,
     "mismatches": 0,
     "own_block": {
-     "reached": 17,
+     "reached": 30,
      "total": 44,
-     "fraction": 0.3864
+     "fraction": 0.6818
     },
-    "replayed": 9,
+    "replayed": 31,
     "source": "tools/dev/translate/results_trapaction.json"
    },
    "stubs": [],
