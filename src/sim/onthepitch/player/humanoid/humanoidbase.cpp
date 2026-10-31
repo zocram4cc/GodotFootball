@@ -508,7 +508,16 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::
   currentAnim->frameNum = 0;
   currentAnim->framePhase = 0.0f;
   currentAnim->playbackRate = playback;
+  // A trap clip touches the ball at its contact frame (AddPesClips' touchframe, the install's first HitData record), where the ball
+  // is by then (the prediction, as the command path places any touch); every other issued clip has no touch (-1).
   currentAnim->touchFrame = -1;
+  if (family == pes::PesClipFamily::kTrap) {
+    const int touchFrame = std::atoi(currentAnim->anim->GetVariable("touchframe").c_str());
+    if (touchFrame > 0 && currentMentalImage) {
+      currentAnim->touchFrame = touchFrame;
+      currentAnim->touchPos = currentMentalImage->GetBallPrediction(touchFrame * 10);
+    }
+  }
   currentAnim->originatingInterrupt = e_InterruptAnim_Switch;
   currentAnim->radiusOffset = 0.0;
   currentAnim->actionSmuggle = Vector3(0);

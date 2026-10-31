@@ -23,6 +23,7 @@
 #include "onthepitch/player/humanoid/animcollection.hpp"
 #include "onthepitch/team.hpp"
 #include "pes/exe.hpp"
+#include "pes/mbinfo.hpp"
 #include "pes/movestep.hpp"
 #include "pes/vfs.hpp"
 #include "pes_match_constants.hpp"
@@ -636,6 +637,37 @@ TEST(MoveStepWire, ASameMotionReissueRestartsAFinishedClip) {
   anim->frameNum = anim->anim->GetFrameCount() - 1;
   p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
   EXPECT_EQ(p->GetCurrentAnim()->frameNum, 0) << "a finished clip did not start again on its own motion";
+}
+
+// The Trap action's tick issues its clip through PlayIssuedClip, and PES's trap touches the ball at the clip's contact frame (the
+// install's first HitData record, AddPesClips' touchframe). A body that plays the issued clip with no contact frame never touches
+// the ball: the man stands over a loose ball for the whole clip and play stalls (pes_stall_test, the live-ball breaker).
+TEST(MoveStepWire, AnIssuedTrapClipTouchesAtItsContactFrame) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(std::getenv("PES21_ROOT")) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(std::getenv("PES21_ROOT"), &err)) << err;
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
+  auto clips = pes::LoadPesClips(*exe, vfs, &err);
+  ASSERT_TRUE(clips.has_value()) << err;
+  int motion = -1, hitFrame = -1;
+  for (const pes::PesClip& c : clips->clips) {
+    if (c.family != pes::PesClipFamily::kTrap || mbinfo->Hits(c.motionNo).empty()) continue;
+    motion = c.motionNo;
+    hitFrame = mbinfo->Hits(c.motionNo)[0].frame;
+    break;
+  }
+  ASSERT_GE(motion, 0) << "no trap clip with a hit record";
+  match->StartPlay();
+  for (int t = 0; t < 60; ++t) match->Process();
+  Player* p = FirstPlayer(*match);
+  ASSERT_TRUE(p->CastHumanoid()->PlayIssuedClip(motion, 1.0f, false, pes::PesClipFamily::kTrap));
+  EXPECT_EQ(p->GetCurrentAnim()->touchFrame, pes::PesTouchAnimFrame(hitFrame));
 }
 
 // A finished ball action gives the body back. A trap clip held at its last frame while MOVESTEP is in ACCELERATE kept the
