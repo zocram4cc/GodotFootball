@@ -1174,6 +1174,10 @@ int Match::InjuryResistanceOf(const PlayerData* data) const {
   return traits ? traits->injuryResistance : kFallbackInjuryResistance;
 }
 
+std::optional<pes::PlayerTraits> Match::PesTraitsOf(const PlayerData* data) const {
+  return TraitsOf(pesPlayerDatabase, data);
+}
+
 bool Match::LeftFootedOf(const PlayerData* data) const {
   const auto traits = TraitsOf(pesPlayerDatabase, data);
   return traits ? traits->leftFooted : kFallbackLeftFooted;

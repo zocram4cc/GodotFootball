@@ -293,6 +293,9 @@ public:
   bool LeftFootedOf(const PlayerData* data) const;
   int FormOf(const PlayerData* data) const;
   uint8_t ConditionByteOf(const PlayerData* data) const;
+  // The whole Player.bin record's traits (the ability bases the slot records start from), nullopt for a player with no PES id or
+  // no record: the caller names its stand-in.
+  std::optional<pes::PlayerTraits> PesTraitsOf(const PlayerData* data) const;
   // The named stand-ins for a player with no PES record of his own: the middle injury tier, the right foot, raw
   // Form 3 and the 0x46 condition default. The synthetic squads deal Normal from the default, as PES's unedited
   // records do (condition-import 1).

@@ -51,6 +51,9 @@ std::optional<PlayerDatabase> PlayerDatabase::Parse(std::span<const uint8_t> blo
     if (tier > kInjuryTierA) continue;
     PlayerTraits traits{int(tier), Field(rec, kStrongerFootBit, 1) == 1,
                         int(Field(rec, kFormBit, kFormBits)), MixCondition(rec)};
+    traits.speed = uint8_t(Field(rec, kSpeedBit, kAbilityBits) + kAbilityBias);
+    traits.jump = uint8_t(Field(rec, kJumpBit, kAbilityBits) + kAbilityBias);
+    traits.heightCm = uint8_t(Field(rec, kHeightBit, kHeightBits) + kHeightBiasCm);
     db.byId_.emplace(id, traits);
   }
   return db;

@@ -174,8 +174,8 @@ inline constexpr std::size_t kManRepeatOffset = 0x6B8;      // s32 repeat count
 inline constexpr std::size_t kManRecordBytes = kSlotRecordOffset - kManRecordOffset;
 
 // Slot record (its bound is the next block, +0x3F40).
-// The corridor angle also reads these slot-record bytes (CONFIRMED on-path, seq021: +0xA1 and +0xA4; their meaning is OPEN,
-// no GF writer yet), and +0x12A4 (FUN_140A58320: a state byte, clamped to 0..4).
+// The corridor angle also reads these slot-record bytes (CONFIRMED on-path, seq021: +0xA1 and +0xA4): +0xA1 is the height byte
+// 0x31 and +0xA4 the ability block's byte 0x34 (below), and +0x12A4 (FUN_140A58320: a state byte, clamped to 0..4).
 inline constexpr std::size_t kSlotByteA1Offset = 0xA1;      // u8
 inline constexpr std::size_t kSlotByteA4Offset = 0xA4;      // u8
 // The slot record's ability block: `0x14124DAD0(record)` is `record + 0x70`, the base of the bytes the stat rebuild 0x14092AF10
@@ -186,6 +186,10 @@ inline constexpr std::size_t kSlotAbilityOffset = 0x70;
 inline constexpr uint32_t kAbilitySpeedId = 0x27;
 inline constexpr uint32_t kAbilityJumpId = 0x2C;
 inline constexpr uint32_t kAbilityHeightId = 0x31;
+// Block byte 0x34: 0..1 in the clamp table (0x142613C60) and different per player in every captured roster (INF: the stronger foot,
+// 1 = left; the captured rows are not Player.bin's, so the id is not checked against it). The store step leaves it unchanged (cells 1.0).
+inline constexpr uint32_t kAbilityStrongerFootId = 0x34;
+static_assert(kSlotByteA4Offset == kSlotAbilityOffset + kAbilityStrongerFootId, "+0xA4 is block byte 0x34");
 // GF stores PES's 40..99 ability bytes as 0.40..0.99 (pesstamina.cpp MoveTopRate), so a GF stat is its byte over 100.
 inline constexpr float kAbilityBytesPerStat = 100.0f;
 // The five per-id multiplier cells of the player object (P+0xC798 A1, +0xC888 A2 the condition arrow, +0xC978 A3 the position

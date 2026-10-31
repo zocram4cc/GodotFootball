@@ -1025,14 +1025,19 @@ bool DeepDefensiveMode(const TeamInstructions::State& instructions) {
 // 1 for a field man. ponytail: remove when the array lands; this accessor is the one place to change.
 int CarrierRoleClass(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK ? 0 : 1; }
 
-// The ability bytes the carrier manager's candidate scores read (0x14211CBD0: Speed 0x27, the aerial byte 0x2C, height 0x31), written
-// to a slot's record the way PES's stat rebuild 0x14092AF10 does (StoreLiveAbility): the player's own stat as the base byte and the
-// cells GF carries (A2 the condition arrow, A3 the position familiarity, A5 the fatigue factor on the ids it covers, 0x14092B6CB /
-// 0x14092B5DB / the A5 writer in 0x14092AF10, pes-re-stamina-drain.md 4: 0x28..0x2C, not Speed).
-// ponytail: A4 (the super-sub pair table 0x142632F74, 0x14092B7FC) is 1.0: GF has no super-sub state; the base byte is the GF stat
-// over 100 where PES reads the roster row (Player.bin ability + 40: PlayerDatabase would carry it), whose writer is unlocated.
-void WriteSlotAbilities(pes::PesWorld& world, int slot, Player& p) {
+// The ability bytes the carrier manager's candidate scores and the corridor angle read (0x14211CBD0: Speed 0x27, the aerial byte
+// 0x2C, height 0x31; 0x142108630: height and the stronger-foot byte 0x34), written to a slot's record the way PES's stat rebuild
+// 0x14092AF10 does (StoreLiveAbility): the base byte is the roster row's, which for a player with a PES id is his Player.bin record
+// (PlayerDatabase: Speed id 0x1C, Jump id 0x1F, Height id 0x10, the stronger foot), and the cells GF carries (A2 the condition arrow,
+// A3 the position familiarity, A5 the fatigue factor on the ids it covers, 0x14092B6CB / 0x14092B5DB / the A5 writer in 0x14092AF10,
+// pes-re-stamina-drain.md 4: 0x28..0x2C, not Speed).
+// ponytail: A4 (the super-sub pair table 0x142632F74, 0x14092B7FC) is 1.0: GF has no super-sub state. A player with no PES id (the
+// synthetic squads) takes GF's own stat over 100 and height as the base byte, and the right foot (Match::kFallbackLeftFooted); the
+// roster row's writer and its copy into the AI record are unlocated (pes-re-publisher-link.md 2), so the store step's base is the
+// row's value, not a copy PES made.
+void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Player& p) {
   PlayerData* data = p.GetPlayerData();
+  const std::optional<pes::PlayerTraits> bin = match.PesTraitsOf(data);
   const auto byteOf = [&](const char* stat) {
     return static_cast<uint8_t>(std::lround(std::clamp(data->GetStat(stat) * pes::kAbilityBytesPerStat, 0.0f, 255.0f)));
   };
@@ -1043,9 +1048,12 @@ void WriteSlotAbilities(pes::PesWorld& world, int slot, Player& p) {
     if (fatigued) cells.a5 = p.GetFatigueFactor();
     return cells;
   };
-  world.StoreLiveAbility(slot, pes::kAbilitySpeedId, byteOf("physical_velocity"), cellsOf("physical_velocity", false));
-  world.StoreLiveAbility(slot, pes::kAbilityJumpId, byteOf("physical_jump"), cellsOf("physical_jump", true));
-  world.StoreLiveAbility(slot, pes::kAbilityHeightId, static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
+  world.StoreLiveAbility(slot, pes::kAbilitySpeedId, bin ? bin->speed : byteOf("physical_velocity"),
+                         cellsOf("physical_velocity", false));
+  world.StoreLiveAbility(slot, pes::kAbilityJumpId, bin ? bin->jump : byteOf("physical_jump"), cellsOf("physical_jump", true));
+  world.StoreLiveAbility(slot, pes::kAbilityHeightId,
+                         bin ? bin->heightCm : static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
+  world.StoreLiveAbility(slot, pes::kAbilityStrongerFootId, match.LeftFootedOf(data) ? 1 : 0);
 }
 
 }  // namespace
@@ -3379,7 +3387,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing)) skillMask |= 1ull << pes::kSkillPinpointCross;
   pesWorld.SetCarrierProfile(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())), skillMask);
   for (const std::vector<Player*>* squad : {&ownActive, &oppActive})
-    for (Player* p : *squad) WriteSlotAbilities(pesWorld, match->PesSlotOf(p), *p);
+    for (Player* p : *squad) WriteSlotAbilities(*match, pesWorld, match->PesSlotOf(p), *p);
   // The dribble-proposal chain of the unit driver 0x142110D30, in PES's order after the danger builder and the plan word above:
   // the turn-reference builder 0x14211D710 (BP+0x3380, the angle the kind-4 tail measures the facing against), the step object
   // 0x14211ED10 and the proposal writer 0x1421102D0 (BP+0x4204), all translated and equal to PES on seven forward-emulated states

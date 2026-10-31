@@ -2,11 +2,13 @@
 // record bytes at the accessor offsets (docs/re/pes-re-matchlogic.md 1.1-1.2).
 #include <gtest/gtest.h>
 
+#include <bit>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
+#include "pes/exe.hpp"
 #include "pes/playerdb.hpp"
 #include "pes/vfs.hpp"
 
@@ -200,6 +202,86 @@ TEST(PlayerDatabaseInstall, EveryRecordReadsBackFromItsOwnBytes) {
     ++checked;
   }
   EXPECT_GT(checked, 0u);
+}
+
+// Speed (Player.bin id 0x1C), Jump (0x1F), Height (0x10) and the stronger foot (0x0F) are the bytes the slot records start from
+// (block 0x27, 0x2C, 0x31, 0x34). Offsets pinned from the docs as literals: a changed header constant must fail here.
+constexpr size_t kSpeedAt = 306, kJumpAt = 294, kAbilityWidth = 6, kHeightAt = 216, kHeightWidth = 8;
+
+TEST(PlayerDatabaseParse, ReadsSpeedJumpAndHeightWithTheirBiasesAndNothingBeside) {
+  Blob rec = MakeRecord(21);
+  SetBits(rec, kSpeedAt, kAbilityWidth, 17);   // 57
+  SetBits(rec, kJumpAt, kAbilityWidth, 33);    // 73
+  SetBits(rec, kHeightAt, kHeightWidth, 85);   // 185 cm
+  // The bits beside each field belong to other fields: set them, a reader off by one bit sees a different value.
+  SetBits(rec, kSpeedAt - 1, 1, 1);
+  SetBits(rec, kSpeedAt + kAbilityWidth, 1, 1);
+  SetBits(rec, kJumpAt + kAbilityWidth, 1, 1);
+  SetBits(rec, kHeightAt - 1, 1, 1);
+  SetBits(rec, kHeightAt + kHeightWidth, 1, 1);
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(rec, &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  auto traits = db->Find(21);
+  ASSERT_TRUE(traits.has_value());
+  EXPECT_EQ(traits->speed, 57);
+  EXPECT_EQ(traits->jump, 73);
+  EXPECT_EQ(traits->heightCm, 185);
+}
+
+// The header's bits are the exe's own accessors: each leaf is `test edx,edx; jnz; mov eax,[rcx+d]; shr eax,s; and eax,m; add eax,b`
+// (or `movzx eax,byte [rcx+d]; add al,b`), decoded here from PES2021.exe and compared with the constants.
+struct Accessor {
+  size_t bit = 0, width = 0;
+  int bias = 0;
+};
+bool DecodeAccessor(const uint8_t* b, Accessor* out) {
+  if (b[0] != 0x85 || b[1] != 0xD2 || b[2] != 0x75) return false;  // test edx,edx ; jnz: mode 0 is the value path
+  const uint8_t* p = b + 4;
+  if (p[0] == 0x8B && p[1] == 0x41 && p[3] == 0xC1 && p[4] == 0xE8 && p[6] == 0x83 && p[7] == 0xE0) {
+    out->bit = size_t(p[2]) * 8 + p[5];
+    out->width = size_t(std::popcount(unsigned(p[8])));
+    p += 9;
+    out->bias = 0;
+    if (p[0] == 0x83 && p[1] == 0xC0) {
+      out->bias = p[2];
+      p += 3;
+    }
+    return p[0] == 0xC3;
+  }
+  if (p[0] == 0x0F && p[1] == 0xB6 && p[2] == 0x41 && p[4] == 0x04) {
+    out->bit = size_t(p[3]) * 8;
+    out->width = 8;
+    out->bias = p[5];
+    return p[6] == 0xC3;
+  }
+  return false;
+}
+
+TEST(PlayerDatabaseInstall, AbilityOffsetsEqualTheExesAccessors) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (root == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the accessors are read from its exe)";
+  std::string error;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &error);
+  ASSERT_TRUE(exe) << error;
+  struct Want {
+    uint64_t va;
+    size_t bit, width;
+    int bias;
+    const char* name;
+  };
+  for (const Want& w : {Want{0x141F0F7C0, pes::kSpeedBit, pes::kAbilityBits, pes::kAbilityBias, "Speed"},
+                        Want{0x141F0F760, pes::kJumpBit, pes::kAbilityBits, pes::kAbilityBias, "Jump"},
+                        Want{0x141F0F590, pes::kHeightBit, pes::kHeightBits, pes::kHeightBiasCm, "Height"},
+                        Want{0x141F103A0, pes::kStrongerFootBit, 1, 0, "Stronger foot"}}) {
+    uint8_t code[24];
+    ASSERT_TRUE(exe->ReadVa(w.va, sizeof code, code)) << w.name;
+    Accessor got;
+    ASSERT_TRUE(DecodeAccessor(code, &got)) << w.name << " is not the expected accessor shape";
+    EXPECT_EQ(got.bit, w.bit) << w.name;
+    EXPECT_EQ(got.width, w.width) << w.name;
+    EXPECT_EQ(got.bias, w.bias) << w.name;
+  }
 }
 
 }  // namespace
