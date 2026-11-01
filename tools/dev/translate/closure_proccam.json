@@ -1,5 +1,5 @@
 {
- "note": "the functions snapdiff --bounded built for the proof of 0x141F7BFE0 (the FixDemo procedural camera engine, FixDemoCamera vslot 11): the root and each function the replays of live2/pid3234533 seq6220, seq6224 and seq6228 entered (direct callees, tail targets, conditional tail calls, vtable methods); every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. The PES allocator entries that stand as native services (stubs.json natives: 0x1403FBC10, 0x1403FBCB0, 0x1403FBD00, 0x141B34C30) are left out, as snapdiff --native leaves them out of the build. VAs only.",
+ "note": "the functions snapdiff --bounded built for the proof of 0x141F7BFE0 (the FixDemo procedural camera engine, FixDemoCamera vslot 11): the root and each function the replays of live2/pid3234533 seq6220, seq6224, seq6228 and live2/pid3741448 seq11590, seq11594, seq11598 entered (direct callees, tail targets, conditional tail calls, vtable methods); every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. The PES allocator entries that stand as native services (stubs.json natives: 0x1403FBC10, 0x1403FBCB0, 0x1403FBD00, 0x141B34C30) are left out, as snapdiff --native leaves them out of the build. VAs only.",
  "root": "0x141F7BFE0",
  "members": [
   "0x140227920",
@@ -107,6 +107,7 @@
   "0x140891E30",
   "0x140891E70",
   "0x140892660",
+  "0x140892700",
   "0x140892840",
   "0x140892B70",
   "0x140893A10",
@@ -118,6 +119,7 @@
   "0x140894DF0",
   "0x140895240",
   "0x1408955D0",
+  "0x1408957E0",
   "0x140895890",
   "0x1408958B0",
   "0x140895900",
@@ -185,6 +187,10 @@
   "0x14089FEE0",
   "0x14089FF60",
   "0x14089FFF0",
+  "0x1408A0330",
+  "0x1408A0530",
+  "0x1408A0900",
+  "0x1408A0C60",
   "0x1408A15C0",
   "0x1408C77A0",
   "0x1408C8220",
