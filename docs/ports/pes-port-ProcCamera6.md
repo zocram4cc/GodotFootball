@@ -67,3 +67,29 @@ What unblocks it, in order of cost:
 3. The `.impdata` rule now reaches every `snapdiff` closure, bounded or not (`is_code`); no existing proof was re-run for it (the layer `--check` is byte-identical, so no existing function changed).
 4. The mode 6 hug celebration (`GOAL_HUGA_LV3`) is not a scene GF requests; why GF never gets it is CutAnchor6's pick inputs.
 5. Scratch: `gf-ProcCamera6-scratch/` holds only traces and scripts (about 70 MB; no mem.bin copies remain); delete after Main reads this.
+
+## 8. Addendum (01-11-26, after Main's message: init captures landed)
+
+Three more init captures (predicate `d(rcx+0x128)==1 and d(q(rcx+0x130)+0xb8)!=0`, rvwatch38; `live2/pid3741448/seq134037`, `seq137125`, `seq142542`), all state 1:
+
+| seq | record | first zero stage | preset |
+|---|---|---|---|
+| 134037 | mode 4, key 0, target (0,255,255), rate 90, zoom `[-1,0,-1,-1,120,-1,-1,-1]` | `+0xBC` (stage 1) | **`0x140892100`** |
+| 137125 | mode 6, key 100, target (9,10,255), rate 90, zoom `[-1,-1,-1,240,0,-1,-1,-1]` | `+0xC8` (stage 4) | **`0x140892420`** |
+| 142542 | mode 6, key 1, target (1,22,255), rate 60, zoom `[-1,-1,-1,120,0,-1,-1,-1]` | `+0xC8` (stage 4) | `0x140892420` |
+
+(CONFIRMED, read through `SnapMem`.) `frame_trace.py recorded` 3/3 rc 0, then `snapdiff --bounded` over 18 snapshots: **`calls=18 replayed=18 mismatches=0 own_block=0.5929 (134/226) proven=True`**. Closure 270 -> **272** (new members `0x140892100`, `0x140892420`). **The init preset `0x140892100` is proven**, and so is the stage 4 preset. Layer unchanged at 4,837 functions (both were already layer files, now engine members), `gen_translated.py --check` byte-identical, `ledger.py --check` current. Pushed `c4288998`. Still out of set: `0x1408921A0` (stage 5), thunks `0x140892240/2E0/560`, `0x140891FE0`, `0x14089D4B0`, `0x141F7AD90`.
+
+**GF goal movie on the merged tree** (full rebuild, 5,077 steps): the default seed now has no goal in 3,300 frames (fouls only; the merge moved the match; that movie is `not a goal`, deleted). Headless scan of seeds 1-12: goals at seed 7 (frame 814 at 54 fps) and seed 12 (frame 3427), both scene `0x300bf` (`goal_cmnCam_inM00p`). Movie seed 7, teams 1 v 2, `--pes-loop`, `--seed 7`, 1152x648, 30 fps, RADV (`gf-ProcCamera6-scratch/s7`): scene `0x300bf` cut at frame 452, steps start 576 / 940 / 1063, end 1248. The log now shows the engine **getting past the preset** and stopping later:
+
+- step 0 (576): `procedural camera 0 stopped: the engine 0x141F7BFE0 called untranslated 0x140891fe0; the broadcast camera stays` (the zoom-stage ramp's post-ramp hold branch, `FUN_140891fe0(local_1f8, iVar9, piVar15[8])`: reached only when the step's time passes the stage's end, never in a captured call);
+- step 1 (940): stopped at `0x140a91a30` (a vec3 x 3x3 matrix leaf; some closure member calls it in a branch no capture ran);
+- step 2 (1063): no error.
+
+Frames looked at (`f/sheet.png`: 520, 620, 800, 1000 inside steps 0/1, 1100 and 1200 in step 2/after): **the same high broadcast shot of the penalty box in 520/620/800/1000 and the broadcast kick-off shot in 1100/1200. No frame shows PES's telephoto or the scorer framed.** Visually verified: no PES procedural camera in GF yet. (Step 2's frame is not a PES shot either; whether the engine ran silently there and returned the broadcast pose was not checked.)
+
+Both blockers are leaves already proven standalone (`results_cutscene.json`: `0x140891FE0` and `0x140A91A30`, 64/64 cases bit-exact, coverage 1.00), absent only because no replay entered them. Two ways to close, for Main to pick:
+1. **Captures of late updates** of mode 4 / mode 6 records (state 2 calls after the stage ramp end, and the frame that reaches `0x140A91A30`): needs a predicate on the camera's clock; the offset of the elapsed-time field in the FixDemoCamera object is not decoded (set by `0x141F7B4A0`), so I cannot give an exact one yet. Without it, a state-2 predicate `d(rcx+0x128)==2 and d(q(rcx+0x130)+0xb8)!=0` with a high cap catches random update frames (the 12 earlier ones were all early).
+2. **Toolchain policy**: let `snapdiff --bounded` build a callee that is already proven bit-exact standalone even when no replay entered it (today it keeps the loud abort). Not done: it changes what "bounded" means, and the proof of the engine would then not cover those call sites.
+
+Gate (interim, Main gates): `gen_translated.py --check` GREEN (4,837 byte-identical); `pes_proc_camera_test` 5/5 and `pes_goal_anchor_test` 20/20 were run on the pre-addendum layer (the closure additions change no layer file, so they were not re-run); `snapdiff --bounded 0x141F7BFE0` 18/18.
