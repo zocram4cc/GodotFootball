@@ -34,10 +34,10 @@ constexpr int kMinutes = 2;
 // Seed 7's two minutes release no throw-in (its first is past tick 15000: docs/ports/pes-port-StoppageFlow5.md §3), so the
 // tests search matches in turn until one has a throw-in. Seed 3's first walker is at tick 2461 on the path-A census.
 constexpr unsigned int kThrowInSeeds[] = {kSeed, 3u, 13u, 11u};
-// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take: seeds 5, 7 and 9 each have one in
-// their first two minutes on the tree after StyleCutover2 (a 1..40 seed census: ceremony in seeds 5, 7, 9, 18, 19, 25, 32, 35,
-// 36; docs/ports/pes-port-CeremonySeeds.md); 2, 15 and 16 (the CardLevel7 list) have none now.
-constexpr unsigned int kCeremonySeeds[] = {5u, 7u, 9u};
+// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take: seeds 2 and 1 each place one in their
+// first two minutes on the StoppageFlow tree (the trap-chain cutover moves every match, so the lists from main's census do not
+// carry over: docs/ports/pes-port-TrapTick13.md); 5, 7 and 9 (docs/ports/pes-port-CeremonySeeds.md) are main's.
+constexpr unsigned int kCeremonySeeds[] = {2u, 1u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).
