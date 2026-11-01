@@ -275,6 +275,19 @@ EditRow DecodeEditRow(const EditPlayerRecord& rec) {
     const uint64_t mask = uint64_t{1} << kEditSkillBit[k];
     row.skills = RecordBits(rec, kEditSkillFirstBit + k, 1) ? (row.skills | mask) : (row.skills & ~mask);
   }
+  // FUN_141FE9F40: id 0x40 through FUN_1414C04A0 / FUN_1414C0300 / FUN_141FC0AD0, then the seven flag ids (editsave.hpp).
+  const uint32_t style = RecordBits(rec, kEditStyleBit, kEditStyleWidth);  // descriptor range 0..31: always accepted
+  const uint32_t live = style < std::size(kEditStyleLive) ? kEditStyleLive[style] : 0;
+  const int styleBit = kEditStyleMaskBit[kEditLiveStyle[live]];
+  if (styleBit >= 0) row.styleMask |= uint32_t{1} << styleBit;
+  for (size_t k = 0; k < std::size(kEditFlagMaskBit); ++k)
+    if (RecordBits(rec, kEditFlagFirstBit + k, 1)) row.flagMask |= uint32_t{1} << kEditFlagMaskBit[k];
+  row.byte[kRowStyleByte] = 0;  // FUN_141FC0C40(live +0x150), which stays 0 (editsave.hpp)
+  row.set[kRowStyleByte] = true;
+  std::copy(row.byte.begin(), row.byte.end(), row.image.begin());
+  std::memcpy(&row.image[kRowSkills], &row.skills, sizeof row.skills);
+  std::memcpy(&row.image[kRowStyleMask], &row.styleMask, sizeof row.styleMask);
+  std::memcpy(&row.image[kRowFlagMask], &row.flagMask, sizeof row.flagMask);
   return row;
 }
 

@@ -80,6 +80,16 @@ void PlayerDatabase::ApplyEditSave(const EditSave& save) {
     if (row.set[kRowStrongerFoot]) traits.leftFooted = row.byte[kRowStrongerFoot] == 1;
     if (row.set[kRowInjuryResistance]) traits.injuryResistance = row.byte[kRowInjuryResistance];
     if (row.set[kRowForm]) traits.form = row.byte[kRowForm];
+    // The block PES copies into the AI record. ponytail: a byte whose save field failed its gate is 0 in the decode, while PES's live
+    // record keeps its initial value there (FUN_140AA1700, pes-port-EditSaveFields.md 6.3); the six bytes GF reads take Player.bin's
+    // value instead. Remove with the live record's initial values.
+    traits.row = row.image;
+    (*traits.row)[kRowSpeed] = traits.speed;
+    (*traits.row)[kRowJump] = traits.jump;
+    (*traits.row)[kRowHeightCm] = traits.heightCm;
+    (*traits.row)[kRowStrongerFoot] = traits.leftFooted ? 1 : 0;
+    (*traits.row)[kRowInjuryResistance] = uint8_t(traits.injuryResistance);
+    (*traits.row)[kRowForm] = uint8_t(traits.form);
   }
 }
 

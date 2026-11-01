@@ -484,43 +484,6 @@
    "capped": 0,
    "cases": 0,
    "coverage": {
-    "0x142130EE0": {
-     "reached": 25,
-     "total": 111,
-     "fraction": 0.2252
-    }
-   },
-   "dead_blocks": {},
-   "diffed": true,
-   "failed": 0,
-   "failure_class": null,
-   "icount_max": 0,
-   "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1. SYNTHETIC: 1 call state(s) whose registers are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
-   "proof": "snapdiff",
-   "requested": 0,
-   "snapdiff": {
-    "calls": 1,
-    "mismatches": 0,
-    "own_block": {
-     "reached": 25,
-     "total": 111,
-     "fraction": 0.2252
-    },
-    "replayed": 1,
-    "source": "tools/dev/translate/results_dribble.json"
-   },
-   "stubs": [],
-   "translated": true,
-   "va": "0x142130EE0",
-   "synthetic": true,
-   "synthetic_cases": 1
-  },
-  {
-   "aborted": 0,
-   "capped": 0,
-   "cases": 0,
-   "coverage": {
     "0x14063D2F0": {
      "reached": 6,
      "total": 6,
@@ -550,6 +513,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x14063D2F0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142130EE0": {
+     "reached": 29,
+     "total": 111,
+     "fraction": 0.2613
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 13 of 13. SYNTHETIC: 13 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 13,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 29,
+     "total": 111,
+     "fraction": 0.2613
+    },
+    "replayed": 13,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142130EE0",
+   "synthetic": true,
+   "synthetic_cases": 13
   }
  ]
 }
