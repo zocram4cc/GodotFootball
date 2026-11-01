@@ -182,10 +182,8 @@ void GoalieDefaultStrategy::RequestInput(const MentalImage* mentalImage, Vector3
         // rest of this tick already computed.
         dir * AI_GetOffsideLine(match, match->GetMentalImage(0), team->GetID()),
         // PES's style word bits 19/20 are the Offensive/Defensive GK styles.
-        CastPlayer()->GetPlayerData()->GetPlayingStyle() ==
-            PlayingStyles::Player::OffensiveGoalkeeper,
-        CastPlayer()->GetPlayerData()->GetPlayingStyle() ==
-            PlayingStyles::Player::DefensiveGoalkeeper,
+        match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::OffensiveGoalkeeper),
+        match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::DefensiveGoalkeeper),
         CastPlayer()->GetStat("gk_awareness"),
         // The shuffle's Range0(6) on slot 1 of this keeper's own generator.
         KeeperShuffleDraw(),

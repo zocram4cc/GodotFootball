@@ -205,6 +205,15 @@ std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const P
   ReadF(exe, 0x142588200, &k.predLead_s, &ok);
   ReadF(exe, 0x142590d98, &k.predOffBall_s, &ok);
   ReadF(exe, 0x14259222c, &k.styleRunDepth_m, &ok);
+  ReadF(exe, 0x142588210, &k.styleBackDepth_m, &ok);
+  {
+    // `cmp byte ptr [rsp+0x42],1` (80 7c 24 42 01) at 0x1405d9eff: the opcode is checked before the immediate is trusted.
+    uint8_t cmp[5] = {};
+    ok &= exe.ReadVa(0x1405d9eff, sizeof cmp, cmp);
+    const bool isCmp = cmp[0] == 0x80 && cmp[1] == 0x7c && cmp[2] == 0x24 && cmp[3] == 0x42;
+    ok &= isCmp;
+    k.styleFlankMaxForwards = isCmp ? cmp[4] : 0;
+  }
   uint8_t window = 0;
   ok &= exe.ReadVa(0x143449d88, 1, &window);
   k.laneWindow = window;
@@ -1944,17 +1953,26 @@ float PassGetFigure(const RunWorld& w) {
 }  // namespace
 
 float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord, int runState,
-                    bool carrier) {
+                    bool carrier, int forwardsInLine) {
   // The carrier and a player in a run action take no term (FUN_1405d8b70: uVar12 !=
   // local_1cc, and FUN_1405a4790's run set, which is IsRun).
-  // ponytail: roles 5-6 of L650-653 are gated on team+0x7b84, not decoded; they take no term.
-  if (carrier || IsRun(runState) || roleClass < 7 || roleClass > 9) return 0.0f;
+  if (carrier || IsRun(runState)) return 0.0f;
+  // Kinds 7-9 always; kinds 5-6 only while the team's phase-1 forward line holds at most styleFlankMaxForwards men
+  // (`local_1d6 < 2`, local_1d6 = T+0x87CC: 0x1405D9EFF CMP byte [RSP+0x42],1; JA).
+  const bool flank = roleClass == 5 || roleClass == 6;
+  if (!(roleClass >= 7 && roleClass <= 9) && !(flank && forwardsInLine <= k.styleFlankMaxForwards)) return 0.0f;
   using P = PlayingStyles::Player;
-  const bool poacher = pes::style::Gate(k.styleCompat, roleClass, styleWord,
-                                        pes::style::EngineBit(P::GoalPoacher));
-  const bool fox = pes::style::Gate(k.styleCompat, roleClass, styleWord,
-                                    pes::style::EngineBit(P::FoxInTheBox));
-  return poacher || fox ? k.styleRunDepth_m : 0.0f;
+  // Three separate statements (L650-653 bit 0 adds, L655-657 bit 2 adds, L659-662 bit 4 subtracts), so a word holding
+  // several gets each. L662's subtrahend is s * DAT_142588210: the register the decompile names fVar30 holds the
+  // constant there (0x1405D9841 reloads it after L196's slot-point product), not a team-record x.
+  float depth = 0.0f;
+  if (pes::style::Gate(k.styleCompat, roleClass, styleWord, pes::style::EngineBit(P::GoalPoacher)))
+    depth += k.styleRunDepth_m;
+  if (pes::style::Gate(k.styleCompat, roleClass, styleWord, pes::style::EngineBit(P::FoxInTheBox)))
+    depth += k.styleRunDepth_m;
+  if (pes::style::Gate(k.styleCompat, roleClass, styleWord, pes::style::EngineBit(P::CreativePlaymaker)))
+    depth -= k.styleBackDepth_m;
+  return depth;
 }
 
 bool RunStop(const RunWorld& w, int id, int run) {
