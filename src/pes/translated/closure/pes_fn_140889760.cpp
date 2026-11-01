@@ -13,6 +13,7 @@ static constexpr unsigned __int128 k_c1425656D0 = ((unsigned __int128)0x80000000
 
 void pes_fn_140889760(PesState& s);
 void pes_fn_14088AD50(PesState& s);
+void pes_fn_140A91A30(PesState& s);
 void pes_fn_140A91B80(PesState& s);
 
 void pes_fn_140889760(PesState& s) {
@@ -45,7 +46,7 @@ void pes_fn_140889760(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
   if (s.cond("z")) {
-    /*OUT-OF-SET CALL 0x140A91A30*/ pes_dispatch_missing(0x140A91A30);
+    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A91A30(s); s.gpr[4] += 8; }
   } else {
     { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A91B80(s); s.gpr[4] += 8; }
   }

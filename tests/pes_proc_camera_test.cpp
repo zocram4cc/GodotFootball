@@ -217,28 +217,49 @@ TEST(ProcCameraGodot, TheFrameIsATorsoShotAtTheCapturedDistance) {
   EXPECT_LT(frame, 2.0f);
 }
 
-// A record the captures did not reach (zoom stage 1 at tick 0 selects preset 0x140892100, which the bounded engine closure does
-// not hold) does not end the process: Step reports the missing call, and the rig and the next camera are unharmed.
-// If the closure grows to cover this record, pick another uncovered zoom stage here.
-TEST_F(ProcCamera, AnUncapturedRecordFailsTheFrameNotTheProcess) {
-  constexpr size_t kZoomOffset = 0xB8;
-  constexpr int32_t kStageAtZero = 0, kStageUnused = -1;
-  constexpr uint64_t kPreset = 0x140892100;
-  std::vector<uint8_t> uncaptured = Hex(kRecord);
-  std::memcpy(uncaptured.data() + kZoomOffset + 4, &kStageAtZero, 4);
-  std::memcpy(uncaptured.data() + kZoomOffset + 8, &kStageUnused, 4);
-  const size_t bad = rig->AddCamera(uncaptured);
+// The recovery for a callee the layer does not link (docs/ports/pes-port-ProcCamera7.md): the engine is run from the
+// translated layer, in which a callee that is recorded bit-exact in a proven results set is linked and every other one still
+// fails the frame. Step then reports the VA, and the rig and the next camera are unharmed.
+constexpr size_t kZoomOffset = 0xB8, kZoomStages = 8;
+constexpr int32_t kStageUnused = -1;
+
+// The kRecord with its zoom stages replaced: `stages[i]` is the word at +0xB8 + 4 i (-1 unused, 0 selects the preset of that
+// stage at the init call, > 0 a ramp key the per-frame blend reads).
+std::vector<uint8_t> WithStages(const std::array<int32_t, kZoomStages>& stages) {
+  std::vector<uint8_t> r = Hex(kRecord);
+  std::memcpy(r.data() + kZoomOffset, stages.data(), 4 * kZoomStages);
+  return r;
+}
+
+// Stage 3 selects the thunk 0x140892560 (-> 0x144056E40): no results file records it, so the engine cannot run it. The frame
+// fails and names it; the rig is unharmed (a camera of the captured record on the same rig still ties PES's first frame).
+TEST_F(ProcCamera, AnUnrecordedPresetFailsTheFrameNotTheProcess) {
+  constexpr uint64_t kUnrecordedPreset = 0x140892560;
+  const size_t bad = rig->AddCamera(WithStages({kStageUnused, kStageUnused, kStageUnused, 0, kStageUnused, kStageUnused, kStageUnused, kStageUnused}));
   rig->SetTarget(kScorerSlot, TargetOf(kFrames[0].scorer));
   uint64_t missing = 0;
   EXPECT_FALSE(rig->Step(bad, 0.0f, &missing));
-  EXPECT_EQ(missing, kPreset);
-  // The recovery is cleared: a camera of the captured record on the same rig still ties PES's first frame.
+  EXPECT_EQ(missing, kUnrecordedPreset);
   const size_t good = rig->AddCamera(Hex(kRecord));
   const std::optional<pes::ProcCameraPose> pose = rig->Step(good, 0.0f, &missing);
   ASSERT_TRUE(pose);
   const std::vector<uint8_t> want = Hex(kFrames[0].params);
   EXPECT_EQ(FloatAt(want, 0x0C), pose->eye[0]);
   EXPECT_EQ(FloatAt(want, 0x30), pose->fovRad);
+}
+
+// A ramp key (stage 4 = 120) the player clock has passed runs the post-ramp hold 0x140891FE0, which a results file records
+// bit-exact (results_cutscene.json) though no camera replay entered it. The engine runs it: a pose, no missing call.
+TEST_F(ProcCamera, ARecordedLeafNoReplayEnteredRunsInTheEngine) {
+  constexpr int32_t kRampKey = 120;
+  constexpr float kPastTheKey = 1000.0f;
+  const size_t cam = rig->AddCamera(WithStages({kStageUnused, kStageUnused, 0, kStageUnused, kRampKey, kStageUnused, kStageUnused, kStageUnused}));
+  rig->SetTarget(kScorerSlot, TargetOf(kFrames[0].scorer));
+  uint64_t missing = 0;
+  const std::optional<pes::ProcCameraPose> pose = rig->Step(cam, kPastTheKey, &missing);
+  EXPECT_EQ(missing, 0u) << "the engine stopped at " << std::hex << missing;
+  ASSERT_TRUE(pose);
+  EXPECT_GT(pose->fovRad, 0.0f);
 }
 
 }  // namespace
