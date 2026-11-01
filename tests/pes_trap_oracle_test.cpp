@@ -1021,6 +1021,12 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
   pes::PesWorld& w = *t.built.world;
   const int slot = t.built.slot;
   const ObjSpans captured = CapturedObjects(o);
+  const uint64_t rdx = o.regs.at("rdx");
+  // The anime root's world point (O2+0xD0..0xDF) is the animation engine's output. GF's stand-in (WriteActorP) is the man's position,
+  // which equals it on every captured tick after the start. On the start tick (the phase byte P+0x245C is 0 at entry) PES's point is
+  // the engine's own: 0.011 m and 0.009 m off the man's x and z in seq77210. The tick copies the point onto itself (0x141AF78BC..78DB),
+  // so the capture's point is that tick's input. OPEN: the engine's root writer is not decoded.
+  const bool startTick = Read(o, rdx + pes::kPPhaseOffset, 1) == 0;
   const auto put = [&](int obj, uint32_t rel, uint64_t capAddr, size_t len) {
     uint8_t* dst = WindowBytes(w, slot, obj) + rel;
     for (size_t i = 0; i < len; ++i) {
@@ -1035,7 +1041,8 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
       const bool actionState = obj == kObjP && rel + i >= pes::kPActionTableOffset && rel + i < pes::kPActionTableOffset + pes::kActionTableBytes;
       // The member constructor's start-state cells (blend counters, unit tables): PES's trap start path has moved them (IsMemberStateCell).
       const bool memberState = obj == kObjP && pes::IsMemberStateCell(rel + i);
-      if (dst[i] == 0 || cell == pes::AnimPluginCell::kState || actionState || memberState) {
+      const bool engineRoot = startTick && obj == kObjO2 && rel + i >= pes::kO2PointOffset && rel + i < pes::kO2PointOffset + 16;
+      if (dst[i] == 0 || cell == pes::AnimPluginCell::kState || actionState || memberState || engineRoot) {
         if (cap != 0 && dst[i] != cap) {
           ++t.overlaid;
           t.overlaidAt.insert({obj, rel + static_cast<uint32_t>(i)});
@@ -1048,7 +1055,6 @@ void BuildTick(const Oracle& o, const uint8_t* image, uint64_t imageBytes, TickB
       }
     }
   };
-  const uint64_t rdx = o.regs.at("rdx");
   // The ball record's prediction samples the tick indexes (FUN_140A6CF70; GF holds them as PesWorld::SetBallSample): the manifest's H
   // lines miss them (the replay serves them from the page set), so they are supplied whole, 250 samples.
   put(kObjBall, pes::kBallSamplesOffset, captured[kObjBall].base + pes::kBallSamplesOffset,
@@ -1297,10 +1303,13 @@ TEST_F(TrapTickOracle, ListWhatTheOverlaySupplies) {
 // cannot overlay (it holds no copy of the capture's heap), so a record GF built differently changes the solver's output unseen.
 // A read byte that lies in none of these structures, nor in the window's objects, is reported as unexplained.
 // Oracle dirs for this test (GF_PES_TRAP_TICK_ORACLE) are captures of the No-Mod launch (live2/pid3741448, after the 30-10-26 14:35 pin;
-// trap_action_tick_797CD0 seq1877, 1883, 1889, 1895, 1917, 1924, 1938, 1948, 1982, 4790, 4798, 4803, FULL: a slim capture lacks the
+// trap_action_tick_797CD0 seq1877, 1883, 1889, 1895, 1917, 1924, 1938, 1948, 1982, 4790, 4798, 4803 and the start and mirrored ticks seq77210,
+// 78106, 78113, 78120, 78127, 78134, 78141 (rvwatch37 predicate b(rdx+0x245c)==0 or b(rdx+0x2472)==1), FULL: a slim capture lacks the
 // actor-fact pages trap_oracle.py reads). The older oracle dirs were mod captures (sider's GameplayLoader.lua had selected a gameplay mod;
 // its constant_player.bin carries a different trap.o, +0x8 = 0x0a against stock 0x07), which GF's default "No Mod" mount rightly differs from.
 // Mbinfo kind 4 (JumpData.bin, FUN_1406AD810) is in kTrapMbinfoKinds: motion 0xDA9's count +0x4 was 1 in the capture and 0 in GF without it.
+// Kinds 9 (FootType.bin, FUN_1406AD170) and 12 (PivothitInfo.bin, FUN_1406AE350) are there for the mirrored ticks: seq78106's motions 0x216,
+// 0x270 and 0x3C0 hold counts +0x9 = 8, 6, 6 and +0xC = 1.
 TEST_F(TrapTickOracle, LoaderDataTheTickReadsEqualsTheCapture) {
   constexpr uint64_t kMotionTableGlobal = 0x1436F23C0ULL, kAnimeGlobal = 0x1436F2378ULL, kEyesGlobal = 0x1436F2648ULL;
   for (const std::string& dir : dirs_) {

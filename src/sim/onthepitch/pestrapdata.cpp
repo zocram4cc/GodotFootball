@@ -192,7 +192,7 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   for (std::size_t i = 0; i < files.size(); ++i) {
     const TrapMbinfoKind& k = kTrapMbinfoKinds[i];
     for (std::size_t n = 0; n < files[i].size() / k.recordBytes; ++n) {
-      const uint32_t motion = (Load<uint16_t>(&files[i][n * k.recordBytes]) & 0x1FFFu) + k.motionBase;
+      const uint32_t motion = (Load<uint16_t>(&files[i][n * k.recordBytes]) & k.keyMask) + k.motionBase;
       // ponytail: PES files a record past the table (motion >= 0x1125) beyond its own block; nothing reads it back.
       if (motion >= kMotionSlotCount) continue;
       uint8_t* rec = arena.At(records + motion * kMotionRecordBytes);

@@ -52,7 +52,8 @@ struct TrapMbinfoKind {
   const char* path;
   std::size_t recordBytes;
   std::size_t listOffset;
-  uint32_t motionBase;  // motion = (word0 & 0x1FFF) + motionBase
+  uint32_t motionBase;  // motion = (word0 & keyMask) + motionBase
+  uint32_t keyMask = 0x1FFF;
 };
 inline constexpr TrapMbinfoKind kTrapMbinfoKinds[] = {
     {0, "common/anime/Mbinfo/bin/Animation.bin", 36, 0x18, 0},    // FUN_1406AC4D0
@@ -64,6 +65,11 @@ inline constexpr TrapMbinfoKind kTrapMbinfoKinds[] = {
     // Kind 4 (FUN_1406AD810, JumpData.bin): 4 bytes a record, key (word0 & 0x1FFF) + 0x11 like HitData, list at rec+0x90 (FUN_1406AE810 slot 4),
     // cap 2 (DAT_1425DC370[4]). The trap tick's candidate test reads its count at rec+4 (capture: motion 0xDA9 count +0x4 = 1).
     {4, "common/anime/Mbinfo/bin/JumpData.bin", 4, 0x90, 0x11},  // FUN_1406AD810
+    // Kind 9 (FUN_1406AD170, FootType.bin): 4 bytes a record, key (word0 & 0x1FFF) + 0x10, list at rec+0x110 (FUN_1406AE810 slot 9), cap 20
+    // (DAT_1425DC370[9]). Count at rec+9 (capture seq78106: motions 0x216, 0x270, 0x3C0 hold 8, 6, 6).
+    {9, "common/anime/Mbinfo/bin/FootType.bin", 4, 0x110, 0x10},  // FUN_1406AD170
+    // Kind 12 (FUN_1406AE350, PivothitInfo.bin): 16 bytes a record, key (word0 & 0xFFF) + 0x20B, list at rec+0x208 (slot 12), cap 1.
+    {12, "common/anime/Mbinfo/bin/PivothitInfo.bin", 16, 0x208, 0x20B, 0xFFF},  // FUN_1406AE350
 };
 
 // Where the loader objects sit in the window: one segment from kTrapLoaderVa (above the world window, kWorldWindowVa).
