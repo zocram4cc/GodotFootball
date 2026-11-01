@@ -740,13 +740,13 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // ball more than 3.3 s away is never chased. This replaces the flat "within
     // 1000 ms and designated" rule, which had no idea who else was going.
     //
-    // PES's style bits 19/20 are GF's Offensive/Defensive GK playing styles.
-    // Where the style is neither, the no-style factors apply.
+    // PES's style bits 19/20 (the style word's Offensive/Defensive GK bits, read directly).
+    // Where the word has neither, the no-style factors apply.
     const pes::KeeperConstants& keeperConstants = match->GetPesKeeperConstants();
-    const PlayingStyles::Player gkStyle =
-        CastPlayer()->GetPlayerData()->GetPlayingStyle();
-    const bool offensiveStyle = gkStyle == PlayingStyles::Player::OffensiveGoalkeeper;
-    const bool defensiveStyle = gkStyle == PlayingStyles::Player::DefensiveGoalkeeper;
+    const bool offensiveStyle =
+        match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::OffensiveGoalkeeper);
+    const bool defensiveStyle =
+        match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::DefensiveGoalkeeper);
     const float factor = pes::PesKeeperRushFactor(offensiveStyle, defensiveStyle, keeperConstants);
     const bool rushing =
         pes::PesKeeperRushRaceWins(CastPlayer()->GetTimeNeededToGetToBall_ms() * 0.001f,
@@ -1102,7 +1102,7 @@ int ElizaController::_TackleAggressionLevel() {
   // PES's A: ENFORCER (+1) and the team's defensive mode (+1). The team-sheet
   // flag that zeroes it (FUN_140a3b520 / FUN_1414dab90) has no GF counterpart.
   int A = 0;
-  if (CastPlayer()->GetPlayerData()->GetPlayingStyle() == PlayingStyles::Player::TheDestroyer) ++A;
+  if (match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::TheDestroyer)) ++A;
   if (DeepDefensiveMode(team->GetController()->GetInstructions())) ++A;
   return A;
 }
@@ -1111,7 +1111,7 @@ pes::SlideAggressionInput ElizaController::_SlideAggression() {
   const TeamInstructions::State& instructions = team->GetController()->GetInstructions();
   pes::SlideAggressionInput in;
   in.enforcerStyle =
-      CastPlayer()->GetPlayerData()->GetPlayingStyle() == PlayingStyles::Player::TheDestroyer;
+      match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::TheDestroyer);
   // PES's FUN_140a62180(ctx, side, 6) == 0: the Pressuring sheet toggle is
   // Aggressive rather than Conservative (pes-re-tactics.md 2).
   in.aggressiveTeamSheet = team->GetController()->GetTeamSheet().Toggle(pes::kPressuring) == 0;
@@ -2434,8 +2434,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
              pes::kPlanCross, carrier, finishing,
              // PES's Cross start (0x14211AB10): the Crosser style, the Early
              // Cross COM or Pinpoint Crossing.
-             CastPlayer()->GetPlayerData()->GetPlayingStyle() ==
-                     PlayingStyles::Player::CrossSpecialist ||
+             match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::CrossSpecialist) ||
                  PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing),
              PlayingStyles::Has(comStyles, PlayingStyles::Com::EarlyCross), false),
          // Cross needs the carrier inside the cross zone: the close band.
