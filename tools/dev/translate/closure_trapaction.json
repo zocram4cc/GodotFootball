@@ -1,5 +1,5 @@
 {
- "note": "the functions snapdiff --bounded built for the proof of 0x140797CD0 (the 33 captured action ticks (the 14 of pes-port-TrapS5.md, the 12 FULL No-Mod ticks of live2/pid3741448, pes-port-TrapTick9.md, and the 7 No-Mod start and mirrored ticks seq77210, 78106, 78113, 78120, 78127, 78134, 78141, pes-port-TrapTick12.md)): the root and each function the replays entered (direct callees, tail targets, vtable methods). Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "note": "the functions snapdiff --bounded built for the proof of 0x140797CD0 (the 38 captured action ticks (the 14 of pes-port-TrapS5.md, the 12 FULL No-Mod ticks of live2/pid3741448, pes-port-TrapTick9.md, and the 12 No-Mod start and mirrored ticks seq77210, 78106, 78113, 78120, 78127, 78134, 78141, 88043, 88049, 88066, 88076, 88081, pes-port-TrapTick12.md)): the root and each function the replays entered (direct callees, tail targets, vtable methods). Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
  "root": "0x140797CD0",
  "members": [
   "0x1403FF430",
@@ -106,6 +106,7 @@
   "0x1406EC660",
   "0x1406EC700",
   "0x1406EF320",
+  "0x1406F02F0",
   "0x1406F0F70",
   "0x1406FA7C0",
   "0x1406FB580",
