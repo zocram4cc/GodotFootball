@@ -147,6 +147,10 @@ void PesCutsceneCamera::advance(double t_s) {
     UtilityFunctions::push_error(String("PesCutsceneCamera: procedural camera ") + String::num_int64(id) +
                                  " stopped: the engine 0x141F7BFE0 called untranslated 0x" + String::num_int64(int64_t(missing), 16) +
                                  "; the broadcast camera stays");
+  } else if (std::find(ranRigs_.begin(), ranRigs_.end(), id) == ranRigs_.end()) {
+    ranRigs_.push_back(id);
+    UtilityFunctions::print(String("PesCutsceneCamera: procedural camera ") + String::num_int64(id) + " engine ran: first pose at clock " +
+                            String::num(RecordTicks(force->record, clock)) + " ticks");
   }
 }
 

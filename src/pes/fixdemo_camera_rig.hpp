@@ -63,11 +63,12 @@ class FixDemoCameraRig {
   // clock), then 0x141F7BFE0 with the params block. The first call of a camera is its initialisation (camera+0x128 == 1).
   // Empty when the engine called a function the layer does not hold; *missingVa then names it (PES's VA) and the camera is
   // spoiled (the engine stopped part-way): drop it.
-  // ponytail: the engine's closure is capture-bounded (docs/ports/pes-port-ProcCamera.md): a record (another zoom stage
-  // selects another preset, 0x140892100, 0x140892420, ...) or a target motion the captures did not reach calls a function the
-  // layer does not hold, and the translator's loud abort would end the process. The engine runs under a recovery for that one
-  // case (pes_dispatch_missing_handler) so the caller can fall back to its own camera. Removed when the closure covers the
-  // engine (more captures of the hook proc_camera_141F7BFE0, proven).
+  // ponytail: the engine's closure is capture-bounded (docs/ports/pes-port-ProcCamera.md), but a callee recorded bit-exact in
+  // any proven results set is linked by the layer's generator (gen_translated.link_universe, docs/ports/pes-port-ProcCamera7.md).
+  // A callee no set records (a preset thunk 0x140892560, 0x141F7AD90, ...) still stops the engine part-way: it would end the
+  // process under the translator's loud abort, so the engine runs under a recovery (pes_dispatch_missing_handler) and Step
+  // reports the VA so the caller can fall back to its own camera. Removed when those callees are proven (more captures of the
+  // hook proc_camera_141F7BFE0).
   std::optional<ProcCameraPose> Step(size_t camera, float timeTicks, uint64_t* missingVa = nullptr);
 
   PesState& State();

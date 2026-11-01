@@ -83,6 +83,19 @@ def closure_members(va):
     return set()
 
 
+def recorded_vas():
+    """Every VA a results set records bit-exact (diffed): proven standalone, so any layer function may link it (owner
+    ruling 01-11-26, Main: a callee recorded in a proven set is not an OUT-OF-SET gap, whichever set the caller was proven
+    in). A callee only a closure holds (never recorded) stays a gap: it was never proven standalone."""
+    return {va for va, _, diffed, _ in records() if diffed}
+
+
+def link_universe(universe, members):
+    """The callees a translation may link: the set's own universe, the closure its proof built, and every recorded
+    function."""
+    return universe | members | recorded_vas()
+
+
 def context(name, va, image):
     """Spec, stub map and universe that a diff run of va in set name translates under."""
     sdir = spec_dir(name)
@@ -174,7 +187,7 @@ def build(image):
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
         members = closure_members(va)
-        universe = universe | members
+        universe = link_universe(universe, members)
         queue, seen = [va] + sorted(members - {va}), {va} | members
         while queue:
             cur = queue.pop(0)
