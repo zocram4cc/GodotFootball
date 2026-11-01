@@ -1294213,6 +1294213,12 @@
      "0x14085B3E0"
     ]
    },
+   "trapmode": {
+    "members": 1,
+    "roots": [
+     "0x1406F02F0"
+    ]
+   },
    "trapstart": {
     "members": 20,
     "roots": [
