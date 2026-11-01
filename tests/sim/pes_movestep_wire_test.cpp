@@ -4,6 +4,7 @@
 // process under gtest_discover_tests, so the constants test sees a cold cache.
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -538,11 +539,75 @@ TEST(MoveStepWire, TheDecisionIsTheFirstMovementCommandNotAnAction) {
   walk.desiredFunctionType = e_FunctionType_Movement;
   walk.desiredVelocityFloat = sprintVelocity;
   const PlayerCommandQueue queue = {pass, walk};
-  const std::optional<PlayerCommand> decision = pesmovestep::MovementDecision(queue);
+  const std::optional<PlayerCommand> decision = pesmovestep::MovementDecision(queue, false);
   ASSERT_TRUE(decision.has_value()) << "no movement command was chosen from a pass and a walk";
   EXPECT_EQ(decision->desiredFunctionType, e_FunctionType_Movement);
   EXPECT_FLOAT_EQ(decision->desiredVelocityFloat, sprintVelocity);
-  EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{pass}).has_value()) << "a lone pass is not a movement";
+  EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{pass}, false).has_value()) << "a lone pass is not a movement";
+}
+
+// A keeper's queue at the stall: [Deflect, BallControl, Movement]. His hands carry no move target and the dribble belongs to the
+// man who holds the ball, so without the ball the walk behind them is the decision; with it the dribble is.
+TEST(MoveStepWire, AKeeperWithoutTheBallIsSteeredByTheWalkBehindHisHandsAndTheDribble) {
+  PlayerCommand hands;
+  hands.desiredFunctionType = e_FunctionType_Deflect;
+  PlayerCommand dribble;
+  dribble.desiredFunctionType = e_FunctionType_BallControl;
+  dribble.useDesiredMovement = true;
+  PlayerCommand walk;
+  walk.desiredFunctionType = e_FunctionType_Movement;
+  walk.desiredVelocityFloat = sprintVelocity;
+  const PlayerCommandQueue queue = {hands, dribble, walk};
+  const std::optional<PlayerCommand> without = pesmovestep::MovementDecision(queue, false);
+  ASSERT_TRUE(without.has_value());
+  EXPECT_EQ(without->desiredFunctionType, e_FunctionType_Movement) << "the hands or the dribble steered a keeper who has no ball";
+  const std::optional<PlayerCommand> with = pesmovestep::MovementDecision(queue, true);
+  ASSERT_TRUE(with.has_value());
+  EXPECT_EQ(with->desiredFunctionType, e_FunctionType_BallControl) << "the carrier's dribble must still steer the man who holds the ball";
+  EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{hands}, true).has_value()) << "a lone Deflect is not a movement";
+}
+
+// The seed-7 stall (pes_stall_test): a ball at rest 2.3 m from the keeper, on the goal side of him, in his box; the keeper is the
+// designated man and no outfield man is near. His queue is [Deflect, BallControl, Movement toward the ball], and MOVESTEP's decision
+// took the Deflect (a keeper hand action carrying no movement: velocity 0) and so held him in IDLE <-> IDLE_OTHER at frame 0 of the
+// idle clip until the stalemate breaker forced him. A ball he does not hold is reached on the movement command, not on his hands.
+TEST(MoveStepWire, ADesignatedKeeperNextToABallAtRestWalksToIt) {
+  constexpr float kBallFromGoalLine_m = 7.2f;   // the seed-7 stall: ball x = -45.3 on a 52.5 m half length
+  constexpr float kKeeperFromBall_m = 2.3f;     // the stall's keeper stood this far from the ball, out on the pitch side
+  constexpr float kBallAcross_m = 0.4f;
+  constexpr float kKeeperAcross_m = -0.7f;
+  constexpr float kBallRestHeight_m = 0.11f;    // pes_tick_a1_test.cpp: the ball's rest height
+  constexpr float kReach_m = 1.0f;
+  constexpr float kWindow_s = 4.0f;             // inside the breaker's five seconds of idleness
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr int kWarmTicks = 2;  // a humanoid has no clip to place until its first process
+  for (int t = 0; t < kWarmTicks; ++t) match->Process();
+  Player* keeper = nullptr;
+  Team* team = match->GetTeam(0);
+  std::vector<Player*> onPitch;
+  match->GetActiveTeamPlayers(0, onPitch);  // the bench keeper has no humanoid
+  for (Player* p : onPitch)
+    if (p->GetFormationEntry().role == e_PlayerRole_GK) keeper = p;
+  ASSERT_TRUE(keeper) << "the home team has no keeper";
+  const float goalX = team->GetSide() * pitchHalfW;  // his own goal line
+  const float toPitch = -team->GetSide();           // +1 when the pitch lies at +x of his goal
+  const Vector3 ballAt(goalX + toPitch * kBallFromGoalLine_m, kBallAcross_m, kBallRestHeight_m);
+  const Vector3 keeperAt(ballAt.coords[0] + toPitch * kKeeperFromBall_m, kKeeperAcross_m, 0.0f);
+  keeper->CastHumanoid()->ResetPosition(keeperAt, ballAt);
+  match->GetBall()->SetPosition(ballAt);
+  match->GetBall()->SetMomentum(Vector3(0.0f, 0.0f, 0.0f));
+
+  float nearest_m = (keeper->GetPosition() - ballAt).Get2D().GetLength();
+  const int ticks = static_cast<int>(kWindow_s * Match::kFramesPerSecond);
+  for (int t = 0; t < ticks; ++t) {
+    match->Process();
+    nearest_m = std::min(nearest_m, (keeper->GetPosition() - match->GetBall()->GetPositionBuffer()).Get2D().GetLength());
+  }
+  EXPECT_LT(nearest_m, kReach_m) << "the designated keeper never came within " << kReach_m << " m of a ball at rest in "
+                                 << kWindow_s << " s; he started " << kKeeperFromBall_m << " m from it";
 }
 
 // A move target within 0.2 m of the root steers by the ball's sample 0 (PES's filler: DAT_142598578, 0.2 in the install;

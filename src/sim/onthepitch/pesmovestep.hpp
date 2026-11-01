@@ -37,9 +37,11 @@ void PesFrame(float gfX, float gfY, float gfZ, float out[3]);
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ);
 // The PES motion number the humanoid plays (movestep.hpp's CurrentMotion), or -1 when the AI's own clip plays.
 int CurrentMotionOf(Player& player);
-// MOVESTEP's decision: the first queued command that is not a ball action. Ball actions ride the pending ball request the
-// kick dispatcher consumes (docs/re/pes-re-decision-read.md 1 and 3), so MOVESTEP steers by the movement command.
-std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue);
+// MOVESTEP's decision: the first queued command that is movement. Ball actions ride the pending ball request the kick dispatcher
+// consumes (docs/re/pes-re-decision-read.md 1 and 3), so MOVESTEP steers by the movement command. A keeper's Deflect is a hand
+// action with no move target, and a BallControl is the carrier's dribble ("ball control belongs to the man who has the ball",
+// elizacontroller.cpp): neither steers a man who does not hold the ball (holdsBall false).
+std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue, bool holdsBall);
 // PES's command id (cmd[0], req[0x16]) for GF's movement command: MOVE (2), or 0 with no command or a ball action.
 int CommandIdFor(const PlayerCommand* cmd);
 // PES's move kind (cmd[0x16], req[0]) for a player's move: the near keeper kind (4) for a keeper, else the mid kind (0).

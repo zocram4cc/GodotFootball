@@ -253,7 +253,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     player_.RequestCommand(queue);
     PesDecision& decision = player_.GetPesDecision();
     decision.frame = match_.GetPesFrame();
-    decision.command = pesmovestep::MovementDecision(queue);
+    decision.command = pesmovestep::MovementDecision(queue, player_.HasPossession());
   }
   float CurrentSpeedKmh() const override {
     return player_.GetMovement().GetLength() * c_.run.speed3600;
@@ -618,10 +618,16 @@ int CurrentMotionOf(Player& player) {
   return std::atoi(anim->anim->GetVariable("specialvar2").c_str());
 }
 
-// MOVESTEP's decision: the first queued command that is not a ball action (pes-re-decision-read.md 1 and 3).
-std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue) {
+// MOVESTEP's decision: the first queued command that is movement (pes-re-decision-read.md 1 and 3). The keeper's Deflect carries
+// no move target (velocity 0), so taking it held a designated keeper 2.3 m from a ball at rest in IDLE for the whole stall; the
+// BallControl a rushing keeper queues is the dribble, whose direction is upfield, not toward a ball he has yet to reach.
+// ponytail: GF's keeper has no PES mover (KP_PRESS action 0x3e, not decoded); the movement command's ball magnet walks him.
+std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue, bool holdsBall) {
   for (const PlayerCommand& command : queue) {
-    if (!IsBallActionFunction(command.desiredFunctionType)) return command;
+    if (IsBallActionFunction(command.desiredFunctionType)) continue;
+    if (command.desiredFunctionType == e_FunctionType_Deflect) continue;
+    if (command.desiredFunctionType == e_FunctionType_BallControl && !holdsBall) continue;
+    return command;
   }
   return std::nullopt;
 }
