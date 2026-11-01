@@ -1035,12 +1035,14 @@ int CarrierRoleClass(Player* p) { return p->GetFormationEntry().role == e_Player
 // the condition arrow, A3 the position familiarity, A5 the fatigue factor on the ids it covers, 0x14092B6CB / 0x14092B5DB / the A5
 // writer in 0x14092AF10, pes-re-stamina-drain.md 4: 0x28..0x2C, not Speed).
 // ponytail: A4 (the super-sub pair table 0x142632F74, 0x14092B7FC) is 1.0: GF has no super-sub state. A player with no PES id (the
-// synthetic squads) takes GF's own stat over 100 and height as the base byte, and the right foot (Match::kFallbackLeftFooted); the
-// writer of PES's row bytes 0x00..0x4F into the AI record is unlocated (pes-re-publisher-link.md 2), so the store step's base is
-// the row's value, not a copy PES made.
+// synthetic squads) takes GF's own stat over 100 and height as the base byte, and the right foot (Match::kFallbackLeftFooted); a
+// player the EDIT save holds starts from PES's copy of his row (FUN_140922BC0 -> FUN_140A58F00, PesWorld::LoadRosterRow: the row's
+// 0x50 bytes become the block); a Player.bin-only player has no row GF can build (the row loader for him is not decoded), so his
+// block starts from the store step's base alone.
 void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Player& p) {
   PlayerData* data = p.GetPlayerData();
   const std::optional<pes::PlayerTraits> bin = match.PesTraitsOf(data);
+  if (bin && bin->row) world.LoadRosterRow(slot, *bin->row);
   const auto byteOf = [&](const char* stat) {
     return static_cast<uint8_t>(std::lround(std::clamp(data->GetStat(stat) * pes::kAbilityBytesPerStat, 0.0f, 255.0f)));
   };

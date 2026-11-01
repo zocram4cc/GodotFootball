@@ -121,6 +121,12 @@ void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask) {
   StoreU32(SideRecord(side), kSideKickerOffset, slot);
 }
 
+// FUN_140A58F00(record, row): five 16-byte copies of row[0x00..0x50) to record +0x70..+0xC0, called by FUN_140922BC0 with the roster
+// entry's row (entry +0x38). The caller's other stores (FUN_140922DD0, record +0x64, FUN_140A592B0) are not in GF's window.
+void PesWorld::LoadRosterRow(int slot, const std::array<uint8_t, pes::kRosterRowBytes>& row) {
+  std::memcpy(Block(slot) + kSlotRecordOffset + kSlotAbilityOffset, row.data(), row.size());
+}
+
 void PesWorld::StoreLiveAbility(int slot, uint32_t id, uint8_t base, const AbilityCells& cells) {
   uint8_t* block = Block(slot) + kSlotRecordOffset + kSlotAbilityOffset;
   block[id] = base;

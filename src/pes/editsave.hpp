@@ -58,7 +58,7 @@ inline constexpr size_t kRowForm = 0x2E;
 inline constexpr size_t kRowInjuryResistance = 0x2F;
 inline constexpr size_t kRowHeightCm = 0x31;
 inline constexpr size_t kRowStrongerFoot = 0x34;
-inline constexpr size_t kEditRowBytes = 0x3C;  // bytes 0x00..0x3B; 0x33 is never written by the builder
+inline constexpr size_t kEditRowBytes = 0x3D;  // bytes 0x00..0x3C; 0x33 is never written by the builder
 
 struct EditRowField {
   uint8_t row;                 // roster row byte
@@ -135,13 +135,35 @@ inline constexpr size_t kEditSkillFirstBit = 390;
 inline constexpr uint8_t kEditSkillBit[] = {0,  37, 1,  2,  3,  38, 4,  5,  32, 6,  7,  31, 39, 8,  33, 34, 9,  10, 11, 12, 40,
                                             13, 14, 15, 16, 28, 17, 18, 35, 19, 20, 29, 30, 21, 22, 23, 36, 24, 25, 26, 27};
 
-// The row bytes a save record yields. `set` marks the bytes whose field passed its gate; the others stay with the caller's other
-// source (Player.bin). Not decoded (OPEN, pes-port-EditSaveFields.md): the playing-style masks at +0x48/+0x4C (FUN_141FE9F40) and
-// the bytes 0x3C..0x3F.
+// The playing-style masks (FUN_141FE9F40, called by the row builder FUN_141FE9B00):
+// - row +0x48 (u32), the style word PES's playing-style gate reads (pesstyle.hpp: its bit is the engine bit): save id 0x40 (5 bits at
+//   kEditStyleBit, range 0..31) goes through FUN_1414C04A0 (byte table 0x142979060, a value above 0x15 stores 0) into the live record's
+//   field 0x3B, back out through FUN_1414C0300 (dword table 0x142979080) and FUN_141FC0AD0 (the switch: style 1..0x15 -> mask bit, 0 and
+//   the default -> no bit; the 0x15 preset it passes in never survives);
+// - row +0x4C (u32), seven flags: save ids 0x41 + k (one bit each at kEditFlagFirstBit + k) set live key 60 + k (FUN_1414C0200, table
+//   0x1429790D8), and the table 0x14352AC10 {mask bit, key} turns each key into its mask bit.
+// Row byte +0x3C is FUN_141FC0C40 of the live record's byte +0x150, which neither FUN_140AA1700 (zeroes the record) nor any save field
+// writes (FUN_141F10CE0 and the field setter FUN_1414C6E90 never touch it): it is 0 for a save-decoded player, as on all 34 captured rows.
+// Row bytes +0x3D..+0x3F are padding the builder never writes (one player's row shows 0 in one capture and a value in another).
+inline constexpr size_t kEditStyleBit = 274, kEditStyleWidth = 5;
+inline constexpr uint8_t kEditStyleLive[22] = {0, 1, 2, 3, 13, 14, 4, 18, 19, 5, 6, 7, 9, 20, 8, 11, 21, 12, 15, 10, 16, 17};
+inline constexpr uint8_t kEditLiveStyle[22] = {0, 1, 2, 3, 6, 9, 10, 11, 14, 12, 19, 15, 17, 4, 5, 18, 20, 21, 7, 8, 13, 16};
+inline constexpr int8_t kEditStyleMaskBit[22] = {-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 11, 16, 18, 17, 14, 15, 19, 20};
+inline constexpr size_t kEditFlagFirstBit = 383;
+inline constexpr uint8_t kEditFlagMaskBit[7] = {0, 2, 1, 4, 6, 3, 5};
+
+// The roster row, the 0x50 bytes PES copies into an AI record (FUN_140922bc0 -> FUN_140A58F00, record +0x70): the layout offsets.
+inline constexpr size_t kRosterRowBytes = 0x50;
+inline constexpr size_t kRowStyleByte = 0x3C, kRowSkills = 0x40, kRowStyleMask = 0x48, kRowFlagMask = 0x4C;
+
+// The row a save record yields. `set` marks the bytes (0x00..0x3B) whose field passed its gate; the others stay with the caller's
+// other source (Player.bin). `image` is the whole 0x50-byte row (unwritten bytes 0).
 struct EditRow {
   std::array<uint8_t, kEditRowBytes> byte{};
   std::bitset<kEditRowBytes> set;
   uint64_t skills = 0;
+  uint32_t styleMask = 0, flagMask = 0;
+  std::array<uint8_t, kRosterRowBytes> image{};
 };
 EditRow DecodeEditRow(const EditPlayerRecord& rec);
 

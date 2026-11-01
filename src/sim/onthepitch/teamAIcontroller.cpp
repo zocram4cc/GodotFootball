@@ -3423,7 +3423,7 @@ std::vector<Player*> TeamAIController::PesBoxMen(int boxCount) {
     in.aerial[slot] = data->GetHeight() + player->GetStat("physical_jump") +
                       player->GetStat("technical_header");
     in.extraFrontman[slot] = pes::style::Gate(compat, in.classB[slot],
-                                              pes::style::StyleWord(data->GetPlayingStyle()),
+                                              match->StyleWordOf(data),
                                               kExtraFrontmanBit);
     if (in.onPitch[slot]) ++in.eligibleCount;
   }
@@ -3631,7 +3631,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.man = match->PesWorldOf().ManRecord(recordSlot);
       if (!match->PesLoop()) WritePesManMovement(*pl, f.man);
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
-      f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
+      f.styleWord = match->StyleWordOf(pl->GetPlayerData());
       // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.
       // The byte sits in the player's anime record (pesworldrecord.hpp), keyed by his PES slot (his squad place).
       match->PesWorldOf().SetAnimeClass(

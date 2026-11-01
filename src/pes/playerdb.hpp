@@ -60,6 +60,10 @@ struct PlayerTraits {
   uint8_t speed = 0;                      // block byte 0x27: Player.bin Speed, raw + 40
   uint8_t jump = 0;                       // block byte 0x2C: Player.bin Jump, raw + 40
   uint8_t heightCm = 0;                   // block byte 0x31: Player.bin Height, + 100
+  // The save's whole roster row (DecodeEditRow's image), present for a player the EDIT save holds: PES copies its first 0x50 bytes
+  // into the AI record's ability block (FUN_140922bc0 -> FUN_140A58F00). Absent for a Player.bin-only player: PES's row for him
+  // comes from a loader not decoded here.
+  std::optional<std::array<uint8_t, kRosterRowBytes>> row;
 };
 
 class PlayerDatabase {
