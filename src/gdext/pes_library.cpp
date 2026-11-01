@@ -272,6 +272,8 @@ Error PesLibrary::load_edit_save(const String& path) {
     return ERR_PARSE_ERROR;
   }
   for (auto& [id, record] : save->appearances) appearances_[id] = record;  // the save wins
+  // The save's records win over Player.bin for Speed, Jump, Height, the stronger foot, the injury tier and Form (the roster's source).
+  if (playerDatabase_) playerDatabase_->ApplyEditSave(*save);
   return OK;
 }
 

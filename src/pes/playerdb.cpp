@@ -51,6 +51,9 @@ std::optional<PlayerDatabase> PlayerDatabase::Parse(std::span<const uint8_t> blo
     if (tier > kInjuryTierA) continue;
     PlayerTraits traits{int(tier), Field(rec, kStrongerFootBit, 1) == 1,
                         int(Field(rec, kFormBit, kFormBits)), MixCondition(rec)};
+    traits.speed = uint8_t(Field(rec, kSpeedBit, kAbilityBits) + kAbilityBias);
+    traits.jump = uint8_t(Field(rec, kJumpBit, kAbilityBits) + kAbilityBias);
+    traits.heightCm = uint8_t(Field(rec, kHeightBit, kHeightBits) + kHeightBiasCm);
     db.byId_.emplace(id, traits);
   }
   return db;
@@ -60,6 +63,24 @@ std::optional<PlayerTraits> PlayerDatabase::Find(int playerId) const {
   auto it = byId_.find(playerId);
   if (it == byId_.end()) return std::nullopt;
   return it->second;
+}
+
+void PlayerDatabase::ApplyEditSave(const EditSave& save) {
+  for (const EditPlayerRecord& rec : save.players) {
+    uint32_t id = 0;
+    std::memcpy(&id, rec.data() + kEditIdOffset, sizeof id);
+    auto it = byId_.find(int(id));
+    if (it == byId_.end()) continue;
+    PlayerTraits& traits = it->second;
+    // The roster row's bytes, field by field as PES builds them; a field the save holds out of range keeps Player.bin's value.
+    const EditRow row = DecodeEditRow(rec);
+    if (row.set[kRowSpeed]) traits.speed = row.byte[kRowSpeed];
+    if (row.set[kRowJump]) traits.jump = row.byte[kRowJump];
+    if (row.set[kRowHeightCm]) traits.heightCm = row.byte[kRowHeightCm];
+    if (row.set[kRowStrongerFoot]) traits.leftFooted = row.byte[kRowStrongerFoot] == 1;
+    if (row.set[kRowInjuryResistance]) traits.injuryResistance = row.byte[kRowInjuryResistance];
+    if (row.set[kRowForm]) traits.form = row.byte[kRowForm];
+  }
 }
 
 }  // namespace pes

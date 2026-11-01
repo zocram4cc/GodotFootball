@@ -1,14 +1,18 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <bit>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "pes/editsave.hpp"
+#include "pes/exe.hpp"
 
 namespace {
 
@@ -46,6 +50,7 @@ SaveFile BuildSave(int mutation) {
     uint8_t* rec = &b2[PLAYERS_AT + STRIDE * r];
     const uint32_t id = 70101 + r;
     std::memcpy(rec, &id, 4);
+    rec[0x0A] = uint8_t(150 + r);  // the height byte (save id 0x10, row byte 0x31)
     uint8_t* ap = rec + APPEARANCE_AT;  // the 72-byte appearance record
     std::memcpy(ap, &id, 4);
     const uint32_t X = (38u << 4) | (12u << 18);  // boots 38, glove 12
@@ -237,6 +242,14 @@ TEST(EditSaveSave, RoundTripsAFileAndWarnsOnCorruption) {
   ASSERT_TRUE(save) << err;
   EXPECT_TRUE(err.empty());
   ASSERT_EQ(save->appearances.size(), 3u);
+  // The raw records come through in save order, whole.
+  ASSERT_EQ(save->players.size(), 3u);
+  for (uint32_t i = 0; i < 3; ++i) {
+    uint32_t id = 0;
+    std::memcpy(&id, save->players[i].data() + pes::kEditIdOffset, 4);
+    EXPECT_EQ(id, 70101 + i);
+    EXPECT_EQ(save->players[i][0x0A], 150 + i);
+  }
   for (uint32_t i = 0; i < 3; ++i) {
     const uint32_t id = 70101 + i;
     const pes::PlayerLook look = pes::DecodeLook(save->appearances.at(id));
@@ -281,4 +294,205 @@ TEST(PlayerAppearanceFile, RejectsPartialRecords) {
   std::vector<uint8_t> blob(pes::kAppearanceFileRecordBytes + 1, 0);
   std::string err;
   EXPECT_FALSE(pes::ParsePlayerAppearanceFile(blob, &err));
+}
+
+// --- the save record -> roster row map (editsave.hpp) ---
+
+void SetBits(pes::EditPlayerRecord& rec, size_t bit, size_t width, uint32_t value) {
+  for (size_t i = 0; i < width; ++i) {
+    const size_t b = bit + i;
+    rec[b / 8] = uint8_t((rec[b / 8] & ~(1u << (b % 8))) | (((value >> i) & 1u) << (b % 8)));
+  }
+}
+
+const pes::EditRowField& FieldOfRow(size_t row) {
+  for (const pes::EditRowField& f : pes::kEditRowFields)
+    if (f.row == row) return f;
+  ADD_FAILURE() << "no field for row byte " << row;
+  return pes::kEditRowFields[0];
+}
+
+// A non-flat record: every field holds a value of its own, so a row byte that reads another field's bits shows.
+TEST(EditRow, EveryRowByteTakesItsOwnFieldWhenNoTwoFieldsAgree) {
+  const auto valueOf = [](const pes::EditRowField& f) {
+    // Inside the gate and the clamp, and different for every row byte where the range allows.
+    const uint32_t lo = std::max(f.gateMin, f.clampMin), hi = std::min(f.gateMax, f.clampMax);
+    return lo + f.row % (hi - lo + 1);
+  };
+  pes::EditPlayerRecord rec{};
+  for (const pes::EditRowField& f : pes::kEditRowFields) SetBits(rec, f.bit, f.width, valueOf(f));
+  const pes::EditRow row = pes::DecodeEditRow(rec);
+  for (const pes::EditRowField& f : pes::kEditRowFields) {
+    if (f.row == pes::kRowPosition) continue;  // the position's own rule is tested below
+    EXPECT_TRUE(row.set[f.row]) << "row byte " << int(f.row);
+    EXPECT_EQ(row.byte[f.row], valueOf(f)) << "row byte " << int(f.row);
+  }
+  EXPECT_FALSE(row.set[0x33]) << "the builder never writes row byte 0x33";
+}
+
+// The fields GF reads, with their save bits as literals (decoded from the exe's getters, pes-port-EditSaveFields.md 2): Speed is
+// save id 0x1C, Jump id 0x1F; the two bits a bit-order guess would have read (256, 358) are GK Reach and GK Reflexes.
+TEST(EditRow, SpeedJumpHeightFootInjuryAndFormComeFromTheirDecodedBits) {
+  pes::EditPlayerRecord rec{};
+  SetBits(rec, 174, 7, 71);  // id 0x1C Speed
+  SetBits(rec, 192, 7, 82);  // id 0x1F Jump
+  SetBits(rec, 256, 7, 93);  // id 0x2A GK Reach (row byte 0x25)
+  SetBits(rec, 358, 7, 55);  // id 0x29 GK Reflexes (row byte 0x24)
+  rec[0x0A] = 188;           // id 0x10 Height
+  SetBits(rec, 381, 1, 1);   // id 0x0F foot
+  SetBits(rec, 252, 3, 6);   // id 0x2D Form
+  SetBits(rec, 327, 2, 1);   // id 0x2E injury tier
+  const pes::EditRow row = pes::DecodeEditRow(rec);
+  EXPECT_EQ(row.byte[pes::kRowSpeed], 71);
+  EXPECT_EQ(row.byte[pes::kRowJump], 82);
+  EXPECT_EQ(row.byte[0x25], 93);
+  EXPECT_EQ(row.byte[0x24], 55);
+  EXPECT_EQ(row.byte[pes::kRowHeightCm], 188);
+  EXPECT_EQ(row.byte[pes::kRowStrongerFoot], 1);
+  EXPECT_EQ(row.byte[pes::kRowForm], 6);
+  EXPECT_EQ(row.byte[pes::kRowInjuryResistance], 1);
+}
+
+TEST(EditRow, AFieldOutsideItsDescriptorRangeIsNotApplied) {
+  pes::EditPlayerRecord rec{};
+  SetBits(rec, FieldOfRow(pes::kRowSpeed).bit, 7, 39);            // Speed gate 40..99
+  SetBits(rec, FieldOfRow(pes::kRowJump).bit, 7, 100);            // Jump gate 40..99
+  rec[0x0A] = 99;                                                 // Height gate 100..250
+  SetBits(rec, FieldOfRow(pes::kRowInjuryResistance).bit, 2, 3);  // tier gate 0..2
+  SetBits(rec, FieldOfRow(pes::kRowForm).bit, 3, 7);              // Form gate 0..7: applied
+  const pes::EditRow row = pes::DecodeEditRow(rec);
+  EXPECT_FALSE(row.set[pes::kRowSpeed]);
+  EXPECT_FALSE(row.set[pes::kRowJump]);
+  EXPECT_FALSE(row.set[pes::kRowHeightCm]);
+  EXPECT_FALSE(row.set[pes::kRowInjuryResistance]);
+  EXPECT_TRUE(row.set[pes::kRowForm]);
+  EXPECT_EQ(row.byte[pes::kRowForm], 7);
+}
+
+// Gate then clamp: Height 100..250 is accepted and clamped to the block's 132..220, Weight 30..150 to 30..129.
+TEST(EditRow, AnAcceptedValueIsClampedToTheBlockBounds) {
+  pes::EditPlayerRecord rec{};
+  rec[0x0A] = 250;
+  rec[0x0B] = 140;
+  pes::EditRow row = pes::DecodeEditRow(rec);
+  EXPECT_EQ(row.byte[pes::kRowHeightCm], 220);
+  EXPECT_EQ(row.byte[0x32], 129);
+  rec[0x0A] = 100;
+  rec[0x0B] = 30;
+  row = pes::DecodeEditRow(rec);
+  EXPECT_EQ(row.byte[pes::kRowHeightCm], 132);
+  EXPECT_EQ(row.byte[0x32], 30);
+}
+
+// The live record's position field is 4 bits and FUN_141FEA000 turns a value above 12 into 1.
+TEST(EditRow, PositionKeepsFourBitsAndAboveTwelveBecomesOne) {
+  const size_t at = FieldOfRow(pes::kRowPosition).bit;
+  using Case = std::pair<uint32_t, uint32_t>;
+  for (const auto& [saved, want] : {Case{0, 0}, Case{12, 12}, Case{13, 1}, Case{15, 1}, Case{20, 4}, Case{28, 12}, Case{31, 1}}) {
+    pes::EditPlayerRecord rec{};
+    SetBits(rec, at, 5, saved);
+    EXPECT_EQ(pes::DecodeEditRow(rec).byte[pes::kRowPosition], want) << "saved " << saved;
+  }
+}
+
+TEST(EditRow, EachSkillFlagSetsItsOwnSkillBit) {
+  for (size_t k = 0; k < std::size(pes::kEditSkillBit); ++k) {
+    pes::EditPlayerRecord rec{};
+    SetBits(rec, pes::kEditSkillFirstBit + k, 1, 1);
+    EXPECT_EQ(pes::DecodeEditRow(rec).skills, uint64_t{1} << pes::kEditSkillBit[k]) << "flag " << k;
+  }
+}
+
+// --- the table against the exe: the descriptor getters, the builder's key tables and the clamp table ---
+
+struct Getter {
+  size_t bit = 0, width = 0;
+};
+
+// A descriptor getter is `[movzx/mov eax, [rcx+disp8]] [shr eax, imm] [and eax, imm8] mov [rdx], eax; mov al, 1; ret`.
+bool DecodeGetter(const uint8_t* p, Getter* out) {
+  size_t at = 0, sizeBits = 0, off = 0;
+  if (p[0] == 0x0F && p[1] == 0xB6 && p[2] == 0x41) sizeBits = 8, off = p[3], at = 4;
+  else if (p[0] == 0x0F && p[1] == 0xB7 && p[2] == 0x41) sizeBits = 16, off = p[3], at = 4;
+  else if (p[0] == 0x8B && p[1] == 0x41) sizeBits = 32, off = p[2], at = 3;
+  else return false;
+  size_t shift = 0, mask = 0;
+  if (p[at] == 0xC1 && p[at + 1] == 0xE8) shift = p[at + 2], at += 3;
+  else if (p[at] == 0xD1 && p[at + 1] == 0xE8) shift = 1, at += 2;
+  if (p[at] == 0x83 && p[at + 1] == 0xE0) mask = p[at + 2], at += 3;
+  if (!(p[at] == 0x89 && p[at + 1] == 0x02 && p[at + 2] == 0xB0 && p[at + 3] == 0x01 && p[at + 4] == 0xC3)) return false;
+  out->bit = off * 8 + shift;
+  out->width = mask ? size_t(std::popcount(mask)) : sizeBits - shift;
+  return true;
+}
+
+TEST(EditRowInstall, TheTableEqualsTheExesDescriptorGettersAndBuilderTables) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (root == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the tables are read from its exe)";
+  std::string error;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &error);
+  ASSERT_TRUE(exe) << error;
+  const auto u32At = [&](uint64_t va) {
+    uint32_t v = 0;
+    EXPECT_TRUE(exe->ReadVa(va, 4, reinterpret_cast<uint8_t*>(&v))) << std::hex << va;
+    return v;
+  };
+  // The descriptor table 0x1434F2B20: 0x7A entries of six qwords {id, getter, setter, min | default << 32, max | bits << 32, 0}.
+  struct Desc {
+    uint32_t min, max;
+    Getter get;
+    bool simple;
+  };
+  std::map<uint32_t, Desc> desc;
+  for (uint32_t i = 0; i < 0x7A; ++i) {
+    const uint64_t at = 0x1434F2B20 + i * 0x30;
+    Desc d{u32At(at + 0x18), u32At(at + 0x20), {}, false};
+    uint64_t getter = 0;
+    ASSERT_TRUE(exe->ReadVa(at + 8, 8, reinterpret_cast<uint8_t*>(&getter)));
+    uint8_t code[16];
+    ASSERT_TRUE(exe->ReadVa(getter, sizeof code, code));
+    d.simple = DecodeGetter(code, &d.get);
+    desc[u32At(at)] = d;
+  }
+  // The builder's key tables, {row, key} pairs, and the save id of key k (FUN_141F10CE0's cases: 0x12 + k, 0x33 + k, 0x71 + k, 0x2F + k).
+  std::map<uint32_t, uint32_t> idOfRow;
+  const auto pairs = [&](uint64_t va, int n, uint32_t idBase) {
+    for (int i = 0; i < n; ++i) {
+      const uint32_t row = u32At(va + 8 * i), key = u32At(va + 8 * i + 4);
+      EXPECT_TRUE(idOfRow.emplace(row, idBase + key).second) << "row " << row << " built twice";
+    }
+  };
+  pairs(0x14352AB10, 29, 0x12);  // FUN_141FE9BA0: abilities, the two weak-foot bytes, Form and the injury tier
+  pairs(0x14352ADC0, 13, 0x33);  // FUN_141FEA000: position familiarity
+  pairs(0x14352AE30, 9, 0x71);   // FUN_141FE9E50
+  pairs(0x14352ABF8, 2, 0x2F);   // FUN_141FEA170
+  // The single-field rows: position (FUN_141FEA000), the 0x10 byte (FUN_141FE9BA0's tail), age/height/weight (FUN_141FE9D00), foot.
+  for (const auto& [row, id] : std::map<uint32_t, uint32_t>{{0x00, 0x0E}, {0x10, 0x32}, {0x30, 0x0D}, {0x31, 0x10}, {0x32, 0x11}, {0x34, 0x0F}})
+    EXPECT_TRUE(idOfRow.emplace(row, id).second) << "row " << row << " built twice";
+
+  ASSERT_EQ(idOfRow.size(), std::size(pes::kEditRowFields)) << "the table has one entry per row byte the builder writes";
+  for (const pes::EditRowField& f : pes::kEditRowFields) {
+    const auto it = idOfRow.find(f.row);
+    ASSERT_NE(it, idOfRow.end()) << "row " << int(f.row);
+    EXPECT_EQ(f.saveId, it->second) << "row " << int(f.row);
+    const Desc& d = desc.at(f.saveId);
+    ASSERT_TRUE(d.simple) << "id " << int(f.saveId);
+    EXPECT_EQ(f.bit, d.get.bit) << "row " << int(f.row) << " id " << int(f.saveId);
+    EXPECT_EQ(f.width, d.get.width) << "row " << int(f.row) << " id " << int(f.saveId);
+    EXPECT_EQ(f.gateMin, d.min) << "row " << int(f.row);
+    EXPECT_EQ(f.gateMax, d.max) << "row " << int(f.row);
+    uint8_t clamp[2];
+    ASSERT_TRUE(exe->ReadVa(0x142613C60 + 2 * f.row, 2, clamp));
+    EXPECT_EQ(f.clampMin, clamp[0]) << "row " << int(f.row);
+    EXPECT_EQ(f.clampMax, clamp[1]) << "row " << int(f.row);
+  }
+  // Skills: FUN_141FEA250's table 0x14352AC70 (41 {skill bit, key}); key k's save flag is id 0x48 + k.
+  for (uint32_t i = 0; i < std::size(pes::kEditSkillBit); ++i) {
+    const uint32_t skillBit = u32At(0x14352AC70 + 8 * i), key = u32At(0x14352AC70 + 8 * i + 4);
+    ASSERT_LT(key, std::size(pes::kEditSkillBit));
+    EXPECT_EQ(pes::kEditSkillBit[key], skillBit) << "key " << key;
+    EXPECT_TRUE(desc.at(0x48 + key).simple) << "key " << key;
+    EXPECT_EQ(desc.at(0x48 + key).get.bit, pes::kEditSkillFirstBit + key);
+    EXPECT_EQ(desc.at(0x48 + key).get.width, 1u);
+  }
 }

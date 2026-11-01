@@ -35,6 +35,14 @@ struct PreRating {  // for optimization: first calculate everything but passrati
 bool PreRatingSortFunc(const PreRating& a, const PreRating& b);
 bool SortPlayersDeepestFirst(Player* a, Player* b);
 
+namespace pes {
+class PesWorld;
+}
+
+// The ability bytes a slot's record starts from (PES's roster row) and the cells GF carries, stored the way 0x14092AF10 does;
+// the carrier controller writes every slot before each walk. Exported for pes_playerdb_wiring_test.
+void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Player& p);
+
 class ElizaController : public PlayerController {
 public:
   ElizaController(Match* match);
