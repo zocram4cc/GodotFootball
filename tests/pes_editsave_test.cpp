@@ -403,6 +403,83 @@ TEST(EditRow, EachSkillFlagSetsItsOwnSkillBit) {
   }
 }
 
+// --- the playing-style masks (FUN_141FE9F40, editsave.hpp) ---
+
+int Popcount32(uint32_t v) { return std::popcount(v); }
+
+// A non-flat record: every style value of the save, every flag, one at a time. Save id 0x40 is five bits; PES's two tables and the
+// switch turn the values 1..21 into 21 different style bits and everything else (0, 22..31) into none.
+TEST(EditRowStyle, EachSavedStyleSetsItsOwnBitAndNoneOrOutOfRangeSetsNone) {
+  std::map<uint32_t, uint32_t> seen;
+  for (uint32_t style = 0; style < 32; ++style) {
+    pes::EditPlayerRecord rec{};
+    SetBits(rec, pes::kEditStyleBit, pes::kEditStyleWidth, style);
+    const pes::EditRow row = pes::DecodeEditRow(rec);
+    EXPECT_EQ(row.flagMask, 0u) << "style " << style;
+    if (style == 0 || style > 21) {
+      EXPECT_EQ(row.styleMask, 0u) << "style " << style;
+      continue;
+    }
+    EXPECT_EQ(Popcount32(row.styleMask), 1) << "style " << style;
+    EXPECT_TRUE(seen.emplace(row.styleMask, style).second) << "style " << style << " shares its bit with " << seen[row.styleMask];
+  }
+  EXPECT_EQ(seen.size(), 21u);
+}
+
+TEST(EditRowStyle, EachFlagSetsItsOwnBitOfTheFlagMask) {
+  std::map<uint32_t, size_t> seen;
+  for (size_t k = 0; k < 7; ++k) {
+    pes::EditPlayerRecord rec{};
+    SetBits(rec, pes::kEditFlagFirstBit + k, 1, 1);
+    const pes::EditRow row = pes::DecodeEditRow(rec);
+    EXPECT_EQ(row.styleMask, 0u) << "flag " << k;
+    EXPECT_EQ(Popcount32(row.flagMask), 1) << "flag " << k;
+    EXPECT_TRUE(seen.emplace(row.flagMask, k).second) << "flag " << k;
+  }
+  pes::EditPlayerRecord all{};
+  for (size_t k = 0; k < 7; ++k) SetBits(all, pes::kEditFlagFirstBit + k, 1, 1);
+  EXPECT_EQ(Popcount32(pes::DecodeEditRow(all).flagMask), 7);
+}
+
+// The bits beside each field (the position's top bit, the id 0x3B..0x3F flags, the first skill flag at bit 390) are other fields.
+TEST(EditRowStyle, NeighbouringBitsAreNotTheStyleOrTheFlags) {
+  pes::EditPlayerRecord rec{};
+  SetBits(rec, pes::kEditStyleBit - 1, 1, 1);
+  SetBits(rec, pes::kEditStyleBit + pes::kEditStyleWidth, 1, 1);
+  SetBits(rec, pes::kEditFlagFirstBit - 1, 1, 1);
+  const pes::EditRow row = pes::DecodeEditRow(rec);
+  EXPECT_EQ(row.styleMask, 0u);
+  EXPECT_EQ(row.flagMask, 0u);
+  pes::EditPlayerRecord skill{};
+  SetBits(skill, pes::kEditFlagFirstBit + 7, 1, 1);  // the first skill flag, bit 390
+  EXPECT_EQ(pes::DecodeEditRow(skill).flagMask, 0u);
+}
+
+// The image PES copies into the AI record: every part at its offset, the padding bytes zero.
+TEST(EditRowStyle, TheRowImageHoldsEveryPartAtItsOffset) {
+  pes::EditPlayerRecord rec{};
+  for (const pes::EditRowField& f : pes::kEditRowFields) {
+    const uint32_t lo = std::max(f.gateMin, f.clampMin), hi = std::min(f.gateMax, f.clampMax);
+    SetBits(rec, f.bit, f.width, lo + f.row % (hi - lo + 1));
+  }
+  SetBits(rec, pes::kEditStyleBit, pes::kEditStyleWidth, 12);
+  SetBits(rec, pes::kEditFlagFirstBit + 3, 1, 1);
+  SetBits(rec, pes::kEditSkillFirstBit + 5, 1, 1);
+  const pes::EditRow row = pes::DecodeEditRow(rec);
+  for (size_t i = 0; i < pes::kEditRowBytes; ++i) EXPECT_EQ(row.image[i], row.byte[i]) << "byte " << i;
+  uint64_t skills = 0;
+  uint32_t style = 0, flags = 0;
+  std::memcpy(&skills, &row.image[pes::kRowSkills], 8);
+  std::memcpy(&style, &row.image[pes::kRowStyleMask], 4);
+  std::memcpy(&flags, &row.image[pes::kRowFlagMask], 4);
+  EXPECT_EQ(skills, uint64_t{1} << pes::kEditSkillBit[5]);
+  EXPECT_NE(style, 0u);
+  EXPECT_EQ(style, row.styleMask);
+  EXPECT_NE(flags, 0u);
+  EXPECT_EQ(flags, row.flagMask);
+  for (size_t i : {size_t{0x3D}, size_t{0x3E}, size_t{0x3F}, size_t{0x4D}, size_t{0x4E}, size_t{0x4F}}) EXPECT_EQ(row.image[i], 0) << i;
+}
+
 // --- the table against the exe: the descriptor getters, the builder's key tables and the clamp table ---
 
 struct Getter {
@@ -494,5 +571,69 @@ TEST(EditRowInstall, TheTableEqualsTheExesDescriptorGettersAndBuilderTables) {
     EXPECT_TRUE(desc.at(0x48 + key).simple) << "key " << key;
     EXPECT_EQ(desc.at(0x48 + key).get.bit, pes::kEditSkillFirstBit + key);
     EXPECT_EQ(desc.at(0x48 + key).get.width, 1u);
+  }
+  // The playing-style masks (FUN_141FE9F40): the id 0x40 / 0x41..0x47 getters and ranges, the two style tables, the switch of
+  // FUN_141FC0AD0 (jump table, each case `mov dword [rcx], bit`) and the {mask bit, key} triples.
+  ASSERT_TRUE(desc.at(0x40).simple);
+  EXPECT_EQ(desc.at(0x40).get.bit, pes::kEditStyleBit);
+  EXPECT_EQ(desc.at(0x40).get.width, pes::kEditStyleWidth);
+  EXPECT_EQ(desc.at(0x40).min, 0u);
+  EXPECT_GE(desc.at(0x40).max, (1u << pes::kEditStyleWidth) - 1) << "every 5-bit value is accepted";
+  for (uint32_t k = 0; k < 7; ++k) {
+    ASSERT_TRUE(desc.at(0x41 + k).simple);
+    EXPECT_EQ(desc.at(0x41 + k).get.bit, pes::kEditFlagFirstBit + k);
+    EXPECT_EQ(desc.at(0x41 + k).get.width, 1u);
+  }
+  uint8_t switchCode[0x20];
+  ASSERT_TRUE(exe->ReadVa(0x141FC0AD0, sizeof switchCode, switchCode));
+  // `mov r8b,1; cmp edx,0x15; ja ...; movsxd rax,edx; lea r9,[image]; mov edx,[r9+rax*4+table]`.
+  ASSERT_EQ(switchCode[3], 0x83);
+  ASSERT_EQ(switchCode[4], 0xFA);
+  ASSERT_EQ(switchCode[5], 0x15);
+  ASSERT_TRUE(switchCode[22] == 0x41 && switchCode[23] == 0x8B && switchCode[24] == 0x94 && switchCode[25] == 0x81);
+  uint32_t tableRva = 0;
+  std::memcpy(&tableRva, &switchCode[26], 4);
+  for (uint32_t s = 0; s < 22; ++s) {
+    uint8_t byteMap = 0;
+    ASSERT_TRUE(exe->ReadVa(0x142979060 + s, 1, &byteMap));
+    EXPECT_EQ(pes::kEditStyleLive[s], byteMap) << "FUN_1414C04A0 table, style " << s;
+    EXPECT_EQ(pes::kEditLiveStyle[s], u32At(0x142979080 + 4 * s)) << "FUN_1414C0300 table, value " << s;
+    uint8_t body[6];
+    ASSERT_TRUE(exe->ReadVa(0x140000000ull + u32At(0x140000000ull + tableRva + 4 * s), sizeof body, body));
+    const bool setsBit = body[0] == 0xC7 && body[1] == 0x01;  // mov dword [rcx], imm32; anything else is the default arm (no bit)
+    int bit = -1;
+    if (setsBit) std::memcpy(&bit, &body[2], 4);
+    EXPECT_EQ(pes::kEditStyleMaskBit[s], bit) << "FUN_141FC0AD0, style " << s;
+  }
+  for (uint32_t k = 0; k < 7; ++k) {
+    const uint32_t key = u32At(0x1429790D8 + 4 * k);  // FUN_1414C0200: flag k -> live key
+    uint32_t bit = 99;
+    for (uint32_t t = 0; t < 7; ++t)
+      if (u32At(0x14352AC10 + 12 * t + 4) == key) bit = u32At(0x14352AC10 + 12 * t);
+    EXPECT_EQ(pes::kEditFlagMaskBit[k], bit) << "flag " << k << " key " << key;
+  }
+  // The decode itself, every saved value, against the same chain read from the exe (not the production tables).
+  for (uint32_t s = 0; s < 32; ++s) {
+    uint8_t live = 0;
+    if (s < 22) ASSERT_TRUE(exe->ReadVa(0x142979060 + s, 1, &live));
+    const uint32_t value = u32At(0x142979080 + 4 * (live < 22 ? live : 0));
+    uint8_t body[6] = {};
+    int bit = -1;
+    if (live < 22 && value < 22) {
+      ASSERT_TRUE(exe->ReadVa(0x140000000ull + u32At(0x140000000ull + tableRva + 4 * value), sizeof body, body));
+      if (body[0] == 0xC7 && body[1] == 0x01) std::memcpy(&bit, &body[2], 4);
+    }
+    pes::EditPlayerRecord rec{};
+    SetBits(rec, pes::kEditStyleBit, pes::kEditStyleWidth, s);
+    EXPECT_EQ(pes::DecodeEditRow(rec).styleMask, bit < 0 ? 0u : 1u << bit) << "saved style " << s;
+  }
+  for (uint32_t k = 0; k < 7; ++k) {
+    const uint32_t key = u32At(0x1429790D8 + 4 * k);
+    for (uint32_t t = 0; t < 7; ++t) {
+      if (u32At(0x14352AC10 + 12 * t + 4) != key) continue;
+      pes::EditPlayerRecord rec{};
+      SetBits(rec, 383 + k, 1, 1);
+      EXPECT_EQ(pes::DecodeEditRow(rec).flagMask, 1u << u32At(0x14352AC10 + 12 * t)) << "flag " << k;
+    }
   }
 }

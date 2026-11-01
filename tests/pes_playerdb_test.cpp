@@ -444,6 +444,17 @@ TEST(PlayerDatabaseInstall, EveryCapturedRosterRowEqualsTheSavesDecodeAndTheData
     uint64_t skills;
     std::memcpy(&skills, row + 0x40, sizeof skills);
     EXPECT_EQ(decoded.skills, skills) << "id " << id;
+    // The whole row but its padding bytes 0x3D..0x3F (no field of the save: one player shows 0 in one capture and a value in another).
+    for (size_t i = 0; i < pes::kRosterRowBytes; ++i)
+      if (i < 0x3D || i > 0x3F) EXPECT_EQ(decoded.image[i], row[i]) << "id " << id << " row byte 0x" << std::hex << i;
+    uint32_t styleMask, flagMask;
+    std::memcpy(&styleMask, row + pes::kRowStyleMask, sizeof styleMask);
+    std::memcpy(&flagMask, row + pes::kRowFlagMask, sizeof flagMask);
+    EXPECT_EQ(decoded.styleMask, styleMask) << "id " << id;
+    EXPECT_EQ(decoded.flagMask, flagMask) << "id " << id;
+    const auto withRow = db->Find(id);
+    ASSERT_TRUE(withRow.has_value() && withRow->row.has_value()) << "id " << id;
+    EXPECT_EQ(*withRow->row, decoded.image) << "id " << id << ": the database carries the save's row image";
     auto traits = db->Find(id);
     ASSERT_TRUE(traits.has_value()) << "id " << id;
     EXPECT_EQ(traits->speed, row[pes::kRowSpeed]) << "id " << id;

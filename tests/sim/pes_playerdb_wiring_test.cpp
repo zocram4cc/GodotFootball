@@ -260,3 +260,54 @@ TEST(PlayerDatabaseWiring, SlotAbilityBasesComeFromThePesRecordOfAnImportedPlaye
   const float gfSpeedByte = data->GetStat("physical_velocity") * pes::kAbilityBytesPerStat;
   EXPECT_NEAR(stored(synthetic, pes::kAbilitySpeedId), gfSpeedByte, 8);
 }
+
+// PES's copy of the roster row into the AI record (FUN_140922BC0 -> FUN_140A58F00): every one of the row's 0x50 bytes lands in the
+// slot's ability block, the bytes beside it do not, and a player without a row (the synthetic one) gets none of them.
+TEST(PlayerDatabaseWiring, ARowOfTheSaveIsCopiedWholeIntoTheSlotsAbilityBlock) {
+  constexpr int kPesId = 9002;
+  std::string err;
+  auto playerDb = pes::PlayerDatabase::Parse(RecordFor(kPesId, kTierA, false), &err);
+  ASSERT_TRUE(playerDb.has_value()) << err;
+  pes::EditSave save;
+  pes::EditPlayerRecord rec{};
+  const uint32_t id = kPesId;
+  std::memcpy(rec.data() + pes::kEditIdOffset, &id, sizeof id);
+  const auto put = [&](size_t bit, size_t width, uint32_t value) {
+    for (size_t i = 0; i < width; ++i) {
+      const size_t b = bit + i;
+      rec[b / 8] = uint8_t((rec[b / 8] & ~(1u << (b % 8))) | (((value >> i) & 1u) << (b % 8)));
+    }
+  };
+  for (const pes::EditRowField& f : pes::kEditRowFields) {
+    const uint32_t lo = std::max(f.gateMin, f.clampMin), hi = std::min(f.gateMax, f.clampMax);
+    put(f.bit, f.width, lo + (f.row * 7u + 3u) % (hi - lo + 1));
+  }
+  put(pes::kEditStyleBit, pes::kEditStyleWidth, 12);
+  put(pes::kEditFlagFirstBit + 4, 1, 1);
+  put(pes::kEditSkillFirstBit + 9, 1, 1);
+  save.players.push_back(rec);
+  playerDb->ApplyEditSave(save);
+  const pes::EditRow decoded = pes::DecodeEditRow(rec);
+
+  FixtureMatch fixture(&*playerDb, {"UPDATE players SET pes_player_id = " + std::to_string(kPesId) + " WHERE id = 1"});
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* imported = PlayerWithDatabaseId(*fixture.match, 0, 1);
+  Player* synthetic = PlayerWithDatabaseId(*fixture.match, 0, 2);
+  ASSERT_NE(imported, nullptr);
+  ASSERT_NE(synthetic, nullptr);
+  pes::PesWorld world;
+  const int slot = fixture.match->PesSlotOf(imported), otherSlot = fixture.match->PesSlotOf(synthetic);
+  WriteSlotAbilities(*fixture.match, world, slot, *imported);
+  const uint8_t* block = world.Block(slot) + pes::kSlotRecordOffset + pes::kSlotAbilityOffset;
+  const uint8_t* untouched = world.Block(otherSlot) + pes::kSlotRecordOffset + pes::kSlotAbilityOffset;
+  for (size_t i = 0; i < pes::kRosterRowBytes; ++i) {
+    // Speed and Jump leave through the store step's cells; every other byte, Height and the foot included, is the row's.
+    if (i == pes::kAbilitySpeedId || i == pes::kAbilityJumpId) continue;
+    EXPECT_EQ(block[i], decoded.image[i]) << "row byte 0x" << std::hex << i;
+  }
+  EXPECT_NE(decoded.styleMask, 0u);
+  EXPECT_EQ(block[pes::kRowStyleMask], uint8_t(decoded.styleMask)) << "the style word is in the block";
+  EXPECT_EQ(block[pes::kRosterRowBytes], untouched[pes::kRosterRowBytes]) << "the byte past the row is not the copy's";
+  for (size_t i = 0; i < pes::kRosterRowBytes; ++i)
+    EXPECT_EQ(untouched[i], 0) << "an untouched slot starts with an empty block: byte 0x" << std::hex << i;
+}

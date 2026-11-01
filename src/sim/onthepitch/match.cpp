@@ -23,6 +23,7 @@
 #include "pespossession.hpp"
 #include "pesreceive.hpp"
 #include "pesstoppage.hpp"
+#include "pesstyle.hpp"
 #include "player/playerofficial.hpp"
 #include "simcontext.hpp"
 
@@ -1176,6 +1177,14 @@ int Match::InjuryResistanceOf(const PlayerData* data) const {
 
 std::optional<pes::PlayerTraits> Match::PesTraitsOf(const PlayerData* data) const {
   return TraitsOf(pesPlayerDatabase, data);
+}
+
+uint32_t Match::StyleWordOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  if (!traits || !traits->row) return pes::style::StyleWord(data->GetPlayingStyle());
+  uint32_t word;
+  std::memcpy(&word, traits->row->data() + pes::kRowStyleMask, sizeof word);
+  return word;
 }
 
 bool Match::LeftFootedOf(const PlayerData* data) const {
