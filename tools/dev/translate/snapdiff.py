@@ -33,6 +33,14 @@ import stubs as stub_table  # noqa: E402
 
 JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
+# .impdata (full_snapshot.IMPDATA): the game's relocated code, up to the next section (.reloc). Its leaves (the proc camera's
+# stage presets 0x1440558C0, 0x144056E40, ...) carry .pdata entries but are outside the pilot range.
+IMPDATA_LO, IMPDATA_HI = 0x143D14000, 0x15B952000
+
+
+def is_code(va):
+    """An address the bounded closure may translate when a replay entered it: plain code or relocated .impdata code."""
+    return CODE_LO <= va < CODE_HI or IMPDATA_LO <= va < IMPDATA_HI
 
 
 
@@ -130,7 +138,7 @@ def build_closure(va, spec, args, pilot, reached, executed=None):
             for m in re.finditer(r"OUT-OF-(?:RANGE (?:JMP|JCC)|SET CALL) 0x([0-9A-Fa-f]+)", text):
                 t = "0x" + m.group(1).upper()
                 runs_real = (int(t, 16) in ran and t not in drv.MODEL_MAP) if bounded else int(t, 16) not in drv.STUB_TABLE
-                if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and runs_real:
+                if is_code(int(t, 16)) and t not in build_pilot and runs_real:
                     if not pd.is_boundary(int(t, 16)):
                         # An address inside a function or an instruction is no callee: the build never translates it,
                         # and the closure is reported as not built rather than compared without it.

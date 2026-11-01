@@ -221,6 +221,17 @@ class ClosureWalk(unittest.TestCase):
         self.assertEqual((roots, err), ([], None))
 
 
+class BuildRange(unittest.TestCase):
+    # The proc camera's stage-0 preset 0x1440558C0 lives in .impdata (the game's relocated code, no Ghidra function): a
+    # bounded closure must build it when a replay entered it, so the range holds .impdata but not the data sections.
+    def test_the_build_range_holds_trace_and_impdata_code_and_not_rdata_or_the_packed_gap(self):
+        self.assertTrue(snapdiff.is_code(0x140892100))
+        self.assertTrue(snapdiff.is_code(0x1440558C0))
+        self.assertFalse(snapdiff.is_code(0x14252F000))  # .rdata
+        self.assertFalse(snapdiff.is_code(0x14339B000))  # .data
+        self.assertFalse(snapdiff.is_code(0x15B952000))  # .reloc, past .impdata
+
+
 class NothingCompiled(unittest.TestCase):
     def run_main(self, result):
         real = (snapdiff.run_one, snapdiff.drv.universe_of)
