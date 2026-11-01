@@ -15,6 +15,7 @@
 #include <cstring>
 #include <memory>
 
+#include "pes/editsave.hpp"
 #include "pesclock.hpp"
 #include "pesevents.hpp"
 #include "pestrapworld.hpp"
@@ -200,8 +201,8 @@ inline constexpr std::size_t kManRepeatOffset = 0x6B8;      // s32 repeat count
 inline constexpr std::size_t kManRecordBytes = kSlotRecordOffset - kManRecordOffset;
 
 // Slot record (its bound is the next block, +0x3F40).
-// The corridor angle also reads these slot-record bytes (CONFIRMED on-path, seq021: +0xA1 and +0xA4; their meaning is OPEN,
-// no GF writer yet), and +0x12A4 (FUN_140A58320: a state byte, clamped to 0..4).
+// The corridor angle also reads these slot-record bytes (CONFIRMED on-path, seq021: +0xA1 and +0xA4): +0xA1 is the height byte
+// 0x31 and +0xA4 the ability block's byte 0x34 (below), and +0x12A4 (FUN_140A58320: a state byte, clamped to 0..4).
 inline constexpr std::size_t kSlotByteA1Offset = 0xA1;      // u8
 inline constexpr std::size_t kSlotByteA4Offset = 0xA4;      // u8
 // The slot record's ability block: `0x14124DAD0(record)` is `record + 0x70`, the base of the bytes the stat rebuild 0x14092AF10
@@ -212,6 +213,10 @@ inline constexpr std::size_t kSlotAbilityOffset = 0x70;
 inline constexpr uint32_t kAbilitySpeedId = 0x27;
 inline constexpr uint32_t kAbilityJumpId = 0x2C;
 inline constexpr uint32_t kAbilityHeightId = 0x31;
+// Block byte 0x34: 0..1 in the clamp table (0x142613C60) and different per player in every captured roster (INF: the stronger foot,
+// 1 = left; the captured rows are not Player.bin's, so the id is not checked against it). The store step leaves it unchanged (cells 1.0).
+inline constexpr uint32_t kAbilityStrongerFootId = 0x34;
+static_assert(kSlotByteA4Offset == kSlotAbilityOffset + kAbilityStrongerFootId, "+0xA4 is block byte 0x34");
 // GF stores PES's 40..99 ability bytes as 0.40..0.99 (pesstamina.cpp MoveTopRate), so a GF stat is its byte over 100.
 inline constexpr float kAbilityBytesPerStat = 100.0f;
 // The five per-id multiplier cells of the player object (P+0xC798 A1, +0xC888 A2 the condition arrow, +0xC978 A3 the position
@@ -713,10 +718,13 @@ class PesWorld {
   // `(u8)trunc(base * (A2 * A1 * A3 * A4 * A5))`, written (when it differs from the block's byte) through the install's clamp
   // bounds 0x1408CAF60 (above the bound the bound, below it the lower, else itself). `base` is the roster row's byte (the player's
   // own ability; the row starts the block, `0x14092AF10` rewrites only the ids whose cells changed).
-  // ponytail: the breath penalty of ids 0x1A/0x1B/0x1C/0x2A (0x14092B8A8) is not applied (no GF caller reads those four), and the
-  // writer of the roster row and its copy into the AI record is unlocated (pes-re-publisher-link.md 2): the block's byte starts as
-  // `base`, which is where 0x14092AF10's first call finds it.
+  // ponytail: the breath penalty of ids 0x1A/0x1B/0x1C/0x2A (0x14092B8A8) is not applied (no GF caller reads those four). For a
+  // player whose row GF has (PlayerTraits::row) the block starts as LoadRosterRow made it; for one without, the block's byte starts
+  // as `base`, which is where 0x14092AF10's first call finds it.
   void StoreLiveAbility(int slot, uint32_t id, uint8_t base, const AbilityCells& cells = {});
+  // PES's row -> AI record copy, FUN_140A58F00 (called by FUN_140922BC0 with the slot's roster row): the row's 0x50 bytes become the
+  // record's ability block (+0x70), before 0x14092AF10 rebuilds the cells' ids.
+  void LoadRosterRow(int slot, const std::array<uint8_t, pes::kRosterRowBytes>& row);
   // The unit updater's two record writers, in the driver's order (0x142110C90): the unit info BP+0x1C by 0x14063C9F0(unit info,
   // ctx, slot) and the state BP+0x78 by 0x14063A490(state, ctx, unit info), both on the window's own records (side, man, anime,
   // slot, MA, MI, ball, events). The state keeps counters across calls (tick count, owned ticks), so the block must persist. The

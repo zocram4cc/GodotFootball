@@ -38,6 +38,14 @@ bool SortPlayersDeepestFirst(Player* a, Player* b);
 // documented at the definition); the dodge's eligibility and the goal run object's gate (pes::GoalGateFacts) read it.
 int AnimeClassOf(Player* p);
 
+namespace pes {
+class PesWorld;
+}
+
+// The ability bytes a slot's record starts from (PES's roster row) and the cells GF carries, stored the way 0x14092AF10 does;
+// the carrier controller writes every slot before each walk. Exported for pes_playerdb_wiring_test.
+void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Player& p);
+
 class ElizaController : public PlayerController {
 public:
   ElizaController(Match* match);

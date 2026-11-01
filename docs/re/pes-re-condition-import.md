@@ -55,7 +55,9 @@ So the byte **arrives with the record** and is carried verbatim by the
    stock = `Data/dt10_x64.cpk` WESYS blob 14, 5,547,984 B = 17,782 players;
    VFS winner on this install = 4cc `download/4cc_01_base.cpk`, 4,830
    placeholder records) is overridden per-id by the edit save
-   `EDIT00000000` (same 312 B layout; decrypted with GF's own
+   `EDIT00000000` (same 312 B record SIZE, NOT the same layout: DribbleProposal7 found the save's id at +0, 7-bit abilities with
+   no +40 bias and height at +0x0A, `src/pes/editsave.hpp`; Form and injury in the save are still read through Player.bin's bit
+   offsets in GF, which is wrong for these players; decrypted with GF's own
    `src/pes/editsave.cpp` cipher — desc/logo/serial SHAs match, data-block
    digest is stale and kept, exactly as the game does). Proof of override:
    same ids (70101..), winner Form = 3 for all 4,830 vs save Form varied

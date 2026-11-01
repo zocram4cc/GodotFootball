@@ -19,6 +19,8 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/team.hpp"
+#include "onthepitch/pesworldrecord.hpp"
+#include "onthepitch/player/controller/elizacontroller.hpp"
 #include "pes/playerdb.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
@@ -30,6 +32,15 @@ namespace {
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
 constexpr unsigned int SEED = 1000;
 constexpr int MATCH_MINUTES = 5;
+// Writes `value` into `width` bits from absolute bit `bit` of a record, LSB-first.
+void SetField(std::vector<uint8_t>& rec, size_t bit, size_t width, uint32_t value) {
+  for (size_t i = 0; i < width; ++i) {
+    const uint8_t mask = uint8_t(1u << ((bit + i) % 8));
+    if ((value >> i) & 1u) rec[(bit + i) / 8] |= mask;
+    else rec[(bit + i) / 8] &= uint8_t(~mask);
+  }
+}
+
 // teams.sql numbers its synthetic players 1..32.
 constexpr int kFixturePlayerCount = 32;
 // Raw injury tiers (matchlogic 1.2: 0 C, 1 B, 2 A) and the Player.bin bits the tests write.
@@ -207,4 +218,96 @@ TEST(PlayerDatabaseWiring, WithoutADatabaseEveryPlayerTakesTheFallback) {
   FixtureMatch fixture(nullptr);
   if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
   EXPECT_GT(ExpectEveryPlayerTakesTheFallback(*fixture.match), 0);
+}
+
+// The slot record's base bytes (PES's roster row, WriteSlotAbilities): a player with a PES id starts from his database record's
+// Speed, Jump, Height and stronger foot; a player without one starts from GF's own stat and height and the right foot. Player.bin
+// layout offsets pinned as literals (pes_playerdb_test AbilityOffsetsEqualTheExesAccessors checks them against the exe).
+TEST(PlayerDatabaseWiring, SlotAbilityBasesComeFromThePesRecordOfAnImportedPlayerAndGfStatsOtherwise) {
+  constexpr int kPesId = 9001;  // synthetic: no fixture player carries it
+  constexpr uint8_t kRecordSpeed = 71, kRecordJump = 83, kRecordHeightCm = 197;
+  std::vector<uint8_t> rec = RecordFor(kPesId, kTierA, true);
+  SetField(rec, 306, 6, kRecordSpeed - 40);
+  SetField(rec, 294, 6, kRecordJump - 40);
+  SetField(rec, 216, 8, kRecordHeightCm - 100);
+  std::string err;
+  auto playerDb = pes::PlayerDatabase::Parse(rec, &err);
+  ASSERT_TRUE(playerDb.has_value()) << err;
+  FixtureMatch fixture(&*playerDb, {"UPDATE players SET pes_player_id = " + std::to_string(kPesId) + " WHERE id = 1"});
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* imported = PlayerWithDatabaseId(*fixture.match, 0, 1);
+  Player* synthetic = PlayerWithDatabaseId(*fixture.match, 0, 2);
+  ASSERT_NE(imported, nullptr);
+  ASSERT_NE(synthetic, nullptr);
+
+  pes::PesWorld world;
+  const auto stored = [&](Player* p, uint32_t id) {
+    const int slot = fixture.match->PesSlotOf(p);
+    WriteSlotAbilities(*fixture.match, world, slot, *p);
+    return world.Block(slot)[pes::kSlotRecordOffset + pes::kSlotAbilityOffset + id];
+  };
+  EXPECT_EQ(stored(imported, pes::kAbilityHeightId), kRecordHeightCm);
+  EXPECT_EQ(stored(imported, pes::kAbilityStrongerFootId), 1);
+  // Speed and Jump leave through the store step's cells (condition, familiarity, fatigue): the record's byte is the base, so a
+  // neutral-cell player stores it unchanged and no cell can raise it above the clamp table's ceiling.
+  EXPECT_NEAR(stored(imported, pes::kAbilitySpeedId), kRecordSpeed, 8);
+  EXPECT_NEAR(stored(imported, pes::kAbilityJumpId), kRecordJump, 8);
+
+  PlayerData* data = synthetic->GetPlayerData();
+  EXPECT_EQ(stored(synthetic, pes::kAbilityHeightId), static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
+  EXPECT_NE(stored(synthetic, pes::kAbilityHeightId), kRecordHeightCm) << "the synthetic player must not read the record";
+  EXPECT_EQ(stored(synthetic, pes::kAbilityStrongerFootId), Match::kFallbackLeftFooted ? 1 : 0);
+  const float gfSpeedByte = data->GetStat("physical_velocity") * pes::kAbilityBytesPerStat;
+  EXPECT_NEAR(stored(synthetic, pes::kAbilitySpeedId), gfSpeedByte, 8);
+}
+
+// PES's copy of the roster row into the AI record (FUN_140922BC0 -> FUN_140A58F00): every one of the row's 0x50 bytes lands in the
+// slot's ability block, the bytes beside it do not, and a player without a row (the synthetic one) gets none of them.
+TEST(PlayerDatabaseWiring, ARowOfTheSaveIsCopiedWholeIntoTheSlotsAbilityBlock) {
+  constexpr int kPesId = 9002;
+  std::string err;
+  auto playerDb = pes::PlayerDatabase::Parse(RecordFor(kPesId, kTierA, false), &err);
+  ASSERT_TRUE(playerDb.has_value()) << err;
+  pes::EditSave save;
+  pes::EditPlayerRecord rec{};
+  const uint32_t id = kPesId;
+  std::memcpy(rec.data() + pes::kEditIdOffset, &id, sizeof id);
+  const auto put = [&](size_t bit, size_t width, uint32_t value) {
+    for (size_t i = 0; i < width; ++i) {
+      const size_t b = bit + i;
+      rec[b / 8] = uint8_t((rec[b / 8] & ~(1u << (b % 8))) | (((value >> i) & 1u) << (b % 8)));
+    }
+  };
+  for (const pes::EditRowField& f : pes::kEditRowFields) {
+    const uint32_t lo = std::max(f.gateMin, f.clampMin), hi = std::min(f.gateMax, f.clampMax);
+    put(f.bit, f.width, lo + (f.row * 7u + 3u) % (hi - lo + 1));
+  }
+  put(pes::kEditStyleBit, pes::kEditStyleWidth, 12);
+  put(pes::kEditFlagFirstBit + 4, 1, 1);
+  put(pes::kEditSkillFirstBit + 9, 1, 1);
+  save.players.push_back(rec);
+  playerDb->ApplyEditSave(save);
+  const pes::EditRow decoded = pes::DecodeEditRow(rec);
+
+  FixtureMatch fixture(&*playerDb, {"UPDATE players SET pes_player_id = " + std::to_string(kPesId) + " WHERE id = 1"});
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* imported = PlayerWithDatabaseId(*fixture.match, 0, 1);
+  Player* synthetic = PlayerWithDatabaseId(*fixture.match, 0, 2);
+  ASSERT_NE(imported, nullptr);
+  ASSERT_NE(synthetic, nullptr);
+  pes::PesWorld world;
+  const int slot = fixture.match->PesSlotOf(imported), otherSlot = fixture.match->PesSlotOf(synthetic);
+  WriteSlotAbilities(*fixture.match, world, slot, *imported);
+  const uint8_t* block = world.Block(slot) + pes::kSlotRecordOffset + pes::kSlotAbilityOffset;
+  const uint8_t* untouched = world.Block(otherSlot) + pes::kSlotRecordOffset + pes::kSlotAbilityOffset;
+  for (size_t i = 0; i < pes::kRosterRowBytes; ++i) {
+    // Speed and Jump leave through the store step's cells; every other byte, Height and the foot included, is the row's.
+    if (i == pes::kAbilitySpeedId || i == pes::kAbilityJumpId) continue;
+    EXPECT_EQ(block[i], decoded.image[i]) << "row byte 0x" << std::hex << i;
+  }
+  EXPECT_NE(decoded.styleMask, 0u);
+  EXPECT_EQ(block[pes::kRowStyleMask], uint8_t(decoded.styleMask)) << "the style word is in the block";
+  EXPECT_EQ(block[pes::kRosterRowBytes], untouched[pes::kRosterRowBytes]) << "the byte past the row is not the copy's";
+  for (size_t i = 0; i < pes::kRosterRowBytes; ++i)
+    EXPECT_EQ(untouched[i], 0) << "an untouched slot starts with an empty block: byte 0x" << std::hex << i;
 }

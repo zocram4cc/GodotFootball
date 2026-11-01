@@ -108,6 +108,448 @@
    "stubs": [],
    "translated": true,
    "va": "0x14210D320"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14063E830": {
+     "reached": 8,
+     "total": 8,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 7 of 7. SYNTHETIC: 7 call state(s) whose registers are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 7,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 8,
+     "fraction": 1.0
+    },
+    "replayed": 7,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14063E830",
+   "synthetic": true,
+   "synthetic_cases": 7
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14063E9F0": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4. SYNTHETIC: 4 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14063E9F0",
+   "synthetic": true,
+   "synthetic_cases": 4
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142119D90": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2. SYNTHETIC: 2 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142119D90",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142119E00": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2. SYNTHETIC: 2 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142119E00",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142119E60": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2. SYNTHETIC: 2 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142119E60",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142119EB0": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2. SYNTHETIC: 2 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142119EB0",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142119E90": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2. SYNTHETIC: 2 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142119E90",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14211CA50": {
+     "reached": 3,
+     "total": 3,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4. SYNTHETIC: 4 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 3,
+     "total": 3,
+     "fraction": 1.0
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14211CA50",
+   "synthetic": true,
+   "synthetic_cases": 4
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14211CB00": {
+     "reached": 14,
+     "total": 14,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 14 of 14. SYNTHETIC: 14 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 14,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 14,
+     "fraction": 1.0
+    },
+    "replayed": 14,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14211CB00",
+   "synthetic": true,
+   "synthetic_cases": 14
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140A57450": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5. SYNTHETIC: 5 call state(s) whose registers are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A57450",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14063D2F0": {
+     "reached": 6,
+     "total": 6,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 12 of 12. REAL calls of mnt/Extra4/gf-Rendezvous-scratch/live2/pid407792/seq021 (a live capture; no register or byte chosen). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 12,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 6,
+     "total": 6,
+     "fraction": 1.0
+    },
+    "replayed": 12,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14063D2F0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142130EE0": {
+     "reached": 29,
+     "total": 111,
+     "fraction": 0.2613
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 13 of 13. SYNTHETIC: 13 call state(s) whose registers and a few poked scratch bytes are chosen over the memory of one forward-emulated state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). ",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 13,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 29,
+     "total": 111,
+     "fraction": 0.2613
+    },
+    "replayed": 13,
+    "source": "tools/dev/translate/results_dribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142130EE0",
+   "synthetic": true,
+   "synthetic_cases": 13
   }
  ]
 }

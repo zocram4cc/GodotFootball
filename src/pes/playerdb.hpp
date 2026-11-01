@@ -11,6 +11,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "pes/editsave.hpp"
+
 namespace pes {
 
 class PesVfs;
@@ -36,12 +38,32 @@ inline constexpr size_t kFormBits = 3;
 inline constexpr uint8_t kConditionDefault = 0x46;
 inline constexpr uint8_t kConditionMin = 0x28;
 inline constexpr uint8_t kConditionMax = 0x6D;
+// The bytes the in-match block starts from (the `base[id]` of the store step 0x14092AF10, DribbleProposal5 2). Speed is Player.bin
+// id 0x1C (accessor 0x141F0F7C0: bit 306, 6 bits, raw + 40) for block byte 0x27; Jump is id 0x1F (accessor 0x141F0F760: bit 294,
+// 6 bits, raw + 40) for block byte 0x2C; Height is id 0x10 (accessor 0x141F0F590: byte +0x1B, + 100 cm) for block byte 0x31
+// (matchlogic 1.2/1.3). The stronger foot above is block byte 0x34 (INF: 0..1 in the clamp table, it varies per player in every
+// captured roster; not checkable against Player.bin, the captured players' records are the owner's pack data, not this file's).
+// pes_playerdb_test reads the accessors out of the exe and checks these constants against them.
+inline constexpr size_t kSpeedBit = 306;
+inline constexpr size_t kJumpBit = 294;
+inline constexpr size_t kAbilityBits = 6;
+inline constexpr uint8_t kAbilityBias = 40;
+inline constexpr size_t kHeightBit = 216;
+inline constexpr size_t kHeightBits = 8;
+inline constexpr uint8_t kHeightBiasCm = 100;
 
 struct PlayerTraits {
   int injuryResistance = 0;  // 0 C, 1 B, 2 A
   bool leftFooted = false;   // the stronger foot is the left
   int form = 0;              // raw 0..7 (UI = raw + 1)
   uint8_t condition = kConditionDefault;  // the mixer output, or the 0x46 default
+  uint8_t speed = 0;                      // block byte 0x27: Player.bin Speed, raw + 40
+  uint8_t jump = 0;                       // block byte 0x2C: Player.bin Jump, raw + 40
+  uint8_t heightCm = 0;                   // block byte 0x31: Player.bin Height, + 100
+  // The save's whole roster row (DecodeEditRow's image), present for a player the EDIT save holds: PES copies its first 0x50 bytes
+  // into the AI record's ability block (FUN_140922bc0 -> FUN_140A58F00). Absent for a Player.bin-only player: PES's row for him
+  // comes from a loader not decoded here.
+  std::optional<std::array<uint8_t, kRosterRowBytes>> row;
 };
 
 class PlayerDatabase {
@@ -54,6 +76,11 @@ class PlayerDatabase {
   // The traits of the player with this id; nullopt when no record carries that id or its tier is not C, B or A.
   std::optional<PlayerTraits> Find(int playerId) const;
   size_t Size() const { return byId_.size(); }
+  // PES's roster takes a player's row bytes from the EDIT save's record when the save holds his id and from Player.bin otherwise
+  // (pes-re-condition-import.md 1 step 1: the save overrides the install's Player.bin per id). Speed, Jump, Height, the stronger
+  // foot, the injury tier and Form come from the save through DecodeEditRow (editsave.hpp: the record layout is not Player.bin's).
+  // A save id with no Player.bin record is left out: its Parse-only traits (the condition byte) have no source for it.
+  void ApplyEditSave(const EditSave& save);
 
  private:
   std::unordered_map<int, PlayerTraits> byId_;
