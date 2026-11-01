@@ -1189,6 +1189,10 @@ uint32_t Match::StyleWordOf(const PlayerData* data) const {
   return word;
 }
 
+bool Match::StyleHas(const PlayerData* data, PlayingStyles::Player style) const {
+  return (StyleWordOf(data) & pes::style::StyleWord(style)) != 0;
+}
+
 bool Match::LeftFootedOf(const PlayerData* data) const {
   const auto traits = TraitsOf(pesPlayerDatabase, data);
   return traits ? traits->leftFooted : kFallbackLeftFooted;

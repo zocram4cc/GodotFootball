@@ -88,3 +88,69 @@ TEST(PesRoles, TailSwapNeedsBothLatchesInRange) {
   roles.lastSwapB = pes::roles::kSideSlots;
   EXPECT_FALSE(pes::roles::TailSwapAllowed(roles));
 }
+
+// FUN_1405F9CD0's team-record bytes (0x1405F9E00-0x1405F9E6C): per phase and line, the men with a non-zero class and the
+// active ones among them. FUN_140A63680 reads the phase-1 forward line at T+0x87CC (decompile, `lVar4 + 0x87cc`).
+namespace {
+constexpr int kPossessionPhase = 1, kOutPhase = 0;
+constexpr int kBackLine = 0, kMidLine = 1, kForwardLine = 2;
+struct BandFixture {
+  std::array<uint8_t, pes::kTeamSheetOffset> team{};
+  pes::roles::SideRoles roles;
+  std::array<bool, pes::roles::kSideSlots> active;
+  BandFixture() {
+    // GK, CB, CB, SB, DMF, CMF, SMF, AMF, SS, WF, CF
+    const int classes[pes::roles::kSideSlots] = {0, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) roles.b[slot] = classes[slot];
+    active.fill(true);
+  }
+};
+}  // namespace
+
+TEST(PesBandRows, TheForwardLineOfThePossessionPhaseLivesAtT87CC) {
+  EXPECT_EQ(pes::roles::BandRowOffset(kPossessionPhase, kForwardLine), 0x87CCu);
+}
+
+TEST(PesBandRows, EachLineCountsItsClassesAndTheKeeperCountsNowhere) {
+  BandFixture f;
+  pes::roles::WriteBandRows(f.team.data(), kPossessionPhase, f.roles, f.active);
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kPossessionPhase, kBackLine), 3);  // CB CB SB
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kPossessionPhase, kMidLine), 4);   // DMF CMF SMF AMF
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kPossessionPhase, kForwardLine), 3);  // SS WF CF
+}
+
+TEST(PesBandRows, ADeparturePastTheClassesTakesTheBackLine) {
+  BandFixture f;
+  f.roles.b[10] = 10;  // past CF: the switch's default arm
+  pes::roles::WriteBandRows(f.team.data(), kPossessionPhase, f.roles, f.active);
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kPossessionPhase, kBackLine), 4);
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kPossessionPhase, kForwardLine), 2);
+}
+
+TEST(PesBandRows, AnInactiveManCountsAsAManButNotAsActive) {
+  BandFixture f;
+  f.active[10] = false;  // the CF is off the pitch
+  pes::roles::WriteBandRows(f.team.data(), kPossessionPhase, f.roles, f.active);
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kPossessionPhase, kForwardLine), 3);
+  EXPECT_EQ(pes::roles::BandRowActive(f.team.data(), kPossessionPhase, kForwardLine), 2);
+}
+
+TEST(PesBandRows, ABuildWritesOnlyItsOwnPhase) {
+  BandFixture f;
+  pes::roles::WriteBandRows(f.team.data(), kPossessionPhase, f.roles, f.active);
+  for (int line = 0; line < 3; ++line) EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kOutPhase, line), 0);
+  f.roles.b[10] = 4;  // the CF becomes a CMF; only the out-of-possession build sees it
+  pes::roles::WriteBandRows(f.team.data(), kOutPhase, f.roles, f.active);
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kOutPhase, kForwardLine), 2);
+  EXPECT_EQ(pes::roles::BandRowMen(f.team.data(), kPossessionPhase, kForwardLine), 3)
+      << "the possession phase keeps what its own build wrote";
+}
+
+// 0x1404F9F0D: `test byte [MI+0x1198],1`: on an odd frame the build is the latch's phase, on an even frame the other.
+TEST(PesBandRows, TheBuiltPhaseAlternatesWithTheFrameParity) {
+  EXPECT_EQ(pes::roles::BuiltPhase(1, true), 1);
+  EXPECT_EQ(pes::roles::BuiltPhase(1, false), 0);
+  EXPECT_EQ(pes::roles::BuiltPhase(2, true), 0);
+  EXPECT_EQ(pes::roles::BuiltPhase(2, false), 1);
+  EXPECT_EQ(pes::roles::BuiltPhase(3, true), 1);
+}

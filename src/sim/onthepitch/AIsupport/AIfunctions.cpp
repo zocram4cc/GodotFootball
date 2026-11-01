@@ -451,18 +451,16 @@ void AI_GetBestDribbleMovement(Match* match, int thisPlayerID, const MentalImage
   Team* team = player->GetTeam();
   signed int side = team->GetSide();
 
-  // The playing style and COM cards bend how he carries it: a mazing runner
-  // drives at goal through bodies, a target man holds it up (docs/PES21_IMPORT.md).
-  const PlayingStyles::Player style = player->GetPlayerData()->GetPlayingStyle();
+  // The COM cards bend how he carries it (the playing style does not: PES reads no style bit in its dribble code).
   const PlayingStyles::ComMask comStyles = player->GetPlayerData()->GetComStyles();
   const float offenseFactor = PlayingStyles::GetDribbleDrive(
-      style, comStyles,
+      comStyles,
       AITactics::GetDribbleForwardDrive(
           team->GetController()->GetLiveTacticReal("dribble_offensiveness", 0.5f),
           AI_GetMindSet(player->GetDynamicFormationEntry().role)));
-  const float opponentRepel = PlayingStyles::GetOpponentRepel(style, comStyles, 2.0f);
+  const float opponentRepel = PlayingStyles::GetOpponentRepel(comStyles, 2.0f);
   const float centerMagnet = PlayingStyles::GetDribbleCenterPull(
-      style, comStyles, team->GetController()->GetLiveTacticReal("dribble_centermagnet", 0.5f));
+      comStyles, team->GetController()->GetLiveTacticReal("dribble_centermagnet", 0.5f));
   float powerMultiplier = 1.0f;  // should alter (average) resulting velocity
 
   float future_sec = 0.25f;
@@ -540,7 +538,7 @@ void AI_GetBestDribbleMovement(Match* match, int thisPlayerID, const MentalImage
   desiredDirection = forceFieldMovement.GetNormalized(player->GetDirectionVec());
   desiredVelocity = clamp(forceFieldMovement.GetLength() * distanceToVelocityMultiplier,
                           idleVelocity, sprintVelocity);
-  desiredVelocity = RangeVelocity(PlayingStyles::GetDribbleVelocity(style, comStyles, desiredVelocity));
+  desiredVelocity = RangeVelocity(PlayingStyles::GetDribbleVelocity(comStyles, desiredVelocity));
 }
 
 Vector3 AI_GetForceFieldMovement(const std::vector<ForceSpot>& forceField,

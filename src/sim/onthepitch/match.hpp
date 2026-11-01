@@ -308,6 +308,8 @@ public:
   // (PlayerTraits::row, DecodeEditRow); every other player's is his GF style's engine bit.
   // ponytail: the second is GF's own style standing in for a row GF cannot build; goes with the Player.bin row loader.
   uint32_t StyleWordOf(const PlayerData* data) const;
+  // A direct bit test of the style word, as PES's keeper, Destroyer and cross sites read it (`word >> bit & 1`, no compat row).
+  bool StyleHas(const PlayerData* data, PlayingStyles::Player style) const;
   // The named stand-ins for a player with no PES record of his own: the middle injury tier, the right foot, raw
   // Form 3 and the 0x46 condition default. The synthetic squads deal Normal from the default, as PES's unedited
   // records do (condition-import 1).
