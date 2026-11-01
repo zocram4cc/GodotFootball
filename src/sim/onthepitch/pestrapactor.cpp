@@ -193,6 +193,10 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   std::memcpy(p + kPQPtrOffset, &q, sizeof q);
   std::memcpy(world.Q(f.slot) + kQChainPtrOffset, &r, sizeof r);
   std::memcpy(world.R(f.slot) + kRArrayPtrOffset, &rArray, sizeof rArray);
+  for (std::size_t k = 0; k < kRJointCount; ++k) {  // R's pointer array: joint k is the k-th object after R's header
+    const uint64_t joint = r + kRJointsOffset + k * kRJointStride;
+    std::memcpy(world.R(f.slot) + kRArrayOffset + sizeof joint * k, &joint, sizeof joint);
+  }
   std::memcpy(p + kPSPtrOffset, &s, sizeof s);
   uint8_t* point = world.O2(f.slot) + kO2PointOffset;
   std::memcpy(point, man + kManPosXOffset, 12);

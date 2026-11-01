@@ -208,10 +208,23 @@ def _data_extents(fd):
 # cause is OPEN; it is never served, so a slim replay refuses a read of it. Guard: scratch verify_served.py over full captures.
 UNSERVABLE_RVA = frozenset({0x2647000})
 
+# The protected-code section `.impdata` (VA 0x143D14000, 380 MB, rwx in the process) holds the game's relocated code
+# (docs/re/pes-re-protection.md §1): byte-identical in the file, the dump and every capture except the pages below, which
+# hold state words and self-patched bytes that differ per launch. Measured by comparing the section of pes_full.bin with
+# 20 full captures from 10 launches (97342 pages: 31 differ in any capture; 28 to 30 in each). A page in this set is
+# never served. Regenerate: tools/pes21_import/volatile_pages.py (CAPTURE_DIR ...).
+IMPDATA = b".impdata"
+IMPDATA_VOLATILE_RVA = frozenset({0x3DCA000, 0x3F3D000, 0x3FE1000, 0x415B000, 0x445F000, 0x46D4000, 0x494F000, 0x4A92000,
+                                  0x4AC3000, 0xDDC9000, 0xE8C2000, 0xEA7A000, 0xEA7B000, 0xED0C000, 0xF0BE000, 0x10542000,
+                                  0x17245000, 0x1A893000, 0x1AB9A000, 0x1AE75000, 0x1AEAF000, 0x1B043000, 0x1B427000,
+                                  0x1B59B000, 0x1B63C000, 0x1B798000, 0x1B8C6000, 0x1B8FE000, 0x1B928000, 0x1B92A000,
+                                  0x1B93C000})
+
 
 class PeImage:
     """The game image as a file (pes_full.bin: the unpacked image, file offset = VA - IMAGE_BASE). A slim capture drops
-    pages; the file supplies the ones that are code or read-only data. Never served: a writable section (the game writes
+    pages; the file supplies the ones that are code or read-only data, and the pages of `.impdata` (the relocated game
+    code, rwx in the process) outside IMPDATA_VOLATILE_RVA. Never served: any other writable section (the game writes
     it) and the import address table (the loader writes it with that launch's DLL addresses)."""
 
     def __init__(self, path):
@@ -229,12 +242,16 @@ class PeImage:
         self.size_of_image, = struct.unpack_from("<I", head, opt + 56)
         self.size_of_headers, = struct.unpack_from("<I", head, opt + 60)
         self.iat = struct.unpack_from("<II", head, opt + 112 + 12 * 8)  # data directory 12: the import address table
-        self.sections = []  # (first page RVA, end page RVA, characteristics) per section
+        self.sections = []  # (first page RVA, end page RVA, characteristics, is .impdata) per section
         for i in range(nsec):
             s = opt + opt_size + 40 * i
             vsize, va = struct.unpack_from("<II", head, s + 8)
             ch, = struct.unpack_from("<I", head, s + 36)
-            self.sections.append((va, va + ((max(vsize, 1) + PAGE - 1) & ~(PAGE - 1)), ch))
+            self.sections.append((va, va + ((max(vsize, 1) + PAGE - 1) & ~(PAGE - 1)), ch,
+                                  head[s:s + 8].rstrip(b"\0") == IMPDATA))
+
+    def is_impdata(self, rva):
+        return any(lo <= rva < hi and imp for lo, hi, _, imp in self.sections)
 
     def servable(self, rva):
         """True when the file's page at rva is the page a live capture holds: a header page, or a page of a section that
@@ -247,9 +264,9 @@ class PeImage:
         iat_va, iat_size = self.iat
         if iat_size and page < iat_va + iat_size and iat_va < page + PAGE:
             return False
-        for lo, hi, ch in self.sections:
+        for lo, hi, ch, imp in self.sections:
             if lo <= page < hi:
-                return not (ch & 0x80000000)
+                return not (ch & 0x80000000) or imp and page not in IMPDATA_VOLATILE_RVA
         return False
 
     def read(self, rva, n):
@@ -305,10 +322,12 @@ class SnapMem:
 
     def _served(self, page):
         """True when page is mapped, dropped by a slim capture, and the game image file holds its bytes: a page of a
-        mapping that is not writable in the live process (a writable one may have been written), that PeImage.servable."""
+        mapping that is not writable in the live process (a writable one may have been written) or of `.impdata`
+        (writable in the process, but only its IMPDATA_VOLATILE_RVA pages ever differ), that PeImage.servable."""
         m = self.mapping_of(page)
         return (self.image is not None and IMAGE_BASE <= page < IMAGE_BASE + self.image.size_of_image
-                and m is not None and "w" not in m["perm"] and page not in self.holes and self.image.servable(page - IMAGE_BASE))
+                and m is not None and ("w" not in m["perm"] or self.image.is_impdata(page - IMAGE_BASE))
+                and page not in self.holes and self.image.servable(page - IMAGE_BASE))
 
     def page_dropped(self, va):
         """True when va's page is mapped and not an index hole, but a slim capture dropped its bytes and no image serves them."""

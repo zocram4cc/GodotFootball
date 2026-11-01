@@ -138,7 +138,13 @@ inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clampe
 inline constexpr std::size_t kAChildO1Offset = 0x118, kAChildO2Offset = 0x188;
 // O1 is the AnimPlugin object FUN_141B158F0 constructs: 0x1378 bytes (nine layer objects embedded, the layer pointer array at +0xB0 pointing
 // back into it), rounded up to 0x1380. pesanimplugin_stores.inc is that constructor's output (gen_animplugin.py).
-inline constexpr std::size_t kO1Bytes = 0x1380, kO2Bytes = 0x100, kQBytes = 0x10, kRBytes = 0x90, kSBytes = 0x20;
+// R is the joint chain: its 0x90-byte header is followed by the joint objects, one allocation in PES (CONFIRMED on seq1917: R+0x90 is the
+// first joint, array[k] = R + 0x90 + k * 0x160, count 11 at R+0x20). FUN_1406E6D10 reads a joint's world position (+0x48) and two
+// floats (+0x94, +0xA0) through FUN_14081D8C0. They are the animation engine's pose output; GF runs no such engine, so the window holds
+// the objects (zero) and the oracle supplies the read cells from the capture.
+inline constexpr std::size_t kRJointsOffset = 0x90, kRJointStride = 0x160, kRJointCount = 11;
+inline constexpr std::size_t kO1Bytes = 0x1380, kO2Bytes = 0x100, kQBytes = 0x10, kSBytes = 0x20,
+                             kRBytes = kRJointsOffset + kRJointCount * kRJointStride;
 inline constexpr std::size_t kO2PointOffset = 0xD0;  // f32 x, y, z, w
 inline constexpr std::size_t kQChainPtrOffset = 8;   // Q+8 -> R
 inline constexpr std::size_t kRArrayPtrOffset = 0x10, kRArrayOffset = 0x30;

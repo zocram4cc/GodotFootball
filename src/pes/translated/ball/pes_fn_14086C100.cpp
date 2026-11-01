@@ -11,7 +11,7 @@
 static constexpr unsigned __int128 k_c1425656D0 = ((unsigned __int128)0x8000000080000000ULL << 64) | 0x8000000080000000ULL;
 // image constant @ 0x1425C7670 (4 bytes)
 static constexpr uint32_t k_c1425C7670_w = 0xBECCCCCDU;
-static constexpr float k_c1425C7670_f = -0.4000000059604645f; // -0.4000000059604645
+static constexpr float k_c1425C7670_f = -0.4000000059604645f; // -0.4000000059604645;
 
 void pes_fn_14086C100(PesState& s);
 void pes_fn_140874820(PesState& s);

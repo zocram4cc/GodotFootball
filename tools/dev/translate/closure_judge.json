@@ -1,0 +1,7 @@
+{
+ "note": "indirect-call targets of the judge closure (root 0x1405B7470) that no direct CALL names: __ehvec_ctor 0x14159EFF8 calls the element constructor it is handed (140A81860: lea r9,[0x140A81910], 22 elements of 0x2C bytes, ctor 0x140A81910 = `xor eax,eax; mov [rcx],0xFF; ... ret`); the destructor 0x141794410 is already in the layer. VAs only.",
+ "root": "0x1405B7470",
+ "members": [
+  "0x140A81910"
+ ]
+}

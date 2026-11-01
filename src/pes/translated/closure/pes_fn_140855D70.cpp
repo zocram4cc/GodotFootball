@@ -10,7 +10,7 @@
 
 // image constant @ 0x142592228 (4 bytes)
 static constexpr uint32_t k_c142592228_w = 0x3E800000U;
-static constexpr float k_c142592228_f = 0.25f; // 0.25
+static constexpr float k_c142592228_f = 0.25f; // 0.25;
 // image constant @ 0x1425EDF10 (8 bytes)
 static constexpr uint64_t k_c1425EDF10_q = 0x3FF8000000000000ULL;
 static constexpr double k_c1425EDF10_d = 1.5; // 1.5

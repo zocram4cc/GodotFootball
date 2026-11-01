@@ -465,5 +465,7 @@ void WritePesMovementRecords(Match& match);
 void WritePesTrapActors(Match& match);
 // Every man in the Trap action runs PES's action tick on the window and plays the clip it issues (after WritePesTrapActors).
 void RunPesTrapTicks(Match& match);
+// One player's man record movement fields (position, velocity in m per PES frame, facing), from GF's player state.
+void WritePesManMovement(Player& player, uint8_t* man);
 
 #endif

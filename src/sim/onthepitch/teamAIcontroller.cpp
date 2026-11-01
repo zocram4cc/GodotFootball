@@ -3449,10 +3449,11 @@ float PesYawDeg(const Vector3& v) {
              ? 0.0f
              : std::fmod(std::atan2(v.coords[0], v.coords[1]) * 180.0f / pi + 360.0f, 360.0f);
 }
+}  // namespace
 
 // The movement fields of a player's man record: position from GF's coordinates (x = coords[0], z = coords[1] = PES z,
 // coords[2] = height), velocity in m per PES frame (GF m/s over kPesFps), facing in degrees.
-void WriteManMovement(Player& pl, uint8_t* man) {
+void WritePesManMovement(Player& pl, uint8_t* man) {
   const Vector3 pos = pl.GetPosition();
   const Vector3 mov = pl.GetMovement();
   // The previous position (+0x568) is last tick's: the record still holds it until the new one is written below (P+0x14 is a
@@ -3467,6 +3468,8 @@ void WriteManMovement(Player& pl, uint8_t* man) {
   pes::StoreF32(man, pes::kManVelYOffset, mov.coords[2] / ob::kPesFps);
   pes::StoreF32(man, pes::kManFacingOffset, PesYawDeg(pl.GetDirectionVec()));
 }
+
+namespace {
 
 // The facts P's fields are made from (pestrapactor.hpp), read from the player's own state.
 pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
@@ -3511,7 +3514,6 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
 }
 
 }  // namespace
-
 // Every active player's movement record at the tick's start (Match::Process, PES mode). The cap is BuildRunWorld's: at
 // most kSlots active players a side, in roster order.
 void WritePesMovementRecords(Match& match) {
@@ -3520,7 +3522,7 @@ void WritePesMovementRecords(Match& match) {
     for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
       if (!p->IsActive() || written == ob::kSlots) continue;
       ++written;
-      WriteManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
+      WritePesManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
     }
   }
 }
@@ -3528,6 +3530,10 @@ void WritePesMovementRecords(Match& match) {
 // Every active player's P at the tick's start, after the movement records it is made from (Match::Process, PES mode).
 // ponytail: SBn, the squad-order record of table B (G+0x1978, read by FUN_140A3B320 in 9 of 24 captured calls), has no decoded
 // writer and no GF source: table B stays unbound, so its reads answer zero. FUN_140A3B320's table-B writer removes this.
+// ponytail: the same table-B record's player-info entries (record + 0xA8 + idx * 0x128) hold the roster's ability bytes from +0x50
+// (FUN_140862530 reads +0x50 in the tick's contact-point search, FUN_14085E3C0) and the player id at +0x30/+0x34/+0x118
+// (FUN_140A62D90): GF writes only +0x34 and +0x78 elsewhere (SetPlayerInfo, SetCarrierProfile), so those reads answer zero in a match. The
+// oracle serves them from the capture (seq1917). The roster loader's writer of the entry removes this.
 void WritePesTrapActors(Match& match) {
   for (int t = 0; t < 2; ++t) {
     int written = 0;
@@ -3623,7 +3629,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       // The man record is keyed by PES's slot (his squad place): the block the translated accessors read.
       const int recordSlot = match->PesSlotOf(pl);
       f.man = match->PesWorldOf().ManRecord(recordSlot);
-      if (!match->PesLoop()) WriteManMovement(*pl, f.man);
+      if (!match->PesLoop()) WritePesManMovement(*pl, f.man);
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
       f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
       // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.

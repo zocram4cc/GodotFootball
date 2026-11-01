@@ -19353,14 +19353,26 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failed": 123,
-   "failure_class": "harness cannot run",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
    "icount_max": 21,
    "nonreturn": 0,
-   "note": "5 valid of 64 requested; 123 failed skipped",
-   "requested": 64,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel3: judge_whistle_50E770, 28 captures: pid2670420 seq028, seq7444, seq7535, seq7699; pid91171 seq028, seq308, seq875, seq1092, seq1549, seq1590, seq1880, seq2116, seq2784, seq2911, seq3151, seq3433; pid132854 seq028, seq804, seq866, seq1161, seq1328, seq1493, seq2126, seq2673, seq2939, seq3142, seq3406, seq3428; restart kinds 1 kick-off, 2 throw-in, 3 goal kick, 4 corner, 5 free kick); own-block coverage 0.5072; the unicorn harness corpus (5 valid of 64) is superseded",
+   "proof": "snapdiff",
+   "requested": 28,
    "role": "seed",
+   "snapdiff": {
+    "calls": 28,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 35,
+     "total": 69,
+     "fraction": 0.5072
+    },
+    "replayed": 28,
+    "source": "tools/dev/translate/results_judge.json"
+   },
    "stubs": [],
    "subsystem": "restart",
    "translated": true,
@@ -98417,6 +98429,79 @@
   {
    "aborted": 0,
    "capped": 0,
+   "cases": 4,
+   "closure_file": "closure_judge.json",
+   "coverage": {
+    "0x1405B7470": {
+     "fraction": 0.43,
+     "reached": 86,
+     "total": 200
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel3: judge_decide_5B7470 captures live2 pid2670420 seq7473, pid91171 seq316, seq3147, pid132854 seq5123); all four leave the decision with no foul. seq5123 (a challenge action) runs the scorers 0x143F738A0 / 0x143FA8420 and the thresholds 0x143F71690 -> 0x1405B82E0 -> 0x143FA8760, so own-block coverage is 0.43; no capture reaches the pending-foul builder or a card; the unicorn harness has no corpus for it",
+   "proof": "snapdiff",
+   "requested": 4,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 86,
+     "total": 200,
+     "fraction": 0.43
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_judge.json"
+   },
+   "stubs": [],
+   "subsystem": "restart",
+   "translated": true,
+   "va": "0x1405B7470"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 1,
+   "coverage": {
+    "0x143F546F0": {
+     "fraction": 0.7037,
+     "reached": 19,
+     "total": 27
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: the real call replayed bit-exact (pes-port-CardLevel2: judge_commit_43F546F0 capture live2 pid2670420 seq7443: a direct foul, kind 2, level 1, points 0x29); own-block coverage 0.7037; the unicorn harness has no corpus for it",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 19,
+     "total": 27,
+     "fraction": 0.7037
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_judge.json"
+   },
+   "stubs": [],
+   "subsystem": "referee",
+   "translated": true,
+   "va": "0x143F546F0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
    "cases": 20,
    "coverage": {
     "0x140699960": {
@@ -98519,8 +98604,8 @@
    "stubs": [],
    "translated": true,
    "va": "0x142119390"
-  }
-  ,{
+  },
+  {
    "aborted": 0,
    "capped": 0,
    "cases": 22,
