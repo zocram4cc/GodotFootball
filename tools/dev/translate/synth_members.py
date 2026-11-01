@@ -82,14 +82,23 @@ def cases(st):
     out["0x140A57450"] = [{"name": "slot%d_n%d" % (s, n), "regs": {"rcx": anime(s), "rdx": "out", "r8d": n}}
                           for s, n in ((0, 0), (0, 1), (5, 3), (0, 249), (0, 250))]
     kind = st.reg["r8"]
-    out["0x142130EE0"] = [{"name": "kind_step_args", "regs": {"rcx": st.reg["rcx"], "rdx": "dst", "r8": kind,
-                                                               "r9": st.u64(kind + 0x38) + 0xC0}}]
+    regs = {"rcx": st.reg["rcx"], "rdx": "dst", "r8": kind, "r9": st.u64(kind + 0x38) + 0xC0}
+    out["0x142130EE0"] = [{"name": "kind_step_args", "regs": regs}]
+    # The gated arms: the man's slot (*(u32*)*kind, 0..0x15 in play, split at 0xB by the side test) and the kind object's u32 at
+    # rcx+0x264 (above 0x15 returns the early answer; below it, selects the compared man).
+    slot_at, r264 = "%#x" % st.u64(kind), "%#x+0x264" % st.reg["rcx"]
+    out["0x142130EE0"] += [{"name": "slot%d" % s, "regs": regs, "pokes": [(slot_at, u32(s))]} for s in (0, 5, 11, 15)]
+    out["0x142130EE0"] += [{"name": "r264_%d" % v, "regs": regs, "pokes": [(r264, u32(v))]} for v in (0x16, 0x20, 0, 11)]
+    # The prediction frame the ball's position is read at (*(kind+0x20) + 0x3C): the distance test's arm.
+    frame_at = "%#x" % (st.u64(kind + 0x20) + 0x3C)
+    out["0x142130EE0"] += [{"name": "frame%d" % f, "regs": regs, "pokes": [(frame_at, u32(f))]} for f in (0, 3, 40, 255)]
     return out
 
 
 def resolve(st, v):
     rsp = st.reg["rsp"]
-    return {"dst": rsp + DST, "src": rsp + SRC, "out": rsp + OUT}.get(v, v) if isinstance(v, str) else v
+    names = {"dst": rsp + DST, "src": rsp + SRC, "out": rsp + OUT}
+    return names[v] if v in names else int(v, 0) if isinstance(v, str) else v  # a hex string is an absolute address
 
 
 def build_case(st, work, va, case):

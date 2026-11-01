@@ -372,6 +372,15 @@ TEST(PlayerDatabaseEditSave, AFieldOutsideItsDescriptorRangeKeepsPlayerBinsValue
   EXPECT_EQ(edited->injuryResistance, 2);
   EXPECT_EQ(edited->form, 0) << "in range: Form 0 is the save's";
   EXPECT_TRUE(edited->leftFooted);
+  // The row image GF copies into the AI record carries the same six bytes: Player.bin's where the save's field failed its gate,
+  // the save's where it passed.
+  ASSERT_TRUE(edited->row.has_value());
+  EXPECT_EQ((*edited->row)[pes::kRowSpeed], pes::kAbilityBias);
+  EXPECT_EQ((*edited->row)[pes::kRowJump], pes::kAbilityBias);
+  EXPECT_EQ((*edited->row)[pes::kRowHeightCm], pes::kHeightBiasCm);
+  EXPECT_EQ((*edited->row)[pes::kRowInjuryResistance], 2);
+  EXPECT_EQ((*edited->row)[pes::kRowForm], 0);
+  EXPECT_EQ((*edited->row)[pes::kRowStrongerFoot], 1);
 }
 
 TEST(PlayerDatabaseEditSave, ASaveIdWithoutAPlayerBinRecordAddsNothing) {
