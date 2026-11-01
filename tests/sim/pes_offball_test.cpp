@@ -1559,6 +1559,13 @@ TEST(OffBallStyleRunDepth, AStandingPlayerOfTheSameStyleStillGetsIt) {
 TEST(OffBallStyleRunDepth, NoStyleNoTerm) {
   EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, 0u, kNothing, false), 0.0f);
 }
+TEST(OffBallStyleRunDepth, TheTwoRunStylesBitsEachAddTheirOwnTerm) {
+  // L650-653 and L655-657 are two separate additions (FUN_140A64030 bit 0, then bit 2), not one either-or test.
+  const OffBallConstants k = WithStyles();
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kPoacherWord | kFoxWord, kNothing, false), 2.0f * k.styleRunDepth_m);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kPoacherWord | kFoxWord, kNothing, false), k.styleRunDepth_m)
+      << "role 7's compat row lists only the Poacher, so only its term is added";
+}
 TEST(OffBallStyleRunDepth, RolesFiveAndSixWaitForTheUndecodedTeamByte) {
   // ponytail: roles 5-6 are gated on team+0x7b84 (FUN_1405d8b70 L650-653), not decoded
   // yet; until it is, they get no term. Remove this when team+0x7b84 is ported.

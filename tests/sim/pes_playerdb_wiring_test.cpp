@@ -84,12 +84,13 @@ const pesrig::Rig* SharedRig() {
 }
 
 // The fixture match over the synthetic squads, reading PES traits from `playerDb` (null: none). `statements` run on the
-// squads' database before the match is built, for a test's own rows.
+// squads' database before the match is built, for a test's own rows. `pesLoop` picks the PES loop or the switch-off path.
 struct FixtureMatch {
   blunted::Database db;
   std::unique_ptr<Match> match;
 
-  explicit FixtureMatch(const pes::PlayerDatabase* playerDb, const std::vector<std::string>& statements = {}) {
+  explicit FixtureMatch(const pes::PlayerDatabase* playerDb, const std::vector<std::string>& statements = {},
+                        bool pesLoop = false) {
     if (!db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql")) return;
     for (const std::string& statement : statements) db.Query(statement);
     SetDB(&db);
@@ -102,7 +103,9 @@ struct FixtureMatch {
     setup.rig = SharedRig();
     setup.pesPlayerDatabase = playerDb;
     if (!setup.rig || !pestest::FillMissingPesConstants(&setup)) return;
-    match.reset(new Match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, Properties()));
+    Properties config;
+    config.SetBool("pes_loop", pesLoop);
+    match.reset(new Match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config));
   }
   ~FixtureMatch() {
     match.reset();
@@ -311,3 +314,135 @@ TEST(PlayerDatabaseWiring, ARowOfTheSaveIsCopiedWholeIntoTheSlotsAbilityBlock) {
   for (size_t i = 0; i < pes::kRosterRowBytes; ++i)
     EXPECT_EQ(untouched[i], 0) << "an untouched slot starts with an empty block: byte 0x" << std::hex << i;
 }
+
+// The run-depth term of the formation spot (the site the DribbleRow doc left on GF's style enum) is PES's rule on the style
+// WORD (FUN_1405D8B70 L650-657: FUN_140A64030 per bit, style word AND the class's compat row). The word is the save row's
+// +0x48 for a player the save holds and the word of his database style for one it does not (Match::StyleWordOf).
+namespace {
+constexpr int kForwardDatabaseId = 10;  // the fixture's home CF (teams.sql)
+constexpr int kForwardPesId = 9003;     // synthetic: no fixture player carries it
+constexpr int kGoalPoacherBit = 0, kFoxInTheBoxBit = 2, kHolePlayerBit = 9;  // engine bits (pesstyle.cpp EngineBit)
+
+void PutBits(pes::EditPlayerRecord& rec, size_t bit, size_t width, uint32_t value) {
+  for (size_t i = 0; i < width; ++i) {
+    const size_t b = bit + i;
+    rec[b / 8] = uint8_t((rec[b / 8] & ~(1u << (b % 8))) | (((value >> i) & 1u) << (b % 8)));
+  }
+}
+
+pes::EditPlayerRecord SaveRecordWithStyle(uint32_t saveStyle) {
+  pes::EditPlayerRecord rec{};
+  const uint32_t id = kForwardPesId;
+  std::memcpy(rec.data() + pes::kEditIdOffset, &id, sizeof id);
+  PutBits(rec, pes::kEditStyleBit, pes::kEditStyleWidth, saveStyle);
+  return rec;
+}
+
+// The save style value whose decoded style word is `word`. The word comes from the save's own decode, not a table here.
+uint32_t SaveStyleOfWord(uint32_t word) {
+  for (uint32_t value = 0; value < (1u << pes::kEditStyleWidth); ++value)
+    if (pes::DecodeEditRow(SaveRecordWithStyle(value)).styleMask == word) return value;
+  ADD_FAILURE() << "no save style decodes to word 0x" << std::hex << word;
+  return 0;
+}
+
+struct ForwardSpot {
+  float x = 0.0f;
+  float towardOpponentGoal = 0.0f;  // +1 or -1: the sign of the attack along x
+  float runDepth_m = 0.0f;          // the install's run-depth term
+  bool gateOpen = false;            // the forward's compat row lists the style under test
+};
+
+// The home forward's formation spot with the save style value `saveStyle` (nullopt: Player.bin only, no row) and `gfStyle` as
+// his database style. nullopt when PES21_ROOT is not set.
+std::optional<ForwardSpot> SpotOfForward(bool pesLoop, std::optional<uint32_t> saveStyle, PlayingStyles::Player gfStyle,
+                                         int bitUnderTest) {
+  std::string err;
+  auto playerDb = pes::PlayerDatabase::Parse(RecordFor(kForwardPesId, kTierC, false), &err);
+  EXPECT_TRUE(playerDb.has_value()) << err;
+  if (!playerDb) return std::nullopt;
+  if (saveStyle) {
+    pes::EditSave save;
+    save.players.push_back(SaveRecordWithStyle(*saveStyle));
+    playerDb->ApplyEditSave(save);
+  }
+  FixtureMatch fixture(&*playerDb,
+                       {"UPDATE players SET pes_player_id = " + std::to_string(kForwardPesId) +
+                        ", profile_xml = profile_xml || '<playing_style>" + PlayingStyles::Serialize(gfStyle) +
+                        "</playing_style>' WHERE id = " + std::to_string(kForwardDatabaseId)},
+                       pesLoop);
+  if (!fixture.match) return std::nullopt;
+  Player* forward = PlayerWithDatabaseId(*fixture.match, 0, kForwardDatabaseId);
+  EXPECT_NE(forward, nullptr);
+  if (!forward) return std::nullopt;
+  EXPECT_EQ(forward->GetPlayerData()->GetPlayingStyle(), gfStyle) << "the database style reached the player";
+  Team* team = fixture.match->GetTeam(0);
+  TeamAIController* controller = team->GetController();
+  ForwardSpot spot;
+  // The controller's possession and tactic members are unset until its first tick: one step, as the set-piece tests do.
+  fixture.match->Process();
+  spot.x = controller->GetAdaptedFormationPosition(forward, true).coords[0];
+  spot.towardOpponentGoal = float(-team->GetSide());
+  spot.runDepth_m = fixture.match->GetPesOffBallConstants().styleRunDepth_m;
+  spot.gateOpen = pes::style::Gate(fixture.match->GetPesOffBallConstants().styleCompat,
+                                   controller->RoleClassOfSlot(team->FormationSlotOf(forward)),
+                                   fixture.match->StyleWordOf(forward->GetPlayerData()), bitUnderTest);
+  return spot;
+}
+
+// Two save rows whose style words differ (Goal Poacher bit 0 against Hole Player bit 9, which PES's run-depth term does not
+// list): the forward's spot moves by the install's depth toward the opponent's goal and by nothing for the other.
+// The database style is the same in both, so only the word can have moved him. Both loop paths.
+TEST(StyleRunDepthSite, TwoSavedStyleWordsThatDifferGiveTheForwardTheTermOrNot) {
+  for (const bool pesLoop : {false, true}) {
+    SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
+    const auto poacher = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kGoalPoacherBit), PlayingStyles::Player::None,
+                                       kGoalPoacherBit);
+    const auto hole = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kHolePlayerBit), PlayingStyles::Player::None,
+                                    kGoalPoacherBit);
+    if (!poacher || !hole) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+    ASSERT_TRUE(poacher->gateOpen) << "the install's compat row for the forward must list Goal Poacher";
+    EXPECT_FALSE(hole->gateOpen);
+    ASSERT_GT(poacher->runDepth_m, 0.0f);
+    EXPECT_FLOAT_EQ((poacher->x - hole->x) * poacher->towardOpponentGoal, poacher->runDepth_m);
+  }
+}
+
+// Fox in the Box (bit 2) takes the same term as the Poacher: a second word, a second bit, the same shift.
+TEST(StyleRunDepthSite, FoxInTheBoxWordTakesTheSameTermAsThePoacher) {
+  for (const bool pesLoop : {false, true}) {
+    SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
+    const auto fox = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kFoxInTheBoxBit), PlayingStyles::Player::None,
+                                   kFoxInTheBoxBit);
+    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::None, kFoxInTheBoxBit);
+    if (!fox || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+    ASSERT_TRUE(fox->gateOpen);
+    EXPECT_FLOAT_EQ((fox->x - none->x) * fox->towardOpponentGoal, fox->runDepth_m);
+  }
+}
+
+// GF's style enum no longer moves the spot: a forward whose database style is Box to Box (GF's old +/-4 m) and whose saved
+// word is none stands where a forward with no style at all stands.
+TEST(StyleRunDepthSite, TheDatabaseStyleEnumNoLongerMovesTheSpotWhenTheSavedWordIsNone) {
+  for (const bool pesLoop : {false, true}) {
+    SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
+    const auto boxToBox = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::BoxToBox, kGoalPoacherBit);
+    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::None, kGoalPoacherBit);
+    if (!boxToBox || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+    EXPECT_FLOAT_EQ(boxToBox->x, none->x);
+  }
+}
+
+// A player the save does not hold (Player.bin only) has no row: PES's word for him is not decoded, so his database style's
+// word stands in (Match::StyleWordOf). A Fox in the Box by database style still gets the term, not GF's old 0 or 3 m.
+TEST(StyleRunDepthSite, APlayerWithoutARowTakesTheTermFromHisDatabaseStylesWord) {
+  for (const bool pesLoop : {false, true}) {
+    SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
+    const auto fox = SpotOfForward(pesLoop, std::nullopt, PlayingStyles::Player::FoxInTheBox, kFoxInTheBoxBit);
+    const auto none = SpotOfForward(pesLoop, std::nullopt, PlayingStyles::Player::None, kFoxInTheBoxBit);
+    if (!fox || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+    ASSERT_TRUE(fox->gateOpen);
+    EXPECT_FLOAT_EQ((fox->x - none->x) * fox->towardOpponentGoal, fox->runDepth_m);
+  }
+}
+}  // namespace
