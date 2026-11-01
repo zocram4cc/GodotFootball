@@ -74,26 +74,16 @@ Player InferPlayer(int seed, e_PlayerRole role, const PlayerData& data);
 // Zero to five cards, each more likely the better the rating behind it.
 ComMask InferCom(int seed, Player style, const PlayerData& data);
 
-// --- Off the ball (TeamAIController::GetAdaptedFormationPosition) ---
-
-// (The run depth is PES's rule on the style word: pes::offball::StyleRunDepth.)
-// Metres to shift towards the nearer touchline (negative = tuck inside).
-float GetWidthOffset(Player style, bool teamHasPossession);
-// Goal Poacher: sits a stride onside of the opponent offside line while his
-// team attacks. `teamSide` is -1 or 1 and points towards the team's own goal.
-const float poacherOffsideCushion = 0.5f;
-float GetPoacherTargetX(Player style, float defaultX, float opponentOffsideLineX, int teamSide);
-
-// --- Dribbling (AI_GetBestDribbleMovement) ---
+// --- Dribbling (AI_GetBestDribbleMovement), the COM cards only: PES has no style-word term in its dribble code ---
 
 // Attraction towards the opponent goal.
-float GetDribbleDrive(Player style, ComMask com, float baseDrive);
+float GetDribbleDrive(ComMask com, float baseDrive);
 // Repulsion from opponents; a trickster or mazing runner takes them on instead.
-float GetOpponentRepel(Player style, ComMask com, float baseRepel);
+float GetOpponentRepel(ComMask com, float baseRepel);
 // Pull towards the centre line while carrying the ball (0 = hold the lane).
-float GetDribbleCenterPull(Player style, ComMask com, float baseCenterMagnet);
-// The pace he carries it at: a target man holds it up, a speeding bullet bursts.
-float GetDribbleVelocity(Player style, ComMask com, float desiredVelocity);
+float GetDribbleCenterPull(ComMask com, float baseCenterMagnet);
+// The pace he carries it at: a speeding bullet bursts.
+float GetDribbleVelocity(ComMask com, float desiredVelocity);
 
 }  // namespace PlayingStyles
 

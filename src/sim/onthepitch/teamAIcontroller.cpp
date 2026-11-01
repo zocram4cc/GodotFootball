@@ -858,32 +858,22 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
       xFocusStrength, yFocus, yFocusStrength, microFocus, microFocusStrength, midfieldFocus,
       midfieldFocusStrength, useDynamicFormationPosition);
 
-  // Run depth: PES's rule on the player's style word (FUN_1405d8b70 L650-657, FUN_140a64030 per
+  // Run depth: PES's rule on the player's style word (FUN_1405d8b70 L644-662, FUN_140a64030 per
   // bit: style word AND the role class's compat row), on both loop paths. The word is the save
-  // row's +0x48 (Match::StyleWordOf). PES has a depth term in that function for bits 0 and 2
-  // only; GF's old per-style depth table had no PES site and is gone.
+  // row's +0x48 (Match::StyleWordOf). PES has a depth term in that function for bits 0, 2 and 4
+  // only; GF's old per-style depth table, width tuck and poacher offside-line spot had no PES site
+  // (the real width terms are FUN_1405e6e80 L527-582, which edit its lateral band edges: not ported) and are gone.
+  // Roles 5-6 are gated on the phase-1 forward-line count the shape build leaves in the team record (T+0x87CC).
   const float styleDepth = pes::offball::StyleRunDepth(
       match->GetPesOffBallConstants(), RoleClassOfSlot(team->FormationSlotOf(player)),
       match->StyleWordOf(player->GetPlayerData()), GetRunState(player),
-      match->GetDesignatedPossessionPlayer() == player);
-  // The width tuck and the poacher's offside-line spot still key on GF's style enum.
-  // ponytail: stand-ins; PES's width term is FUN_1405e6e80 L527-582, the poacher's is not placed (pes-re-style-effects.md).
-  const PlayingStyles::Player style = player->GetPlayerData()->GetPlayingStyle();
+      match->GetDesignatedPossessionPlayer() == player, ForwardLineMen());
   // Track Back: a midfielder or forward with the card drops deeper when his
   // team loses the ball.
   desiredPos.coords[0] +=
       -team->GetSide() * (styleDepth +
                           PlayerSkills::GetTrackBackDepth(player->GetPlayerData()->GetSkills(),
                                                           teamHasPossession));
-  desiredPos.coords[1] += signSide(desiredPos.coords[1]) *
-                          PlayingStyles::GetWidthOffset(style, teamHasPossession);
-  if (style == PlayingStyles::Player::GoalPoacher && teamHasPossession &&
-      AI_GetMindSet(role) > 0.5f) {
-    const float oppOffsideLineX =
-        AI_GetOffsideLine(match, match->GetMentalImage(0), abs(team->GetID() - 1));
-    desiredPos.coords[0] = PlayingStyles::GetPoacherTargetX(style, desiredPos.coords[0],
-                                                            oppOffsideLineX, team->GetSide());
-  }
   desiredPos.coords[0] = clamp(desiredPos.coords[0], -pitchHalfW, pitchHalfW);
   desiredPos.coords[1] = clamp(desiredPos.coords[1], -pitchHalfH, pitchHalfH);
 
@@ -3311,7 +3301,20 @@ void TeamAIController::WriteRoleArrays(bool head) {
   // (FUN_1404F5F10: f = 2 - (F != 0), 0 when MI+0x116C != 1 && MI+0x1554 == 1; 0x1404F5F38-4A). They coincide on every
   // reachable path today (audit F6); split them when a level-0 phase lands.
   WriteSlotPoints(level);
-  if (head) return;
+  if (head) {
+    // The shape build (FUN_14051D9E0, whose head write is the one above) then runs FUN_1405EC600, whose FUN_1405F9CD0
+    // leaves the line counts of the phase this frame builds in the team record (pesroles.hpp: BuiltPhase).
+    // ponytail: PES builds only in some states of MI+0x116C (state 3 every fifth frame, 0x14051DA80, and the
+    // MI+0x1775 arms); GF's play states are 1 and 2, so it builds every tick.
+    std::array<bool, pes::roles::kSideSlots> active{};
+    const auto& players = team->GetAllPlayers();
+    for (int slot = 0; slot < pes::roles::kSideSlots; ++slot)
+      active[slot] = slot < static_cast<int>(players.size()) && players[slot] && players[slot]->IsActive();
+    pes::roles::WriteBandRows(teamRecord.reserved_before_sheet.data(),
+                              pes::roles::BuiltPhase(static_cast<int>(match->GetSimFrame()), possession), roles,
+                              active);
+    return;
+  }
   if (match->PesLoop()) UpdateLaneLine();
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
   if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
@@ -3363,6 +3366,11 @@ void TeamAIController::UpdatePesSheetPlan() {
 int TeamAIController::RoleClassOfSlot(int slot) const {
   assert(slot >= 0 && slot < pes::roles::kSideSlots);
   return roles.b[slot];
+}
+
+int TeamAIController::ForwardLineMen() const {
+  return pes::roles::BandRowMen(teamRecord.reserved_before_sheet.data(), pes::roles::kBandPhasePossession,
+                                pes::mentality::kForwardLine);
 }
 
 void TeamAIController::UpdateLaneLine() {

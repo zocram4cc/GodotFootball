@@ -278,50 +278,13 @@ ComMask InferCom(int seed, Player style, const PlayerData& data) {
   return mask;
 }
 
-// --- Off the ball ---
-
-float GetWidthOffset(Player style, bool teamHasPossession) {
-  if (!teamHasPossession)
-    return 0.0f;
-  switch (style) {
-    case Player::DummyRunner:
-    case Player::ProlificWinger:
-      return 4.0f;
-    case Player::CrossSpecialist:
-      return 5.0f;
-    case Player::FoxInTheBox:
-    case Player::FullBackFinisher:
-      return -4.0f;
-    case Player::RoamingFlank:
-      return -5.0f;
-    case Player::ExtraFrontman:
-      return -3.0f;
-    case Player::TargetMan:
-    case Player::HolePlayer:
-      return -2.0f;
-    default:
-      return 0.0f;
-  }
-}
-
-float GetPoacherTargetX(Player style, float defaultX, float opponentOffsideLineX, int teamSide) {
-  if (style != Player::GoalPoacher || teamSide == 0)
-    return defaultX;
-  // Sit a stride on the own-goal side of the line, whatever the formation says.
-  const float side = static_cast<float>(teamSide > 0 ? 1 : -1);
-  return opponentOffsideLineX + side * poacherOffsideCushion;
-}
-
 // --- Dribbling ---
+// The COM cards only. PES reads no style bit in its dribble code (pes-re-style-effects.md §6: none of the 228 census
+// sites), so GF's per-style multipliers (Classic No. 10 / Target Man / Orchestrator / Winger ...) were invented and are gone.
+// ponytail: the COM cards' terms are GF stand-ins too (no PES site was searched for the +0x4C flag word's dribble use).
 
-float GetDribbleDrive(Player style, ComMask com, float baseDrive) {
+float GetDribbleDrive(ComMask com, float baseDrive) {
   float drive = baseDrive;
-  if (style == Player::ClassicNo10 || style == Player::TargetMan)
-    drive *= 0.7f;
-  if (style == Player::Orchestrator)
-    drive *= 0.8f;
-  if (style == Player::ProlificWinger)
-    drive *= 1.1f;
   if (Has(com, Com::MazingRun))
     drive *= 1.3f;
   if (Has(com, Com::IncisiveRun) || Has(com, Com::SpeedingBullet))
@@ -329,10 +292,8 @@ float GetDribbleDrive(Player style, ComMask com, float baseDrive) {
   return drive;
 }
 
-float GetOpponentRepel(Player style, ComMask com, float baseRepel) {
+float GetOpponentRepel(ComMask com, float baseRepel) {
   float repel = baseRepel;
-  if (style == Player::TargetMan)
-    repel *= 0.85f;  // holds it up under contact
   if (Has(com, Com::Trickster))
     repel *= 0.6f;
   if (Has(com, Com::MazingRun))
@@ -340,19 +301,15 @@ float GetOpponentRepel(Player style, ComMask com, float baseRepel) {
   return repel;
 }
 
-float GetDribbleCenterPull(Player style, ComMask com, float baseCenterMagnet) {
+float GetDribbleCenterPull(ComMask com, float baseCenterMagnet) {
   const float base = std::max(0.0f, std::min(baseCenterMagnet, 1.0f));
-  if (style == Player::CrossSpecialist)
-    return base * 0.5f;  // stays wide for the cross
-  if (style == Player::RoamingFlank || style == Player::ProlificWinger || Has(com, Com::IncisiveRun))
+  if (Has(com, Com::IncisiveRun))
     return base + (1.0f - base) * 0.5f;  // cuts inside
   return base;
 }
 
-float GetDribbleVelocity(Player style, ComMask com, float desiredVelocity) {
+float GetDribbleVelocity(ComMask com, float desiredVelocity) {
   float velocity = desiredVelocity;
-  if (style == Player::TargetMan || style == Player::ClassicNo10)
-    velocity = std::min(velocity, dribbleVelocity);
   if (Has(com, Com::SpeedingBullet))
     velocity = std::min(velocity * 1.25f, sprintVelocity);
   return velocity;

@@ -1,5 +1,6 @@
 #include "onthepitch/pesroles.hpp"
 
+#include "onthepitch/pesmentality.hpp"
 #include <cstring>
 #include <utility>
 
@@ -89,5 +90,39 @@ void SwapB(SideRoles* roles, int a, int b) {
   roles->lastSwapA = a;
   roles->lastSwapB = b;
 }
+
+namespace {
+constexpr std::size_t kBandRowBase = 0x7B20;   // P+0x7B20: phase 0, line 0, first byte
+constexpr std::size_t kBandLineStride = 0x14;  // 0x1405F9E48: `uVar13 * 0x14`
+constexpr std::size_t kBandPhaseStride = 0x3C; // `bVar1 * 0x3c`: three lines
+}  // namespace
+
+std::size_t BandRowOffset(int phase, int line) {
+  return kTeamBlockOffset + kBandRowBase + kBandLineStride * static_cast<std::size_t>(line) +
+         kBandPhaseStride * static_cast<std::size_t>(phase);
+}
+
+int BuiltPhase(int frame, bool possession) {
+  return ((frame & 1) != 0) == possession ? 1 : 0;
+}
+
+void WriteBandRows(uint8_t* team, int phase, const SideRoles& roles,
+                   const std::array<bool, kSideSlots>& active) {
+  uint8_t men[kBandLines] = {};
+  uint8_t activeMen[kBandLines] = {};
+  for (int slot = 0; slot < kSideSlots; ++slot) {
+    if (roles.b[slot] == 0) continue;  // `*(int*)(ctx[0x128] + 4k) != 0`: the keeper and empty slots count nowhere
+    const int line = mentality::ReclassifyLineOf(roles.b[slot]);
+    ++men[line];
+    if (active[slot]) ++activeMen[line];
+  }
+  for (int line = 0; line < kBandLines; ++line) {
+    team[BandRowOffset(phase, line)] = men[line];
+    team[BandRowOffset(phase, line) + 1] = activeMen[line];
+  }
+}
+
+int BandRowMen(const uint8_t* team, int phase, int line) { return team[BandRowOffset(phase, line)]; }
+int BandRowActive(const uint8_t* team, int phase, int line) { return team[BandRowOffset(phase, line) + 1]; }
 
 }  // namespace pes::roles

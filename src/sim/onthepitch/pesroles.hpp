@@ -61,4 +61,24 @@ bool TailSwapAllowed(const SideRoles& roles);
 // flag-0 call sites (set-piece paths) only latch; GF has no slot-point rows, so neither is ported.
 void SwapB(SideRoles* roles, int a, int b);
 
+// The line counts FUN_1405F9CD0 leaves in the team record (0x1405F9E00-0x1405F9E6C; decompile l.71-81): per shape phase
+// (0 out of possession, 1 in possession) and line (0 back, 1 middle, 2 forward, the reclassify's lines), two bytes at
+// P+0x7B20 + 0x14*line + 0x3C*phase (+0 the men whose B class is non-zero, +1 the active ones among them), P = T+0xC48
+// (the base FUN_1405D8B70 calls "team"). FUN_1405D8B70 reads the phase-1 forward line's first byte (P+0x7B84 = T+0x87CC,
+// 0x1405D8C69) for roles 5-6. Live read of both teams, 01-11-26: the bytes held the lines' counts (4+4+2, 3+5+2).
+inline constexpr int kBandLines = 3;
+inline constexpr int kBandPhasePossession = 1;
+inline constexpr std::size_t kTeamBlockOffset = 0xC48;  // P = T+0xC48
+std::size_t BandRowOffset(int phase, int line);        // the offset in T of the line's first byte
+// The build of FUN_1404F9DC0 (0x1404F9F0D: `test byte [MI+0x1198],1`): on an odd frame the latch's phase, on an even
+// frame the other. Each frame rebuilds one phase, so each phase refreshes every second frame.
+// ponytail: the third call site (0x1404FA6DB, taken when FUN_1404F9DC0's R12B is 0) builds the latch's phase every frame;
+// that gate's byte has no GF carrier, so the alternating arm stands.
+int BuiltPhase(int frame, bool possession);
+// FUN_1405F9CD0's byte stores for `phase`, from the B classes and the active flags (MI+0x1748).
+void WriteBandRows(uint8_t* team, int phase, const SideRoles& roles,
+                   const std::array<bool, kSideSlots>& active);
+int BandRowMen(const uint8_t* team, int phase, int line);
+int BandRowActive(const uint8_t* team, int phase, int line);
+
 }  // namespace pes::roles

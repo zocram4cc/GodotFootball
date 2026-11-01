@@ -1511,6 +1511,8 @@ TEST(OffBallInstall, CapsAndLimitFromTheInstall) {
   EXPECT_GT(k->awareTo, k->awareFrom);
   EXPECT_EQ(k->laneWindow, 8);
   EXPECT_FLOAT_EQ(k->styleRunDepth_m, 5.0f);  // 0x14259222c, FUN_1405d8b70 L650-657
+  EXPECT_FLOAT_EQ(k->styleBackDepth_m, 10.0f);  // 0x142588210, FUN_1405d8b70 L659-662 (bit 4)
+  EXPECT_EQ(k->styleFlankMaxForwards, 1);       // CMP byte [RSP+0x42],1 @0x1405d9eff: roles 5-6 need T+0x87CC <= 1
 }
 
 // FUN_1405d8b70 L650-657: a Goal Poacher (bit 0) or a Fox in the Box (bit 2) in a
@@ -1523,54 +1525,92 @@ pes::style::Compat StyleRows() {
   c.row[6] = (1u << 0) | (1u << 2);
   c.row[7] = (1u << 0) | (1u << 4) | (1u << 8);  // lists the Poacher, not the Fox
   c.row[8] = (1u << 4) | (1u << 5) | (1u << 6);  // lists neither
-  c.row[9] = (1u << 0) | (1u << 2);              // lists both
+  c.row[9] = (1u << 0) | (1u << 2) | (1u << 4);  // lists the Poacher, the Fox and the Playmaker
   return c;
 }
 OffBallConstants WithStyles() {
   OffBallConstants k = Synthetic();
   k.styleCompat = StyleRows();
   k.styleRunDepth_m = 5.0f;
+  k.styleBackDepth_m = 10.0f;
+  k.styleFlankMaxForwards = 1;
   return k;
 }
 const uint32_t kPoacherWord = pes::style::StyleWord(PlayingStyles::Player::GoalPoacher);
 const uint32_t kFoxWord = pes::style::StyleWord(PlayingStyles::Player::FoxInTheBox);
+const uint32_t kPlaymakerWord = pes::style::StyleWord(PlayingStyles::Player::CreativePlaymaker);
+// The forward-line count (T+0x87CC) only gates roles 5-6; roles 7-9 take any.
+constexpr int kManyForwards = 3;
 
 TEST(OffBallStyleRunDepth, GoalPoacherInACentreForwardRoleGetsFiveMetres) {
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kNothing, false), 5.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kNothing, false, kManyForwards), 5.0f);
 }
 TEST(OffBallStyleRunDepth, FoxInTheBoxInACentreForwardRoleGetsFiveMetres) {
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kFoxWord, kNothing, false), 5.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kFoxWord, kNothing, false, kManyForwards), 5.0f);
 }
 TEST(OffBallStyleRunDepth, CompatRowDecidesWhichForwardRoleKeepsTheStyle) {
   const OffBallConstants k = WithStyles();
-  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kPoacherWord, kNothing, false), 5.0f);
-  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kFoxWord, kNothing, false), 0.0f);
-  EXPECT_FLOAT_EQ(StyleRunDepth(k, 8, kPoacherWord, kNothing, false), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kPoacherWord, kNothing, false, kManyForwards), 5.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kFoxWord, kNothing, false, kManyForwards), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 8, kPoacherWord, kNothing, false, kManyForwards), 0.0f);
 }
 TEST(OffBallStyleRunDepth, CarrierGetsNoRunTerm) {
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kNothing, true), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kNothing, true, kManyForwards), 0.0f);
 }
 TEST(OffBallStyleRunDepth, ARunningPlayerGetsNoRunTerm) {
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kChance, false), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kChance, false, kManyForwards), 0.0f);
 }
 TEST(OffBallStyleRunDepth, AStandingPlayerOfTheSameStyleStillGetsIt) {
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kBasePosition, false), 5.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kBasePosition, false, kManyForwards), 5.0f);
 }
 TEST(OffBallStyleRunDepth, NoStyleNoTerm) {
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, 0u, kNothing, false), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, 0u, kNothing, false, kManyForwards), 0.0f);
 }
 TEST(OffBallStyleRunDepth, TheTwoRunStylesBitsEachAddTheirOwnTerm) {
   // L650-653 and L655-657 are two separate additions (FUN_140A64030 bit 0, then bit 2), not one either-or test.
   const OffBallConstants k = WithStyles();
-  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kPoacherWord | kFoxWord, kNothing, false), 2.0f * k.styleRunDepth_m);
-  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kPoacherWord | kFoxWord, kNothing, false), k.styleRunDepth_m)
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kPoacherWord | kFoxWord, kNothing, false, kManyForwards),
+                  2.0f * k.styleRunDepth_m);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kPoacherWord | kFoxWord, kNothing, false, kManyForwards), k.styleRunDepth_m)
       << "role 7's compat row lists only the Poacher, so only its term is added";
 }
-TEST(OffBallStyleRunDepth, RolesFiveAndSixWaitForTheUndecodedTeamByte) {
-  // ponytail: roles 5-6 are gated on team+0x7b84 (FUN_1405d8b70 L650-653), not decoded
-  // yet; until it is, they get no term. Remove this when team+0x7b84 is ported.
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 5, kFoxWord, kNothing, false), 0.0f);
-  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 6, kPoacherWord, kNothing, false), 0.0f);
+// L659-662: the Creative Playmaker (bit 4) SUBTRACTS 10 m (DAT_142588210, a constant: the register the decompile
+// shows as fVar30 holds it there, not the slot-point x of L196, which 0x1405D9841 overwrites), toward the own goal.
+TEST(OffBallStyleRunDepth, CreativePlaymakerPullsTheRunTargetBackByTheBackDepth) {
+  const OffBallConstants k = WithStyles();
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kPlaymakerWord, kNothing, false, kManyForwards), -k.styleBackDepth_m);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kPlaymakerWord, kNothing, false, kManyForwards), -k.styleBackDepth_m);
+}
+TEST(OffBallStyleRunDepth, PlaymakerTermAddsToThePoacherTermInTheSameWord) {
+  const OffBallConstants k = WithStyles();
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kPoacherWord | kPlaymakerWord, kNothing, false, kManyForwards),
+                  k.styleRunDepth_m - k.styleBackDepth_m);
+}
+TEST(OffBallStyleRunDepth, PlaymakerTermNeedsTheCompatRowToListBit4) {
+  const OffBallConstants k = WithStyles();
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 5, kPlaymakerWord, kNothing, false, 0), 0.0f) << "role 5's row lists bits 0 and 2 only";
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 8, kPlaymakerWord, kNothing, false, kManyForwards), -k.styleBackDepth_m)
+      << "role 8's row lists bit 4";
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 4, kPlaymakerWord, kNothing, false, 0), 0.0f) << "role 4 is below the run roles";
+}
+TEST(OffBallStyleRunDepth, PlaymakerTermIsNotTakenByTheCarrierOrARunner) {
+  const OffBallConstants k = WithStyles();
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kPlaymakerWord, kNothing, true, kManyForwards), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kPlaymakerWord, kChance, false, kManyForwards), 0.0f);
+}
+// L644-648: roles 5-6 take the terms only while the team's forward-line count (T+0x87CC) is at most the install's
+// limit; roles 7-9 never look at it.
+TEST(OffBallStyleRunDepth, RolesFiveAndSixTakeTheTermsOnlyWithFewForwards) {
+  const OffBallConstants k = WithStyles();
+  for (const int role : {5, 6}) {
+    SCOPED_TRACE(role);
+    EXPECT_FLOAT_EQ(StyleRunDepth(k, role, kFoxWord, kNothing, false, k.styleFlankMaxForwards), k.styleRunDepth_m);
+    EXPECT_FLOAT_EQ(StyleRunDepth(k, role, kFoxWord, kNothing, false, 0), k.styleRunDepth_m);
+    EXPECT_FLOAT_EQ(StyleRunDepth(k, role, kFoxWord, kNothing, false, k.styleFlankMaxForwards + 1), 0.0f);
+    EXPECT_FLOAT_EQ(StyleRunDepth(k, role, kPoacherWord, kNothing, false, kManyForwards), 0.0f);
+  }
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kFoxWord, kNothing, false, kManyForwards), k.styleRunDepth_m);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 9, kFoxWord, kNothing, false, 0), k.styleRunDepth_m);
 }
 
 // T1a: the offside-trap arm (FUN_1404F6720, step 5, 0x1404F6720-0x1404F6BC2). The carrier is team 1's slot 0 (id 11)

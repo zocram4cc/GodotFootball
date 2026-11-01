@@ -118,17 +118,20 @@ struct OffBallConstants {
   float predLead_s;         // 0.1 @0x142588200
   float predOffBall_s;      // 0.3 @0x142590d98
   float styleRunDepth_m;    // 5 @0x14259222c (FUN_1405d8b70 L650-657, run styles)
+  float styleBackDepth_m;   // 10 @0x142588210 (FUN_1405d8b70 L659-662, bit 4: a constant, not the slot-point x)
+  int styleFlankMaxForwards;  // 1: CMP byte [RSP+0x42],1 @0x1405d9eff, roles 5-6 need the forward line <= this
   pes::style::Compat styleCompat{};  // 0x142613D20: the playing-style compat rows (FUN_1408CB0B0)
 };
 
 std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const PesVfs& vfs,
                                                      std::string* error);
 
-// PES's run-depth term for the Goal Poacher and Fox in the Box styles (FUN_1405d8b70
-// L650-657), in metres toward the attack; 0 when no term applies. `roleClass` is the PES
-// role class, `runState` the player's run action, `carrier` whether he holds the ball.
+// PES's run-depth terms of the style word (FUN_1405d8b70 L644-662: bits 0 and 2 add styleRunDepth_m, bit 4 subtracts
+// styleBackDepth_m), in metres toward the attack; 0 when no term applies. `roleClass` is the PES role class, `runState`
+// the player's run action, `carrier` whether he holds the ball, `forwardsInLine` the phase-1 forward-line count of
+// the team record (T+0x87CC, pesroles' BandRowMen), which gates roles 5-6.
 float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord, int runState,
-                    bool carrier);
+                    bool carrier, int forwardsInLine);
 
 // FUN_140a40050 rank; a selector may take a slot only if its rank is lower
 // (FUN_140a40000).

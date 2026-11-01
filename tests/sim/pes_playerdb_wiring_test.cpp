@@ -350,7 +350,10 @@ struct ForwardSpot {
   float x = 0.0f;
   float towardOpponentGoal = 0.0f;  // +1 or -1: the sign of the attack along x
   float runDepth_m = 0.0f;          // the install's run-depth term
+  float backDepth_m = 0.0f;         // the install's bit-4 term
   bool gateOpen = false;            // the forward's compat row lists the style under test
+  int forwardLineMen = 0;           // the controller's phase-1 forward-line count after two ticks
+  int forwardClassCount = 0;        // the same count recounted from the B classes of the slots
 };
 
 // The home forward's formation spot with the save style value `saveStyle` (nullopt: Player.bin only, no row) and `gfStyle` as
@@ -384,9 +387,17 @@ std::optional<ForwardSpot> SpotOfForward(bool pesLoop, std::optional<uint32_t> s
   spot.x = controller->GetAdaptedFormationPosition(forward, true).coords[0];
   spot.towardOpponentGoal = float(-team->GetSide());
   spot.runDepth_m = fixture.match->GetPesOffBallConstants().styleRunDepth_m;
+  spot.backDepth_m = fixture.match->GetPesOffBallConstants().styleBackDepth_m;
   spot.gateOpen = pes::style::Gate(fixture.match->GetPesOffBallConstants().styleCompat,
                                    controller->RoleClassOfSlot(team->FormationSlotOf(forward)),
                                    fixture.match->StyleWordOf(forward->GetPlayerData()), bitUnderTest);
+  // The shape build alternates its phase every frame, so two ticks have built both.
+  fixture.match->Process();
+  spot.forwardLineMen = controller->ForwardLineMen();
+  for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
+    const int cls = controller->RoleClassOfSlot(slot);
+    spot.forwardClassCount += cls >= 7 && cls <= 9;
+  }
   return spot;
 }
 
@@ -443,6 +454,34 @@ TEST(StyleRunDepthSite, APlayerWithoutARowTakesTheTermFromHisDatabaseStylesWord)
     if (!fox || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
     ASSERT_TRUE(fox->gateOpen);
     EXPECT_FLOAT_EQ((fox->x - none->x) * fox->towardOpponentGoal, fox->runDepth_m);
+  }
+}
+
+// Bit 4 (Creative Playmaker) subtracts the install's back depth where the forward's compat row lists it, and nothing
+// where it does not: the expectation is built from the row (an input), never from the output.
+TEST(StyleRunDepthSite, CreativePlaymakerWordPullsTheForwardBackWhereHisRowListsIt) {
+  constexpr int kCreativePlaymakerBit = 4;
+  for (const bool pesLoop : {false, true}) {
+    SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
+    const auto playmaker = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kCreativePlaymakerBit),
+                                         PlayingStyles::Player::None, kCreativePlaymakerBit);
+    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::None, kCreativePlaymakerBit);
+    if (!playmaker || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+    ASSERT_GT(playmaker->backDepth_m, 0.0f);
+    const float expected = playmaker->gateOpen ? -playmaker->backDepth_m : 0.0f;
+    EXPECT_FLOAT_EQ((playmaker->x - none->x) * playmaker->towardOpponentGoal, expected);
+  }
+}
+
+// The count FUN_1405D8B70 gates roles 5-6 on is the team record's phase-1 forward line: after two ticks the controller's
+// count is the number of the side's slots in classes 7-9.
+TEST(StyleRunDepthSite, TheControllersForwardLineCountIsTheClassesOfItsSlots) {
+  for (const bool pesLoop : {false, true}) {
+    SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
+    const auto spot = SpotOfForward(pesLoop, std::nullopt, PlayingStyles::Player::None, kGoalPoacherBit);
+    if (!spot) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+    EXPECT_GT(spot->forwardClassCount, 0) << "the fixture's side has forwards";
+    EXPECT_EQ(spot->forwardLineMen, spot->forwardClassCount);
   }
 }
 }  // namespace

@@ -198,6 +198,9 @@ public:
   // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
+  // The phase-1 forward-line count of the team record (T+0x87CC, pesroles.hpp's band rows): FUN_1405D8B70's gate for
+  // roles 5-6.
+  int ForwardLineMen() const;
   // The defensive line of a player: the reclassify of his slot's B class on the PES path (pesmentality.hpp).
   int DefensiveLineOf(Player* p, e_PlayerRole role) const;
   // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
