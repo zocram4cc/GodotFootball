@@ -76,9 +76,7 @@ ComMask InferCom(int seed, Player style, const PlayerData& data);
 
 // --- Off the ball (TeamAIController::GetAdaptedFormationPosition) ---
 
-// Metres to shift the formation spot towards the opponent goal (negative =
-// drop deeper), depending on who has the ball.
-float GetDepthOffset(Player style, bool teamHasPossession);
+// (The run depth is PES's rule on the style word: pes::offball::StyleRunDepth.)
 // Metres to shift towards the nearer touchline (negative = tuck inside).
 float GetWidthOffset(Player style, bool teamHasPossession);
 // Goal Poacher: sits a stride onside of the opponent offside line while his

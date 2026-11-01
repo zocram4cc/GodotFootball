@@ -280,41 +280,6 @@ ComMask InferCom(int seed, Player style, const PlayerData& data) {
 
 // --- Off the ball ---
 
-float GetDepthOffset(Player style, bool teamHasPossession) {
-  switch (style) {
-    case Player::DummyRunner:
-    case Player::FoxInTheBox:
-      return teamHasPossession ? 3.0f : 0.0f;
-    case Player::TargetMan:
-    case Player::ProlificWinger:
-    case Player::CrossSpecialist:
-      return teamHasPossession ? 2.0f : 0.0f;
-    case Player::ClassicNo10:
-      return teamHasPossession ? -2.0f : 0.0f;
-    case Player::HolePlayer:
-    case Player::OffensiveFullBack:
-      return teamHasPossession ? 5.0f : 0.0f;
-    case Player::BoxToBox:
-      return teamHasPossession ? 4.0f : -4.0f;
-    case Player::TheDestroyer:
-      return teamHasPossession ? 0.0f : 3.0f;  // steps up to press
-    case Player::Orchestrator:
-      return teamHasPossession ? -4.0f : 0.0f;
-    case Player::AnchorMan:
-      return teamHasPossession ? -5.0f : -2.0f;
-    case Player::BuildUp:
-      return teamHasPossession ? -3.0f : 0.0f;
-    case Player::FullBackFinisher:
-      return teamHasPossession ? 6.0f : 0.0f;
-    case Player::DefensiveFullBack:
-      return teamHasPossession ? -4.0f : -2.0f;
-    case Player::ExtraFrontman:
-      return teamHasPossession ? 8.0f : 0.0f;
-    default:
-      return 0.0f;
-  }
-}
-
 float GetWidthOffset(Player style, bool teamHasPossession) {
   if (!teamHasPossession)
     return 0.0f;

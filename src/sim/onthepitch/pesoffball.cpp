@@ -1950,11 +1950,15 @@ float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord
   // ponytail: roles 5-6 of L650-653 are gated on team+0x7b84, not decoded; they take no term.
   if (carrier || IsRun(runState) || roleClass < 7 || roleClass > 9) return 0.0f;
   using P = PlayingStyles::Player;
-  const bool poacher = pes::style::Gate(k.styleCompat, roleClass, styleWord,
-                                        pes::style::EngineBit(P::GoalPoacher));
-  const bool fox = pes::style::Gate(k.styleCompat, roleClass, styleWord,
-                                    pes::style::EngineBit(P::FoxInTheBox));
-  return poacher || fox ? k.styleRunDepth_m : 0.0f;
+  // Two separate additions (L650-653 bit 0, then L655-657 bit 2), so a word holding both gets both.
+  // ponytail: L659-662's bit 4 (Creative Playmaker) subtracts a per-slot team-record x (team+0x3A9C + slot*12), not a
+  // constant; the record is not ported, so bit 4 adds nothing.
+  float depth = 0.0f;
+  if (pes::style::Gate(k.styleCompat, roleClass, styleWord, pes::style::EngineBit(P::GoalPoacher)))
+    depth += k.styleRunDepth_m;
+  if (pes::style::Gate(k.styleCompat, roleClass, styleWord, pes::style::EngineBit(P::FoxInTheBox)))
+    depth += k.styleRunDepth_m;
+  return depth;
 }
 
 bool RunStop(const RunWorld& w, int id, int run) {

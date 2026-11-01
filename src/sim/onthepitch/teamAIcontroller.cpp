@@ -858,21 +858,17 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
       xFocusStrength, yFocus, yFocusStrength, microFocus, microFocusStrength, midfieldFocus,
       midfieldFocusStrength, useDynamicFormationPosition);
 
-  // The playing style bends the formation spot: a hole player pushes on while
-  // his team attacks, an anchor man sits, a roaming flank tucks inside, and a
-  // goal poacher ignores his depth altogether to lurk on the opponent's
-  // offside line (roadmap 4D, docs/PES21_IMPORT.md).
+  // Run depth: PES's rule on the player's style word (FUN_1405d8b70 L650-657, FUN_140a64030 per
+  // bit: style word AND the role class's compat row), on both loop paths. The word is the save
+  // row's +0x48 (Match::StyleWordOf). PES has a depth term in that function for bits 0 and 2
+  // only; GF's old per-style depth table had no PES site and is gone.
+  const float styleDepth = pes::offball::StyleRunDepth(
+      match->GetPesOffBallConstants(), RoleClassOfSlot(team->FormationSlotOf(player)),
+      match->StyleWordOf(player->GetPlayerData()), GetRunState(player),
+      match->GetDesignatedPossessionPlayer() == player);
+  // The width tuck and the poacher's offside-line spot still key on GF's style enum.
+  // ponytail: stand-ins; PES's width term is FUN_1405e6e80 L527-582, the poacher's is not placed (pes-re-style-effects.md).
   const PlayingStyles::Player style = player->GetPlayerData()->GetPlayingStyle();
-  float styleDepth = PlayingStyles::GetDepthOffset(style, teamHasPossession);
-  // pes_loop: PES's run-depth term for the two run styles decoded so far (FUN_1405d8b70
-  // L650-657); every other style keeps the GF stand-in above.
-  if (match->PesLoop() &&
-      (style == PlayingStyles::Player::GoalPoacher || style == PlayingStyles::Player::FoxInTheBox))
-    styleDepth = pes::offball::StyleRunDepth(
-        match->GetPesOffBallConstants(),
-        RoleClassOfSlot(team->FormationSlotOf(player)),
-        pes::style::StyleWord(style), GetRunState(player),
-        match->GetDesignatedPossessionPlayer() == player);
   // Track Back: a midfielder or forward with the card drops deeper when his
   // team loses the ball.
   desiredPos.coords[0] +=
