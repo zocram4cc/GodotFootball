@@ -8,9 +8,9 @@
       "closure_file": "closure_proccam.json",
       "coverage": {
         "0x141F7BFE0": {
-          "reached": 110,
+          "reached": 134,
           "total": 226,
-          "fraction": 0.4867
+          "fraction": 0.5929
         }
       },
       "dead_blocks": {},
@@ -22,20 +22,20 @@
       "proof": "snapdiff",
       "requested": 0,
       "snapdiff": {
-        "calls": 15,
+        "calls": 18,
         "mismatches": 0,
         "own_block": {
-          "reached": 110,
+          "reached": 134,
           "total": 226,
-          "fraction": 0.4867
+          "fraction": 0.5929
         },
-        "replayed": 15,
+        "replayed": 18,
         "source": "tools/dev/translate/results_proccam.json"
       },
       "stubs": [],
       "translated": true,
       "va": "0x141F7BFE0",
-      "note": "proof snapdiff --bounded: every replayed call bit-exact, 15 of 15 (live2/pid3234533 seq6220 the init call of the goal scene's procedural camera, state 1; seq6224 and seq6228 per-frame updates, state 2: record zoom stages [-1,-1,0,-1,-1,-1,-1,-1], rate 50, target kind 0; live2/pid3741448 seq11590, seq11594, seq11598 state 2 updates of the record `goal_2019_ins_lostFP_cam00.fdc` key 2: zoom stages [-1,0,-1,-1,300,-1,-1,-1], rate 90, target kind 16, the first zero stage is +0xBC; live2/pid3741448 seq71718 the INIT call (state 1) and seq71722..seq71750 eight state 2 updates of the mode 6 record `goal_celebrate_0165.fdc` key 0 (scene GOAL_HUGA_LV3): zoom stages [0,-1,60,-1,-1,-1,-1,-1], rate 90, target kind 1,2: first zero stage +0xB8, whose preset 0x1440558C0 lives in .impdata); FixDemoCamera vslot 11, the procedural camera engine; the closure is capture-bounded (270 functions with the 4 allocator natives; 29 new members incl. the .impdata preset 0x1440558C0 and the mode 6 style leaves 0x140891E40, 0x140891E60, 0x140891F40), every other call stays the translator's loud abort."
+      "note": "proof snapdiff --bounded: every replayed call bit-exact, 18 of 18 (live2/pid3234533 seq6220 the init call of the goal scene's procedural camera, state 1; seq6224 and seq6228 per-frame updates, state 2: record zoom stages [-1,-1,0,-1,-1,-1,-1,-1], rate 50, target kind 0; live2/pid3741448 seq11590, seq11594, seq11598 state 2 updates of the record `goal_2019_ins_lostFP_cam00.fdc` key 2: zoom stages [-1,0,-1,-1,300,-1,-1,-1], rate 90, target kind 16; seq71718 the INIT call (state 1) and seq71722..seq71750 eight state 2 updates of the mode 6 record `goal_celebrate_0165.fdc` key 0: zoom stages [0,-1,60,-1,-1,-1,-1,-1], first zero stage +0xB8, preset 0x1440558C0 in .impdata; seq134037 INIT of a mode 4 record, zoom stages [-1,0,-1,-1,120,-1,-1,-1], rate 90, first zero stage +0xBC, preset 0x140892100; seq137125 INIT of a mode 6 record key 100, target bytes (9,10,255), zoom stages [-1,-1,-1,240,0,-1,-1,-1], first zero stage +0xC8, preset 0x140892420; seq142542 INIT of a mode 6 record key 1, target bytes (1,22,255), rate 60, zoom stages [-1,-1,-1,120,0,-1,-1,-1], same preset); FixDemoCamera vslot 11, the procedural camera engine; the closure is capture-bounded (272 functions with the 4 allocator natives), every other call stays the translator's loud abort."
     },
     {
       "aborted": 0,
