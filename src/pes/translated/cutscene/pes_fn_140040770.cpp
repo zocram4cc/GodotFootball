@@ -11,8 +11,8 @@
 void pes_fn_140040770(PesState& s);
 
 void pes_fn_140040770(PesState& s) {
-  /*UNHANDLED PREFETCHT0 byte ptr [0x14372D2D0]*/(void)0;
-  /*UNHANDLED PREFETCHT0 byte ptr [0x14372D2F8]*/(void)0;
-  /*UNHANDLED PREFETCHT0 byte ptr [0x14372D320]*/(void)0;
+  /*IGNORED PREFETCHT0 byte ptr [0x14372D2D0]*/(void)0;
+  /*IGNORED PREFETCHT0 byte ptr [0x14372D2F8]*/(void)0;
+  /*IGNORED PREFETCHT0 byte ptr [0x14372D320]*/(void)0;
   return;
 }

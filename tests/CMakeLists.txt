@@ -176,6 +176,24 @@ add_executable(pes_fixdemo_table_test pes_fixdemo_table_test.cpp)
 target_link_libraries(pes_fixdemo_table_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fixdemo_table_test)
 
+add_executable(pes_fixdemo_select_test pes_fixdemo_select_test.cpp)
+target_link_libraries(pes_fixdemo_select_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_fixdemo_select_test)
+
+# The timeline is pure: the test compiles it directly instead of linking pesfmt (and the whole translated layer).
+add_executable(pes_cutscene_timeline_test pes_cutscene_timeline_test.cpp ${CMAKE_SOURCE_DIR}/src/pes/cutscene_timeline.cpp)
+target_include_directories(pes_cutscene_timeline_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(pes_cutscene_timeline_test PRIVATE GTest::gtest_main)
+gtest_discover_tests(pes_cutscene_timeline_test)
+
+add_executable(pes_goal_anchor_test pes_goal_anchor_test.cpp)
+target_link_libraries(pes_goal_anchor_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_goal_anchor_test)
+
+add_executable(pes_proc_camera_test pes_proc_camera_test.cpp)
+target_link_libraries(pes_proc_camera_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_proc_camera_test)
+
 add_executable(pes_fox2_test pes_fox2_test.cpp)
 target_link_libraries(pes_fox2_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fox2_test)
@@ -271,6 +289,14 @@ add_test(NAME translate_image_reads_test
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_image_reads.py'")
 set_tests_properties(translate_image_reads_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# The snapshot replay harness's return-address model (snapcase.py): a non-RET read of a return-address slot is 0 as the
+# translation pushed it, RET gets the real address, an overwritten slot is data again, a page-end CALL decodes. Skips (77)
+# without GF_DIFF_PYTHON (needs unicorn).
+add_test(NAME translate_snapcase_slots_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/test_snapcase_slots.py'")
+set_tests_properties(translate_snapcase_slots_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
 # Fast-gate selector: a mutated closure callee selects its recorded caller, an unrelated change selects nothing.
 # Plain python3 (no harness Python), so it always runs.

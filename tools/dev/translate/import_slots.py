@@ -62,7 +62,13 @@ def classify(sm, slot, modules):
         return {"kind": "image-code"}
     hit = [(b, mod) for b, e, mod in modules if b <= v < e]
     if not hit:
-        return {"kind": "unmapped"}
+        # A DLL whose sections map unnamed (ucrtbase in the camera captures): SnapMem finds it by its MZ header and range.
+        mod, name, off = sm.export_of(v)
+        if mod is None:
+            return {"kind": "unmapped"}
+        if name is None or off != 0:
+            return {"kind": "no-exact-export", "module": mod}
+        return {"kind": "export", "module": mod, "export": name}
     base, mod = hit[0]
     names = [nm for rva, nm in sm._exports_of(base)[1] if rva == v - base]
     if not names:

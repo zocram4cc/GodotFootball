@@ -46,26 +46,31 @@ void pes_fn_140227D20(PesState& s) {
   L_140227D40:;
   s.gpr[0] = (uint64_t)(uint32_t)((((int64_t)(((uint64_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 1)) << 56))) >> 56));
   s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[0][1] = 0;
-  /*UNHANDLED-VEC CVTDQ2PD ['xmm0', 'xmm0']*/(void)0;
+  { uint64_t _q = (uint64_t)(s.xmm[0][0]); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);
+    memcpy(&s.xmm[0][0], &_lo, 8); memcpy(&s.xmm[0][1], &_hi, 8); }
   return;
   L_140227D4D:;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 1));
   s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[0][1] = 0;
-  /*UNHANDLED-VEC CVTDQ2PD ['xmm0', 'xmm0']*/(void)0;
+  { uint64_t _q = (uint64_t)(s.xmm[0][0]); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);
+    memcpy(&s.xmm[0][0], &_lo, 8); memcpy(&s.xmm[0][1], &_hi, 8); }
   return;
   L_140227D5A:;
   s.gpr[0] = (uint64_t)(uint32_t)((((int64_t)(((uint64_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 2)) << 48))) >> 48));
   s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[0][1] = 0;
-  /*UNHANDLED-VEC CVTDQ2PD ['xmm0', 'xmm0']*/(void)0;
+  { uint64_t _q = (uint64_t)(s.xmm[0][0]); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);
+    memcpy(&s.xmm[0][0], &_lo, 8); memcpy(&s.xmm[0][1], &_hi, 8); }
   return;
   L_140227D67:;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 2));
   s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[0][1] = 0;
-  /*UNHANDLED-VEC CVTDQ2PD ['xmm0', 'xmm0']*/(void)0;
+  { uint64_t _q = (uint64_t)(s.xmm[0][0]); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);
+    memcpy(&s.xmm[0][0], &_lo, 8); memcpy(&s.xmm[0][1], &_hi, 8); }
   return;
   L_140227D74:;
   s.xmm[0][0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 4)); s.xmm[0][1] = 0;
-  /*UNHANDLED-VEC CVTDQ2PD ['xmm0', 'xmm0']*/(void)0;
+  { uint64_t _q = (uint64_t)(s.xmm[0][0]); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);
+    memcpy(&s.xmm[0][0], &_lo, 8); memcpy(&s.xmm[0][1], &_hi, 8); }
   return;
   L_140227D7E:;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 4));
