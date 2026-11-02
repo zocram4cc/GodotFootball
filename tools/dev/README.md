@@ -59,9 +59,29 @@ an unrelated change selects nothing.
 ### Knobs
 
 - `GATE_JOBS`: ctest `-j`. Default: free cores (`nproc` minus the 1-minute load average, at least 2).
+- `GF_DIFF_JOBS`: the driver's `--jobs` in each `diff_*_recorded` check (VAs checked at once). Default: sized from free memory
+  and cores, 2 to 6 (`GATE_RIG_MEM_GB`, default 10, and `GATE_RIG_CORES`, default 4, stay free for the live rig; each job is
+  budgeted `GATE_DIFF_JOB_MEM_GB`, default 2). `diff_core_recorded` has ctest COST 1000, so it starts first.
 - `GATE_SLOTS`: sim slots held, in the order acquired (default `"1 0"`, Main's gate). Both tiers hold two (one per smoke). A branch
   gate that must leave 0-1 to Main: `GATE_SLOTS="3 2"` (needs `GF_SIM_SLOTS=4`).
 - `GATE_BASE`: fast only, what "changed" is measured against.
 - `GATE_SKIP_PREFILTER=1`, `GATE_PRE_MINUTES`: the full tier's 5-minute prefilter.
 - The PES diff suites run only with `GF_DIFF_PYTHON` and `PES_EXE` set (export both before `cmake -S . -B build` as well); a
   skipped diff test is then a red gate.
+
+### Diff caches
+
+Each `driver.py --check` keeps two caches under its out dir (`<build>/<set>-check/cache/`, never in `gen/`, which every run
+regenerates). A hit gives exactly what the uncached step gives; whatever cannot be shown unchanged runs as before
+(`translate/buildcache.py` has the keys and the validity rules).
+
+- **Objects** (`cache/obj/<sha256>.o`): one object per translation unit, keyed by the compiler, the flags, the TU's bytes and
+  the bytes of every build-tree header it includes (transitively). A build compiles its TUs in parallel (`--cc-jobs`, default 4,
+  across the whole run) and links them. A TU is shared across VAs with identical content.
+- **Corpus** (`cache/corpus/<sha256>/`): `run.py`'s outputs for one VA (corpus, trace, addresses, aborts), keyed by the image,
+  the spec, this VA's seed and bank files, `run.py`, the harness interpreter and the flags. A hit also needs every file the run
+  read (its data files, the modules it loaded, the libraries it mapped) to hash as recorded, and every decode it took from
+  `xlate` (`capstone_decode`, `CCMAP`) to recompute as recorded. So a translator-only change (`xlate.py`, `flow.py`, `pdata.py`,
+  `gen_translated.py`, the layer) hits; a change to anything `run.py` reads misses. Failed runs are never kept.
+- A layer header edit misses the objects of the TUs that include it and hits the corpus. To reset, delete
+  `<build>/<set>-check/cache`. The driver ends with `driver: cache corpus hit=N miss=M object compiled=N hit=N`.
