@@ -304,6 +304,12 @@ add_test(NAME translate_select_recorded_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_select_recorded.py)
 set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
 
+# capz.py (capture pack/unpack): a full capture round-trips byte-identical, a sparse slim one is never packed and unpacks
+# sparse. Plain python3 + zstd.
+add_test(NAME capz_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/rendezvous/test_capz.py)
+set_tests_properties(capz_test PROPERTIES TIMEOUT 120)
+
 # Adding one translated function must not recompile the layer: no pes_fn TU includes translated.hpp or the dispatch
 # table, and one added member changes only its TU, translated.hpp and pes_dispatch_gen.cpp. Plain python3.
 add_test(NAME translate_layer_headers_test

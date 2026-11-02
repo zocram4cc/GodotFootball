@@ -4,9 +4,12 @@
 Every --interval seconds, slims (slim.py: read-set only, verified byte-identical replay, else left full) each full
 capture in the newest launch folders that is older than --min-age and whose hook is not in --keep (hooks an agent
 needs FULL memory of, beyond the recorded call). A capture slim refused is remembered in <live2>/auto_slim_refused.txt
-and never retried. Run with the harness Python and PES_EXE set, like slim.py.
+and never retried. With --pack-after S, a capture still full S seconds after it landed (kept, or slim refused) is
+packed with capz.py (mem.bin -> mem.bin.zst, ~3.7x smaller), so kept captures stop pushing the disk under the watcher's
+floor; `capz.py unpack DIR` restores one before a tool reads it. Run with the harness Python and PES_EXE set, like slim.py.
 
 Usage: auto_slim.py --live2 DIR --hooks HOOKS_CFG [--keep h1,h2] [--min-age 900] [--interval 600] [--launches 2]
+                    [--pack-after SECONDS]
 """
 import argparse
 import glob
@@ -46,6 +49,13 @@ def candidates(live2, launches, keep, min_age, refused):
     return out
 
 
+def stale_full(live2, launches, pack_after):
+    folders = sorted(glob.glob(os.path.join(live2, "pid*")), key=os.path.getmtime)[-launches:]
+    now = time.time()
+    return [d for f in folders for d in sorted(glob.glob(os.path.join(f, "seq*")))
+            if full(d) and now - os.path.getmtime(d) >= pack_after]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--live2", required=True)
@@ -54,6 +64,7 @@ def main():
     ap.add_argument("--min-age", type=float, default=900.0)
     ap.add_argument("--interval", type=float, default=600.0)
     ap.add_argument("--launches", type=int, default=2, help="how many newest launch folders to scan")
+    ap.add_argument("--pack-after", type=float, default=0.0, help="pack captures still full this long after landing (0: never)")
     a = ap.parse_args()
     keep = {h for h in a.keep.split(",") if h}
     refused_path = os.path.join(a.live2, "auto_slim_refused.txt")
@@ -67,6 +78,11 @@ def main():
                 for d in todo:
                     if full(d):
                         r.write(d + "\n")
+        if a.pack_after:
+            stale = stale_full(a.live2, a.launches, a.pack_after)
+            if stale:
+                print(time.strftime("%H:%M:%S"), "packing", len(stale), flush=True)
+                subprocess.run([sys.executable, os.path.join(HERE, "capz.py"), "pack"] + stale)
         time.sleep(a.interval)
 
 
