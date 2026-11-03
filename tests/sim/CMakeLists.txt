@@ -85,6 +85,11 @@ add_executable(pes_press_world_test pes_press_world_test.cpp)
 target_link_libraries(pes_press_world_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_press_world_test)
 
+add_executable(pes_foul_whistle_test pes_foul_whistle_test.cpp)
+target_link_libraries(pes_foul_whistle_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_foul_whistle_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_foul_whistle_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_offside_test pes_offside_test.cpp)
 target_link_libraries(pes_offside_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_offside_test)

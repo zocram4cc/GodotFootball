@@ -589,10 +589,13 @@ inline constexpr std::size_t kTeamInfoIdOffset = 0x34;      // u32, nonzero for 
 // The foul judge (match::ai::Judge, Flow+0x908; docs/re/pes-re-duels-fouls.md 2): 0x1405B7470(judge, A = victim, B = fouler)
 // scores the contact and, past its early exits, builds the pending foul in the judge's own fields through 0x1405B8000 and
 // 0x14050EE40. +0x3B8 names a cell holding A1 (the ANALYZE object), +0x3C0 the judge result JR (MatchControl+0x2910).
+// JR is a record of its own: SetPending writes a replay snapshot at JR+0x148 and the advantage flag is JR+0xD08, so it is
+// kJudgeResultBytes long. MI+0x1554 holds its first kJudgeSyncBytes (MI+X = JR+(X-0x1554), PES's frame sync 0x140422030).
 inline constexpr std::size_t kJudgeBytes = 0x3C8;
 inline constexpr std::size_t kJudgeCtxPtrOffset = 0x3B8;
 inline constexpr std::size_t kJudgeResultPtrOffset = 0x3C0;
-inline constexpr std::size_t kJudgeResultBytes = 0x80;
+inline constexpr std::size_t kJudgeResultBytes = 0x1000;
+inline constexpr std::size_t kJudgeSyncBytes = 0x80;  // MI+0x1554 .. MI+0x15D4
 inline constexpr std::size_t kJudgePendingOffset = 0x08;     // u8: a foul is pending
 inline constexpr std::size_t kJudgeFoulerOffset = 0x14;      // u32: B's slot
 inline constexpr std::size_t kJudgeVictimOffset = 0x18;      // u32: A's slot
@@ -639,6 +642,7 @@ struct PesMatchInfo {
 static_assert(offsetof(PesMatchInfo, period) == kMatchInfoPeriodOffset);
 static_assert(offsetof(PesMatchInfo, frame) == kMiFrameOffset);
 static_assert(sizeof(PesMatchInfo) == kMatchInfoBytes);
+static_assert(kMiRestartKindOffset + kJudgeSyncBytes <= kMatchInfoBytes, "the synced part of JR lies in the match-info block");
 
 // The whole window: G's header, then the blocks. Heap-owned by PesWorld, so the bytes never move.
 struct PesWorldImage {
@@ -869,7 +873,7 @@ class PesWorld {
   // judge left early with no foul.
   struct JudgeVerdict {
     bool pending = false;
-    uint32_t level = 0;    // the card level the commit 0x143F546F0 wrote (JR+0x38): 1 foul, 2 foul + warning, 3 yellow, 4 red
+    uint32_t level = 0;    // the pending foul's level word (judge +0x2C): 1 foul, 2 foul + warning, 3 yellow, 4 red
     uint32_t points = 0;   // the u8 sum P_angle + P_speed + P_action
     uint32_t restart = 0;  // 5 free kick, 6 penalty (the spot is in the victim's attacking box)
     uint8_t type = 0;      // the foul type: 0 contact, 1 slide, 2 block, 3 and 4 tackle, 5 kick, 6 keeper, 7 face, 8 force
@@ -878,9 +882,16 @@ class PesWorld {
   // hands it one contact at a time (PES keeps the stronger of two pending fouls, judge +8 against +0x30; the hold and
   // advantage step 0x14050B490 that clears it is not run here).
   JudgeVerdict DecideJudge(int victim, int fouler);
-  // The commit 0x143F546F0 over the judge's pending record (judge +0x14): the restart record into JR and the card level at
-  // JR+0x38, returned. DecideJudge runs it for every pending foul; exposed so a test can commit a recorded pending foul.
+  // The commit 0x143F546F0 over the judge's pending record (judge +0x14), the whistle: it runs 0x14050E770, which writes the
+  // restart record into JR (restart, side, spot, reason, foul kind, fouler, victim), then JR+0x38. The first kJudgeSyncBytes
+  // of JR are then copied into MI+0x1554 (PES's frame sync 0x140422030). Returns JR+0x38, the card level: kind 2 (a direct
+  // foul) keeps the record's level word, kind 3 is a yellow (3), kinds 1 and 4 a plain foul (1), any other 0. The referee
+  // calls it at the whistle, after the hold and the advantage.
+  // ponytail: the sync runs once at the whistle, PES's runs every frame. Remove with a decoded 0x140422030 port.
   uint32_t CommitJudge();
+  // The stop is over: JR and its copy in MI go back to zero (PES resets JR at the restart: 0x14050A8C0 / 0x14050A990, callers
+  // not traced).
+  void EndWhistle();
   uint8_t* JudgeRecord() { return image_->sanction.judge.data(); }
   const uint8_t* JudgeResult() const { return image_->sanction.judgeResult.data(); }
   // A slot's slot record (PES's ai(i)), at the kSlot* offsets the judge reads.
