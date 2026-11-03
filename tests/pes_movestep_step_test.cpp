@@ -259,6 +259,8 @@ class FakeHost : public MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  int AbilityByte(int) const override { return 50; }
+  bool EntryAimFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   // The step tests do not reach RUN_LOOP's tail, so the sine view is never read here.
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }

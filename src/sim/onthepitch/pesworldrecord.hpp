@@ -765,6 +765,16 @@ class PesWorld {
   // P, the trap chain's actor object (kPActionOffset is its action). Its window VA is rdx of the chain.
   static constexpr uint64_t PVa() { return kWorldWindowVa + kTrapOffset; }
   uint8_t* P() { return image_->trap.p.data(); }
+  // The movestep's two reads of the player object P, PES's translated code on the window with P's pieces bound (the slot at
+  // P+0x2458; the anime interface at P+0xAB8, whose vtable is the image's 0x1425E3508, bound by BindImageTables; for the aim flag
+  // P+0x3AC0, the side's context, whose +0xE0 names the event store). Both overwrite those P fields, which the trap chain's own run
+  // sets itself. Requires BindImageTables.
+  // 0x1406E6660(P, id): the byte of the slot record's ability block (`record + 0x70 + id`).
+  uint8_t RunAbilityByte(int slot, uint32_t id);
+  // 0x1406BA7D0(P): the entry-aim flag, true while a ball event of the last few ticks that a man of another anime row made (or a
+  // kind 0xA / 0xD one) holds. It reads MI+0x116C == 1 (`playState`: the window's period record holds it only under the PES loop, so
+  // the caller's PlayStateFor stands in, restored after the call) and MI+0x1198, the logic frame.
+  bool RunEntryAim(int slot, int side, uint32_t playState);
   // PES's Trap action's kind-0 chain 0x14079A470 on the window, as the action's +0x68 dispatcher (0x1407A01C0) calls it for
   // kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack arguments), then the
   // chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp).

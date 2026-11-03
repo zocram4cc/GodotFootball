@@ -669,6 +669,10 @@ class MoveHost {
   // The anime interface's flag byte, vt+0x30 (P+0x2472): the mirror argument FUN_1406b1c70 takes in
   // GOTO_RUN and ACCELERATE. Its writer is not decoded; the adapter names the stand-in.
   virtual bool ClipFlag() const = 0;
+  // The player object P's reads, PES's translated code on the world window (PesWorld::RunAbilityByte / RunEntryAim):
+  // FUN_1406e6660(P, id), the byte of the slot record's ability block, and FUN_1406ba7d0(P), the entry-aim flag.
+  virtual int AbilityByte(int id) const = 0;
+  virtual bool EntryAimFlag() const = 0;
 
   // Group A's match, roster and record reads. Each method names the PES read it stands for.
   virtual const MoveConstants& MoveConstantsView() const = 0;

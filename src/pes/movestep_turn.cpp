@@ -113,15 +113,6 @@ int RecordFixedFrames(const MoveHost& host, int motionNo, float scale) {
   return host.ClipTicks(pes::ClipReader::kBlend, motionNo, scale, 0);
 }
 
-// FUN_1406ba7d0(P, req): the relax/aim flag the entries branch on. ponytail: its body.
-bool EntryAimFlag(const MoveHost&, const MoveReq&) { return false; }
-
-// FUN_1406e6660(ap, idx): the ability byte. ponytail: its body.
-int AbilityByte(const MoveHost& host, int) {
-  const int cls = host.CommandSpeedClass();
-  return cls >= 0 ? 50 : 50;
-}
-
 // FUN_140a6e290 / FUN_140a6e2e0 / FUN_140a6e4f0: the anime player's own predicates on the live
 // clip. ponytail: their bodies.
 bool ClipRunning(const MoveHost&) { return false; }
@@ -1770,7 +1761,7 @@ void EnterRunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     return;
   }
   const float playback = req.F(moveword::kPlayback);
-  const bool relax = EntryAimFlag(host, req);
+  const bool relax = host.EntryAimFlag();  // FUN_1406ba7d0
   const int sinceStamp = host.MatchTick() - RecordStampOf(host);
   float out[3] = {0.0f, 0.0f, 0.0f};
   host.PositionAt(2, out);  // FUN_140a6cf70 + FUN_140439ef0
@@ -2005,7 +1996,7 @@ LAB_1406d6c22:
       const bool slow = column < 0x10 && (0xa014U >> (column & 0x1f) & 1) != 0;
       if (slow && (motion == 0x5bc || motion == 0x5c3) && speedClass == 3) {
         // LAB_1406d7c9e's slow arm: the ability draw, then the row's own select.
-        int ability = AbilityByte(host, 0x29) - 0x14;
+        int ability = host.AbilityByte(0x29) - 0x14;  // FUN_1406e6660(P, 0x29)
         if (!relax) ability -= 0x14;
         ability = ability > 99 ? 99 : (ability < 0 ? 0 : ability);
         motion = host.Percent(ability) ? 0x5d0 : 0x5cf;
@@ -2078,8 +2069,8 @@ LAB_1406d6c22:
     }
   }
   if (host.CommandSpeedClass() < 0x16 && (motion == 0x5b3 || motion == 0x5b9)) {
-    // FUN_140a58550's ability byte against 0x14 (20).
-    if (AbilityByte(host, 0) < 0x14) motion = 0x5b6;
+    // FUN_140a58550 (the stamina percentage, 0x1406D7811) against 0x14 (0x1406D783F CMP DIL,0x14); not the ability reader.
+    if (host.StaminaPercent() < 0x14) motion = 0x5b6;
   }
   if (!IssueRowOrTurnStop(host, req, motion, turnColumn(motion), k.clipBlend, playback)) return;
   req.SetU(moveword::kPrevClassWord, static_cast<uint32_t>(speedWord));
@@ -2298,7 +2289,7 @@ bool EnterRunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k, 
 bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const int kind = static_cast<int>(req.U(moveword::kKind));
   if (kind == 7) return false;
-  const bool relax = EntryAimFlag(host, req);  // FUN_1406ba7d0
+  const bool relax = host.EntryAimFlag();  // FUN_1406ba7d0
   float disp[3] = {0.0f, 0.0f, 0.0f};
   host.PositionAt(1, disp);  // FUN_141eb50b0(P, out, 1)
   // (clock * 60 * 60) / 1000 * length: the last-tick displacement in km/h.

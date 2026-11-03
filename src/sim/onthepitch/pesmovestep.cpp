@@ -397,6 +397,14 @@ class MoveHostAdapter final : public pes::MoveHost {
   const pes::MotionRecord& Motion(int motionNo) const override {
     return match_.GetPesMbinfo().Motion(motionNo);
   }
+  // PES's reads of the player object P, on the match's world window (the slot record's ability block, the event ring).
+  int AbilityByte(int id) const override {
+    return match_.PesWorldOf().RunAbilityByte(match_.PesSlotOf(&player_), static_cast<uint32_t>(id));
+  }
+  bool EntryAimFlag() const override {
+    return match_.PesWorldOf().RunEntryAim(match_.PesSlotOf(&player_), player_.GetTeamID(),
+                                           static_cast<uint32_t>(MatchPhase()));
+  }
   // ponytail: P+0x2472, the anime interface's flag byte (vt+0x30); its writer is not decoded yet.
   bool ClipFlag() const override { return false; }
 

@@ -142,6 +142,10 @@ class SyntheticHost : public pes::MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  int AbilityByte(int) const override { return abilityByte; }
+  bool EntryAimFlag() const override { return entryAim; }
+  int abilityByte = 50;   // FUN_1406e6660's answer
+  bool entryAim = false;  // FUN_1406ba7d0's answer
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return speedClass; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
