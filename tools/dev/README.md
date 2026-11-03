@@ -20,7 +20,7 @@ how many recorded functions were selected per set.
 | translated-layer drift (`gen_translated.py --check`, ctest `diff_translated_drift`) | yes | yes |
 | ledger check | yes | yes |
 | smokes, seed 7 | one 2-minute run per path (switch-off, `--pes-loop`) with their `[determinism]` lines | 5-minute prefilter, then 20-minute runs |
-| target wall time | ~30 min | hours (the core re-check alone was ~2.8 h on 28-10-26) |
+| target wall time | ~30 min | hours: the core re-check (2,253 functions, `--jobs 2`) takes 2.0 h cold and 8 min warm (02-11-26; uncached baseline 2.97 h) |
 
 ### When each runs
 
