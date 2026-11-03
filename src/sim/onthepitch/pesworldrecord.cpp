@@ -4,6 +4,7 @@
 
 #include <cstdint>
 
+#include "onthepitch/pesteamconcepts.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
@@ -487,6 +488,75 @@ float PesWorld::BearingOfPoints(float fromX, float fromZ, float toX, float toZ) 
   StoreF32(points, kPointBytes + kPointXOffset, toX);
   StoreF32(points, kPointBytes + kPointZOffset, toZ);
   return RunBearing(Bytes(), kScratchVa, kScratchVa + kPointBytes);
+}
+
+void PesWorld::StagePress(int side, const PressFacts& f) {
+  static_assert(kSideRecordBytes == kTeamRecordBytes, "the world's side record is GF's T");
+  uint8_t* t = SideRecord(side);
+  StoreU32(t, kTeamDesignatedOffset, f.designated);
+  StoreU32(t, kTeamSecondOffset, f.second);
+  t[kTeamArmedOffset] = f.armed;
+  StoreU32(t, kTeamFrameOffset, f.frame);
+  StoreU32(t, kTeamAttackLevelOffset, f.attackLevel);
+  SetAttackSign(side, f.attackSign);
+  SetAttackAngle(side, f.attackAngle_deg);
+  if (f.sheet != nullptr) std::memcpy(t + kTeamSheetOffset, f.sheet, kSheetBytes);
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    StoreU32(t, kSideUnitWordsOffset + sizeof(uint32_t) * k, f.roleClass[k]);
+    StoreU32(t, kTeamRoleClassOffset + kTeamRoleClassStride * k, f.roleClass[k]);
+    StoreF32(t, kTeamKeepXOffset + 12 * k, f.keepX[k]);
+    // ponytail: PES's mark and swap partner words (T+0x558, T+0x620) have no GF carrier; "no partner" (> 21) keeps the eval's
+    // refusal quiet. Writer: the mark table writer FUN_140546FB0 (mark-cone.md section 1).
+    StoreU32(t, kTeamMarkPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
+    StoreU32(t, kTeamSwapPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
+  }
+  uint8_t* mi = MatchInfo();
+  for (int slot = 0; slot < kSlotCount; ++slot) mi[kMiOnPitchOffset + slot] = f.onPitch[slot] ? 1 : 0;
+  StoreU32(mi, kMiPlayStateOffset, f.playState);
+  SetMaOwner(side, f.holder);
+  // G+0x180: PES's 24-entry list the press tests scan; GF has no such list, every id reads "no man".
+  uint8_t* g = Bytes();
+  for (int i = 0; i < kWorldListEntries; ++i) StoreU32(g, kWorldListOffset + kWorldListStride * i + kWorldListIdOffset, 0xFFFFFFFFu);
+  uint8_t* arg = reinterpret_cast<uint8_t*>(image_->press.arg[side].data());
+  StoreU64(arg, 0, CtxVa(side));
+  StoreU64(arg, 8, 0);
+  StoreU64(arg, 16, static_cast<uint64_t>(side));
+}
+
+void PesWorld::RunPressCoordinator(int side) {
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = PressPpVa(side);  // rcx: PP
+  s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);      // r8: T
+  ::pes_fn_140634470(s);
+}
+
+void PesWorld::RunPressWriter(int side) {
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);      // r8: T
+  ::pes_fn_140536FC0(s);
+}
+
+void PesWorld::ResetPress(int side) {
+  uint8_t* t = SideRecord(side);
+  const uint32_t second = image_->press.pp[side][2];
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    const uint32_t word = LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k);
+    const uint32_t id = static_cast<uint32_t>(side * kSlotsPerSide + k);
+    if (word != kTeamActionPress && word != kTeamActionDelay) continue;
+    if (id == second) continue;
+    bool enrolled = false;  // FUN_140A41190: the man is in T+0xA548[0..3]
+    for (int j = 0; j < 4; ++j) enrolled = enrolled || LoadU32(t, kTeamPressSlotsOffset + sizeof(uint32_t) * j) == id;
+    if (enrolled) continue;
+    PesState s = NewCall(Bytes());
+    s.gpr[1] = SideVa(side);                 // rcx: T
+    s.gpr[2] = static_cast<uint32_t>(k);     // edx: the slot
+    s.gpr[8] = 0;                            // r8d: the new word (NOTHING)
+    ::pes_fn_140A42940(s);
+  }
 }
 
 }  // namespace pes

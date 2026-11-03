@@ -55,30 +55,6 @@ struct TacticalOpponentInfo {
 };
 
 bool SortTacticalOpponentInfo(const TacticalOpponentInfo& a, const TacticalOpponentInfo& b);
-namespace pes {
-// Per-team presser state the press picker (pespress.hpp) reads and the tick
-// writes. One owner: TeamAIController. Men are side-local indices 0..10 in
-// each side's block (the picker's `g = side*11 + i`). Only the fields the
-// picker reads are here; the rest of PES's T+0xa2a0 record lands with the
-// writer.
-struct TeamPressState {
-  // Role-table entry per man (PES T+0xa2a0): kPresserRole marks the presser.
-  int role[22] = {};
-  // Per-man recent-action stamps (PES T+0xa2cc + k*0x34, FUN_140a40200).
-  std::array<PressStampRing, 22> actionRing{};
-  // The four press slots, as man indices; -1 when empty (PES T+0xa548).
-  int pressSlot[4] = {-1, -1, -1, -1};
-
-  // FUN_140a42940 (action part): store the man's action and stamp it at time `t`.
-  // ponytail: the 0x40-byte per-man record it also clears (PES T+0x28c) has no GF
-  // reader yet; add it when the writer's tail reads that record.
-  void SetAction(int g, int action, uint32_t t) {
-    role[g] = action;
-    PressStampPush(actionRing[g], action, t);
-  }
-};
-}  // namespace pes
-
 class TeamAIController {
 public:
   TeamAIController(Team* team);
@@ -97,9 +73,6 @@ public:
   // and the metres of length the team covers from it.
   float GetDefensiveLineHeight() const { return defensiveLineHeight; }
   float GetDefensiveTeamLength() const { return defensiveTeamLength; }
-  // The presser state the press picker writes and OffBallPort reads.
-  pes::TeamPressState& GetPressState() { return pressState; }
-  const pes::TeamPressState& GetPressState() const { return pressState; }
   // PES arms the offside trap only on a team instruction (its `T+0xe4` flag,
   // report 14.4). GF has no such instruction: this reads the tactic that stands
   // in for it and defaults to off, PES's live value for both teams.
@@ -226,16 +199,10 @@ public:
   // designated possession player - the same stand-in IsPressing uses.
   // ponytail: replace with the role table once the writer lands.
   Player* GetTeamPressurePlayer();
-  // PES 2021's loose-ball PRESS writer (docs/re/pes-re-press-life.md 3/10,
-  // FUN_140536fc0's loose-ball subset + FUN_140536690's head reset): picks the
-  // side's presser and renews his PRESS 0x34, resetting the rest to 0. Runs
-  // every team tick on the PES path, before the possession latch.
+  // PES 2021's press steps (docs/re/pes-re-press-life.md 3/10; FUN_140535C60's order): the coordinator FUN_140634470 (with the
+  // target eval FUN_140633940), the slot reset FUN_140536690 and the press writer FUN_140536FC0, run on the world window
+  // through PesWorld::StagePress. Every team tick on the PES path, before the possession latch.
   void PesPressTick();
-  // The loose-ball writer and the second presser's coordinator (FUN_140634470 with its maintain). The
-  // coordinator runs first, then the writer, in the same tick (the FUN_140535C60 order). The writer keeps
-  // the second presser (PressWriterWord).
-  void PesLooseWriterTick();
-  void PesSecondPresserTick();
   // The role table's PRESS man (T+0xa2a0 == 0x34), or null. The loose-ball
   // presser; the carrier-press stand-in above is untouched.
   Player* GetLoosePressMan();
@@ -405,9 +372,6 @@ protected:
   pes::ShapeField defensiveShapeField;
   float defensiveLineHeight;
   float defensiveTeamLength;
-  pes::TeamPressState pressState;
-  // The coordinator state (PP and B88C): the holder, the excluded man, the second presser, the reason words.
-  pes::PressCoordState coordState;
   // The PES slider readings the shape uses this tick (report 14.6), mapped from
   // GF's live tactics; the band code reads them so the line and its width come
   // from one place.
