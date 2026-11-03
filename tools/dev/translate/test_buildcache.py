@@ -205,5 +205,36 @@ class CorpusKey(unittest.TestCase):
             self.assertNotEqual(key, bc.corpus_key(["--count", "300"], dict(inputs, **{name: "changed"})), name)
 
 
+class SharedAcrossCheckouts(unittest.TestCase):
+    """A shared cache entry recorded in one worktree is validated against the reading worktree's own files: a file inside
+    the checkout is stored relative to it. With absolute paths a second worktree validated the FIRST one's copy, so its
+    own changed dependency could still hit (03-11-26)."""
+
+    def setUp(self):
+        self.saved = bc.REPO
+        self.a, self.b = tempfile.mkdtemp(), tempfile.mkdtemp()
+        for root in (self.a, self.b):
+            with open(os.path.join(root, "dep.py"), "w") as f:
+                f.write("x = 1\n")
+
+    def tearDown(self):
+        bc.REPO = self.saved
+
+    def doc_in(self, root):
+        bc.REPO = root
+        return bc.entry_doc({"files": [os.path.join(root, "dep.py")], "decode": []})
+
+    def test_a_file_inside_the_checkout_is_stored_relative(self):
+        self.assertEqual(list(self.doc_in(self.a)["files"]), ["<repo>/dep.py"])
+
+    def test_the_reading_checkouts_own_copy_decides(self):
+        doc = self.doc_in(self.a)
+        bc.REPO = self.b
+        self.assertTrue(bc.entry_is_valid(doc))
+        with open(os.path.join(self.b, "dep.py"), "w") as f:
+            f.write("x = 2\n")
+        self.assertFalse(bc.entry_is_valid(doc))
+
+
 if __name__ == "__main__":
     unittest.main()
