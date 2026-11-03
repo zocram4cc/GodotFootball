@@ -40,7 +40,7 @@ PATCH_TO_ABSENT = PATCH_HEAD + struct.pack("<Q", 0)
 MOV_EAX_1_RET = bytes.fromhex("b801000000") + RET_OP   # what a hook's trampoline stands for here
 
 
-def make_snapshot(d, code, regs=None, xmm=None, flags=0x202, mxcsr=0x1F80, patch=None, tramp=None):
+def make_snapshot(d, code, regs=None, xmm=None, flags=0x202, mxcsr=0x1F80, patch=None, tramp=None, ret=RET):
     """Write a rendezvous-style snapshot directory d: index.json, mem.bin, call.bin. The entry holds
     code, or patch (a hook's jump) when given; tramp is code mapped at TRAMP."""
     pages = {va: bytearray(PAGE) for va in PAGE_VAS}
@@ -50,7 +50,7 @@ def make_snapshot(d, code, regs=None, xmm=None, flags=0x202, mxcsr=0x1F80, patch
     if tramp is not None:
         pages[CODE][TRAMP - CODE:TRAMP - CODE + len(tramp)] = tramp
     pages[RET][0] = 0x90
-    pages[STACK][RSP - STACK:RSP - STACK + 8] = struct.pack("<Q", RET)
+    pages[STACK][RSP - STACK:RSP - STACK + 8] = struct.pack("<Q", ret)
     pages[TEB][0x30:0x38] = struct.pack("<Q", TEB)
     mappings, blob = [], bytearray()
     for i, va in enumerate(PAGE_VAS):
@@ -73,7 +73,7 @@ def make_snapshot(d, code, regs=None, xmm=None, flags=0x202, mxcsr=0x1F80, patch
         xs[2 * i], xs[2 * i + 1] = lo, hi
     order = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
              "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
-    vals = [gprs[r] for r in order] + xs + [RET]
+    vals = [gprs[r] for r in order] + xs + [ret]
     with open(os.path.join(d, "call.bin"), "wb") as f:
         f.write(ft.CALL_REC.pack(*vals))
 
@@ -174,6 +174,19 @@ class RecordedCall(unittest.TestCase):
         uc, err = ft.run_recorded(self.d, budget=10_000)
         self.assertIsNotNone(err)
         self.assertIn("stack not balanced", err)
+
+    def test_recursive_return_to_the_calls_own_return_address_does_not_end_the_call(self):
+        # A recursive function whose recorded call came from the recursion's own call site: the inner call returns to
+        # the very address the recorded call ends at, one frame deeper. Only the frame's own return (rsp + 8) ends it.
+        # f(rcx): if rcx == 0 return; f(rcx - 1); rax += 1. With rcx = 1 the inner return runs `inc rax` once.
+        code = bytes.fromhex("85c9" "740a" "ffc9" "e8f5ffffff" "48ffc0") + RET_OP
+        make_snapshot(self.d, code, regs={"rcx": 1}, ret=CODE + 11)
+        out = os.path.join(self.tmp.name, "trace")
+        trace = {"out": out, "impure": {"400000": {"va": hex(CODE)}}, "stubs": {}}
+        uc, err = ft.run_recorded(self.d, budget=10_000, trace=trace)
+        self.assertIsNone(err)
+        self.assertEqual(uc.reg_read(xc.UC_X86_REG_RAX), 1)
+        self.assertEqual(uc.reg_read(xc.UC_X86_REG_RSP), RSP + 8)
 
     def test_hook_config_gives_the_original_bytes(self):
         # rv.dll config line: hook NAME VA LEN FIRST EVERY HEX

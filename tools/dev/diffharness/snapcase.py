@@ -231,7 +231,7 @@ class Replayer:
         uc._pcs = []
         gpr = dict(zip(GPR_NAMES, rec[:16]))
         rsp, ret = gpr["rsp"], rec[48]
-        uc._ret_sentinel = ret
+        uc._ret_sentinel, uc._ret_rsp = ret, rsp + 8
         if not lazy.ensure(rsp, 8):
             return None, lazy.unmapped_reason(rsp) or "stack slot at rsp not in the snapshot"
         uc.mem_write(rsp, struct.pack("<Q", ret))
@@ -242,7 +242,7 @@ class Replayer:
         err = None
         entry = int(self.spec["va"], 16)
         try:
-            uc.emu_start(entry, ret, count=INSTR_BUDGET)
+            rn.emu_call(uc, entry, ret, rsp + 8, INSTR_BUDGET)
         except UcError as e:
             err = "emu error: %s (last RIP %#x)" % (e, uc._last_rip)
         if self._lockstep:

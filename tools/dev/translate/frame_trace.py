@@ -684,7 +684,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
                 lambda u, access, addr, size, value, data: lazy.handle(addr) or lazy._refuse(
                     u, lazy.unmapped_reason(addr) or ("unmapped data at %#x (size %d): a snapshot hole or outside the process" % (addr, size))))
     if trace is not None:
-        uc._ret_sentinel = ret  # the recorded return address ends each call (run.py install_hooks)
+        uc._ret_sentinel, uc._ret_rsp = ret, rsp + 8  # the recorded return ends each call (run.py install_hooks)
         rn.install_hooks(uc, trace["stubs"], ret)
     if not lazy.ensure(entry, 1):
         return uc, "entry %#x is not in the snapshot" % entry
@@ -719,7 +719,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
         uc.hook_add(UC_HOOK_MEM_WRITE, on_write)
     err = None
     try:
-        uc.emu_start(entry, ret, count=budget)
+        rn.emu_call(uc, entry, ret, rsp + 8, budget)
     except Exception as e:  # unicorn raises on a fault; the lazy map records a refusal
         err = "emu error: %s (rip %#x)" % (e, uc.reg_read(xc.UC_X86_REG_RIP))
     rip = uc.reg_read(xc.UC_X86_REG_RIP)

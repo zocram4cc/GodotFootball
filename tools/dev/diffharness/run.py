@@ -437,6 +437,18 @@ def decode(mu, spec):
     return out
 
 
+def emu_call(uc, entry, ret, want_rsp, count):
+    """emu_start(entry, ret) for one recorded call: it ends at ret only when rsp == want_rsp (the call's own return).
+    A recursive call returns to the same address one frame deeper; that stop is stepped over and the run goes on."""
+    from unicorn.x86_const import UC_X86_REG_RIP, UC_X86_REG_RSP
+    uc.emu_start(entry, ret, count=count)
+    while uc.reg_read(UC_X86_REG_RIP) == ret and uc.reg_read(UC_X86_REG_RSP) != want_rsp:
+        uc.emu_start(ret, 0, count=1)  # one instruction past ret: the next run must not begin on its own stop address
+        if uc.reg_read(UC_X86_REG_RIP) == ret:
+            return  # the step was refused (unmapped code or a stub): the caller reports the unbalanced return
+        uc.emu_start(uc.reg_read(UC_X86_REG_RIP), ret, count=count)
+
+
 def install_hooks(mu, spec, RET_SENTINEL):
     from unicorn import UC_HOOK_CODE, UC_HOOK_MEM_READ_UNMAPPED, UC_HOOK_MEM_WRITE_UNMAPPED
     from unicorn.x86_const import UC_X86_REG_RIP, UC_X86_REG_RAX, UC_X86_REG_RSP
@@ -489,7 +501,10 @@ def install_hooks(mu, spec, RET_SENTINEL):
                     "0x%X" % address, 0)
                 uc._trace["0x%X" % prev]["0x%X" % address] += 1
             uc._prev = [address, size]
-        if address == getattr(uc, "_ret_sentinel", RET_SENTINEL):  # snapshot replay sets it per call
+        # snapshot replay sets the sentinel and the post-return rsp per call: a recursive call returns to the same
+        # address one frame deeper, and that return is not the end of the recorded call
+        if address == getattr(uc, "_ret_sentinel", RET_SENTINEL) and \
+                uc.reg_read(UC_X86_REG_RSP) == getattr(uc, "_ret_rsp", uc.reg_read(UC_X86_REG_RSP)):
             uc.emu_stop()
             return
         hit = stubs.get(address)
