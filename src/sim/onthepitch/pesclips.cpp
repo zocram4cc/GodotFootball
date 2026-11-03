@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <set>
 #include <string_view>
 
+#include "pes/animetable.hpp"
 #include "pes/clips.hpp"
 #include "pes/strcode.hpp"
 #include "rig/clip_pose.hpp"
@@ -56,13 +58,7 @@ constexpr FamilyPrefix kFamilies[] = {
     {PesClipFamily::kLocomotion, "idle_"},
     {PesClipFamily::kLocomotion, "gkmove"},
     {PesClipFamily::kLocomotion, "dm_oop_"},
-    // The trap family: the action-7 rows' clips. The trap picker names them by motion number (pesreceive.hpp);
-    // the full names, so no other motion matches a prefix.
-    {PesClipFamily::kTrap, "gkcatch_b00_0_0_y00"},
-    {PesClipFamily::kTrap, "gkcatch_b03_0_0_y08"},
-    {PesClipFamily::kTrap, "gkcatch_b03_0_0_y10"},
-    {PesClipFamily::kTrap, "gkcatch_s01_0_0_y08_back"},
-    {PesClipFamily::kTrap, "gkcatch_s01_0_0_y10_back"},
+    // (The trap family is not listed here: it is every motion an Animetable cell names, loaded below.)
 };
 
 // Fox (Y up, +Z forward) -> engine (Z up, faces -Y), verbatim on both the
@@ -90,6 +86,28 @@ std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, st
       if (!gani) return std::nullopt;
       set.clips.push_back({name, int(m), f.family, std::move(*gani)});
     }
+  }
+  // The trap family: the Trap action's kind-0 chain commits a motion number into the action object (u16 +8, pes-port-TrapCutover.md)
+  // that it picked from an Animetable cell (row x column), so every motion any cell names is a clip the trap can play.
+  const auto table = LoadAnimetable(exe, vfs, error);
+  if (!table) return std::nullopt;
+  std::set<int> trapMotions;
+  for (int row = 0; row < table->Layout().rows; ++row)
+    for (int col = 0; col < table->Layout().cols; ++col) {
+      const int motion = table->Cell(row, col).motionNo;
+      if (motion >= 0) trapMotions.insert(motion);
+    }
+  for (const int m : trapMotions) {
+    if (static_cast<size_t>(m) >= names->size()) {
+      *error = "pes clips: an Animetable cell names motion " + std::to_string(m) + " past the motion table";
+      return std::nullopt;
+    }
+    const std::string& name = (*names)[m];
+    auto blob = FindBodyClip(vfs, StrCode32(name), error);
+    if (!blob) return std::nullopt;
+    auto gani = ParseGani(*blob, error);
+    if (!gani) return std::nullopt;
+    set.clips.push_back({name, m, PesClipFamily::kTrap, std::move(*gani)});
   }
   if (set.clips.empty()) {
     *error = "pes clips: the install's motion table names no clip of any imported family";

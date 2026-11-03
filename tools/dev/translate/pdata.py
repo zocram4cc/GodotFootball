@@ -16,6 +16,7 @@ The one place the tools learn what a function is without the Ghidra bridge. A .p
   ret or tail jump with no forward branch of that range still pending (a range can end in an inline jump table); code
   that only a jump from another range reaches (a cold chunk jumping back into the hot part) is decoded from the target.
 """
+import re
 import bisect
 import json
 import os
@@ -29,6 +30,16 @@ UNW_FLAG_CHAININFO = 0x20  # flag 4 in the high five bits of the UNWIND_INFO's f
 # (the next entry is then another function), so it is no fall-through either: ponytail: a continuation entered after a
 # call ends its range is not joined; the replay of a function that loses code is the check (driver / snapdiff).
 NO_FALL = ("ret", "jmp", "call", "ud2", "int3", "hlt", "nop")
+# General registers by family, so `ecx` and `rcx` name one register (the switch resolver, _switch_targets).
+_PARENT = {}
+for _n in ("ax", "bx", "cx", "dx", "si", "di", "bp", "sp"):
+    for _p in (_n, "e" + _n, "r" + _n):
+        _PARENT[_p] = "r" + _n
+for _i in range(8, 16):
+    for _s in ("", "d", "w", "b"):
+        _PARENT["r%d%s" % (_i, _s)] = "r%d" % _i
+_RIP_MEM = re.compile(r"\[rip ([+-]) (0x[0-9a-f]+)\]")
+_IDX_MEM = re.compile(r"\[(\w+) \+ (\w+)(\*\d)?(?: ([+-]) (0x[0-9a-f]+))?\]")
 KNOWN = None  # function starts known from the ledger (known_starts); a test sets frozenset() to use none
 LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ledger", "universe.json")
 
@@ -237,6 +248,52 @@ class Pdata:
         self._walk_ranges(md, ranges, out, set(), set())
         return [out[a] for a in sorted(out)]
 
+    def _switch_targets(self, out, jmp):
+        """The case targets of the switch dispatch that ends in `jmp reg`, read from its table; [] when the pattern is not
+        there. The pattern is xlate.prepass's: cmp idx,N; ja default; lea base,[image]; [movzx map,[base+idx+d];]
+        mov r,[base+idx*4+disp]; add r,base; jmp r. out: the instructions decoded so far (address -> instruction)."""
+        reg = _PARENT[jmp.op_str.strip()]
+        prev = [out[a] for a in sorted((a for a in out if a < jmp.address), reverse=True)[:24]]
+
+        def split(i):
+            dst, _, src = i.op_str.partition(", ")
+            return _PARENT.get(dst), src
+
+        base = next((_PARENT.get(src) for i in prev[:12] if i.mnemonic == "add" for d, src in [split(i)] if d == reg), None)
+        load = next((_IDX_MEM.search(src) for i in prev[:12] if i.mnemonic == "mov" for d, src in [split(i)]
+                     if d == reg and "*4" in src), None)
+        base_va = None
+        for i in prev:
+            d, src = split(i)
+            if base is None or d != base or i.mnemonic in ("cmp", "test"):
+                continue
+            rip = _RIP_MEM.search(src) if i.mnemonic == "lea" else None
+            if rip:
+                base_va = i.address + i.size + (-1 if rip.group(1) == "-" else 1) * int(rip.group(2), 16)
+            break
+        count = None
+        for k, i in enumerate(prev[:20]):
+            if i.mnemonic == "ja":
+                prior = prev[k + 1] if k + 1 < len(prev) else None
+                if prior is not None and prior.mnemonic == "cmp":
+                    try:
+                        count = int(prior.op_str.rpartition(", ")[2], 16) + 1
+                    except ValueError:
+                        pass
+                break
+        if base_va is None or load is None or count is None:
+            return []
+        disp = int(load.group(5), 16) * (-1 if load.group(4) == "-" else 1) if load.group(5) else 0
+        n = count
+        for i in prev[:16]:  # a byte map feeds the dword table index: the table holds max(map) + 1 words
+            m = _IDX_MEM.search(i.op_str) if i.mnemonic in ("movzx", "movsx", "movsxd") else None
+            if m and not m.group(3) and _PARENT.get(m.group(1)) == base and m.group(5):
+                map_va = base_va + int(m.group(5), 16) * (-1 if m.group(4) == "-" else 1)
+                n = max(self.read(map_va, count)) + 1
+                break
+        words = struct.unpack("<%dI" % n, self.read(base_va + disp, 4 * n))
+        return [base_va + w for w in words]
+
     def _md_get(self):
         if self._md is None:
             import capstone
@@ -273,7 +330,11 @@ class Pdata:
                 try:
                     tgt = int(ins.op_str, 16)
                 except ValueError:
-                    pass  # jmp reg / jmp [table]: a switch, resolved by the translator's prepass
+                    # jmp reg: a switch (case blocks can lie past the first ret: 0x1408653E0), its table gives the targets
+                    for t in self._switch_targets(out, ins) if m == "jmp" and ins.op_str.strip() in _PARENT else ():
+                        targets.add(t)
+                        if begin <= t < end:
+                            pending.add(t)
             if tgt is not None:
                 targets.add(tgt)
                 if m != "jmp":

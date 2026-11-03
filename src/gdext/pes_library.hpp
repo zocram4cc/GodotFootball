@@ -6,6 +6,7 @@
 #include <array>
 #include <optional>
 
+#include "onthepitch/pestrapdata.hpp"
 #include "pes/camera.hpp"
 #include "pes/movestep_bundle.hpp"
 #include "onthepitch/pescarrier.hpp"
@@ -216,6 +217,8 @@ class PesLibrary : public RefCounted {
   const pes::marktable::Constants* mark_table_constants() const {
     return markTableConstants_ ? &*markTableConstants_ : nullptr;
   }
+  // PES 2021's Trap action chain (pestrapdata.hpp).
+  const pes::PesTrapSource* trap_source() const { return trapSource_ ? &*trapSource_ : nullptr; }
   // The install's table bytes the translated window runs read (pesimagetables.hpp).
   const pes::PesImageTables* image_tables() const { return imageTables_ ? &*imageTables_ : nullptr; }
 
@@ -264,6 +267,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::MoveStepConstants> moveStepConstants_;
   std::optional<pes::PressConstants> pressConstants_;
   std::optional<pes::marktable::Constants> markTableConstants_;
+  std::optional<pes::PesTrapSource> trapSource_;
   std::optional<pes::PesImageTables> imageTables_;
   std::optional<pes::SetPieceTakerConstants> setPieceTakerConstants_;
   std::optional<pes::SetPieceTeamConstants> setPieceTeamConstants_;
