@@ -49,14 +49,15 @@ class Capz(unittest.TestCase):
         self.assertEqual(capz.pack(d), "skip")
         self.assertTrue(os.path.exists(os.path.join(d, "mem.bin")))
 
-    def test_unpacked_slim_capture_stays_sparse(self):
-        d = capture(self.root, "seq3", sparse_size=4096 * PAGE)
+    def test_unpacked_full_capture_has_no_holes(self):
+        # A full capture's zero pages must come back allocated: SnapMem reads a hole of a capture as a page a slim pass
+        # dropped and refuses the replay (03-11-26: sparse unpack made zero heap pages unreadable).
+        data = os.urandom(8 * PAGE) + bytes(120 * PAGE)
+        d = capture(self.root, "seq3", data=data)
         raw = os.path.join(d, "mem.bin")
-        os.system("zstd -q -f %s -o %s.zst" % (raw, raw))
-        os.remove(raw)
+        capz.pack(d)
         capz.unpack(d)
-        self.assertEqual(os.path.getsize(raw), 4096 * PAGE)
-        self.assertLess(capz.allocated(raw), capz.SLIM_BYTES)
+        self.assertEqual(capz.allocated(raw), os.path.getsize(raw))
 
     def test_launch_dir_expands_to_its_captures(self):
         a = capture(self.root, "seq10", sparse_size=PAGE)
