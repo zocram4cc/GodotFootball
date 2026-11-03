@@ -136,6 +136,10 @@ public:
   Referee* GetReferee() { return referee.get(); }
   Officials* GetOfficials() { return officials.get(); }
   const RefereeBuffer& GetRefereeBuffer() { return referee->GetBuffer(); };
+  // A goal scene is running (the host's FixDemo timeline, GfMatch): the goal's kick-off waits for its end, as PES's restart step
+  // waits for DemoInfo. The host sets it every tick; the referee pushes the restart's prepare (and with it the take) past now.
+  void HoldRestartForScene(bool held) { restartHeldForScene = held; }
+  bool RestartHeldForScene() const { return restartHeldForScene; }
 
   // Whether the ball is in the net is where the ball is, not whether anyone is
   // still calling it a goal: the netting in Ball::Process is gated on it. Only a
@@ -743,6 +747,7 @@ protected:
   float matchDifficulty;
   // The tick-order switch (config pes_loop, SW), read once in the constructor.
   bool pesLoop = false;
+  bool restartHeldForScene = false;  // HoldRestartForScene
   std::vector<TickStage> tickStages;
 
   uint64_t determinismHash;
