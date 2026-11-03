@@ -178,6 +178,11 @@ target_link_libraries(pes_stall_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_stall_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_stall_test PROPERTIES TIMEOUT 1800)
 
+add_executable(pes_goal_scene_hold_test pes_goal_scene_hold_test.cpp)
+target_link_libraries(pes_goal_scene_hold_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_goal_scene_hold_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_goal_scene_hold_test PROPERTIES TIMEOUT 900)
+
 add_executable(pes_match_info_test pes_match_info_test.cpp)
 target_link_libraries(pes_match_info_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_match_info_test)
