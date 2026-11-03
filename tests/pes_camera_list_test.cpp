@@ -41,7 +41,7 @@ class CameraListTest : public ::testing::Test {
     ASSERT_TRUE(k) << err;
     k_ = *k;
   }
-  std::unique_ptr<pes::PeImage> exe_;
+  std::optional<pes::PeImage> exe_;
   pes::FixDemoRandomConstants k_{};
 };
 
