@@ -166,7 +166,10 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     t.rootFirstZ = f[4], t.cancelSpeed = f[5], t.endMoveAngle = f[6];
     Slot(m.timing_, a & MOTION_MASK) = t;
     const uint32_t motion = a & MOTION_MASK;
-    if (inTable(motion)) Admit(m.motions_[motion].blend, caps.animation, t.blendStart);
+    if (inTable(motion)) {
+      Admit(m.motions_[motion].blend, caps.animation, t.blendStart);
+      Admit(m.motions_[motion].blendWords, caps.animation, std::array<uint32_t, 2>{a, b});
+    }
   }
   for (size_t o = 0; o < hitData.size(); o += HIT_RECORD) {
     const uint32_t w = At<uint32_t>(hitData, o);
@@ -187,8 +190,10 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     const uint32_t w = At<uint32_t>(cancelData, o);
     const uint32_t motion = w & MOTION_MASK;
     Slot(m.cancel_, motion) = CancelRecord{int(w >> FRAME_SHIFT & CANCEL_FRAME_MASK)};
-    if (inTable(motion))
+    if (inTable(motion)) {
       Admit(m.motions_[motion].cancel, caps.cancel, int(w >> FRAME_SHIFT & CANCEL_FRAME_MASK));
+      Admit(m.motions_[motion].cancelWords, caps.cancel, std::array<uint32_t, 2>{w, At<uint32_t>(cancelData, o + 4)});
+    }
   }
   for (size_t o = 0; o < bins.rotData.size(); o += ROT_RECORD) {
     const uint32_t w0 = At<uint32_t>(bins.rotData, o), w1 = At<uint32_t>(bins.rotData, o + 4);
@@ -197,7 +202,10 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     r.offset = int((w0 >> ROT_OFFSET_SHIFT) & ROT_OFFSET_MASK) - ROT_OFFSET_BIAS;
     r.start = int((w1 >> ROT_START_SHIFT) & ROT_START_MASK) - ROT_START_BIAS;
     r.end = int(w1 & ROT_END_MASK) + 1;
-    if (inTable(motion)) Admit(m.motions_[motion].rot, caps.rot, r);
+    if (inTable(motion)) {
+      Admit(m.motions_[motion].rot, caps.rot, r);
+      Admit(m.motions_[motion].rotWords, caps.rot, std::array<uint32_t, 2>{w0, w1});
+    }
   }
   for (size_t o = 0; o < bins.subHitData.size(); o += SUB_HIT_RECORD) {
     const uint32_t motion = (At<uint32_t>(bins.subHitData, o) & SUB_MOTION_MASK) + SUB_MOTION_BASE;

@@ -77,6 +77,9 @@ struct MotionRecord {
   std::vector<FootRecord> foot;   // kind 9
   std::vector<PivotRecord> pivot; // kind 12
   std::vector<SubRecord> sub;     // kind 2
+  // The raw words behind blend, cancel and rot, as the files have them (Animation +0/+4, CancelData +0/+4, RotData +0/+4),
+  // admitted under the same caps in the same order. pesclipreaders lays them out as PES's table does.
+  std::vector<std::array<uint32_t, 2>> blendWords, cancelWords, rotWords;
 
   // The readers' answers. Past the end of a list they give PES's fallback value.
   int BlendStart() const { return blend.empty() ? 0 : blend[0]; }
