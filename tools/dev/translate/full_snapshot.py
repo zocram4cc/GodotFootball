@@ -40,6 +40,7 @@ sys.path.insert(0, HERE)
 import seed  # noqa: E402  GVA: the G global
 
 PAGE = 0x1000
+FULL_BYTES = 200 << 20  # rendezvous/auto_slim.FULL_BYTES: a mem.bin with at least this much allocated is a full capture
 MI_OFF, PLAY_OFF, PER_OFF, FRAME_OFF = 0x270, 0x116C, 0x1168, 0x1198
 POLL = 0.5
 DEADLINE = [None]  # monotonic time after which a pause dump aborts (the game is CONTed at once)
@@ -279,10 +280,13 @@ class SnapMem:
     A page that a slim capture dropped is a hole of mem.bin. It is never read as zeros. A dropped page the game image
     file serves (PeImage.servable: code or read-only data, not the import table) reads from that file; any other
     dropped page makes page_ok False and read returns None, so the replay refuses the case (page_dropped names it).
+    A FULL capture (full_bytes or more allocated: capz.py's rule) has no dropped pages: its holes are zero pages (capz.py
+    unpack restores a full capture's zero pages sparse), so a replay that allocates from a never-written heap page reads
+    zeros there instead of refusing the case.
     image: the game image file (default: PES_EXE); "" for none. Index holes are unreadable at capture.
     """
 
-    def __init__(self, snap_dir, restore=None, image=None):
+    def __init__(self, snap_dir, restore=None, image=None, full_bytes=FULL_BYTES):
         path = image if image is not None else os.environ.get("PES_EXE")
         idx = json.load(open(os.path.join(snap_dir, "index.json")))
         self.index = idx
@@ -291,6 +295,7 @@ class SnapMem:
         self.fd = os.open(os.path.join(snap_dir, "mem.bin"), os.O_RDONLY)
         self._data = _data_extents(self.fd)
         self._data_starts = [s for s, _ in self._data]
+        self.full = sum(e - s for s, e in self._data) >= full_bytes
         self._exports = {}
         self._mz = None  # sorted 'MZ' mapping VAs (module_bases), scanned on first use
         self.holes = set()
@@ -311,7 +316,10 @@ class SnapMem:
         return None
 
     def _captured(self, fpage):
-        """True when mem.bin holds the whole page at file offset fpage (it is not a hole)."""
+        """True when mem.bin holds the whole page at file offset fpage (it is not a hole). In a full capture a hole is a
+        zero page (class doc), which pread returns as zeros."""
+        if self.full:
+            return True
         i = bisect.bisect_right(self._data_starts, fpage) - 1
         return i >= 0 and fpage + PAGE <= self._data[i][1]
 
