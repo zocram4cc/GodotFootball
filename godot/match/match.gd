@@ -241,7 +241,7 @@ func _place(delta: float) -> void:
 			var i := int(args["fdc-target"])
 			var p: Vector3 = players[i].global_position
 			var f: Vector3 = sim.player_facing(i)
-			_set_cut_target(_cutscene, i, Vector3(p.x, 0.0, p.z), fposmod(rad_to_deg(atan2(f.x, f.z)), 360.0))
+			_set_cut_target(_cutscene, {"slot": 0, "index": i, "ground": Vector3(p.x, 0.0, p.z), "facing_deg": fposmod(rad_to_deg(atan2(f.x, f.z)), 360.0)})
 			_cutscene.advance(_cut_t)
 		_cutscene.update(_camera, _cut_t)
 		return

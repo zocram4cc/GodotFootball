@@ -211,12 +211,8 @@ void GfMatch::step() {
   previousValid_ = true;
   // PES's restart step contains the DemoInfo scene: the goal's kick-off (the teleport to the centre) comes after the scene's end,
   // so it is held for as long as the goal's timeline runs (a foul scene does not hold: the stoppage programme times its own).
-  match_->HoldRestartForScene(timeline_ && gateIsGoal_ && !std::getenv("GF_NO_SCENE_HOLD"));  // TEMP env toggle
+  match_->HoldRestartForScene(timeline_ && gateIsGoal_);
   match_->Process();
-  if (timeline_ && gateIsGoal_ && gateScorer_ && tick_ % 27 == 0) {  // TEMP
-    const Vector3 sp = ToFox(gateScorer_->GetPosition());
-    UtilityFunctions::print("[scene-hold] tick ", tick_, " step ", timeline_->State().step, " phase ", timeline_->State().stepPhase, " prepared ", match_->GetRefereeBuffer().prepared, " started ", match_->GetRefereeBuffer().started, " scorer ", sp.x, " ", sp.z);
-  }
   RefreshPlayers();  // substitutions change the active set
   PollCutscenes();
   ++tick_;
