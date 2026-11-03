@@ -40,6 +40,7 @@ constexpr unsigned int kSeeds[] = {7u, 3u, 5u, 9u, 13u, 11u, 2u, 15u, 16u, 18u, 
 constexpr uint32_t kRestartFreeKick = 5, kRestartPenalty = 6;  // MI+0x1554 (pes-re-ref-record.md 1.2)
 constexpr uint32_t kFoulKindDirect = 2;
 constexpr uint32_t kLevelYellow = 3, kLevelRed = 4;
+constexpr std::size_t kResultStampOffset = pes::kMiRestartKindOffset + 0x4C;  // JR+0x4C
 
 // Runs a PES-loop match of `seed`, calling `onTick` after every tick until it returns true or the match ends.
 void RunMatch(unsigned int seed, const std::function<bool(Match&)>& onTick) {
@@ -82,7 +83,8 @@ struct FoulStop {
   int foulerTeam = -1;
   int yellowsAdded = 0, redsAdded = 0;  // the fouler's side's cards shown on that tick
   // The words once the stop was taken.
-  uint32_t restartAfter = 0, levelAfter = 0, foulerAfter = 0;
+  uint32_t restartAfter = 0, levelAfter = 0, foulerAfter = 0, stampAfter = 0;
+  uint32_t stamp = 0;  // JR+0x4C on the whistle's tick: the pending record's frame stamp the commit copies
 };
 
 uint32_t MiWord(Match& match, std::size_t offset) { return pes::LoadU32(match.PesWorldOf().MatchInfo(), offset); }
@@ -106,6 +108,7 @@ std::optional<FoulStop> FoulStopOf(unsigned int seed) {
       stop.level = MiWord(match, pes::kMiCardLevelOffset);
       stop.fouler = MiWord(match, pes::kMiFoulerOffset);
       stop.victim = MiWord(match, pes::kMiVictimOffset);
+      stop.stamp = MiWord(match, kResultStampOffset);
       stop.setPiece = buffer.desiredSetPiece;
       stop.buffered_team = buffer.teamID;
       for (int team = 0; team < 2; ++team) {
@@ -123,6 +126,7 @@ std::optional<FoulStop> FoulStopOf(unsigned int seed) {
       stop.restartAfter = MiWord(match, pes::kMiRestartKindOffset);
       stop.levelAfter = MiWord(match, pes::kMiCardLevelOffset);
       stop.foulerAfter = MiWord(match, pes::kMiFoulerOffset);
+      stop.stampAfter = MiWord(match, kResultStampOffset);
     }
     for (int team = 0; team < 2; ++team) {
       yellow[team] = nowYellow[team];
@@ -156,6 +160,8 @@ TEST(FoulWhistle, ThePlayedFoulStopCarriesTheWhistlesWords) {
   const FoulStop* stop = TheFoulStop();
   ASSERT_TRUE(stop != nullptr) << "no searched seed reached a foul stop and took it";
   RecordProperty("seed", static_cast<int>(stop->seed));
+  std::fprintf(stderr, "foul whistle: seed %u restart %u side %u level %u fouler %u victim %u yellow +%d red +%d\n", stop->seed,
+               stop->restart, stop->side, stop->level, stop->fouler, stop->victim, stop->yellowsAdded, stop->redsAdded);
   EXPECT_EQ(stop->kind, kFoulKindDirect);
   EXPECT_EQ(stop->restart, stop->setPiece == e_SetPiece_Penalty ? kRestartPenalty : kRestartFreeKick);
   EXPECT_TRUE(stop->restart == kRestartFreeKick || stop->restart == kRestartPenalty);
@@ -185,4 +191,7 @@ TEST(FoulWhistle, TheWhistlesWordsEndWithTheStop) {
   EXPECT_EQ(stop->restartAfter, 0u);
   EXPECT_EQ(stop->levelAfter, 0u);
   EXPECT_EQ(stop->foulerAfter, static_cast<uint32_t>(pes::kMiNoSlot));
+  // The words the commit copies beyond the stoppage ones (JR+0x4C: the record's frame stamp) are PES's too and end with the stop.
+  EXPECT_NE(stop->stamp, 0u);
+  EXPECT_EQ(stop->stampAfter, 0u);
 }

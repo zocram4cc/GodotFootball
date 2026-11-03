@@ -785,9 +785,9 @@ static uint32_t PesStopReason(e_SetPiece setPiece) {
   }
 }
 
-// A foul stop's stoppage words are the translated whistle's (CheckFoul runs the commit 0x143F546F0, which writes JR =
-// MI+0x1554). They stand until the stop ends: PES clears JR then (0x14050A8C0 / 0x14050A990, callers not traced), so the
-// record is zeroed when the restart is taken or another stop replaces the foul's.
+// A foul stop's stoppage words are the translated whistle's (CheckFoul runs the commit 0x143F546F0, which writes JR and
+// copies it into MI+0x1554). They stand until the stop ends: PES clears JR then (0x14050A8C0 / 0x14050A990, callers not
+// traced), so the record is zeroed when the restart is taken or another stop replaces the foul's.
 // ponytail: every other stop (kick-off, goal kick, corner, throw-in, offside, period end) is a mirror of buffer into the
 // block; PES writes those through the same whistle from 0x14050E110, 0x14050E020, 0x14050E320, 0x14050CC40 and the offside
 // commit, which are translated but not driven yet (they need the ball-out events and the offside SetPending record).
@@ -798,7 +798,7 @@ void Referee::PublishPesStoppage() {
   const bool freeKickOrPenalty =
       restart && (buffer.desiredSetPiece == e_SetPiece_FreeKick || buffer.desiredSetPiece == e_SetPiece_Penalty);
   if (stoppageWhistled && !freeKickOrPenalty) {
-    std::memset(mi + pes::kMiRestartKindOffset, 0, pes::kJudgeResultBytes);
+    world.EndWhistle();
     stoppageWhistled = false;
   }
   if (!stoppageWhistled) {
