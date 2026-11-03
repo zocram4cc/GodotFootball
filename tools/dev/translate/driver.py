@@ -502,6 +502,12 @@ def compile_note(err, out_dir):
     return " | ".join(lines)[:400]
 
 
+def cache_root(args):
+    """Where the object and corpus caches live: GF_DIFF_CACHE when set (gate.sh shares one across worktrees and sets; every
+    key is a content hash of all its inputs, so sharing cannot give a wrong hit), else <out-dir>/cache."""
+    return os.environ.get("GF_DIFF_CACHE") or os.path.join(args.out_dir, "cache")
+
+
 def compile_one(args, gen, tu):
     """(object, error text): the TU's object from cache/obj, compiled into it on a miss. The compile writes a temp file
     that is renamed into place, so VAs compiling the same TU at once never leave a partial object."""
@@ -511,7 +517,7 @@ def compile_one(args, gen, tu):
         obj = os.path.splitext(tu)[0] + ".o"
         rc, _, err = sh([args.cxx] + SEMANTIC_FLAGS + ["-I", gen, "-c", tu, "-o", obj], timeout=300)
         return (obj, None) if rc == 0 else (None, err)
-    objdir = os.path.join(args.out_dir, "cache", "obj")
+    objdir = os.path.join(cache_root(args), "obj")
     final = os.path.join(objdir, key + ".o")
     if os.path.exists(final):
         tally("object hit")
@@ -560,7 +566,10 @@ def corpus_run(va, args, spec_path, gen, tag, key_args, out_args):
               "seed": buildcache.file_digest(seed) if seed else None,
               "bank": buildcache.file_digest(bank_file) if bank_file else None,
               "run.py": buildcache.file_digest(RUN_PY), "python": buildcache.interpreter_id(diff_python())}
-    entry = os.path.join(args.out_dir, "cache", "corpus", buildcache.corpus_key(key_args, inputs))
+    # Absolute path arguments (spec, image, seed and bank dirs) leave the key: their contents are already inputs by digest,
+    # and their paths name the worktree, which would keep a shared cache from hitting across checkouts.
+    portable_args = ["<path>" if os.path.isabs(a) else a for a in key_args]
+    entry = os.path.join(cache_root(args), "corpus", buildcache.corpus_key(portable_args, inputs))
     doc = _read_json(os.path.join(entry, "run.json"))
     if doc is not None and buildcache.entry_is_valid(doc["deps"]):
         for name in doc["files"]:
@@ -580,7 +589,10 @@ def corpus_run(va, args, spec_path, gen, tag, key_args, out_args):
         with open(os.path.join(tmp, "run.json"), "w") as f:  # written last: its presence commits the entry
             json.dump({"out": out, "files": names, "deps": buildcache.entry_doc(_read_json(deps))}, f)
         shutil.rmtree(entry, ignore_errors=True)
-        os.replace(tmp, entry)
+        try:
+            os.replace(tmp, entry)
+        except OSError:  # another run committed this key first (shared cache): its entry is the same, keep it
+            shutil.rmtree(tmp, ignore_errors=True)
     return rc, out, err
 
 

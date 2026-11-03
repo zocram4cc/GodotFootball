@@ -418,7 +418,7 @@ PesWorld::JudgeVerdict PesWorld::DecideJudge(int victim, int fouler) {
   JudgeVerdict verdict;
   verdict.pending = judge[kJudgePendingOffset] != 0;
   if (!verdict.pending) return verdict;
-  verdict.level = CommitJudge();
+  verdict.level = LoadU32(judge, kJudgeLevelOffset);
   verdict.points = judge[kJudgePointsOffset];
   verdict.restart = LoadU32(judge, kJudgeRestartOffset);
   verdict.type = judge[kJudgeTypeOffset];
@@ -430,7 +430,14 @@ uint32_t PesWorld::CommitJudge() {
   s.gpr[1] = SanctionVa(offsetof(PesSanctionImage, judge));                // rcx = the judge
   s.gpr[2] = SanctionVa(offsetof(PesSanctionImage, judge)) + kJudgePendingRecordOffset;  // rdx = the pending foul
   ::pes_fn_143F546F0(s);
-  return LoadU32(image_->sanction.judgeResult.data(), kJudgeResultCardLevelOffset);
+  const uint8_t* result = JudgeResult();
+  std::memcpy(MatchInfo() + kMiRestartKindOffset, result, kJudgeSyncBytes);
+  return LoadU32(result, kJudgeResultCardLevelOffset);
+}
+
+void PesWorld::EndWhistle() {
+  std::memset(image_->sanction.judgeResult.data(), 0, kJudgeSyncBytes);
+  std::memset(MatchInfo() + kMiRestartKindOffset, 0, kJudgeSyncBytes);
 }
 
 PesWorld::JudgeVerdict PesWorld::DecideContact(const ContactFacts& facts) {

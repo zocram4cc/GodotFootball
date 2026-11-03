@@ -85,8 +85,8 @@ public:
   virtual ~Referee();
 
   void Process();
-  // Writes this referee's stoppage state into the match-info block at PES's offsets (pesworldrecord.hpp kMi*), for the
-  // translated stoppage functions. Runs at the end of every Process().
+  // Mirrors the stops the whistle does not write (every stop but a foul's) into the match-info block at PES's offsets
+  // (pesworldrecord.hpp kMi*), for the translated stoppage functions. Runs at the end of every Process().
   void PublishPesStoppage();
   // PES's sanction tree 0x14047F170 (PesWorld::DecideSanction), run on the first tick of every foul stop: the scene id
   // it chose (0x20022 is "no scene") and a serial that counts the decisions, so a reader detects a new one. Zero until
@@ -190,6 +190,9 @@ protected:
   // runs PES's sanction tree on them. Called once per foul stop, after PublishPesStoppage wrote the match-info block.
   void DecideSanction();
   bool sanctionDue = false;
+  // The foul stop's stoppage words in the match-info block are the whistle's (CheckFoul ran the commit); PublishPesStoppage
+  // leaves them alone until the stop ends.
+  bool stoppageWhistled = false;
   uint32_t sanctionScene = 0;
   unsigned sanctionSerial = 0;
   float NearestToBall_m(Team* team) const;
