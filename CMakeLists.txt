@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.24)
 project(GodotFootball LANGUAGES C CXX)
 
+# Every worktree rebuilds the same ~4,800 translated TUs; ccache (with base_dir set to the worktrees' parent and
+# hash_dir=false in the user's ccache.conf) shares their objects across worktrees and merges. An explicit launcher wins.
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+  set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
