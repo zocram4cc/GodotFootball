@@ -8,13 +8,30 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
+#include <string>
 
 #include "onthepitch/pesclock.hpp"
+#include "onthepitch/pesimagetables.hpp"
 #include "onthepitch/pesworldrecord.hpp"
+#include "pes/exe.hpp"
 
 namespace {
 
 using namespace pes;
+
+// The install's table bytes the window runs read (the event store's none record among them), as GF's loaders read them.
+const PesImageTables& InstallTables() {
+  static const PesImageTables tables = [] {
+    std::string error;
+    auto exe = PeImage::Open(std::string(std::getenv("PES21_ROOT")) + "/PES2021.exe", &error);
+    EXPECT_TRUE(exe) << error;
+    auto loaded = exe ? LoadPesImageTables(*exe, &error) : std::nullopt;
+    EXPECT_TRUE(loaded) << error;
+    return loaded ? *loaded : PesImageTables{};
+  }();
+  return tables;
+}
 
 constexpr uint32_t kPress = 0x34;
 constexpr std::size_t kBearingBypassOffset = 0xB709;  // docs/re/pes-re-press-life.md 3.3
@@ -32,6 +49,7 @@ struct Staged {
   PesWorld::PressFacts facts;
 
   Staged() {
+    world.BindImageTables(InstallTables());
     for (int slot = 0; slot < kSlotCount; ++slot) world.BindSlot(slot);
     StoreU32(world.MatchInfo(), kMiFrameOffset, kLateFrame);
     for (int j = 0; j < kBallSampleCount; ++j) world.SetBallSample(j, kBallX_m, 0.0f, kBallZ_m);
@@ -73,42 +91,97 @@ struct Staged {
 constexpr uint32_t kNobody = 0xFF;
 constexpr uint32_t kNearId = kSide * kSlotsPerSide + kNearMan;
 
-// DISABLED: OPEN. The staged scene does not reach the writer's enrolment (T+0xA548[0] stays 0xFF): a gate before 0x140537380 refuses
-// it and the staged fields that decide it are not identified (candidates: the keeper hold FUN_140A53F90, the score code of
-// FUN_140639600). Needs a real in-play writer capture past the body filter: --when in the PressAI report.
-TEST(PesPressWorld, DISABLED_ThePressManNearALooseBallIsRenewedAndEnrolledWhenTheSideHasNoDesignatedMan) {
+class PesPressWorld : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set: the window runs read the install's tables";
+  }
+};
+
+// The writer's loose-ball arm (FUN_140536FC0): a side with no designated man, a kicked ball, a PRESS man inside the candidate
+// radius: the candidate table keeps him, the writer renews PRESS (0x34) and enrols him in T+0xA548[0].
+TEST_F(PesPressWorld, ThePressManNearALooseBallIsRenewedAndEnrolledWhenTheSideHasNoDesignatedMan) {
   Staged s;
   s.Run();
   EXPECT_EQ(s.world.PressAction(kSide, kNearMan), kPress);
   EXPECT_EQ(s.Enrolled(), kNearId);
 }
 
-TEST(PesPressWorld, NobodyIsEnrolledWhileTheSideHasADesignatedMan) {
+TEST_F(PesPressWorld, NobodyIsEnrolledWhileTheSideHasADesignatedMan) {
   Staged s;
   s.facts.designated = kNearMan;  // T+0x78 valid: the writer leaves before the search (0x140537116)
   s.Run();
   EXPECT_EQ(s.Enrolled(), kNobody);
 }
 
-TEST(PesPressWorld, NobodyIsEnrolledWhenTheBallIsNotInPlay) {
+TEST_F(PesPressWorld, NobodyIsEnrolledWhenTheBallIsNotInPlay) {
   Staged s;
   s.facts.playState = 2;  // MI+0x116C != 1: the writer leaves
   s.Run();
   EXPECT_EQ(s.Enrolled(), kNobody);
 }
 
-TEST(PesPressWorld, APressManOffThePitchIsNotEnrolled) {
+TEST_F(PesPressWorld, APressManOffThePitchIsNotEnrolled) {
   Staged s;
   s.facts.onPitch[kNearMan] = false;  // MI+0x1748: the candidate table skips a man who is not on the pitch
   s.Run();
   EXPECT_EQ(s.Enrolled(), kNobody);
 }
 
-TEST(PesPressWorld, APressManOutsideTheCandidateRadiusIsNotEnrolled) {
+TEST_F(PesPressWorld, APressManOutsideTheCandidateRadiusIsNotEnrolled) {
   Staged s;
   s.Place(kNearMan, kBallX_m - kFar_m, kBallZ_m);
   s.Run();
   EXPECT_EQ(s.Enrolled(), kNobody);
+}
+
+// The coordinator's class-5 arm (docs/re/pes-re-press-coord.md 2.10, 8.8): an opponent holds the ball; the side's man at entry 0 of
+// the holder's nearest-list row, inside the class-5 radius of the ball, becomes the second presser: PRESS (0x34) and PP[2].
+constexpr std::size_t kMaNearestRowsOffset = 0x22E4C;  // MA: 200-byte rows per man, {u32 id, f32 d^2} entries, side 1 at +88
+constexpr std::size_t kMaNearestRowBytes = 200;
+constexpr std::size_t kMaBallRankOffset = 0x247BE;     // MA+0x247BE+man: the man's rank in the ball-distance list (FUN_14044E0D0)
+constexpr std::size_t kMaBallListOffset = 0x24710;     // MA: 8-byte {f32 d^2, ..} per rank
+constexpr uint32_t kLevelTier3 = 300;                  // T+0xA294: tier * 100; the coordinator's level flag needs tier >= 3
+constexpr int kHolderSlot = 3;
+constexpr uint32_t kHolderId = kSlotsPerSide + kHolderSlot;
+constexpr float kInsideRadiusDistSq = 1.0f;            // under the 3 m class-5 radius (outfield; 5 m for kind 10)
+
+struct HolderScene : Staged {
+  HolderScene() {
+    facts.holder = kHolderId;  // MA+0x2601C
+    StoreU32(world.SideRecord(kSide), kSideTierOffset, kLevelTier3);
+    uint8_t* row = world.Ma(kSide) + kMaNearestRowsOffset + kMaNearestRowBytes * kHolderId;
+    StoreU32(row, 0, kNearId);
+    StoreF32(row, sizeof(uint32_t), 4.0f);
+    world.Ma(kSide)[kMaBallRankOffset + kNearId] = 0;
+    StoreF32(world.Ma(kSide) + kMaBallListOffset, 0, kInsideRadiusDistSq);
+  }
+  void RunCoordinator() {
+    world.StagePress(kSide, facts);
+    world.RunPressCoordinator(kSide);
+  }
+};
+
+TEST_F(PesPressWorld, TheNearestManToAnOpponentHolderIsMadeTheSecondPresser) {
+  HolderScene s;
+  s.RunCoordinator();
+  EXPECT_EQ(s.world.PressSecond(kSide), kNearId);
+  EXPECT_EQ(s.world.PressAction(kSide, kNearMan), kPress);
+}
+
+TEST_F(PesPressWorld, TheKeeperIsNotMadeTheSecondPresser) {
+  HolderScene s;
+  s.facts.roleClass[kNearMan] = 0;  // T+0x87D0 + 8k: role class 0 is the keeper; the class-5 predicate refuses a zero word
+  s.RunCoordinator();
+  EXPECT_EQ(s.world.PressSecond(kSide), kNobody);
+  EXPECT_NE(s.world.PressAction(kSide, kNearMan), kPress);
+}
+
+TEST_F(PesPressWorld, NobodyIsMadeThePresserWhileTheBallIsNotInPlay) {
+  HolderScene s;
+  s.facts.playState = 2;
+  s.RunCoordinator();
+  EXPECT_EQ(s.world.PressSecond(kSide), kNobody);
 }
 
 }  // namespace

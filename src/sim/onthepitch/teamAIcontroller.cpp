@@ -2470,9 +2470,8 @@ void TeamAIController::PesPressTick() {
   // as the last toucher. ponytail: both are one PES field (FUN_140457070 W1); until the owner is that field, the press run borrows
   // it and puts the carrier's value back.
   const uint32_t owner = pes::LoadU32(world.Ma(side), pes::kMaOwnerOffset);
-  // The unit updater 0x1421019D0 also reads T+0x4C00 (its words were zero before the press staged them); the carrier closure the
-  // translated layer proves does not enter the branch the role classes open (an untranslated 0x14211BF40 aborted the pes-loop
-  // smoke), so the press run borrows those words too. ponytail: remove with the carrier closure's widening (DribbleProposal).
+  // The unit updater 0x1421019D0 also reads T+0x4C00 (the unit words, zero before the press stages the role classes there), so the
+  // press run borrows those words too. ponytail: PES keeps one T+0x4C00 for both readers; remove once GF stages that word once.
   std::array<uint32_t, pes::kSlotsPerSide> unitWords{};
   for (int k = 0; k < pes::kSlotsPerSide; ++k)
     unitWords[k] = pes::LoadU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k);

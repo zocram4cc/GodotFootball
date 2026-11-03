@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 1cd70ca163015825 -->
+<!-- LEDGER-STAMP 2586aa5d5b32a83d -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,13 +13,13 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 18595 | 19481 | 38076 |
+| total | 18600 | 19481 | 38081 |
 | ported | 411 | 0 | 411 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
 | stand-in | 102 | 0 | 102 |
 | decoded | 1209 | 0 | 1209 |
-| leaf accessor | 1908 | 0 | 1908 |
+| leaf accessor | 1913 | 0 | 1913 |
 | engine | 1242 | 0 | 1242 |
 | undecoded | 13505 | 0 | 13505 |
 | inert | 1 | 0 | 1 |
@@ -159,10 +159,11 @@ Rows per subsystem and status:
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
 | cardlevel | 8 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 5 | 0 |
 | dribble | 97 | 2 | 0 | 0 | 2 | 5 | 35 | 0 | 53 | 0 |
+| dribblereset | 5 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 2 | 0 |
 | proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
 | trapchain | 105 | 1 | 0 | 0 | 0 | 8 | 46 | 0 | 50 | 0 |
-| total | 18595 | 411 | 154 | 63 | 102 | 1209 | 1908 | 1242 | 13505 | 1 |
+| total | 18600 | 411 | 154 | 63 | 102 | 1209 | 1913 | 1242 | 13505 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -185,10 +186,11 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 289 |
 | cardlevel | 8 | 7 | 0 | 0 | 0 | 0 | 0 |
 | dribble | 97 | 56 | 4 | 2 | 0 | 0 | 0 |
+| dribblereset | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
 | trapchain | 105 | 68 | 1 | 1 | 0 | 0 | 0 |
-| total | 18595 | 5810 | 667 | 381 | 9941 | 8139 | 289 |
+| total | 18600 | 5815 | 667 | 381 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -396,7 +398,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 1908 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 1913 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 466 | 465 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -18992,6 +18994,16 @@ Not found (owner's list):
 | 0x142137F20 | FUN_142137f20 | leaf accessor | - | - | - | 0 | 6 | y | closure |  |
 | 0x142137F40 | FUN_142137f40 | undecoded | - | - | - | 1 | 18 | - | closure |  |
 | 0x142139630 | FUN_142139630 | leaf accessor | - | - | - | 3 | 8 | y | closure |  |
+
+## dribblereset (5)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x14211BF10 | FUN_14211bf10 | leaf accessor | - | - | - | 0 | 2 | y | closure |  |
+| 0x14211BF20 | FUN_14211bf20 | leaf accessor | - | - | - | 0 | 2 | y | closure |  |
+| 0x14211BF30 | FUN_14211bf30 | leaf accessor | - | - | - | 0 | 2 | y | closure |  |
+| 0x14211BF40 | FUN_14211bf40 | leaf accessor | - | - | - | 0 | 3 | y | closure |  |
+| 0x14211BF50 | FUN_14211bf50 | leaf accessor | - | - | - | 0 | 2 | y | closure |  |
 
 ## endclear (3)
 

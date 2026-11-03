@@ -323,7 +323,7 @@ inline constexpr uint32_t kTeamNoMan = 0xFF;
 inline constexpr uint32_t kMiPlayStateLive = 1;                // MI+0x116C: in play (2 or 3 stopped)
 inline constexpr std::size_t kMiOnPitchOffset = 0x1748;        // u8[22]
 inline constexpr std::size_t kMiPlayStateOffset = 0x116C;
-// G+0x180: the 24-entry list (stride 0x74; the id u32 at +0x20) the press tests scan; an id >= 22 is no man.
+// G+0x180: a POINTER to the 24-entry list (stride 0x74; the id u32 at +0x20) the press tests scan; an id >= 22 is no man.
 inline constexpr std::size_t kWorldListOffset = 0x180;
 inline constexpr int kWorldListEntries = 24;
 inline constexpr std::size_t kWorldListStride = 0x74;
@@ -618,10 +618,13 @@ struct PesSanctionImage {
 inline constexpr std::size_t kSanctionOffset = kStackOffset + kStackBytes;
 
 // The press call frames, one pair per side: PP (the coordinator's rcx: {holder, X, second presser}) and the side argument
-// {ctx VA, 0, side} (rdx of the writer, coordinator and eval). They persist: PP is the coordinator's own state.
+// {ctx VA, 0, side} (rdx of the writer, coordinator and eval). They persist: PP is the coordinator's own state. `list` is the
+// 24-entry array G+0x180 POINTS at (the press reads `*(G+0x180)` in FUN_140536FC0 and FUN_140536690, then entry + 0x74 * i + 0x20): GF has
+// no such list, so every id reads "no man" (PesWorld's constructor).
 struct alignas(8) PesPressImage {
   std::array<std::array<uint32_t, kPressPpBytes / sizeof(uint32_t)>, kSideCount> pp{};
   std::array<std::array<uint64_t, kPressArgBytes / sizeof(uint64_t)>, kSideCount> arg{};
+  std::array<uint8_t, kWorldListEntries * kWorldListStride> list{};
 };
 inline constexpr std::size_t kPressOffset = (kSanctionOffset + sizeof(PesSanctionImage) + 7) & ~std::size_t{7};
 
@@ -703,6 +706,9 @@ class PesWorld {
       StoreU64(Ctx(side), kCtxMaOffset, MaVa(side));
       StoreU64(Ctx(side), kCtxEventsOffset, EventsVa());
     }
+    StoreU64(Bytes(), kWorldListOffset, kWorldWindowVa + kPressOffset + offsetof(PesPressImage, list));
+    for (int i = 0; i < kWorldListEntries; ++i)
+      StoreU32(image_->press.list.data(), kWorldListStride * i + kWorldListIdOffset, 0xFFFFFFFFu);
     BindSanction();
   }
   PesWorld(const PesWorld&) = delete;

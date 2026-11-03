@@ -514,13 +514,12 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
     if (uint8_t* man = ManRecord(side * kSlotsPerSide + k))
       StoreU32(man, kManActionOffset, LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k));
   }
+  // MI+0x1748: the on-pitch bytes the press, the carrier plans and the dispatcher read. No other GF writer sets them: with them
+  // zero the carrier saw no man on the pitch and never reached the plan reset 0x14211BF40 (translated with this change).
   uint8_t* mi = MatchInfo();
   for (int slot = 0; slot < kSlotCount; ++slot) mi[kMiOnPitchOffset + slot] = f.onPitch[slot] ? 1 : 0;
   StoreU32(mi, kMiPlayStateOffset, f.playState);
   SetMaOwner(side, f.holder);
-  // G+0x180: PES's 24-entry list the press tests scan; GF has no such list, every id reads "no man".
-  uint8_t* g = Bytes();
-  for (int i = 0; i < kWorldListEntries; ++i) StoreU32(g, kWorldListOffset + kWorldListStride * i + kWorldListIdOffset, 0xFFFFFFFFu);
   uint8_t* arg = reinterpret_cast<uint8_t*>(image_->press.arg[side].data());
   StoreU64(arg, 0, CtxVa(side));
   StoreU64(arg, 8, 0);
