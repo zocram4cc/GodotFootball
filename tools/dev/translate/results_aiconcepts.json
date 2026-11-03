@@ -1,0 +1,113 @@
+{
+ "note": "AIConcepts results. diffed = bit-exact vs the unicorn harness over the captured calls named in each record (snapdiff --bounded); pes-port-AIConcepts.md.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_selector.json",
+   "coverage": {
+    "0x140579840": {
+     "reached": 41,
+     "total": 71,
+     "fraction": 0.5775
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 41,
+     "total": 71,
+     "fraction": 0.5775
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140579840",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid296049 seq004 the hook's call 1, seq4262 call 36001, seq4480 call 38001; rax, xmm0 and every written byte). Bounded closure 52 functions."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_tick.json",
+   "coverage": {
+    "0x1404F6C30": {
+     "reached": 145,
+     "total": 179,
+     "fraction": 0.8101
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 145,
+     "total": 179,
+     "fraction": 0.8101
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1404F6C30",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid296049 seq003 the hook's call 1, seq4261 call 36001, seq4479 call 38001; each runs the concept selector once inside). Bounded closure 529 functions (static closure 1,126). Needs the __chkstk engine-noop stub (0x14159FB70) and the VCRUNTIME140!memset translator mirror (both in this branch)."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_drift.json",
+   "coverage": {
+    "0x1404F8C70": {
+     "reached": 165,
+     "total": 284,
+     "fraction": 0.581
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 165,
+     "total": 284,
+     "fraction": 0.581
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1404F8C70",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid296049 seq003, seq4261, seq4479: the call the team tick makes, replayed as a root). Supersedes the stale results_impure.json status 'translator bug' (PES_DISPATCH_UNTRANSLATED 0x140a79640, now in the layer), which held the team tick out of the layer. Bounded closure 21 functions."
+  }
+ ]
+}

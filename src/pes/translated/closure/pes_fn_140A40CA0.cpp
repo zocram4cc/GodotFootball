@@ -12,6 +12,7 @@
 static constexpr uint8_t k_t140A40FA8_28[40] = {0x70, 0x0D, 0xA4, 0x00, 0x54, 0x0D, 0xA4, 0x00, 0x54, 0x0D, 0xA4, 0x00, 0x5B, 0x0D, 0xA4, 0x00, 0x5B, 0x0D, 0xA4, 0x00, 0x62, 0x0D, 0xA4, 0x00, 0x62, 0x0D, 0xA4, 0x00, 0x69, 0x0D, 0xA4, 0x00, 0x69, 0x0D, 0xA4, 0x00, 0x69, 0x0D, 0xA4, 0x00};
 
 void pes_fn_140A40CA0(PesState& s);
+void pes_fn_140A79640(PesState& s);
 
 void pes_fn_140A40CA0(PesState& s) {
   s.wr(((s.gpr[4]) + (0x18ULL)), (uint64_t)(s.gpr[3]), 8);
@@ -356,7 +357,7 @@ void pes_fn_140A40CA0(PesState& s) {
     s.gpr[2] = (uint64_t)(uint32_t)(_r);
   }
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x20ULL)));
-  /*OUT-OF-SET CALL 0x140A79640*/ pes_dispatch_missing(0x140A79640);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A79640(s); s.gpr[4] += 8; }
   s.gpr[2] = (uint64_t)(s.gpr[15]);
   { uint64_t _r = ((uint64_t)(s.gpr[3]) & (uint64_t)(s.gpr[3])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
