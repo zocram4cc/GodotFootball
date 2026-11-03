@@ -1225703,6 +1225703,121 @@
    "vtables": [],
    "walked": true
   },
+  "14211BF10": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_14211bf10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribblereset"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "dribblereset",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14211BF20": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_14211bf20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribblereset"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "dribblereset",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14211BF30": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_14211bf30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribblereset"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "dribblereset",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14211BF40": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_14211bf40",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribblereset"
+   ],
+   "scope": "in",
+   "size": 3,
+   "source": "pdata",
+   "subsystem": "dribblereset",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14211BF50": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_14211bf50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribblereset"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "dribblereset",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14211BF60": {
    "boundary": null,
    "callees": {},
@@ -1293683,6 +1293798,16 @@
      "0x14063D2F0",
      "0x14211CA50",
      "0x14211CB00"
+    ]
+   },
+   "dribblereset": {
+    "members": 5,
+    "roots": [
+     "0x14211BF10",
+     "0x14211BF20",
+     "0x14211BF30",
+     "0x14211BF40",
+     "0x14211BF50"
     ]
    },
    "endclear": {

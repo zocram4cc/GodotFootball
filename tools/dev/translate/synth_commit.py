@@ -28,6 +28,7 @@ import synth_members as sm  # noqa: E402
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness", "specs", "core")
 RESULTS = os.path.join(HERE, "results_core.json")
+RESULTS_JUDGE = os.path.join(HERE, "results_judge.json")
 VA = "0x143F546F0"
 G_CELL = 0x1436F3DC8
 G_FLAG_PTR = 0x400  # the commit tests *(G+0x400) and the byte it names (0x141F9C3B0 returns *rcx)
@@ -98,19 +99,26 @@ def main():
     for case in cases(st):  # a poked case holds a sparse copy of the state's memory: delete it
         shutil.rmtree(os.path.join(a.work, "case_%s_%s" % (VA[2:], case["name"])), ignore_errors=True)
     if a.merge:
+        reals = [os.path.join(os.path.basename(os.path.dirname(c.rstrip("/"))), os.path.basename(c.rstrip("/"))) for c in a.real]
+        note = ("%d REAL calls and %d SYNTHETIC call states, every replayed call bit-exact (%d of %d). The real calls are live "
+                "captures (%s). The synthetic states (synth_commit.py over the memory of one real commit) CHOOSE the pending "
+                "record's kind, level and fouler words and the pointer G+0x400 and its byte: they are not observed, and they "
+                "are what reaches the kind 1, 3 and 4 arms, level 4, the fouler side arms and the G+0x400 arm "
+                "(docs/ports/pes-port-CardWhistle.md). Own-block coverage is the union of both."
+                % (len(a.real), synthetic, raw["replayed"], raw["calls"], ", ".join(reals)))
+        judge = json.load(open(RESULTS_JUDGE))
+        judge["results"] = [r for r in judge["results"] if r["va"].upper() != VA.upper()] + [dict(raw, note=note)]
+        judge["results"].sort(key=lambda r: int(r["va"], 16))
+        json.dump(judge, open(RESULTS_JUDGE, "w"), indent=1)
+        open(RESULTS_JUDGE, "a").write("\n")
         doc = json.load(open(RESULTS))
         rec = next(r for r in doc["results"] if r["va"].upper() == VA.upper())
-        real = len(a.real) + 1
-        rec["cases"] = raw["replayed"]
+        rec["cases"] = len(a.real)
         rec["synthetic_cases"] = synthetic
         rec["coverage"] = {VA: raw["own_block"]}
         rec["snapdiff"] = {"calls": raw["calls"], "mismatches": len(raw["mismatches"]), "own_block": raw["own_block"],
                            "replayed": raw["replayed"], "source": "tools/dev/translate/results_judge.json"}
-        rec["note"] = ("proof snapdiff --bounded: every replayed call bit-exact, %d of %d: %d REAL calls (live captures) and %d "
-                       "SYNTHETIC call states (synth_commit.py over the memory of one real commit: the pending record's kind, "
-                       "level and fouler words and G+0x400 and its byte are CHOSEN, not observed; docs/ports/pes-port-CardWhistle.md). "
-                       "Real calls: %s. The commit's bounded closure is 12 functions, all translated." % (
-                           raw["replayed"], raw["calls"], real, synthetic, rec["note"].split("Real calls: ")[-1] if "Real calls: " in rec["note"] else "see pes-port-CardProof.md"))
+        rec["note"] = "proof snapdiff --bounded: " + note + " The commit's bounded closure is 12 functions, all translated."
         json.dump(doc, open(RESULTS, "w"), indent=1)
         open(RESULTS, "a").write("\n")
 
