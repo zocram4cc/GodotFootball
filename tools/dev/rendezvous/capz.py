@@ -4,10 +4,11 @@
 A full rendezvous capture's mem.bin is ~3.8 GB and compresses ~3.7x with zstd -3. Captures that must stay FULL (cited,
 or slim refused) but that nothing reads right now are packed to mem.bin.zst; any tool that reads mem.bin (snapdiff,
 slim, the oracle dirs that link to it) needs it unpacked first, which takes a few seconds. Slim captures (a sparse
-mem.bin of a few tens of MB on disk) are left alone; unpack writes sparse output, so a packed slim one comes back slim.
+mem.bin of a few tens of MB on disk) are never packed. Unpack writes every page (no sparse holes): a full capture's
+only holes must be its index holes (full_snapshot.SnapMem reads any other hole as a page a slim capture dropped).
 
   capz.py pack   DIR...   mem.bin -> mem.bin.zst; the frame checksum is tested before mem.bin is removed
-  capz.py unpack DIR...   mem.bin.zst -> mem.bin (sparse)
+  capz.py unpack DIR...   mem.bin.zst -> mem.bin (every page allocated)
   capz.py status DIR...   print packed / full / slim per capture dir
 
 DIR may be a capture dir (seqN) or a launch dir (pidN: every seqN under it).
@@ -49,7 +50,7 @@ def unpack(d):
     if not os.path.exists(zst):
         return "skip"
     tmp = raw + ".part"
-    subprocess.run(["zstd", "-q", "-f", "-d", "--sparse", zst, "-o", tmp], check=True)
+    subprocess.run(["zstd", "-q", "-f", "-d", "--no-sparse", zst, "-o", tmp], check=True)
     os.replace(tmp, raw)
     os.remove(zst)
     return "unpacked"
