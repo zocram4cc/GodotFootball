@@ -184,4 +184,136 @@ TEST_F(PesPressWorld, NobodyIsMadeThePresserWhileTheBallIsNotInPlay) {
   EXPECT_EQ(s.world.PressSecond(kSide), kNobody);
 }
 
+// The dispatcher's order-word loop (FUN_140535C60 0x140536011-0x140536059) and the slot reset (FUN_140536690): a slot whose order
+// word T+0xB748 is 0x26 starts a press through FUN_14062AF10: DELAY when another man of the side, in the side's ball-distance list
+// (MA+0x2470C), is in action 5 and the opponents have no designated man (0x14062B...: the helper's list scan), PRESS otherwise.
+constexpr std::size_t kMaPairListOffset = 0x2470C;  // MA: {u32 man id, f32 d^2} per rank
+constexpr uint32_t kDelay = 0x33;
+constexpr uint32_t kOrderPress = 0x26;
+constexpr uint32_t kOrderIdle = 0x30;               // the order word of a man no concept holds (every capture)
+constexpr uint32_t kActionPressed = 5;              // P+0x5D0 of the list scan's "already pressing" test
+constexpr int kOtherMan = 7;
+constexpr int kOpponentSide = 1 - kSide;
+constexpr std::size_t kTeamResetTargetOffset = 0x214;  // T+0x214: FUN_140536690 stores 0xFF at entry
+
+struct OrderScene : Staged {
+  explicit OrderScene(int side = kSide) : orderSide(side) {
+    facts.holder = static_cast<uint32_t>(side * kSlotsPerSide + kHolderSlot);  // a man of the side: the helper's holder block is skipped
+    world.StagePress(side, facts);
+    for (int k = 0; k < kSlotsPerSide; ++k) SetOrder(side, k, kOrderIdle);
+    StoreU32(world.SideRecord(1 - side), kTeamDesignatedOffset, kNobody);  // the opponents have no designated man (T+0x78 > 0x15)
+  }
+  void SetOrder(int side, int k, uint32_t word) {
+    StoreU32(world.SideRecord(side), kTeamOrderWordOffset + sizeof(uint32_t) * k, word);
+  }
+  // Another man of the side, first in the ball-distance list, in action 5: the helper finds a presser with the geometry.
+  void AnotherPresserListed() {
+    StoreU32(world.Ma(orderSide) + kMaPairListOffset, 0, orderSide * kSlotsPerSide + kOtherMan);
+    StoreU32(world.ManRecord(orderSide * kSlotsPerSide + kOtherMan), kManActionOffset, kActionPressed);
+  }
+  void Enrol(int side, uint32_t id) { StoreU32(world.SideRecord(side), kTeamPressSlotsOffset, id); }
+  uint32_t Word(int k) { return world.PressAction(orderSide, k); }
+  int orderSide;
+};
+
+TEST_F(PesPressWorld, AnOrderWord26SlotStartsAPressWhenNobodyElseHasTheGeometry) {
+  OrderScene s;
+  s.SetOrder(kSide, kNearMan, kOrderPress);
+  s.world.RunPressOrders(kSide);
+  EXPECT_EQ(s.Word(kNearMan), kPress);
+}
+
+TEST_F(PesPressWorld, AnOrderWord26SlotIsDelayedWhenAnotherListedManIsAlreadyPressing) {
+  OrderScene s;
+  s.SetOrder(kSide, kNearMan, kOrderPress);
+  s.AnotherPresserListed();
+  s.world.RunPressOrders(kSide);
+  EXPECT_EQ(s.Word(kNearMan), kDelay);
+}
+
+TEST_F(PesPressWorld, AnEnrolledManIsPressedEvenWhenAnotherListedManIsPressing) {
+  OrderScene s;
+  s.SetOrder(kSide, kNearMan, kOrderPress);
+  s.AnotherPresserListed();
+  s.Enrol(kSide, kNearId);  // FUN_140A41190 finds him in T+0xA548: the helper answers 0
+  s.world.RunPressOrders(kSide);
+  EXPECT_EQ(s.Word(kNearMan), kPress);
+}
+
+TEST_F(PesPressWorld, ASlotWithoutOrderWord26IsLeftAlone) {
+  OrderScene s;
+  s.SetOrder(kSide, kNearMan, kOrderIdle);
+  s.world.RunPressOrders(kSide);
+  EXPECT_EQ(s.Word(kNearMan), 0u);
+}
+
+TEST_F(PesPressWorld, ASlotAlreadyDelayedKeepsItsWordWhateverTheHelperWouldSay) {
+  OrderScene s;
+  s.SetOrder(kSide, kNearMan, kOrderPress);
+  StoreU32(s.world.SideRecord(kSide), kTeamActionOffset + sizeof(uint32_t) * kNearMan, kDelay);
+  s.world.RunPressOrders(kSide);  // the helper would say PRESS (nobody else listed): the loop skips a DELAY slot
+  EXPECT_EQ(s.Word(kNearMan), kDelay);
+}
+
+TEST_F(PesPressWorld, ASlotAlreadyPressedKeepsItsWordWhateverTheHelperWouldSay) {
+  OrderScene s;
+  s.SetOrder(kSide, kNearMan, kOrderPress);
+  s.AnotherPresserListed();
+  StoreU32(s.world.SideRecord(kSide), kTeamActionOffset + sizeof(uint32_t) * kNearMan, kPress);
+  s.world.RunPressOrders(kSide);  // the helper would say DELAY: the loop skips a PRESS slot
+  EXPECT_EQ(s.Word(kNearMan), kPress);
+}
+
+// The helper takes the man's global index (side * 11 + slot): the opponents' side keys its own tables.
+TEST_F(PesPressWorld, TheSecondSidesOrderWordIsHandedToTheHelperAsItsGlobalIndex) {
+  OrderScene s(kOpponentSide);
+  s.SetOrder(kOpponentSide, kNearMan, kOrderPress);
+  s.AnotherPresserListed();
+  s.Enrol(kOpponentSide, kOpponentSide * kSlotsPerSide + kNearMan);  // enrolled under his global index only
+  s.world.RunPressOrders(kOpponentSide);
+  EXPECT_EQ(s.Word(kNearMan), kPress);
+}
+
+// FUN_140536690's first loop: a PRESS or DELAY slot that is neither the second presser PP[2] nor enrolled goes back to 0.
+TEST_F(PesPressWorld, APressSlotNobodyKeptIsResetBeforeTheWriter) {
+  Staged s;
+  s.MarkPress(kNearMan);
+  s.world.StagePress(kSide, s.facts);
+  s.world.ResetPress(kSide);
+  EXPECT_EQ(s.world.PressAction(kSide, kNearMan), 0u);
+}
+
+TEST_F(PesPressWorld, ADelaySlotNobodyKeptIsResetToo) {
+  Staged s;
+  StoreU32(s.world.SideRecord(kSide), kTeamActionOffset + sizeof(uint32_t) * kNearMan, kDelay);
+  s.world.StagePress(kSide, s.facts);
+  s.world.ResetPress(kSide);
+  EXPECT_EQ(s.world.PressAction(kSide, kNearMan), 0u);
+}
+
+TEST_F(PesPressWorld, AnEnrolledPressSlotSurvivesTheReset) {
+  Staged s;
+  s.MarkPress(kNearMan);
+  s.world.StagePress(kSide, s.facts);
+  StoreU32(s.world.SideRecord(kSide), kTeamPressSlotsOffset, kNearId);
+  s.world.ResetPress(kSide);
+  EXPECT_EQ(s.world.PressAction(kSide, kNearMan), kPress);
+}
+
+TEST_F(PesPressWorld, TheCoordinatorsSecondPresserSurvivesTheReset) {
+  HolderScene s;
+  s.RunCoordinator();  // PP[2] = the near man, PRESS
+  ASSERT_EQ(s.world.PressSecond(kSide), kNearId);
+  s.world.ResetPress(kSide);  // not enrolled in T+0xA548, but PP[2]: PES keeps him (the dispatcher's param_1 + 0x5C)
+  EXPECT_EQ(s.world.PressAction(kSide, kNearMan), kPress);
+}
+
+TEST_F(PesPressWorld, TheResetClearsTheDispatchersLastTargetWord) {
+  Staged s;
+  StoreU32(s.world.SideRecord(kSide), kTeamResetTargetOffset, 7);
+  s.world.StagePress(kSide, s.facts);
+  s.world.ResetPress(kSide);
+  EXPECT_EQ(LoadU32(s.world.SideRecord(kSide), kTeamResetTargetOffset), kNobody);  // T+0x214 = 0xFF (0x140536690 entry)
+}
+
 }  // namespace

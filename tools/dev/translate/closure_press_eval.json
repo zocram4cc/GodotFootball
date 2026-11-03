@@ -1,5 +1,5 @@
 {
- "note": "the functions built for the proof of the press target eval FUN_140633940 (second presser pick), live2/pid296049 seq028, seq4684, seq11437: every function the replays entered (snapdiff --bounded) plus the root's static direct-call closure (27 members the replays did not enter: translated, not replay-proven, so a branch that reaches one is covered by the translation only). pes-port-PressAI.md.",
+ "note": "the functions built for the proof of the press target eval FUN_140633940 (second presser pick) over 28 real captures (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 30) plus the root's static direct-call closure (26 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
  "root": "0x140633940",
  "members": [
   "0x140439E50",

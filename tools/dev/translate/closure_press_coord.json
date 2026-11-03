@@ -1,5 +1,5 @@
 {
- "note": "the functions built for the proof of the press coordinator FUN_140634470 (PRESS/SAND second presser), live2/pid296049 seq008, seq4263, seq4753: every function the replays entered (snapdiff --bounded) plus the root's static direct-call closure (41 members the replays did not enter: translated, not replay-proven, so a branch that reaches one is covered by the translation only). pes-port-PressAI.md.",
+ "note": "the functions built for the proof of the press coordinator FUN_140634470 (PRESS/SAND second presser) over 80 real captures (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 73) plus the root's static direct-call closure (11 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
  "root": "0x140634470",
  "members": [
   "0x140439E50",

@@ -2485,6 +2485,7 @@ void TeamAIController::PesPressTick() {
   world.RunPressCoordinator(side);
   world.ResetPress(side);
   world.RunPressWriter(side);
+  world.RunPressOrders(side);
   world.SetMaOwner(side, owner);
   for (int k = 0; k < pes::kSlotsPerSide; ++k)
     pes::StoreU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k, unitWords[k]);

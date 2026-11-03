@@ -551,21 +551,31 @@ void PesWorld::RunPressWriter(int side) {
 }
 
 void PesWorld::ResetPress(int side) {
-  uint8_t* t = SideRecord(side);
-  const uint32_t second = image_->press.pp[side][2];
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = PressPpVa(side) - kDispatcherPpOffset;  // rcx: the dispatcher's param_1 (PP[2] is read at param_1 + 0x5C)
+  s.gpr[2] = PressArgVa(side);                        // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);                            // r8: T
+  ::pes_fn_140536690(s);
+}
+
+void PesWorld::RunPressOrders(int side) {
   for (int k = 0; k < kSlotsPerSide; ++k) {
-    const uint32_t word = LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k);
-    const uint32_t id = static_cast<uint32_t>(side * kSlotsPerSide + k);
-    if (word != kTeamActionPress && word != kTeamActionDelay) continue;
-    if (id == second) continue;
-    bool enrolled = false;  // FUN_140A41190: the man is in T+0xA548[0..3]
-    for (int j = 0; j < 4; ++j) enrolled = enrolled || LoadU32(t, kTeamPressSlotsOffset + sizeof(uint32_t) * j) == id;
-    if (enrolled) continue;
-    PesState s = NewCall(Bytes());
-    s.gpr[1] = SideVa(side);                 // rcx: T
-    s.gpr[2] = static_cast<uint32_t>(k);     // edx: the slot
-    s.gpr[8] = 0;                            // r8d: the new word (NOTHING)
-    ::pes_fn_140A42940(s);
+    const uint8_t* t = SideRecord(side);
+    const uint32_t action = LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k);
+    if (LoadU32(t, kTeamOrderWordOffset + sizeof(uint32_t) * k) != kTeamOrderPress) continue;
+    if (action == kTeamActionPress || action == kTeamActionDelay) continue;  // 0x140536011: `*word - 0x33 < 2` skips the slot
+    image_->press.orderIndex = static_cast<uint32_t>(side * kSlotsPerSide + k);
+    PesState check = NewCall(Bytes());
+    for (const PesTrapSegment& seg : imageTables_.segments) check.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    check.gpr[1] = CtxVa(side);               // rcx: the ctx (the argument struct's first word)
+    check.gpr[2] = PressOrderIndexVa();       // rdx: &index
+    ::pes_fn_14062AF10(check);
+    PesState set = NewCall(Bytes());
+    set.gpr[1] = SideVa(side);                // rcx: T
+    set.gpr[2] = static_cast<uint32_t>(k);    // edx: the slot
+    set.gpr[8] = (check.gpr[0] & 0xFF) != 0 ? kTeamActionDelay : kTeamActionPress;  // r8d: DELAY when another presser has the geometry
+    ::pes_fn_140A42940(set);
   }
 }
 

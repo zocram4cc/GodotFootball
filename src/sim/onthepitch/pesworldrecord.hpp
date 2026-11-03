@@ -317,6 +317,8 @@ inline constexpr uint32_t kTeamActionDelay = 0x33;
 inline constexpr std::size_t kTeamPressSlotsOffset = 0xA548;   // u32[4]: the men the writer enrolled (0xFF none); +0xA558 the held man
 inline constexpr std::size_t kTeamPressTimerOffset = 0xA53C;   // u8: the press timer (0 in every capture)
 inline constexpr std::size_t kTeamOrderWordOffset = 0xB748;    // u32[11]: the order word (0x24 bars the eval's candidate)
+inline constexpr uint32_t kTeamOrderPress = 0x26;              // the order word the dispatcher's loop turns into PRESS or DELAY (concept 0x26)
+inline constexpr uint64_t kDispatcherPpOffset = 0x54;          // the coordinator's PP is the dispatcher's param_1 + 0x54 (FUN_140535C60: FUN_140634470(param_1 + 0x54, ...))
 inline constexpr std::size_t kTeamTargetWordOffset = 0xB88C;   // u16[11]: the reason word the coordinator and eval write
 inline constexpr std::size_t kTeamAttackLevelOffset = 0xB8A4;  // i32: the attack level (>= 3 widens the press)
 inline constexpr uint32_t kTeamNoMan = 0xFF;
@@ -628,6 +630,8 @@ struct alignas(8) PesPressImage {
   std::array<std::array<uint32_t, kPressPpBytes / sizeof(uint32_t)>, kSideCount> pp{};
   std::array<std::array<uint64_t, kPressArgBytes / sizeof(uint64_t)>, kSideCount> arg{};
   std::array<uint8_t, kWorldListEntries * kWorldListStride> list{};
+  // The man index the dispatcher's order-word loop hands FUN_14062AF10 by pointer (FUN_140535C60's local_res10).
+  uint32_t orderIndex = 0;
 };
 inline constexpr std::size_t kPressOffset = (kSanctionOffset + sizeof(PesSanctionImage) + 7) & ~std::size_t{7};
 
@@ -939,11 +943,15 @@ class PesWorld {
   void StagePress(int side, const PressFacts& facts);
   void RunPressCoordinator(int side);
   void RunPressWriter(int side);
-  // FUN_140536690's slot reset (its first loop): a slot holding PRESS or DELAY that is not the coordinator's second presser
-  // PP[2] and is not enrolled in T+0xA548[0..3] goes back to 0 through the setter 0x140A42940. Run between the coordinator and
-  // the writer, as FUN_140535C60 does. ponytail: the function's tail (the +0xF0 / +0x140 arm, the match-up restore) is not
-  // ported: GF has no MATCH_UP writer. Removal: translate FUN_140536690 and run it instead.
+  // FUN_140536690, the dispatcher's slot reset (translated; run between the coordinator and the writer, as FUN_140535C60 does):
+  // a slot holding PRESS or DELAY that is not the coordinator's second presser PP[2] and not enrolled in T+0xA548[0..3] goes
+  // back to 0; its set-piece tail (T+0xF0 / T+0x140) starts a press through FUN_14062AF10 when T+0xF1 is 0.
   void ResetPress(int side);
+  // The dispatcher's order-word loop (FUN_140535C60 0x140536011-0x140536059), after the writer: a slot whose order word
+  // T+0xB748+4k is 0x26 and whose action word is neither DELAY nor PRESS gets DELAY when FUN_14062AF10 finds another presser
+  // with the ball on his side, else PRESS, through the setter 0x140A42940. Nothing in GF writes the order words (the concept
+  // that does, 0x26 at +0x7B8, is unported: docs/re/pes-re-concept-index.md), so the loop is inert until a test or the concept does.
+  void RunPressOrders(int side);
   // The slot's action word T+0xA2A0[slot] (0x34 PRESS, 0x33 DELAY, 0 none) and PP[2], the coordinator's second presser.
   uint32_t PressAction(int side, int slot) { return LoadU32(SideRecord(side), kTeamActionOffset + sizeof(uint32_t) * slot); }
   uint32_t PressSecond(int side) const { return image_->press.pp[side][2]; }
@@ -952,6 +960,9 @@ class PesWorld {
   }
   static constexpr uint64_t PressArgVa(int side) {
     return kWorldWindowVa + kPressOffset + offsetof(PesPressImage, arg) + static_cast<uint64_t>(side) * kPressArgBytes;
+  }
+  static constexpr uint64_t PressOrderIndexVa() {
+    return kWorldWindowVa + kPressOffset + offsetof(PesPressImage, orderIndex);
   }
 
   static constexpr uint64_t AnimeVa(int slot) { return BlockVa(slot); }
