@@ -1,0 +1,2 @@
+0x140579840	stand-in	AI	seed
+0x1404F6C30	stand-in	AI	seed

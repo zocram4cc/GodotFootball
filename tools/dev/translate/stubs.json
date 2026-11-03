@@ -3518,6 +3518,22 @@
    }
   },
   {
+   "va": "14159FB70",
+   "callers": [
+    "140500B90"
+   ],
+   "used_by_closure": true,
+   "kind": "engine-noop",
+   "why": [
+    "stack probe (__chkstk): bytes at 0x14159FB70: r10 = rsp+0x18-rax (0 on borrow), page-touch loop `mov byte [r11],0` below the TEB stack limit, r10/r11 restored, `bnd ret`; rax, the stack pointer and every other register are unchanged",
+    "the probe writes only below the caller's stack pointer (dead stack) and clobbers only the flags; of its 171 direct call sites 160 are followed by `sub rsp, rax` (which resets the flags), 9 by `sub rsp, <reg or imm>`, 2 by a nop"
+   ],
+   "model": {
+    "op": "__chkstk",
+    "effect": "none on the success path (touches dead stack pages, flags only)"
+   }
+  },
+  {
    "va": "1415A1780",
    "callers": [
     "140A57650",

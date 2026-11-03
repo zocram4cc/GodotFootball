@@ -1293616,6 +1293616,13 @@
  "meta": {
   "bridge": "http://127.0.0.1:8080",
   "closures": {
+   "aiconcepts": {
+    "members": 2,
+    "roots": [
+     "0x140579840",
+     "0x1404F6C30"
+    ]
+   },
    "cardlevel": {
     "members": 93,
     "roots": [
