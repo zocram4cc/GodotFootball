@@ -14,6 +14,7 @@
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "movestep_team_synthetic.hpp"
+#include "clip_ticks_fake.hpp"
 #include "pes/movestep_turn.hpp"
 
 namespace {
@@ -256,6 +257,9 @@ class FakeHost : public MoveHost {
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return animeState; }
+  int ClipTicks(pes::ClipReader reader, int, float rate, int index) const override {
+    return pes::FakeClipTicks(record, reader, rate, index, TicksPerSecond());
+  }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }

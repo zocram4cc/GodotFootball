@@ -91,6 +91,10 @@ struct MotionRecord {
   bool PivotFlag(int i) const;                                         // FUN_1406b1930(.., i)
 };
 
+// The four clip-record readers PES's movestep calls for a motion's record value in ticks (docs/re/pes-re-portmap-motion.md M2):
+// 0x1406AF620 blend, 0x1406AF8E0 cancel, 0x1406B1F00 RotData start, 0x1406B1D00 RotData end.
+enum class ClipReader { kBlend, kCancel, kRotStart, kRotEnd };
+
 // PES's per-kind list caps (DAT_1425dc370, one dword per kind), read from the exe by VA.
 struct MotionCaps {
   uint32_t animation = 0, subHit = 0, cancel = 0, rot = 0, foot = 0, pivot = 0;

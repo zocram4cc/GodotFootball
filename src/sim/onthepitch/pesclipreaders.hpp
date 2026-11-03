@@ -19,8 +19,6 @@
 
 namespace pes {
 
-enum class ClipReader { kBlend, kCancel, kRotStart, kRotEnd };
-
 // The table's geometry (FUN_1406B20E0: 0x1125 motions of 0x390 bytes; a motion at or past 0x1125 reads the default entry).
 inline constexpr uint32_t kClipTableSlots = 0x1125;
 inline constexpr uint64_t kClipTableEntryBytes = 0x390;

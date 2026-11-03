@@ -228,16 +228,14 @@ struct ClipHits {
 ClipHits ReadClipHits(const MoveHost& host, int motion, const RunConstants& k, bool mirror) {
   const pes::MotionRecord& rec = host.Motion(motion);
   const RotRecord rot = rec.Rot(0);
-  const auto ticks = [&](int v) {
-    return pes::movestep::RecordTicks(host, static_cast<float>(v), k.one, k.kmh60, k.half, k.one);
-  };
   ClipHits h;
-  h.total = ticks(rot.start);
-  h.end = ticks(rot.end);
+  h.total = host.ClipTicks(pes::ClipReader::kRotStart, motion, k.one, 0);
+  h.end = host.ClipTicks(pes::ClipReader::kRotEnd, motion, k.one, 0);
   h.signedLen = static_cast<float>(rot.offset) * (mirror ? k.neg : k.one);
   h.cancelCount = rec.CancelCount();
-  const int blend = ticks(rec.BlendStart());
-  for (int i = 0; i < 3; ++i) h.hit[i] = i < h.cancelCount ? ticks(rec.CancelFrames(i)) : blend;
+  const int blend = host.ClipTicks(pes::ClipReader::kBlend, motion, k.one, 0);
+  for (int i = 0; i < 3; ++i)
+    h.hit[i] = i < h.cancelCount ? host.ClipTicks(pes::ClipReader::kCancel, motion, k.one, i) : blend;
   h.blend = blend;
   return h;
 }

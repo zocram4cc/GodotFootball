@@ -12,6 +12,7 @@
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "movestep_team_synthetic.hpp"
+#include "clip_ticks_fake.hpp"
 #include "pes/movestep_turn.hpp"
 #include "pes/locomotion.hpp"
 #include "pes/uniform.hpp"
@@ -363,6 +364,9 @@ class RateHost : public pes::MoveHost {
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return animeState; }
 
+  int ClipTicks(pes::ClipReader reader, int, float rate, int index) const override {
+    return pes::FakeClipTicks(record, reader, rate, index, TicksPerSecond());
+  }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
@@ -649,6 +653,24 @@ TEST(IdleTurn, WritesTheTurnLockInsideTheReorientWindow) {
   pes::movestep::IdleTurn(host, req);
   EXPECT_EQ(req.U(0x3c) & 0xffu, 1u);
   EXPECT_EQ(req.U(0x3e), 3u);
+}
+
+// IDLE_TURN's turn-lock test (0x1406BFF72..0x1406BFFA1): FUN_14043a0a0(req[2], req[0x18]), the facing against the stamp, over the
+// tick count. The port took the clip-tick sum start + 2 end as the angle.
+TEST(IdleTurn, TheTurnPerTickIsTheFacingAgainstTheStampNotTheClipTickSum) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  host.currentMotion = 0x100;
+  host.record.rot = {pes::RotRecord{/*offset*/ 0, /*start*/ 99, /*end*/ 100}};
+  const int start = host.ClipTicks(pes::ClipReader::kRotStart, 0x100, 1.0f, 0);
+  const int end = host.ClipTicks(pes::ClipReader::kRotEnd, 0x100, 1.0f, 0);
+  ASSERT_EQ((start + end * 2) % 360, 178) << "the sum folds to 178 degrees: over 45 a tick when it is read as the angle";
+  host.currentClipFrames = start;
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kRecordStampB, 0.0f);  // no turn left from the stamp
+  pes::movestep::IdleTurn(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kTurnLockFlag) & 0xffu, 1u);
+  EXPECT_EQ(int(req.U(pes::moveword::kTurnLockTicks)), end - start);
 }
 
 TEST(IdleOther, IssuesTheIdleClipAndTheRootFacingTailForCommand121) {

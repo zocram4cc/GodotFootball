@@ -389,6 +389,10 @@ class MoveHostAdapter final : public pes::MoveHost {
         return 0;
     }
   }
+  // PES's clip-record readers, run as the translated code on the match's motion table.
+  int ClipTicks(pes::ClipReader reader, int motion, float rate, int index) const override {
+    return match_.GetPesClipReaders().Read(reader, motion, rate, index, TicksPerSecond());
+  }
   // The motion table the match loaded from the install (Mbinfo's lists, see pes/mbinfo.hpp).
   const pes::MotionRecord& Motion(int motionNo) const override {
     return match_.GetPesMbinfo().Motion(motionNo);

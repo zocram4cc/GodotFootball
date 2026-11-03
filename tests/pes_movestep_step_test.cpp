@@ -8,10 +8,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "movestep_team_synthetic.hpp"
+#include "clip_ticks_fake.hpp"
 #include "pes/movestep_step.hpp"
 #include "pes/movestep_turn.hpp"
 
@@ -213,7 +216,7 @@ class FakeHost : public MoveHost {
   int RecentStamp(int index) const override { return recentStamp[index]; }
   float MotionStartTime(int motionNo) const override { return 0.0f; }
 
-  float RecordF2468() const override { return 1.0f; }
+  float RecordF2468() const override { return recordF2468; }
   int MoveStatePrevious() const override { return previous; }
   float RecordF0bec() const override { return 0.0f; }
   void SetRecordF0bec(float value) override {}
@@ -230,8 +233,8 @@ class FakeHost : public MoveHost {
     out[1] = position[1];
     out[2] = position[2];
   }
-  int MatchPhase() const override { return 1; }
-  bool IsReplay() const override { return false; }
+  int MatchPhase() const override { return phase; }
+  bool IsReplay() const override { return replay; }
   void Issue(const pes::MotionRequest& request) override { issued = request; }
 
   const pes::StepScalars& StepConstants() const override { return scalars; }
@@ -250,11 +253,11 @@ class FakeHost : public MoveHost {
 
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
-  int AnimeState() const override { return 0; }
-  const pes::MotionRecord& Motion(int) const override {
-    static const pes::MotionRecord kNoRecord;  // group C reads no motion record
-    return kNoRecord;
+  int AnimeState() const override { return animeState; }
+  int ClipTicks(pes::ClipReader reader, int, float rate, int index) const override {
+    return pes::FakeClipTicks(record, reader, rate, index, TicksPerSecond());
   }
+  const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   // The step tests do not reach RUN_LOOP's tail, so the sine view is never read here.
@@ -301,6 +304,11 @@ class FakeHost : public MoveHost {
 
   int currentMotion = 0;
   int currentClipFrames = 0;
+  float recordF2468 = 1.0f;     // P+0x2468
+  pes::MotionRecord record;     // the live motion's table entry (the toe-off window reads it)
+  int phase = 1;        // MI+0x116c
+  bool replay = false;  // the anime action is the 0x4a replay
+  int animeState = 0;   // vt+0x28 of the +0xab8 interface
   int cellCalls = 0, lastRow = -1, lastColumn = -1;
   bool lastWalk = false;
   int cellMotion = -1;
@@ -1437,6 +1445,189 @@ TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
   req.SetF(pes::moveword::kDwellElapsed, 0.10f);   // and the first dwell has not run out
   TurnStop(host, req);
   EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+}
+
+// TURN_STOP part 1 (0x1406CABB2..0x1406CACBB): the toe-off window. elapsed = the +0xab8 interface's vt+0x38 (CurrentClipFrames);
+// start / end = FUN_1406b1f00 / FUN_1406b1d00 of the live motion (vt+0x18) at rate 1.0. With the adjuster flag (P+0x4d0) clear
+// and start <= elapsed < (start + 2 end) / 3, ticks = int((end - elapsed) / divisor + 0.5) and, when |turn from the stamp|
+// (FUN_14043a0a0(req[2], req[0x18])) per tick is under 45 degrees, the lock words are written: req[0x3d] = stamp, byte
+// req[0x3c] = 1, req[0x3e] = ticks, byte req[0x3f] = 0. The divisor is P+0x2468, or 1.0 when that is under 0.85
+// (0x1406CABC1 COMISS [0x1425AB120]; 0x1406CABD2 takes DAT_14256AE1C).
+class TurnStopToeOff : public ::testing::Test {
+ protected:
+  static constexpr int kMotion = 0x600;
+  void SetUp() override {
+    host.record.rot.push_back(pes::RotRecord{0, 10, 100});
+    host.currentMotion = kMotion;
+    host.currentClipFrames = 40;
+    req.SetU(pes::moveword::kKind, 2);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kClassWord, 2);
+    req.SetF(pes::moveword::kRate, 1.0f);
+    req.SetF(pes::moveword::kFacing, 20.0f);
+    req.SetF(pes::moveword::kHeading, 20.0f);
+    req.SetF(pes::moveword::kLookHeading, 20.0f);
+    req.SetF(pes::moveword::kBodyDirection, 20.0f);
+    req.SetF(pes::moveword::kRecordStampB, 5.0f);  // 15 degrees from the facing
+    req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed2, 0.10f);  // not out: the handler keeps the tick after part 1
+    req.SetByte(pes::moveword::kTurnLockDir, 1);     // a write of 0 is visible
+  }
+  int Start() const { return host.ClipTicks(pes::ClipReader::kRotStart, kMotion, 1.0f, 0); }
+  int End() const { return host.ClipTicks(pes::ClipReader::kRotEnd, kMotion, 1.0f, 0); }
+  bool Locked() const { return req.Flag(pes::moveword::kTurnLockFlag); }
+  FakeHost host;
+  MoveReq req;
+};
+
+TEST_F(TurnStopToeOff, WritesTheTurnLockWordsFromTheRecordsWindow) {
+  TurnStop(host, req);
+  ASSERT_TRUE(Locked());
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kTurnLockStamp), 5.0f);
+  EXPECT_EQ(int(req.U(pes::moveword::kTurnLockTicks)), int(float(End() - 40) / 1.0f + 0.5f));
+  EXPECT_FALSE(req.Flag(pes::moveword::kTurnLockDir));
+}
+
+TEST_F(TurnStopToeOff, TheWindowIsStartInclusiveAndAThirdOfTheWayToTheEndExclusive) {
+  const int lo = Start(), hi = (Start() + End() * 2) / 3;
+  ASSERT_LT(lo, hi);
+  const std::vector<std::pair<int, bool>> cases = {{lo - 1, false}, {lo, true}, {hi - 1, true}, {hi, false}};
+  for (const auto& [elapsed, written] : cases) {
+    SetUp();
+    host.currentClipFrames = elapsed;
+    TurnStop(host, req);
+    EXPECT_EQ(Locked(), written) << "elapsed " << elapsed << " in [" << lo << ", " << hi << ")";
+  }
+}
+
+TEST_F(TurnStopToeOff, ATurnOf45DegreesATickOrMoreIsNotLocked) {
+  host.recordF2468 = 100.0f;  // one tick left to turn
+  req.SetF(pes::moveword::kFacing, 65.0f);  // 60 degrees from the stamp
+  req.SetF(pes::moveword::kHeading, 65.0f);
+  TurnStop(host, req);
+  EXPECT_FALSE(Locked());
+  SetUp();
+  host.recordF2468 = 100.0f;
+  req.SetF(pes::moveword::kFacing, 45.0f);  // 40 degrees
+  req.SetF(pes::moveword::kHeading, 45.0f);
+  TurnStop(host, req);
+  EXPECT_TRUE(Locked());
+  EXPECT_EQ(int(req.U(pes::moveword::kTurnLockTicks)), 1);
+}
+
+// The divisor: P+0x2468 under 0.85 is 1.0 (a record rate of 0.5 must not divide by 0.85), 0.85 and above is itself.
+TEST_F(TurnStopToeOff, TheDivisorIsOneBelowThePointEightFiveFloorAndTheRecordRateAtOrAboveIt) {
+  for (const float rate : {0.5f, 0.849f, 0.85f, 1.0f, 2.0f}) {
+    SetUp();
+    host.recordF2468 = rate;
+    TurnStop(host, req);
+    const float divisor = rate < 0.85f ? 1.0f : rate;
+    ASSERT_TRUE(Locked()) << rate;
+    EXPECT_EQ(int(req.U(pes::moveword::kTurnLockTicks)), int(float(End() - 40) / divisor + 0.5f)) << "rate " << rate;
+  }
+}
+
+// The gate is the adjuster flag at P+0x4d0 (FUN_141eb3320), not the action id: the sim's MOVE action (2) must not close it.
+TEST_F(TurnStopToeOff, TheMoveActionDoesNotCloseTheWindow) {
+  host.animeState = 2;
+  TurnStop(host, req);
+  EXPECT_TRUE(Locked());
+}
+
+// TURN_STOP part 5 (0x1406CB4xx..0x1406CB5xx): blend = FUN_1406af620(motion, 1.0), cancel0 = FUN_1406af8e0(motion, 1.0, 0),
+// elapsed = vt+0x38. The stop is due when req[9] > 1, or req[0x1f] < 3 (0x1406CB576 CMP [R13+0x7C],3 / JL), or
+// (cancel0 + blend) / 2 <= elapsed. The replay dwell is blend / tps (FUN_141e532d0).
+class TurnStopStop : public ::testing::Test {
+ protected:
+  static constexpr int kMotion = 0x600;
+  void SetUp() override {
+    host.record.blend.push_back(60);
+    host.record.cancel.push_back(100);
+    host.currentMotion = kMotion;
+    host.cellMotion = 0x3c5;  // the IDLE cell's motion
+    host.issued.motion = -7;
+    req.SetU(pes::moveword::kKind, 2);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1);
+    req.SetU(pes::moveword::kClassWord, 3);
+    req.SetU(pes::moveword::kPrecise, 0);
+    req.SetF(pes::moveword::kRate, 0.3f);
+    req.SetF(pes::moveword::kFacing, 0.0f);
+    req.SetF(pes::moveword::kHeading, 0.0f);
+    req.SetF(pes::moveword::kDwellLimit, 0.5f);
+    req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+    host.displacement[0] = 0.0f;  // heading 0: inside the stop's 67.5-degree window
+    host.displacement[1] = 0.0f;
+    host.displacement[2] = 1.0f;
+    // The first dwell has run out and the stay decision holds: the stop issues the IDLE cell, any other exit re-plans.
+    stayDecision = true;
+    requested = MoveState::kInit;
+  }
+  void TearDown() override { stayDecision = false; }
+  int Blend() const { return host.ClipTicks(pes::ClipReader::kBlend, kMotion, 1.0f, 0); }
+  int Cancel0() const { return host.ClipTicks(pes::ClipReader::kCancel, kMotion, 1.0f, 0); }
+  bool Stopped() const { return host.issued.motion == 0x3c5; }
+  FakeHost host;
+  MoveReq req;
+};
+
+TEST_F(TurnStopStop, StopsOnceTheClipPassesTheMidpointOfTheCancelAndBlendTicks) {
+  const int mid = (Cancel0() + Blend()) / 2;
+  host.currentClipFrames = mid - 1;
+  TurnStop(host, req);
+  EXPECT_FALSE(Stopped());
+  EXPECT_EQ(requested, MoveState::kGotoRun);
+  SetUp();
+  host.currentClipFrames = mid;
+  TurnStop(host, req);
+  EXPECT_TRUE(Stopped());
+}
+
+TEST_F(TurnStopStop, AClassWordUnderThreeStopsAtOnce) {
+  host.currentClipFrames = 0;
+  req.SetU(pes::moveword::kClassWord, 2);
+  TurnStop(host, req);
+  EXPECT_TRUE(Stopped());
+}
+
+TEST_F(TurnStopStop, ACommandClassAboveOneStopsAtOnce) {
+  host.currentClipFrames = 0;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  TurnStop(host, req);
+  EXPECT_TRUE(Stopped());
+}
+
+TEST_F(TurnStopStop, TheReplayDwellIsTheBlendTicksOverTheTickRate) {
+  host.phase = 2;
+  host.replay = true;
+  req.SetF(pes::moveword::kDwellLimit, 0.0f);
+  const float dwell = float(Blend()) / host.TicksPerSecond();
+  req.SetF(pes::moveword::kDwellElapsed, dwell - 0.01f);
+  TurnStop(host, req);
+  EXPECT_EQ(requested, MoveState::kInit) << "the dwell has not run out: the handler keeps the tick";
+  SetUp();
+  host.phase = 2;
+  host.replay = true;
+  req.SetF(pes::moveword::kDwellLimit, 0.0f);
+  req.SetF(pes::moveword::kDwellElapsed, dwell + 0.01f);
+  TurnStop(host, req);
+  EXPECT_EQ(requested, MoveState::kGotoRun);
+}
+
+// The idle exit's own gate (0x1406CB5xx, PES decompile line 427): a clip still before its blend tick keeps the tick.
+TEST_F(TurnStopStop, TheIdleExitWaitsForTheBlendTick) {
+  stayDecision = false;
+  host.currentClipFrames = Blend() - 1;
+  req.SetU(pes::moveword::kClassWord, 2);  // the stop is due, but the stay decision refuses it
+  TurnStop(host, req);
+  EXPECT_EQ(requested, MoveState::kInit);
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+  SetUp();
+  stayDecision = false;
+  host.currentClipFrames = Blend();
+  req.SetU(pes::moveword::kClassWord, 2);
+  TurnStop(host, req);
+  EXPECT_EQ(requested, MoveState::kInit);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kIdle)) << "the blend tick reached: the IDLE entry";
 }
 
 }  // namespace

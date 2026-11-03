@@ -13,12 +13,6 @@
 namespace pes {
 namespace movestep {
 namespace {
-// A record value in ticks at rate 1.0 (FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00 and FUN_1406af8e0
-// are called with DAT_14256ae1c in these handlers).
-int MotionTicks(const MoveHost& host, int value, const RunConstants& k) {
-  return pes::movestep::RecordTicks(host, static_cast<float>(value), k.one, k.kmh60, k.half, k.one);
-}
-
 // The request words group A reads or writes that the shared contract does not name yet.
 constexpr int kWordBlend = 0x34;         // req[0x34]: the idle family's blend word (0.5)
 constexpr int kWordClass = 0x1f;         // req[0x1f]: the live class / rate band
@@ -26,10 +20,7 @@ constexpr int kWordSpeed = 0x1d;         // req[0x1d]: the live speed word, km/h
 constexpr int kWordBand = 0x22;          // req[0x22]: the band the request starts in
 constexpr int kWordPrevBand = 0x24;      // req[0x24]: the band the request runs at
 constexpr int kWordBucket = 0x20;        // req[0x20]: the 10-way angle bucket echo
-constexpr int kWordReorient = 0x3c;      // req[0x3c] byte: a reorient / turn lock is due
-constexpr int kWordTurnLockStamp = 0x3d;  // req[0x3d]: IDLE_TURN's lock stamp
-constexpr int kWordTurnLockTicks = 0x3e;  // req[0x3e]: the lock's tick count
-constexpr int kWordTurnLockDir = 0x3f;    // req[0x3f] byte: the lock's direction flag
+// The turn lock's words (moveword::kTurnLockFlag .. kTurnLockDir) are IDLE_TURN's and TURN_STOP's toe-off writes.
 
 // FUN_1406b8340's idle issue block, shared by the handlers. Each word is PES's store at the
 // block's tail; only the row, the duration and the second dwell differ per handler.
@@ -70,7 +61,7 @@ void EnterIdleOther(MoveHost& host, MoveReq& req) {
   const float playback = static_cast<float>(pick) * k.blend05 + host.StepConstants().rate0p9;
   req.SetF(moveword::kPlayback, playback);
   const int fixed =
-      MotionTicks(host, host.Motion(static_cast<int>(req.U(moveword::kMotion))).BlendStart(), k);
+      host.ClipTicks(pes::ClipReader::kBlend, static_cast<int>(req.U(moveword::kMotion)), k.one, 0);  // FUN_1406af620
   float limit = static_cast<float>(host.PickN(3)) / host.TicksPerSecond() + k.kmh5;
   const float frames = static_cast<float>(fixed) / host.TicksPerSecond();
   limit = (limit <= frames && 0.0f <= frames) ? limit : 0.0f;
@@ -80,7 +71,7 @@ void EnterIdleOther(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kDwellLimit2, 0.1667f);
   req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
   RequestState(req, MoveState::kIdleOther);
-  req.SetByte(kWordReorient, 0);
+  req.SetByte(moveword::kTurnLockFlag, 0);
 }
 
 // The root-facing tail IDLE and IDLE_OTHER run for command 0x79.
@@ -132,7 +123,7 @@ void EnterIdleTurn(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kDwellElapsed2, 0.0f);
   req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
   RequestState(req, MoveState::kIdleTurn);
-  req.SetByte(kWordReorient, 0);
+  req.SetByte(moveword::kTurnLockFlag, 0);
 }
 
 // FUN_1406ba900's case 0: INIT. Its stay arm takes the idle path; the run/step arm is the
@@ -178,7 +169,7 @@ void Init(MoveHost& host, MoveReq& req) {
       req.SetU(kWordClass, 0);
       req.SetU(kWordSpeed, 0);
       req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
-      req.SetByte(kWordReorient, 0);
+      req.SetByte(moveword::kTurnLockFlag, 0);
     } else {
       req.SetU(kWordClass, 0xffffffffu);
       req.SetU(kWordSpeed, 0);
@@ -257,7 +248,7 @@ void Idle(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   req.SetF(kWordSpeed, 0.0f);
   req.SetU(kWordClass, 0xffffffffu);
-  const int fixed = MotionTicks(host, host.Motion(host.CurrentMotion()).BlendStart(), k);
+  const int fixed = host.ClipTicks(pes::ClipReader::kBlend, host.CurrentMotion(), k.one, 0);  // FUN_1406af620
   if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit)) {
     RootFacingTail(host, req);
     return;
@@ -312,23 +303,23 @@ void Idle(MoveHost& host, MoveReq& req) {
 // FUN_1406bfe70: IDLE_TURN.
 void IdleTurn(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
-  const pes::MotionRecord& rec = host.Motion(host.CurrentMotion());
-  const int start = MotionTicks(host, rec.Rot(0).start, k);
-  const int total = MotionTicks(host, rec.Rot(0).end, k);
-  const int fixed = MotionTicks(host, rec.BlendStart(), k);
+  const int motion = host.CurrentMotion();
+  const int start = host.ClipTicks(pes::ClipReader::kRotStart, motion, k.one, 0);  // FUN_1406b1f00
+  const int total = host.ClipTicks(pes::ClipReader::kRotEnd, motion, k.one, 0);    // FUN_1406b1d00
+  const int fixed = host.ClipTicks(pes::ClipReader::kBlend, motion, k.one, 0);     // FUN_1406af620
   const int current = host.CurrentClipFrames();
   if (!host.IsReplay() && start <= current) {
     const int span = start + total * 2;
     if (current < span / 3) {
       const int ticks = static_cast<int>(static_cast<float>(total - current) / host.RecordF2468() + k.half);
-      const float turn =
-          std::fabs(PesAngleDiff(static_cast<float>(span), req.F(moveword::kRecordStampB), k)) /
-          static_cast<float>(ticks);
+      // FUN_14043a0a0(req[2], req[0x18]): the facing against the stamp (0x1406BFF72), per tick.
+      const float turn = std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kRecordStampB), k)) /
+                         static_cast<float>(ticks);
       if (turn < k.deg45) {
-        req.SetU(kWordTurnLockStamp, req.U(moveword::kRecordStampB));
-        req.SetByte(kWordReorient, 1);
-        req.SetU(kWordTurnLockTicks, static_cast<uint32_t>(ticks));
-        req.SetByte(kWordTurnLockDir, 0);
+        req.SetU(moveword::kTurnLockStamp, req.U(moveword::kRecordStampB));
+        req.SetByte(moveword::kTurnLockFlag, 1);
+        req.SetU(moveword::kTurnLockTicks, static_cast<uint32_t>(ticks));
+        req.SetByte(moveword::kTurnLockDir, 0);
       }
     }
   }
@@ -413,7 +404,7 @@ void IdleOther(MoveHost& host, MoveReq& req) {
   req.SetU(moveword::kMotion, static_cast<uint32_t>(cell.motionNo));
   req.SetByte(moveword::kMirror, mirror ? 1 : 0);
   RequestState(req, MoveState::kIdle);
-  req.SetByte(kWordReorient, 0);
+  req.SetByte(moveword::kTurnLockFlag, 0);
   RootFacingTail(host, req);
 }
 
@@ -459,7 +450,7 @@ void IdlePkGk(MoveHost& host, MoveReq& req) {
     return;
   }
   const int kind = static_cast<int>(req.U(moveword::kKind));
-  const int fixed = MotionTicks(host, host.Motion(host.CurrentMotion()).BlendStart(), k);
+  const int fixed = host.ClipTicks(pes::ClipReader::kBlend, host.CurrentMotion(), k.one, 0);  // FUN_1406af620
   if ((req.U(moveword::kLiveKind) == static_cast<uint32_t>(kind) || kind == 4) &&
       host.CurrentClipFrames() < fixed) {
     return;
@@ -490,12 +481,13 @@ void TimingStep(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   req.SetU(kWordClass, 0xffffffffu);
   req.SetF(kWordSpeed, 0.0f);
-  const pes::MotionRecord& rec = host.Motion(host.CurrentMotion());
-  const int fixed = MotionTicks(host, rec.BlendStart(), k);
+  const int motion = host.CurrentMotion();
+  const int fixed = host.ClipTicks(pes::ClipReader::kBlend, motion, k.one, 0);  // FUN_1406af620
+  const pes::MotionRecord& rec = host.Motion(motion);
   const int subCount = rec.CancelCount();
   int end = fixed;
   if (0 < subCount) {
-    const int last = MotionTicks(host, rec.CancelFrames(subCount - 1), k);
+    const int last = host.ClipTicks(pes::ClipReader::kCancel, motion, k.one, subCount - 1);  // FUN_1406af8e0
     if (fixed < last) end = last;
   }
   const bool scripted = host.ActionTableOwns(host.ActionIndex());
@@ -528,7 +520,7 @@ void TimingStep(MoveHost& host, MoveReq& req) {
       req.SetU(moveword::kStartTime, 0);
       req.SetU(kWordClass, 0xffffffffu);
       req.SetF(kWordSpeed, 0.0f);
-      req.SetByte(kWordReorient, 0);
+      req.SetByte(moveword::kTurnLockFlag, 0);
     } else {
       const float bodyTurn =
           std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
@@ -550,7 +542,7 @@ void Demo(MoveHost& host, MoveReq& req) {
   const MoveConstants& m = host.MoveConstantsView();
   req.SetU(kWordClass, 0xffffffffu);
   req.SetF(kWordSpeed, 0.0f);
-  const int fixed = MotionTicks(host, host.Motion(host.CurrentMotion()).BlendStart(), k);
+  const int fixed = host.ClipTicks(pes::ClipReader::kBlend, host.CurrentMotion(), k.one, 0);  // FUN_1406af620
   const float span = host.TicksPerSecond() * m.demoSpan / k.kmh60 + k.half;
   if (static_cast<float>(fixed) - span <= static_cast<float>(host.CurrentClipFrames()) ||
       req.F(moveword::kDwellLimit) <= req.F(moveword::kDwellElapsed)) {
