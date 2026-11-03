@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <set>
 
 #include "onthepitch/pesclips.hpp"
+#include "pes/animetable.hpp"
 #include "onthepitch/pesreceive.hpp"
 #include "pes/mbinfo.hpp"
 #include "rig/clip_pose.hpp"
@@ -207,7 +209,7 @@ TEST(PesClipsInstall, TheStandbyMotionsAreInTheLocomotionSpecialSet) {
   ASSERT_TRUE(clips.has_value()) << err;
   const pes::PesClip* standby = nullptr;
   for (const auto& clip : clips->clips)
-    if (clip.motionNo == 4154) standby = &clip;
+    if (clip.motionNo == 4154 && clip.family == pes::PesClipFamily::kLocomotion) standby = &clip;  // (a trap cell may name it too)
   ASSERT_NE(standby, nullptr);
   EXPECT_EQ(standby->family, pes::PesClipFamily::kLocomotion);
   auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
@@ -310,9 +312,9 @@ TEST(PesClips, LocomotionIsPlayedAsPesPicksItAndIsNeverAChallenge) {
   EXPECT_FALSE(pes::IsPesClipFamily(int(pes::PesClipFamily::kLocomotion)));
 }
 
-// The trap picker names its clips by motion number: the action-7 rows of the action-clip table (pesreceive.hpp).
-// Each of those clips must be loaded in the trap family, or the picker would name a clip the engine cannot play.
-TEST(PesClipsInstall, TheTrapFamilyHoldsTheClipsTheTrapRowsName) {
+// The Trap action's kind-0 chain commits a motion number picked from an Animetable cell. Every motion any cell names must be loaded
+// in the trap family exactly once, or the chain could commit a clip the engine cannot play.
+TEST(PesClipsInstall, TheTrapFamilyHoldsEveryMotionAnAnimetableCellNames) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   std::string err;
@@ -320,17 +322,20 @@ TEST(PesClipsInstall, TheTrapFamilyHoldsTheClipsTheTrapRowsName) {
   ASSERT_TRUE(exe.has_value()) << err;
   pes::PesVfs vfs;
   ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-  auto receive = pes::LoadReceiveConstants(*exe, vfs, &err);
-  ASSERT_TRUE(receive.has_value()) << err;
+  auto table = pes::LoadAnimetable(*exe, vfs, &err);
+  ASSERT_TRUE(table.has_value()) << err;
   auto clips = pes::LoadPesClips(*exe, vfs, &err);
   ASSERT_TRUE(clips.has_value()) << err;
-  ASSERT_FALSE(receive->trapRows.empty());
-  for (const pes::ActionRow& row : receive->trapRows) {
-    const bool loaded = std::any_of(clips->clips.begin(), clips->clips.end(), [&](const pes::PesClip& c) {
-      return c.family == pes::PesClipFamily::kTrap && c.motionNo == row.clip;
-    });
-    EXPECT_TRUE(loaded) << "trap row clip " << row.clip << " is not in the trap family";
-  }
+  std::set<int> named;
+  for (int row = 0; row < table->Layout().rows; ++row)
+    for (int col = 0; col < table->Layout().cols; ++col)
+      if (table->Cell(row, col).motionNo >= 0) named.insert(table->Cell(row, col).motionNo);
+  ASSERT_FALSE(named.empty());
+  std::multiset<int> loaded;
+  for (const pes::PesClip& c : clips->clips)
+    if (c.family == pes::PesClipFamily::kTrap) loaded.insert(c.motionNo);
+  for (const int motion : named) EXPECT_EQ(loaded.count(motion), 1u) << "Animetable motion " << motion;
+  EXPECT_EQ(loaded.size(), named.size()) << "the trap family holds a motion no Animetable cell names";
 }
 
 // A HitData frame counts gani frames at 30 Hz (1/30 s each); the engine's touch frame is 10 ms. So gani frame f is at
@@ -343,7 +348,7 @@ TEST(PesTouch, AGaniHitFrameIsTheEngineFrameItLandsOn) {
   EXPECT_EQ(pes::PesTouchAnimFrame(30), 100);
 }
 
-// Clip 1351 is the first trap row's clip (gkcatch_b00_0_0_y00). Its first HitData record is the install's contact frame.
+// Clip 1351 is gkcatch_b00_0_0_y00. Its first HitData record is the install's contact frame.
 TEST(PesTouchInstall, TheTrapClipTouchesAtItsHitFrame) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";

@@ -190,6 +190,7 @@ inline constexpr std::size_t kManFacingOffset = 0x554;      // f32, body facing 
 inline constexpr std::size_t kManPosXOffset = 0x55C;        // f32, PES x
 inline constexpr std::size_t kManPosYOffset = 0x560;        // f32, PES y (height; GF coords[2], INF)
 inline constexpr std::size_t kManPosZOffset = 0x564;        // f32, PES z (GF y)
+inline constexpr std::size_t kManPrevPosXOffset = 0x568;    // f32 x3, the previous tick's position (x, y, z); P+0x14 copies it
 inline constexpr std::size_t kManVelXOffset = 0x574;        // f32, m per frame
 inline constexpr std::size_t kManVelYOffset = 0x578;        // f32
 inline constexpr std::size_t kManVelZOffset = 0x57C;        // f32
@@ -267,6 +268,11 @@ inline uint32_t LoadU32(const uint8_t* record, std::size_t offset) {
 }
 inline void StoreU32(uint8_t* record, std::size_t offset, uint32_t value) {
   std::memcpy(record + offset, &value, sizeof value);
+}
+inline uint64_t LoadU64(const uint8_t* record, std::size_t offset) {
+  uint64_t value;
+  std::memcpy(&value, record + offset, sizeof value);
+  return value;
 }
 inline void StoreU64(uint8_t* record, std::size_t offset, uint64_t value) {
   std::memcpy(record + offset, &value, sizeof value);
@@ -495,7 +501,7 @@ inline constexpr std::size_t kMaOffset = kCtxOffset + static_cast<std::size_t>(k
 inline constexpr std::size_t kEventsOffset = kMaOffset + static_cast<std::size_t>(kSideCount) * kMaBytes;
 inline constexpr std::size_t kCarrierOffset = kEventsOffset + sizeof(EventStoreImage);
 inline constexpr std::size_t kTrapOffset = kCarrierOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesCarrierBlock);
-inline constexpr std::size_t kScratchOffset = kTrapOffset + sizeof(PesTrapImage);
+inline constexpr std::size_t kScratchOffset = kTrapOffset + static_cast<std::size_t>(kSlotCount) * sizeof(PesTrapImage);
 inline constexpr std::size_t kStackOffset = kScratchOffset + kScratchBytes;
 inline constexpr uint64_t kScratchVa = kWorldWindowVa + kScratchOffset;
 inline constexpr uint64_t kStackVa = kWorldWindowVa + kStackOffset;
@@ -605,10 +611,12 @@ struct PesWorldImage {
   std::array<PesMaRecord, kSideCount> ma{};    // each side's AI record
   EventStoreImage events{};                    // E: the event store, PES's offsets (pesevents.hpp)
   std::array<PesCarrierBlock, kSideCount> carrier{};  // each side's carrier block BP, its Clear unit object and answer
-  PesTrapImage trap{};                                    // P, the Trap action's owner (pestrapworld.hpp)
+  std::array<PesTrapImage, kSlotCount> trap{};        // each player's P, the Trap action's owner (pestrapworld.hpp)
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points (kScratchVa)
   std::array<uint8_t, kStackBytes> stack{};      // the translated stoppage functions' stack (kStackVa)
   PesSanctionImage sanction{};                   // the sanction tree's records (kSanctionOffset); E is `events` above
+  std::array<uint8_t, kTickFrameBytes> tickFrame{};    // the action tick's caller frame F (pestrapworld.hpp), written per call
+  std::array<uint8_t, kTickFrameXBytes> tickFrameX{};  // the object F+0x868 names
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -625,6 +633,10 @@ static_assert(offsetof(PesWorldImage, trap) == kTrapOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchOffset);
 static_assert(offsetof(PesWorldImage, stack) == kStackOffset);
 static_assert(offsetof(PesWorldImage, sanction) == kSanctionOffset);
+inline constexpr std::size_t kTickFrameOffset = kSanctionOffset + sizeof(PesSanctionImage);
+inline constexpr std::size_t kTickFrameXOffset = kTickFrameOffset + kTickFrameBytes;
+static_assert(offsetof(PesWorldImage, tickFrame) == kTickFrameOffset);
+static_assert(offsetof(PesWorldImage, tickFrameX) == kTickFrameXOffset);
 
 // What the danger builder reads outside GF's window (tests: the capture's heap bytes) and the byte log of its writes.
 struct PesDangerExternals {
@@ -762,13 +774,48 @@ class PesWorld {
     float angle_deg = 0.0f;
   };
   ClearAnswer RunClearUnit(int side, uint32_t carrierSlot);
-  // P, the trap chain's actor object (kPActionOffset is its action). Its window VA is rdx of the chain.
-  static constexpr uint64_t PVa() { return kWorldWindowVa + kTrapOffset; }
-  uint8_t* P() { return image_->trap.p.data(); }
-  // PES's Trap action's kind-0 chain 0x14079A470 on the window, as the action's +0x68 dispatcher (0x1407A01C0) calls it for
-  // kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack arguments), then the
-  // chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp).
-  PesTrapResult RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext);
+  // A player's P, the trap chain's actor object (kPActionOffset is its action; PES allocates one per player, so the action's
+  // state persists per player). Its window VA is rdx of the chain.
+  static constexpr uint64_t PVa(int slot) { return kWorldWindowVa + kTrapOffset + static_cast<uint64_t>(slot) * sizeof(PesTrapImage); }
+  uint8_t* P(int slot) { return image_->trap[slot].p.data(); }
+  // The physique chain's two objects (P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G), written by WriteActorP.
+  static constexpr uint64_t PhysiqueAVa(int slot) { return PVa(slot) + kTrapPBytes; }
+  static constexpr uint64_t PhysiqueBVa(int slot) { return PhysiqueAVa(slot) + kPhysiqueObjectBytes; }
+  uint8_t* PhysiqueA(int slot) { return image_->trap[slot].physiqueA.data(); }
+  uint8_t* PhysiqueB(int slot) { return image_->trap[slot].physiqueB.data(); }
+  // The anime layer objects the tick reaches (pestrapworld.hpp), after the physique chain's two.
+  static constexpr uint64_t O1Va(int slot) { return PVa(slot) + kTrapO1Offset; }
+  static constexpr uint64_t O2Va(int slot) { return PVa(slot) + kTrapO2Offset; }
+  static constexpr uint64_t QVa(int slot) { return PVa(slot) + kTrapQOffset; }
+  static constexpr uint64_t RVa(int slot) { return PVa(slot) + kTrapROffset; }
+  static constexpr uint64_t SVa(int slot) { return PVa(slot) + kTrapSOffset; }
+  uint8_t* O1(int slot) { return image_->trap[slot].o1.data(); }
+  uint8_t* O2(int slot) { return image_->trap[slot].o2.data(); }
+  uint8_t* Q(int slot) { return image_->trap[slot].q.data(); }
+  uint8_t* R(int slot) { return image_->trap[slot].r.data(); }
+  uint8_t* S(int slot) { return image_->trap[slot].s.data(); }
+  // The tick's caller frame F and the object F+0x868 names (one of each: written before every tick call).
+  static constexpr uint64_t TickFrameVa() { return kWorldWindowVa + kTickFrameOffset; }
+  static constexpr uint64_t TickFrameXVa() { return kWorldWindowVa + kTickFrameXOffset; }
+  uint8_t* TickFrame() { return image_->tickFrame.data(); }
+  uint8_t* TickFrameX() { return image_->tickFrameX.data(); }
+  // PES's Trap action tick 0x140797CD0 on the window for `slot`'s P (rcx = the action, rdx = P, r8 = a stack slot holding F): the
+  // phase machine the action runs each logic frame. `ext` is the chain's (the loader data and the image). A path no capture
+  // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
+  PesTickResult RunTrapTick(int slot, PesTrapExternals& ext);
+  // The planned touch's heading and kind a man's committed trap carries (F+0x744 / F+0x748), kept with the window because PES keeps
+  // them in the caller's per-man state (OPEN: where). SetTickFrame writes them, the body's heading and the weight into F and F+0x868's object.
+  struct TickPlan {
+    float headingDeg = 0.0f;
+    int32_t kind = 0;
+  };
+  void SetTickPlan(int slot, float headingDeg, int32_t kind) { tickPlan_[slot] = {headingDeg, kind}; }
+  void SetTickFrame(int slot, float bodyHeadingDeg);
+  // PES's Trap action's kind-0 chain 0x14079A470 on the window for `slot`'s P, as the action's +0x68 dispatcher (0x1407A01C0)
+  // calls it for kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack
+  // arguments), then the chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp); its segments are lent to
+  // the call (moved in and back), so the loader data is never copied.
+  PesTrapResult RunTrapKind0(int slot, const PesTrapRequest& request, PesTrapExternals& ext);
   // MA's ball copy (x, height, z) and carrier id.
   void SetMaBall(int side, float x, float height, float z) {
     StoreF32(Ma(side), kMaBallOffset, x);
@@ -970,6 +1017,7 @@ class PesWorld {
   }
 
   std::unique_ptr<PesWorldImage> image_;
+  std::array<TickPlan, kSlotCount> tickPlan_{};
   std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
   std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)

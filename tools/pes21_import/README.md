@@ -15,6 +15,20 @@ install produces. The image is a read-only dump of the running game's memory
 3. Point the build at it: `export PES_EXE=/path/to/pes_full.bin`
    (with `GF_DIFF_PYTHON` set, as `tools/dev/diffharness/README.md` says).
 
+## A match needs the image
+
+`PES_EXE` is a required input of every GF match, not only of the translation tests. The Trap action's kind-0 chain
+(`0x14079A470`, run from `ElizaController::_ReactionCommands`) is translated code that reads the game's code, `.rdata`, `.data`
+and the data around them as the running game holds them: `PES2021.exe` on disk is packed and its sections differ from the running
+game's in thousands of 8-byte words, so the install's file cannot stand in. `Match` maps the dump copy-on-write per match
+(`PesTrapMemory`) and refuses a setup without it: `gfsim_run` exits with "PES_EXE ... is not set", the gdext library fails to
+load, and the `Match` tests skip. Without a dump, make one with `dump_image.py` above, then run:
+
+```bash
+export PES_EXE=/path/to/pes_full.bin PES21_ROOT=/path/to/PES2021
+build/apps/gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --pes21-root "$PES21_ROOT"
+```
+
 ## Checking the image
 
 `python3 tools/pes21_import/verify_image.py --image $PES_EXE` hashes every

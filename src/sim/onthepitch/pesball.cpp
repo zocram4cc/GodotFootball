@@ -131,17 +131,23 @@ int ContactModeForConfig(const BallImageConstants& c, int cfg7c, int cfg78, int 
   return ContactModeFor(c, cfg7c, cfg78);
 }
 
-std::optional<BallRecordConstants> LoadBallRecordConstants(const PesVfs& vfs, std::string* error) {
+bool ReadBallObject(const PesVfs& vfs, std::vector<uint8_t>* rec, std::string* error) {
   auto blob = vfs.Read(CONSTANT_MATCH_PATH, error);
-  if (!blob) return std::nullopt;
+  if (!blob) return false;
   auto table = ParseUniformTable(*blob, error);  // the same WESYS object container
-  if (!table) return std::nullopt;
+  if (!table) return false;
   auto span = table->Find(BALL_OBJECT);
   if (!span) {
     *error = std::string(BALL_OBJECT) + " missing from " + CONSTANT_MATCH_PATH;
-    return std::nullopt;
+    return false;
   }
-  const std::vector<uint8_t> rec(span->begin(), span->end());
+  rec->assign(span->begin(), span->end());
+  return true;
+}
+
+std::optional<BallRecordConstants> LoadBallRecordConstants(const PesVfs& vfs, std::string* error) {
+  std::vector<uint8_t> rec;
+  if (!ReadBallObject(vfs, &rec, error)) return std::nullopt;
   // The record is a 0x110-byte scalar header followed by 24 blocks of 32 bytes
   // (6 floats + 8 padding), reached by record-relative u32 pointers.
   if (rec.size() < BallRecordConstants::kScalarBytes) {

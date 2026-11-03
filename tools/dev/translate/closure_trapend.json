@@ -1,0 +1,9 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of 0x14079E5C0 (the trap end handler, six captured calls that all return at the first early exit): the root and each function the replays entered. Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "root": "0x14079E5C0",
+ "members": [
+  "0x1406E6BD0",
+  "0x1406EBEE0",
+  "0x14079E5C0"
+ ]
+}
