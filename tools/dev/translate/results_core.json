@@ -98429,12 +98429,12 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 4,
+   "cases": 12,
    "closure_file": "closure_judge.json",
    "coverage": {
     "0x1405B7470": {
-     "fraction": 0.43,
-     "reached": 86,
+     "fraction": 0.59,
+     "reached": 118,
      "total": 200
     }
    },
@@ -98444,18 +98444,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel3: judge_decide_5B7470 captures live2 pid2670420 seq7473, pid91171 seq316, seq3147, pid132854 seq5123); all four leave the decision with no foul. seq5123 (a challenge action) runs the scorers 0x143F738A0 / 0x143FA8420 and the thresholds 0x143F71690 -> 0x1405B82E0 -> 0x143FA8760, so own-block coverage is 0.43; no capture reaches the pending-foul builder or a card; the unicorn harness has no corpus for it",
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 12 of 12 (pes-port-CardLevel3 and pes-port-CardProof: judge_decide_5B7470 captures live2 pid2670420 seq7473, pid91171 seq316, seq3147, pid132854 seq5123, pid2738437 seq6353 seq164690 seq352486 seq572688 seq643535 seq683826 seq704668 seq913639); the bounded closure is 49 functions, all in the layer, no blocked callee. The challenge-action calls run the scorers 0x143F738A0 / 0x143FA8420 and the thresholds 0x143F71690 -> 0x1405B82E0 -> 0x143FA8760, so own-block coverage is 0.59 (118/200); no capture reaches the pending-foul builder 0x1405B8000 (the commit captures carry its record in memory); the unicorn harness has no corpus for it",
    "proof": "snapdiff",
-   "requested": 4,
+   "requested": 12,
    "snapdiff": {
-    "calls": 4,
+    "calls": 12,
     "mismatches": 0,
     "own_block": {
-     "reached": 86,
+     "reached": 118,
      "total": 200,
-     "fraction": 0.43
+     "fraction": 0.59
     },
-    "replayed": 4,
+    "replayed": 12,
     "source": "tools/dev/translate/results_judge.json"
    },
    "stubs": [],
@@ -98466,11 +98466,11 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 1,
+   "cases": 11,
    "coverage": {
     "0x143F546F0": {
-     "fraction": 0.7037,
-     "reached": 19,
+     "fraction": 0.7407,
+     "reached": 20,
      "total": 27
     }
    },
@@ -98480,18 +98480,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff: the real call replayed bit-exact (pes-port-CardLevel2: judge_commit_43F546F0 capture live2 pid2670420 seq7443: a direct foul, kind 2, level 1, points 0x29); own-block coverage 0.7037; the unicorn harness has no corpus for it",
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 11 of 11 (pes-port-CardProof: judge_commit_43F546F0 captures live2 pid2670420 seq7443 (level 1, a direct foul) and pid2738437 seq147059 seq376981 seq495001 seq538957 seq882740 (level 2, yellow) and seq280370 seq677650 seq769716 seq856163 seq971365 (level 3, red)); own-block coverage 0.7407 (20/27); the commit's bounded closure is 12 functions, all translated, no blocked callee; the unicorn harness has no corpus for it",
    "proof": "snapdiff",
-   "requested": 1,
+   "requested": 11,
    "snapdiff": {
-    "calls": 1,
+    "calls": 11,
     "mismatches": 0,
     "own_block": {
-     "reached": 19,
+     "reached": 20,
      "total": 27,
-     "fraction": 0.7037
+     "fraction": 0.7407
     },
-    "replayed": 1,
+    "replayed": 11,
     "source": "tools/dev/translate/results_judge.json"
    },
    "stubs": [],
