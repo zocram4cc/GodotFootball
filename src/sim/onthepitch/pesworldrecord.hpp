@@ -404,6 +404,18 @@ inline constexpr std::size_t kClearAnswerOffset = kUnitObjectOffset + kUnitObjec
 inline constexpr std::size_t kUnitCarrierOffset = 0x0;
 inline constexpr std::size_t kUnitCtxOffset = 0x8;
 inline constexpr std::size_t kUnitImageAOffset = 0x28;
+inline constexpr std::size_t kUnitStateOffset = 0x20;  // the Cross unit's param_3[4]: the state BP+0x78 (K)
+// The Cross unit (kind 7, 0x142129590, FUN_142129590(kind object, answer, unit)): rcx = the kind-7 object the carrier constructor
+// builds inside the BP (rcx - BP = 0x3848 on every capture: seq036, seq17107, seq7090 of live2/pid296049), rdx = the 0x1C-byte
+// answer record, r8 = the unit object. It stores type 2, the receiver's slot at +8 and the sub-kind 2 at +0xC when it answers; the
+// driver hands it the record as `00000000 19000000 0 0 0 0 ffffffff` (the three captures' rdx), which the unit leaves alone when it
+// does not answer.
+inline constexpr std::size_t kBpCrossObjectOffset = 0x3848;
+inline constexpr uint32_t kWalkKindCross = 7;
+inline constexpr std::size_t kAnswerTargetOffset = 0x8;
+inline constexpr std::size_t kAnswerNoIdOffset = 0x4;
+inline constexpr std::size_t kAnswerLastOffset = 0x18;
+inline constexpr uint32_t kAnswerNoId = 0x19;
 inline constexpr std::size_t kAnswerAngleOffset = 0x8;
 inline constexpr std::size_t kAnswerBytes = 0x10;
 inline constexpr std::size_t kUnitMarkOffset = 0xC;  // u32: slot -> player-info index (0x14063C9F0 stores it from the team-info map)
@@ -467,8 +479,10 @@ inline constexpr int kSkillPinpointCross = 0xE;
 inline constexpr std::size_t kDangerArg5Offset = 0x28;
 inline constexpr std::size_t kDangerArg6Offset = 0x30;
 inline constexpr std::size_t kDangerFrameBytes = 0x40;
+// The Cross unit's answer record (0x1C bytes), after the Clear unit's.
+inline constexpr std::size_t kCrossAnswerOffset = kClearAnswerOffset + kAnswerBytes;
 struct PesCarrierBlock {
-  std::array<uint8_t, kClearAnswerOffset + kAnswerBytes> bytes{};
+  std::array<uint8_t, (kCrossAnswerOffset + kListRecordStride + 15) & ~std::size_t{15}> bytes{};
 };
 
 // The translated bearing's scratch: the image's tail, past the last block (kScratchVa). The translated code runs on its
@@ -650,6 +664,7 @@ class PesWorld {
       StoreU64(unit, kUnitCarrierOffset, CarrierVa(side) + kBpUnitInfoOffset);
       StoreU64(unit, kUnitCtxOffset, CtxVa(side));
       StoreU64(unit, kUnitImageAOffset, CarrierVa(side) + kBpImageAOffset);
+      StoreU64(unit, kUnitStateOffset, CarrierVa(side) + kBpStateOffset);
     }
     for (int side = 0; side < kSideCount; ++side) {
       StoreU64(Ctx(side), kCtxMaOffset, MaVa(side));
@@ -762,6 +777,10 @@ class PesWorld {
     float angle_deg = 0.0f;
   };
   ClearAnswer RunClearUnit(int side, uint32_t carrierSlot);
+  // Runs the Cross unit 0x142129590 (kind 7) on the window for `carrierSlot` of `side`: the 0x1C-byte answer record it leaves
+  // (type 2, the receiver's slot at +8 and sub-kind 2 at +0xC when it answers; the driver's initial record when it does not).
+  // Call after RunCarrierUpdate and RunDangerBuilder: the unit reads the state K and the builder's lists.
+  std::array<uint8_t, kListRecordStride> RunCrossUnit(int side, uint32_t carrierSlot);
   // P, the trap chain's actor object (kPActionOffset is its action). Its window VA is rdx of the chain.
   static constexpr uint64_t PVa() { return kWorldWindowVa + kTrapOffset; }
   uint8_t* P() { return image_->trap.p.data(); }

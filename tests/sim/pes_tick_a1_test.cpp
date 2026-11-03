@@ -498,6 +498,64 @@ TEST(PesA1Sim, TheClearRecordGfListsEqualsTheRecordPesClearUnitWrites) {
   EXPECT_GT(nonzeroAngles, 0) << "an angle of 0 everywhere cannot tell the offsets apart";
 }
 
+// The Cross unit 0x142129590 runs on the window for every carrier slot of both sides: it leaves either the driver's initial
+// record or a centering answer (type 2, sub-kind 2) that names another man of the carrier's own side.
+TEST(PesA1Sim, TheCrossUnitRunsOnTheWindowAndAnswersWithAMateOrNothing) {
+  REQUIRE_PES_MATCH();
+  match->StartPlay();
+  for (int i = 0; i < 3; ++i) match->Process();
+  pes::PesWorld& world = match->PesWorldOf();
+  for (int side = 0; side < pes::kSideCount; ++side) {
+    for (uint32_t slot = 0; slot < pes::kSlotsPerSide; ++slot) {
+      const uint32_t carrier = side * pes::kSlotsPerSide + slot;
+      world.RunCarrierUpdate(side, carrier);
+      world.RunDangerBuilder(side);
+      const auto record = world.RunCrossUnit(side, carrier);
+      const uint32_t type = pes::LoadU32(record.data(), 0);
+      if (type == 0) {
+        EXPECT_EQ(pes::LoadU32(record.data(), pes::kAnswerNoIdOffset), pes::kAnswerNoId) << "side " << side << " slot " << slot;
+        continue;
+      }
+      EXPECT_EQ(type, 2u);
+      EXPECT_EQ(pes::LoadU32(record.data(), 0xC), 2u) << "centering sub-kind";
+      const uint32_t target = pes::LoadU32(record.data(), pes::kAnswerTargetOffset);
+      EXPECT_NE(target, carrier);
+      EXPECT_EQ(target / pes::kSlotsPerSide, static_cast<uint32_t>(side)) << "a mate, not an opponent";
+    }
+  }
+}
+
+// The unit's own gates, on the state K (BP+0x78): K+0x71 must be set, and a carrier who is not a human (K+0x6C) answers only while
+// the ball is volatile (K+0x6E). With K+0x71 clear it never answers.
+TEST(PesA1Sim, TheCrossUnitAnswersOnlyThroughItsStateGates) {
+  REQUIRE_PES_MATCH();
+  match->StartPlay();
+  for (int i = 0; i < 3; ++i) match->Process();
+  pes::PesWorld& world = match->PesWorldOf();
+  constexpr std::size_t kGateOffset = pes::kBpStateOffset + 0x71;
+  int closed = 0, open = 0;
+  for (int round = 0; round < 24 && open == 0; ++round) {
+    for (int i = 0; i < 50; ++i) match->Process();
+    for (int side = 0; side < pes::kSideCount; ++side) {
+      for (uint32_t slot = 0; slot < pes::kSlotsPerSide; ++slot) {
+        const uint32_t carrier = side * pes::kSlotsPerSide + slot;
+        world.RunCarrierUpdate(side, carrier);
+        world.RunDangerBuilder(side);
+        world.Carrier(side)[kGateOffset] = 0;
+        world.Carrier(side)[pes::kBpStateOffset + pes::kStateOwnedOffset] = 1;
+        closed += pes::LoadU32(world.RunCrossUnit(side, carrier).data(), 0) != 0;
+        world.Carrier(side)[kGateOffset] = 1;
+        open += pes::LoadU32(world.RunCrossUnit(side, carrier).data(), 0) != 0;
+        world.Carrier(side)[pes::kBpStateOffset + 0x6E] = 1;
+        open += pes::LoadU32(world.RunCrossUnit(side, carrier).data(), 0) != 0;
+      }
+    }
+  }
+  EXPECT_EQ(closed, 0);
+  std::cout << "CROSS open answers " << open << std::endl;
+  EXPECT_GT(open, 0);
+}
+
 // MI+0x1198 counts logic frames, one per tick, and is the frame every reader takes (PES 0x140A128E4).
 TEST(PesA1Sim, TheFrameCounterIsTheMatchInfoWordAndCountsTicks) {
   REQUIRE_PES_MATCH();

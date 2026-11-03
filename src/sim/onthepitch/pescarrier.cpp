@@ -1153,30 +1153,6 @@ PassAnswer PassLongUnit(const LongUnitInput& in, const CarrierConstants& k) {
   return answer;
 }
 
-PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k) {
-  (void)k;
-  // The carry gate: within 130 degrees of the facing.
-  if (std::fabs(WrapDeg(in.carryVsFacing_deg)) > 130.0f) return PassAnswer{};
-  if (!in.laneOpen) return PassAnswer{};
-  // Unowned: the predicted receiver's lead must be inside 16 m.
-  if (!in.owned && in.receiverLead_m >= 16.0f) return PassAnswer{};
-  // The picker 0x142125AB0: among valid mates the tallest, last max wins.
-  int target = -1;
-  float bestHeight = -1.0e30f;
-  for (const LongMate& m : in.mates) {
-    if (m.index < 0) continue;
-    if (target < 0 || m.height_cm >= bestHeight) {
-      target = m.index;
-      bestHeight = m.height_cm;
-    }
-  }
-  if (target < 0) return PassAnswer{};
-  PassAnswer answer;
-  answer.index = target;
-  answer.kind = kPassCentering;
-  return answer;
-}
-
 PassAnswer GoalFrontUnit(const GoalFrontInput& in, const CarrierConstants& k) {
   PassAnswer answer;
   // The gate (0x14212ABA0): only a carrier outside the central zone, with the lane about the
@@ -2311,7 +2287,7 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
 
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
-                                    const PassAnswer& cross, const PassAnswer& goalFront,
+                                    const PassAnswer& goalFront,
                                     const PassAnswer& backSpace, const PassAnswer& safety,
                                     const PassAnswer& oneTwo, const PassAnswer& directHigh,
                                     const CarrierAnswer& clear) {
@@ -2324,7 +2300,6 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
     if (kind == 1) slot.answer = clear;
     if (kind == 4 && fwd.index >= 0) pass(fwd);
     if (kind == 9 && lng.index >= 0) pass(lng);
-    if (kind == 7 && cross.index >= 0) pass(cross);
     if (kind == 2 && goalFront.index >= 0) pass(goalFront);
     if (kind == 3 && backSpace.index >= 0) pass(backSpace);
     if (kind == 6 && safety.index >= 0) pass(safety);

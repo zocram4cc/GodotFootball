@@ -2842,9 +2842,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     }
     longPass = pes::PassLongUnit(longIn, carrier);
   }
-  // The Cross unit (kind 7, 0x142129590) answers on the rethink: the carry
-  // bearing held, the lane open, the tallest mate takes the centering ball. It runs with the
-  // other lane units, below, because its lane needs their slot space and the ball point.
+  // The Cross unit's answer (kind 7, 0x142129590): PES's own function on the window, run below beside the walk (RunCrossUnit).
   pes::PassAnswer crossPass;
   // The GoalFront unit (kind 2; gate 0x14212ABA0, picker 0x1421265C0): outside the central zone,
   // with the lane about the per-slot angle + 180 blocked, the most open mate in front of goal takes
@@ -3090,33 +3088,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // B+0x80 (r14b) is clear: its writer is undecoded.
     volatileIn.target = {ctxPoint.x, ctxPoint.z};  // K+0x40
     const bool volatileBall = pes::VolatileBall(volatileIn);
-    // The Cross unit (kind 7, 0x142129590): the carry bearing held, the lane open, the tallest
-    // mate takes the centering ball. Its lane (0x14063CD90 at 0x142129804) runs from the ball
-    // point, one metre along the bearing to the attacked goal's goal-area line on the pitch's
-    // centre line, 5 m long with a 30 degree cone and a 2 m radius offset. The unit answers only
-    // when the opposing side records nobody in it.
-    if (carrierImage.id == pes::kPlanCross || carrierImage.id == pes::kPlanCurveShot ||
-        carrierImage.id == pes::kPlanBasic) {
-      pes::CrossInput crossIn;
-      crossIn.carryVsFacing_deg = 0.0f;  // ponytail: the carry bearing
-      // (ball->carrier-predicted, 0x140474C40) is not ported; facing stands in.
-      const pes::lane::LaneRequest crossLane = pes::lane::CrossLane(
-          carrier.lane, {ctxPoint.x, ctxPoint.z}, attackSign * pesGoalAreaLineX);
-      crossIn.laneOpen = pes::lane::LaneFree(carrier.lane, bs.players, bs.carrierSlot, crossLane,
-                                              /*keepKeeper*/ false, /*horizonFrames*/ 0);
-      crossIn.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
-      std::vector<Player*> crossMates;
-      team->GetActivePlayers(crossMates);
-      for (Player* mate : crossMates) {
-        if (mate == CastPlayer()) continue;
-        if (mate->GetFormationEntry().role == e_PlayerRole_GK) continue;
-        pes::LongMate m;
-        m.index = mate->GetID();
-        m.height_cm = mate->GetStat("physical_height") * 100.0f;
-        crossIn.mates.push_back(m);
-      }
-      crossPass = pes::CrossUnit(crossIn, carrier);
-    }
     sf.humanCarrier = false;  // K+0x6C is FUN_140A63F80's human-controller test; GF's carriers are AI, so it is 0
     sf.receivingFlag = volatileBall;
     sf.ctx44 = ctxPoint.y;  // K+0x44: the ctx4 point's height (the Safety keeper side arm reads it)
@@ -3364,8 +3335,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   };
   const std::vector<pes::UnitSlot> table =
       pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, atPesSlot(pass, false), atPesSlot(longPass, false),
-                         atPesSlot(crossPass, false), atPesSlot(goalFrontPass, true), atPesSlot(backSpacePass, true),
-                         atPesSlot(safetyPass, true), atPesSlot(oneTwoPass, true), atPesSlot(directHighPass, true), clearAnswer);
+                         atPesSlot(goalFrontPass, true), atPesSlot(backSpacePass, true), atPesSlot(safetyPass, true),
+                         atPesSlot(oneTwoPass, true), atPesSlot(directHighPass, true), clearAnswer);
   const auto toGlobalId = [&](pes::PassAnswer& answer) {
     if (answer.index >= 0) answer.index = pes::LaneSlotToGlobalId(answer.index, ownIds, oppIds);
   };
@@ -3402,6 +3373,21 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   pesWorld.RunDribbleProposal(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
   std::vector<pes::PesWorld::WalkEntry> entries;
   for (const pes::UnitSlot& slot : table) entries.push_back({static_cast<uint32_t>(slot.kind), pes::EncodeAnswerRecord(slot.answer)});
+  // The Cross unit (kind 7, 0x142129590): PES's own function on the window answers on the rethink, from the state K and the
+  // builder's lists above (the carry bearing, its lane 0x14063CD90, the receiver picker 0x142125AB0 are all its own). Its record
+  // names the receiver's PES slot; the pass command takes the man's GF id.
+  for (pes::PesWorld::WalkEntry& entry : entries) {
+    if (entry.kind != pes::kWalkKindCross || !rethink) continue;
+    entry.record = pesWorld.RunCrossUnit(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
+    if (pes::LoadU32(entry.record.data(), 0) != static_cast<uint32_t>(pes::kAnswerPass)) continue;
+    const uint32_t receiver = pes::LoadU32(entry.record.data(), pes::kAnswerTargetOffset);
+    for (std::size_t j = 0; j < ownPesSlots.size() && j < ownIds.size(); ++j) {
+      if (ownPesSlots[j] == static_cast<int>(receiver)) {
+        crossPass.index = ownIds[j];
+        crossPass.kind = pes::kPassCentering;
+      }
+    }
+  }
   pesWorld.SetUnitList(sideIndex, entries);
   const uint32_t wonKind = pesWorld.RunWalk(sideIndex);
   if (wonKind == 0) addShot();

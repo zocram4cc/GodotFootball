@@ -866,11 +866,12 @@ std::vector<int> BuildUnitList(const UnitListInput& in);
 
 // The table fill: one slot per listed kind, in list order. Kind 0 takes the
 // shot answer, 1 the Clear unit's answer (the translated 0x142109EB0 run on the world window), 4 the PassForward answer,
-// 9 the Long answer, 7 the Cross answer, 2 the GoalFront answer, 3 the BackSpace answer, 6 the Safety answer, 10 the
-// OneTwo answer and 11 the DirectHighBall answer; every other kind answers nothing here.
+// 9 the Long answer, 2 the GoalFront answer, 3 the BackSpace answer, 6 the Safety answer, 10 the OneTwo answer and 11 the
+// DirectHighBall answer; every other kind answers nothing here (kind 7, the Cross unit, is the translated 0x142129590
+// run on the world window: PesWorld::RunCrossUnit).
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
-                                    const PassAnswer& cross, const PassAnswer& goalFront,
+                                    const PassAnswer& goalFront,
                                     const PassAnswer& backSpace,
                                     const PassAnswer& safety = PassAnswer{},
                                     const PassAnswer& oneTwo = PassAnswer{},
@@ -920,22 +921,6 @@ struct LongUnitInput {
   std::vector<LongMate> mates;
 };
 PassAnswer PassLongUnit(const LongUnitInput& in, const CarrierConstants& k);
-
-// --- the Cross unit (report 2.1, kind 7, 0x142129590) ---
-//
-// The carry bearing within 130 degrees of the facing, a lane from the aim
-// (carrier + attack x half-width) into the box, and the picker 0x142125AB0:
-// among valid mates the tallest (stat 0x31, last max wins). Answers a
-// centering ball (b=2).
-struct CrossInput {
-  float carryVsFacing_deg = 0.0f;
-  bool laneOpen = true;  // 0x14063CD90 + 0x1421B7D40
-  bool owned = true;
-  float receiverLead_m = 0.0f;  // unowned: the predicted receiver's lead
-  std::vector<LongMate> mates;  // index/height reused; openness unused
-  bool skill14 = false;  // f11/f12 need Pinpoint Crossing context; the unit does not gate on it
-};
-PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k);
 
 // --- the GoalFront unit (kind 2, gate 0x14212ABA0, picker 0x1421265C0) ---
 //

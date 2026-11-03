@@ -185,6 +185,42 @@
    "aborted": 0,
    "capped": 0,
    "cases": 0,
+   "closure_file": "closure_airuns_second.json",
+   "coverage": {
+    "0x14060D210": {
+     "reached": 23,
+     "total": 40,
+     "fraction": 0.575
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5 (SecondLine FUN_14060D210 (run command writer for the second line), live2/pid1037286 seq946, seq4246, seq6204, seq9750, seq13263 (hook ai_secondline_60D210)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 23,
+     "total": 40,
+     "fraction": 0.575
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_airuns.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14060D210"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "closure_file": "closure_airuns_receive.json",
    "coverage": {
     "0x1409F8220": {

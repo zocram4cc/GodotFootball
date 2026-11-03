@@ -73,6 +73,23 @@ PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
   return answer;
 }
 
+std::array<uint8_t, kListRecordStride> PesWorld::RunCrossUnit(int side, uint32_t carrierSlot) {
+  uint8_t* record = Carrier(side) + kCrossAnswerOffset;
+  StoreU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset, carrierSlot);
+  std::memset(record, 0, kListRecordStride);
+  StoreU32(record, kAnswerNoIdOffset, kAnswerNoId);
+  StoreU32(record, kAnswerLastOffset, 0xFFFFFFFFu);
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = CarrierVa(side) + kBpCrossObjectOffset;  // rcx: the kind-7 object
+  s.gpr[2] = CarrierVa(side) + kCrossAnswerOffset;    // rdx: the answer record
+  s.gpr[8] = CarrierVa(side) + kUnitObjectOffset;     // r8: the unit object
+  ::pes_fn_142129590(s);
+  std::array<uint8_t, kListRecordStride> answer;
+  std::memcpy(answer.data(), record, kListRecordStride);
+  return answer;
+}
+
 bool PesWorld::RunDangerBuilder(int side, const PesDangerExternals& ext) {
   if (!heap_) heap_ = std::make_unique<PesHeap>();
   PesState s = NewCall(Bytes());

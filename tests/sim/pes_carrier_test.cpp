@@ -1171,10 +1171,10 @@ TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
   list.plan = pes::kPlanLong;
   const std::vector<int> kinds = pes::BuildUnitList(list);
   ASSERT_TRUE(std::find(kinds.begin(), kinds.end(), 4) == kinds.end());
-  pes::PassAnswer fwd, lng, cross;
+  pes::PassAnswer fwd, lng;
   lng.index = 5;
   lng.kind = pes::kPassLong;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, {}, {});
   const auto slot = std::find_if(table.begin(), table.end(), [](const pes::UnitSlot& s) { return s.kind == 9; });
   ASSERT_TRUE(slot != table.end());
   EXPECT_EQ(slot->answer.type, pes::kAnswerPass);
@@ -1182,35 +1182,34 @@ TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
   EXPECT_EQ(slot->answer.target, 5);
 }
 
-TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
-  // Plan 5 lists kind 7 and no PassForward: a Cross answer in slot 7 is
-  // adopted.
+// Kind 7 is the Cross unit's slot: the table fill leaves it empty, because PES's own unit (0x142129590, PesWorld::RunCrossUnit)
+// writes its record on the window.
+TEST(PesCarrierTable, KindSevenIsListedByPlanFiveAndFilledByNoGfAnswer) {
   pes::UnitListInput list;
   list.plan = pes::kPlanCross;
   const std::vector<int> kinds = pes::BuildUnitList(list);
-  ASSERT_TRUE(std::find(kinds.begin(), kinds.end(), 4) == kinds.end());
-  pes::PassAnswer fwd, lng, cross;
-  cross.index = 3;
-  cross.kind = pes::kPassCentering;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
+  pes::PassAnswer fwd, lng, goalFront;
+  fwd.index = 1;
+  lng.index = 2;
+  goalFront.index = 3;
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, goalFront, {});
   const auto slot = std::find_if(table.begin(), table.end(), [](const pes::UnitSlot& s) { return s.kind == 7; });
   ASSERT_TRUE(slot != table.end());
-  EXPECT_EQ(slot->answer.type, pes::kAnswerPass);
-  EXPECT_EQ(slot->answer.target, 3);
+  EXPECT_EQ(slot->answer.type, pes::kAnswerNone);
 }
 
 TEST(PesCarrierTable, KindThreeCarriesOnlyTheBackSpaceAnswer) {
   // The table fill: kind 3 takes the BackSpace answer now, not the cross answer behind a plan flag.
   const std::vector<int> kinds{3, 4};
-  pes::PassAnswer fwd, lng, cross, goalFront, backSpace;
+  pes::PassAnswer fwd, lng, goalFront, backSpace;
   backSpace.index = 3;
   backSpace.kind = pes::kPassThrough;
   const std::vector<pes::UnitSlot> table =
-      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront, backSpace);
+      pes::FillUnitTable(kinds, false, fwd, lng, goalFront, backSpace);
   EXPECT_EQ(table[0].answer.type, pes::kAnswerPass);
   EXPECT_EQ(table[0].answer.sub, pes::kPassThrough);
   const std::vector<pes::UnitSlot> silent =
-      pes::FillUnitTable({3}, false, fwd, lng, cross, goalFront, {});
+      pes::FillUnitTable({3}, false, fwd, lng, goalFront, {});
   EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
 }
 
@@ -1219,12 +1218,12 @@ TEST(PesCarrierTable, KindOneCarriesTheClearUnitsAnswerAndItsAngle) {
   pes::PassAnswer none;
   pes::CarrierAnswer clear{pes::kAnswerClear, 0, 123.5f};
   const std::vector<pes::UnitSlot> table =
-      pes::FillUnitTable({0, 1, 4}, false, none, none, none, none, none, none, none, none, clear);
+      pes::FillUnitTable({0, 1, 4}, false, none, none, none, none, none, none, none, clear);
   EXPECT_EQ(table[0].answer.type, pes::kAnswerNone) << "kind 0 has no shot answer";
   EXPECT_EQ(table[1].answer.type, pes::kAnswerClear);
   EXPECT_FLOAT_EQ(table[1].answer.angle_deg, 123.5f);
   EXPECT_EQ(table[2].answer.type, pes::kAnswerNone) << "the clear answer reaches kind 1 only";
-  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({1}, false, none, none, none, none, none);
+  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({1}, false, none, none, none, none);
   EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone) << "no unit answer, no clear";
 }
 
@@ -1436,23 +1435,6 @@ TEST(PesCarrierLongUnit, AnOpenMateGetsAShortBall) {
   EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).kind, pes::kPassShort);
 }
 
-TEST(PesCarrierCross, AWideCarrierAnswersACenteringBall) {
-  // Kind 7 (0x142129590): the carry bearing held, the lane open, the
-  // tallest mate takes the centering ball (b=2).
-  pes::CrossInput in;
-  in.mates = {{0, 0.0f, 180.0f, 0.0f}, {1, 5.0f, 190.0f, 0.0f}};
-  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).kind, pes::kPassCentering);
-  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, 1);
-}
-
-TEST(PesCarrierCross, ACenteringBallNeedsTheCarryBearing) {
-  // Facing more than 130 degrees from the carry bearing, no answer.
-  pes::CrossInput in;
-  in.mates = {{0, 0.0f, 180.0f, 0.0f}};
-  in.carryVsFacing_deg = 140.0f;
-  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, -1);
-}
-
 // --- the GoalFront unit (kind 2; gate 0x14212ABA0, picker 0x1421265C0) ---
 //
 // The unit runs the lane core itself, so its constants come from the install (PES21_ROOT, as
@@ -1631,15 +1613,15 @@ TEST_F(GoalFrontUnitTest, TheAnswerIsAShortPass) {
 TEST(PesCarrierTable, KindTwoCarriesOnlyTheGoalFrontAnswer) {
   // The table fill: kind 2 takes the GoalFront answer, in the slot the list gave it.
   const std::vector<int> kinds{4, 2};
-  pes::PassAnswer fwd, lng, cross, goalFront;
+  pes::PassAnswer fwd, lng, goalFront;
   goalFront.index = 7;
   goalFront.kind = pes::kPassShort;
   const std::vector<pes::UnitSlot> table =
-      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront, {});
+      pes::FillUnitTable(kinds, false, fwd, lng, goalFront, {});
   EXPECT_EQ(table[0].answer.type, pes::kAnswerNone);
   EXPECT_EQ(table[1].answer.type, pes::kAnswerPass);
   EXPECT_EQ(table[1].answer.sub, pes::kPassShort);
-  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({2}, false, fwd, lng, cross, {}, {});
+  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({2}, false, fwd, lng, {}, {});
   EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
 }
 
