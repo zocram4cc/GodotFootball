@@ -514,8 +514,8 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
     if (uint8_t* man = ManRecord(side * kSlotsPerSide + k))
       StoreU32(man, kManActionOffset, LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k));
   }
-  // MI+0x1748: the on-pitch bytes the press, the carrier plans and the dispatcher read. No other GF writer sets them: with them
-  // zero the carrier saw no man on the pitch and never reached the plan reset 0x14211BF40 (translated with this change).
+  // MI+0x1748: the on-pitch bytes the press reads (writer body filter, candidate table). No other GF writer sets them, so the
+  // caller borrows them for the press run (TeamAIController::PesPressTick): the carrier chain reads them too.
   uint8_t* mi = MatchInfo();
   for (int slot = 0; slot < kSlotCount; ++slot) mi[kMiOnPitchOffset + slot] = f.onPitch[slot] ? 1 : 0;
   StoreU32(mi, kMiPlayStateOffset, f.playState);

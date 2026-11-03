@@ -2475,6 +2475,12 @@ void TeamAIController::PesPressTick() {
   std::array<uint32_t, pes::kSlotsPerSide> unitWords{};
   for (int k = 0; k < pes::kSlotsPerSide; ++k)
     unitWords[k] = pes::LoadU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k);
+  // MI+0x1748 (the on-pitch bytes) are the same: nothing else in GF sets them (zero = "no man on the pitch" for the carrier chain).
+  // With the real bytes the chain reaches PES plan paths the translated layer does not hold (pes-loop aborts at 0x14211BF40, then
+  // 0x142132E20), so the press borrows them too. ponytail: remove with the carrier closure's widening (DribbleProposal), which
+  // lets the carrier chain read the real bytes.
+  std::array<uint8_t, pes::kSlotCount> onPitch{};
+  std::memcpy(onPitch.data(), world.MatchInfo() + pes::kMiOnPitchOffset, onPitch.size());
   world.StagePress(side, f);
   world.RunPressCoordinator(side);
   world.ResetPress(side);
@@ -2482,6 +2488,7 @@ void TeamAIController::PesPressTick() {
   world.SetMaOwner(side, owner);
   for (int k = 0; k < pes::kSlotsPerSide; ++k)
     pes::StoreU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k, unitWords[k]);
+  std::memcpy(world.MatchInfo() + pes::kMiOnPitchOffset, onPitch.data(), onPitch.size());
 }
 
 bool TeamAIController::StartConcept(int id) {
