@@ -150,6 +150,7 @@ TARGETS = [
     ("aic_retreatblock_start_575EA0", 0x140575EA0, "AIConcepts: RetreatBlockCreate start"),
     ("aic_sidecounter_end_5404A0", 0x1405404A0, "AIConcepts: SideCounter end"),
     ("aic_sidecounter_exec_5415B0", 0x1405415B0, "AIConcepts: SideCounter execute"),
+    ("aic_transchase_exec_575B60", 0x140575B60, "AIConcepts: TransitionChase execute (owner of the 0x140575DA0 thunk)"),
 ]
 
 
