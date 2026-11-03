@@ -90,6 +90,10 @@ fi
 export repo build PES21_ROOT jobs smoke_minutes ctest_exclude
 export PES21_EDIT_SAVE=$save GF_DIFF_PYTHON=${GF_DIFF_PYTHON:-} PES_EXE=${PES_EXE:-} GF_IMPURE_BANKS=${GF_IMPURE_BANKS:-}
 export GF_RECORDED_SELECT=$recorded_select  # empty: diff_*_recorded re-check every recorded function
+# One diff cache (objects + PES reference corpora) for every worktree and set: keys are content hashes of all inputs, so a
+# branch's full re-check reuses what other worktrees already computed (03-11-26: per-build caches made each worktree's first
+# full re-check cold, 5+ h at load ~35). On the home drive, like ccache, so it never counts against the capture disk.
+export GF_DIFF_CACHE=${GF_DIFF_CACHE:-$HOME/.cache/gf-diff-cache}
 inner="$(declare -f smoke)"'
   smoke off & smoke pesloop --pes-loop &
   nice -n 19 ctest --test-dir "$build" -j "$jobs" --timeout 2400 ${ctest_exclude:+-E "$ctest_exclude"} > "$build/gate.ctest.log" 2>&1

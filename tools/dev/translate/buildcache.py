@@ -147,7 +147,7 @@ def tu_object_key(tu_path, compiler, flags, include_dir):
 
 def corpus_key(run_args, inputs):
     """An entry's key: run.py's flags (paths are inputs, by digest, in inputs) and the digests of its inputs."""
-    return sha(json.dumps({"v": 1, "args": list(run_args), "inputs": inputs}, sort_keys=True))
+    return sha(json.dumps({"v": 2, "args": list(run_args), "inputs": inputs}, sort_keys=True))
 
 
 def decode_digest(image_path, va):
@@ -235,18 +235,32 @@ def record_run(deps_path, run_py, run_args):
     return rc
 
 
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+REPO_TAG = "<repo>/"
+
+
+def _portable(path):
+    """A recorded path as stored: under this checkout, relative to it (so another worktree validates its own copy of the
+    file, never this one's); anything else (the image, banks, system libraries) absolute."""
+    return REPO_TAG + os.path.relpath(path, REPO) if path.startswith(REPO + os.sep) else path
+
+
+def _resolve(path):
+    return os.path.join(REPO, path[len(REPO_TAG):]) if path.startswith(REPO_TAG) else path
+
+
 def entry_doc(record):
     """The validation document of a recorded run, taken once it has finished: each file's digest (None: absent), the
-    decoded values, and the translator table's digest."""
-    return {"files": {p: file_digest(p) for p in record["files"]}, "decode": record["decode"],
+    decoded values, and the translator table's digest. Files inside the checkout are stored relative to it."""
+    return {"files": {_portable(p): file_digest(p) for p in record["files"]}, "decode": record["decode"],
             "ccmap": translator_digest()}
 
 
 def entry_is_valid(doc):
-    """True while every recorded file has its digest, every recorded decode recomputes, and the translator table is
-    unchanged. A recorded input that cannot be recomputed is a miss, never a hit."""
+    """True while every recorded file (resolved against THIS checkout) has its digest, every recorded decode recomputes,
+    and the translator table is unchanged. A recorded input that cannot be recomputed is a miss, never a hit."""
     try:
-        if any(file_digest(p) != d for p, d in doc["files"].items()):
+        if any(file_digest(_resolve(p)) != d for p, d in doc["files"].items()):
             return False
         if any(decode_digest(image, va) != d for image, va, d in doc["decode"]):
             return False
