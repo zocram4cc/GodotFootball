@@ -1,0 +1,5 @@
+0x14211BF10	stand-in	dribblereset	seed
+0x14211BF20	stand-in	dribblereset	seed
+0x14211BF30	stand-in	dribblereset	seed
+0x14211BF40	stand-in	dribblereset	seed
+0x14211BF50	stand-in	dribblereset	seed
