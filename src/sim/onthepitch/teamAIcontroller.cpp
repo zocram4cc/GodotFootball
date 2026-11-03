@@ -2466,10 +2466,23 @@ void TeamAIController::PesPressTick() {
     f.keepX[k] = players[k]->GetPosition().coords[0];
   }
   f.sheet = teamRecord.sheet.Bytes();
+  // The carrier units read MA+0x2601C as the ball OWNER (elizacontroller.cpp sets it before RunCarrierUpdate); the press reads it
+  // as the last toucher. ponytail: both are one PES field (FUN_140457070 W1); until the owner is that field, the press run borrows
+  // it and puts the carrier's value back.
+  const uint32_t owner = pes::LoadU32(world.Ma(side), pes::kMaOwnerOffset);
+  // The unit updater 0x1421019D0 also reads T+0x4C00 (its words were zero before the press staged them); the carrier closure the
+  // translated layer proves does not enter the branch the role classes open (an untranslated 0x14211BF40 aborted the pes-loop
+  // smoke), so the press run borrows those words too. ponytail: remove with the carrier closure's widening (DribbleProposal).
+  std::array<uint32_t, pes::kSlotsPerSide> unitWords{};
+  for (int k = 0; k < pes::kSlotsPerSide; ++k)
+    unitWords[k] = pes::LoadU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k);
   world.StagePress(side, f);
   world.RunPressCoordinator(side);
   world.ResetPress(side);
   world.RunPressWriter(side);
+  world.SetMaOwner(side, owner);
+  for (int k = 0; k < pes::kSlotsPerSide; ++k)
+    pes::StoreU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k, unitWords[k]);
 }
 
 bool TeamAIController::StartConcept(int id) {

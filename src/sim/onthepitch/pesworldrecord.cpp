@@ -509,6 +509,10 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
     // refusal quiet. Writer: the mark table writer FUN_140546FB0 (mark-cone.md section 1).
     StoreU32(t, kTeamMarkPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
     StoreU32(t, kTeamSwapPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
+    // The candidate table 0x140639830 enrols a man whose own action word P+0x5D0 is PRESS (docs/re/pes-re-press-life.md 5): PES's
+    // action machine mirrors T+0xA2A0 into the man record, so the press the writer or coordinator marked keeps its man.
+    if (uint8_t* man = ManRecord(side * kSlotsPerSide + k))
+      StoreU32(man, kManActionOffset, LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k));
   }
   uint8_t* mi = MatchInfo();
   for (int slot = 0; slot < kSlotCount; ++slot) mi[kMiOnPitchOffset + slot] = f.onPitch[slot] ? 1 : 0;
