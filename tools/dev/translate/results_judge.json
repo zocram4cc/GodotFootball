@@ -1,11 +1,11 @@
 {
- "note": "snapshot-backed diff of the judge's traced calls (snapdiff.py): each real call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated. Captures: live2 pid2670420 (decide seq7473, commit seq7443, whistle seq028 seq7444 seq7535 seq7699), pid91171 (decide seq316, whistle seq028 seq308) and pid132854 (whistle seq028 seq804 seq866 seq1161 seq1328 seq1493 seq2126 seq2673 seq2939).",
+ "note": "snapshot-backed diff of the judge's traced calls (snapdiff.py): each real call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated. Captures: live2 pid2670420 (decide seq7473, commit seq7443, whistle seq028 seq7444 seq7535 seq7699), pid91171 (decide seq316, whistle seq028 seq308) and pid132854 (whistle seq028 seq804 seq866 seq1161 seq1328 seq1493 seq2126 seq2673 seq2939). CardProof (03-11-26, snapdiff --bounded): decide 12/12 and commit 11/11 with pid2738437 (decide seq6353 seq164690 seq352486 seq572688 seq643535 seq683826 seq704668 seq913639; commit seq147059 seq376981 seq495001 seq538957 seq882740 at level 2, seq280370 seq677650 seq769716 seq856163 seq971365 at level 3); the snapshot keys a_/b_/c_/e_ are pid2670420 / pid91171 / pid132854 / pid91171 and p_ is pid2738437.",
  "proven_count": 3,
  "results": [
   {
    "va": "0x1405B7470",
-   "calls": 4,
-   "replayed": 4,
+   "calls": 12,
+   "replayed": 12,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -24,27 +24,36 @@
     "e_seq3147": {
      "calls": 1,
      "replayed": 1
-    }
-   },
-   "mismatches": [],
-   "translated": true,
-   "note": "",
-   "own_block": {
-    "reached": 86,
-    "total": 200,
-    "fraction": 0.43
-   },
-   "proven": true,
-   "blocked_callees": []
-  },
-  {
-   "va": "0x143F546F0",
-   "calls": 1,
-   "replayed": 1,
-   "excluded": 0,
-   "reasons": {},
-   "snapshots": {
-    "a_seq7443": {
+    },
+    "p_seq164690": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq352486": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq572688": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq6353": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq643535": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq683826": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq704668": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq913639": {
      "calls": 1,
      "replayed": 1
     }
@@ -53,9 +62,72 @@
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 19,
+    "reached": 118,
+    "total": 200,
+    "fraction": 0.59
+   },
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x143F546F0",
+   "calls": 11,
+   "replayed": 11,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "a_seq7443": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq147059": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq280370": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq376981": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq495001": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq538957": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq677650": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq769716": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq856163": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq882740": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "p_seq971365": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 20,
     "total": 27,
-    "fraction": 0.7037
+    "fraction": 0.7407
    },
    "proven": true,
    "blocked_callees": []
