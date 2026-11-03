@@ -7,7 +7,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
+#include <cstring>
 
 #include "onthepitch/pesclock.hpp"
 #include "onthepitch/pesworldrecord.hpp"
@@ -338,27 +341,43 @@ TEST(JudgeDecide, AProfessionalFoulNeedsNoBallEventOfTheVictimsInTheWindow) {
   EXPECT_GE(Level(facts, {{kEventKick, kFouler}, {kEventKick, kFouler, kStale}, {kEventKick, kVictim}}), kLevelYellow);
 }
 
-// ---- The commit 0x143F546F0: the pending foul becomes the card level (JR+0x38, MI+0x158C) the booking and the sanction read. ----
+// ---- The commit 0x143F546F0 is the whistle: it writes JR (= MI+0x1554, the stoppage words) and the card level at JR+0x38. ----
 // Recorded: live2 pid2738437 judge_commit_43F546F0 captures, the pending record at the judge's +0x14 (rdx) as the game held
 // it: seq147059 (a foul + warning, level 2) and seq280370 (a yellow, level 3). Both are direct fouls (kind 2) for a free kick
 // (restart 5); the commit carries the record's stamp words into JR and writes the level at JR+0x38.
-// docs/ports/pes-port-CardProof.md.
+// docs/ports/pes-port-CardProof.md, docs/ports/pes-port-CardWhistle.md.
 struct RecordedCommit {
-  uint32_t pending[13];  // words 0..12 of the record
+  uint32_t pending[13];  // words 0..12 of the record: fouler, victim, ?, ?, restart, kind, level, points, spot x, y, z, stamp, count
   uint32_t level;        // JR+0x38 after the call, as the game left it
 };
 constexpr RecordedCommit kRecordedCommits[] = {
     {{0x14, 0x1, 0x18, 0x18, 0x5, 0x2, 0x2, 0x4c, 0x41dc44f8, 0x0, 0xc1144181, 0xf7c9, 0x4}, 2},
     {{0xc, 0xa, 0x18, 0x18, 0x5, 0x2, 0x3, 0x52, 0x410f9622, 0x0, 0xc16a045a, 0x1cb1b, 0x7}, 3},
 };
-constexpr std::size_t kRecordStampWord = 11, kRecordCountWord = 12;  // JR+0x4C, JR+0x58 copy these
-constexpr std::size_t kResultStampOffset = 0x4C, kResultCountOffset = 0x58;
+constexpr std::size_t kPendingFoulerWord = 0, kPendingVictimWord = 1, kPendingRestartWord = 4, kPendingKindWord = 5,
+                      kPendingSpotXWord = 8, kPendingSpotZWord = 10, kRecordStampWord = 11, kRecordCountWord = 12;
+constexpr std::size_t kResultStampOffset = 0x4C, kResultCountOffset = 0x58;  // JR+0x4C, JR+0x58 copy the stamp and count words
+constexpr uint32_t kCommitStopReason = 5;  // the reason the commit passes the whistle (MI+0x1574: foul or offside)
+
+using Pending = std::array<uint32_t, 13>;
+
+Pending PendingOf(const RecordedCommit& recorded) {
+  Pending p;
+  std::copy(std::begin(recorded.pending), std::end(recorded.pending), p.begin());
+  return p;
+}
+
+void StagePending(Staged& s, const Pending& pending) {
+  uint8_t* judge = s.world.JudgeRecord();
+  for (std::size_t i = 0; i < pending.size(); ++i) StoreU32(judge, kJudgePendingRecordOffset + 4 * i, pending[i]);
+}
+
+uint32_t Word(Staged& s, std::size_t miOffset) { return LoadU32(s.world.MatchInfo(), miOffset); }
 
 TEST(JudgeCommit, ARecordedWarningAndYellowAreCommittedAtTheirLevel) {
   for (const RecordedCommit& recorded : kRecordedCommits) {
     Staged s;
-    uint8_t* judge = s.world.JudgeRecord();
-    for (std::size_t i = 0; i < 13; ++i) StoreU32(judge, kJudgePendingRecordOffset + 4 * i, recorded.pending[i]);
+    StagePending(s, PendingOf(recorded));
     EXPECT_EQ(s.world.CommitJudge(), recorded.level);
     const uint8_t* result = s.world.JudgeResult();
     EXPECT_EQ(LoadU32(result, kJudgeResultCardLevelOffset), recorded.level);
@@ -367,20 +386,61 @@ TEST(JudgeCommit, ARecordedWarningAndYellowAreCommittedAtTheirLevel) {
   }
 }
 
-// A decision's pending foul is committed: the level the verdict reports is the one in JR, and a contact that is no foul
-// leaves JR alone.
-TEST(JudgeCommit, ADecidedFoulIsCommittedToTheResultRecord) {
+// The whistle's writes are the stoppage words: the restart, the awarded side (the side that is not the fouler's), the spot,
+// the reason, the foul kind, the card level, the fouler and the victim, read at the match-info offsets the translated
+// stoppage functions read. A fouler of either side is staged: the recorded two are both side 1's.
+TEST(JudgeCommit, TheWhistleWritesTheStoppageWordsOfTheMatchInfoBlock) {
+  for (const RecordedCommit& recorded : kRecordedCommits) {
+    for (const int fouler : {static_cast<int>(recorded.pending[kPendingFoulerWord]), 3}) {
+      Pending pending = PendingOf(recorded);
+      pending[kPendingFoulerWord] = static_cast<uint32_t>(fouler);
+      Staged s;
+      StagePending(s, pending);
+      s.world.CommitJudge();
+      EXPECT_EQ(Word(s, kMiRestartKindOffset), pending[kPendingRestartWord]) << "fouler " << fouler;
+      EXPECT_EQ(Word(s, kMiRestartSideOffset), static_cast<uint32_t>(fouler / kSlotsPerSide == 0 ? 1 : 0)) << "fouler " << fouler;
+      EXPECT_EQ(Word(s, kMiStopReasonOffset), kCommitStopReason);
+      EXPECT_EQ(Word(s, kMiFoulKindOffset), pending[kPendingKindWord]);
+      EXPECT_EQ(Word(s, kMiCardLevelOffset), recorded.level);
+      EXPECT_EQ(Word(s, kMiFoulerOffset), pending[kPendingFoulerWord]);
+      EXPECT_EQ(Word(s, kMiVictimOffset), pending[kPendingVictimWord]);
+      EXPECT_EQ(Word(s, kMiSpotXOffset), pending[kPendingSpotXWord]);
+      EXPECT_EQ(Word(s, kMiSpotZOffset), pending[kPendingSpotZWord]);
+    }
+  }
+}
+
+// The whistle clamps the spot inside the outer lines (0x14050E770: x to the half length F0).
+TEST(JudgeCommit, ASpotPastTheGoalLineIsWhistledOnIt) {
+  Pending pending = PendingOf(kRecordedCommits[0]);
+  const float past_m = kHalfLength_m + 3.0f;
+  std::memcpy(&pending[kPendingSpotXWord], &past_m, sizeof past_m);
+  Staged s;
+  StagePending(s, pending);
+  s.world.CommitJudge();
+  uint32_t word = Word(s, kMiSpotXOffset);
+  float x;
+  std::memcpy(&x, &word, sizeof x);
+  EXPECT_FLOAT_EQ(x, kHalfLength_m);
+}
+
+// A decision builds the pending foul and nothing else: the stoppage words and the card level stay zero until the whistle
+// (the hold and the advantage come between), and then the whistle commits the pending level.
+TEST(JudgeCommit, ADecidedFoulIsWhistledAtItsPendingLevelAndNotBefore) {
   Staged s;
   PesWorld::ContactFacts facts = Staged::Tackle();
   facts.victimFace = true;
   const PesWorld::JudgeVerdict v = s.world.DecideContact(facts);
   ASSERT_TRUE(v.pending);
-  EXPECT_EQ(LoadU32(s.world.JudgeResult(), kJudgeResultCardLevelOffset), v.level);
   EXPECT_EQ(v.level, kLevelYellow);
-
-  Staged none;
-  ASSERT_FALSE(none.world.DecideContact(Staged::Tackle(false)).pending);
-  EXPECT_EQ(LoadU32(none.world.JudgeResult(), kJudgeResultCardLevelOffset), 0u);
+  EXPECT_EQ(Word(s, kMiRestartKindOffset), 0u);
+  EXPECT_EQ(Word(s, kMiCardLevelOffset), 0u);
+  EXPECT_EQ(s.world.CommitJudge(), v.level);
+  EXPECT_EQ(Word(s, kMiCardLevelOffset), v.level);
+  EXPECT_EQ(Word(s, kMiRestartKindOffset), v.restart);
+  EXPECT_EQ(Word(s, kMiFoulKindOffset), kFoulKindDirect);
+  EXPECT_EQ(Word(s, kMiFoulerOffset), static_cast<uint32_t>(kFouler));
+  EXPECT_EQ(Word(s, kMiVictimOffset), static_cast<uint32_t>(kVictim));
 }
 
 }  // namespace

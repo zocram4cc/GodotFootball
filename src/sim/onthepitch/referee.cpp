@@ -6,6 +6,7 @@
 #include "referee.hpp"
 
 #include <cmath>
+#include <cstring>
 #include <limits>
 
 #include "../data/playerskills.hpp"
@@ -784,28 +785,34 @@ static uint32_t PesStopReason(e_SetPiece setPiece) {
   }
 }
 
-// ponytail: a mirror of buffer and foul into the match-info block. The GF copies move into the block at their writers
-// (docs/ports/pes-port-FoulOffside2.md section 5, item 4); until then this is the only writer of the stoppage words.
+// A foul stop's stoppage words are the translated whistle's (CheckFoul runs the commit 0x143F546F0, which writes JR =
+// MI+0x1554). They stand until the stop ends: PES clears JR then (0x14050A8C0 / 0x14050A990, callers not traced), so the
+// record is zeroed when the restart is taken or another stop replaces the foul's.
+// ponytail: every other stop (kick-off, goal kick, corner, throw-in, offside, period end) is a mirror of buffer into the
+// block; PES writes those through the same whistle from 0x14050E110, 0x14050E020, 0x14050E320, 0x14050CC40 and the offside
+// commit, which are translated but not driven yet (they need the ball-out events and the offside SetPending record).
 void Referee::PublishPesStoppage() {
   pes::PesWorld& world = match->PesWorldOf();
   uint8_t* mi = world.MatchInfo();
   const bool restart = buffer.active;
   const bool freeKickOrPenalty =
       restart && (buffer.desiredSetPiece == e_SetPiece_FreeKick || buffer.desiredSetPiece == e_SetPiece_Penalty);
-  // A free kick or penalty is a direct foul (2) when a foul is on the books, else an offside (1).
-  const bool foulOnBooks = foul.foulType != 0 && foul.foulPlayer != nullptr;
-  const uint32_t cardLevel = foul.foulType != 0 ? static_cast<uint32_t>(foul.level) : 0u;
-  pes::StoreU32(mi, pes::kMiRestartKindOffset, restart ? PesRestartKind(buffer.desiredSetPiece) : 0u);
-  pes::StoreU32(mi, pes::kMiRestartSideOffset, static_cast<uint32_t>(buffer.teamID));
-  pes::StoreF32(mi, pes::kMiSpotXOffset, buffer.restartPos.coords[0]);
-  pes::StoreF32(mi, pes::kMiSpotZOffset, buffer.restartPos.coords[1]);
-  pes::StoreU32(mi, pes::kMiStopReasonOffset, restart ? PesStopReason(buffer.desiredSetPiece) : 0u);
-  pes::StoreU32(mi, pes::kMiFoulKindOffset, freeKickOrPenalty ? (foulOnBooks ? 2u : 1u) : 0u);
-  pes::StoreU32(mi, pes::kMiCardLevelOffset, cardLevel);
-  pes::StoreU32(mi, pes::kMiFoulerOffset,
-                foul.foulPlayer ? static_cast<uint32_t>(match->PesSlotOf(foul.foulPlayer)) : static_cast<uint32_t>(pes::kMiNoSlot));
-  pes::StoreU32(mi, pes::kMiVictimOffset,
-                foul.foulVictim ? static_cast<uint32_t>(match->PesSlotOf(foul.foulVictim)) : static_cast<uint32_t>(pes::kMiNoSlot));
+  if (stoppageWhistled && !freeKickOrPenalty) {
+    std::memset(mi + pes::kMiRestartKindOffset, 0, pes::kJudgeResultBytes);
+    stoppageWhistled = false;
+  }
+  if (!stoppageWhistled) {
+    pes::StoreU32(mi, pes::kMiRestartKindOffset, restart ? PesRestartKind(buffer.desiredSetPiece) : 0u);
+    pes::StoreU32(mi, pes::kMiRestartSideOffset, static_cast<uint32_t>(buffer.teamID));
+    pes::StoreF32(mi, pes::kMiSpotXOffset, buffer.restartPos.coords[0]);
+    pes::StoreF32(mi, pes::kMiSpotZOffset, buffer.restartPos.coords[1]);
+    pes::StoreU32(mi, pes::kMiStopReasonOffset, restart ? PesStopReason(buffer.desiredSetPiece) : 0u);
+    // A free kick that is no foul is an offside (1).
+    pes::StoreU32(mi, pes::kMiFoulKindOffset, freeKickOrPenalty ? 1u : 0u);
+    pes::StoreU32(mi, pes::kMiCardLevelOffset, 0u);
+    pes::StoreU32(mi, pes::kMiFoulerOffset, static_cast<uint32_t>(pes::kMiNoSlot));
+    pes::StoreU32(mi, pes::kMiVictimOffset, static_cast<uint32_t>(pes::kMiNoSlot));
+  }
   pes::StoreU32(mi, pes::kMiOffsideFlagOffset, offsidePlayers.empty() ? 0u : 1u);
   mi[pes::kMiRestartArmedOffset] = buffer.prepared ? 1 : 0;
   StagePesField();
@@ -1189,11 +1196,15 @@ float Referee::NearestToBall_m(Team* team) const {
   return best;
 }
 
+// The card the player is given on this engine's ladder for PES's level (a warning, 2, gives no card).
+static int FoulTypeForLevel(int level) {
+  constexpr int kFoulTypeForLevel[] = {0, 1, 1, 2, 3};
+  return kFoulTypeForLevel[level];
+}
+
 void Referee::RecordFoul(Player* tripee, Player* tripper, int level) {
-  // The card the player is given on this engine's ladder; PES's level stays in foul.level (a warning, 2, gives no card).
-  constexpr int FOUL_TYPE_FOR_LEVEL[] = {0, 1, 1, 2, 3};
   foul.level = level;
-  foul.foulType = FOUL_TYPE_FOR_LEVEL[level];
+  foul.foulType = FoulTypeForLevel(level);
   foul.advantage = false;
   foul.advantageDecided = false;
   foul.advantageRemaining_s = 0.0f;
@@ -1293,6 +1304,12 @@ bool Referee::CheckFoul(bool heldWhistle) {
 
   if (foul.foulType != 0 && foul.advantage == false && !foul.hasBeenProcessed) {
     match->StopPlay();
+    // PES's whistle: the commit 0x143F546F0 runs 0x14050E770 over the pending foul, which writes the stoppage words
+    // (restart, side, spot, reason, foul kind, fouler, victim) and the card level the booking and the sanction read.
+    StagePesField();
+    foul.level = static_cast<int>(match->PesWorldOf().CommitJudge());
+    foul.foulType = FoulTypeForLevel(foul.level);
+    stoppageWhistled = true;
     // PES's foul hold (9.2) is 5.0 s with no scene, and a scene never picks a
     // hold below its own; a player down adds PES's +2.5 s (9.3) to either.
     const bool downed =
