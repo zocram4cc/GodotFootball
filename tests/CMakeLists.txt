@@ -320,3 +320,8 @@ set_tests_properties(rv_sweep_test PROPERTIES TIMEOUT 60)
 add_test(NAME translate_layer_headers_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_layer_headers.py)
 set_tests_properties(translate_layer_headers_test PROPERTIES TIMEOUT 300)
+
+# FixDemo camera record list (pes::BuildCameraList and the scene generators); pesrandom lives in gfsim, so the module's source is built in.
+add_executable(pes_camera_list_test pes_camera_list_test.cpp ${CMAKE_SOURCE_DIR}/src/pes/fixdemo_camera_list.cpp)
+target_link_libraries(pes_camera_list_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_camera_list_test)

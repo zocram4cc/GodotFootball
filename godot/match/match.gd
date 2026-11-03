@@ -195,6 +195,11 @@ func _load_cutscene(req: Dictionary) -> void:
 	_cut_steps.clear()
 	for step: Dictionary in req["steps"]:
 		var cam := PesCutsceneCamera.new()
+		# One FixDemo scene's steps share its generators (PES's scene constructor 0x141F55110): the first step starts them from the match seed.
+		if _cut_steps.is_empty():
+			cam.begin_scene(library, int(args.get("seed", DEFAULT_SEED)))
+		else:
+			cam.continue_scene(_cut_steps[-1])
 		cam.load_step(library, int(req["category"]), step["fdc"])
 		# ponytail: PES's scene start 0x141F5CD00 gives each step its own stage default by the step's placement mode
 		# (+0x10: 1 = the anchor, 2 = the scene's waypoint map at scene+0x60); every step takes the anchor.

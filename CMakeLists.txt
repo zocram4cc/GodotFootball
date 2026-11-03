@@ -57,7 +57,7 @@ set_target_properties(pesfmt_dump PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BI
 
 add_library(godotfootball SHARED
   src/gdext/register_types.cpp src/gdext/pes_library.cpp src/gdext/pes_texture.cpp src/gdext/pes_character.cpp
-  src/gdext/pes_animation.cpp src/gdext/pes_marking.cpp src/gdext/gf_match.cpp src/gdext/pes_motion.cpp src/gdext/pes_broadcast_camera.cpp src/gdext/pes_cutscene_camera.cpp src/gdext/pes_mesh.cpp src/gdext/pes_model.cpp src/gdext/pes_lighting.cpp src/gdext/pes_effects.cpp)
+  src/gdext/pes_animation.cpp src/gdext/pes_marking.cpp src/gdext/gf_match.cpp src/gdext/pes_motion.cpp src/gdext/pes_broadcast_camera.cpp src/gdext/pes_cutscene_camera.cpp src/pes/fixdemo_camera_list.cpp src/gdext/pes_mesh.cpp src/gdext/pes_model.cpp src/gdext/pes_lighting.cpp src/gdext/pes_effects.cpp)
 # pesfmt's movestep_run.cpp calls LocomotionStyle from pesmovestepcore (see gfsim_run below). The
 # shared library links without complaint when that symbol is missing, and Godot then refuses to
 # load the extension, so name pesmovestepcore after pesfmt here too.

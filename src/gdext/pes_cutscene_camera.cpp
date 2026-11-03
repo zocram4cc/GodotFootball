@@ -63,6 +63,25 @@ Error PesCutsceneCamera::AddTrack(const Ref<PesLibrary>& library, const pes::fdc
   return OK;
 }
 
+Error PesCutsceneCamera::begin_scene(const Ref<PesLibrary>& library, int64_t seed) {
+  if (!library.is_valid() || !library->exe()) return ERR_UNCONFIGURED;
+  std::string err;
+  const auto k = pes::LoadFixDemoRandomConstants(*library->exe(), &err);
+  if (!k) {
+    UtilityFunctions::push_error(String("PesCutsceneCamera: ") + err.c_str());
+    return ERR_UNAVAILABLE;
+  }
+  // The context constructor passes its clock % 10000 to the global seeder (0x141F4C950 -> 0x141F51FD0).
+  // ponytail: PES's global generator lives across scenes (each scene's A seed is its next draw); GF builds a fresh one per
+  // scene from the match seed, so every scene of a match draws the same sequence until GF keeps the global between scenes.
+  scene_ = std::make_shared<SceneState>(*k, uint32_t(seed) % 10000u);
+  return OK;
+}
+
+void PesCutsceneCamera::continue_scene(const Ref<PesCutsceneCamera>& previous) {
+  if (previous.is_valid()) scene_ = previous->scene_;
+}
+
 Error PesCutsceneCamera::load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index) {
   if (!library.is_valid()) return ERR_UNCONFIGURED;
   const auto& vfs = library->vfs();
@@ -80,15 +99,19 @@ Error PesCutsceneCamera::load_file(const Ref<PesLibrary>& library, const String&
   }
   if (camera_index < 0 || size_t(camera_index) >= file.cameras.size()) return ERR_INVALID_PARAMETER;
   tracks_.clear();
+  layers_.clear();
   cutHolder_.cuts = file.cuts;
   k_ = *library->cutscene_camera_constants();
+  // The debug track plays its one record: no PES layer list is built for a single file.
+  layers_.push_back({0, {file.cameras[size_t(camera_index)]}, {0}});
   return AddTrack(library, file, file.cameras[size_t(camera_index)]);
 }
 
 Error PesCutsceneCamera::load_step(const Ref<PesLibrary>& library, int category, const PackedStringArray& names) {
-  if (!library.is_valid()) return ERR_UNCONFIGURED;
+  if (!library.is_valid() || !scene_) return ERR_UNCONFIGURED;
   const auto& vfs = library->vfs();
   tracks_.clear();
+  layers_.clear();
   cutHolder_.cuts.clear();
   k_ = *library->cutscene_camera_constants();
   for (int i = 0; i < names.size(); ++i) {
@@ -103,18 +126,35 @@ Error PesCutsceneCamera::load_step(const Ref<PesLibrary>& library, int category,
     }
     // The player's cut map holds the Cut records of every layer (the first of them starts the step: pes::fdc::FirstCut).
     cutHolder_.cuts.insert(cutHolder_.cuts.end(), layer.cuts.begin(), layer.cuts.end());
-    for (const pes::fdc::CameraRecord& cam : layer.cameras) AddTrack(library, layer, cam);  // a bad clip is logged and skipped
+    Layer built;
+    built.first = tracks_.size();
+    built.records = layer.cameras;
+    for (const pes::fdc::CameraRecord& cam : layer.cameras) {
+      const size_t before = tracks_.size();
+      AddTrack(library, layer, cam);  // a bad clip is logged and skipped
+      if (tracks_.size() == before) tracks_.push_back(Track{cam, {}, -1});  // keeps tracks_ aligned with the layer's records
+    }
+    // The layer player's creation: its set word (0x141F5D2E0), then at its cut start the list (0x141F2DD80).
+    // ponytail: the word's mode byte (player+0xAE8 key 0, +0x48) is 0 in all 16 captured layers; its loader is not located, so
+    // every layer takes mode 0 (a fresh pick); modes 1 and 2 are ported in FixDemoScene::LayerSetWord.
+    const uint32_t word = scene_->scene.LayerSetWord(0, pes::CameraSetCount(built.records));
+    built.list = pes::BuildCameraList(built.records, word, scene_->scene.listRandom());
+    layers_.push_back(std::move(built));
   }
   return OK;
 }
 
-// INF (docs/ports/pes-port-CutsceneTiming.md section 5): the record in force is the last one started on the clock; records
-// that start at the same tick are not told apart (ponytail: PES picks among them by the records' selectByRate, 23
-// percentages; the first of them in layer order stands in until 0x141F42110 is decoded).
+// Each layer plays its built list (PES's layer player 0x141F42110: the next record takes over when the player clock reaches its
+// start). The step shows one of the layers' records: the one whose start is latest on the clock, the first layer on a tie.
+// ponytail: which layer's camera PES shows when several run is not decoded (the layers' cameras write one params block, 0x1437F4A40,
+// through FixDemoCamera::Update 0x141F7B770; the camera stack 0x141EB0570 only activates the scene's camera); this stands in.
 const PesCutsceneCamera::Track* PesCutsceneCamera::InForce(float clock) const {
   const Track* force = nullptr;
-  for (const Track& t : tracks_)
+  for (const Layer& layer : layers_) {
+    if (layer.list.empty()) continue;
+    const Track& t = tracks_[layer.first + layer.list[pes::CameraListIndex(layer.records, layer.list, clock)]];
     if (t.record.startTime <= clock && (!force || t.record.startTime > force->record.startTime)) force = &t;
+  }
   return force;
 }
 
@@ -191,6 +231,8 @@ bool PesCutsceneCamera::update(Camera3D* camera, double t_s) {
 }
 
 void PesCutsceneCamera::_bind_methods() {
+  ClassDB::bind_method(D_METHOD("begin_scene", "library", "seed"), &PesCutsceneCamera::begin_scene);
+  ClassDB::bind_method(D_METHOD("continue_scene", "previous"), &PesCutsceneCamera::continue_scene);
   ClassDB::bind_method(D_METHOD("load_step", "library", "category", "names"), &PesCutsceneCamera::load_step);
   ClassDB::bind_method(D_METHOD("load_file", "library", "vfs_path", "camera_index"), &PesCutsceneCamera::load_file);
   ClassDB::bind_method(D_METHOD("update", "camera", "t_s"), &PesCutsceneCamera::update);
