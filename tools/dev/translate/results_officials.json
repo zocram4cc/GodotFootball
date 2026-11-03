@@ -1,0 +1,113 @@
+{
+  "note": "officials' action updates (referee gesture machine, linesman flag and move). diffed = bit-exact vs the unicorn harness over the captured calls named in each record (snapdiff --bounded); pes-port-OfficialsMotion.md.",
+  "results": [
+    {
+      "aborted": 0,
+      "capped": 0,
+      "cases": 0,
+      "closure_file": "closure_officials.json",
+      "coverage": {
+        "0x1407A14E0": {
+          "reached": 35,
+          "total": 58,
+          "fraction": 0.6034
+        }
+      },
+      "dead_blocks": {},
+      "diffed": true,
+      "failed": 0,
+      "failure_class": null,
+      "icount_max": 0,
+      "nonreturn": 0,
+      "proof": "snapdiff",
+      "requested": 0,
+      "snapdiff": {
+        "calls": 3,
+        "mismatches": 0,
+        "own_block": {
+          "reached": 35,
+          "total": 58,
+          "fraction": 0.6034
+        },
+        "replayed": 3,
+        "source": "tools/dev/translate/results_officials.json"
+      },
+      "stubs": [],
+      "translated": true,
+      "va": "0x1407A14E0",
+      "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid296049 seq011, seq15917, seq17549, hook mot_judge_upd_7A14E0); Judge::Update (vtable 0x1425E20A0 slot 4); the closure is capture-bounded, every other call aborts loudly (pes-port-OfficialsMotion.md)."
+    },
+    {
+      "aborted": 0,
+      "capped": 0,
+      "cases": 0,
+      "closure_file": "closure_officials.json",
+      "coverage": {
+        "0x1407A2920": {
+          "reached": 51,
+          "total": 67,
+          "fraction": 0.7612
+        }
+      },
+      "dead_blocks": {},
+      "diffed": true,
+      "failed": 0,
+      "failure_class": null,
+      "icount_max": 0,
+      "nonreturn": 0,
+      "proof": "snapdiff",
+      "requested": 0,
+      "snapdiff": {
+        "calls": 3,
+        "mismatches": 0,
+        "own_block": {
+          "reached": 51,
+          "total": 67,
+          "fraction": 0.7612
+        },
+        "replayed": 3,
+        "source": "tools/dev/translate/results_officials.json"
+      },
+      "stubs": [],
+      "translated": true,
+      "va": "0x1407A2920",
+      "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid296049 seq012, seq27011, seq34160, hook mot_linesman_upd_7A2920); LinesmanAction::Update (vtable 0x1425E2270); the closure is capture-bounded, every other call aborts loudly (pes-port-OfficialsMotion.md)."
+    },
+    {
+      "aborted": 0,
+      "capped": 0,
+      "cases": 0,
+      "closure_file": "closure_officials.json",
+      "coverage": {
+        "0x1407A1F30": {
+          "reached": 30,
+          "total": 104,
+          "fraction": 0.2885
+        }
+      },
+      "dead_blocks": {},
+      "diffed": true,
+      "failed": 0,
+      "failure_class": null,
+      "icount_max": 0,
+      "nonreturn": 0,
+      "proof": "snapdiff",
+      "requested": 0,
+      "snapdiff": {
+        "calls": 3,
+        "mismatches": 0,
+        "own_block": {
+          "reached": 30,
+          "total": 104,
+          "fraction": 0.2885
+        },
+        "replayed": 3,
+        "source": "tools/dev/translate/results_officials.json"
+      },
+      "stubs": [],
+      "translated": true,
+      "va": "0x1407A1F30",
+      "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid296049 seq013, seq1330, seq4274, hook mot_linesman_mov_7A1F30); LinesmanMove::Update (vtable 0x1425E2188); the closure is capture-bounded, every other call aborts loudly (pes-port-OfficialsMotion.md)."
+    }
+  ]
+}

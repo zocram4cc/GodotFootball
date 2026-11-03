@@ -495,6 +495,14 @@ def import_model_lines(op, jump):
                 " if (_dst > _src && _dst < _src + _n) { for (uint64_t _i = _n; _i-- > 0;) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " else { for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " s.gpr[1] = 0; s.gpr[4] += 16;%s }" % pop_ret]
+    if e["do"] == "memset":
+        # Win64 memset(rcx=dst, dl=c, r8=n), the code_hex model register for register: mov r9, rcx; push rdi (the stack slot
+        # keeps rdi); rep stosb (forward, DF clear); rax = r9 = dst, rcx = 0; pop rdi restores rdi.
+        return ["{ " + push_ret +
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
+                " uint64_t _dst = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2]; s.gpr[9] = _dst;"
+                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, _c, 1);"
+                " s.gpr[0] = _dst; s.gpr[1] = 0; s.gpr[4] += 8;%s }" % pop_ret]
     if e["do"] == "vsprintf_s":
         # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
         return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
