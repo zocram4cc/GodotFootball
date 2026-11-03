@@ -8,9 +8,9 @@
    "closure_file": "closure_press_writer.json",
    "coverage": {
     "0x140536FC0": {
-     "reached": 44,
+     "reached": 75,
      "total": 170,
-     "fraction": 0.2588
+     "fraction": 0.4412
     }
    },
    "dead_blocks": {},
@@ -19,23 +19,25 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots), live2/pid296049 seq009, seq4264, seq4754 (hook ai_press_writer_536FC0)).",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 23 of 23 (the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots): 3 kick-off captures (live2/pid296049 seq009, seq4264, seq4754), 4 in-play captures that leave at the body filter (seq94346, seq95361, seq95772, seq96616) and 16 SYNTHETIC states over seq95772 (synw2.py/synw3.py: own men marked off the pitch so the 11-slot filter passes, T+0xF1 armed, randomised men positions, T+0xB709 and the slot words 0x3A/0x34)).",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 3,
+    "calls": 23,
     "mismatches": 0,
     "own_block": {
-     "reached": 44,
+     "reached": 75,
      "total": 170,
-     "fraction": 0.2588
+     "fraction": 0.4412
     },
-    "replayed": 3,
+    "replayed": 23,
     "source": "tools/dev/translate/results_press.json"
    },
    "stubs": [],
    "translated": true,
-   "va": "0x140536FC0"
+   "va": "0x140536FC0",
+   "synthetic": true,
+   "synthetic_cases": 16
   },
   {
    "aborted": 0,
@@ -55,7 +57,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press target eval FUN_140633940 (second presser pick), live2/pid296049 seq028, seq4684, seq11437 (hook ai_press_eval_633940)).",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press target eval FUN_140633940 (second presser pick), live2/pid296049 seq028, seq4684, seq11437).",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
@@ -91,7 +93,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press coordinator FUN_140634470 (PRESS/SAND second presser), live2/pid296049 seq008, seq4263, seq4753 (hook ai_press_coord_634470)).",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press coordinator FUN_140634470 (PRESS/SAND second presser), live2/pid296049 seq008, seq4263, seq4753).",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
