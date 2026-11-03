@@ -195624,6 +195624,33 @@
    "vtables": [],
    "walked": true
   },
+  "14063D1C0": {
+   "boundary": null,
+   "callees": {
+    "140474C40": "direct",
+    "14063CD90": "direct",
+    "140A8F860": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14063d1c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 62,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14063D2F0": {
    "boundary": null,
    "callees": {
@@ -208321,6 +208348,29 @@
    "source": "bridge",
    "subsystem": "ball",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1406996F0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406996f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 9,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -750095,6 +750145,32 @@
    "vtables": [],
    "walked": false
   },
+  "14159F670": {
+   "boundary": null,
+   "callees": {
+    "1415A18F4": "direct",
+    "1415A18FA": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14159f670",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 23,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14159F6C0": {
    "boundary": {
     "rule": "library",
@@ -750204,6 +750280,78 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "14159F918": {
+   "boundary": null,
+   "callees": {
+    "1415A01DC": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "14159F95A",
+     "text": "CALL qword ptr [0x14252f408]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_14159f918",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 22,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14159F974": {
+   "boundary": null,
+   "callees": {
+    "1415A01DC": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "14159F9BF",
+     "text": "call rbx"
+    },
+    {
+     "site": "14159F9CF",
+     "text": "CALL qword ptr [0x14252f6e8]"
+    },
+    {
+     "site": "14159F9E1",
+     "text": "CALL qword ptr [0x14252f6a0]"
+    },
+    {
+     "site": "14159F9F0",
+     "text": "CALL qword ptr [0x14252f340]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_14159f974",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 38,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "14159FA0C": {
    "boundary": {
@@ -751433,6 +751581,52 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "1415A18F4": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1415a18f4",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 7,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1415A18FA": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1415a18fa",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 6,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "1415A1A68": {
    "boundary": {
@@ -1226718,6 +1226912,80 @@
    "vtables": [],
    "walked": true
   },
+  "142123290": {
+   "boundary": null,
+   "callees": {
+    "14043A0A0": "direct",
+    "140481B00": "direct",
+    "14063C560": "direct",
+    "14063D1C0": "direct",
+    "14063E9F0": "direct",
+    "140698CC0": "direct",
+    "140698D10": "direct",
+    "1406996F0": "direct",
+    "140699710": "direct",
+    "1406997A0": "direct",
+    "140699820": "direct",
+    "140A489F0": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A92D40": "direct",
+    "141587AA0": "direct",
+    "14159F3E0": "direct",
+    "141E532D0": "direct",
+    "1421085B0": "direct",
+    "142118C90": "direct",
+    "142118D20": "direct",
+    "1421B7D40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142123290",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 274,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "142125AB0": {
+   "boundary": null,
+   "callees": {
+    "14063D8A0": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "142123290": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142125ab0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 77,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "142128BF0": {
    "boundary": null,
    "callees": {},
@@ -1293662,7 +1293930,7 @@
   "bridge": "http://127.0.0.1:8080",
   "closures": {
    "airuns": {
-    "members": 139,
+    "members": 239,
     "roots": [
      "0x140606060",
      "0x14060D210",

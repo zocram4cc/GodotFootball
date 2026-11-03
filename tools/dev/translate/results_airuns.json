@@ -163,7 +163,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the Cross unit FUN_142129590, live2/pid296049 seq036, seq17107, seq7090 (hook ai_cross_unit_2129590)).",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the Cross unit FUN_142129590 [+113 members: the root static direct-call closure, translated and linked but not replay-entered], live2/pid296049 seq036, seq17107, seq7090 (hook ai_cross_unit_2129590)).",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
