@@ -563,6 +563,10 @@ inline constexpr std::size_t kJudgeFoulKindOffset = 0x28;    // u32: 2 direct
 inline constexpr std::size_t kJudgeLevelOffset = 0x2C;       // u32: 1 foul, 2 foul + warning, 3 yellow, 4 red
 inline constexpr std::size_t kJudgePointsOffset = 0x30;      // u8
 inline constexpr std::size_t kJudgeTypeOffset = 0x55;        // u8: the foul type (0 contact, 1 slide .. 8 force)
+// The commit 0x143F546F0(judge, pending record) takes the pending foul at judge +0x14 (rdx) and writes the restart record
+// and JR+0x38 (= MI+0x158C, the card level the sanction tree and the booking read).
+inline constexpr std::size_t kJudgePendingRecordOffset = 0x14;
+inline constexpr std::size_t kJudgeResultCardLevelOffset = 0x38;
 
 struct PesSanctionImage {
   std::array<uint8_t, kSanctionRequestBytes> request{};
@@ -811,7 +815,7 @@ class PesWorld {
   // judge left early with no foul.
   struct JudgeVerdict {
     bool pending = false;
-    uint32_t level = 0;    // 1 foul, 2 foul + warning, 3 yellow, 4 red
+    uint32_t level = 0;    // the card level the commit 0x143F546F0 wrote (JR+0x38): 1 foul, 2 foul + warning, 3 yellow, 4 red
     uint32_t points = 0;   // the u8 sum P_angle + P_speed + P_action
     uint32_t restart = 0;  // 5 free kick, 6 penalty (the spot is in the victim's attacking box)
     uint8_t type = 0;      // the foul type: 0 contact, 1 slide, 2 block, 3 and 4 tackle, 5 kick, 6 keeper, 7 face, 8 force
@@ -820,6 +824,11 @@ class PesWorld {
   // hands it one contact at a time (PES keeps the stronger of two pending fouls, judge +8 against +0x30; the hold and
   // advantage step 0x14050B490 that clears it is not run here).
   JudgeVerdict DecideJudge(int victim, int fouler);
+  // The commit 0x143F546F0 over the judge's pending record (judge +0x14): the restart record into JR and the card level at
+  // JR+0x38, returned. DecideJudge runs it for every pending foul; exposed so a test can commit a recorded pending foul.
+  uint32_t CommitJudge();
+  uint8_t* JudgeRecord() { return image_->sanction.judge.data(); }
+  const uint8_t* JudgeResult() const { return image_->sanction.judgeResult.data(); }
   // A slot's slot record (PES's ai(i)), at the kSlot* offsets the judge reads.
   uint8_t* SlotRecord(int slot) { return Block(slot) + kSlotRecordOffset; }
   // The team line the judge's DOGSO test reads (A1's block +0x40 / +0x54, 0x1405B7390): x in metres.

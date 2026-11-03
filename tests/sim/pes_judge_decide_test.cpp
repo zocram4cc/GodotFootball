@@ -338,4 +338,49 @@ TEST(JudgeDecide, AProfessionalFoulNeedsNoBallEventOfTheVictimsInTheWindow) {
   EXPECT_GE(Level(facts, {{kEventKick, kFouler}, {kEventKick, kFouler, kStale}, {kEventKick, kVictim}}), kLevelYellow);
 }
 
+// ---- The commit 0x143F546F0: the pending foul becomes the card level (JR+0x38, MI+0x158C) the booking and the sanction read. ----
+// Recorded: live2 pid2738437 judge_commit_43F546F0 captures, the pending record at the judge's +0x14 (rdx) as the game held
+// it: seq147059 (a foul + warning, level 2) and seq280370 (a yellow, level 3). Both are direct fouls (kind 2) for a free kick
+// (restart 5); the commit carries the record's stamp words into JR and writes the level at JR+0x38.
+// docs/ports/pes-port-CardProof.md.
+struct RecordedCommit {
+  uint32_t pending[13];  // words 0..12 of the record
+  uint32_t level;        // JR+0x38 after the call, as the game left it
+};
+constexpr RecordedCommit kRecordedCommits[] = {
+    {{0x14, 0x1, 0x18, 0x18, 0x5, 0x2, 0x2, 0x4c, 0x41dc44f8, 0x0, 0xc1144181, 0xf7c9, 0x4}, 2},
+    {{0xc, 0xa, 0x18, 0x18, 0x5, 0x2, 0x3, 0x52, 0x410f9622, 0x0, 0xc16a045a, 0x1cb1b, 0x7}, 3},
+};
+constexpr std::size_t kRecordStampWord = 11, kRecordCountWord = 12;  // JR+0x4C, JR+0x58 copy these
+constexpr std::size_t kResultStampOffset = 0x4C, kResultCountOffset = 0x58;
+
+TEST(JudgeCommit, ARecordedWarningAndYellowAreCommittedAtTheirLevel) {
+  for (const RecordedCommit& recorded : kRecordedCommits) {
+    Staged s;
+    uint8_t* judge = s.world.JudgeRecord();
+    for (std::size_t i = 0; i < 13; ++i) StoreU32(judge, kJudgePendingRecordOffset + 4 * i, recorded.pending[i]);
+    EXPECT_EQ(s.world.CommitJudge(), recorded.level);
+    const uint8_t* result = s.world.JudgeResult();
+    EXPECT_EQ(LoadU32(result, kJudgeResultCardLevelOffset), recorded.level);
+    EXPECT_EQ(LoadU32(result, kResultStampOffset), recorded.pending[kRecordStampWord]);
+    EXPECT_EQ(LoadU32(result, kResultCountOffset), recorded.pending[kRecordCountWord]);
+  }
+}
+
+// A decision's pending foul is committed: the level the verdict reports is the one in JR, and a contact that is no foul
+// leaves JR alone.
+TEST(JudgeCommit, ADecidedFoulIsCommittedToTheResultRecord) {
+  Staged s;
+  PesWorld::ContactFacts facts = Staged::Tackle();
+  facts.victimFace = true;
+  const PesWorld::JudgeVerdict v = s.world.DecideContact(facts);
+  ASSERT_TRUE(v.pending);
+  EXPECT_EQ(LoadU32(s.world.JudgeResult(), kJudgeResultCardLevelOffset), v.level);
+  EXPECT_EQ(v.level, kLevelYellow);
+
+  Staged none;
+  ASSERT_FALSE(none.world.DecideContact(Staged::Tackle(false)).pending);
+  EXPECT_EQ(LoadU32(none.world.JudgeResult(), kJudgeResultCardLevelOffset), 0u);
+}
+
 }  // namespace
