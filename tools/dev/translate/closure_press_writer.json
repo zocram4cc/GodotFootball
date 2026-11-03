@@ -1,0 +1,30 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots), live2/pid296049 seq009, seq4264, seq4754 (hook ai_press_writer_536FC0): the root and each function the replays of the named captures entered (direct callees, tail targets, vtable methods); every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. pes-port-PressAI.md.",
+ "root": "0x140536FC0",
+ "members": [
+  "0x140536FC0",
+  "0x140A3B320",
+  "0x140A3E190",
+  "0x140A3E7D0",
+  "0x140A3E840",
+  "0x140A48910",
+  "0x140A489D0",
+  "0x140A489F0",
+  "0x140A48A10",
+  "0x140A48A30",
+  "0x140A51320",
+  "0x140A53F90",
+  "0x140A60500",
+  "0x140A60530",
+  "0x140A62610",
+  "0x140A62690",
+  "0x140A627E0",
+  "0x140A62EA0",
+  "0x140A6CE10",
+  "0x140A6E150",
+  "0x140A6E340",
+  "0x140A6E580",
+  "0x140A6E5E0",
+  "0x141B92460"
+ ]
+}

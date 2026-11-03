@@ -1,0 +1,113 @@
+{
+ "note": "press results. diffed = bit-exact vs the unicorn harness over the captured calls named in each record (snapdiff --bounded); pes-port-PressAI.md.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_writer.json",
+   "coverage": {
+    "0x140536FC0": {
+     "reached": 44,
+     "total": 170,
+     "fraction": 0.2588
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots), live2/pid296049 seq009, seq4264, seq4754 (hook ai_press_writer_536FC0)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 44,
+     "total": 170,
+     "fraction": 0.2588
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140536FC0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_eval.json",
+   "coverage": {
+    "0x140633940": {
+     "reached": 110,
+     "total": 193,
+     "fraction": 0.5699
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press target eval FUN_140633940 (second presser pick), live2/pid296049 seq028, seq4684, seq11437 (hook ai_press_eval_633940)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 110,
+     "total": 193,
+     "fraction": 0.5699
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140633940"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_coord.json",
+   "coverage": {
+    "0x140634470": {
+     "reached": 50,
+     "total": 112,
+     "fraction": 0.4464
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the press coordinator FUN_140634470 (PRESS/SAND second presser), live2/pid296049 seq008, seq4263, seq4753 (hook ai_press_coord_634470)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 50,
+     "total": 112,
+     "fraction": 0.4464
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140634470"
+  }
+ ]
+}
