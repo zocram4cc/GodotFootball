@@ -219580,6 +219580,29 @@
    "vtables": [],
    "walked": true
   },
+  "1406EA810": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406ea810",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "motion"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "motion",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406EA840": {
    "boundary": null,
    "callees": {
@@ -219654,6 +219677,29 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1406EAAF0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406eaaf0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "motion"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "motion",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1293705,6 +1293751,19 @@
     "members": 237,
     "roots": [
      "0x140472640"
+    ]
+   },
+   "motion": {
+    "members": 19,
+    "roots": [
+     "0x1406E6660",
+     "0x1406BA7D0",
+     "0x1406B10D0",
+     "0x1406B11E0",
+     "0x1406AF620",
+     "0x1406AF8E0",
+     "0x1406B1D00",
+     "0x1406B1F00"
     ]
    },
    "proccam": {
