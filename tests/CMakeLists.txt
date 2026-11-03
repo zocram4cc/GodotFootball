@@ -227,15 +227,18 @@ add_test(NAME godot_effects_test
 set_tests_properties(godot_effects_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
 # The compose pass needs a GPU: gamescope, as tools/capture_viewer.sh does. gamescope exits 0 whatever
-# the child does, so the verdict is the script's own summary line.
+# the child does, so the verdict is the script's own summary line. Every GPU test holds one machine-wide lock
+# (gf-gpu.lock beside the worktrees, like gf-sim.lock): several gates rendering at once beside the live PES rig hung
+# the amdgpu driver and rebooted the machine (03-11-26). The timeout covers the wait for the lock.
+set(GF_GPU_LOCK ${CMAKE_SOURCE_DIR}/../gf-gpu.lock)
 add_test(NAME godot_post_compose_test
-  COMMAND gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_compose.gd)
-set_tests_properties(godot_post_compose_test PROPERTIES PASS_REGULAR_EXPRESSION "post compose: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 180)
+  COMMAND flock ${GF_GPU_LOCK} gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_compose.gd)
+set_tests_properties(godot_post_compose_test PROPERTIES PASS_REGULAR_EXPRESSION "post compose: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 900)
 
 # The meter passes need a GPU for the same reason: the verdict is the script's summary line.
 add_test(NAME godot_post_meter_test
-  COMMAND gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_meter.gd)
-set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 180)
+  COMMAND flock ${GF_GPU_LOCK} gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_meter.gd)
+set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 900)
 
 add_executable(pes_events_test pes_events_test.cpp)
 target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
