@@ -129,6 +129,19 @@ TARGETS = [
     ("mot_clip_solver_6ECBB0", 0x1406ECBB0, "PortMapMotion: clip-solver physics prediction"),
     ("mot_tracked_842BE0", 0x140842BE0, "PortMapMotion: per-part contact distance"),
     ("mot_tracked_max_843C50", 0x140843C50, "PortMapMotion: max over tracked parts (feet gate shares fn)"),
+    # --- PortMapAI block (decision-side map; docs/re/pes-re-portmap-ai.md). Append-only.
+    ("ai_press_writer_536FC0", 0x140536FC0, "PortMapAI: press writer (replaces PesLooseWriterTick stand-in)"),
+    ("ai_press_eval_633940", 0x140633940, "PortMapAI: press target eval (replaces PesPressTick pass-2)"),
+    ("ai_press_coord_634470", 0x140634470, "PortMapAI: press coordinator (replaces PesSecondPresserTick)"),
+    ("ai_team_tick_4F6C30", 0x1404F6C30, "PortMapAI: team tick root (replaces Team::Process PES path)"),
+    ("ai_concept_sel_579840", 0x140579840, "PortMapAI: concept selector (replaces RunConcepts)"),
+    ("ai_lane_line_681FF0", 0x140681FF0, "PortMapAI: lane line post-step (replaces UpdateLaneLine)"),
+    ("ai_forward_pull_682770", 0x140682770, "PortMapAI: forward pull (replaces Block A stand-in)"),
+    ("ai_chance_606060", 0x140606060, "PortMapAI: ChanceSpaceRun (replaces ProcessRunManager chance)"),
+    ("ai_secondline_60D210", 0x14060D210, "PortMapAI: SecondLine runner (replaces ProcessRunManager)"),
+    ("ai_postplay_61F940", 0x14061F940, "PortMapAI: PostPlay executor (replaces ProcessRunManager)"),
+    ("ai_cross_unit_2129590", 0x142129590, "PortMapAI: Cross unit (replaces CrossUnit stand-in)"),
+    ("ai_receive_9F8220", 0x1409F8220, "PortMapAI: receive entry 3 (replaces _ReactionCommands receive)"),
 ]
 
 
@@ -295,17 +308,3 @@ def main(argv):
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
-
-# --- PortMapAI block (decision-side map; docs/re/pes-re-portmap-ai.md). Append-only.
-TARGETS += [("ai_press_writer_536FC0", 0x140536FC0, "PortMapAI: press writer (replaces PesLooseWriterTick stand-in)")]
-TARGETS += [("ai_press_eval_633940", 0x140633940, "PortMapAI: press target eval (replaces PesPressTick pass-2)")]
-TARGETS += [("ai_press_coord_634470", 0x140634470, "PortMapAI: press coordinator (replaces PesSecondPresserTick)")]
-TARGETS += [("ai_team_tick_4F6C30", 0x1404F6C30, "PortMapAI: team tick root (replaces Team::Process PES path)")]
-TARGETS += [("ai_concept_sel_579840", 0x140579840, "PortMapAI: concept selector (replaces RunConcepts)")]
-TARGETS += [("ai_lane_line_681FF0", 0x140681FF0, "PortMapAI: lane line post-step (replaces UpdateLaneLine)")]
-TARGETS += [("ai_forward_pull_682770", 0x140682770, "PortMapAI: forward pull (replaces Block A stand-in)")]
-TARGETS += [("ai_chance_606060", 0x140606060, "PortMapAI: ChanceSpaceRun (replaces ProcessRunManager chance)")]
-TARGETS += [("ai_secondline_60D210", 0x14060D210, "PortMapAI: SecondLine runner (replaces ProcessRunManager)")]
-TARGETS += [("ai_postplay_61F940", 0x14061F940, "PortMapAI: PostPlay executor (replaces ProcessRunManager)")]
-TARGETS += [("ai_cross_unit_2129590", 0x142129590, "PortMapAI: Cross unit (replaces CrossUnit stand-in)")]
-TARGETS += [("ai_receive_9F8220", 0x1409F8220, "PortMapAI: receive entry 3 (replaces _ReactionCommands receive)")]
