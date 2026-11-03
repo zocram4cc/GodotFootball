@@ -44,10 +44,9 @@ public:
   // access to before kick-off.
   float GetAverageStat() const;
 
-  // PES 2021 Playing Style and COM Playing Styles ("playing cards"): from
-  // profile_xml's <playing_style>/<com_styles>, inferred when the profile
-  // carries neither tag.
-  PlayingStyles::Player GetPlayingStyle() const { return playingStyle; }
+  // PES 2021 COM Playing Styles ("playing cards"): from profile_xml's <com_styles>, none when the profile has no tag.
+  // ponytail: PES's COM flags live in the roster row (+0x4C, editsave.hpp kRowFlagMask); a Player.bin player's row comes from PES's
+  // Player.bin loader (FUN_1414F8420 -> FUN_1414C78E0, not decoded for the COM keys). Until then the profile tag stands in.
   PlayingStyles::ComMask GetComStyles() const { return comStyles; }
   // PES's playable-position ratings, thirteen letters A/B/C in FormState::Slot
   // order; inferred from the registered roles when the profile names none.
@@ -78,7 +77,6 @@ protected:
 
   Properties stats;
   PlayerSkills::Mask skills;
-  PlayingStyles::Player playingStyle;
   PlayingStyles::ComMask comStyles;
   std::string positionFamiliarity;
   int playerAge;

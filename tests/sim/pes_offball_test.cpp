@@ -489,12 +489,12 @@ TEST(OffBallMask, ALeftBackReachesOnlyWithTheDefensiveFullBackStyleOnPesLoop) {
 
   constexpr int kRoleSB = 2;
   pes::style::Compat compat{};
-  compat.row[kRoleSB] = pes::style::StyleWord(PlayingStyles::Player::DefensiveFullBack);
+  compat.row[kRoleSB] = pes::style::StyleWord(pes::style::Bit::DefensiveFullBack);
   w.styleCompat = compat;
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // no style: reach
-  w.p[kRunner].styleWord = pes::style::StyleWord(PlayingStyles::Player::DefensiveFullBack);
+  w.p[kRunner].styleWord = pes::style::StyleWord(pes::style::Bit::DefensiveFullBack);
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // Defensive FB: no reach
-  w.p[kRunner].styleWord = pes::style::StyleWord(PlayingStyles::Player::OffensiveFullBack);
+  w.p[kRunner].styleWord = pes::style::StyleWord(pes::style::Bit::OffensiveFullBack);
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // another FB style
 }
 
@@ -1536,9 +1536,9 @@ OffBallConstants WithStyles() {
   k.styleFlankMaxForwards = 1;
   return k;
 }
-const uint32_t kPoacherWord = pes::style::StyleWord(PlayingStyles::Player::GoalPoacher);
-const uint32_t kFoxWord = pes::style::StyleWord(PlayingStyles::Player::FoxInTheBox);
-const uint32_t kPlaymakerWord = pes::style::StyleWord(PlayingStyles::Player::CreativePlaymaker);
+const uint32_t kPoacherWord = pes::style::StyleWord(pes::style::Bit::GoalPoacher);
+const uint32_t kFoxWord = pes::style::StyleWord(pes::style::Bit::FoxInTheBox);
+const uint32_t kPlaymakerWord = pes::style::StyleWord(pes::style::Bit::CreativePlaymaker);
 // The forward-line count (T+0x87CC) only gates roles 5-6; roles 7-9 take any.
 constexpr int kManyForwards = 3;
 

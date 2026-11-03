@@ -304,12 +304,13 @@ public:
   // The whole Player.bin record's traits (the ability bases the slot records start from), nullopt for a player with no PES id or
   // no record: the caller names its stand-in.
   std::optional<pes::PlayerTraits> PesTraitsOf(const PlayerData* data) const;
-  // The style word PES's playing-style gate reads (pesstyle.hpp): a player the EDIT save holds carries his row's +0x48 word
-  // (PlayerTraits::row, DecodeEditRow); every other player's is his GF style's engine bit.
-  // ponytail: the second is GF's own style standing in for a row GF cannot build; goes with the Player.bin row loader.
+  // The style word PES's playing-style gate reads (pesstyle.hpp): the row's +0x48 word (PlayerTraits::row, DecodeEditRow) for a
+  // player the EDIT save holds, PES's default word (pes::kDefaultStyleWord) for every other player.
+  // ponytail: the default stands in for the Player.bin row GF cannot build (PES's Player.bin loader FUN_1414F8420 -> FUN_1414C78E0
+  // is not decoded for the style key); goes with it.
   uint32_t StyleWordOf(const PlayerData* data) const;
   // A direct bit test of the style word, as PES's keeper, Destroyer and cross sites read it (`word >> bit & 1`, no compat row).
-  bool StyleHas(const PlayerData* data, PlayingStyles::Player style) const;
+  bool StyleHas(const PlayerData* data, pes::style::Bit style) const;
   // The named stand-ins for a player with no PES record of his own: the middle injury tier, the right foot, raw
   // Form 3 and the 0x46 condition default. The synthetic squads deal Normal from the default, as PES's unedited
   // records do (condition-import 1).

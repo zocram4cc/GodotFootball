@@ -1183,13 +1183,13 @@ std::optional<pes::PlayerTraits> Match::PesTraitsOf(const PlayerData* data) cons
 
 uint32_t Match::StyleWordOf(const PlayerData* data) const {
   const auto traits = TraitsOf(pesPlayerDatabase, data);
-  if (!traits || !traits->row) return pes::style::StyleWord(data->GetPlayingStyle());
+  if (!traits || !traits->row) return pes::kDefaultStyleWord;
   uint32_t word;
   std::memcpy(&word, traits->row->data() + pes::kRowStyleMask, sizeof word);
   return word;
 }
 
-bool Match::StyleHas(const PlayerData* data, PlayingStyles::Player style) const {
+bool Match::StyleHas(const PlayerData* data, pes::style::Bit style) const {
   return (StyleWordOf(data) & pes::style::StyleWord(style)) != 0;
 }
 

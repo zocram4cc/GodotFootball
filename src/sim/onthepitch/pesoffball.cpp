@@ -603,7 +603,7 @@ float LaneIntercept(Vec2f A, Vec2f B, Vec2f C, Vec2f D, float speed, bool flag) 
 bool StyleLb(const RunWorld& w, const PlayerFacts& me) {
   if (!w.styleCompat) return me.roleClass == pes::roles::kSideBackClass;
   return pes::style::Gate(*w.styleCompat, me.roleClass, me.styleWord,
-                          pes::style::EngineBit(PlayingStyles::Player::DefensiveFullBack));
+                          pes::style::EngineBit(pes::style::Bit::DefensiveFullBack));
 }
 
 struct Ctx {
@@ -1961,7 +1961,7 @@ float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord
   // (`local_1d6 < 2`, local_1d6 = T+0x87CC: 0x1405D9EFF CMP byte [RSP+0x42],1; JA).
   const bool flank = roleClass == 5 || roleClass == 6;
   if (!(roleClass >= 7 && roleClass <= 9) && !(flank && forwardsInLine <= k.styleFlankMaxForwards)) return 0.0f;
-  using P = PlayingStyles::Player;
+  using P = pes::style::Bit;
   // Three separate statements (L650-653 bit 0 adds, L655-657 bit 2 adds, L659-662 bit 4 subtracts), so a word holding
   // several gets each. L662's subtrahend is s * DAT_142588210: the register the decompile names fVar30 holds the
   // constant there (0x1405D9841 reloads it after L196's slot-point product), not a team-record x.

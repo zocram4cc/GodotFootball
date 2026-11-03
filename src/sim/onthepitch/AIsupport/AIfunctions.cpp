@@ -451,16 +451,14 @@ void AI_GetBestDribbleMovement(Match* match, int thisPlayerID, const MentalImage
   Team* team = player->GetTeam();
   signed int side = team->GetSide();
 
-  // The COM cards bend how he carries it (the playing style does not: PES reads no style bit in its dribble code).
-  const PlayingStyles::ComMask comStyles = player->GetPlayerData()->GetComStyles();
-  const float offenseFactor = PlayingStyles::GetDribbleDrive(
-      comStyles,
-      AITactics::GetDribbleForwardDrive(
-          team->GetController()->GetLiveTacticReal("dribble_offensiveness", 0.5f),
-          AI_GetMindSet(player->GetDynamicFormationEntry().role)));
-  const float opponentRepel = PlayingStyles::GetOpponentRepel(comStyles, 2.0f);
-  const float centerMagnet = PlayingStyles::GetDribbleCenterPull(
-      comStyles, team->GetController()->GetLiveTacticReal("dribble_centermagnet", 0.5f));
+  // No COM term here: PES's COM flag word (row +0x4C) is read by the carrier's image evaluators and the kind step
+  // (FUN_14211AB10/AF20/FE20, FUN_142123750, FUN_14212A2D0/CC20/FE70, FUN_1407DDD10's motion pick), none of which blends a
+  // drive / repel / centre pull / carry velocity: those four weights are GF's own force field.
+  const float offenseFactor = AITactics::GetDribbleForwardDrive(
+      team->GetController()->GetLiveTacticReal("dribble_offensiveness", 0.5f),
+      AI_GetMindSet(player->GetDynamicFormationEntry().role));
+  const float opponentRepel = 2.0f;
+  const float centerMagnet = team->GetController()->GetLiveTacticReal("dribble_centermagnet", 0.5f);
   float powerMultiplier = 1.0f;  // should alter (average) resulting velocity
 
   float future_sec = 0.25f;
@@ -538,7 +536,7 @@ void AI_GetBestDribbleMovement(Match* match, int thisPlayerID, const MentalImage
   desiredDirection = forceFieldMovement.GetNormalized(player->GetDirectionVec());
   desiredVelocity = clamp(forceFieldMovement.GetLength() * distanceToVelocityMultiplier,
                           idleVelocity, sprintVelocity);
-  desiredVelocity = RangeVelocity(PlayingStyles::GetDribbleVelocity(comStyles, desiredVelocity));
+  desiredVelocity = RangeVelocity(desiredVelocity);
 }
 
 Vector3 AI_GetForceFieldMovement(const std::vector<ForceSpot>& forceField,

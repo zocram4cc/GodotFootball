@@ -9,13 +9,13 @@
 #include <set>
 #include <string>
 
-#include "data/playingstyles.hpp"
+#include "pes/editsave.hpp"
 #include "onthepitch/pesstyle.hpp"
 #include "pes/exe.hpp"
 
 namespace {
 
-using PlayerStyle = PlayingStyles::Player;
+using PlayerStyle = pes::style::Bit;
 
 // PES role classes (FUN_1408c51f0): GK0 CB1 SB2 DMF3 CMF4 SMF5 AMF6 SS7 WF8 CF9.
 constexpr int kRoleGK = 0;
@@ -31,21 +31,21 @@ int BitIndex(uint32_t word) {
 
 }  // namespace
 
-TEST(PesStyleGate, EachStyleHasItsOwnEngineBitAndNoneHasNone) {
-  EXPECT_EQ(pes::style::StyleWord(PlayerStyle::None), 0u);
+// The 21 bits are exactly the mask bits the save's style values 1..21 map to (kEditStyleMaskBit, FUN_141FC0AD0's switch).
+TEST(PesStyleGate, EachStyleBitIsOneMaskBitOfASavedStyleValue) {
   std::set<int> bits;
-  for (int i = 1; i < static_cast<int>(PlayerStyle::Count); ++i) {
+  for (int i = 0; i < 21; ++i) {
     const auto style = static_cast<PlayerStyle>(i);
     const uint32_t word = pes::style::StyleWord(style);
-    ASSERT_NE(word, 0u) << "style " << i << " has no engine bit";
+    ASSERT_NE(word, 0u);
     ASSERT_EQ(word & (word - 1), 0u) << "style " << i << " has more than one bit";
-    const int bit = pes::style::EngineBit(style);
-    EXPECT_EQ(bit, BitIndex(word)) << "style " << i;
-    EXPECT_GE(bit, 0);
-    EXPECT_LE(bit, 20);
-    bits.insert(bit);
+    EXPECT_EQ(pes::style::EngineBit(style), BitIndex(word)) << "style " << i;
+    bits.insert(pes::style::EngineBit(style));
   }
   EXPECT_EQ(bits.size(), 21u);
+  std::set<int> saved;
+  for (int value = 1; value < 22; ++value) saved.insert(pes::kEditStyleMaskBit[value]);
+  EXPECT_EQ(bits, saved);
 }
 
 TEST(PesStyleGate, NeedsTheStyleBit) {

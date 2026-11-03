@@ -51,6 +51,13 @@ inline constexpr uint8_t kAbilityBias = 40;
 inline constexpr size_t kHeightBit = 216;
 inline constexpr size_t kHeightBits = 8;
 inline constexpr uint8_t kHeightBiasCm = 100;
+// Live record byte +0x150 (the row's byte 0x3C): FUN_1414F8420, which loads a Player.bin record into the live record, stores 0x13 there
+// (`mov byte [rbx+0x150],0x13`, 0x1414F85F3) when bit 18 of the record's dword at +0x3C (bit 498) is set; FUN_140AA1700 zeroed it
+// before. The row builder's FUN_1408CB290(row, FUN_141FC0C40(live +0x150)) turns 0x13 into row byte 0x16 (the switch's case 0x13) and
+// 0 into 0. No save field writes it, so a saved player's byte is his Player.bin record's.
+inline constexpr size_t kLiveFlagBit = 498;
+inline constexpr uint8_t kLiveFlagValue = 0x13;
+inline constexpr uint8_t kRowByteOfLiveFlag = 0x16;
 
 struct PlayerTraits {
   int injuryResistance = 0;  // 0 C, 1 B, 2 A
@@ -60,6 +67,7 @@ struct PlayerTraits {
   uint8_t speed = 0;                      // block byte 0x27: Player.bin Speed, raw + 40
   uint8_t jump = 0;                       // block byte 0x2C: Player.bin Jump, raw + 40
   uint8_t heightCm = 0;                   // block byte 0x31: Player.bin Height, + 100
+  uint8_t live150 = 0;                    // the live record's byte +0x150 as FUN_1414F8420 leaves it (0 or kLiveFlagValue)
   // The save's whole roster row (DecodeEditRow's image), present for a player the EDIT save holds: PES copies its first 0x50 bytes
   // into the AI record's ability block (FUN_140922bc0 -> FUN_140A58F00). Absent for a Player.bin-only player: PES's row for him
   // comes from a loader not decoded here.

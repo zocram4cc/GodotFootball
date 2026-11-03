@@ -9,6 +9,7 @@
 
 #include <string>
 
+#include "../gamedefines.hpp"
 #include "../gametypes.hpp"
 #include "base/math/vector3.hpp"
 #include "playingstyles.hpp"

@@ -315,9 +315,9 @@ TEST(PlayerDatabaseWiring, ARowOfTheSaveIsCopiedWholeIntoTheSlotsAbilityBlock) {
     EXPECT_EQ(untouched[i], 0) << "an untouched slot starts with an empty block: byte 0x" << std::hex << i;
 }
 
-// The run-depth term of the formation spot (the site the DribbleRow doc left on GF's style enum) is PES's rule on the style
-// WORD (FUN_1405D8B70 L650-657: FUN_140A64030 per bit, style word AND the class's compat row). The word is the save row's
-// +0x48 for a player the save holds and the word of his database style for one it does not (Match::StyleWordOf).
+// The run-depth term of the formation spot is PES's rule on the style WORD (FUN_1405D8B70 L650-657: FUN_140A64030 per bit, style
+// word AND the class's compat row). The word is the save row's +0x48 for a player the save holds and PES's default word
+// (pes::kDefaultStyleWord) for one it does not (Match::StyleWordOf).
 namespace {
 constexpr int kForwardDatabaseId = 10;  // the fixture's home CF (teams.sql)
 constexpr int kForwardPesId = 9003;     // synthetic: no fixture player carries it
@@ -356,10 +356,9 @@ struct ForwardSpot {
   int forwardClassCount = 0;        // the same count recounted from the B classes of the slots
 };
 
-// The home forward's formation spot with the save style value `saveStyle` (nullopt: Player.bin only, no row) and `gfStyle` as
-// his database style. nullopt when PES21_ROOT is not set.
-std::optional<ForwardSpot> SpotOfForward(bool pesLoop, std::optional<uint32_t> saveStyle, PlayingStyles::Player gfStyle,
-                                         int bitUnderTest) {
+// The home forward's formation spot with the save style value `saveStyle` (nullopt: Player.bin only, no row). nullopt when
+// PES21_ROOT is not set.
+std::optional<ForwardSpot> SpotOfForward(bool pesLoop, std::optional<uint32_t> saveStyle, int bitUnderTest) {
   std::string err;
   auto playerDb = pes::PlayerDatabase::Parse(RecordFor(kForwardPesId, kTierC, false), &err);
   EXPECT_TRUE(playerDb.has_value()) << err;
@@ -371,14 +370,12 @@ std::optional<ForwardSpot> SpotOfForward(bool pesLoop, std::optional<uint32_t> s
   }
   FixtureMatch fixture(&*playerDb,
                        {"UPDATE players SET pes_player_id = " + std::to_string(kForwardPesId) +
-                        ", profile_xml = profile_xml || '<playing_style>" + PlayingStyles::Serialize(gfStyle) +
-                        "</playing_style>' WHERE id = " + std::to_string(kForwardDatabaseId)},
+                        " WHERE id = " + std::to_string(kForwardDatabaseId)},
                        pesLoop);
   if (!fixture.match) return std::nullopt;
   Player* forward = PlayerWithDatabaseId(*fixture.match, 0, kForwardDatabaseId);
   EXPECT_NE(forward, nullptr);
   if (!forward) return std::nullopt;
-  EXPECT_EQ(forward->GetPlayerData()->GetPlayingStyle(), gfStyle) << "the database style reached the player";
   Team* team = fixture.match->GetTeam(0);
   TeamAIController* controller = team->GetController();
   ForwardSpot spot;
@@ -407,10 +404,8 @@ std::optional<ForwardSpot> SpotOfForward(bool pesLoop, std::optional<uint32_t> s
 TEST(StyleRunDepthSite, TwoSavedStyleWordsThatDifferGiveTheForwardTheTermOrNot) {
   for (const bool pesLoop : {false, true}) {
     SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
-    const auto poacher = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kGoalPoacherBit), PlayingStyles::Player::None,
-                                       kGoalPoacherBit);
-    const auto hole = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kHolePlayerBit), PlayingStyles::Player::None,
-                                    kGoalPoacherBit);
+    const auto poacher = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kGoalPoacherBit), kGoalPoacherBit);
+    const auto hole = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kHolePlayerBit), kGoalPoacherBit);
     if (!poacher || !hole) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
     ASSERT_TRUE(poacher->gateOpen) << "the install's compat row for the forward must list Goal Poacher";
     EXPECT_FALSE(hole->gateOpen);
@@ -423,37 +418,26 @@ TEST(StyleRunDepthSite, TwoSavedStyleWordsThatDifferGiveTheForwardTheTermOrNot) 
 TEST(StyleRunDepthSite, FoxInTheBoxWordTakesTheSameTermAsThePoacher) {
   for (const bool pesLoop : {false, true}) {
     SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
-    const auto fox = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kFoxInTheBoxBit), PlayingStyles::Player::None,
-                                   kFoxInTheBoxBit);
-    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::None, kFoxInTheBoxBit);
+    const auto fox = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kFoxInTheBoxBit), kFoxInTheBoxBit);
+    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), kFoxInTheBoxBit);
     if (!fox || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
     ASSERT_TRUE(fox->gateOpen);
     EXPECT_FLOAT_EQ((fox->x - none->x) * fox->towardOpponentGoal, fox->runDepth_m);
   }
 }
 
-// GF's style enum no longer moves the spot: a forward whose database style is Box to Box (GF's old +/-4 m) and whose saved
-// word is none stands where a forward with no style at all stands.
-TEST(StyleRunDepthSite, TheDatabaseStyleEnumNoLongerMovesTheSpotWhenTheSavedWordIsNone) {
+// A player the save does not hold (Player.bin only) has no row of GF's: he takes PES's default style word, which is no bit, so
+// he stands where a saved forward whose word is none stands, and the gate is closed for him.
+TEST(StyleRunDepthSite, APlayerWithoutARowTakesPesDefaultWordAndStandsWhereANoStyleRowStands) {
   for (const bool pesLoop : {false, true}) {
     SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
-    const auto boxToBox = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::BoxToBox, kGoalPoacherBit);
-    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::None, kGoalPoacherBit);
-    if (!boxToBox || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
-    EXPECT_FLOAT_EQ(boxToBox->x, none->x);
-  }
-}
-
-// A player the save does not hold (Player.bin only) has no row: PES's word for him is not decoded, so his database style's
-// word stands in (Match::StyleWordOf). A Fox in the Box by database style still gets the term, not GF's old 0 or 3 m.
-TEST(StyleRunDepthSite, APlayerWithoutARowTakesTheTermFromHisDatabaseStylesWord) {
-  for (const bool pesLoop : {false, true}) {
-    SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
-    const auto fox = SpotOfForward(pesLoop, std::nullopt, PlayingStyles::Player::FoxInTheBox, kFoxInTheBoxBit);
-    const auto none = SpotOfForward(pesLoop, std::nullopt, PlayingStyles::Player::None, kFoxInTheBoxBit);
-    if (!fox || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
-    ASSERT_TRUE(fox->gateOpen);
-    EXPECT_FLOAT_EQ((fox->x - none->x) * fox->towardOpponentGoal, fox->runDepth_m);
+    const auto noRow = SpotOfForward(pesLoop, std::nullopt, kFoxInTheBoxBit);
+    const auto noStyle = SpotOfForward(pesLoop, SaveStyleOfWord(0u), kFoxInTheBoxBit);
+    if (!noRow || !noStyle) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+    EXPECT_EQ(pes::kDefaultStyleWord, pes::DecodeEditRow(SaveRecordWithStyle(0)).styleMask)
+        << "PES's default word is the word a save row of style value 0 decodes to";
+    EXPECT_FALSE(noRow->gateOpen);
+    EXPECT_FLOAT_EQ(noRow->x, noStyle->x);
   }
 }
 
@@ -463,9 +447,8 @@ TEST(StyleRunDepthSite, CreativePlaymakerWordPullsTheForwardBackWhereHisRowLists
   constexpr int kCreativePlaymakerBit = 4;
   for (const bool pesLoop : {false, true}) {
     SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
-    const auto playmaker = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kCreativePlaymakerBit),
-                                         PlayingStyles::Player::None, kCreativePlaymakerBit);
-    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), PlayingStyles::Player::None, kCreativePlaymakerBit);
+    const auto playmaker = SpotOfForward(pesLoop, SaveStyleOfWord(1u << kCreativePlaymakerBit), kCreativePlaymakerBit);
+    const auto none = SpotOfForward(pesLoop, SaveStyleOfWord(0u), kCreativePlaymakerBit);
     if (!playmaker || !none) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
     ASSERT_GT(playmaker->backDepth_m, 0.0f);
     const float expected = playmaker->gateOpen ? -playmaker->backDepth_m : 0.0f;
@@ -478,7 +461,7 @@ TEST(StyleRunDepthSite, CreativePlaymakerWordPullsTheForwardBackWhereHisRowLists
 TEST(StyleRunDepthSite, TheControllersForwardLineCountIsTheClassesOfItsSlots) {
   for (const bool pesLoop : {false, true}) {
     SCOPED_TRACE(pesLoop ? "pes loop" : "switch-off");
-    const auto spot = SpotOfForward(pesLoop, std::nullopt, PlayingStyles::Player::None, kGoalPoacherBit);
+    const auto spot = SpotOfForward(pesLoop, std::nullopt, kGoalPoacherBit);
     if (!spot) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
     EXPECT_GT(spot->forwardClassCount, 0) << "the fixture's side has forwards";
     EXPECT_EQ(spot->forwardLineMen, spot->forwardClassCount);

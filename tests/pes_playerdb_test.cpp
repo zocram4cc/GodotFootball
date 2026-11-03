@@ -110,6 +110,29 @@ TEST(PlayerDatabaseParse, FormIsTheThreeBitFieldAtBit438AndNothingBeside) {
   EXPECT_EQ(traits->form, 6);
 }
 
+// A saved player's row byte 0x3C is the live +0x150 byte his Player.bin record leaves (FUN_1414F8420: bit 498 -> 0x13), mapped by
+// FUN_141FC0C40 (0x13 -> 0x16, 0 -> 0): set with its neighbours clear gives 0x16, clear with its neighbours set gives 0.
+TEST(PlayerDatabaseParse, TheRowsByte0x3CFollowsTheRecordsLiveFlagBit) {
+  constexpr size_t kLiveFlag = 498;
+  Blob on = MakeRecord(kFirstId), off = MakeRecord(kSecondId);
+  SetBits(on, kLiveFlag, 1, 1);
+  SetBits(off, kLiveFlag - 1, 1, 1);
+  SetBits(off, kLiveFlag + 1, 1, 1);
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(Concat({on, off}), &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  pes::EditSave save;
+  for (const uint32_t id : {uint32_t(kFirstId), uint32_t(kSecondId)}) {
+    pes::EditPlayerRecord rec{};
+    std::memcpy(rec.data() + pes::kEditIdOffset, &id, sizeof id);
+    save.players.push_back(rec);
+  }
+  db->ApplyEditSave(save);
+  ASSERT_TRUE(db->Find(kFirstId)->row.has_value());
+  EXPECT_EQ((*db->Find(kFirstId)->row)[0x3C], 0x16);
+  EXPECT_EQ((*db->Find(kSecondId)->row)[0x3C], 0);
+}
+
 TEST(PlayerDatabaseParse, ConditionTakesTheDefaultPathUntilTheMixerLands) {
   // ponytail: the WROW weights at 0x142B47B10 are not read yet, so every record takes FUN_1414E2120's
   // 0x46 default path. This test pins the interim behaviour and goes with the mixer port.
@@ -286,6 +309,35 @@ TEST(PlayerDatabaseInstall, AbilityOffsetsEqualTheExesAccessors) {
     EXPECT_EQ(got.width, w.width) << w.name;
     EXPECT_EQ(got.bias, w.bias) << w.name;
   }
+}
+
+// The live +0x150 writer and its row byte (playerdb.hpp kLiveFlagBit/Value/kRowByteOfLiveFlag), read from the code: FUN_1414F8420
+// tests bit 18 of the record dword at +0x3C and stores 0x13 at live +0x150; FUN_141FC0C40's jump-table case 0x13 is `mov edx,0x16`.
+TEST(PlayerDatabaseInstall, LiveFlagConstantsEqualTheLoaderAndTheRowSwitch) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (root == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the loader is read from its exe)";
+  std::string error;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &error);
+  ASSERT_TRUE(exe) << error;
+  uint8_t loader[17];  // mov eax,[rdi+0x3c]; shr eax,0x12; test al,1; jz +7; mov byte [rbx+0x150],0x13
+  ASSERT_TRUE(exe->ReadVa(0x1414F85E9, sizeof loader, loader));
+  const uint8_t wantLoader[] = {0x8B, 0x47, 0x3C, 0xC1, 0xE8, 0x12, 0xA8, 0x01, 0x74, 0x07, 0xC6, 0x83, 0x50, 0x01, 0x00, 0x00, 0x13};
+  EXPECT_EQ(std::memcmp(loader, wantLoader, sizeof loader), 0);
+  EXPECT_EQ(pes::kLiveFlagBit, 0x3Cu * 8 + 0x12);
+  EXPECT_EQ(pes::kLiveFlagValue, 0x13);
+  uint8_t pick[8];  // mov ecx,[r8+rax*4+table]
+  ASSERT_TRUE(exe->ReadVa(0x141FC0C55, sizeof pick, pick));
+  ASSERT_TRUE(pick[0] == 0x41 && pick[1] == 0x8B && pick[2] == 0x8C && pick[3] == 0x80);
+  uint32_t tableRva = 0;
+  std::memcpy(&tableRva, &pick[4], 4);
+  uint32_t caseRva = 0;
+  ASSERT_TRUE(exe->ReadVa(0x140000000ull + tableRva + 4 * pes::kLiveFlagValue, 4, reinterpret_cast<uint8_t*>(&caseRva)));
+  uint8_t body[5];  // mov edx,imm32
+  ASSERT_TRUE(exe->ReadVa(0x140000000ull + caseRva, sizeof body, body));
+  ASSERT_EQ(body[0], 0xBA);
+  uint32_t rowByte = 0;
+  std::memcpy(&rowByte, &body[1], 4);
+  EXPECT_EQ(pes::kRowByteOfLiveFlag, rowByte);
 }
 
 // --- the EDIT save's records over Player.bin ---

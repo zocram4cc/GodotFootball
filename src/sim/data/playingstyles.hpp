@@ -1,47 +1,15 @@
-// PES 2021 Playing Styles: the one style a player has (how he reads the game
-// off the ball and what he looks for on it) and the COM Playing Styles - the
-// "playing cards" that only steer AI-controlled players. Stats stay untouched;
-// styles only bend decisions that already exist (docs/PES21_IMPORT.md).
+// PES 2021 COM Playing Styles - the "playing cards" that only steer AI-controlled players.
+// The player's own playing style is not here: PES keeps it as a bit of the roster row's style word
+// (editsave.hpp kRowStyleMask, pesstyle.hpp Bit).
 
 #ifndef _HPP_PLAYINGSTYLES
 #define _HPP_PLAYINGSTYLES
 
 #include <string>
 
-#include "../gamedefines.hpp"
-
-class PlayerData;
-
 namespace PlayingStyles {
 
-// PES EDIT index order; None is what the editor shows as "-".
-enum class Player {
-  None,
-  GoalPoacher,
-  DummyRunner,
-  FoxInTheBox,
-  TargetMan,
-  CreativePlaymaker,
-  ProlificWinger,
-  RoamingFlank,
-  CrossSpecialist,
-  ClassicNo10,
-  HolePlayer,
-  BoxToBox,
-  TheDestroyer,
-  Orchestrator,
-  AnchorMan,
-  BuildUp,
-  OffensiveFullBack,
-  FullBackFinisher,
-  DefensiveFullBack,
-  ExtraFrontman,
-  OffensiveGoalkeeper,
-  DefensiveGoalkeeper,
-  Count
-};
-
-// PES bit order.
+// GF's COM bit order (not PES's mask order, editsave.hpp kEditFlagMaskBit).
 enum class Com : unsigned int {
   Trickster = 1u << 0,
   MazingRun = 1u << 1,
@@ -57,33 +25,9 @@ const int comCount = 7;
 Com GetComAt(int index);
 bool Has(ComMask mask, Com card);
 
-// Tokens are snake_case ("classic_no_10"); parsing is case- and
-// separator-insensitive and ignores unknown entries.
-Player ParsePlayer(const std::string& token);
-std::string Serialize(Player style);
+// Tokens are snake_case ("mazing_run"); parsing is case- and separator-insensitive and ignores unknown entries.
 ComMask ParseCom(const std::string& list);
 std::string SerializeCom(ComMask mask);
-
-// PES only activates a style on a compatible registered position.
-bool SuitsRole(Player style, e_PlayerRole role);
-
-// When the source names none: deterministic from the seed, legal for the role,
-// leaning towards what the player's own ratings are good at. Roughly one in
-// four comes out with no style at all, as in PES squads.
-Player InferPlayer(int seed, e_PlayerRole role, const PlayerData& data);
-// Zero to five cards, each more likely the better the rating behind it.
-ComMask InferCom(int seed, Player style, const PlayerData& data);
-
-// --- Dribbling (AI_GetBestDribbleMovement), the COM cards only: PES has no style-word term in its dribble code ---
-
-// Attraction towards the opponent goal.
-float GetDribbleDrive(ComMask com, float baseDrive);
-// Repulsion from opponents; a trickster or mazing runner takes them on instead.
-float GetOpponentRepel(ComMask com, float baseRepel);
-// Pull towards the centre line while carrying the ball (0 = hold the lane).
-float GetDribbleCenterPull(ComMask com, float baseCenterMagnet);
-// The pace he carries it at: a speeding bullet bursts.
-float GetDribbleVelocity(ComMask com, float desiredVelocity);
 
 }  // namespace PlayingStyles
 

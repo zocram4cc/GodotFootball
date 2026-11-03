@@ -142,8 +142,9 @@ inline constexpr uint8_t kEditSkillBit[] = {0,  37, 1,  2,  3,  38, 4,  5,  32, 
 //   the default -> no bit; the 0x15 preset it passes in never survives);
 // - row +0x4C (u32), seven flags: save ids 0x41 + k (one bit each at kEditFlagFirstBit + k) set live key 60 + k (FUN_1414C0200, table
 //   0x1429790D8), and the table 0x14352AC10 {mask bit, key} turns each key into its mask bit.
-// Row byte +0x3C is FUN_141FC0C40 of the live record's byte +0x150, which neither FUN_140AA1700 (zeroes the record) nor any save field
-// writes (FUN_141F10CE0 and the field setter FUN_1414C6E90 never touch it): it is 0 for a save-decoded player, as on all 34 captured rows.
+// Row byte +0x3C is FUN_141FC0C40 of the live record's byte +0x150. No save field writes it (FUN_141F10CE0 and the field setter
+// FUN_1414C6E90 never touch it): its writer is the Player.bin loader FUN_1414F8420 (playerdb.hpp kLiveFlagBit), so the save-decoded
+// image holds 0 here and PlayerDatabase::ApplyEditSave fills it from the player's Player.bin record (0 on all 34 captured rows).
 // Row bytes +0x3D..+0x3F are padding the builder never writes (one player's row shows 0 in one capture and a value in another).
 inline constexpr size_t kEditStyleBit = 274, kEditStyleWidth = 5;
 inline constexpr uint8_t kEditStyleLive[22] = {0, 1, 2, 3, 13, 14, 4, 18, 19, 5, 6, 7, 9, 20, 8, 11, 21, 12, 15, 10, 16, 17};
@@ -151,6 +152,10 @@ inline constexpr uint8_t kEditLiveStyle[22] = {0, 1, 2, 3, 6, 9, 10, 11, 14, 12,
 inline constexpr int8_t kEditStyleMaskBit[22] = {-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 11, 16, 18, 17, 14, 15, 19, 20};
 inline constexpr size_t kEditFlagFirstBit = 383;
 inline constexpr uint8_t kEditFlagMaskBit[7] = {0, 2, 1, 4, 6, 3, 5};
+// The style word of a roster entry that has no row of the save: FUN_140AA1700 zeroes the live record, so its style value is 0, whose
+// mask bit is none (kEditStyleMaskBit[0]; FUN_141FC0AD0's default arm sets no bit).
+inline constexpr uint32_t kDefaultStyleWord = 0;
+static_assert(kEditStyleMaskBit[0] < 0, "style value 0 sets no mask bit");
 
 // The roster row, the 0x50 bytes PES copies into an AI record (FUN_140922bc0 -> FUN_140A58F00, record +0x70): the layout offsets.
 inline constexpr size_t kRosterRowBytes = 0x50;

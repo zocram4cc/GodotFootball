@@ -68,35 +68,24 @@ PlayerData::PlayerData(int playerDatabaseID) : databaseID(playerDatabaseID) {
 
   // printf("player: %s, %s (age %i)\n", lastName.c_str(), firstName.c_str(), age);
   skills = PlayerSkills::maskNone;
-  playingStyle = PlayingStyles::Player::None;
   comStyles = PlayingStyles::comMaskNone;
   playerAge = age;
   bool skillsFromDatabase = false;
-  bool styleFromDatabase = false;
-  bool comFromDatabase = false;
 
   map_XMLTree::const_iterator iter = tree.children.begin();
   while (iter != tree.children.end()) {
     const std::string& tag = (*iter).first;
     // The profile may carry PES's Player Skills as a comma-separated list under
     // <skills> (older profiles: <traits>) alongside the numeric stats, and
-    // PES's own Playing Style and COM cards. A tag that is present is PES's
-    // answer, even "none": only an absent tag is inferred below.
+    // PES's COM cards. A tag that is present is PES's answer, even "none".
     if (tag.compare("skills") == 0 || tag.compare("traits") == 0) {
       skills = PlayerSkills::Parse((*iter).second.value);
       skillsFromDatabase = true;
       iter++;
       continue;
     }
-    if (tag.compare("playing_style") == 0) {
-      playingStyle = PlayingStyles::ParsePlayer((*iter).second.value);
-      styleFromDatabase = true;
-      iter++;
-      continue;
-    }
     if (tag.compare("com_styles") == 0) {
       comStyles = PlayingStyles::ParseCom((*iter).second.value);
-      comFromDatabase = true;
       iter++;
       continue;
     }
@@ -122,10 +111,6 @@ PlayerData::PlayerData(int playerDatabaseID) : databaseID(playerDatabaseID) {
   const e_PlayerRole role = roles.empty() ? e_PlayerRole_CM : roles.at(0);
   if (!skillsFromDatabase)
     skills = PlayerSkills::Infer(databaseID, role, *this);
-  if (!styleFromDatabase)
-    playingStyle = PlayingStyles::InferPlayer(databaseID, role, *this);
-  if (!comFromDatabase)
-    comStyles = PlayingStyles::InferCom(databaseID, playingStyle, *this);
   if (positionFamiliarity.empty())
     positionFamiliarity = FormState::InferRatings(roles);
 }
@@ -228,7 +213,6 @@ PlayerData::PlayerData() {
   stats.Set("gk_coverage", 0.6);
 
   skills = PlayerSkills::maskNone;
-  playingStyle = PlayingStyles::Player::None;
   comStyles = PlayingStyles::comMaskNone;
   // Officials and fixtures: natural everywhere, so no penalty ever applies.
   positionFamiliarity = std::string((size_t)FormState::Slot::Count, 'A');

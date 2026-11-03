@@ -10,16 +10,38 @@
 #include <optional>
 #include <string>
 
-#include "data/playingstyles.hpp"
 #include "pes/exe.hpp"
 
 namespace pes::style {
 
-// The engine bit of a style, or -1 for None.
-int EngineBit(PlayingStyles::Player style);
-
-// The style word a player carries: that style's single bit, or 0 for None.
-uint32_t StyleWord(PlayingStyles::Player style);
+// PES's playing styles by their bit in the roster row's style word (row +0x48): the binding table 0x1434A10D0, which
+// editsave.hpp's kEditStyleMaskBit reaches from the save's style value. A player has the bits his row sets: no GF style
+// enum stands between the row and the gate.
+enum class Bit : int {
+  GoalPoacher = 0,
+  DummyRunner,
+  FoxInTheBox,
+  TargetMan,
+  CreativePlaymaker,
+  ProlificWinger,
+  RoamingFlank,
+  CrossSpecialist,
+  ClassicNo10,
+  HolePlayer,
+  BoxToBox,
+  AnchorMan,
+  TheDestroyer,
+  Orchestrator,
+  BuildUp,
+  ExtraFrontman,
+  OffensiveFullBack,
+  DefensiveFullBack,
+  FullBackFinisher,
+  OffensiveGoalkeeper,
+  DefensiveGoalkeeper,
+};
+constexpr int EngineBit(Bit style) { return static_cast<int>(style); }
+constexpr uint32_t StyleWord(Bit style) { return 1u << EngineBit(style); }
 
 // Row r lists the styles a player of role class r may use. Role classes are
 // PES's (FUN_1408c51f0): GK0 CB1 SB2 DMF3 CMF4 SMF5 AMF6 SS7 WF8 CF9.
