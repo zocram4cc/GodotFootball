@@ -10,9 +10,9 @@
 # Usage: PES21_ROOT=<PES 2021 install root> [GATE_TIER=fast|full] tools/dev/gate.sh [build-dir]
 #   GATE_JOBS (default: free cores, nproc minus the 1-minute load average, at least 2) sets ctest -j. The full suite's floor is
 #     its longest test, so more jobs only help while cores are free. Logs go under <build-dir>/gate.*.
-#   GATE_SLOTS (default "1 0") are the sim slots held for the run, acquired in that order (tools/dev/simslot.sh: slot 0 is the
-#     lock file itself, slot n is "$lock.n"). The tests and the two smokes run under them, so concurrent gates queue.
-#     A branch gate that must leave slots 0-1 to Main's gate: GATE_SLOTS="3 2".
+#   GATE_SLOTS: the two sim slots held for the run (tools/dev/simslot.sh: slot 0 is the lock file itself, slot n is
+#     "$lock.n"). The tests and the two smokes run under them. Unset (the default): whichever pair (1 0) or (3 2) is
+#     free first, waiting until one is. Set (e.g. "3 2"): exactly that pair, blocking.
 #   GATE_BASE=<rev> (fast only) is what "changed" is measured against.
 #   GF_IMPURE_BANKS (the capture bank) is required with GF_DIFF_PYTHON: impure records whose corpus is the bank refuse to run
 #   without it (diff_impure_recorded).
@@ -37,7 +37,11 @@ fi
 export GF_DIFF_JOBS=$diff_jobs
 echo "GATE diff jobs: $diff_jobs (cores $(nproc), load $(cut -d' ' -f1 /proc/loadavg))"
 lock=${GF_SIM_LOCK:-$(dirname "$repo")/gf-sim.lock}  # worktrees and the main checkout share a parent
-read -ra slots <<< "${GATE_SLOTS:-1 0}"
+slotfile() { if [ "$1" -eq 0 ]; then echo "$lock"; else echo "$lock.$1"; fi; }
+# GATE_SLOTS set: hold exactly that pair (blocking). Unset: hold whichever pair (1 0) or (3 2) is free first, so
+# concurrent gates do not queue on one pair while the other sits idle (03-11-26: three gates queued up to 112 min on 3/2).
+slots_any=${GATE_SLOTS:+0}; slots_any=${slots_any:-1}
+read -ra slots <<< "${GATE_SLOTS:-any}"
 save=$(find ~/Documents/KONAMI/'eFootball PES 2021 SEASON UPDATE' -name EDIT00000000 2>/dev/null | head -1)
 echo "GATE tier: $tier (ctest -j $jobs, sim slots ${slots[*]})"
 
@@ -92,10 +96,25 @@ inner="$(declare -f smoke)"'
   echo "ctest rc=$?"
   wait'
 cmd=(bash -c "$inner")
-for ((i = ${#slots[@]} - 1; i >= 0; i--)); do
-  slot=${slots[i]}; cmd=(flock "$([ "$slot" -eq 0 ] && echo "$lock" || echo "$lock.$slot")" "${cmd[@]}")
-done
-"${cmd[@]}"
+if [ "$slots_any" = 1 ]; then
+  while :; do
+    for pair in "1 0" "3 2"; do
+      read -r a b <<< "$pair"
+      exec 8>"$(slotfile "$a")" 9>"$(slotfile "$b")"
+      if flock -n 8 && flock -n 9; then slots=($a $b); break 2; fi
+      exec 8>&- 9>&-
+    done
+    sleep 5
+  done
+  echo "GATE sim slots held: ${slots[*]}"
+  "${cmd[@]}"
+  exec 8>&- 9>&-
+else
+  for ((i = ${#slots[@]} - 1; i >= 0; i--)); do
+    slot=${slots[i]}; cmd=(flock "$(slotfile "$slot")" "${cmd[@]}")
+  done
+  "${cmd[@]}"
+fi
 
 for tag in off pesloop; do
   echo "== smoke $tag ($smoke_minutes min)"; grep -hE "\[determinism\]|\[restarts\]|\[ticks\]" "$build/gate.smoke-$tag.log" | tail -3
