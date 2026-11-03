@@ -1457,6 +1457,8 @@ class TurnStopToeOff : public ::testing::Test {
  protected:
   static constexpr int kMotion = 0x600;
   void SetUp() override {
+    req = MoveReq();
+    host.record = pes::MotionRecord();
     host.record.rot.push_back(pes::RotRecord{0, 10, 100});
     host.currentMotion = kMotion;
     host.currentClipFrames = 40;
@@ -1541,6 +1543,8 @@ class TurnStopStop : public ::testing::Test {
  protected:
   static constexpr int kMotion = 0x600;
   void SetUp() override {
+    req = MoveReq();
+    host.record = pes::MotionRecord();
     host.record.blend.push_back(60);
     host.record.cancel.push_back(100);
     host.currentMotion = kMotion;
@@ -1552,12 +1556,12 @@ class TurnStopStop : public ::testing::Test {
     req.SetU(pes::moveword::kPrecise, 0);
     req.SetF(pes::moveword::kRate, 0.3f);
     req.SetF(pes::moveword::kFacing, 0.0f);
-    req.SetF(pes::moveword::kHeading, 0.0f);
+    req.SetF(pes::moveword::kHeading, 30.0f);  // 30 degrees off the facing: past the first path's 22.5-degree gate
     req.SetF(pes::moveword::kDwellLimit, 0.5f);
     req.SetF(pes::moveword::kDwellElapsed, 0.5f);
-    host.displacement[0] = 0.0f;  // heading 0: inside the stop's 67.5-degree window
+    host.displacement[0] = 0.5f;  // heading 30 degrees: inside the stop's 67.5-degree window
     host.displacement[1] = 0.0f;
-    host.displacement[2] = 1.0f;
+    host.displacement[2] = 0.8660254f;
     // The first dwell has run out and the stay decision holds: the stop issues the IDLE cell, any other exit re-plans.
     stayDecision = true;
     requested = MoveState::kInit;
