@@ -1769,7 +1769,8 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
   const int band = static_cast<int>(req.U(moveword::kRateBand));
   const int motion = host.CurrentMotion();
-  const float f2468 = std::max(host.RecordF2468(), k.ramp85);
+  // PES 0x1406BCD20 (line 46): P+0x2468 under 0.85 (0x1425AB120) reads 1.0 (0x14256AE1C).
+  const float f2468 = host.RecordF2468() < k.ramp85 ? k.one : host.RecordF2468();
   // The hit ticks come from the live motion's record (ReadClipHits), as in ACCELERATE.
   const ClipHits clip = ReadClipHits(host, motion, k, host.ClipFlag());
   int hitTotal = clip.total;

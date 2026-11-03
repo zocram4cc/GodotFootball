@@ -1238,6 +1238,22 @@ TEST(TurnLock, TheLockHeadingStepsTheStampTowardTheHeadingByAtMostTwentyTwoAndAH
   EXPECT_NEAR(h.f0bec, 37.5f, 1e-3f);
 }
 
+// DECELERATE's divisor (0x1406BCD20, decompile line 46): P+0x2468 under 0.85 (0x1425AB120) reads 1.0 (0x14256AE1C), as in ACCELERATE
+// and TURN_STOP; the port floored it at 0.85 instead, which a rate under 0.85 must not read.
+TEST(TurnLock, TheDecelerateDivisorIsOneBelowThePointEightFiveFloorAndTheRecordRateAtOrAboveIt) {
+  for (const float rate : {0.5f, 0.849f, 0.85f, 2.0f}) {
+    SyntheticHost h;
+    LockSetUp(h, 1, 8, 5);
+    h.record.cancel = {40, 40, 40};  // the hit ticks stay past the clip's end, so the end is the lock's remain
+    h.f2468 = rate;
+    pes::MoveReq req = LockRequest(60.0f, 0.0f, 0.0f);
+    pes::movestep::Decelerate(h, req);
+    const int end = h.ClipTicks(pes::ClipReader::kRotEnd, 0x8bb, 1.0f, 0);
+    const float divisor = rate < 0.85f ? 1.0f : rate;
+    EXPECT_EQ(req.U(pes::moveword::kTurnFrames), uint32_t(float(end - 5) / divisor + 0.5f)) << "rate " << rate;
+  }
+}
+
 // PES 160-163: at 90 degrees or more of turn the lock heading is the stamp itself, with no step.
 TEST(TurnLock, ANinetyDegreeTurnLocksOnTheStampItself) {
   SyntheticHost h;
