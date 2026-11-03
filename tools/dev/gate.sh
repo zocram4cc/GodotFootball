@@ -24,6 +24,18 @@ repo=$(git rev-parse --show-toplevel)
 build=${1:-$repo/build}
 if [ -n "${GATE_JOBS:-}" ]; then jobs=$GATE_JOBS
 else jobs=$(awk -v n="$(nproc)" '{j = int(n - $1); print (j < 2 ? 2 : j)}' /proc/loadavg); fi
+# Diff jobs: the driver's --jobs in each diff_*_recorded check (one VA is a g++ build and a unicorn run, about 1 GB at its
+# peak). Sized from free memory and cores, keeping GATE_RIG_MEM_GB and GATE_RIG_CORES for the live rig; 2 to 6 jobs.
+if [ -n "${GF_DIFF_JOBS:-}" ]; then diff_jobs=$GF_DIFF_JOBS
+else
+  by_mem=$(awk -v r="${GATE_RIG_MEM_GB:-10}" -v j="${GATE_DIFF_JOB_MEM_GB:-2}" '/^MemAvailable:/ {print int(($2 / 1048576 - r) / j)}' /proc/meminfo)
+  by_cpu=$(awk -v n="$(nproc)" -v r="${GATE_RIG_CORES:-4}" '{print int(n - $1 - r)}' /proc/loadavg)
+  diff_jobs=$(( by_mem < by_cpu ? by_mem : by_cpu ))
+  [ "$diff_jobs" -lt 2 ] && diff_jobs=2
+  [ "$diff_jobs" -gt 6 ] && diff_jobs=6
+fi
+export GF_DIFF_JOBS=$diff_jobs
+echo "GATE diff jobs: $diff_jobs (cores $(nproc), load $(cut -d' ' -f1 /proc/loadavg))"
 lock=${GF_SIM_LOCK:-$(dirname "$repo")/gf-sim.lock}  # worktrees and the main checkout share a parent
 read -ra slots <<< "${GATE_SLOTS:-1 0}"
 save=$(find ~/Documents/KONAMI/'eFootball PES 2021 SEASON UPDATE' -name EDIT00000000 2>/dev/null | head -1)

@@ -16,7 +16,7 @@ void pes_fn_14007BCC0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
   if (s.cond("z")) goto L_14007BCEF;
-  /*UNHANDLED PREFETCHT0 byte ptr [r10]*/(void)0;
+  /*IGNORED PREFETCHT0 byte ptr [r10]*/(void)0;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;

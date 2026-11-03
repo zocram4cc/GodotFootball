@@ -27,6 +27,10 @@ const PITCH_SURROUND_ALBEDO := Color(0.22, 0.42, 0.18)
 const FACE_DIR := "Asset/model/character/face/real/"
 const FOLLOW_OFFSET := Vector3(4.0, 2.2, 6.0)  # inspection camera, metres from the followed player
 const FOLLOW_TARGET_HEIGHT_M := 1.0
+# The registry slot of the goal scene's scorer (CAMERA_TARGET_0201) and the bones standing for the actor's joints 10 and 0.
+const CAMERA_TARGET_SCORER := 1
+const BONE_JOINT_10 := "head"  # GF's name for PES's sk_head (src/rig/rig_names.hpp)
+const BONE_JOINT_0 := "hip"  # GF's name for PES's dsk_hip, the root joint's child
 
 var args := {}
 var library: PesLibrary
@@ -39,8 +43,11 @@ var _accumulator := 0.0
 var _lastAlpha := 1.0
 var _camera: Camera3D
 var _broadcast: PesBroadcastCamera
-var _cutscene: PesCutsceneCamera
+var _cutscene: PesCutsceneCamera  # the --fdc-file debug track, on wall time
 var _cut_t := 0.0
+var _cutscene_scene := 0  # the FixDemo scene in force (GfMatch.cutscene_state); 0 when none
+var _cut_steps: Array[PesCutsceneCamera] = []  # one per step of that scene: every layer's cameras of the step
+var _cut_state: Dictionary = {}
 var _fixed_pose := false
 
 
@@ -71,6 +78,8 @@ func _ready() -> void:
 			int(args.get("minutes", DEFAULT_MINUTES)), args.has("pes-loop")) != OK:
 		get_tree().quit(1)
 		return
+	# The ctx words the FixDemo conditions read from the environment (stadium, time of day, weather).
+	sim.set_cutscene_environment(_stadium_id(), int(args.get("time-zone", 0)), int(args.get("weather", 0)))
 	motion = PesMotionPlayer.new()
 	if motion.load(library) != OK:
 		motion = null  # bodies keep the bind pose; the match still plays
@@ -94,18 +103,13 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	_broadcast.reset(sim.ball_position())
-	# Debug entry: --fdc-scene <hex FixDemo scene id, e.g. 0x20009> | --fdc-file <VFS path of one .fdc>, with
-	# [--fdc-camera N] [--fdc-t0 SECONDS], plays that camera track; the player clock starts at t0 seconds (the
-	# record's startCutTime is on that clock).
-	if args.has("fdc-scene") or args.has("fdc-file"):
+	# Debug entry: --fdc-file <VFS path of one .fdc>, with [--fdc-camera N] [--fdc-t0 SECONDS], plays that camera
+	# track; the player clock starts at t0 seconds (the record's startCutTime is on that clock). A goal or foul stop
+	# of the match plays the camera of the variant PES's selection picks (_poll_cutscene), not this entry.
+	if args.has("fdc-file"):
 		_cutscene = PesCutsceneCamera.new()
 		_cut_t = float(args.get("fdc-t0", 0.0))
-		var err: int
-		if args.has("fdc-file"):
-			err = _cutscene.load_file(library, String(args["fdc-file"]), int(args.get("fdc-camera", 0)))
-		else:
-			err = _cutscene.load_scene(library, String(args["fdc-scene"]).hex_to_int(), int(args.get("fdc-camera", 0)))
-		if err != OK:
+		if _cutscene.load_file(library, String(args["fdc-file"]), int(args.get("fdc-camera", 0))) != OK:
 			get_tree().quit(1)
 			return
 	ball = PesModelBuilder.new().build_model(library, BALL_PACK_FORMAT % int(args.get("ball", DEFAULT_BALL_ID)), "")
@@ -125,6 +129,7 @@ func _process(delta: float) -> void:
 	var ticks := 0
 	while _accumulator >= TICK_S and ticks < MAX_TICKS_PER_FRAME and not sim.is_over():
 		sim.step()
+		_poll_cutscene()
 		_accumulator -= TICK_S
 		ticks += 1
 	# Milestone A1: the sim steps one PES logic frame (1/54 s), which is not the
@@ -132,6 +137,66 @@ func _process(delta: float) -> void:
 	# two logic frames by the leftover fraction of the tick that has elapsed.
 	_interpolate(clampf(_accumulator / TICK_S, 0.0, 1.0))
 	_place(delta)
+
+
+
+# A goal or a foul stop made GF's FixDemo request (PES's evaluator and matcher on GF's arena). Its timeline (start, steps, end)
+# runs in the sim (GfMatch.cutscene_state, pes::CutsceneTimeline); here every step gets the cameras of all its layers and the
+# one in force plays on that step's player clock.
+func _poll_cutscene() -> void:
+	var req: Dictionary = sim.take_cutscene()
+	if not req.is_empty() and not args.has("no-cutscene"):
+		_load_cutscene(req)
+	if _cutscene_scene == 0:
+		return
+	_cut_state = sim.cutscene_state()
+	if _cut_state.is_empty() or _cut_state["ended"]:
+		print("frame %d cutscene scene 0x%x ended" % [Engine.get_process_frames(), _cutscene_scene])
+		_cut_steps.clear()
+		_cutscene_scene = 0
+		_cut_state = {}
+	elif int(_cut_state["step_started"]) >= 0:
+		print("frame %d cutscene scene 0x%x step %d starts" % [Engine.get_process_frames(), _cutscene_scene, int(_cut_state["step_started"])])
+	if not _cut_state.is_empty() and int(_cut_state["step"]) >= 0:
+		_advance_cut_camera(_cut_steps[int(_cut_state["step"])], float(_cut_state["clock_s"]))
+
+
+# One logic frame of the step's procedural camera (PES's engine 0x141F7BFE0 on the translated layer): the goal scene's actor, the
+# scorer, is written into CAMERA_TARGET_0201 (ground position and bearing from the sim, the two body points from his skeleton),
+# then the engine runs on the step's player clock.
+# ponytail: PES's actor update (the writer of CAMERA_TARGET_02nn, source object vtable 0x142BB1048) keeps its 20 joint points
+# at +0x7C; the record's points are joints 0 and 10 (CONFIRMED by value in the captured goal: 0.94 m and 1.59 m above the
+# scorer). Which bones those are is INF: hip and head. The skeleton is the render frame's, up to a logic frame old.
+func _advance_cut_camera(cam: PesCutsceneCamera, clock_s: float) -> void:
+	var actor: Dictionary = sim.cutscene_actor()
+	if not actor.is_empty():
+		_set_cut_target(cam, int(actor["index"]), actor["ground"], actor["facing_deg"])
+	cam.advance(clock_s)
+
+
+func _set_cut_target(cam: PesCutsceneCamera, index: int, ground: Vector3, facing_deg: float) -> void:
+	var skeleton: Skeleton3D = _skeletons[index]
+	if skeleton != null:
+		cam.set_target(CAMERA_TARGET_SCORER, ground, _bone_point(skeleton, BONE_JOINT_10), _bone_point(skeleton, BONE_JOINT_0), facing_deg)
+
+
+func _bone_point(skeleton: Skeleton3D, bone: String) -> Vector3:
+	return skeleton.to_global(skeleton.get_bone_global_pose(skeleton.find_bone(bone)).origin)
+
+
+func _load_cutscene(req: Dictionary) -> void:
+	_cut_steps.clear()
+	for step: Dictionary in req["steps"]:
+		var cam := PesCutsceneCamera.new()
+		cam.load_step(library, int(req["category"]), step["fdc"])
+		# ponytail: PES's scene start 0x141F5CD00 gives each step its own stage default by the step's placement mode
+		# (+0x10: 1 = the anchor, 2 = the scene's waypoint map at scene+0x60); every step takes the anchor.
+		if req.has("anchor"):
+			var anchor: Dictionary = req["anchor"]
+			cam.set_stage_default(anchor["pos"], anchor["rot_y"], anchor["flip"])
+		_cut_steps.append(cam)
+		print("frame %d cutscene scene 0x%x cut 0x%x row %d layers %s" % [Engine.get_process_frames(), int(req["scene"]), int(step["cut"]), int(step["row"]), step["fdc"]])
+	_cutscene_scene = int(req["scene"])
 
 
 func _interpolate(alpha: float) -> void:
@@ -165,8 +230,22 @@ func _place(delta: float) -> void:
 		return
 	if _cutscene != null:
 		_cut_t += delta
+		if args.has("fdc-target"):  # debug: the --fdc-file procedural camera frames this player, as a goal scene's does its scorer
+			var i := int(args["fdc-target"])
+			var p: Vector3 = players[i].global_position
+			var f: Vector3 = sim.player_facing(i)
+			_set_cut_target(_cutscene, i, Vector3(p.x, 0.0, p.z), fposmod(rad_to_deg(atan2(f.x, f.z)), 360.0))
+			_cutscene.advance(_cut_t)
 		_cutscene.update(_camera, _cut_t)
 		return
+	if _cutscene_scene != 0 and int(_cut_state.get("step", -1)) >= 0:
+		var t: float = _cut_state["clock_s"]
+		if int(_cut_state["step_started"]) < 0:  # the clock moved one tick: show the pose between the two, as the players are
+			t = lerpf(_cut_state["clock_prev_s"], t, clampf(_accumulator / TICK_S, 0.0, 1.0))
+		# False: no camera is in force (before the first record starts, a procedural record of another mode than 4, or a mode-4
+		# camera whose engine frame reached a call outside the captured closure and was dropped): the broadcast camera stays.
+		if _cut_steps[int(_cut_state["step"])].update(_camera, t):
+			return
 	if args.has("follow"):
 		var p: Vector3 = players[int(args["follow"])].global_position
 		_camera.look_at_from_position(p + FOLLOW_OFFSET, p + Vector3.UP * FOLLOW_TARGET_HEIGHT_M)

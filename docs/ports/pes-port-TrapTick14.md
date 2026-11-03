@@ -46,6 +46,6 @@ Probe (removed): per seed, the first tick a throw-in is prepared with a non-walk
 
 1. Serial census, seeds 1..40, through `tools/dev/simslot.sh` on this tree (each 2-minute match took ~10 min under load 20): the probe is simple to rebuild (see section 3; `CENSUS_SEED` env, a `ZzCensus` test in `pes_throwin_release_test.cpp`, never committed). Re-stage `kCeremonySeeds` in BOTH tests with seeds whose `preparedCeremony` and `heldAtStart` are both >= 0 (the two tests define ceremony differently).
 2. Run `PesThrowInRelease.ACeremonyThrowInIsReleasedFromTheHandOverTheSpot` and `PesRestartDelay.AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWithTheBallInHand` to a result (the second searches 20-minute matches per seed, first ceremony stops the run).
-3. `GATE_TIER=fast GATE_SLOTS="3 2" tools/dev/gate.sh <build dir>` with the gate env (`PES_EXE`, `GF_DIFF_PYTHON`, `PES21_ROOT`, `GF_IMPURE_BANKS`) until GREEN. Not run.
+3. `GATE_TIER=fast GATE_SLOTS="3 2" tools/dev/gate.sh <workdrive>/gf-StoppageFlow/build` with the gate env (`PES_EXE`, `GF_DIFF_PYTHON`, `PES21_ROOT`, `GF_IMPURE_BANKS`) until GREEN. Not run.
 4. The walker `placedOnTheWay` question from TrapTick13 section 1 (is the `RED ALERT` fallback still reachable for a man in the Trap action?) is untouched.
 5. The same decision rule may matter for outfield men: none of them queue a Deflect, and BallControl is queued for them only with possession in the PES loop, so no outfield change is expected (INF, not measured).

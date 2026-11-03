@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "pes/cutscene_timeline.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 
@@ -50,6 +51,9 @@ struct CameraRecord {
   std::array<uint8_t, 4> targetBytes{};  // +0xb0 raw: targetKind and targetNo[3] (0xff = none)
   uint32_t zoomingTimeRate = 0;          // +0xb4
   std::array<int32_t, 8> zoom{};         // +0xb8: ZOOM_HEADUP..FULLSHOT_X4, ticks, -1 = off
+  // The record's bytes as stored (284): the procedural camera engine 0x141F7BFE0 reads the record in this layout through
+  // FixDemoCamera+0x130 (mode +0xB0, target +0xB1, zoom stages +0xB8.., style bytes +0xD8..+0xEE, floats +0xFC..+0x114).
+  std::vector<uint8_t> raw;
 };
 
 // Type 2, 92 bytes.
@@ -59,6 +63,24 @@ struct TimingRecord {
   int32_t targetNo = 0, paramNo1 = 0, paramNo2 = 0;  // +0x0c, +0x10, +0x14
   float value = 0;                       // +0x18
   std::string actionName;                // +0x1c char[64]: e.g. demo_goal_level3
+};
+
+// Type 0, 64 bytes: the placement fields the player reads at cut start (0x141F2E11C..: the map node's +0x49 =
+// record +0x19, +0x4C = +0x1C, +0x58 = +0x28, +0x5C = +0x2C; the node base is record - 0x30).
+struct CutRecord {
+  int32_t id = 0;                        // +0x00: the player's cut map key
+  // The cut start 0x141F2DD80 (lines 184-185): player+0x70 (the clock's start jump) becomes the larger of its value and
+  // node+0x34 = record +0x04. Ticks of 1/60 s.
+  float startTime = 0;                   // +0x04
+  // The step length (0x141F2DD80 -> player+0x64, lines 195-199 of its decompile): node +0x38/+0x3C = record +0x08/+0x0C,
+  // node +0x40 = +0x10 (player+0xAA8 speed); the node base is record - 0x30. Ticks of 1/60 s.
+  float minTime = 0, maxTime = 0;        // +0x08, +0x0C
+  float playSpeed = 0;                   // +0x10
+  uint32_t functionNo = 0;               // +0x38: the function-number term 0x141F31D80 may override min/max (not decoded)
+  bool useOffset = false;                // +0x19
+  std::array<float, 3> offsetPos{};      // +0x1C
+  float offsetRotYDeg = 0;               // +0x28
+  bool offsetFlipX = false;              // +0x2C
 };
 
 struct Coverage {
@@ -73,6 +95,7 @@ struct File {
   std::vector<Resource> resources;       // entries 1..n-1
   std::vector<uint8_t> recordTypes;      // one per cut-block record, table order
   std::vector<CameraRecord> cameras;     // type 6, table order
+  std::vector<CutRecord> cuts;           // type 0, table order
   std::vector<TimingRecord> timings;     // type 2, table order
   Coverage coverage;
 
@@ -130,6 +153,7 @@ struct PoseConstants {
   float wideAspect = 0;       // 0x141F7B294: the aspect the widescreen fix keeps the fov for
   float radToDeg = 0;         // 0x140A91E7A: the axis-angle builder turns its radians into degrees
   float quarterTurnDeg = 0;   // 0x140A91E99: ... and takes the cosine as the sine 90 degrees on
+  float ninetyNine = 0;       // 0x141F2E0C4: the step length's draw divisor (cut start 0x141F2DD80)
   std::array<float, 513> sinTable{};  // 0x142655950 (lea 0x140A92D04): sin(i * 90 / 512 degrees), the table of 0x140A92C80
 };
 std::optional<PoseConstants> LoadPoseConstants(const PeImage& exe, std::string* err);
@@ -156,6 +180,17 @@ struct CutOffset {
   float rotYDeg = 0;
   bool flip = false;                     // mirror X
 };
+
+// The player's cut offset after cut start (0x141F2DD80 at 0x141F2E115..0x141F2E1B0): the stage default
+// (+0xAC0..+0xAD0), replaced whole by the first cut's own offset (the smallest id >= 0 of the file's cuts:
+// the player map's lower_bound on key 0) when that cut's offset flag is set. The rotY wrap into [0, 360) the
+// writer applies is not repeated here: RotYMatrix (0x140A92C80) wraps its input the same way.
+CutOffset CutStartOffset(const File& file, const CutOffset& stageDefault);
+
+// The Cut record a player starts with: the smallest non-negative id of the cut map its layers fill (nullptr when none).
+const CutRecord* FirstCut(const File& file);
+// The timeline step that record makes (cut start 0x141F2DD80): `draw` is the raw draw 0x141F7A150(scene+0x128, 100).
+TimelineStep StepFromCut(const CutRecord& cut, int draw, const PoseConstants& k);
 
 // FUN_140A91E60 about the axis (0, 1, 0) for rotYDeg degrees, as FixDemoCamera::Update builds it
 // (0x141F7B8FC): the angle goes degrees -> radians (0x1425A0C48) -> degrees (0x14259BE40), and the sine

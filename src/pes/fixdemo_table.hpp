@@ -26,6 +26,7 @@ struct FixDemoCutRow {
 
 struct FixDemoCutGroup {
   uint32_t id = 0;  // (cat << 16) | (index + 1)
+  uint32_t firstRow = 0;  // the group's slice start in the table's row array: the DB's {start, count} pair (0x140A7CB40)
   std::string name;
   std::vector<FixDemoCutRow> rows;  // the variants, in table order
 };
@@ -53,6 +54,15 @@ struct FixDemoGoalPlayerScene {
   uint32_t sceneId = 0;
 };
 
+// A goal scene's placement row, one per scene (table stream order: 5 u8, 12 f32, 4 u8). PES lays it out in the DB as
+// 0x3C bytes: the u8s at +0, the floats at +8, the tail at +0x38 (the bytes between are compiler padding). The anchor
+// 0x140474F00 reads bytes +2/+3/+4 (x, z and rotation modes) and floats; the event-position builder 0x140476C50 switches on +0.
+struct FixDemoSceneRow {
+  std::array<uint8_t, 5> head{};
+  std::array<float, 12> floats{};
+  std::array<uint8_t, 4> tail{};
+};
+
 struct FixDemoTable {
   int version = 0;
   std::vector<FixDemoCutGroup> cutGroups;
@@ -60,12 +70,12 @@ struct FixDemoTable {
   // Goal category only (empty otherwise): edit-scene ids and the playerId -> scene pairs.
   std::vector<uint32_t> goalEditScenes;
   std::vector<FixDemoGoalPlayerScene> goalPlayerScenes;
+  std::vector<FixDemoSceneRow> goalSceneRows;  // one per scene, in scene order
 };
 
-// The .fdc VFS paths a scene plays: for each step up to its terminating cut 0, the first variant's layers under the
-// category's cut_data folder, in step order. The first variant is taken without evaluating its condition keys (a
-// debug choice, not PES's selection). Empty with *error set when the scene is not in the table.
-std::vector<std::string> FixDemoSceneFdcPaths(const FixDemoTable& table, uint32_t sceneId, std::string* error);
+// The VFS path of a cut layer a variant names: the category's cut_data folder + the name. Empty for an unknown category.
+// (Which variant plays is the matcher's choice: FixDemoSelector, pes/fixdemo_select.hpp.)
+std::string FixDemoCutDataPath(int category, const std::string& fdcName);
 
 // Decodes one table_<cat>.bin. `category` is 1..9 (ent..mode). Returns nullopt with *error on any inconsistency.
 std::optional<FixDemoTable> DecodeFixDemoTable(const std::vector<uint8_t>& bytes, int category, std::string* error);

@@ -30,10 +30,10 @@ LAYER = "src/pes/translated"
 # The committed records a ctest diff_*_recorded test re-checks (tests/pilot/CMakeLists.txt).
 SETS = ("results.json", "results_cutscene.json", "results_presentation.json", "results_core.json",
         "results_impure.json")
-# Changes that can move any function's proof without changing a generated file: the harness and the runtime headers the
-# generated code includes.
+# Changes that can move any function's proof without changing a generated file: the harness, the check driver and its
+# build/corpus caches (a cache-key bug would answer a stale verdict), and the runtime headers the generated code includes.
 GLOBAL = frozenset("tools/dev/translate/" + n for n in (
-    "stubs.py", "stubs.json", "diffmain.py", "diffparse.hpp")) | frozenset(
+    "stubs.py", "stubs.json", "diffmain.py", "diffparse.hpp", "driver.py", "buildcache.py")) | frozenset(
     "tools/dev/diffharness/" + n for n in ("run.py", "bankstore.py", "snapcase.py")) | frozenset(
     LAYER + "/" + n for n in ("pes_state.hpp", "pes_stubs.hpp", "pes_cond.inl", "pes_dispatch.hpp"))
 FN_FILE = re.compile(r"^%s/[^/]+/pes_fn_([0-9A-Fa-f]+)\.cpp$" % LAYER)

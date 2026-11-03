@@ -64,3 +64,10 @@ return byte-identical output before the full file is deleted; otherwise the full
 Run it when a capture's hook has no open replay question. Caveat: the full file is deleted after verification, so a
 later replay that reads a page outside the kept set cannot run on that capture. Keep the replay's `--out` trace as the
 record of what the capture proved.
+
+**Pack a capture that must stay full** (cited, or slim refused) but that nothing reads now:
+`python3 tools/dev/rendezvous/capz.py pack DIR...` (a seq dir, or a pid dir for all of its captures). `mem.bin` becomes
+`mem.bin.zst` (zstd -3, about 3.7x smaller, ~4 s per capture); the frame checksum is tested before `mem.bin` is removed.
+Slim captures are left alone. **Every tool that reads a capture needs it unpacked first:** `capz.py unpack DIR...` (sparse
+output, a few seconds). `capz.py status DIR...` prints packed / full / slim. `auto_slim.py --pack-after SECONDS` packs
+captures still full that long after landing, so kept captures stop pushing the disk under the watcher's floor.

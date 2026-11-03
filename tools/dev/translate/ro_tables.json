@@ -42,5 +42,6 @@
   {"va": "0x1425DC5A0", "bytes": "0x84", "evidence": "CONFIRMED 0x1406B0180: index (flag word >> 0x1B) + 1 = 1..0x20"},
   {"va": "0x1425F1C20", "bytes": "0x450", "evidence": "INF 0x140846ED0: dword tables 0x1425F1E20 and 0x1425F1E70 indexed by *(param_1+0x24), which must equal the signed-char answer of 0x1406EB100 (-0x80..0x7F); the window spans that range for both"},
   {"va": "0x1425F1D30", "bytes": "0x1D8", "evidence": "INF 0x140847090: dword table [0x1425F1EC0 + state*4], state int < 0x12 (not 0, not 0x11), unguarded below; spans the harness corpus domain (-100..)"},
-  {"va": "0x142644F10", "bytes": "0x130", "evidence": "CONFIRMED 0x140A59B20: three tables 0x142644F10 / F80 / FF0, index < 0x16 (the `uVar7 < 0x16` guard)"}
+  {"va": "0x142644F10", "bytes": "0x130", "evidence": "CONFIRMED 0x140A59B20: three tables 0x142644F10 / F80 / FF0, index < 0x16 (the `uVar7 < 0x16` guard)"},
+  {"va": "0x1404B8410", "bytes": "0x20", "evidence": "CONFIRMED 0x1404B8290: switch dword offsets (rva) [0x1404B8410 + r8d*4], 0x1404B82BA `mov ebx,7; cmp r8d,ebx; ja` bounds the index to 0..7 (8 entries)"}
 ]

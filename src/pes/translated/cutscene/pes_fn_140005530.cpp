@@ -72,7 +72,7 @@ void pes_fn_140005530(PesState& s) {
   s.wr128(((s.gpr[0]) + (0x10ULL)), ((unsigned __int128)s.xmm[4][1] << 64) | s.xmm[4][0]);
   s.wr128(((s.gpr[0]) + (0x28ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
   s.xmm[6][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[11])); s.xmm[6][1] = 0;
-  /*UNHANDLED PUNPCKLBW xmm6, xmm5*/(void)0;
+  { unsigned __int128 _d = ((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64)), _s = ((unsigned __int128)s.xmm[5][0] | ((unsigned __int128)s.xmm[5][1] << 64)), _o = 0; for (int _i = 0; _i < 8; ++_i) { _o |= (unsigned __int128)(uint8_t)(_d >> (8 * _i)) << (16 * _i); _o |= (unsigned __int128)(uint8_t)(_s >> (8 * _i)) << (16 * _i + 8); } s.xmm[6][0] = (uint64_t)_o; s.xmm[6][1] = (uint64_t)(_o >> 64); }
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64))) & ((s.xmm[3][0] | ((unsigned __int128)s.xmm[3][1] << 64))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
   s.gpr[11] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.xmm[6][0]));
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64)), _o = (_d >> 8); s.xmm[6][0] = (uint64_t)_o; s.xmm[6][1] = (uint64_t)(_o >> 64); }
@@ -83,7 +83,7 @@ void pes_fn_140005530(PesState& s) {
   s.xmm[5][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[11])); s.xmm[5][1] = 0;
   s.gpr[11] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0])), 2));
   s.xmm[6][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[11])); s.xmm[6][1] = 0;
-  /*UNHANDLED PUNPCKLWD xmm6, xmm5*/(void)0;
+  { unsigned __int128 _d = ((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64)), _s = ((unsigned __int128)s.xmm[5][0] | ((unsigned __int128)s.xmm[5][1] << 64)), _o = 0; for (int _i = 0; _i < 4; ++_i) { _o |= (unsigned __int128)(uint16_t)(_d >> (16 * _i)) << (32 * _i); _o |= (unsigned __int128)(uint16_t)(_s >> (16 * _i)) << (32 * _i + 16); } s.xmm[6][0] = (uint64_t)_o; s.xmm[6][1] = (uint64_t)(_o >> 64); }
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64))) & ((s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
   s.gpr[11] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.xmm[6][0]));
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64)), _o = (_d >> 16); s.xmm[6][0] = (uint64_t)_o; s.xmm[6][1] = (uint64_t)(_o >> 64); }

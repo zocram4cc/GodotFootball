@@ -976,6 +976,8 @@ inline float BearingDeg(const Vector3& from, const Vector3& to) {
 
 inline float AngleBetweenDeg(float a, float b) { return std::fabs(WrapDeg(a - b)); }
 
+}  // namespace
+
 // PES 2021's anime action class (the table `0x1434a5470`, 0 NOTHING,
 // 2 MOVE, 3 STEP_MOVE, 4 DRIBBLE, 5/6 DRIBBLE_SIDE_BACK/STEP_MOVE, 7 TRAP,
 // 8/9/10 LONG_PASS/SHORT_PASS/SHOOT, 11/12 SLIDING(_KEEP), 13 TACKLE,
@@ -1009,6 +1011,8 @@ int AnimeClassOf(Player* p) {
   }
   return 0;
 }
+
+namespace {
 
 // Whether the team is playing one of its deepest mentality rungs, the only GF
 // analogue the report leaves open for PES's single `T+0xa298` defensive mode
@@ -3602,6 +3606,13 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
   float runX = player->GetPosition().coords[0], runY = player->GetPosition().coords[1];
   GoalCelebration::RunTarget(runX, runY, xSide, ySide, pitchHalfW, pitchHalfH, &runX, &runY);
   Vector3 celebrationPosition = Vector3(runX, runY, 0);
+  // The scorer runs to PES's celebration spot T where a PES goal scene gave one (Match::GetGoalCelebrationSpot, 0x140476C50's
+  // answer), not the capped run above: PES's scorer runs the whole way and its goal gate opens on his arrival.
+  // ponytail: the run's driver in PES (the controller that moves the scorer to T) is not decoded; this sprint stands in for it.
+  // The capped RunTarget stays for the headless sim, which builds no PES goal scene.
+  Vector3 pesSpot;
+  const bool runsToPesSpot = match->GetLastGoalScorer() == player && match->GetGoalCelebrationSpot(&pesSpot);
+  if (runsToPesSpot) celebrationPosition = pesSpot;
 
   // Flat by contract: Humanoid::SelectAnim asserts a movement direction has no
   // height. A scorer lifted off the turf by his own anim would otherwise hand it
@@ -3659,7 +3670,8 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
   const float toTarget = (celebrationPosition - player->GetPosition()).GetLength();
   const bool ready =
       match->GetLastGoalScorer() != player ||
-      GoalCelebration::HasArrived(toTarget, match->GetGoalScoredTimer());
+      GoalCelebration::HasArrived(toTarget, match->GetGoalScoredTimer(),
+                                  runsToPesSpot ? GoalCelebration::kPesSpotApproachCap_ms : GoalCelebration::kApproachCap_ms);
   if (ready && GoalCelebration::IsPerforming(match->GetGoalScoredTimer(),
                                              GoalSequence::kCelebration_ms)) {
     PlayerCommand command;

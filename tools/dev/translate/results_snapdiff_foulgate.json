@@ -1,0 +1,153 @@
+{
+ "note": "snapshot-backed diff of synthetic foul-gate calls (snapdiff.py): the foul run object's gate 0x14047EB00(object) over a full in-play snapshot (captured goal pid2621613/seq1531) with 16 synthetic objects in the dead stack (scene ranges, flags +4/+5, countdowns) and two fouler/victim/referee placements (tools/dev/cutscene/foul_gate_calls.py); proves the translation, not the foul timing; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 1,
+ "results": [
+  {
+   "va": "0x14047EB00",
+   "calls": 32,
+   "replayed": 32,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq1531_pid2621613_3_15_0": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_1": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_10": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_11": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_12": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_13": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_14": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_15": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_2": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_3": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_4": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_5": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_6": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_7": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_8": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_3_15_9": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_0": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_1": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_10": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_11": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_12": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_13": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_14": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_15": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_2": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_3": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_4": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_5": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_6": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_7": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_8": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq1531_pid2621613_7_1_9": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 34,
+    "total": 34,
+    "fraction": 1.0
+   },
+   "proven": true,
+   "blocked_callees": []
+  }
+ ]
+}
