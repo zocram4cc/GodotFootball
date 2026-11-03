@@ -209907,6 +209907,29 @@
    "vtables": [],
    "walked": true
   },
+  "1406AF6D0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406af6d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "officials"
+   ],
+   "scope": "in",
+   "size": 20,
+   "source": "pdata",
+   "subsystem": "officials",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406AF720": {
    "boundary": null,
    "callees": {},
@@ -229131,6 +229154,29 @@
    "size": 10,
    "source": "pdata",
    "subsystem": "trapchain",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407A14A0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1407a14a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "officials"
+   ],
+   "scope": "in",
+   "size": 14,
+   "source": "pdata",
+   "subsystem": "officials",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1295313,7 +1295359,7 @@
     ]
    },
    "officials": {
-    "members": 73,
+    "members": 76,
     "roots": [
      "0x1407A14E0",
      "0x1407A2920",

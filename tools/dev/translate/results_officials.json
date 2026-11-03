@@ -8,9 +8,9 @@
       "closure_file": "closure_officials.json",
       "coverage": {
         "0x1407A14E0": {
-          "reached": 36,
+          "reached": 40,
           "total": 58,
-          "fraction": 0.6207
+          "fraction": 0.6897
         }
       },
       "dead_blocks": {},
@@ -22,20 +22,20 @@
       "proof": "snapdiff",
       "requested": 0,
       "snapdiff": {
-        "calls": 4,
+        "calls": 7,
         "mismatches": 0,
         "own_block": {
-          "reached": 36,
+          "reached": 40,
           "total": 58,
-          "fraction": 0.6207
+          "fraction": 0.6897
         },
-        "replayed": 4,
+        "replayed": 7,
         "source": "tools/dev/translate/results_officials.json"
       },
       "stubs": [],
       "translated": true,
       "va": "0x1407A14E0",
-      "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4 (3 real calls + 1 SYNTHETIC, labelled): live2/pid296049 seq011 (phase 0), seq15917 (1), seq17549 (3); SYNTHETIC j4: seq011's state with P+0x245C poked to 4; hook mot_judge_upd_7A14E0; Judge::Update (vtable 0x1425E20A0 slot 4). Synthetic cases (synth_call.py) run PES's bytes and the translated closure over the same state; the phase byte is chosen, not observed. The closure is capture-bounded, every other call aborts loudly; phases not entered by any case: see pes-port-OfficialsMotion.md section 3 item 6."
+      "note": "proof snapdiff --bounded: every replayed call bit-exact, 7 of 7 (6 real + 1 SYNTHETIC, labelled): live2/pid296049 seq011 (phase 0), seq15917 (1), seq17549 (3); pid1037286 seq13489, seq4999, seq9072 (phases 2/5/6 armed predicate); SYNTHETIC j4: seq011 with P+0x245C poked to 4; hook mot_judge_upd_7A14E0; Judge::Update (vtable 0x1425E20A0 slot 4). Synthetic cases (synth_call.py) run PES's bytes and the translated closure over the same state with the phase byte chosen, not observed. The closure is capture-bounded, every other call aborts loudly (pes-port-OfficialsMotion.md)."
     },
     {
       "aborted": 0,
@@ -71,7 +71,7 @@
       "stubs": [],
       "translated": true,
       "va": "0x1407A2920",
-      "note": "proof snapdiff --bounded: every replayed call bit-exact, 7 of 7 (3 real calls + 4 SYNTHETIC, labelled): live2/pid296049 seq012 (phase 0), seq27011 (2), seq34160 (2); SYNTHETIC a3..a6: seq012's state with P+0x245C poked to 3, 4, 5, 6; hook mot_linesman_upd_7A2920; LinesmanAction::Update (vtable 0x1425E2270). Synthetic cases (synth_call.py) run PES's bytes and the translated closure over the same state; the phase byte is chosen, not observed. The closure is capture-bounded, every other call aborts loudly; phases not entered by any case: see pes-port-OfficialsMotion.md section 3 item 6."
+      "note": "proof snapdiff --bounded: every replayed call bit-exact, 7 of 7 (3 real + 4 SYNTHETIC, labelled): live2/pid296049 seq012 (phase 0), seq27011 (2), seq34160 (2); SYNTHETIC a3..a6: seq012 poked to 3, 4, 5, 6 (phase 1 still needs a live capture); hook mot_linesman_upd_7A2920; LinesmanAction::Update (vtable 0x1425E2270). Synthetic cases (synth_call.py) run PES's bytes and the translated closure over the same state with the phase byte chosen, not observed. The closure is capture-bounded, every other call aborts loudly (pes-port-OfficialsMotion.md)."
     },
     {
       "aborted": 0,
@@ -80,9 +80,9 @@
       "closure_file": "closure_officials.json",
       "coverage": {
         "0x1407A1F30": {
-          "reached": 31,
+          "reached": 75,
           "total": 104,
-          "fraction": 0.2981
+          "fraction": 0.7212
         }
       },
       "dead_blocks": {},
@@ -94,20 +94,20 @@
       "proof": "snapdiff",
       "requested": 0,
       "snapdiff": {
-        "calls": 6,
+        "calls": 18,
         "mismatches": 0,
         "own_block": {
-          "reached": 31,
+          "reached": 75,
           "total": 104,
-          "fraction": 0.2981
+          "fraction": 0.7212
         },
-        "replayed": 6,
+        "replayed": 18,
         "source": "tools/dev/translate/results_officials.json"
       },
       "stubs": [],
       "translated": true,
       "va": "0x1407A1F30",
-      "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6 (3 real calls + 3 SYNTHETIC, labelled): live2/pid296049 seq013 (phase 0), seq1330 (3), seq4274 (3); SYNTHETIC m1, m2, m4: seq013's state with P+0x245C poked to 1, 2, 4; hook mot_linesman_mov_7A1F30; LinesmanMove::Update (vtable 0x1425E2188). Synthetic cases (synth_call.py) run PES's bytes and the translated closure over the same state; the phase byte is chosen, not observed. The closure is capture-bounded, every other call aborts loudly; phases not entered by any case: see pes-port-OfficialsMotion.md section 3 item 6."
+      "note": "proof snapdiff --bounded: every replayed call bit-exact, 18 of 18 (15 real + 3 SYNTHETIC, labelled): live2/pid296049 seq013 (phase 0), seq1330 (3), seq4274 (3); pid1037286 seq1250, 1422, 1677, 2615, 2879, 3118, 3328, 3523, 3682, 3875, 4118, 983 (phases 1..4); SYNTHETIC m1, m2, m4: seq013 poked to 1, 2, 4; hook mot_linesman_mov_7A1F30; LinesmanMove::Update (vtable 0x1425E2188). Synthetic cases (synth_call.py) run PES's bytes and the translated closure over the same state with the phase byte chosen, not observed. The closure is capture-bounded, every other call aborts loudly (pes-port-OfficialsMotion.md)."
     }
   ]
 }
