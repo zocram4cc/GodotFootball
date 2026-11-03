@@ -108,6 +108,222 @@
    "translated": true,
    "va": "0x1404F8C70",
    "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (live2/pid296049 seq003, seq4261, seq4479: the call the team tick makes, replayed as a root). Supersedes the stale results_impure.json status 'translator bug' (PES_DISPATCH_UNTRANSLATED 0x140a79640, now in the layer), which held the team tick out of the layer. Bounded closure 21 functions."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_slot_1405747f0.json",
+   "coverage": {
+    "0x1405747F0": {
+     "reached": 7,
+     "total": 15,
+     "fraction": 0.4667
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 15,
+     "fraction": 0.4667
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1405747F0",
+   "note": "proof snapdiff --bounded over 3 SYNTHETIC calls (chosen, not observed): the concept slot ForeCheckPress start (concept 0x21 slot +0x10) called on the live objects of the selector call at live2/pid296049 seq003, seq4261, seq4479 (tick captures; memory = snapshot + the selector call's call-time delta, rcx = the concept row object mgr+OFF, rdx = ctx, r8 = T as the selector passes them). Every replayed call bit-exact (rax, xmm0, every written byte). Bounded closure 3 functions. Real captures of this slot: none at the time (hook requested from Main)."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_slot_140574710.json",
+   "coverage": {
+    "0x140574710": {
+     "reached": 7,
+     "total": 12,
+     "fraction": 0.5833
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 12,
+     "fraction": 0.5833
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140574710",
+   "note": "proof snapdiff --bounded over 3 SYNTHETIC calls (chosen, not observed): the concept slot ForeCheckPress end test (slot +0x18) called on the live objects of the selector call at live2/pid296049 seq003, seq4261, seq4479 (tick captures; memory = snapshot + the selector call's call-time delta, rcx = the concept row object mgr+OFF, rdx = ctx, r8 = T as the selector passes them). Every replayed call bit-exact (rax, xmm0, every written byte). Bounded closure 3 functions. Real captures of this slot: none at the time (hook requested from Main)."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_slot_140575510.json",
+   "coverage": {
+    "0x140575510": {
+     "reached": 10,
+     "total": 62,
+     "fraction": 0.1613
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 9,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 10,
+     "total": 62,
+     "fraction": 0.1613
+    },
+    "replayed": 9,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140575510",
+   "note": "proof snapdiff --bounded over 9 calls, every one bit-exact (rax, xmm0, every written byte): 6 REAL (live2/pid42407 seq018..seq023, the hook aic_transchase_start_575510, the selector's own calls of the TransitionChase start slot) and 3 SYNTHETIC, chosen not observed (the slot called on the live objects of the selector call at live2/pid296049 seq003, seq4261, seq4479: memory = snapshot + the selector call's call-time delta, rcx = mgr+0x778, rdx = ctx, r8 = T). Bounded closure 3 functions. The real calls all took the early path (own-block 0.1613 of the root)."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_slot_140575ea0.json",
+   "coverage": {
+    "0x140575EA0": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140575EA0",
+   "note": "proof snapdiff --bounded over 3 SYNTHETIC calls (chosen, not observed): the concept slot RetreatBlockCreate start (concept 0x25 slot +0x10) called on the live objects of the selector call at live2/pid296049 seq003, seq4261, seq4479 (tick captures; memory = snapshot + the selector call's call-time delta, rcx = the concept row object mgr+OFF, rdx = ctx, r8 = T as the selector passes them). Every replayed call bit-exact (rax, xmm0, every written byte). Bounded closure 3 functions. Real captures of this slot: none at the time (hook requested from Main)."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_slot_1405404a0.json",
+   "coverage": {
+    "0x1405404A0": {
+     "reached": 8,
+     "total": 38,
+     "fraction": 0.2105
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 38,
+     "fraction": 0.2105
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1405404A0",
+   "note": "proof snapdiff --bounded over 3 SYNTHETIC calls (chosen, not observed): the concept slot SideCounter end test (concept 3 slot +0x18) called on the live objects of the selector call at live2/pid296049 seq003, seq4261, seq4479 (tick captures; memory = snapshot + the selector call's call-time delta, rcx = the concept row object mgr+OFF, rdx = ctx, r8 = T as the selector passes them). Every replayed call bit-exact (rax, xmm0, every written byte). Bounded closure 2 functions. Real captures of this slot: none at the time (hook requested from Main)."
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_aiconcepts_slot_1405415b0.json",
+   "coverage": {
+    "0x1405415B0": {
+     "reached": 37,
+     "total": 103,
+     "fraction": 0.3592
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 37,
+     "total": 103,
+     "fraction": 0.3592
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_aiconcepts.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1405415B0",
+   "note": "proof snapdiff --bounded over 3 SYNTHETIC calls (chosen, not observed): the concept slot SideCounter execute (slot +0x28) called on the live objects of the selector call at live2/pid296049 seq003, seq4261, seq4479 (tick captures; memory = snapshot + the selector call's call-time delta, rcx = the concept row object mgr+OFF, rdx = ctx, r8 = T as the selector passes them). Every replayed call bit-exact (rax, xmm0, every written byte). Bounded closure 48 functions. Real captures of this slot: none at the time (hook requested from Main)."
   }
  ]
 }
