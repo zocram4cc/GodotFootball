@@ -500,9 +500,10 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
   constexpr float kStandTolerance_m = 0.1f;
   // The first ceremony throw-in moves with every change to the match before it (the run-slot cutover left the default
   // seed's twenty minutes with none), so the test searches matches in turn and checks the first ceremony throw-in it meets.
-  // Seeds 2 and 1 each place a ceremony taker in their first two minutes on the StoppageFlow tree (the trap-chain cutover moves
-  // every match, so main's list (5, 7, 9; docs/ports/pes-port-CeremonySeeds.md) does not carry over: docs/ports/pes-port-TrapTick13.md).
-  const unsigned int kCeremonySeeds[] = {2u, 1u};
+  // The list is a census result (seeds 1..40, two-minute pes-loop matches on the StoppageFlow tree after the batch AX merge;
+  // docs/ports/pes-port-StoppageFlowLand.md): seeds 2, 15 and 23 place a ceremony taker, first at ticks 1136, 22934 and 25754,
+  // fastest first. Main's {5, 7, 9} (docs/ports/pes-port-CeremonySeeds.md) belong to main's tree.
+  const unsigned int kCeremonySeeds[] = {2u, 15u, 23u};
   std::optional<unsigned long> firstStop;  // the first ceremony (path B) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
   std::set<unsigned long> placed, released;

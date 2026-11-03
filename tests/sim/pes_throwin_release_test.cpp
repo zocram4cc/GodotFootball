@@ -34,10 +34,11 @@ constexpr int kMinutes = 2;
 // Seed 7's two minutes release no throw-in (its first is past tick 15000: docs/ports/pes-port-StoppageFlow5.md §3), so the
 // tests search matches in turn until one has a throw-in. Seed 3's first walker is at tick 2461 on the path-A census.
 constexpr unsigned int kThrowInSeeds[] = {kSeed, 3u, 13u, 11u};
-// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take: seeds 2 and 1 each place one in their
-// first two minutes on the StoppageFlow tree (the trap-chain cutover moves every match, so the lists from main's census do not
-// carry over: docs/ports/pes-port-TrapTick13.md); 5, 7 and 9 (docs/ports/pes-port-CeremonySeeds.md) are main's.
-constexpr unsigned int kCeremonySeeds[] = {2u, 1u};
+// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take. The list is a census result (seeds 1..40,
+// two-minute pes-loop matches on the StoppageFlow tree after the batch AX merge; docs/ports/pes-port-StoppageFlowLand.md): only
+// seeds 2, 15 and 23 place a ceremony taker (first at ticks 1136, 22934 and 25754), fastest first. Every cutover that moves the
+// matches needs a new census; main's {5, 7, 9} (docs/ports/pes-port-CeremonySeeds.md) are main's tree's.
+constexpr unsigned int kCeremonySeeds[] = {2u, 15u, 23u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).
