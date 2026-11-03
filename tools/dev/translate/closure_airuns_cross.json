@@ -1,0 +1,33 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of the Cross unit FUN_142129590: the root and each function the replays of the named captures entered (direct callees, tail targets, vtable methods); every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. pes-port-AIRuns.md.",
+ "root": "0x142129590",
+ "members": [
+  "0x140439EF0",
+  "0x14043A0A0",
+  "0x14043C410",
+  "0x14046F260",
+  "0x140470D60",
+  "0x140474C40",
+  "0x14063CD80",
+  "0x14063CD90",
+  "0x140A489F0",
+  "0x140A48A10",
+  "0x140A48A30",
+  "0x140A4C930",
+  "0x140A53DF0",
+  "0x140A57800",
+  "0x140A62610",
+  "0x140A62690",
+  "0x140A6CF70",
+  "0x140A8F7C0",
+  "0x140A900E0",
+  "0x140A90D80",
+  "0x140A92C80",
+  "0x140A92D40",
+  "0x140A92DC0",
+  "0x141587AA0",
+  "0x1421085B0",
+  "0x142129590",
+  "0x1421B7D40"
+ ]
+}

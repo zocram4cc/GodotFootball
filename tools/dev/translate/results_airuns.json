@@ -1,0 +1,221 @@
+{
+ "note": "AI run/lane/cross/receive results. diffed = bit-exact vs the unicorn harness over the captured calls named in each record (snapdiff --bounded); pes-port-AIRuns.md.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_airuns_chance.json",
+   "coverage": {
+    "0x140606060": {
+     "reached": 4,
+     "total": 46,
+     "fraction": 0.087
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (ChanceSpaceRun FUN_140606060 (per-man run command writer, T+0xB774 run state), live2/pid296049 seq027, seq11229, seq15389 (hook ai_chance_606060)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 46,
+     "fraction": 0.087
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_airuns.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140606060"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_airuns_postplay.json",
+   "coverage": {
+    "0x14061F940": {
+     "reached": 8,
+     "total": 17,
+     "fraction": 0.4706
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (PostPlay FUN_14061F940, live2/pid296049 seq032, seq12200, seq6773 (hook ai_postplay_61F940)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 17,
+     "fraction": 0.4706
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_airuns.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14061F940"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_airuns_forward.json",
+   "coverage": {
+    "0x140682770": {
+     "reached": 130,
+     "total": 294,
+     "fraction": 0.4422
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the forward pull FUN_140682770, live2/pid296049 seq007, seq1371, seq4710 (hook ai_forward_pull_682770)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 130,
+     "total": 294,
+     "fraction": 0.4422
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_airuns.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140682770"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_airuns_lane.json",
+   "coverage": {
+    "0x140681FF0": {
+     "reached": 41,
+     "total": 46,
+     "fraction": 0.8913
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the lane line FUN_140681FF0, live2/pid296049 seq006, seq1370, seq4709 (hook ai_lane_line_681FF0)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 41,
+     "total": 46,
+     "fraction": 0.8913
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_airuns.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140681FF0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_airuns_cross.json",
+   "coverage": {
+    "0x142129590": {
+     "reached": 24,
+     "total": 79,
+     "fraction": 0.3038
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the Cross unit FUN_142129590, live2/pid296049 seq036, seq17107, seq7090 (hook ai_cross_unit_2129590)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 24,
+     "total": 79,
+     "fraction": 0.3038
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_airuns.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142129590"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_airuns_receive.json",
+   "coverage": {
+    "0x1409F8220": {
+     "reached": 12,
+     "total": 63,
+     "fraction": 0.1905
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (the receive entry FUN_1409F8220 (reaction entry 3), live2/pid296049 seq050, seq1284, seq1302 (hook ai_receive_9F8220)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 12,
+     "total": 63,
+     "fraction": 0.1905
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_airuns.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1409F8220"
+  }
+ ]
+}

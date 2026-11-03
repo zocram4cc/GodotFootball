@@ -1,0 +1,12 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of the receive entry FUN_1409F8220 (reaction entry 3): the root and each function the replays of the named captures entered (direct callees, tail targets, vtable methods); every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. pes-port-AIRuns.md.",
+ "root": "0x1409F8220",
+ "members": [
+  "0x1409F8220",
+  "0x1409FA400",
+  "0x140A48910",
+  "0x140A489F0",
+  "0x140A48A10",
+  "0x140A6E340"
+ ]
+}

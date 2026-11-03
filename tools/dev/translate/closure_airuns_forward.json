@@ -1,0 +1,23 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of the forward pull FUN_140682770: the root and each function the replays of the named captures entered (direct callees, tail targets, vtable methods); every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. pes-port-AIRuns.md.",
+ "root": "0x140682770",
+ "members": [
+  "0x1404F6700",
+  "0x14063FA70",
+  "0x14063FDC0",
+  "0x140682770",
+  "0x1406855F0",
+  "0x140687820",
+  "0x140687A80",
+  "0x140687FB0",
+  "0x1408C5900",
+  "0x140A3E190",
+  "0x140A48910",
+  "0x140A48A10",
+  "0x140A48A30",
+  "0x140A4C720",
+  "0x140A627E0",
+  "0x140A63950",
+  "0x140A6E340"
+ ]
+}

@@ -1226764,6 +1226764,51 @@
    "vtables": [],
    "walked": true
   },
+  "142129590": {
+   "boundary": null,
+   "callees": {
+    "140439F90": "direct",
+    "140456EA0": "direct",
+    "140474C40": "direct",
+    "1404C8E00": "direct",
+    "140507740": "direct",
+    "14063CD90": "direct",
+    "140A489F0": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A4C930": "direct",
+    "140A4EE40": "direct",
+    "140A57800": "direct",
+    "140A8F7C0": "direct",
+    "140A8F890": "direct",
+    "141587AA0": "direct",
+    "14159F3E0": "direct",
+    "141E532E0": "direct",
+    "1421085B0": "direct",
+    "142118D40": "direct",
+    "142125AB0": "direct",
+    "1421B7D40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142129590",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "AI"
+   ],
+   "scope": "in",
+   "size": 362,
+   "source": "pdata",
+   "subsystem": "AI",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14212DA20": {
    "boundary": null,
    "callees": {
@@ -1293616,6 +1293661,28 @@
  "meta": {
   "bridge": "http://127.0.0.1:8080",
   "closures": {
+   "airuns": {
+    "members": 129,
+    "roots": [
+     "0x140606060",
+     "0x14061F940",
+     "0x140682770",
+     "0x140681FF0",
+     "0x142129590",
+     "0x1409F8220"
+    ]
+   },
+   "airuns_roots": {
+    "members": 6,
+    "roots": [
+     "0x140606060",
+     "0x14061F940",
+     "0x140682770",
+     "0x140681FF0",
+     "0x142129590",
+     "0x1409F8220"
+    ]
+   },
    "cardlevel": {
     "members": 93,
     "roots": [
