@@ -1,5 +1,5 @@
 {
- "note": "the functions snapdiff --bounded built for the proofs of 0x14078A640 (tackle reach), 0x1406ECBB0 (clip solver), 0x140842BE0 and 0x140843C50 (tracked part distance, max) and 0x140876020 (contact-chain head): the roots and each function the replays of live2/pid296049 seq020, seq024, seq041, seq010, seq4340, seq4353, seq4429, seq7242, seq7370, seq8430, seq10807, seq12287, seq13815, seq1286, seq048 entered; every other call stays the translator's loud abort. Regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "note": "the functions snapdiff --bounded built for the proofs of 0x14078A640 (tackle reach), 0x1406ECBB0 (clip solver), 0x140842BE0 and 0x140843C50 (tracked part distance, max) and 0x140876020 (contact-chain head): the roots and each function the replays of live2/pid296049 seq020, seq024, seq041, seq010, seq4340, seq4353, seq4429, seq7242, seq7370, seq8430, seq10807, seq12287, seq13815, seq1286, seq048 and live2/pid1037286 seq22101, seq23501, seq23800, seq23831, seq23850, seq23854, seq23909, seq24069, seq28318, seq28407, seq28496, seq28611, seq28770 entered; every other call stays the translator's loud abort. Regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
  "root": "0x14078A640",
  "members": [
   "0x14042D470",
@@ -63,7 +63,9 @@
   "0x140A6CF70",
   "0x140A6E150",
   "0x140A6E490",
+  "0x140A6E5E0",
   "0x140A8F7C0",
+  "0x140A91120",
   "0x140A92C80",
   "0x140A92D40",
   "0x140A92DC0",
