@@ -104,6 +104,31 @@ TARGETS = [
     ("anime_displace_6E85B0", 0x1406E85B0, "anime position displacement (trap tick phase)"),
     # Untranslated callee in the trap tick (TrapTick8): unbounded replays of trap_action_tick abort here.
     ("trap_tick_callee_84F140", 0x14084F140, "trap tick callee"),
+    # --- PortMapMotion block (motion-side map; docs/re/pes-re-portmap-motion.md). Append-only.
+    ("mot_kick_req_7324B0", 0x1407324B0, "PortMapMotion: kick request builder (heading/spot/bucket)"),
+    ("mot_kick_geom_829E80", 0x140829E80, "PortMapMotion: kick geometry candidacy tests"),
+    ("mot_kick_shot_8371A0", 0x1408371A0, "PortMapMotion: shot request builder (req 10)"),
+    ("mot_kick_ground_837670", 0x140837670, "PortMapMotion: ground-pass request builder (req 9)"),
+    ("mot_kick_high_8360F0", 0x1408360F0, "PortMapMotion: high-ball request builder (req 8)"),
+    ("mot_kick_first_837FC0", 0x140837FC0, "PortMapMotion: first-time byte ap+0x2756"),
+    ("mot_contact_head_876020", 0x140876020, "PortMapMotion: contact-chain head into the 876360 tick"),
+    ("mot_judge_upd_7A14E0", 0x1407A14E0, "PortMapMotion: Judge::Update (referee movement)"),
+    ("mot_linesman_upd_7A2920", 0x1407A2920, "PortMapMotion: LinesmanAction::Update"),
+    ("mot_linesman_mov_7A1F30", 0x1407A1F30, "PortMapMotion: LinesmanMove::Update"),
+    ("mot_ability_6E6660", 0x1406E6660, "PortMapMotion: ability byte (locomotion entries + kick stat)"),
+    ("mot_entry_aim_BA7D0", 0x1406BA7D0, "PortMapMotion: entry relax/aim flag"),
+    ("mot_cliplen_6B10D0", 0x1406B10D0, "PortMapMotion: clip length ticks (start-time formula)"),
+    ("mot_ticklen_6B11E0", 0x1406B11E0, "PortMapMotion: tick length (start-time pair)"),
+    ("mot_blendrec_AF620", 0x1406AF620, "PortMapMotion: blend/fixed record reader"),
+    ("mot_cancelrec_AF8E0", 0x1406AF8E0, "PortMapMotion: cancel-frame record reader"),
+    ("mot_rotend_6B1D00", 0x1406B1D00, "PortMapMotion: RotData end reader"),
+    ("mot_rotoff_6B1F00", 0x1406B1F00, "PortMapMotion: RotData signed-offset reader"),
+    ("mot_setkick_place_732D40", 0x140732D40, "PortMapMotion: SetKick placer (restart placement)"),
+    ("mot_corner_body_732E30", 0x140732E30, "PortMapMotion: CornerKick::Update phases"),
+    ("mot_tackle_reach_78A640", 0x14078A640, "PortMapMotion: tackle reach test"),
+    ("mot_clip_solver_6ECBB0", 0x1406ECBB0, "PortMapMotion: clip-solver physics prediction"),
+    ("mot_tracked_842BE0", 0x140842BE0, "PortMapMotion: per-part contact distance"),
+    ("mot_tracked_max_843C50", 0x140843C50, "PortMapMotion: max over tracked parts (feet gate shares fn)"),
 ]
 
 
