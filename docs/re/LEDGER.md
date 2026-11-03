@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 4dfd7e6e425c9e30 -->
+<!-- LEDGER-STAMP 4d0a82fe92f25c34 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,7 +13,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 18608 | 19481 | 38089 |
+| total | 18611 | 19481 | 38092 |
 | ported | 411 | 0 | 411 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
@@ -21,7 +21,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 | decoded | 1212 | 0 | 1212 |
 | leaf accessor | 1916 | 0 | 1916 |
 | engine | 1242 | 0 | 1242 |
-| undecoded | 13507 | 0 | 13507 |
+| undecoded | 13510 | 0 | 13510 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 19481 | 19481 |
 
@@ -157,14 +157,14 @@ Rows per subsystem and status:
 | cutscene | 3846 | 2 | 4 | 0 | 0 | 71 | 256 | 456 | 3057 | 0 |
 | in-match menu | 3777 | 9 | 4 | 0 | 3 | 26 | 398 | 60 | 3276 | 1 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
-| aiconcepts | 8 | 0 | 0 | 0 | 0 | 3 | 3 | 0 | 2 | 0 |
+| aiconcepts | 11 | 0 | 0 | 0 | 0 | 3 | 3 | 0 | 5 | 0 |
 | cardlevel | 8 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 5 | 0 |
 | dribble | 97 | 2 | 0 | 0 | 2 | 5 | 35 | 0 | 53 | 0 |
 | dribblereset | 5 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 2 | 0 |
 | proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
 | trapchain | 105 | 1 | 0 | 0 | 0 | 8 | 46 | 0 | 50 | 0 |
-| total | 18608 | 411 | 154 | 63 | 102 | 1212 | 1916 | 1242 | 13507 | 1 |
+| total | 18611 | 411 | 154 | 63 | 102 | 1212 | 1916 | 1242 | 13510 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -185,14 +185,14 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | cutscene | 3846 | 751 | 6 | 6 | 808 | 3038 | 0 |
 | in-match menu | 3777 | 973 | 16 | 10 | 131 | 3646 | 0 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 289 |
-| aiconcepts | 8 | 4 | 0 | 0 | 0 | 0 | 0 |
+| aiconcepts | 11 | 4 | 0 | 0 | 0 | 0 | 0 |
 | cardlevel | 8 | 7 | 0 | 0 | 0 | 0 | 0 |
 | dribble | 97 | 56 | 4 | 2 | 0 | 0 | 0 |
 | dribblereset | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
 | trapchain | 105 | 68 | 1 | 1 | 0 | 0 | 0 |
-| total | 18608 | 5820 | 667 | 381 | 9941 | 8139 | 289 |
+| total | 18611 | 5820 | 667 | 381 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -410,7 +410,7 @@ Not found (owner's list):
 | 0x140227930 | thunk_FUN_1403fb2e0 | undecoded | 2504 | 1 | cutscene |
 | 0x140CA1A50 | FUN_140ca1a50 | stand-in | 1823 | 2 | in-match menu |
 | 0x140A48A30 | FUN_140a48a30 | stand-in | 1279 | 9 | AI |
-| 0x140A48A10 | FUN_140a48a10 | stand-in | 1265 | 9 | AI |
+| 0x140A48A10 | FUN_140a48a10 | stand-in | 1267 | 9 | AI |
 | 0x140409430 | FUN_140409430 | undecoded | 985 | 94 | cutscene |
 | 0x14037FDB0 | thunk_FUN_14038e6f0 | undecoded | 949 | 1 | pre-match |
 | 0x1402664F0 | FUN_1402664f0 | undecoded | 890 | 39 | cutscene |
@@ -6159,7 +6159,7 @@ Not found (owner's list):
 | 0x140591D70 | FUN_140591d70 | decoded | CONFIRMED | pes-re-playing-styles.md | - | 1 | 219 | y | doc | 1405A6DE0>1405976D0>140591D70 |
 | 0x140593BD0 | FUN_140593bd0 | undecoded | - | pes-re-run-targets-b4.md | - | 6 | 80 | y | doc | 14059ED10>1405A6DE0>140593BD0 |
 | 0x140596560 | FUN_140596560 | undecoded | - | pes-re-run-targets-b3.md | - | 7 | 250 | y | doc | 14059ED10>1405A6DE0>140596560 |
-| 0x1405969B0 | FUN_1405969b0 | translated | OBS | pes-re-OffBallSelectors-postplay-xmm0.md | src/sim/onthepitch/pesoffball.hpp;src/sim/onthepitch/pesoffball.cpp | 156 | 68 | y | doc | 1404F6C30>140500200>1405969B0 |
+| 0x1405969B0 | FUN_1405969b0 | translated | OBS | pes-re-OffBallSelectors-postplay-xmm0.md | src/sim/onthepitch/pesoffball.hpp;src/sim/onthepitch/pesoffball.cpp | 159 | 68 | y | doc | 1404F6C30>140500200>1405969B0 |
 | 0x140596C30 | FUN_140596c30 | ported | OBS | pes-re-attack-leftovers.md | src/sim/onthepitch/pesteamconcepts.cpp;src/sim/onthepitch/pesoffball.hpp;src/sim/onthepitch/pesoffball.cpp | 46 | 265 | - | doc | 1404F6C30>1404F8C70>140596C30 |
 | 0x1405976D0 | FUN_1405976d0 | undecoded | - | pes-re-run-targets-b3.md | - | 7 | 294 | y | doc | 14059ED10>1405A6DE0>1405976D0 |
 | 0x140597BD0 | FUN_140597bd0 | undecoded | - | pes-re-run-targets.md | - | 2 | 150 | y | doc | 140658420>14064AA60>140597BD0 |
@@ -6823,9 +6823,9 @@ Not found (owner's list):
 | 0x140A428D0 | FUN_140a428d0 | leaf accessor | CONFIRMED | pes-re-attack-level-pull.md | - | 1 | 4 | y | doc | 1404F6C30>1404FE9C0>140A428D0 |
 | 0x140A428E0 | FUN_140a428e0 | decoded | CONFIRMED | pes-re-slice-survey.md | - | 1 | 25 | y | doc | 1404F6C30>1404FD4B0>140A428E0 |
 | 0x140A42940 | FUN_140a42940 | diffed | OBS | README.md | src/sim/onthepitch/teamAIcontroller.cpp;src/sim/onthepitch/pesrunslots.cpp;src/sim/onthepitch/pesrunslots.hpp;src/sim/onthepitch/teamAIcontroller.hpp | 40 | 23 | y | doc | 1404F6C30>14057D240>140A42940 |
-| 0x140A429A0 | FUN_140a429a0 | diffed | OBS | pes-re-OffBallSelectors-inventory.md | src/sim/onthepitch/teamAIcontroller.cpp;src/sim/onthepitch/pesrunslots.hpp | 66 | 31 | y | doc | 1404F6C30>140A429A0 |
+| 0x140A429A0 | FUN_140a429a0 | diffed | OBS | pes-re-OffBallSelectors-inventory.md | src/sim/onthepitch/teamAIcontroller.cpp;src/sim/onthepitch/pesrunslots.hpp | 68 | 31 | y | doc | 1404F6C30>140A429A0 |
 | 0x140A42A30 | FUN_140a42a30 | leaf accessor | OBS | pes-re-blocked-slices.md | - | 15 | 4 | y | doc | 1404F6C30>140579BF0>140A42A30 |
-| 0x140A42A40 | FUN_140a42a40 | decoded | OBS | pes-re-defensive-shape.md | - | 52 | 13 | y | doc | 1404F6C30>140579BF0>140A42A40 |
+| 0x140A42A40 | FUN_140a42a40 | decoded | OBS | pes-re-defensive-shape.md | - | 53 | 13 | y | doc | 1404F6C30>140579BF0>140A42A40 |
 | 0x140A42A70 | FUN_140a42a70 | ported | CONFIRMED | pes-re-team-helpers.md | src/sim/onthepitch/team.cpp;src/sim/onthepitch/pesrunslots.hpp;src/sim/onthepitch/teamAIcontroller.hpp | 1 | 57 | y | doc | 1404F6C30>140A42A70 |
 | 0x140A42B50 | FUN_140a42b50 | decoded | OBS | pes-re-defensive-shape.md | - | 2 | 13 | y | doc | 1404F6C30>140579BF0>140A42B50 |
 | 0x140A42B80 | FUN_140a42b80 | leaf accessor | OBS | pes-re-defensive-shape.md | - | 3 | 4 | y | doc | 1404F6C30>140579BF0>140A42B80 |
@@ -6844,7 +6844,7 @@ Not found (owner's list):
 | 0x140A48910 | FUN_140a48910 | stand-in | CONFIRMED | pes-re-27a0-inputs.md | src/sim/onthepitch/pesreactionblock.hpp;src/sim/onthepitch/pescarrier.cpp;src/sim/onthepitch/pesoffball.hpp;src/pes/movestep_turn.cpp | 453 | 9 | y | doc | 1409F8220>140A48910 |
 | 0x140A48930 | FUN_140a48930 | undecoded | - | - | - | 1 | 13 | y | doc | 140506660>1405B22B0>140A48930 |
 | 0x140A489F0 | FUN_140a489f0 | stand-in | CONFIRMED | pes-re-27a0-inputs.md | src/sim/onthepitch/pespossession.hpp;src/sim/onthepitch/team.cpp;src/sim/onthepitch/pesreactionblock.hpp;src/pes/movestep_turn.cpp | 342 | 9 | y | doc | 1409F8220>140A489F0 |
-| 0x140A48A10 | FUN_140a48a10 | stand-in | CONFIRMED | pes-carrier-A4Cont.md | src/sim/onthepitch/pesreactionblock.hpp;src/sim/onthepitch/pescarrier.cpp;src/pes/movestep_run.cpp;src/pes/movestep_turn.cpp;src/pes/movestep_step.cpp | 1265 | 9 | y | doc | 1409F8220>140A48A10 |
+| 0x140A48A10 | FUN_140a48a10 | stand-in | CONFIRMED | pes-carrier-A4Cont.md | src/sim/onthepitch/pesreactionblock.hpp;src/sim/onthepitch/pescarrier.cpp;src/pes/movestep_run.cpp;src/pes/movestep_turn.cpp;src/pes/movestep_step.cpp | 1267 | 9 | y | doc | 1409F8220>140A48A10 |
 | 0x140A48A30 | FUN_140a48a30 | stand-in | CONFIRMED | pes-re-A4Carrier.md | src/sim/onthepitch/pesevents.hpp;src/sim/onthepitch/matchevents.cpp;src/sim/onthepitch/pesreactionblock.hpp;src/pes/movestep_run.cpp;src/pes/movestep_turn.cpp | 1279 | 9 | y | doc | 1404F6C30>140A48A30 |
 | 0x140A48EF0 | FUN_140a48ef0 | undecoded | - | - | - | 1 | 32 | - | doc | 14041ECF0>140A49C50>140A48EF0 |
 | 0x140A49040 | FUN_140a49040 | undecoded | - | - | - | 1 | 32 | - | doc | 14041ECF0>140A49C50>140A49040 |
@@ -7072,11 +7072,11 @@ Not found (owner's list):
 | 0x140A7DC90 | FUN_140a7dc90 | undecoded | - | - | - | 2 | 11 | y | doc | 1405EC1D0>140509A40>140A7DC90 |
 | 0x140A7DCB0 | FUN_140a7dcb0 | undecoded | - | - | - | 2 | 11 | y | doc | 1405EC1D0>140509A40>140A7DCB0 |
 | 0x140A7F0F0 | FUN_140a7f0f0 | diffed | OBS | pes-re-constant-team.md | - | 6 | 37 | y | doc | 14051E970>140A7F0F0 |
-| 0x140A84E30 | FUN_140a84e30 | decoded | OBS | pes-re-mark-table.md | - | 44 | 57 | y | doc | 1404F6C30>140A84E30 |
+| 0x140A84E30 | FUN_140a84e30 | decoded | OBS | pes-re-mark-table.md | - | 46 | 57 | y | doc | 1404F6C30>140A84E30 |
 | 0x140A84F20 | FUN_140a84f20 | leaf accessor | - | - | - | 7 | 9 | y | doc | 140977700>140976C10>140A84F20 |
 | 0x140A85A70 | FUN_140a85a70 | decoded | INF | pes-re-A4Carrier.md | - | 12 | 11 | y | doc | 1409F8220>140A85A70 |
 | 0x140A85AA0 | FUN_140a85aa0 | diffed | OBS | pes-re-attack-leftovers.md | src/sim/onthepitch/pesrunslots.hpp | 6 | 33 | y | doc | 1404F6C30>140A40240>140A85AA0 |
-| 0x140A8F7C0 | FUN_140a8f7c0 | translated | OBS | pes-carrier-A4Cont.md | src/sim/onthepitch/pesteamconcepts.cpp;src/sim/onthepitch/pescarrier.hpp;src/sim/onthepitch/peslane.cpp;src/sim/onthepitch/pesreactionblock.cpp;src/sim/onthepitch/pescarrier.cpp;src/sim/onthepitch/pesmover.cpp;src/sim/onthepitch/peskeeper.cpp;src/sim/onthepitch/pesteamconcepts.hpp | 264 | 23 | y | doc | 140A08340>140A8F7C0 |
+| 0x140A8F7C0 | FUN_140a8f7c0 | translated | OBS | pes-carrier-A4Cont.md | src/sim/onthepitch/pesteamconcepts.cpp;src/sim/onthepitch/pescarrier.hpp;src/sim/onthepitch/peslane.cpp;src/sim/onthepitch/pesreactionblock.cpp;src/sim/onthepitch/pescarrier.cpp;src/sim/onthepitch/pesmover.cpp;src/sim/onthepitch/peskeeper.cpp;src/sim/onthepitch/pesteamconcepts.hpp | 266 | 23 | y | doc | 140A08340>140A8F7C0 |
 | 0x140A8F890 | FUN_140a8f890 | diffed | CONFIRMED | pes-carrier-A4Cont.md | src/sim/onthepitch/pescarrier.hpp;src/sim/onthepitch/pescarrier.cpp | 27 | 8 | y | doc | 14053C6E0>14053CC00>140A8F890 |
 | 0x140A8FD50 | FUN_140a8fd50 | undecoded | - | - | - | 1 | 53 | - | doc | 1421071F0>14067A220>140A8FD50 |
 | 0x140A8FE30 | FUN_140a8fe30 | undecoded | - | - | - | 1 | 54 | - | doc | 1421071F0>14067A220>140A8FE30 |
@@ -7108,7 +7108,7 @@ Not found (owner's list):
 | 0x1414C1E20 | FUN_1414c1e20 | leaf accessor | - | - | - | 3 | 2 | y | doc | 1405069A0>140504990>1414C1E20 |
 | 0x14159EF7C | ?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z | engine | - | - | - | 1 | 15 | - | doc | 140AC4900>140AC4BA0>14159EF7C |
 | 0x14159EFF8 | ??_L@YAXPEAX_K1P6AX0@Z2@Z | engine | - | - | - | 103 | 35 | - | doc | 14051E970>14159EFF8 |
-| 0x14159F3E0 | __security_check_cookie | engine | - | - | - | 3683 | 8 | - | doc | 1404F6C30>14159F3E0 |
+| 0x14159F3E0 | __security_check_cookie | engine | - | - | - | 3686 | 8 | - | doc | 1404F6C30>14159F3E0 |
 | 0x14159FA0C | ??_M@YAXPEAX_K1P6AX0@Z@Z | engine | - | - | - | 193 | 36 | - | doc | 14051E970>14159FA0C |
 | 0x14159FB70 | _alloca_probe | engine | - | - | - | 44 | 19 | - | doc | 140500B90>14159FB70 |
 | 0x1415A1714 | FUN_1415a1714 | engine | - | - | - | 15 | 1 | - | doc | 1404FEDC0>140A58550>1415A1714 |
@@ -16648,12 +16648,12 @@ Not found (owner's list):
 | 0x140A7C4F0 | FUN_140a7c4f0 | leaf accessor | - | - | - | 4 | 4 | y | rtti | 140545560>140A77B80>140A7C4F0 |
 | 0x140A7C510 | FUN_140a7c510 | undecoded | - | - | - | 2 | 45 | - | rtti | 140A7C420>140A7C5C0>140A7C510 |
 | 0x140A7C5C0 | FUN_140a7c5c0 | undecoded | - | - | - | 1 | 37 | - | rtti | 140A77B80>140A7C420>140A7C5C0 |
-| 0x140A84D40 | FUN_140a84d40 | undecoded | - | - | - | 33 | 36 | y | rtti | 1408F7090>140546FB0>140A84D40 |
-| 0x140A84FB0 | FUN_140a84fb0 | undecoded | - | - | - | 28 | 18 | y | rtti | 1408F7090>140546FB0>140A84FB0 |
-| 0x140A85090 | FUN_140a85090 | undecoded | - | - | - | 32 | 24 | y | rtti | 1408F7090>140546FB0>140A85090 |
+| 0x140A84D40 | FUN_140a84d40 | undecoded | - | - | - | 35 | 36 | y | rtti | 1408F7090>140546FB0>140A84D40 |
+| 0x140A84FB0 | FUN_140a84fb0 | undecoded | - | - | - | 30 | 18 | y | rtti | 1408F7090>140546FB0>140A84FB0 |
+| 0x140A85090 | FUN_140a85090 | undecoded | - | - | - | 34 | 24 | y | rtti | 1408F7090>140546FB0>140A85090 |
 | 0x140A85110 | FUN_140a85110 | leaf accessor | - | - | - | 14 | 2 | y | rtti | 1408F7090>140546FB0>140A85110 |
 | 0x140A85130 | FUN_140a85130 | leaf accessor | - | - | - | 15 | 6 | y | rtti | 1408F7090>140546FB0>140A85130 |
-| 0x140A85160 | FUN_140a85160 | decoded | OBS | pes-re-transitions.md | - | 33 | 21 | y | rtti | 1408F7090>140546FB0>140A85160 |
+| 0x140A85160 | FUN_140a85160 | decoded | OBS | pes-re-transitions.md | - | 35 | 21 | y | rtti | 1408F7090>140546FB0>140A85160 |
 | 0x140AA0240 | FUN_140aa0240 | undecoded | - | - | - | 26 | 38 | - | rtti | 141001E00>140FFBC90>140AA0240 |
 | 0x140AABF00 | FUN_140aabf00 | undecoded | - | - | - | 1 | 15 | y | rtti | 140AABF00 |
 | 0x140AC6840 | FUN_140ac6840 | undecoded | - | - | - | 12 | 50 | y | rtti | 1409149B0>141534BF0>140AC6840 |
@@ -18882,12 +18882,15 @@ Not found (owner's list):
 | 0x1423E26E0 | FUN_1423e26e0 | engine | - | - | - | 1 | 41 | - | owner | 141F824A0>1423E26C0>1423E26E0 |
 | 0x1423E28A0 | FUN_1423e28a0 | engine | - | - | - | 1 | 35 | - | owner | 141F824A0>1423E2870>1423E28A0 |
 
-## aiconcepts (8)
+## aiconcepts (11)
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 0x1404F5500 | FUN_1404f5500 | undecoded | - | - | - | 0 | 514 | - | closure |  |
 | 0x140538160 | FUN_140538160 | decoded | CONFIRMED | pes-re-small-decodes.md | - | 0 | 208 | - | closure |  |
+| 0x140554210 | FUN_140554210 | undecoded | - | - | - | 0 | 130 | - | closure |  |
+| 0x140554410 | FUN_140554410 | undecoded | - | - | - | 0 | 128 | - | closure |  |
+| 0x140554620 | FUN_140554620 | undecoded | - | - | - | 0 | 57 | - | closure |  |
 | 0x14057B820 | FUN_14057b820 | decoded | OBS | pes-re-defensive-shape.md | - | 1 | 125 | y | closure |  |
 | 0x1405F6380 | FUN_1405f6380 | leaf accessor | - | - | - | 0 | 20 | y | closure |  |
 | 0x140602040 | FUN_140602040 | leaf accessor | OBS | pes-re-off-ball.md | - | 0 | 10 | y | closure |  |

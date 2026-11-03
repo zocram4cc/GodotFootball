@@ -163989,6 +163989,101 @@
    "vtables": [],
    "walked": true
   },
+  "140554210": {
+   "boundary": null,
+   "callees": {
+    "1405969B0": "direct",
+    "140A429A0": "direct",
+    "140A48A10": "direct",
+    "140A8F7C0": "direct",
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140554210",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "aiconcepts"
+   ],
+   "scope": "in",
+   "size": 130,
+   "source": "pdata",
+   "subsystem": "aiconcepts",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140554410": {
+   "boundary": null,
+   "callees": {
+    "1405969B0": "direct",
+    "140A429A0": "direct",
+    "140A42A40": "direct",
+    "140A48A10": "direct",
+    "140A84D40": "direct",
+    "140A84E30": "direct",
+    "140A84FB0": "direct",
+    "140A85090": "direct",
+    "140A85160": "direct",
+    "140A8F7C0": "direct",
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140554410",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "aiconcepts"
+   ],
+   "scope": "in",
+   "size": 128,
+   "source": "pdata",
+   "subsystem": "aiconcepts",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140554620": {
+   "boundary": null,
+   "callees": {
+    "1405969B0": "direct",
+    "140A84D40": "direct",
+    "140A84E30": "direct",
+    "140A84FB0": "direct",
+    "140A85090": "direct",
+    "140A85160": "direct",
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140554620",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "aiconcepts"
+   ],
+   "scope": "in",
+   "size": 57,
+   "source": "pdata",
+   "subsystem": "aiconcepts",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140554700": {
    "boundary": null,
    "callees": {
@@ -1294004,7 +1294099,7 @@
   "bridge": "http://127.0.0.1:8080",
   "closures": {
    "aiconcepts": {
-    "members": 569,
+    "members": 575,
     "roots": [
      "0x140579840",
      "0x1404F6C30",

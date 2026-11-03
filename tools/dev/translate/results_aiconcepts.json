@@ -8,9 +8,9 @@
    "closure_file": "closure_aiconcepts_selector.json",
    "coverage": {
     "0x140579840": {
-     "reached": 50,
+     "reached": 56,
      "total": 71,
-     "fraction": 0.7042
+     "fraction": 0.7887
     }
    },
    "dead_blocks": {},
@@ -22,20 +22,20 @@
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 4,
+    "calls": 15,
     "mismatches": 0,
     "own_block": {
-     "reached": 50,
+     "reached": 56,
      "total": 71,
-     "fraction": 0.7042
+     "fraction": 0.7887
     },
-    "replayed": 4,
+    "replayed": 15,
     "source": "tools/dev/translate/results_aiconcepts.json"
    },
    "stubs": [],
    "translated": true,
    "va": "0x140579840",
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4 (live2/pid296049 seq004 the hook's call 1, seq4262 call 36001, seq4480 call 38001; live2/pid42407 seq8378, a REAL call with a defending concept running (its gate, start, end and execute slots ran); rax, xmm0 and every written byte). Bounded closure 71 functions."
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 15 of 15 (live2/pid296049 seq004 the hook's call 1, seq4262 call 36001, seq4480 call 38001; and 12 REAL calls from live2/pid42407 taken while a concept was running (the hook's T+0xB6E8 predicate: seq8378, 36149, 54287, 54399, 55023, 67358, 67369, 122506, 122517, 122528, 123656, 123667); rax, xmm0 and every written byte). Bounded closure 85 functions."
   },
   {
    "aborted": 0,
