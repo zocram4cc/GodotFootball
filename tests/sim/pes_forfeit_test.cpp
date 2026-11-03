@@ -38,6 +38,9 @@ namespace {
 constexpr int HOME = 0, AWAY = 1;            // team indices: Match::GetTeam and MatchData
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;  // fixture database ids
 constexpr unsigned int SEED = 7;
+// The red-card match must reach full time inside kWindow_ms. Seed 7's no longer does after the style/COM-inference deletion
+// (the offender's removal re-rolled the stoppages); a serial seed census through simslot found 1 and 2 reach it.
+constexpr unsigned int kRedCardSeed = 1;
 constexpr int kMatchMinutes = 20;
 constexpr int kShortMatchMinutes = 2;  // reaches full time quickly in simulated time
 // Simulated time in which a stoppage must arrive or a match must end. A two-minute match with PES's set-piece walks (the
@@ -80,7 +83,7 @@ std::optional<pes::ForfeitConstants> InstalledForfeitConstants(std::string* erro
 }
 
 // A real match from the fixture, every PES constant from the install. Null when one is missing.
-std::unique_ptr<Match> BuildMatch(int minutes) {
+std::unique_ptr<Match> BuildMatch(int minutes, unsigned int seed = SEED) {
   static std::unique_ptr<blunted::Database> held;  // the engine reads a process-wide database
   held = std::make_unique<blunted::Database>();
   if (!held->LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql")) return nullptr;
@@ -88,7 +91,7 @@ std::unique_ptr<Match> BuildMatch(int minutes) {
   MatchSetup setup;
   setup.homeTeamDbId = HOME_TEAM;
   setup.awayTeamDbId = AWAY_TEAM;
-  setup.seed = SEED;
+  setup.seed = seed;
   setup.durationMinutes = minutes;
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
@@ -309,7 +312,7 @@ TEST(PesForfeitMatch, AnInjuredPlayerIsReplacedWhileASubIsLeft) {
 // docs/re/pes-re-missing-systems.md 2.7 and 2.13). When it is ported, this test must change with it.
 TEST(PesForfeitMatch, ARedCardRemovesTheOffenderAndTheSideIsNotForfeited) {
   if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
-  auto match = BuildMatch(kShortMatchMinutes);
+  auto match = BuildMatch(kShortMatchMinutes, kRedCardSeed);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   Player* offender = OutfieldOnPitch(*match, HOME).front();
