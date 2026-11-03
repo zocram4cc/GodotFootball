@@ -27,8 +27,7 @@ const PITCH_SURROUND_ALBEDO := Color(0.22, 0.42, 0.18)
 const FACE_DIR := "Asset/model/character/face/real/"
 const FOLLOW_OFFSET := Vector3(4.0, 2.2, 6.0)  # inspection camera, metres from the followed player
 const FOLLOW_TARGET_HEIGHT_M := 1.0
-# The registry slot of the goal scene's scorer (CAMERA_TARGET_0201) and the bones standing for the actor's joints 10 and 0.
-const CAMERA_TARGET_SCORER := 1
+# The bones standing for a goal scene actor's joints 10 and 0 (the registry record's two body points).
 const BONE_JOINT_10 := "head"  # GF's name for PES's sk_head (src/rig/rig_names.hpp)
 const BONE_JOINT_0 := "hip"  # GF's name for PES's dsk_hip, the root joint's child
 
@@ -48,6 +47,7 @@ var _cut_t := 0.0
 var _cutscene_scene := 0  # the FixDemo scene in force (GfMatch.cutscene_state); 0 when none
 var _cut_steps: Array[PesCutsceneCamera] = []  # one per step of that scene: every layer's cameras of the step
 var _cut_state: Dictionary = {}
+var _joint_heights := Vector2.ZERO  # joints 10 and 0 above the ground of the last skeleton set (the scorer's, first in the list)
 var _fixed_pose := false
 
 
@@ -161,23 +161,30 @@ func _poll_cutscene() -> void:
 		_advance_cut_camera(_cut_steps[int(_cut_state["step"])], float(_cut_state["clock_s"]))
 
 
-# One logic frame of the step's procedural camera (PES's engine 0x141F7BFE0 on the translated layer): the goal scene's actor, the
-# scorer, is written into CAMERA_TARGET_0201 (ground position and bearing from the sim, the two body points from his skeleton),
-# then the engine runs on the step's player clock.
-# ponytail: PES's actor update (the writer of CAMERA_TARGET_02nn, source object vtable 0x142BB1048) keeps its 20 joint points
-# at +0x7C; the record's points are joints 0 and 10 (CONFIRMED by value in the captured goal: 0.94 m and 1.59 m above the
-# scorer). Which bones those are is INF: hip and head. The skeleton is the render frame's, up to a logic frame old.
+# One logic frame of the step's procedural camera (PES's engine 0x141F7BFE0 on the translated layer): the goal scene's actors (the
+# scorer, the conceding keeper, the referee: GfMatch.cutscene_actor) are written into CAMERA_TARGET_02<slot + 1> (ground position
+# and bearing from the sim, the two body points from the man's skeleton), then the engine runs on the step's player clock.
+# ponytail: PES's actor update (the writer of CAMERA_TARGET_02nn, 0x141F2EBB0) keeps its 20 joint points at +0x7C; the record's points
+# are joints 0 and 10 (CONFIRMED by value in the captured goal: 0.94 m and 1.59 m above the scorer). Which bones those are is INF:
+# hip and head. The skeleton is the render frame's, up to a logic frame old. The referee has no node here: his points are his ground
+# raised by the scorer's two heights (the first actor), until the officials are drawn.
 func _advance_cut_camera(cam: PesCutsceneCamera, clock_s: float) -> void:
-	var actor: Dictionary = sim.cutscene_actor()
-	if not actor.is_empty():
-		_set_cut_target(cam, int(actor["index"]), actor["ground"], actor["facing_deg"])
+	for actor: Dictionary in sim.cutscene_actor():
+		_set_cut_target(cam, actor)
 	cam.advance(clock_s)
 
 
-func _set_cut_target(cam: PesCutsceneCamera, index: int, ground: Vector3, facing_deg: float) -> void:
-	var skeleton: Skeleton3D = _skeletons[index]
+func _set_cut_target(cam: PesCutsceneCamera, actor: Dictionary) -> void:
+	var ground: Vector3 = actor["ground"]
+	var index := int(actor["index"])
+	var skeleton: Skeleton3D = _skeletons[index] if index >= 0 else null
 	if skeleton != null:
-		cam.set_target(CAMERA_TARGET_SCORER, ground, _bone_point(skeleton, BONE_JOINT_10), _bone_point(skeleton, BONE_JOINT_0), facing_deg)
+		var point_a := _bone_point(skeleton, BONE_JOINT_10)
+		var point_b := _bone_point(skeleton, BONE_JOINT_0)
+		_joint_heights = Vector2(point_a.y - ground.y, point_b.y - ground.y)
+		cam.set_target(int(actor["slot"]) + 1, ground, point_a, point_b, actor["facing_deg"])
+	elif index < 0:
+		cam.set_target(int(actor["slot"]) + 1, ground, ground + Vector3(0, _joint_heights.x, 0), ground + Vector3(0, _joint_heights.y, 0), actor["facing_deg"])
 
 
 func _bone_point(skeleton: Skeleton3D, bone: String) -> Vector3:
@@ -234,7 +241,7 @@ func _place(delta: float) -> void:
 			var i := int(args["fdc-target"])
 			var p: Vector3 = players[i].global_position
 			var f: Vector3 = sim.player_facing(i)
-			_set_cut_target(_cutscene, i, Vector3(p.x, 0.0, p.z), fposmod(rad_to_deg(atan2(f.x, f.z)), 360.0))
+			_set_cut_target(_cutscene, {"slot": 0, "index": i, "ground": Vector3(p.x, 0.0, p.z), "facing_deg": fposmod(rad_to_deg(atan2(f.x, f.z)), 360.0)})
 			_cutscene.advance(_cut_t)
 		_cutscene.update(_camera, _cut_t)
 		return

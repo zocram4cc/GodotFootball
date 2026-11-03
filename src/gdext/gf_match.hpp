@@ -68,9 +68,9 @@ class GfMatch : public RefCounted {
   // seconds (cameras play on it), ended: the scene's list ran out this frame (the category's rotation word advanced,
   // 0x141F58FC0)}. Empty when no scene is in force.
   Dictionary cutscene_state() const;
-  // The goal scene's actor the camera targets (CAMERA_TARGET_0201): {index into the players, ground: Vector3, facing_deg}; empty
-  // when no goal scene is in force.
-  Dictionary cutscene_actor() const;
+  // The goal scene's actors the cameras target (CAMERA_TARGET_02<slot + 1>), one per fdc Human slot GF can name: [{slot, index:
+  // into the players (-1 for an official, who has no node), ground: Vector3, facing_deg}]; empty when no goal scene is in force.
+  Array cutscene_actor() const;
 
  protected:
   static void _bind_methods();

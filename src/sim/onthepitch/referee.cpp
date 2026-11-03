@@ -563,6 +563,17 @@ void Referee::Process() {
           DeferredCardOnScreenAt_ms(match->PesLoop(), buffer.stopTime) <= match->GetActualTime_ms())
         IssueDeferredCards();
 
+      // A goal scene is playing (GfMatch's FixDemo timeline): PES's restart step runs its DemoInfo inside, so the kick-off's prepare
+      // (the teleport to the centre) is pushed a tick past now, the take with it at the spacing the schedule gave. Not through
+      // AlterSetPiecePrepareTime: its switch-off path caps a deferral at 30 s from the stop, and a scene can run past that.
+      if (match->RestartHeldForScene() && !buffer.prepared) {
+        const unsigned long heldTo_ms = match->GetActualTime_ms() + static_cast<unsigned long>(Match::kTick_ms);
+        if (buffer.prepareTime < heldTo_ms) {
+          buffer.startTime += heldTo_ms - buffer.prepareTime;
+          buffer.prepareTime = heldTo_ms;
+        }
+      }
+
       if (!buffer.prepared && buffer.prepareTime <= match->GetActualTime_ms()) {
         buffer.prepared = true;
         if (buffer.endPhase == true) {

@@ -115,11 +115,13 @@ def player(sm, cam):
             print("  fdc Human slot %d -> actor key %d roster member %d at (%.2f %.2f %.2f)" % (fdc_slot, ab[0x36C], ab[0x36D], *pos))
 
 
-def cast(sm):
+def cast_lists(sm):
+    """Every cast list found: [(address, [(id, kind, side, roster slot)])]."""
     def accept(sm, va, b, i):
         return (struct.unpack_from("<I", b, i)[0] in (0x1300, 0x1100, 0x1500, 0x1600) and b[i + 4] < 3 and b[i + 6] < 0x30 and b[i + 7] <= 2
                 and i + 12 <= len(b) and struct.unpack_from("<I", b, i + 8)[0] == struct.unpack_from("<I", b, i)[0] + 1)
 
+    out = []
     for kind in (0x1300, 0x1100, 0x1500, 0x1600):
         for hit in scan(sm, struct.pack("<I", kind), accept):
             ents, a = [], hit
@@ -130,9 +132,15 @@ def cast(sm):
                 ident = struct.unpack_from("<I", raw, 0)[0]
                 if ident > 0x2000 and ident >> 8 not in (0x11, 0x13, 0x15, 0x16):
                     break
-                ents.append("%#x:kind%d,side%d,slot%d" % (ident, raw[4], raw[5], raw[6]))
+                ents.append((ident, raw[4], raw[5], raw[6]))
                 a += 8
-            print("cast list at %#x: %s" % (hit, " ".join(ents)))
+            out.append((hit, ents))
+    return out
+
+
+def cast(sm):
+    for hit, ents in cast_lists(sm):
+        print("cast list at %#x: %s" % (hit, " ".join("%#x:kind%d,side%d,slot%d" % e for e in ents)))
 
 
 def main():

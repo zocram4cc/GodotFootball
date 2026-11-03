@@ -19,6 +19,7 @@
 #include "onthepitch/player/controller/elizacontroller.hpp"
 #include "simcontext.hpp"
 #include "utils/database.hpp"
+#include "pes/goal_cast.hpp"
 
 namespace godot {
 namespace {
@@ -208,6 +209,9 @@ void GfMatch::step() {
   for (Player* p : players_) previousPlayers_.push_back(p->GetPosition());
   previousBall_ = match_->GetBall()->GetPositionBuffer();
   previousValid_ = true;
+  // PES's restart step contains the DemoInfo scene: the goal's kick-off (the teleport to the centre) comes after the scene's end,
+  // so it is held for as long as the goal's timeline runs (a foul scene does not hold: the stoppage programme times its own).
+  match_->HoldRestartForScene(timeline_ && gateIsGoal_);
   match_->Process();
   RefreshPlayers();  // substitutions change the active set
   PollCutscenes();
@@ -495,22 +499,36 @@ void GfMatch::StartTimeline(const pes::FixDemoRequest& request) {
   timelineStartTick_ = tick_ + 1 + kPickToDemoInfoTicks + 1;
 }
 
-// The goal scene's actor: the man PES's FixDemo player mirrors into CAMERA_TARGET_0201 (the registry record the procedural
-// camera frames; the captured goal's record held the scorer's ground position and bearing). {index: into the match's players
-// (the Godot player nodes' order), ground: his position on the pitch (Fox axes, y = 0), facing_deg: PES's bearing atan2(dx, dz)}.
+// The goal scene's actors: the men PES's FixDemo player mirrors into CAMERA_TARGET_02nn (registry slot = fdc Human slot + 1,
+// pes-port-ProcCamera8.md section 1; the cameras' target bytes name the fdc slot). One entry per slot GF can name from its state
+// (pes/goal_cast.hpp, checked against the captured cast lists): the scorer (slot 0), the conceding keeper (21: the other side's
+// roster slot 0) and the chief referee (22). [{slot, index: into the match's players (the Godot player nodes' order; -1 for the
+// referee, who has no node), ground: his position on the pitch (Fox axes, y = 0), facing_deg: PES's bearing atan2(dx, dz)}].
 // Empty when no goal scene is in force.
-// ponytail: CAMERA_TARGET_02nn's writer (the FixDemo actor's per-frame update; its source object's vtable 0x142BB1048, ctor
-// 0x141F7D010) is not decoded, so the scorer in slot 1 is the one case a capture shows; every other slot stays unset (valid 0).
-Dictionary GfMatch::cutscene_actor() const {
-  Dictionary out;
+// ponytail: the team-mates (fdc 1..6, 9..11) and the opponents (12..18) are drawn by an undecoded permutation of the cast
+// (ProcCamera8 OPEN 1) and stay unset (valid 0); the assistant (23) has no capture naming his GF official. The writer
+// (0x141F2EBB0) is decoded; these two stand-ins go when the permutation's draw is.
+Array GfMatch::cutscene_actor() const {
+  Array out;
   if (!timeline_ || !gateIsGoal_ || !gateScorer_) return out;
-  const auto it = std::find(players_.begin(), players_.end(), gateScorer_);
-  if (it == players_.end()) return out;
-  const Vector3 pos = ToFox(gateScorer_->GetPosition());
-  const Vector3 dir = ToFox(gateScorer_->GetBodyDirectionVec());
-  out["index"] = int(it - players_.begin());
-  out["ground"] = Vector3(pos.x, 0, pos.z);
-  out["facing_deg"] = Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0);
+  const auto scorer = std::find(players_.begin(), players_.end(), gateScorer_);
+  if (scorer == players_.end()) return out;
+  const auto add = [&out](unsigned slot, int index, const PlayerBase* man) {
+    const Vector3 pos = ToFox(man->GetPosition());
+    const Vector3 dir = ToFox(man->GetBodyDirectionVec());
+    Dictionary d;
+    d["slot"] = int(slot);
+    d["index"] = index;
+    d["ground"] = Vector3(pos.x, 0, pos.z);
+    d["facing_deg"] = Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0);
+    out.push_back(d);
+  };
+  const size_t scorerIndex = size_t(scorer - players_.begin());
+  add(pes::kCastScorer, int(scorerIndex), gateScorer_);
+  // Roster slot 0 of the conceding side: the side's first man in the players' order (PesSlot's place).
+  const auto keeper = std::find(teamOf_.begin(), teamOf_.end(), int(pes::ConcedingSide(unsigned(teamOf_[scorerIndex]))));
+  if (keeper != teamOf_.end()) add(pes::kCastConcedingKeeper, int(keeper - teamOf_.begin()), players_[size_t(keeper - teamOf_.begin())]);
+  if (const PlayerOfficial* referee = match_->GetOfficials()->GetReferee()) add(pes::kCastReferee, -1, referee);
   return out;
 }
 
