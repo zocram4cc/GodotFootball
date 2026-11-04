@@ -17,7 +17,7 @@ namespace {
 // vector of them costs about 32 B per key plus allocator rounding. A std::map node is about 80 B per key.
 constexpr size_t kMaxHeapBytesPerKeyFrame = 40;
 
-// Keys in the bulk clip. Large enough that per-key cost dominates the fixed allocations of a load.
+// Keys per node in the bulk clip. Large enough that per-key cost dominates the fixed allocations of a load.
 constexpr int kBulkKeyFrames = 20000;
 
 // GF's own clip, assets/gf_anims/deflect/walk/000_kneeheight_holdball_close.anim: its player and body data
@@ -50,12 +50,15 @@ size_t KeyCount(Animation& anim) {
   return count;
 }
 
-// A player clip of keyFrames keys, frame f at position (0, 0, 0), in the format LoadText reads.
+// A clip with keyFrames keys on each of two nodes, player and body, in the format LoadText reads.
 std::string BulkClipText(int keyFrames) {
-  std::string text = "player,0,0,0,0";
-  for (int f = 1; f < keyFrames; ++f) text += "," + std::to_string(f) + ",0,0,0";
-  text += "\n<type>\n\tdeflect\n</type>\n";
-  return text;
+  std::string player = "player,0,0,0,0";
+  std::string body = "body,0,0,0,0,1";
+  for (int f = 1; f < keyFrames; ++f) {
+    player += "," + std::to_string(f) + ",0,0,0";
+    body += "," + std::to_string(f) + ",0,0,0,1";
+  }
+  return player + "\n" + body + "\n<type>\n\tdeflect\n</type>\n";
 }
 
 TEST(AnimationKeyFrames, KeysStaySortedAndUniqueWhenSetOutOfOrder) {
@@ -134,7 +137,8 @@ TEST(AnimationKeyFrames, LoadedClipCostsLessThanMaxHeapBytesPerKeyFrame) {
   anim.LoadText("bulk", text);
   const size_t after = HeapInUse();
 
-  ASSERT_EQ(KeyCount(anim), size_t(kBulkKeyFrames));
+  // Two nodes of kBulkKeyFrames keys each.
+  ASSERT_EQ(KeyCount(anim), size_t(2 * kBulkKeyFrames));
   EXPECT_LE((after - before) / KeyCount(anim), kMaxHeapBytesPerKeyFrame);
 }
 
