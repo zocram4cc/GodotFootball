@@ -39,7 +39,8 @@ constexpr int HOME = 0, AWAY = 1;            // team indices: Match::GetTeam and
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;  // fixture database ids
 constexpr unsigned int SEED = 7;
 // The red-card match must reach full time inside kWindow_ms. Seed 7's no longer does after the style/COM-inference deletion
-// (the offender's removal re-rolled the stoppages); a serial seed census through simslot found 1 and 2 reach it.
+// (the offender's removal re-rolled the stoppages); a serial seed census through simslot found 1 and 2 reach it, and on the
+// tree merged with main after batch BB (StoppageFlow) seed 1 still does (this test run with seed 1, passed).
 constexpr unsigned int kRedCardSeed = 1;
 constexpr int kMatchMinutes = 20;
 constexpr int kShortMatchMinutes = 2;  // reaches full time quickly in simulated time

@@ -34,11 +34,11 @@ constexpr int kMinutes = 2;
 // Seed 7's two minutes release no throw-in (its first is past tick 15000: docs/ports/pes-port-StoppageFlow5.md §3), so the
 // tests search matches in turn until one has a throw-in. Seed 3's first walker is at tick 2461 on the path-A census.
 constexpr unsigned int kThrowInSeeds[] = {kSeed, 3u, 13u, 11u};
-// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take. The list is a census result (seeds 1..40,
-// two-minute pes-loop matches on the StoppageFlow tree after the batch AX merge; docs/ports/pes-port-StoppageFlowLand.md): only
-// seeds 2, 15 and 23 place a ceremony taker (first at ticks 1136, 22934 and 25754), fastest first. Every cutover that moves the
-// matches needs a new census; main's {5, 7, 9} (docs/ports/pes-port-CeremonySeeds.md) are main's tree's.
-constexpr unsigned int kCeremonySeeds[] = {2u, 15u, 23u};
+// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take. The list is a census result (two-minute
+// pes-loop matches, serial through simslot, on DribbleProposal merged with main after batch BB: this very test run per seed,
+// 1..24 and 29..35 tried): seeds 7, 16 and 24 place a ceremony taker. Every cutover that moves the matches needs a new census;
+// main's {2, 15, 23} (docs/ports/pes-port-StoppageFlowLand.md) are main's tree's, without the style/COM-inference deletion.
+constexpr unsigned int kCeremonySeeds[] = {7u, 16u, 24u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).

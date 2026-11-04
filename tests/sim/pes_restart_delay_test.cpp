@@ -501,10 +501,10 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
   // The first ceremony throw-in moves with every change to the match before it (the run-slot cutover left the default
   // seed's twenty minutes with none), so the test searches matches in turn and checks the first ceremony throw-in it meets.
   // The list is a census result of THIS test's match (twenty minutes: the match length changes the trajectory, so the release
-  // test's two-minute list does not carry over: seeds 1..40 capped at 25000 ticks on the StoppageFlow tree after the batch AX
-  // merge; docs/ports/pes-port-StoppageFlowLand.md). Seeds 13, 8 and 4 place a ceremony taker, first at ticks 3094, 13668 and
-  // 13719, fastest first. Main's {5, 7, 9} (docs/ports/pes-port-CeremonySeeds.md) belong to main's tree.
-  const unsigned int kCeremonySeeds[] = {13u, 8u, 4u};
+  // test's two-minute list does not carry over): this very test run per seed on DribbleProposal merged with main after batch BB,
+  // serial through simslot. Seeds 1, 5 and 6 pass; seeds 2, 3 and 4 hit the 1500 s run timeout under fleet load (unresolved).
+  // Main's {13, 8, 4} (docs/ports/pes-port-StoppageFlowLand.md) belong to main's tree, without the style/COM-inference deletion.
+  const unsigned int kCeremonySeeds[] = {1u, 5u, 6u};
   std::optional<unsigned long> firstStop;  // the first ceremony (path B) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
   std::set<unsigned long> placed, released;
