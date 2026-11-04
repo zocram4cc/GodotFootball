@@ -99,9 +99,10 @@ class CarriedHoldProbe : public pestest::Probe {
  public:
   explicit CarriedHoldProbe(unsigned int seed)
       : Probe("ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
-  float throwInReleaseShort_m = 0.0f;  // the install's short release reach, set by the test before the run
   int carried = 0, mismatched = 0;
   float worst_m = 0.0f;
+  // The install's short release reach, read from the match the probe plays (the same install values LoadTakerConstants reads).
+  void OnStart(Match& match) override { throwInReleaseShort_m_ = match.GetPesSetPieceTakerConstants().throwInReleaseShort_m; }
   void OnTick(Match& match) override {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking_) {
@@ -110,7 +111,7 @@ class CarriedHoldProbe : public pestest::Probe {
       const Player* mate = match.GetTeam(b.teamID)->GetController()->ThrowInTargetMate(b.taker);
       const Vector3 to = mate ? mate->GetPosition() : b.taker->GetPosition();
       const float d = (b.taker->GetPosition().Get2D() - to.Get2D()).GetLength();
-      takeRow_ = pes::ThrowInCarryReleaseRow(d, throwInReleaseShort_m);
+      takeRow_ = pes::ThrowInCarryReleaseRow(d, throwInReleaseShort_m_);
       rootEndingLastTick_ = b.taker->GetPosition();
     }
     if (throwInTaking_ && match.IsInSetPiece()) {
@@ -137,6 +138,7 @@ class CarriedHoldProbe : public pestest::Probe {
  private:
   bool throwInTaking_ = false, carrying_ = false;
   int takeRow_ = 0;
+  float throwInReleaseShort_m_ = 0.0f;
   Vector3 heldBall_, heldRoot_, rootEndingLastTick_;
 };
 
@@ -284,12 +286,9 @@ TEST(PesThrowInRelease, ACeremonyThrowInIsReleasedFromTheHandOverTheSpot) {
 // own stand-point key and are not counted.
 TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::SetPieceTakerConstants k;
-  LoadTakerConstants(&k);
   int carried = 0, mismatched = 0;
   float worst_m = 0.0f;
   for (CarriedHoldProbe& p : carriedHold) {
-    p.throwInReleaseShort_m = k.throwInReleaseShort_m;
     pestest::Run(p);
     ASSERT_TRUE(p.setupError.empty()) << p.setupError;
     pestest::Settle(p);
