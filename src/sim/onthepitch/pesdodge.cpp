@@ -256,6 +256,7 @@ std::optional<DodgeConstants> LoadDodgeConstants(const PeImage& exe, std::string
   if (!ReadF32(exe, BALL_SPEED_VA, &k.ballSpeedFloor_mps) ||
       !ReadF32(exe, BALL_REACH_VA, &k.ballReachPerUnit_m) ||
       !ReadF32(exe, BALL_MARGIN_VA, &k.ballReachMargin_m) ||
+      !ReadF32(exe, BALL_MARGIN_VA, &k.ballLead_s) ||
       !ReadF32(exe, BALL_WINDOW_HEADING_VA, &k.ballWindowHeading_deg) ||
       !ReadF32(exe, BALL_WINDOW_GOAL_VA, &k.ballWindowGoal_deg) ||
       !ReadF32(exe, GOAL_POST_OFFSET_VA, &k.goalMouthPostOffset_m) ||
@@ -449,6 +450,14 @@ bool BallDodgeEligible(const DodgeConstants& k, const BallEligibilityInput& in) 
   const int framesNeeded =
       (k.lastEventRollDivisor * k.lastEventFramesPerRoll) / 48;
   return in.framesSinceEvent >= framesNeeded;
+}
+
+bool BallDodgeEntryGate(const DodgeConstants& k, float manDistSq_m2, float ballSpeed_mps) {
+  // FUN_140a070e0 (decompile, `fVar12 <= fVar11 * fVar11 + fVar10 * fVar10`): his squared distance to the ball must not exceed the squared length of the
+  // ball's step over the lead time. The exe scales the ball's per-frame displacement by the frame rate and by 0x142590d98 (0.3);
+  // the frame rate cancels, so the term is speed * lead.
+  const float reach_m = ballSpeed_mps * k.ballLead_s;
+  return manDistSq_m2 <= reach_m * reach_m;
 }
 
 bool BallDodgeSubTestFast(const DodgeConstants& k, const BallSubTestInput& in) {

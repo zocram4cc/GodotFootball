@@ -14,6 +14,7 @@
 #include "pes/movestep.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_turn.hpp"
+#include "pes/physique.hpp"
 #include "pes/vfs.hpp"
 
 namespace pes {
@@ -36,6 +37,7 @@ struct MoveStepConstants {
   movestep::MotionStartConstants motionStart{};
   DampingConstants damping{};
   DampingRecord dampingRecord{};
+  PhysiqueConstants physique{};  // G, the body scale FUN_141AF3180 answers (physique.hpp)
   // The parametric blend table (Parametricblendtable.bin): the members of each blend group, which the
   // humanoid plays for a parametric issue.
   std::vector<BlendMember> blend;

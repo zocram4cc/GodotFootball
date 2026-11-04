@@ -102,7 +102,10 @@ gtest_discover_tests(pes_restart_sequencer_test)
 add_executable(pes_restart_delay_test pes_restart_delay_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 1800)
+# 3600 s like the diff tests: AReleasedThrowInCarriesItsBallInsideTheTouchline plays two two-minute matches (seed 7 releases none, so
+# the search runs on to seed 3) and measured 1671 s standalone at machine load ~21 (PASSED), and hit the old 1800 s limit at load ~63
+# in the StoppageFlow fast gate. The assertions are untouched.
+gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 3600)
 
 add_executable(pes_throwin_release_test pes_throwin_release_test.cpp)
 target_link_libraries(pes_throwin_release_test PRIVATE gfsim pesfmt GTest::gtest_main)

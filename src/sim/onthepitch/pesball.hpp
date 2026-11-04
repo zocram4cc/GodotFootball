@@ -274,6 +274,9 @@ struct BallRecordConstants {
 // magic offset.
 std::optional<BallRecordConstants> LoadBallRecordConstants(const PesVfs& vfs, std::string* error);
 
+// The raw `ball.o` record (the same lookup); the trap window builds its runtime constant::Ball object from it.
+bool ReadBallObject(const PesVfs& vfs, std::vector<uint8_t>* rec, std::string* error);
+
 // Everything the flight and contact models need, in one struct so a MatchSetup
 // can carry one pointer, like pes::PesClockConstants.
 struct PesBallConstants {

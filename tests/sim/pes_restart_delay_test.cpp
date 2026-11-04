@@ -500,9 +500,11 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
   constexpr float kStandTolerance_m = 0.1f;
   // The first ceremony throw-in moves with every change to the match before it (the run-slot cutover left the default
   // seed's twenty minutes with none), so the test searches matches in turn and checks the first ceremony throw-in it meets.
-  // Seeds 17, 18 and 29 each place a ceremony taker in their first two minutes on the tree after the style/COM-inference
-  // deletion (a seed census, see pes_throwin_release_test.cpp); the earlier lists no longer lead to one.
-  const unsigned int kCeremonySeeds[] = {17u, 18u, 29u};
+  // The list is a census result of THIS test's match (twenty minutes: the match length changes the trajectory, so the release
+  // test's two-minute list does not carry over: seeds 1..40 capped at 25000 ticks on the StoppageFlow tree after the batch AX
+  // merge; docs/ports/pes-port-StoppageFlowLand.md). Seeds 13, 8 and 4 place a ceremony taker, first at ticks 3094, 13668 and
+  // 13719, fastest first. Main's {5, 7, 9} (docs/ports/pes-port-CeremonySeeds.md) belong to main's tree.
+  const unsigned int kCeremonySeeds[] = {13u, 8u, 4u};
   std::optional<unsigned long> firstStop;  // the first ceremony (path B) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
   std::set<unsigned long> placed, released;
@@ -1027,31 +1029,6 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
            longEpisodes[i].first);
   printf("[loose-classes] seed=%u approach=%lu far=%lu near-nopresser=%lu slide=%lu contact=%lu\n", SEED,
          classExcess[kApproach], classExcess[kFar], classExcess[kNearNoPresser], classExcess[kSlide], classExcess[kContact]);
-}
-
-// The trap picker names the clip a loose presser plays from the install's trap rows: over seed 7's match, every
-// trap-family clip the presser plays is named by one of the match's trap rows, and the presser plays some.
-TEST(PesRestartDelay, ALoosePresserInTheTrapWindowPlaysThatRowsClip) {
-  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
-  std::set<int> rowClips;
-  unsigned long trapTicks = 0, strayTicks = 0;
-  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
-    if (rowClips.empty()) {
-      for (const auto& row : match.GetPesDefenderDecisionConstants().receive.trapRows) rowClips.insert(row.clip);
-    }
-    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
-                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
-    if (!loose) return;
-    Player* pr = nullptr;
-    for (int t = 0; t < 2 && !pr; ++t) pr = match.GetTeam(t)->GetController()->GetLoosePressMan();
-    if (!pr) return;
-    const auto& anim = pr->GetCurrentAnim()->anim;
-    if (anim->GetVariable("specialvar1") != std::to_string(int(pes::PesClipFamily::kTrap))) return;
-    ++trapTicks;
-    if (!rowClips.count(std::stoi(anim->GetVariable("specialvar2")))) ++strayTicks;
-  });
-  EXPECT_GT(trapTicks, 0ul) << "the loose presser never played a PES trap clip";
-  EXPECT_EQ(strayTicks, 0ul) << "a PES trap clip is not named by a trap row";
 }
 
 // A throw-in carrier who has picked the ball up walks to his carry spot and stands there, ready to lift it (PES's

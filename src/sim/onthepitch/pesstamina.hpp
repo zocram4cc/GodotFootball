@@ -89,6 +89,7 @@ struct StaminaConstants {
   // penalty, then the group-80 rate -> m/s table inverted.
   float topRateGLo;        // 0.9166: the physique ramp's floor
   float topRateGHi;        // 1.0833: and its top
+  float topRateGSpan;      // 0.1667: u = (G - lo) / span (0x1425e4a18; a constant, not hi - lo)
   float topRateGDrop;      // 0.085: base = 1 - 0.085 * u
   float topRateStatFloor;  // 20: q = 0 at or below
   float topRateStatCeil;   // 99: q = 1 at or above
@@ -177,10 +178,10 @@ int BreathPenalty(const StaminaConstants& k, const StaminaState& s);
 // it only moves the base rate, and the factor is a ratio of two rates.
 float ReserveTopSpeedFactor(const StaminaConstants& k, const StaminaState& s, float speedStat);
 
-// FUN_1406f99f0's ceiling (P+0x377c): the TopRate value at physique scale G for a Speed stat, with the
-// breath reserve's share taken off, as the drain's penalty takes it. `speedStat01` is GF's 0..1 Speed,
-// scaled to PES's 40..99 range.
-float MoveTopRate(const StaminaConstants& k, float speedStat01, const StaminaState& s, float g);
+// FUN_1406f99f0's ceiling (P+0x377c, 0x1406F9B4C): the TopRate value at physique scale G for a Speed ability byte
+// (PES's 40..99, slot record +0x97), with the breath reserve's share taken off as the drain's penalty takes it. Bit-equal to
+// PES on the six captured ceilings (pes_trap_oracle_test).
+float MoveTopRate(const StaminaConstants& k, float speedByte, const StaminaState& s, float g);
 
 // The half-time / extra-time break bonus (report 3.4), applied once at the
 // whistle. `period` is PES's MI+0x1168: 2 half time, 4 the extra-time break.
@@ -188,6 +189,25 @@ float MoveTopRate(const StaminaConstants& k, float speedStat01, const StaminaSta
 // multiplied by (9000 * F, live 90000 at F = 10).
 int BreakBonus(const StaminaConstants& k, const StaminaState& s, int period, int fitness,
                float matchLengthFactor);
+
+// The slot record's three hash-checked integers (docs/re/pes-re-stamina-drain.md 1), each a `pes::attrs::GuardedWordSet` (0x20 bytes)
+// at its offset from the slot record's start: the tank `cur` (reader 0x140A58350, setter 0x140A592C0), the tank `max` (0x140A58450,
+// 0x140A595C0) and the breath reserve (0x140A580B0, 0x140A58F60). PES's own readers (the reserve percent 0x140A581C0 and the
+// tank percent 0x140A58550, which the trap chain calls) abort the process on a cell whose hash does not match.
+inline constexpr std::size_t kSlotStaminaCurOffset = 0xC8;
+inline constexpr std::size_t kSlotStaminaMaxOffset = 0xE8;
+inline constexpr std::size_t kSlotBreathOffset = 0x108;
+inline constexpr std::size_t kSlotStaminaDirtyOffset = 0x61;  // u8 the cur setter sets to 1 (0x140A592C0)
+
+// The three setters' writes for one player's state, in the order PES applies them (max, cur, breath): `max` as 0x140A595C0 stores
+// it; `cur` as 0x140A592C0 (a `cur` above `max` is replaced by the max cell, and the dirty byte is set); `breath` as 0x140A58F60 (a
+// `breath` above the cap, BreathCap of the percent the cells now give, is replaced by the cap). `clockDword` is the dword PES hashes
+// for the ring index (`_DAT_7ffe0008`, KUSER_SHARED_DATA+8).
+// ponytail: PES's cells carry a per-cell key (the `+8` word) that its record initializer 0x140A57B00 derives from the cell's address;
+// the captures' keys are not that (the record is built elsewhere and moved), so GF keeps the key its record holds (0 in a fresh
+// window: the ring then stores the bytes plainly) and the clock dword has no GF source: the caller passes the match's tick. Neither
+// changes any value a PES reader decodes.
+void WriteSlotStamina(uint8_t* slotRecord, const StaminaConstants& k, const StaminaState& s, uint32_t clockDword);
 
 // The severity of one contact (report 6.1). `victimSpeed_kmh`,
 // `attackerSpeed_kmh`, `approachAngle_deg` and the attacker-state flags are

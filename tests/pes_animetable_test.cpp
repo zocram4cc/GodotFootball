@@ -50,6 +50,23 @@ TEST(PesAnimetable, CellsCarryMotionPlusOneAndTheMirrorBit) {
   EXPECT_FALSE(t->Cell(1, 2).mirror);
 }
 
+// The buffer FUN_1406aa440 builds behind 0x1436F2378[0] is the file's cells: no patch cell (the lookup FUN_1406abb30 adds it),
+// the mirror bit kept even where the cell is empty, and empty is motion -1.
+TEST(PesAnimetable, BufferCellIsTheFileCellWithoutThePatch) {
+  std::vector<uint32_t> cells(3 * 18, 0);
+  cells[1 * 18 + 2] = (5 + 1) | (1u << 13);  // the patch cell holds its own file value
+  cells[2 * 18 + 3] = 1u << 13;              // empty motion, mirror bit set
+  auto t = pes::ParseAnimetable(Bytes(cells), Layout(), nullptr);
+  ASSERT_TRUE(t.has_value());
+  EXPECT_EQ(t->Cell(1, 2).motionNo, 77);  // the lookup's patch
+  EXPECT_EQ(t->BufferCell(1, 2).motionNo, 5);
+  EXPECT_TRUE(t->BufferCell(1, 2).mirror);
+  EXPECT_EQ(t->BufferCell(2, 3).motionNo, -1);
+  EXPECT_TRUE(t->BufferCell(2, 3).mirror);
+  EXPECT_EQ(t->BufferCell(0, 0).motionNo, -1);
+  EXPECT_FALSE(t->BufferCell(0, 0).mirror);
+}
+
 TEST(PesAnimetable, RejectsATableOfTheWrongSize) {
   std::string err;
   EXPECT_FALSE(pes::ParseAnimetable(std::vector<uint8_t>(10), Layout(), &err).has_value());
