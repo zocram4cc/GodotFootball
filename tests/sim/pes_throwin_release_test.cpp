@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "pes_match_constants.hpp"
+#include "pes_shared_match.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -28,7 +29,6 @@
 
 namespace {
 
-constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
 constexpr int kMinutes = 2;
 // The two lists below are results of a census on the MotionClips tree (TurnStop's stop test, idle exit and class word read PES's
 // clip records; batch BB merged): seeds 1..12, two-minute pes-loop matches, each throw-in whose release ends counted as a
@@ -60,36 +60,129 @@ void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
   *out = *setup->pesSetPieceTakerConstants;
 }
 
-// Runs a PES-loop match for two minutes of `seed`, calling `onTick` after every tick.
+// Runs a PES-loop match for two minutes of `seed`, calling `onTick` after every tick. Played alone, as the ceremony test
+// always played it; the carried-throw-in tests play the same matches through their probes below.
 void RunMatch(unsigned int seed, const std::function<void(Match&)>& onTick) {
-  const char* root = std::getenv("PES21_ROOT");
-  ASSERT_TRUE(root != nullptr) << "PES21_ROOT not set";
-  pes::PesVfs vfs;
-  std::string err;
-  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-  auto rig = pesrig::BuildRig(vfs, &err);
-  ASSERT_TRUE(rig) << err;
-  blunted::Database db;
-  ASSERT_TRUE(db.LoadSqlScript(std::string(GF_SOURCE_DIR) + "/assets/fixtures/teams.sql"));
-  SetDB(&db);
-
-  auto setup = std::make_unique<MatchSetup>();
-  setup->homeTeamDbId = HOME_TEAM;
-  setup->awayTeamDbId = AWAY_TEAM;
-  setup->seed = seed;
-  setup->durationMinutes = kMinutes;
-  setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
-  setup->rig = &*rig;
-  ASSERT_TRUE(pestest::FillMissingPesConstants(setup.get())) << "install constants unavailable";
-
-  Properties config;
-  config.SetBool("pes_loop", true);
-  Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
-  while (!match.IsGameOver()) {
-    match.Process();
-    if (onTick) onTick(match);
-  }
+  pestest::CallbackProbe probe(::testing::UnitTest::GetInstance()->current_test_info()->name(), {true, kMinutes, seed},
+                               pestest::kNoTickCap, /*stallStops=*/false, /*judgeEnd=*/false, onTick, nullptr);
+  pestest::Run(probe);
+  ASSERT_FALSE(probe.skipped) << "PES21_ROOT not set";
+  ASSERT_TRUE(probe.setupError.empty()) << probe.setupError;
+  pestest::Settle(probe);
 }
+
+// AThrowInIsReleasedFromInsideTheLine: one searched seed's two-minute match, counting its carried releases over the whole match.
+class InsideLineProbe : public pestest::Probe {
+ public:
+  explicit InsideLineProbe(unsigned int seed)
+      : Probe("AThrowInIsReleasedFromInsideTheLine", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
+  int releases = 0, outside = 0;
+  void OnTick(Match& match) override {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) {
+      if (!throwInTaking_) carrying_ = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
+      throwInTaking_ = true;
+    }
+    if (throwInTaking_ && !match.IsInSetPiece()) {
+      throwInTaking_ = false;
+      if (!carrying_) return;
+      releases++;
+      if (std::fabs(match.GetBall()->Predict(0).coords[1]) > pesFieldHalfWidth) outside++;
+    }
+  }
+
+ private:
+  bool throwInTaking_ = false, carrying_ = false;
+};
+
+// ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch: one searched seed's two-minute match, the holds of its carried releases.
+class CarriedHoldProbe : public pestest::Probe {
+ public:
+  explicit CarriedHoldProbe(unsigned int seed)
+      : Probe("ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
+  int carried = 0, mismatched = 0;
+  float worst_m = 0.0f;
+  // The install's short release reach, read from the match the probe plays (the same install values LoadTakerConstants reads).
+  void OnStart(Match& match) override { throwInReleaseShort_m_ = match.GetPesSetPieceTakerConstants().throwInReleaseShort_m; }
+  void OnTick(Match& match) override {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking_) {
+      throwInTaking_ = true;
+      carrying_ = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
+      const Player* mate = match.GetTeam(b.teamID)->GetController()->ThrowInTargetMate(b.taker);
+      const Vector3 to = mate ? mate->GetPosition() : b.taker->GetPosition();
+      const float d = (b.taker->GetPosition().Get2D() - to.Get2D()).GetLength();
+      takeRow_ = pes::ThrowInCarryReleaseRow(d, throwInReleaseShort_m_);
+      rootEndingLastTick_ = b.taker->GetPosition();
+    }
+    if (throwInTaking_ && match.IsInSetPiece()) {
+      heldBall_ = match.GetBall()->Predict(0);
+      heldRoot_ = rootEndingLastTick_;
+      rootEndingLastTick_ = b.taker->GetPosition();
+      return;
+    }
+    if (!throwInTaking_) return;
+    throwInTaking_ = false;
+    if (!carrying_) return;
+    carried++;
+    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow_);
+    const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+    const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
+    const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
+    const float dx = heldBall_.coords[0] - heldRoot_.coords[0], dy = heldBall_.coords[1] - heldRoot_.coords[1];
+    const float gap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - keyHorizontal_m);
+    worst_m = std::max(worst_m, gap_m);
+    if (gap_m > kKeyTolerance_m) mismatched++;
+  }
+
+ private:
+  bool throwInTaking_ = false, carrying_ = false;
+  int takeRow_ = 0;
+  float throwInReleaseShort_m_ = 0.0f;
+  Vector3 heldBall_, heldRoot_, rootEndingLastTick_;
+};
+
+// TheLiftTurnsACarriedThrowInTakerToFaceThePitch: one searched seed's two-minute match, the facing of each lifted taker.
+class LiftProbe : public pestest::Probe {
+ public:
+  explicit LiftProbe(unsigned int seed)
+      : Probe("TheLiftTurnsACarriedThrowInTakerToFaceThePitch", {true, kMinutes, seed}, pestest::kNoTickCap, false, false),
+        cosTolerance_(std::cos(kFacingTolerance_deg * std::acos(-1.0f) / 180.0f)) {}
+  int lifts = 0, facingOut = 0;
+  float worstDot = 1.0f;
+  void OnTick(Match& match) override {
+    for (int t = 0; t < 2; ++t) {
+      TeamAIController* c = match.GetTeam(t)->GetController();
+      Player* taker = c->GetPieceTaker();
+      const bool walking = taker && c->IsPieceTakerWalking(taker);
+      const bool arrived = !walking || c->PieceTakerArrived();
+      if (walking && arrived && !wasArrived_[t]) {  // the tick the lift ends
+        ++lifts;
+        const Vector3 pitchward(0.0f, c->GetPieceWalkTarget().coords[1] > 0.0f ? -1.0f : 1.0f, 0.0f);
+        const float dot = taker->GetRootDirectionVec().GetDotProduct(pitchward);
+        worstDot = std::min(worstDot, dot);
+        if (dot < cosTolerance_) ++facingOut;
+      }
+      wasArrived_[t] = arrived;
+    }
+  }
+
+ private:
+  // A GF tolerance, not a PES value: the warp ends on the heading exactly.
+  static constexpr float kFacingTolerance_deg = 5.0f;
+  const float cosTolerance_;
+  bool wasArrived_[2] = {true, true};
+};
+
+// One probe per entry of kThrowInSeeds, in the order the tests search them. The list's repeated seed is a second probe on
+// the same match: the shared run feeds it the same ticks, as the old second run of that seed saw them.
+InsideLineProbe insideLine[] = {InsideLineProbe(kThrowInSeeds[0]), InsideLineProbe(kThrowInSeeds[1]),
+                                InsideLineProbe(kThrowInSeeds[2]), InsideLineProbe(kThrowInSeeds[3])};
+CarriedHoldProbe carriedHold[] = {CarriedHoldProbe(kThrowInSeeds[0]), CarriedHoldProbe(kThrowInSeeds[1]),
+                                  CarriedHoldProbe(kThrowInSeeds[2]), CarriedHoldProbe(kThrowInSeeds[3])};
+LiftProbe lift[] = {LiftProbe(kThrowInSeeds[0]), LiftProbe(kThrowInSeeds[1]), LiftProbe(kThrowInSeeds[2]),
+                    LiftProbe(kThrowInSeeds[3])};
 
 }  // namespace
 
@@ -124,22 +217,13 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
 TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   int releases = 0, outside = 0;
-  for (const unsigned int seed : kThrowInSeeds) {
+  for (InsideLineProbe& p : insideLine) {
+    pestest::Run(p);
+    ASSERT_TRUE(p.setupError.empty()) << p.setupError;
+    pestest::Settle(p);
+    releases += p.releases;
+    outside += p.outside;
     if (releases > 0) break;
-    bool throwInTaking = false, carrying = false;
-    RunMatch(seed, [&](Match& match) {
-      const RefereeBuffer& b = match.GetRefereeBuffer();
-      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) {
-        if (!throwInTaking) carrying = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
-        throwInTaking = true;
-      }
-      if (throwInTaking && !match.IsInSetPiece()) {
-        throwInTaking = false;
-        if (!carrying) return;
-        releases++;
-        if (std::fabs(match.GetBall()->Predict(0).coords[1]) > pesFieldHalfWidth) outside++;
-      }
-    });
   }
   EXPECT_GT(releases, 0) << "no carried throw-in was released in any searched two-minute match";
   EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
@@ -203,46 +287,16 @@ TEST(PesThrowInRelease, ACeremonyThrowInIsReleasedFromTheHandOverTheSpot) {
 // own stand-point key and are not counted.
 TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::SetPieceTakerConstants k;
-  LoadTakerConstants(&k);
   int carried = 0, mismatched = 0;
   float worst_m = 0.0f;
-  for (const unsigned int seed : kThrowInSeeds) {
+  for (CarriedHoldProbe& p : carriedHold) {
+    pestest::Run(p);
+    ASSERT_TRUE(p.setupError.empty()) << p.setupError;
+    pestest::Settle(p);
+    carried += p.carried;
+    mismatched += p.mismatched;
+    worst_m = std::max(worst_m, p.worst_m);
     if (carried > 0) break;
-    bool throwInTaking = false, carrying = false;
-    int takeRow = 0;
-    Vector3 heldBall, heldRoot, rootEndingLastTick;
-    RunMatch(seed, [&](Match& match) {
-      const RefereeBuffer& b = match.GetRefereeBuffer();
-      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking) {
-        throwInTaking = true;
-        carrying = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
-        const Player* mate = match.GetTeam(b.teamID)->GetController()->ThrowInTargetMate(b.taker);
-        const Vector3 to = mate ? mate->GetPosition() : b.taker->GetPosition();
-        const float d = (b.taker->GetPosition().Get2D() - to.Get2D()).GetLength();
-        takeRow = pes::ThrowInCarryReleaseRow(d, k.throwInReleaseShort_m);
-        rootEndingLastTick = b.taker->GetPosition();
-      }
-      if (throwInTaking && match.IsInSetPiece()) {
-        heldBall = match.GetBall()->Predict(0);
-        heldRoot = rootEndingLastTick;
-        rootEndingLastTick = b.taker->GetPosition();
-        return;
-      }
-      if (!throwInTaking) return;
-      throwInTaking = false;
-      if (!carrying) return;
-      carried++;
-      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow);
-      const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-      const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
-      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
-      const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
-      const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
-      const float gap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - keyHorizontal_m);
-      worst_m = std::max(worst_m, gap_m);
-      if (gap_m > kKeyTolerance_m) mismatched++;
-    });
   }
   EXPECT_GT(carried, 0) << "no carried throw-in was released in any searched match";
   EXPECT_EQ(mismatched, 0) << mismatched << " of " << carried << " carried releases were not at the key's horizontal offset (worst "
@@ -261,29 +315,16 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
 // clip that follows the lift started from the travel direction and faced him out.
 TEST(PesThrowInRelease, TheLiftTurnsACarriedThrowInTakerToFaceThePitch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
-  constexpr float kFacingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value: the warp ends on the heading exactly
-  const float cosTolerance = std::cos(kFacingTolerance_deg * std::acos(-1.0f) / 180.0f);
   int lifts = 0, facingOut = 0;
   float worstDot = 1.0f;
-  for (const unsigned int seed : kThrowInSeeds) {
+  for (LiftProbe& p : lift) {
+    pestest::Run(p);
+    ASSERT_TRUE(p.setupError.empty()) << p.setupError;
+    pestest::Settle(p);
+    lifts += p.lifts;
+    facingOut += p.facingOut;
+    worstDot = std::min(worstDot, p.worstDot);
     if (lifts > 0) break;
-    bool wasArrived[2] = {true, true};
-    RunMatch(seed, [&](Match& match) {
-      for (int t = 0; t < 2; ++t) {
-        TeamAIController* c = match.GetTeam(t)->GetController();
-        Player* taker = c->GetPieceTaker();
-        const bool walking = taker && c->IsPieceTakerWalking(taker);
-        const bool arrived = !walking || c->PieceTakerArrived();
-        if (walking && arrived && !wasArrived[t]) {  // the tick the lift ends
-          ++lifts;
-          const Vector3 pitchward(0.0f, c->GetPieceWalkTarget().coords[1] > 0.0f ? -1.0f : 1.0f, 0.0f);
-          const float dot = taker->GetRootDirectionVec().GetDotProduct(pitchward);
-          worstDot = std::min(worstDot, dot);
-          if (dot < cosTolerance) ++facingOut;
-        }
-        wasArrived[t] = arrived;
-      }
-    });
   }
   ASSERT_GT(lifts, 0) << "no carried throw-in was lifted in any searched match";
   EXPECT_EQ(facingOut, 0) << facingOut << " of " << lifts << " lifted takers did not face the pitch (worst cos " << worstDot << ")";
