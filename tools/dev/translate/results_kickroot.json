@@ -1,0 +1,41 @@
+{
+ "note": "kickroot results. diffed = bit-exact vs the unicorn harness over the 75 traced calls of 0x141AFDF10 inside the kick chooser's runs (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickroot.json",
+   "coverage": {
+    "0x141AFDF10": {
+     "fraction": 1.0,
+     "reached": 13,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 75 of 75 (pes-port-KickRoot.md), two runs under the four-capture rule. Run 1 (72): REAL kick_chooser calls live2/pid615629 seq15863 (24 reader calls) and seq15864 (12), live2/pid1513193 seq1151 (18) and seq1170 (12), and the SYNTHETIC chooser state h4766 (6; synth_chooser.py over the kick_header_833CD0 capture seq4766 of live2/pid802552). Run 2 (3): live2/pid615629 seq16063 (1) and seq16064 (2). Every other chooser case of the 64 never enters the reader. The traces come from frame_trace.py recorded with specs/kickroot/141AFDF10.json (the reader's entry as the traced impure function). The closure is capture-bounded (21 functions, identical in both runs), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 75,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 13,
+     "total": 13,
+     "fraction": 1.0
+    },
+    "replayed": 75,
+    "source": "tools/dev/translate/results_kickroot.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141AFDF10"
+  }
+ ]
+}
