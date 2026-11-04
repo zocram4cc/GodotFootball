@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "onthepitch/pesworldrecord.hpp"
+#include "onthepitch/pesanimechain.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
 
@@ -402,6 +403,39 @@ PesKickDescriptor PesWorld::RunKickChooser(int slot, const PesKickRequest& reque
   ReturnSegments(s, ext, lent);
   PesKickDescriptor out;
   for (std::size_t i = 0; i < kKickDescriptorBytes; ++i) out.bytes[i] = static_cast<uint8_t>(s.mem.rd(descriptorVa + i, 1));
+  return out;
+}
+
+void PesWorld::BindAnimeChain(int slot) {
+  const uint64_t a = PhysiqueAVa(slot), b = PhysiqueBVa(slot);
+  StoreU64(P(slot), kPScalePtrOffset, a);
+  StoreU64(PhysiqueA(slot), kPhysiqueNextOffset, b);
+  StoreU64(PhysiqueA(slot), kAnimeLayerOffset, kAnimeLayerVa);
+  StoreU64(PhysiqueA(slot), kAnimeKeyTableOffset, kAnimeKeyTableVa);
+  StoreU64(PhysiqueB(slot), kPhysiqueAnimeOffset, a);
+}
+
+std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float seconds, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+
+  // The geometry test's call (0x14082B02F): rcx = B, rdx = 0 (no second output), r8 = the output vector, xmm3 = the time in seconds
+  // (frames / FUN_141E532D0's rate), the motion at [rsp + 0x20] and the sixth argument, a float, at [rsp + 0x28] of the caller: 0.
+  const uint64_t entry = kStackVa + kStackBytes - kRootMotionFrameBytes;
+  const uint64_t outVa = entry + kRootMotionOutOffset;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kRootMotionArg5Offset, motion, 4);
+  s.wrf(entry + kRootMotionArg6Offset, 0.0f);
+  s.gpr[4] = entry;
+  s.gpr[1] = PhysiqueBVa(slot);
+  s.gpr[2] = 0;
+  s.gpr[8] = outVa;
+  s.xmm[3][0] = PesState::bits(seconds);
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_141AFDF10(s);
+  ReturnSegments(s, ext, lent);
+  std::array<float, 4> out;
+  for (std::size_t i = 0; i < out.size(); ++i) out[i] = s.mem.rdf(outVa + 4 * i);
   return out;
 }
 

@@ -52,9 +52,13 @@ class KickChooserOracle : public ::testing::Test {
     std::sort(dirs_.begin(), dirs_.end());
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
     exe_ = exe;
+    std::string why;
+    chain_ = GfAnimeChain(&why);
+    if (chain_ == nullptr) GTEST_SKIP() << "the anime chain is built from the install: " << why;
   }
   std::vector<std::string> dirs_;
   std::string exe_;
+  const pes::PesAnimeChain* chain_ = nullptr;
 };
 
 TEST_F(KickChooserOracle, EveryCapturedCallOnGfsWindowGivesPesDescriptor) {
@@ -66,7 +70,7 @@ TEST_F(KickChooserOracle, EveryCapturedCallOnGfsWindowGivesPesDescriptor) {
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b);
+    Build(o, image.bytes, image.size, b, chain_);
     const pes::PesKickDescriptor got = b.world->RunKickChooser(kSlot, b.request, b.ext);
     const std::map<size_t, uint8_t> want = ReferenceWrites(o);
     ASSERT_FALSE(want.empty()) << dir << ": the reference wrote no descriptor byte";
@@ -86,7 +90,7 @@ TEST_F(KickChooserOracle, AGfBuiltRequestPutsTheFieldsWherePesDoesAndTheChooserA
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b);
+    Build(o, image.bytes, image.size, b, chain_);
     // The builder FUN_140833CD0 writes its request as words: param_1[0] the action, [1] the subtype, [0x19..0x1b] the target. The
     // words are read here by those indices, not by the header's offsets, so a wrong offset there shows.
     const auto word = [](const pes::PesKickRequest& r, size_t i) {

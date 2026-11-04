@@ -10,6 +10,10 @@
 
 namespace pes {
 
+// The dt13 body animation archives, body_anime_file0..9.mtar: their count and the VFS path of archive `index`.
+inline constexpr int kBodyArchiveCount = 10;
+std::string BodyArchivePath(int index);
+
 // "0x%08x" parses as a hash; anything else is a clip name, hashed with StrCode32.
 uint32_t ClipId(std::string_view nameOrHash);
 

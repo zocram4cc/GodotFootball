@@ -242,6 +242,9 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   out.padMaskVa = arena.Va(pad + kPadMaskOffset);
   out.segment.va = kTrapLoaderVa;
   out.segment.bytes = arena.Take();
+  auto chain = BuildAnimeChain(exe, vfs, error);
+  if (!chain) return std::nullopt;
+  out.animeChain = std::move(*chain);
   return out;
 }
 

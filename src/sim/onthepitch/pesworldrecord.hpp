@@ -850,6 +850,14 @@ class PesWorld {
   // P, the ball, MI, man and slot records from the window, the image and loader data from `ext` (the chain's externals, lent for the
   // call). A kind outside the translated closure aborts loudly (pes_dispatch_missing).
   PesKickDescriptor RunKickChooser(int slot, const PesKickRequest& request, PesTrapExternals& ext);
+  // Links `slot`'s P to the anime player's chain the kick geometry test's root-motion reader walks (pesanimechain.hpp): P+0xA08 -> A,
+  // A+0xF0 -> B, A+0x88 the layer controller, A+0x180 the motion -> clip key table, B+0xC8 -> A. The objects are the loader data's
+  // (PesTrapExternals, BuildAnimeChain), shared by every slot.
+  void BindAnimeChain(int slot);
+  // PES's root-motion reader FUN_141AFDF10 (translated, set kickroot) on `slot`'s chain, as the kick geometry test FUN_140829E80 calls
+  // it at 0x14082B02F: the displacement the clip of `motion` has made by `seconds` into it (x, y, z, w; the mover track's position in
+  // PES axes), evaluated through the player's pose slot.
+  std::array<float, 4> RunRootMotion(int slot, uint32_t motion, float seconds, PesTrapExternals& ext);
   // The movestep's two reads of the player object P, PES's translated code on the window with `slot`'s P's pieces bound (the slot at
   // P+0x2458; the anime interface at P+0xAB8, whose vtable is the image's 0x1425E3508, bound by BindImageTables; for the aim flag
   // P+0x3AC0, the side's context, whose +0xE0 names the event store). Both overwrite those P fields, which the trap chain's own run

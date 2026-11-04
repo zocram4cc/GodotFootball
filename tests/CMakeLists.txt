@@ -71,6 +71,10 @@ add_executable(pes_kick_chooser_oracle_test pes_kick_chooser_oracle_test.cpp)
 target_link_libraries(pes_kick_chooser_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_kick_chooser_oracle_test)
 
+add_executable(pes_kick_root_test pes_kick_root_test.cpp)
+target_link_libraries(pes_kick_root_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_kick_root_test)
+
 add_executable(pes_kick_header_oracle_test pes_kick_header_oracle_test.cpp)
 target_link_libraries(pes_kick_header_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_kick_header_oracle_test)

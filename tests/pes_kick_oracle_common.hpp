@@ -14,10 +14,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "onthepitch/pesanimechain.hpp"
 #include "onthepitch/pesworldrecord.hpp"
+#include "pes/exe.hpp"
+#include "pes/vfs.hpp"
 #include "pes_oracle_snap.hpp"
 #include "pes_state.hpp"
 
@@ -69,13 +73,9 @@ inline uint64_t CapturedTableB(const Oracle& o, uint64_t g, int side) {
 // The heap objects the call reads that GF holds as state, from the manifest's "N name rel len" lines. MA and the event store E go into
 // the window's records of the kicker's side at the captured offsets; the squad record SBn into the team-info record table B names. The
 // side's context An (P+0x3AC0, +0x18 -> MA, +0xE0 -> E) is the window's own, as WriteActorP binds it (Build sets P+0x3AC0 last).
-// GX and GY are the anime player's objects (P+0xA08 -> GX, GX+0xF0 -> GY: the root-motion reader FUN_141AFDF10 walks them to the
-// layer and clip data): GF holds no anime player for the kick, so they stay what they are in the capture, bound at their own VAs
-// like the heap ranges (PesTrapSegment), and P+0xA08 keeps the capture's pointer.
-// ponytail: GX/GY are named open inputs. The PES site that removes them is the anime player's construction and its engine update
-// (FUN_141AF61C0 SetMotion, FUN_141AF7A90), which the GF Trap tick already stands in for with the window's own chain (WriteActorP):
-// that chain holds G and the O1/O2 children but not the layer (+0x180) and clip (+0x88, GY+0xC8) links the kick's root-motion
-// read follows. A window chain without them gives 15864 and h4766 a different descriptor.
+// GX and GY (the anime player A = *(P+0xA08) and its child B = *(A+0xF0), which the root-motion reader FUN_141AFDF10 walks down to the
+// layer and clip data) are not copied: the window's own chain stands in (PesWorld::BindAnimeChain, pesanimechain.hpp), built from the
+// install, so the reader's answer comes from GF's data and is checked against PES's (pes_kick_root_test).
 inline void CopyNamed(const Oracle& o, uint64_t g, Built& b, const std::vector<std::string>& line, int side) {
   const std::string& name = line[1];
   const size_t rel = std::strtoul(line[2].c_str(), nullptr, 16), len = std::strtoul(line[3].c_str(), nullptr, 10);
@@ -95,11 +95,7 @@ inline void CopyNamed(const Oracle& o, uint64_t g, Built& b, const std::vector<s
     dst = w.TeamInfoRecord(s);
     base = CapturedTableB(o, g, s);
   } else if (name == "GX" || name == "GY") {
-    pes::PesTrapSegment seg;
-    seg.va = (name == "GX" ? gx : Read(o, gx + pes::kPhysiqueNextOffset, 8)) + rel;
-    for (size_t i = 0; i < len; ++i) seg.bytes.push_back(static_cast<uint8_t>(Read(o, seg.va + i, 1)));
-    b.ext.segments.push_back(std::move(seg));
-    return;
+    return;  // the window's anime chain
   } else {
     return;  // An: the window's own
   }
@@ -108,7 +104,8 @@ inline void CopyNamed(const Oracle& o, uint64_t g, Built& b, const std::vector<s
 
 // `requestReg` names the register that holds the request's address in the captured call (the chooser's r8; the builder's rcx): the
 // Kick start's two callers (FUN_140724CC0, FUN_1407253D0) keep the request at different offsets from rsp (0xD8 and 0xC8 above it).
-inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b, const char* requestReg = "r8") {
+inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b, const pes::PesAnimeChain* chain,
+                  const char* requestReg = "r8") {
   pes::PesWorld& w = *b.world;
   const uint64_t g = Read(o, kImageG, 8);
   for (int k = 0; k < pes::kSlotCount; ++k) w.BindSlot(k);
@@ -168,8 +165,32 @@ inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Bu
     uint8_t* dst = w.RosterRecord();
     for (size_t i = 0; i < pes::kRosterEntries * pes::kRosterEntryBytes; ++i) dst[i] = static_cast<uint8_t>(Read(o, roster + i, 1));
   }
+  if (chain != nullptr) {
+    w.BindAnimeChain(kSlot);
+    chain->AddTo(b.ext);  // after the capture's own globals: the chain's database global wins
+  }
   b.ext.image = const_cast<uint8_t*>(image);
   b.ext.imageBytes = imageBytes;
+}
+
+// The anime chain GF builds from the install (PES21_ROOT): the body archives, the key table, the layer objects. Built once.
+inline const pes::PesAnimeChain* GfAnimeChain(std::string* why) {
+  static std::optional<pes::PesAnimeChain> chain;
+  static std::string error;
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    const char* root = std::getenv("PES21_ROOT");
+    if (root == nullptr || *root == '\0') {
+      error = "PES21_ROOT unset";
+    } else {
+      static pes::PesVfs vfs;
+      auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &error);
+      if (exe && vfs.Mount(root, &error)) chain = pes::BuildAnimeChain(*exe, vfs, &error);
+    }
+  }
+  *why = error;
+  return chain ? &*chain : nullptr;
 }
 
 struct Image {

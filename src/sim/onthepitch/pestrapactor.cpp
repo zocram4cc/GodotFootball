@@ -175,9 +175,7 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   // rate ceiling reads the same G (FUN_1406F99F0 via FUN_141AF3180).
   const float g = PhysiqueG(physique, {f.heightCm, f.legSlider, false});
   StoreF32(p, kPGOffset, g);
-  const uint64_t chainA = PesWorld::PhysiqueAVa(f.slot), chainB = PesWorld::PhysiqueBVa(f.slot);
-  std::memcpy(p + kPScalePtrOffset, &chainA, sizeof chainA);
-  std::memcpy(world.PhysiqueA(f.slot) + kPhysiqueNextOffset, &chainB, sizeof chainB);
+  world.BindAnimeChain(f.slot);  // P+0xA08 -> A, A+0xF0 -> B, and the chain the kick's root-motion reader walks
   StoreF32(world.PhysiqueB(f.slot), kPhysiqueGOffset, g);
   StoreF32(p, kPF377CScaleOffset, MoveTopRate(stamina, f.speedByte, f.stamina, g));  // FUN_1406F99F0 (0x1406F9B4C)
   std::memcpy(p + kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size());

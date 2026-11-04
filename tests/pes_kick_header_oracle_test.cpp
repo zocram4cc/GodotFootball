@@ -112,7 +112,7 @@ TEST_F(KickHeaderOracle, DISABLED_EveryCapturedOrderOnGfsWindowGivesPesRequest) 
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b, "rcx");
+    Build(o, image.bytes, image.size, b, nullptr, "rcx");
     SetKickStamp(o, b);
     const pes::PesKickRequest got = b.world->RunKickRequest(kSlot, CapturedOrder(o), b.ext);
     const std::map<size_t, uint8_t> want = ReferenceRequest(o);
@@ -135,7 +135,7 @@ TEST_F(KickHeaderOracle, DISABLED_TheChooserAnswersAsPesDoesOnTheBuiltRequestAnd
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b, "rcx");
+    Build(o, image.bytes, image.size, b, nullptr, "rcx");
     SetKickStamp(o, b);
     // PES's answer: the proven chooser on PES's own request.
     pes::PesKickRequest pes_request;

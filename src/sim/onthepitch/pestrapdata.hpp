@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "onthepitch/pestrapactor.hpp"
+#include "onthepitch/pesanimechain.hpp"
 #include "onthepitch/pestrapworld.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
@@ -87,9 +88,12 @@ struct PesTrapLoaderData {
   const uint8_t* At(uint64_t va, std::size_t n) const {
     return va >= segment.va && va + n <= segment.va + segment.bytes.size() ? segment.bytes.data() + (va - segment.va) : nullptr;
   }
+  // The anime player's chain and the body clip database the kick geometry test's root-motion reader walks (pesanimechain.hpp).
+  PesAnimeChain animeChain;
   void AddTo(PesTrapExternals& ext) const {
     ext.segments.push_back(segment);
     ext.globals.insert(ext.globals.end(), globals.begin(), globals.end());
+    animeChain.AddTo(ext);
   }
 };
 
