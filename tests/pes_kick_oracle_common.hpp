@@ -60,7 +60,9 @@ struct Built {
   pes::PesTrapExternals ext;
 };
 
-inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b) {
+// `requestReg` names the register that holds the request's address in the captured call (the chooser's r8; the builder's rcx): the
+// Kick start's two callers (FUN_140724CC0, FUN_1407253D0) keep the request at different offsets from rsp (0xD8 and 0xC8 above it).
+inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b, const char* requestReg = "r8") {
   pes::PesWorld& w = *b.world;
   const uint64_t g = Read(o, kImageG, 8);
   for (int k = 0; k < pes::kSlotCount; ++k) w.BindSlot(k);
@@ -87,12 +89,13 @@ inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Bu
       const uint64_t va = std::strtoull(line[1].c_str(), nullptr, 16);
       if (va != kImageG) b.ext.globals.push_back({va, Read(o, va, 8)});
     } else if (line[0] == "S") {
-      // The caller's frame: the request lives at rsp + kKickRequestFrameOffset (r8); the other words are the return address.
+      // The caller's frame: the request lives at the register's address; the other words are the return address.
       const size_t off = std::strtoul(line[1].c_str(), nullptr, 16), len = std::strtoul(line[2].c_str(), nullptr, 10);
+      const uint64_t requestAt = o.regs.at(requestReg) - rsp;
       for (size_t i = 0; i < len; ++i) {
         const size_t at = off + i;
-        if (at < pes::kKickRequestFrameOffset || at >= pes::kKickRequestFrameOffset + pes::kKickRequestBytes) continue;
-        b.request.bytes[at - pes::kKickRequestFrameOffset] = static_cast<uint8_t>(Read(o, rsp + at, 1));
+        if (at < requestAt || at >= requestAt + pes::kKickRequestBytes) continue;
+        b.request.bytes[at - requestAt] = static_cast<uint8_t>(Read(o, rsp + at, 1));
       }
     }
   }

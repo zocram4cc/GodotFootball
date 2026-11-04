@@ -14,6 +14,9 @@ void pes_fn_1406ABB30(PesState& s);
 void pes_fn_1406ABBA0(PesState& s);
 void pes_fn_1406B0ED0(PesState& s);
 void pes_fn_1406B2080(PesState& s);
+void pes_fn_1406B3560(PesState& s);
+void pes_fn_1406B3780(PesState& s);
+void pes_fn_1406B3910(PesState& s);
 void pes_fn_1406E6660(PesState& s);
 void pes_fn_1406EA7B0(PesState& s);
 
@@ -128,12 +131,12 @@ void pes_fn_14071E570(PesState& s) {
   s.gpr[5] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[7]));
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406EA7B0(s); s.gpr[4] += 8; }
   s.gpr[3] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
-  /*OUT-OF-SET CALL 0x1406B3910*/ pes_dispatch_missing(0x1406B3910);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406B3910(s); s.gpr[4] += 8; }
   s.gpr[1] = (uint64_t)(s.gpr[0]);
   s.gpr[9] = (uint64_t)(uint32_t)((3ULL));
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[7]));
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3]));
-  /*OUT-OF-SET CALL 0x1406B3560*/ pes_dispatch_missing(0x1406B3560);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406B3560(s); s.gpr[4] += 8; }
   s.gpr[7] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[5])), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -150,12 +153,12 @@ void pes_fn_14071E570(PesState& s) {
   s.gpr[5] = (uint64_t)(uint32_t)(((s.cond("z")) ? (uint64_t)(((uint64_t)(uint32_t)s.gpr[14])) : (uint64_t)(((uint64_t)(uint32_t)s.gpr[5]))));
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406E6660(s); s.gpr[4] += 8; }
   s.gpr[3] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
-  /*OUT-OF-SET CALL 0x1406B3910*/ pes_dispatch_missing(0x1406B3910);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406B3910(s); s.gpr[4] += 8; }
   s.gpr[1] = (uint64_t)(s.gpr[0]);
   s.gpr[9] = (uint64_t)(uint32_t)((1ULL));
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[5]));
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3]));
-  /*OUT-OF-SET CALL 0x1406B3780*/ pes_dispatch_missing(0x1406B3780);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1406B3780(s); s.gpr[4] += 8; }
   s.gpr[7] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[14])), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

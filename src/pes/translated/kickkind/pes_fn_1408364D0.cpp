@@ -91,10 +91,13 @@ void pes_fn_1406E6660(PesState& s);
 void pes_fn_1406EBF30(PesState& s);
 void pes_fn_140820D80(PesState& s);
 void pes_fn_140821170(PesState& s);
+void pes_fn_1408223F0(PesState& s);
 void pes_fn_1408272A0(PesState& s);
 void pes_fn_140829E80(PesState& s);
 void pes_fn_1408360F0(PesState& s);
+void pes_fn_1408371A0(PesState& s);
 void pes_fn_140837670(PesState& s);
+void pes_fn_1408387F0(PesState& s);
 void pes_fn_140A57450(PesState& s);
 void pes_fn_140A57800(PesState& s);
 void pes_fn_140A6CF70(PesState& s);
@@ -493,7 +496,7 @@ void pes_fn_1408364D0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("nz")) goto L_140836917;
   s.gpr[1] = (uint64_t)(s.gpr[7]);
-  /*OUT-OF-SET CALL 0x1408387F0*/ pes_dispatch_missing(0x1408387F0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1408387F0(s); s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) & (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
@@ -847,7 +850,7 @@ void pes_fn_1408364D0(PesState& s) {
   if (s.cond("nz")) goto L_140836C07;
   s.gpr[2] = (uint64_t)(((s.gpr[5]) + (0xC0ULL)));
   s.gpr[1] = (uint64_t)(s.gpr[7]);
-  /*OUT-OF-SET CALL 0x1408371A0*/ pes_dispatch_missing(0x1408371A0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1408371A0(s); s.gpr[4] += 8; }
   goto L_140836BF6;
   L_140836BD6:;
   s.gpr[2] = (uint64_t)(((s.gpr[5]) + (0xC0ULL)));
@@ -1097,7 +1100,7 @@ void pes_fn_1408364D0(PesState& s) {
   s.gpr[2] = (uint64_t)(((s.gpr[5]) + (0xC0ULL)));
   s.wrf(((s.gpr[5]) + (0x18ULL)), s.x_f32(1));
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x60ULL)));
-  /*OUT-OF-SET CALL 0x1408223F0*/ pes_dispatch_missing(0x1408223F0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1408223F0(s); s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) & (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
