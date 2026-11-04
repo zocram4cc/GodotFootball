@@ -1,0 +1,49 @@
+# The BP constructor runs on an empty window; BP+0x3380 is PES's on 8 of 10 captured entry states; carrier wiring and the 22+6 walk oracle NOT done (DribbleProposal2, 30-10-26)
+
+Branch `DribbleProposal` (worktree `gf-DribbleProposal`, scratch `gf-DribbleProposal-scratch`, PES-derived, never committed). Image `pes_full.bin`. CONFIRMED = read in tool output this session; INF = inference; OPEN = not settled. Continues `pes-port-DribbleProposal.md` (Remaining work 1-5).
+
+## 0. Verdict
+
+| Step | State |
+|---|---|
+| 1 merge origin/main, push, `gen_translated.py --check` | DONE. Merged (`3cd0f8b0`, pushed). `gen_translated.py --image pes_full.bin --check`: `4448 functions (3697 recorded bit-exact, 751 closure) regenerate byte-identical`, rc 0 (the three held-out functions unchanged). No generated file changed afterwards (a temporary print in `pes_fn_14211CB90.cpp` was restored by `git checkout`). |
+| 2 BP constructor `0x14210D320` on an empty window; re-enable the test | **DONE, CONFIRMED.** Null slot found, fixed, test enabled, mutation killed (section 1). |
+| 3 BP+0x3380 upper bytes | **CAUSE FOUND AND FIXED, CONFIRMED**; the turn-reference oracle is green on 8 of 10 states, **2 states (pid1981120 seq4891, seq6161) still differ in ONE manager byte, BP+0x3328** (section 2). BP+0x3380 itself equals PES on all ten. |
+| 4 wire `RunCarrierConstruct`, `RunTurnReference`, `0x14211ED10`, `0x1421102D0` at the controller | **NOT DONE** (section 4: decoded inputs, design). Controller unchanged; the stand-in at `elizacontroller.cpp:3352` stays (still `ponytail:` named). |
+| 5 regenerate the 22 walk dirs, red-first stand-down test, smokes | **NOT DONE.** |
+
+## 1. The constructor's null slot (CONFIRMED)
+
+- Trace: `gdb` backtrace of the disabled test: `abort` in `pes_fn_14210E5F0` called by `pes_fn_14210D320`. Not a constructor callee: the constructor's LAST call is the block reset `0x14210E5F0` (decompile): it loops kinds 0..0x18, takes each unit-kind object from `0x1421105B0(BP, kind)` and calls its vtable slot +8.
+- The constructor stores the vtable of the kind-0x18 object (BP+0x3DD0 = 0x7BA qwords) in `0x1421349E0`: `*param_1 = &PTR_FUN_142bf0f70`. The bound vtable span ended at `0x142BF0300`, so slot +8 (`0x142BF0F78`, holds `0x142135B00`, a translated function) read 0 -> `PES_DISPATCH_UNTRANSLATED: 0`. All 24 other kind objects and the manager's vtables lie inside the span.
+- Fix: `kBpVtablesBytes = 0x142BF0F90 - kBpVtablesVa` (`pesimagetables.hpp`; comment names the site). Test `CarrierConstruct.EveryObjectHoldsAnImageVtableOnBothSides` is enabled (DISABLED_ removed) and also checks the kind-0x18 object's first word (BP+0x3DD0). Green.
+- Mutation (run, rebuilt, reverted): span ended at `0x142BF0F70` -> test aborts `PES_DISPATCH_UNTRANSLATED: 0`.
+
+## 2. BP+0x3380: the cause was unbound switch jump tables (CONFIRMED)
+
+Method (scripts in scratch, not committed): (a) the PES replay's ordered first-reads (`readorder.py`, unicorn memory hook) compared against the window's bytes through the manifest's T mapping: every record byte equal except window-own pointers, so the divergence is control flow, not input values; (b) the BP-relative write streams of the PES replay (`corpus.jsonl` `w`) and the window run: identical for the first 413 entries, then PES wrote BP+0x3358 (`pc=0x14211CB90`, the manager's step object 9's virtual step), the window did not; (c) a temporary print in `pes_fn_14211CB90` showed it was never called in the window run.
+- `0x14211E2D0` (the manager step) picks the step object of each of 9 steps through a switch whose table is read from the IMAGE: `MOV ECX,[R15+RAX*4+0x211E5A8]` (and `0x211E5D0/5F8/620`), the translated code reads it with `s.rd(0x140000000 + idx*4 + 0x211E5A8)` (the translator did not bound the index: `CMP EAX,9; JA` after `MOVSXD`). The window maps no image there, so every case read target 0 and fell to the default arm (the manager itself): object 9, the first step (order table `0x142BF02C0`: 9,8,2,3,1,4,5,6,7), was never called. The same defect in `0x14211E650` (angle, `0x14211EC50`, 8 entries, `CMP EAX,7`) and `0x14063D3C0` (state builder, `0x14063D884`, 7 entries, `CMP R13D,6`).
+- Fix: `pesimagetables.{hpp,cpp}` bind the three tables from the install's exe (`kManagerJumpTablesVa` 4 x 10 u32, `kTurnAngleJumpTableVa` 8, `kStateJumpTableVa` 7; sizes checked against the table targets read from `pes_full.bin`: every entry lands inside its function). A scan of the 248 dribble members found no other register-held image read (only these three; absolute image reads are the G cell, the cookie, the allocator globals and `0x1437F4808` in `0x14063DA00`, OPEN whether that global matters).
+- `pes_dribble_oracle_test` (`GF_PES_DRIBBLE_ORACLE` = the ten `oracle_d710` dirs): before the fix 9 of 9 comparable states were red (BP+0x3380 was 0 on all, the manager's bytes differ on all; the predecessor's report named only two states); after: **8 of 9 green, BP+0x3380 equal on all nine, in both the oracle run and GF's production run**. Mutation (run, rebuilt, reverted): manager jump tables cut to 4 bytes -> 16 failing EXPECTs.
+- **Still red (OPEN, not weakened): seq4891 and seq6161, BP+0x3328 (manager+0x68, the step-6 object's +8 word): GF 0x11, PES 0x15.** Written by `pc=0x14211D0C6` (epilogue of `0x14211CBD0`: `CMP EAX,0x15; JA; MOV [RCX+8],EAX`, EAX = `[RSP+0x54]` after `0x14063EA30`, a candidate-selection structure filled in an 11-iteration loop by `0x14063CD70/0x14063E9D0`). Every other BP write (54 and 66 bytes in order) is identical, every first-read byte equals PES's, no uninitialised stack read: INF a data-dependent ranking that differs (a libm result, or a read of a G-reached object the window lacks); next step: the PES-vs-window comparison of the struct at `RSP+0x50` (the scratch scripts do the first half).
+- The roster `G+0x180` (24 records, stride 0x74, `+0x20` = 0xFF in PES here) is NOT bound in the window (zeros); it was ruled out as the BP+0x3380 cause by experiment (no effect) but is a real unbound table: OPEN for other consumers.
+
+## 3. Verification run
+
+- `gen_translated.py --check` identical (above). Built `pes_dribble_oracle_test`. Run: `CarrierConstruct` 1/1 green; `TurnReferenceOracle` 8/9 comparable states (2 red as above). `pes_walk_oracle_test` NOT run (no oracle dirs: the ForcedClearReal scratch is gone).
+- `GATE fast: NOT RUN` (interim: the changed files are `pesimagetables.{hpp,cpp}` (linked by every `pes_*` test and gfsim) and the env-gated `pes_dribble_oracle_test`; the production controller is unchanged, but the new bound tables do reach production window runs of `0x14063D3C0` (the state builder): a smoke by Main is owed). No smoke run by me (Main gates).
+- Commits on `DribbleProposal`: `b83c527c` (ctor span + test), `283abe39` (jump tables).
+
+## 4. What is left, numbered, with what I decoded for it
+
+1. **The 2 red states (section 2)** before any wiring: they hold the same manager step object (kind 6, `0x14211CBD0`) that the proposal reads.
+2. **Wire in PES's order** (`0x142110D30` decompile): per unit step after the danger builder (`0x142119390`) and the plan builder (`0x1421197B0`, GF writes only the intention word): `0x14211D710` (`RunTurnReference`, exists) -> `0x14211ED10(local_88[72], S, BP+0x1C, BP+0x78, BP+0xEC, BP+0x32B0, BP+0x32C0, sideRecord)` -> while `BP+0x78 == 0`: kind = 0x10 or 0x13 when `0x140A638C0(ctx, slot)`; `0x1421102D0(BP, kind, local_88, BP+0x4204)`; then the copies `BP+0x41E8..0x4200 <- BP+0x4204..` and `BP+0x41E4 = 0x10` (the previous-kind word `RunCarrierUpdate` already sets). **The driver's step input S (CONFIRMED from the seq16184 capture, S at `0x1e00ACF8`):** `+4` = the unit slot (19 there = BP+0x1C), `+0x30` = `BP+0x4258` (the output-buffer record, inside the window's BP block, whose first words are `1,0,0,1,7,0x162E6`), `+0x38` = ctx. `0x14211ED10` stores `S+0x38`, `S+0x30` into the step object's +8, +0x10 (the step object = the 72-byte `UnitObject`); `0x14211EEC0` then calls the kind object's vtable +0x10 and reads `[S'+0x20]+0x40..0x48`. So the window needs a 0x40-byte S per side (slot, `BP+0x4258`, ctx) and a 72-byte step object in scratch; `RunCarrierConstruct(side)` once per side (now runnable), and the block reset `0x14210E5F0` when the carrier changes (replacing the partial reset `RunCarrierUpdate` does: the state constructor `0x14063A3B0` only).
+3. Delete the BP+0x3380 stand-in (`elizacontroller.cpp:3352`) and the `ponytail:` text in the same change; `BP+0x4204` comes from the writer.
+4. Oracle: regenerate the 22 walk dirs (12 `pid483669` carrier_clear states are FULL captures, 10 older ones slimmed) with `danger_oracle.py ... walk`; for the writers the manifest must cover the writers' reads (a wide T set over the full captures) because a walk dir only holds what the walk read. Red-first: zero BP+0x3380 and BP+0x4204..+0x4224 on the 6 stand-down states (pid483669 seq11497, 20019, 20021, 20023, 20026, 20029: 6, 0x19 x4, 0xB), run the writers, `RunWalk`. Measure first whether the writers re-run on a post-writer state give the same outputs (the manager's counters tick).
+5. Mutations per branch, 2-min smoke both paths (hashes), `GATE_TIER=fast`.
+6. Coverage items of the predecessor (kinds other than 0x10/0x13, `0x1403FCEF0`, the `_fdtest` mirror on NaN/inf/subnormal) and the unbound roster `G+0x180` / global `0x1437F4808`.
+7. Cleanup: `gf-DribbleProposal-scratch` (kept: `oracle_d710`, `roots/d710`, `tools/readorder.py`, `tools/whowrote.py`), worktree.
+
+## 5. Why it stopped here
+
+70% of the request budget went to finding the null slot (cheap) and the BP+0x3380 cause (the expensive part: ordered read/write comparison against the PES replay), which also exposed that the predecessor's "two states differ" was in fact nine; wiring and the 22+6 oracle regeneration need the full-memory oracle manifests of item 4 and were not started.

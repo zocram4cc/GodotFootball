@@ -9,7 +9,7 @@
   "abort-trap": "tamper trap (not a real import): loud abort on both sides when reached; a corpus behind one proves the path unreached",
   "libm": "host-CRT float function (logf/powf): C++ libm must give the same bits; the diff judges per case, and the note records the dependence"
  },
- "native_services_contract": "PES VAs the production dispatch table (pes_dispatch_gen.hpp, gen_translated.py) sends to a GF-native implementation pes_native_<op> (pes_native.cpp) instead of a translated body: va, op, why. Not stubs: stubs.load() and the harness never see them (the harness runs PES's bytes for these VAs). The PES allocator 0x1403FB410 reads its pool object from the table at [0x1436EF2C8] and calls vtable +0x10 (alloc), the free path 0x1403FB5B0 vtable +8, and 0x1403FB860 vtable +0x50; the live pool objects' vtables are 0x14258E390 (heap) and 0x142AC0090 (forwarder to pool 1), CONFIRMED by script over pid1694737/seq009 (docs/ports/pes-port-NativeSeam.md).",
+ "native_services_contract": "PES VAs the production dispatch table (pes_dispatch_gen.cpp, gen_translated.py) sends to a GF-native implementation pes_native_<op> (pes_native.cpp) instead of a translated body: va, op, why. Not stubs: stubs.load() and the harness never see them (the harness runs PES's bytes for these VAs). The PES allocator 0x1403FB410 reads its pool object from the table at [0x1436EF2C8] and calls vtable +0x10 (alloc), the free path 0x1403FB5B0 vtable +8, and 0x1403FB860 vtable +0x50; the live pool objects' vtables are 0x14258E390 (heap) and 0x142AC0090 (forwarder to pool 1), CONFIRMED by script over pid1694737/seq009 (docs/ports/pes-port-NativeSeam.md).",
  "native_services": [
   {"va": "1403FBC10", "op": "heap_alloc", "why": ["heap vtable 0x14258E390 +0x10: alloc(this, size, align) -> ptr or 0"]},
   {"va": "1403FBCB0", "op": "heap_free", "why": ["heap vtable 0x14258E390 +0x08: free(this, ptr) -> 1"]},
@@ -18,7 +18,9 @@
   {"va": "141B34CB0", "op": "heap_alloc", "why": ["forwarder vtable 0x142AC0090 +0x10: pool 1's alloc, same contract"]},
   {"va": "141B34D80", "op": "heap_free", "why": ["forwarder vtable 0x142AC0090 +0x08: pool 1's free, same contract"]},
   {"va": "141B34C30", "op": "heap_owns", "why": ["forwarder vtable 0x142AC0090 +0x30: pool 1's owns, same contract"]},
-  {"va": "141B34DB0", "op": "heap_trim", "why": ["forwarder vtable 0x142AC0090 +0x50: pool 1's trim, same contract"]}
+  {"va": "141B34DB0", "op": "heap_trim", "why": ["forwarder vtable 0x142AC0090 +0x50: pool 1's trim, same contract"]},
+  {"va": "2500000070", "op": "registry_find", "why": ["GF-private VA (no PES function): vtable slot +0x70 of PesCameraRegistry's RegistryImpl, standing for PES's find 0x141B6EAB0 (hash, tree walk behind an SRW lock, typed handle) over the 28 CAMERA_TARGET_%02d%02d records of one group"]},
+  {"va": "2500000068", "op": "registry_insert", "why": ["GF-private VA (no PES function): vtable slot +0x68 of PesCameraRegistry's RegistryImpl, standing for PES's insert 0x141B6EB70; aborts: GF's registry is fixed"]}
  ],
  "stubs": [
   {
@@ -3591,15 +3593,84 @@
    }
   },
   {
-   "va": "1415A1792",
+   "va": "1415A187C",
    "callers": [
-    "1423BA9D0"
+    "1422F97A0"
    ],
    "used_by_closure": false,
    "kind": "libm",
    "why": [
-    "thunk jmp [0x142530218] (FF25 at 1415A1792); the slot's dump-time value 0x6FFFFEC80D90 is ucrtbase.dll!sinf (SnapMem.export_of on live2/pid615629/seq042); one-xmm call shape sinf(x)->xmm0",
-    "reached by the kick chooser 0x1408364D0 through the animation key unpacker 0x1423BA9D0 (5 of 24 captures stopped here: pid615629 seq15863, 15864, 16063-16065)"
+    "thunk jmp [0x1425301C8] (FF25 at 1415A187C); the slot's dump-time value 0x6FFFFEC8A480 is ucrtbase.dll!_isnan (SnapMem.export_of on live2/pid3234533/seq6220); the FixDemo procedural camera's position setter 0x1422F97A0 calls it with cvtps2pd xmm0 (double in xmm0, int in eax)",
+    "the export's code (read from the snapshot, 0x6FFFFEC8A480): rcx = bits(xmm0) & 0x7FFFFFFFFFFFFFFF; eax = (rcx > 0x7FF0000000000000) as 0/1. The model is that comparison, exact"
+   ],
+   "model": {
+    "op": "_isnan",
+    "arg": "xmm0",
+    "ret": "eax",
+    "enc": "f64",
+    "caveat": "exact: the export's own integer test; clobbers nothing the callers read besides eax"
+   }
+  },
+  {
+   "va": "1415A1876",
+   "callers": [
+    "142139AB0"
+   ],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x1425301D8] (FF25 at 1415A1876); the slot's dump-time value 0x6FFFFEC84BF0 is ucrtbase.dll!floorf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape floorf(x)->xmm0 (the CANM evaluator 0x142139AB0 calls it at 0x142139B57, pes-re-camera-pose.md 1.2)"
+   ],
+   "model": {
+    "op": "floorf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "exact: floor is correctly rounded in every libm (the result is an integer-valued float or the input itself)"
+   }
+  },
+  {
+   "va": "1415A17AA",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530240] (FF25 at 1415A17AA); the slot's dump-time value 0x6FFFFEC83F20 is ucrtbase.dll!atanf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape atanf(x)->xmm0 (FixDemoCamera's fov widening 0x141F7B250 calls it)",
+    "entered by the procedural camera engine's replay of live2/pid3234533/seq6220 (ucrtbase.dll!atanf at 0x6FFFFEC83F20)"
+   ],
+   "model": {
+    "op": "atanf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A1798",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530228] (FF25 at 1415A1798); the slot's dump-time value 0x6FFFFEC829D0 is ucrtbase.dll!acosf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape acosf(x)->xmm0 (the CANM slerp 0x140A93210 calls it)",
+    "a sibling of the closure's asinf/atan2f thunks"
+   ],
+   "model": {
+    "op": "acosf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A1792",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530218] (FF25 at 1415A1792); the slot's dump-time value 0x6FFFFEC80D90 is ucrtbase.dll!sinf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape sinf(x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure (closure.py --dry-run 0x141F7BFE0)"
    ],
    "model": {
     "op": "sinf",
@@ -3611,14 +3682,12 @@
   },
   {
    "va": "1415A178C",
-   "callers": [
-    "1423BA9D0"
-   ],
+   "callers": [],
    "used_by_closure": false,
    "kind": "libm",
    "why": [
-    "thunk jmp [0x142530208] (FF25 at 1415A178C); the slot's dump-time value 0x6FFFFEC7B9C0 is ucrtbase.dll!cosf (SnapMem.export_of on live2/pid615629/seq042); one-xmm call shape cosf(x)->xmm0",
-    "called beside sinf by the key unpacker 0x1423BA9D0"
+    "thunk jmp [0x142530208] (FF25 at 1415A178C); the slot's dump-time value 0x6FFFFEC7B9C0 is ucrtbase.dll!cosf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape cosf(x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure (closure.py --dry-run 0x141F7BFE0)"
    ],
    "model": {
     "op": "cosf",
@@ -3629,22 +3698,54 @@
    }
   },
   {
-   "va": "1415A1798",
-   "callers": [
-    "140829E80"
-   ],
+   "va": "1415A17D4",
+   "callers": [],
    "used_by_closure": false,
    "kind": "libm",
    "why": [
-    "thunk jmp [0x142530228] (FF25 at 1415A1798); the slot's dump-time value 0x6FFFFEC829D0 is ucrtbase.dll!acosf (the harness stopped 'unmodelled OS export ucrtbase.dll!acosf' on live2/pid615629/seq15863); one-xmm call shape acosf(x)->xmm0",
-    "called by the kick-kind feasibility test 0x140829E80 (call at 0x14082B0E6; 30 other callers outside the closure)"
+    "thunk jmp [0x1425301F8] (FF25 at 1415A17D4); the slot's dump-time value 0x6FFFFEC82070 is ucrtbase.dll!tanf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape tanf(x)->xmm0 (FixDemoCamera's fov widening 0x141F7B250 calls it)",
+    "a member of the FixDemo procedural camera's static closure"
    ],
    "model": {
-    "op": "acosf",
+    "op": "tanf",
     "arg": "xmm0",
     "ret": "xmm0",
     "enc": "f32",
-    "caveat": "host libm: special values follow C99 Annex F (test_libm_models.py); an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A179E",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530230] (FF25 at 1415A179E); the slot's dump-time value 0x6FFFFEC82F00 is ucrtbase.dll!asinf (SnapMem.export_of on live2/pid3234533/seq6220); one-xmm call shape asinf(x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure"
+   ],
+   "model": {
+    "op": "asinf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
+   }
+  },
+  {
+   "va": "1415A17A4",
+   "callers": [],
+   "used_by_closure": false,
+   "kind": "libm",
+   "why": [
+    "thunk jmp [0x142530238] (FF25 at 1415A17A4); the slot's dump-time value 0x6FFFFEC83AD0 is ucrtbase.dll!atan2f (SnapMem.export_of on live2/pid3234533/seq6220); two-xmm call shape atan2f(y,x)->xmm0",
+    "a member of the FixDemo procedural camera's static closure"
+   ],
+   "model": {
+    "op": "atan2f",
+    "arg": "xmm0,xmm1",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm: special values follow C99 Annex F; an ordinary argument can differ from ucrtbase by one ulp (see pes_stubs.hpp)"
    }
   },
   {
@@ -3739,6 +3840,23 @@
    ],
    "model": {
     "op": "abort"
+   }
+  },
+  {
+   "va": "1415A01DC",
+   "callers": [
+    "14159FA0C",
+    "14159EFF8"
+   ],
+   "used_by_closure": true,
+   "kind": "engine-noop",
+   "why": [
+    "CFG icall check thunk: 1415A01DC is `jmp [0x142530868]`; the image holds 0x1415A02B0 in that slot and 1415A02B0 is `ret` (the default __guard_check_icall no-op); called with the target in RCX right before __ehvec_dtor's `call rsi` (14159FA5A mov rcx,rsi; call 1415A01DC; 14159FA62 call rsi)",
+    "docs/re/pes-re-dead-code.md:245: the CFG function table is empty (GuardCFFunctionTable = 0), so no target is ever rejected; a check writes nothing"
+   ],
+   "model": {
+    "op": "__guard_check_icall",
+    "effect": "none on the success path (validates the indirect-call target, returns)"
    }
   }
  ]

@@ -9,13 +9,13 @@
 
 // image constant @ 0x142578480 (4 bytes)
 static constexpr uint32_t k_c142578480_w = 0x40490FDBU;
-static constexpr float k_c142578480_f = 3.1415927410125732f; // 3.1415927410125732
+static constexpr float k_c142578480_f = 3.1415927410125732f; // 3.1415927410125732;
 // image constant @ 0x1425795E4 (4 bytes)
 static constexpr uint32_t k_c1425795E4_w = 0x40C90FDBU;
-static constexpr float k_c1425795E4_f = 6.2831854820251465f; // 6.2831854820251465
+static constexpr float k_c1425795E4_f = 6.2831854820251465f; // 6.2831854820251465;
 // image constant @ 0x142609F98 (4 bytes)
 static constexpr uint32_t k_c142609F98_w = 0xC0490FDBU;
-static constexpr float k_c142609F98_f = -3.1415927410125732f; // -3.1415927410125732
+static constexpr float k_c142609F98_f = -3.1415927410125732f; // -3.1415927410125732;
 
 void pes_fn_14088EFD0(PesState& s);
 

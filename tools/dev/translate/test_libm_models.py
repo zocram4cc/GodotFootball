@@ -124,7 +124,7 @@ LIBM1_OP = {"S": "sinf", "C": "cosf", "A": "acosf"}
 
 def python_model(op, x, y):
     if op in LIBM1_OP:
-        return run.libm1_f32_bits(LIBM1_OP[op], bits(x))
+        return run.libm_unary_f32_bits(LIBM1_OP[op], bits(x))
     return run.logf_f32_bits(bits(x)) if op == "L" else run.powf_f32_bits(bits(x), bits(y))
 
 

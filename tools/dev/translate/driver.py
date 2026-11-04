@@ -37,6 +37,9 @@ import re
 import subprocess
 import shutil
 import sys
+import collections
+import tempfile
+import threading
 
 FAILURE_CLASSES = ("engine call", "live state", "GPU", "translator bug",
                    "struct map gap", "harness cannot run",
@@ -45,6 +48,7 @@ FAILURE_CLASSES = ("engine call", "live state", "GPU", "translator bug",
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RUN_PY = os.path.join(REPO, "tools", "dev", "diffharness", "run.py")
+BUILDCACHE_PY = os.path.join(HERE, "buildcache.py")
 
 
 def seed_bank_for(args, va):
@@ -65,6 +69,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(REPO, "tools", "dev", "diffharness"))
 import stubs as stub_table
 import bankstore
+import buildcache
 STUB_TABLE = stub_table.load()
 
 # Abort traps (stubs.json abort-trap): reaching one ends a case as a PES abort, never an output.
@@ -464,6 +469,134 @@ def skip_note(res):
     return "; ".join(parts)
 
 
+# Two caches under <out-dir>/cache (never gen/, which every run regenerates). A hit must give exactly what the uncached
+# step gives; whatever buildcache cannot prove unchanged runs the step as before (buildcache.py holds the keys and proof).
+# ponytail: the include closure is a regex over #include lines: it over-keys under #if 0, and a quoted include it cannot
+# resolve makes its TU uncached. Upgrade: take the header set from the compiler's -MD depfile.
+CORPUS_OUTS = ("corp_%s.jsonl", "corp_%s.jsonl.meta.json", "trace_%s.json", "addrs_%s.json", "aborts_%s.jsonl")
+SEMANTIC_FLAGS = ["-std=c++20", "-O1"]  # the object cache's flags; the build tree's -I enters the key by content instead
+CC_JOBS = 4  # g++ processes at once across the whole run (main sets it from --cc-jobs)
+_CC_POOL = None
+_STATS = collections.Counter()
+_LOCK = threading.Lock()
+
+
+def tally(name):
+    with _LOCK:
+        _STATS[name] += 1
+
+
+def compile_pool():
+    global _CC_POOL
+    with _LOCK:
+        if _CC_POOL is None:
+            _CC_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=CC_JOBS)
+        return _CC_POOL
+
+
+def compile_note(err, out_dir):
+    """The informative lines of a compiler's stderr, at most six, the build dir shown as <build>: errors plus undefined
+    references (ld prints the missing symbol, not the word 'error')."""
+    lines = [l.replace(out_dir, "<build>") for l in err.splitlines()
+             if "error" in l or "undefined reference" in l][:6]
+    return " | ".join(lines)[:400]
+
+
+def cache_root(args):
+    """Where the object and corpus caches live: GF_DIFF_CACHE when set (gate.sh shares one across worktrees and sets; every
+    key is a content hash of all its inputs, so sharing cannot give a wrong hit), else <out-dir>/cache."""
+    return os.environ.get("GF_DIFF_CACHE") or os.path.join(args.out_dir, "cache")
+
+
+def compile_one(args, gen, tu):
+    """(object, error text): the TU's object from cache/obj, compiled into it on a miss. The compile writes a temp file
+    that is renamed into place, so VAs compiling the same TU at once never leave a partial object."""
+    key = buildcache.tu_object_key(tu, buildcache.compiler_id(args.cxx), SEMANTIC_FLAGS, gen)
+    if key is None:
+        tally("object uncacheable")
+        obj = os.path.splitext(tu)[0] + ".o"
+        rc, _, err = sh([args.cxx] + SEMANTIC_FLAGS + ["-I", gen, "-c", tu, "-o", obj], timeout=300)
+        return (obj, None) if rc == 0 else (None, err)
+    objdir = os.path.join(cache_root(args), "obj")
+    final = os.path.join(objdir, key + ".o")
+    if os.path.exists(final):
+        tally("object hit")
+        return final, None
+    os.makedirs(objdir, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=objdir, suffix=".tmp")
+    os.close(fd)
+    rc, _, err = sh([args.cxx] + SEMANTIC_FLAGS + ["-I", gen, "-c", tu, "-o", tmp], timeout=300)
+    if rc != 0:
+        os.unlink(tmp)
+        return None, err
+    os.replace(tmp, final)
+    tally("object compiled")
+    return final, None
+
+
+def compile_all(args, gen, tus):
+    """(objects, error text) for the TUs, in order. They compile in parallel (CC_JOBS at once); the error is every failing
+    TU's stderr, as one g++ run gave it."""
+    futures = [compile_pool().submit(compile_one, args, gen, tu) for tu in tus]
+    done = [f.result() for f in futures]
+    errors = [err for _, err in done if err is not None]
+    if errors:
+        return None, "\n".join(errors)
+    return [obj for obj, _ in done], None
+
+
+def _read_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def corpus_run(va, args, spec_path, gen, tag, key_args, out_args):
+    """run.py for one VA: (rc, stdout, stderr). A success is kept in cache/corpus under a key of its inputs (the image, the
+    spec, this VA's seed and bank, run.py, the interpreter, the flags) plus the record of what it read. A hit is reused only
+    while that record still holds (buildcache.entry_is_valid); a failure is never kept and runs again. out_args are the
+    output paths, which stay out of the key."""
+    base = os.path.basename(spec_path)[:-5]  # run.py's names for this VA's seed and bank files
+    seed = os.path.join(args.seed_state, base + ".seed.json") if args.seed_state else None
+    bank = seed_bank_for(args, va)
+    bank_file = os.path.join(bank, base + ".bank.jsonl") if bank else None
+    inputs = {"image": buildcache.file_digest(args.image), "spec": buildcache.file_digest(spec_path),
+              "seed": buildcache.file_digest(seed) if seed else None,
+              "bank": buildcache.file_digest(bank_file) if bank_file else None,
+              "run.py": buildcache.file_digest(RUN_PY), "python": buildcache.interpreter_id(diff_python())}
+    # Absolute path arguments (spec, image, seed and bank dirs) leave the key: their contents are already inputs by digest,
+    # and their paths name the worktree, which would keep a shared cache from hitting across checkouts.
+    portable_args = ["<path>" if os.path.isabs(a) else a for a in key_args]
+    entry = os.path.join(cache_root(args), "corpus", buildcache.corpus_key(portable_args, inputs))
+    doc = _read_json(os.path.join(entry, "run.json"))
+    if doc is not None and buildcache.entry_is_valid(doc["deps"]):
+        for name in doc["files"]:
+            shutil.copyfile(os.path.join(entry, name), os.path.join(gen, name))
+        tally("corpus hit")
+        return 0, doc["out"], ""
+    tally("corpus miss")
+    deps = os.path.join(gen, "deps_%s.json" % tag)
+    rc, out, err = sh([diff_python(), BUILDCACHE_PY, "record", deps, RUN_PY] + key_args + out_args,
+                      timeout=args.timeout)
+    if rc == 0:
+        names = [n % tag for n in CORPUS_OUTS if os.path.exists(os.path.join(gen, n % tag))]
+        os.makedirs(os.path.dirname(entry), exist_ok=True)
+        tmp = tempfile.mkdtemp(dir=os.path.dirname(entry))
+        for name in names:
+            shutil.copyfile(os.path.join(gen, name), os.path.join(tmp, name))
+        with open(os.path.join(tmp, "run.json"), "w") as f:  # written last: its presence commits the entry
+            json.dump({"out": out, "files": names, "deps": buildcache.entry_doc(_read_json(deps))}, f)
+        shutil.rmtree(entry, ignore_errors=True)
+        try:
+            os.replace(tmp, entry)
+        except OSError:  # another run committed this key first (shared cache): its entry is the same, keep it
+            shutil.rmtree(tmp, ignore_errors=True)
+    return rc, out, err
+
+
+
 def run_one(va, args, pilot):
     """Full pipeline for one function. Returns a result dict."""
     import diffmain
@@ -520,11 +653,9 @@ def run_one(va, args, pilot):
         + (["--seed-bank", bank] if bank else []) \
         + (["--perturb"] if args.perturb else []) \
         + (["--traced-cases"] if args.traced_cases else [])
-    rc, out, err = sh([diff_python(), RUN_PY, "--exe", args.image,
-                     "--spec", spec_path, "--out", corpus,
-                     "--trace-calls", trace,
-                     "--trace-addrs", addrs, "--aborts", aborts] + count + seed_args,
-                    timeout=args.timeout)
+    rc, out, err = corpus_run(va, args, spec_path, gen, tag,
+                              ["--exe", args.image, "--spec", spec_path] + count + seed_args,
+                              ["--out", corpus, "--trace-calls", trace, "--trace-addrs", addrs, "--aborts", aborts])
     summ = summary_of(out) if rc == 0 else None
     if summ is not None:
         res.update(nonreturn=summ["nonreturn"], failed=summ["failed"], capped=summ["capped"],
@@ -711,19 +842,14 @@ def build_and_diff(va, spec, args, pilot, nlines):
     _sp.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"),
              "--out", gen, "--vas"] + sorted(need), check=True)
     bin_p = os.path.join(gen, "d_%s" % tag)
-    objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
-    # ponytail: one g++ over every TU, serial; the budget grows with the TU count (a tail-jump closure of 350-600
-    # functions took 300 s and read as "compile: " with no error line). Upgrade: parallel per-TU objects.
-    rc, _, err = sh([args.cxx, "-std=c++20", "-O1", "-I", gen, "-o", bin_p,
-                     main_p] + objs, timeout=300 + 20 * len(objs))
+    tus = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    tus += [os.path.join(gen, "pes_dispatch_gen.cpp"), main_p]
+    objs, cerr = compile_all(args, gen, tus)
+    if cerr is not None:
+        return False, "compile: %s" % compile_note(cerr, args.out_dir), "translator bug"
+    rc, _, err = sh([args.cxx, "-o", bin_p] + objs, timeout=300 + 20 * len(objs))
     if rc != 0:
-        # keep the informative lines: errors plus undefined references
-        # (ld failures print the missing symbol, not the word 'error')
-        lines = [l.replace(args.out_dir, "<build>")
-                 for l in err.splitlines()
-                 if "error" in l or "undefined reference" in l][:6]
-        return False, "compile: %s" % " | ".join(lines)[:400], \
-            "translator bug"
+        return False, "compile: %s" % compile_note(err, args.out_dir), "translator bug"
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
     rc, out, err = sh([bin_p, corpus, args.image, inst_p], timeout=args.timeout)
     m = re.search(r"(\d+) cases, (\d+) mismatch", out)
@@ -874,10 +1000,12 @@ def finish_one(va, args, pilot):
                   for c in ((spec or {}).get("precheck", {}) or {}).get("calls", [])]
         vas = [va] + [c for c in in_set + extra if c != va]
         cov = block_coverage(args.image, vas, addrs or [])
-        res["coverage"] = {
-            v: {"reached": r, "total": t,
-                "fraction": round(r / t, 4) if t else 0.0}
-            for v, (r, t) in cov.items() if isinstance(cov[v], tuple)}
+        for v, rt in cov.items():
+            if not isinstance(rt, tuple):  # None: block_coverage could not decode v, so v is not counted
+                continue
+            r, t = rt
+            res["coverage"][v] = {"reached": r, "total": t,
+                                  "fraction": round(r / t, 4) if t else 0.0}
         try:
             res["dead_blocks"] = dead_blocks(args.image, va)
         except Exception:
@@ -897,6 +1025,7 @@ def finish_one(va, args, pilot):
     return res
 
 def main():
+    global CC_JOBS
     ap = argparse.ArgumentParser()
     ap.add_argument("--image", required=True)
     ap.add_argument("--out-dir", required=True)
@@ -909,6 +1038,8 @@ def main():
     # far above a loaded machine's runtime (600 s killed run.py at load average 46).
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--jobs", type=int, default=2)
+    ap.add_argument("--cc-jobs", type=int, default=4,
+                    help="g++ processes at once across the whole run (the object cache's compiles of every VA)")
     ap.add_argument("--seed-state", default=None,
                     help="dir of seed.py artifacts (<VA>.seed.json): the corpus and the diff main apply them")
     ap.add_argument("--seed-bank", default=None,
@@ -934,6 +1065,7 @@ def main():
                     help="with --check: a select_recorded.py JSON ({results file: [VA...]}); re-run only the recorded VAs it "
                          "lists for --record's file (the fast gate). An empty selection passes: nothing it can break changed.")
     args = ap.parse_args()
+    CC_JOBS = args.cc_jobs
     if args.traced_cases and (not args.seed_bank or args.perturb):
         ap.error("--traced-cases replays a --seed-bank with real values: give --seed-bank, not --perturb")
     if args.check and not args.record:
@@ -1017,6 +1149,7 @@ def main():
     dif = sum(1 for r in results if r["diffed"])
     print("driver: attempted %d translated %d diffed %d -> %s"
           % (att, tra, dif, build_json))
+    print("driver: cache %s" % " ".join("%s=%d" % kv for kv in sorted(_STATS.items())))
     if args.check:
         absent = [v for v in args.only if v.upper() not in {r["va"].upper() for r in results}]
         if absent:

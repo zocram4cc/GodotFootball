@@ -42,6 +42,7 @@ CameraRecord DecodeCamera(const uint8_t* r, size_t n) {
   auto u32 = [&](size_t off) { return off + 4 <= n ? Le32(r + off) : 0u; };
   auto f32 = [&](size_t off) { return off + 4 <= n ? LeF32(r + off) : 0.0f; };
   CameraRecord c;
+  c.raw.assign(r, r + n);
   c.key = u32(0x00);
   c.startTime = f32(0x04);
   c.originalCameraId = 0x08 + 2 <= n ? Le16(r + 0x08) : uint16_t(0);
@@ -76,6 +77,24 @@ TimingRecord DecodeTiming(const uint8_t* r, size_t n) {
   t.value = f32(0x18);
   t.actionName = Str(r, n, 0x1c, 64);
   return t;
+}
+
+CutRecord DecodeCut(const uint8_t* r, size_t n) {
+  auto u32 = [&](size_t off) { return off + 4 <= n ? Le32(r + off) : 0u; };
+  auto f32 = [&](size_t off) { return off + 4 <= n ? LeF32(r + off) : 0.0f; };
+  auto u8 = [&](size_t off) { return off < n ? r[off] : uint8_t(0); };
+  CutRecord c;
+  c.id = int32_t(u32(0x00));
+  c.startTime = f32(0x04);
+  c.minTime = f32(0x08);
+  c.maxTime = f32(0x0c);
+  c.playSpeed = f32(0x10);
+  c.functionNo = u32(0x38);
+  c.useOffset = u8(0x19) != 0;
+  for (size_t i = 0; i < 3; ++i) c.offsetPos[i] = f32(0x1c + 4 * i);
+  c.offsetRotYDeg = f32(0x28);
+  c.offsetFlipX = u8(0x2c) != 0;
+  return c;
 }
 
 std::string StripVfsPrefix(const std::string& s) {
@@ -113,6 +132,7 @@ constexpr ConstSite kConstSites[] = {
     {&PoseConstants::wideAspect, 0x141F7B294, 0xF3, 0x10, 0x142609394},
     {&PoseConstants::radToDeg, 0x140A91E7A, 0xF3, 0x59, 0x14259BE40},
     {&PoseConstants::quarterTurnDeg, 0x140A91E99, 0xF3, 0x58, 0x14259BE5C},
+    {&PoseConstants::ninetyNine, 0x141F2E0C4, 0xF3, 0x5E, 0x1425C48CC},
 };
 
 bool ReadConstSite(const PeImage& exe, const ConstSite& s, float* out, std::string* err) {
@@ -298,6 +318,33 @@ bool File::HasRecordType(uint8_t type) const {
   return std::find(recordTypes.begin(), recordTypes.end(), type) != recordTypes.end();
 }
 
+const CutRecord* FirstCut(const File& file) {
+  const CutRecord* first = nullptr;  // 0x141F2DD80, before 0x141F2E115: lower_bound(0) over the cut map (player+0xAE8)
+  for (const CutRecord& c : file.cuts)
+    if (c.id >= 0 && (!first || c.id < first->id)) first = &c;
+  return first;
+}
+
+TimelineStep StepFromCut(const CutRecord& cut, int draw, const PoseConstants& k) {
+  // 0x141F2DD80: speed from the record (lines 203-204, +0xAAC starts at 1.0), start = the record's +0x04 (lines 184-185),
+  // length by CutLength (lines 195-199).
+  TimelineStep s;
+  s.lengthTicks = CutLength(cut.minTime, cut.maxTime, draw, k.ninetyNine);
+  s.startTicks = cut.startTime;
+  s.speed = cut.playSpeed > 0.0f ? cut.playSpeed : 1.0f;
+  return s;
+}
+
+CutOffset CutStartOffset(const File& file, const CutOffset& stageDefault) {
+  const CutRecord* first = FirstCut(file);
+  if (!first || !first->useOffset) return stageDefault;  // the map node's +0x49 flag test (decompile; asm VA not read)
+  CutOffset o;
+  o.pos = first->offsetPos;
+  o.rotYDeg = first->offsetRotYDeg;
+  o.flip = first->offsetFlipX;
+  return o;
+}
+
 const Resource* File::FindResource(const std::string& path) const {
   const std::string want = StripVfsPrefix(path);
   for (const Resource& r : resources)
@@ -381,6 +428,7 @@ bool Parse(const std::vector<uint8_t>& b, File* out, std::string* err) {
     if (NominalSize(t) == 0) return fail("record with unknown type " + std::to_string(int(t)));
     out->recordTypes.push_back(t);
     const uint8_t* r = b.data() + base + off;
+    if (t == kCut) out->cuts.push_back(DecodeCut(r, size));
     if (t == kCamera) out->cameras.push_back(DecodeCamera(r, size));
     if (t == kTiming) out->timings.push_back(DecodeTiming(r, size));
   }

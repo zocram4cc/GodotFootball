@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <array>
 #include <unordered_map>
@@ -46,7 +48,8 @@ constexpr int EXIT_USAGE = 2;
 
 int Usage(const char* why) {
   std::fprintf(stderr, "%s\nusage: gfsim_run --db-sql FILE --home ID --away ID --pes21-root DIR "
-                       "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]... [--pes-loop] [--parity-log]\n", why);
+                       "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]... [--pes-loop] [--parity-log] "
+                       "[--sider] [--gameplay-mod NAME] [--edit-save FILE]\n", why);
   return EXIT_USAGE;
 }
 
@@ -187,7 +190,9 @@ class ParityLog {
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::string dbSql, root, anims = DEFAULT_ANIMS;
+  std::string dbSql, root, anims = DEFAULT_ANIMS, editSavePath;  // --edit-save: an EDIT00000000 whose player records win over Player.bin
+  bool sider = false;  // --sider: sider's live layer (cpk.root folders, Lua modules); off = stock PES
+  std::optional<std::string> gameplayMod;  // GameplayLoader's mod (needs --sider); unset = "No Mod"
   if (const char* env = std::getenv("PES21_ROOT")) root = env;
   int home = 0, away = 0, minutes = DEFAULT_MINUTES;
   unsigned int seed = DEFAULT_SEED;
@@ -204,16 +209,22 @@ int main(int argc, char** argv) {
       parityLog = true;
       continue;
     }
+    if (a == "--sider") {  // sider's live layer: a flag, no value
+      sider = true;
+      continue;
+    }
     if (i + 1 >= argc) return Usage(("missing value for " + a).c_str());
     const std::string v = argv[++i];
     if (a == "--db-sql") dbSql = v;
     else if (a == "--home") home = std::atoi(v.c_str());
     else if (a == "--away") away = std::atoi(v.c_str());
     else if (a == "--pes21-root") root = v;
+    else if (a == "--gameplay-mod") gameplayMod = v;
     else if (a == "--seed") seed = unsigned(std::strtoul(v.c_str(), nullptr, 10));
     else if (a == "--minutes") minutes = std::atoi(v.c_str());
     else if (a == "--timescale") timeScale = std::strtof(v.c_str(), nullptr);
     else if (a == "--anims") anims = v;
+    else if (a == "--edit-save") editSavePath = v;
     else if (a == "--set") {
       const size_t eq = v.find('=');
       if (eq == std::string::npos) return Usage(("--set needs key=value: " + v).c_str());
@@ -227,7 +238,7 @@ int main(int argc, char** argv) {
 
   std::string err;
   pes::PesVfs vfs;
-  if (!vfs.Mount(root, &err)) return std::fprintf(stderr, "PES21 mount failed: %s\n", err.c_str()), 1;
+  if (!vfs.Mount(root, &err, {.sider = sider, .gameplayMod = gameplayMod})) return std::fprintf(stderr, "PES21 mount failed: %s\n", err.c_str()), 1;
   auto rig = pesrig::BuildRig(vfs, &err);
   if (!rig) return std::fprintf(stderr, "PES21 rig failed: %s\n", err.c_str()), 1;
   // PES 2021's match-clock constants, read from the install's own exe
@@ -261,6 +272,15 @@ int main(int argc, char** argv) {
   // PES 2021's player database (common/etc/pesdb/Player.bin): each player's injury tier and stronger foot.
   auto playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
   if (!playerDatabase) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  if (!editSavePath.empty()) {
+    // The same two calls as PesLibrary::load_edit_save (the Godot path): the save's records win over Player.bin per id.
+    std::ifstream saveFile(editSavePath, std::ios::binary);
+    const std::vector<uint8_t> saveBytes((std::istreambuf_iterator<char>(saveFile)), {});
+    std::string saveErr;  // a stale block digest is reported here and kept, as the game does
+    auto save = pes::ReadEditSave(saveBytes, &saveErr);
+    if (!save) return std::fprintf(stderr, "EDIT save %s: %s\n", editSavePath.c_str(), saveErr.c_str()), 1;
+    playerDatabase->ApplyEditSave(*save);
+  }
   auto formationTables = pes::formation::FormationTables::Load(vfs, &err);
   if (!formationTables) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
@@ -336,6 +356,12 @@ int main(int argc, char** argv) {
   // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a).
   auto markTableConstants = pes::marktable::LoadMarkTableConstants(*exe, &err);
   if (!markTableConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's Trap action chain: the image slice, the actor constants and the loader data (pestrapdata.hpp).
+  const char* imagePath = std::getenv("PES_EXE");  // the memory dump of the running game (tools/pes21_import/README.md)
+  if (imagePath == nullptr || *imagePath == '\0')
+    return std::fprintf(stderr, "PES_EXE (the game's memory dump, tools/pes21_import/README.md) is not set\n"), 1;
+  auto trapSource = pes::LoadTrapSource(*exe, vfs, imagePath, &err);
+  if (!trapSource) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // The install's table bytes the translated window runs read (pesimagetables.hpp).
   auto imageTables = pes::LoadPesImageTables(*exe, &err);
   if (!imageTables) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
@@ -386,6 +412,7 @@ int main(int argc, char** argv) {
   setup.pesOffBallConstants = &*offBallConstants;
   setup.pesMoveStepConstants = &*moveStepConstants;
   setup.pesMarkTableConstants = &*markTableConstants;
+  setup.pesTrapSource = &*trapSource;
   setup.pesImageTables = &*imageTables;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData

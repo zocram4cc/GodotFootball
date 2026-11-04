@@ -3,13 +3,23 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include <algorithm>
+#include <array>
+
+#include <godot_cpp/core/math.hpp>
 #include "data/matchdata.hpp"
 #include "gametypes.hpp"
 #include "onthepitch/match.hpp"
+#include "onthepitch/pesdesignation.hpp"
+#include "onthepitch/pesoffball.hpp"
 #include "onthepitch/matchsetup.hpp"
+#include "onthepitch/referee.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/player/playerofficial.hpp"
+#include "onthepitch/player/controller/elizacontroller.hpp"
 #include "simcontext.hpp"
 #include "utils/database.hpp"
+#include "pes/goal_cast.hpp"
 
 namespace godot {
 namespace {
@@ -48,6 +58,11 @@ void GfMatch::_bind_methods() {
   ClassDB::bind_method(D_METHOD("score", "team"), &GfMatch::score);
   ClassDB::bind_method(D_METHOD("field_half_width"), &GfMatch::field_half_width);
   ClassDB::bind_method(D_METHOD("field_half_length"), &GfMatch::field_half_length);
+  ClassDB::bind_method(D_METHOD("set_cutscene_environment", "stadium", "time_of_day", "weather"),
+                       &GfMatch::set_cutscene_environment);
+  ClassDB::bind_method(D_METHOD("take_cutscene"), &GfMatch::take_cutscene);
+  ClassDB::bind_method(D_METHOD("cutscene_state"), &GfMatch::cutscene_state);
+  ClassDB::bind_method(D_METHOD("cutscene_actor"), &GfMatch::cutscene_actor);
 }
 
 Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const String& anims_dir, int home,
@@ -106,10 +121,45 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesMoveStepConstants = library->movestep_constants();
   setup.pesPressConstants = library->press_constants();
   setup.pesMarkTableConstants = library->mark_table_constants();
+  setup.pesTrapSource = library->trap_source();
   setup.pesImageTables = library->image_tables();
   Properties config;
   config.SetBool("pes_loop", pes_loop);  // the tick-order switch (SW)
   match_ = std::make_unique<Match>(new MatchData(home, away), setup, config);  // owns the MatchData
+  // PES's FixDemo selection (foul and goal tables) on GF's arena. Without the install's tables there is no cutscene.
+  fixdemo_.reset();
+  previousGoalPick_ = 0;
+  pendingCutscene_.reset();
+  timeline_.reset();
+  tick_ = 0;
+  lastScore_[0] = lastScore_[1] = 0;
+  foulStopSeen_ = false;
+  std::map<int, pes::FixDemoTable> tables;
+  for (int category : {pes::kFixDemoFoul, pes::kFixDemoGoal}) {
+    std::string err;
+    auto bytes = library->vfs().Read(pes::FixDemoTablePath(category), &err);
+    auto table = bytes ? pes::DecodeFixDemoTable(*bytes, category, &err) : std::nullopt;
+    if (!table) {
+      UtilityFunctions::push_warning(String("GfMatch: no FixDemo table for category ") + String::num_int64(category) + ": " +
+                                     err.c_str());
+      tables.clear();
+      break;
+    }
+    tables[category] = std::move(*table);
+  }
+  if (!tables.empty() && library->rng_constants() && library->exe()) {
+    // (the goal table's scenes, edit list and rows reach the builder through the selector's arena)
+    std::string err;
+    fixdemo_ = pes::FixDemoSelector::Create(std::move(tables), *library->exe(), &err);
+    if (!fixdemo_) UtilityFunctions::push_warning(String("GfMatch: FixDemo selection unavailable: ") + err.c_str());
+  }
+  if (fixdemo_) {
+    // ponytail: PES seeds both Random1000 sets from its clock modulo 10000 (0x141B34AD0 in the ctx constructor 0x141F4C950)
+    // and the goal object's generator from its own constructor; GF derives all from the match seed.
+    fixdemo_->Seed(unsigned(seed) % 10000u, (unsigned(seed) / 10000u) % 10000u);
+    goalRng_ = std::make_unique<pes::Random>(*library->rng_constants());
+    for (int slot = 0; slot < 3; ++slot) goalRng_->SetSeed(slot, unsigned(seed) + unsigned(slot));
+  }
   RefreshPlayers();
   return OK;
 }
@@ -161,8 +211,340 @@ void GfMatch::step() {
   for (Player* p : players_) previousPlayers_.push_back(p->GetPosition());
   previousBall_ = match_->GetBall()->GetPositionBuffer();
   previousValid_ = true;
+  // PES's restart step contains the DemoInfo scene: the goal's kick-off (the teleport to the centre) comes after the scene's end,
+  // so it is held for as long as the goal's timeline runs (a foul scene does not hold: the stoppage programme times its own).
+  match_->HoldRestartForScene(timeline_ && gateIsGoal_);
   match_->Process();
   RefreshPlayers();  // substitutions change the active set
+  PollCutscenes();
+  ++tick_;
+  // PES's cutscene clock: one update per logic frame once DemoInfo exists. A finished timeline is dropped on the frame after
+  // its `ended` flag was read (cutscene_state).
+  if (timeline_ && timeline_->Done()) timeline_.reset();
+  if (timeline_) {
+    // PES's gate function, once a frame while DemoInfo state 2 waits (it latches: the run object's ready byte stays set). The
+    // first call is the frame before the timeline's first Tick (the DemoInfo creation frame): Tick n sees call n + 1, which puts
+    // the timer-decided gate of the logged g4 at Tick 215 (timer 216 - 1: pes-port-CutsceneTiming3.md section 2).
+    if (!gateOpen_ && tick_ + 1 >= timelineStartTick_) gateOpen_ = RunGate();
+    if (tick_ >= timelineStartTick_) {
+      clockPrevTicks_ = timeline_->State().clock;
+      timeline_->Tick(gateOpen_);
+      if (timeline_->State().ended && fixdemo_) fixdemo_->EndScene(timelineScene_);  // 0x141F58FC0: the rotation word advances
+    }
+  }
+}
+
+// ponytail: PES's sanction tree 0x14047F170 returns the foul scene id from the foul record (kind, fouler, period, injury and
+// excite flags: docs/re/pes-re-sanction-switch.md); it is proven (snapdiff 14/14) but not in the committed layer and GF's foul
+// state does not feed its inputs. 0x20008 (FOUL_WARN_CARD_N) is the id every ordinary foul stop of the live captures returned
+// (live2 seq090, case 0). Card, injury and penalty stops play it too until the tree is translated.
+constexpr uint32_t kOrdinaryFoulScene = 0x20008;
+// ponytail: the scorer's two edit-mode celebration slots (his player record's bytes 2 and 3, PES's squad record builder) are not
+// in GF's player data: 0 takes PES's generic pick. The assisting man (MI+0x162C) is not tracked either: PES's invalid pair.
+// ponytail: the scorer's move word man+0x5B0 (PES's per-frame man update), which picks velocity or facing for the anchor's
+// rotation: GF has no such word; 0 is what two captured goals held (the velocity's heading). The anchor's run target and
+// radius are no longer stand-ins: the translated 0x140476C50 and 0x140474CF0 compute them from the facts below.
+constexpr uint32_t kScorerMoveMode = 0;
+
+void GfMatch::set_cutscene_environment(int stadium, int time_of_day, int weather) {
+  cutsceneEnvironment_.stadium = uint32_t(stadium);
+  cutsceneEnvironment_.timeOfDay = uint32_t(time_of_day);
+  cutsceneEnvironment_.weather = uint32_t(weather);
+}
+
+void GfMatch::PollCutscenes() {
+  if (!fixdemo_ || !goalRng_) return;
+  pes::FixDemoFacts facts = cutsceneEnvironment_;
+  switch (match_->GetMatchPhase()) {  // 0x141F51630's switch on the period, as GF's phases
+    case e_MatchPhase_2ndHalf: facts.matchPhase = 1; break;
+    case e_MatchPhase_1stExtraTime: facts.matchPhase = 2; break;
+    case e_MatchPhase_2ndExtraTime: facts.matchPhase = 3; break;
+    case e_MatchPhase_Penalties: facts.matchPhase = 4; break;
+    default: facts.matchPhase = 0; break;
+  }
+  facts.playersHome = facts.playersAway = 0;
+  for (int t : teamOf_) ++(t == 0 ? facts.playersHome : facts.playersAway);
+  facts.goalDiff = match_->GetScore(0) - match_->GetScore(1);
+  const int scores[2] = {match_->GetScore(0), match_->GetScore(1)};
+  const bool scored = scores[0] + scores[1] > lastScore_[0] + lastScore_[1];
+  const int scorer = scores[0] > lastScore_[0] ? 0 : 1;
+  lastScore_[0] = scores[0];
+  lastScore_[1] = scores[1];
+  const RefereeBuffer& stop = match_->GetRefereeBuffer();
+  const bool foul = stop.active && (stop.desiredSetPiece == e_SetPiece_FreeKick || stop.desiredSetPiece == e_SetPiece_Penalty) &&
+                    (!foulStopSeen_ || stop.stopTime != lastFoulStop_ms_);
+  if (timeline_) return;  // one scene at a time: PES's DemoInfo is a singleton (a stop during a scene is not asked)
+  if (scored) {
+    // The goal scene: PES's builder 0x140477BC0 (the pick and the list around it) on the arena, then the variant of each scene's cuts.
+    const Vector3 ball = ToFox(match_->GetBall()->Predict(0));
+    facts.subjectSide = uint32_t(scorer);
+    facts.eventX = ball.x;
+    facts.eventY = ball.y;
+    facts.eventZ = ball.z;
+    fixdemo_->BeginEvent(facts);
+    gateScorer_ = match_->GetLastGoalScorer();
+    gateIsGoal_ = true;
+    pendingAnchor_ = PlaceGoalScene(ball);
+    // The gate runs on the run object the anchor's PlaceGoal built: a goal whose scorer is not in the active set (no anchor, no
+    // run object) plays no scene.
+    pendingCutscene_.reset();
+    if (pendingAnchor_) {
+      previousGoalPick_ = pendingAnchor_->sceneId;
+      // One DemoInfo list: each scene is its own steps, played in order (the 07:00 goal: 0x3006C, 0x30136, 0x3011C).
+      pes::FixDemoRequest list;
+      list.sceneId = pendingAnchor_->sceneId;
+      for (const uint32_t id : pendingAnchor_->scenes)
+        if (const auto one = fixdemo_->Request(id)) list.steps.insert(list.steps.end(), one->steps.begin(), one->steps.end());
+      if (!list.steps.empty()) pendingCutscene_ = std::move(list);
+    }
+    // The scorer runs to PES's celebration spot (T = A0+0x30; PES x, up, z are GF's x, -y, up).
+    if (pendingAnchor_) match_->SetGoalCelebrationSpot(blunted::Vector3(pendingAnchor_->target[0], -pendingAnchor_->target[2], 0));
+    if (pendingCutscene_) StartTimeline(*pendingCutscene_);
+  } else if (foul) {
+    foulStopSeen_ = true;
+    lastFoulStop_ms_ = stop.stopTime;
+    const Vector3 at = ToFox(stop.restartPos);
+    facts.eventX = at.x;
+    facts.eventY = at.y;
+    facts.eventZ = at.z;
+    fixdemo_->BeginEvent(facts);
+    pendingCutscene_ = fixdemo_->Request(kOrdinaryFoulScene);
+    pendingAnchor_.reset();
+    // ponytail: an offside stop reaches here with no fouler (PES's offside DemoInfo is not a foul object); slot 0 stands in for
+    // both men until the offside scene's own gate is decoded.
+    gateFouler_ = match_->GetReferee()->GetCurrentFoulPlayer();
+    gateVictim_ = match_->GetReferee()->GetCurrentFoulVictim();
+    gateIsGoal_ = false;
+    if (pendingCutscene_) {
+      pes::FoulGateStart start;
+      start.sceneId = kOrdinaryFoulScene;
+      start.foulerSlot = uint32_t(std::max(PesSlot(gateFouler_), 0));
+      start.victimSlot = uint32_t(std::max(PesSlot(gateVictim_), 0));
+      start.fps = pes::offball::kPesFps;
+      fixdemo_->BeginFoulGate(start);
+      StartTimeline(*pendingCutscene_);
+    }
+  }
+}
+
+// The goal scene's anchor (the scorer's celebration spot PES places the cut's player at: writer 0x14047D280 over the calc
+// 0x140474F00) from GF's goal: the scorer's pose, the side and squad index, the pitch and PES's tick rate. The scorer is
+// the last touch of the scoring team (Match::GetLastGoalScorer), as the goal celebration finds him.
+std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(const Vector3& event) {
+  Player* scorer = match_->GetLastGoalScorer();
+  const int slot = PesSlot(scorer);
+  if (!scorer || slot < 0) return std::nullopt;
+  const int side = slot / pes::designation::kSideSlots;
+  const Vector3 pos = ToFox(scorer->GetPosition());
+  const Vector3 vel = ToFox(scorer->GetMovement()) / TICK_S / pes::offball::kPesFps;  // metres per PES frame
+  const Vector3 dir = ToFox(scorer->GetBodyDirectionVec());
+  pes::GoalAnchorFacts f;
+  f.scorerSlot = uint32_t(slot);
+  f.pos = {pos.x, pos.y, pos.z};
+  f.vel = {vel.x, vel.y, vel.z};
+  f.facing = float(Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0));  // PES's bearing: atan2(dx, dz)
+  f.moveMode = kScorerMoveMode;
+  // PES's FieldInfo F0..F17 is GF's one pitch table (gametypes.hpp).
+  f.field = {pesFieldHalfLength, pesFieldHalfWidth,  pesGoalInnerHalfWidth, pesGoalInnerHeight,    pesGoalAreaLineX,
+             pesGoalAreaHalfWidth, pesPenaltyAreaLineX, pesPenaltyAreaHalfWidth, pesPenaltySpotX,  pesNetHeight,
+             pesFieldF10,        pesFieldF11,        pesFieldF12,          pesNetRoofBackX,        pesNetFloorBackX,
+             pesCrossbarThickness, pesPostThickness, pesCircleRadius};
+  f.fps = pes::offball::kPesFps;
+  // The scoring side attacked the goal the ball is in: its bearing points along +x (90) or -x (270); the other side's is the
+  // opposite (the second half swaps them).
+  f.attackDeg[side] = event.x > 0 ? 90.0f : 270.0f;
+  f.attackDeg[1 - side] = event.x > 0 ? 270.0f : 90.0f;
+  // The builder's inputs: the period, the match clock (seconds), the previous goal's pick, the score with this goal, the men.
+  pes::GoalAnchorFacts::SceneBuild build;
+  switch (match_->GetMatchPhase()) {
+    case e_MatchPhase_2ndHalf: build.period = 2; break;
+    case e_MatchPhase_1stExtraTime: build.period = 3; break;
+    case e_MatchPhase_2ndExtraTime: build.period = 4; break;
+    case e_MatchPhase_Penalties: build.period = 9; break;  // INF: the pick's only test is `period != 9` (0x140475AF5)
+    default: build.period = 1; break;
+  }
+  build.clock_s = float(match_->GetMatchTime_ms()) / 1000.0f;
+  build.previousPick = previousGoalPick_;
+  build.score = {uint32_t(match_->GetScore(0)), uint32_t(match_->GetScore(1))};
+  for (size_t i = 0; i < players_.size() && i < build.men.size(); ++i) {
+    const int s = PesSlot(players_[i]);
+    if (s < 0 || s >= int(build.men.size())) continue;
+    const Vector3 at = ToFox(players_[i]->GetPosition());
+    build.men[size_t(s)] = {at.x, at.y, at.z};
+  }
+  f.build = build;
+  // ponytail: PES seeds the DemoInfo generator (A0+0x108) from its clock where the DemoInfo is built (0x14047DF00); GF draws the
+  // state from the goal generator, which moves on at each goal.
+  goalRng_->Range0(2);
+  f.rngState = goalRng_->State(pes::kRange0Slot);
+  return fixdemo_->PlaceGoal(f);
+}
+
+int GfMatch::PesSlot(Player* p) const {
+  const auto at = std::find(players_.begin(), players_.end(), p);
+  if (!p || at == players_.end()) return -1;
+  const size_t index = size_t(at - players_.begin());
+  const int side = teamOf_[index];
+  int place = 0;  // his index among his side's players
+  for (size_t k = 0; k < index; ++k) place += teamOf_[k] == side;
+  return side * pes::designation::kSideSlots + place;
+}
+
+// ponytail: the anime record's +0x54 (what the goal gate's tail compares with 13.5, [0x1425A1FFC]) is written by PES's per-tick
+// movement writer, which is not decoded. Measured on 3549 man-frames of a live goal (live_f.jsonl): it follows the man's ground
+// speed at about 3.5-3.9 times its value in m/s (a km/h-like unit), so GF feeds 3.6 x speed; removed with the writer.
+constexpr float kAnimeSpeedPerMps = 3.6f;
+// ponytail: the fouled man's anime record +8 bit 10 (read by the foul gate's else arm) has no writer decoded; false until the
+// live `Fo.R8` rows (live_timeline_poll.py) say which state sets it.
+
+bool GfMatch::RunGate() {
+  if (!fixdemo_) return false;
+  const auto at = [](auto* p) {
+    const Vector3 v = ToFox(p->GetPosition());
+    return std::array<float, 3>{v.x, v.y, v.z};
+  };
+  if (gateIsGoal_) {
+    if (!gateScorer_) return false;
+    pes::GoalGateFacts g;
+    g.pos = at(gateScorer_);
+    const Vector3 dir = ToFox(gateScorer_->GetBodyDirectionVec());
+    g.facing = float(Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0));  // PES's bearing: atan2(dx, dz)
+    g.animeClass = uint8_t(AnimeClassOf(gateScorer_));
+    // Ground speed from the last tick's displacement (the pose taken before the step): Player::GetMovement() is not a world velocity
+    // (measured 160..1141 on a man walking at 2 m/s).
+    const size_t index = size_t(std::find(players_.begin(), players_.end(), gateScorer_) - players_.begin());
+    const Vector3 stepped = index < previousPlayers_.size() ? ToFox(gateScorer_->GetPosition()) - ToFox(previousPlayers_[index]) : Vector3();
+    const Vector3 v = stepped / TICK_S;  // m/s, Y up: the ground speed is x and z
+    g.animeSpeed = kAnimeSpeedPerMps * float(Math::sqrt(double(v.x) * v.x + double(v.z) * v.z));
+    return fixdemo_->GoalGateReady(g);
+  }
+  pes::FoulGateFacts f;
+  if (gateFouler_) f.foulerPos = at(gateFouler_);
+  if (gateVictim_) f.victimPos = at(gateVictim_);
+  if (PlayerOfficial* ref = match_->GetOfficials()->GetReferee()) f.refereePos = at(ref);
+  return fixdemo_->FoulGateReady(f);
+}
+
+Dictionary GfMatch::take_cutscene() {
+  Dictionary out;
+  if (!pendingCutscene_) return out;
+  Array steps;
+  for (const pes::FixDemoStepRequest& step : pendingCutscene_->steps) {
+    Dictionary d;
+    d["cut"] = int(step.cutId);
+    d["row"] = int(step.row);
+    PackedStringArray fdc;
+    for (const std::string& name : step.fdc) fdc.push_back(String(name.c_str()));
+    d["fdc"] = fdc;
+    steps.push_back(d);
+  }
+  out["scene"] = int(pendingCutscene_->sceneId);
+  out["category"] = int(pendingCutscene_->sceneId >> 16);
+  out["steps"] = steps;
+  if (pendingAnchor_) {
+    Dictionary anchor;
+    anchor["pos"] = Vector3(pendingAnchor_->pos[0], pendingAnchor_->pos[1], pendingAnchor_->pos[2]);
+    anchor["rot_y"] = double(pendingAnchor_->rotYDeg);
+    anchor["flip"] = pendingAnchor_->flip;
+    out["anchor"] = anchor;
+  }
+  pendingCutscene_.reset();
+  pendingAnchor_.reset();
+  return out;
+}
+
+// ponytail: the frames between PES's goal pick and the DemoInfo that runs the scene: four logged goals show the DemoInfo
+// (and its manager) alive two frames after the pick frame (the first poll row with a scene id). The creating call (the
+// DemoInfo builder 0x14047DF00 behind the pick's caller) is not decoded, so the lag is the measured one; removed with it.
+constexpr uint32_t kPickToDemoInfoTicks = 2;
+
+// The scene's timeline from its request: every step's player makes its length, start and speed from the first Cut record of
+// the variant's layers (cut start 0x141F2DD80, pes::fdc::StepFromCut); the DemoInfo's state machine and the manager step
+// them (pes::CutsceneTimeline).
+void GfMatch::StartTimeline(const pes::FixDemoRequest& request) {
+  const pes::fdc::PoseConstants* k = library_.is_valid() ? library_->cutscene_camera_constants() : nullptr;
+  if (!k) return;
+  const int category = int(request.sceneId >> 16);
+  std::vector<pes::TimelineStep> steps;
+  for (const pes::FixDemoStepRequest& step : request.steps) {
+    pes::fdc::File cuts;  // the player's cut map: the Cut records of every layer
+    for (const std::string& name : step.fdc) {
+      const std::string path = pes::FixDemoCutDataPath(category, name);
+      std::string err;
+      auto bytes = path.empty() ? std::nullopt : library_->vfs().Read(path, &err);
+      pes::fdc::File layer;
+      if (bytes && pes::fdc::Parse(*bytes, &layer, &err)) cuts.cuts.insert(cuts.cuts.end(), layer.cuts.begin(), layer.cuts.end());
+    }
+    // ponytail: PES's player of a step whose layers hold no Cut record keeps length -1 and never finishes; the manager's
+    // 3600-frame wait (0x141F59380 case 6, [0x142598590]) ends the scene. GF gives such a step the shortest length (1 tick)
+    // so the list still runs out; no installed variant is without a Cut record.
+    // ponytail: the raw length draw 0x141F7A150(scene+0x128, 100) of a Cut with min < max is not exposed by FixDemoSelector
+    // (its Random1000 is the arena's); 0 gives the minimum. Every Cut of the goal scenes captured so far has min == max.
+    const pes::fdc::CutRecord* first = pes::fdc::FirstCut(cuts);
+    steps.push_back(first ? pes::fdc::StepFromCut(*first, 0, *k) : pes::TimelineStep{1.0f, 0.0f, 1.0f});
+  }
+  if (steps.empty()) {  // a request with no step at all plays nothing
+    fixdemo_->EndScene(request.sceneId);
+    pendingCutscene_.reset();
+    pendingAnchor_.reset();
+    return;
+  }
+  pes::TimelineConfig config;
+  config.sixty = k->sixty;
+  config.fps = pes::offball::kPesFps;
+  gateOpen_ = false;
+  timeline_.emplace(config, std::move(steps));
+  timelineScene_ = request.sceneId;
+  timelineSixty_ = k->sixty;
+  clockPrevTicks_ = 0;
+  // The pick step has run this far: DemoInfo exists kPickToDemoInfoTicks frames after it, the timeline's first Tick the next.
+  timelineStartTick_ = tick_ + 1 + kPickToDemoInfoTicks + 1;
+}
+
+// The goal scene's actors: the men PES's FixDemo player mirrors into CAMERA_TARGET_02nn (registry slot = fdc Human slot + 1,
+// pes-port-ProcCamera8.md section 1; the cameras' target bytes name the fdc slot). One entry per slot GF can name from its state
+// (pes/goal_cast.hpp, checked against the captured cast lists): the scorer (slot 0), the conceding keeper (21: the other side's
+// roster slot 0) and the chief referee (22). [{slot, index: into the match's players (the Godot player nodes' order; -1 for the
+// referee, who has no node), ground: his position on the pitch (Fox axes, y = 0), facing_deg: PES's bearing atan2(dx, dz)}].
+// Empty when no goal scene is in force.
+// ponytail: the team-mates (fdc 1..6, 9..11) and the opponents (12..18) are drawn by an undecoded permutation of the cast
+// (ProcCamera8 OPEN 1) and stay unset (valid 0); the assistant (23) has no capture naming his GF official. The writer
+// (0x141F2EBB0) is decoded; these two stand-ins go when the permutation's draw is.
+Array GfMatch::cutscene_actor() const {
+  Array out;
+  if (!timeline_ || !gateIsGoal_ || !gateScorer_) return out;
+  const auto scorer = std::find(players_.begin(), players_.end(), gateScorer_);
+  if (scorer == players_.end()) return out;
+  const auto add = [&out](unsigned slot, int index, const PlayerBase* man) {
+    const Vector3 pos = ToFox(man->GetPosition());
+    const Vector3 dir = ToFox(man->GetBodyDirectionVec());
+    Dictionary d;
+    d["slot"] = int(slot);
+    d["index"] = index;
+    d["ground"] = Vector3(pos.x, 0, pos.z);
+    d["facing_deg"] = Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0);
+    out.push_back(d);
+  };
+  const size_t scorerIndex = size_t(scorer - players_.begin());
+  add(pes::kCastScorer, int(scorerIndex), gateScorer_);
+  // Roster slot 0 of the conceding side: the side's first man in the players' order (PesSlot's place).
+  const auto keeper = std::find(teamOf_.begin(), teamOf_.end(), int(pes::ConcedingSide(unsigned(teamOf_[scorerIndex]))));
+  if (keeper != teamOf_.end()) add(pes::kCastConcedingKeeper, int(keeper - teamOf_.begin()), players_[size_t(keeper - teamOf_.begin())]);
+  if (const PlayerOfficial* referee = match_->GetOfficials()->GetReferee()) add(pes::kCastReferee, -1, referee);
+  return out;
+}
+
+Dictionary GfMatch::cutscene_state() const {
+  Dictionary out;
+  if (!timeline_) return out;
+  const pes::TimelineState& s = timeline_->State();
+  out["scene"] = int(timelineScene_);
+  out["step"] = s.stepPhase >= 5 ? s.step : -1;
+  out["step_started"] = s.stepStarted;
+  out["clock_prev_s"] = double(clockPrevTicks_ / timelineSixty_);
+  out["clock_s"] = double(s.clock / timelineSixty_);
+  out["ended"] = s.ended;
+  return out;
 }
 
 bool GfMatch::is_over() const { return !match_ || match_->IsGameOver(); }

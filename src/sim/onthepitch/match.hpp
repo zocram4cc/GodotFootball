@@ -101,6 +101,14 @@ public:
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
   Player* GetLastGoalScorer() const { return lastGoalScorer; }
+  // Where PES's goal scene wants the scorer: the celebration spot T of 0x140476C50 (A0+0x30), in GF coordinates. Set by the
+  // layer that runs PES's goal builder (GfMatch); the scorer runs to it and the goal gate (0x140472640) opens on arrival.
+  // Cleared with the goal state.
+  void SetGoalCelebrationSpot(const Vector3& spot) { goalCelebrationSpot = spot; goalCelebrationSpotSet = true; }
+  bool GetGoalCelebrationSpot(Vector3* spot) const {
+    if (goalCelebrationSpotSet) *spot = goalCelebrationSpot;
+    return goalCelebrationSpotSet;
+  }
   // PES's last ball event (a3e190(ctx+0xe0, 0)) as far as the run stop test
   // reads it: the newest pass, its kind (1 ground, 2 through, 3 lofted), the
   // kick point, its intended receiver and when it was kicked.
@@ -129,6 +137,10 @@ public:
   Referee* GetReferee() { return referee.get(); }
   Officials* GetOfficials() { return officials.get(); }
   const RefereeBuffer& GetRefereeBuffer() { return referee->GetBuffer(); };
+  // A goal scene is running (the host's FixDemo timeline, GfMatch): the goal's kick-off waits for its end, as PES's restart step
+  // waits for DemoInfo. The host sets it every tick; the referee pushes the restart's prepare (and with it the take) past now.
+  void HoldRestartForScene(bool held) { restartHeldForScene = held; }
+  bool RestartHeldForScene() const { return restartHeldForScene; }
 
   // Whether the ball is in the net is where the ball is, not whether anyone is
   // still calling it a goal: the netting in Ball::Process is gated on it. Only a
@@ -287,6 +299,10 @@ public:
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md): its constants,
   // read from the install's exe, required like the clock's and the ball's.
   const pes::StaminaConstants& GetPesStaminaConstants() const { return *pesStaminaConstants; }
+  // PES's Trap action chain (pestrapdata.hpp): the actor constants P is made from, and the match's own copy of the image slice and
+  // loader data the chain runs on, built once at construction.
+  const pes::PesActorConstants& GetPesActorConstants() const { return pesActorConstants; }
+  pes::PesTrapExternals& PesTrapExternalsOf() { return pesTrapMemory->Externals(); }
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
   // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
   // takes the named fallback.
@@ -294,6 +310,15 @@ public:
   bool LeftFootedOf(const PlayerData* data) const;
   int FormOf(const PlayerData* data) const;
   uint8_t ConditionByteOf(const PlayerData* data) const;
+  // The whole Player.bin record's traits (the ability bases the slot records start from), nullopt for a player with no PES id or
+  // no record: the caller names its stand-in.
+  std::optional<pes::PlayerTraits> PesTraitsOf(const PlayerData* data) const;
+  // The style word PES's playing-style gate reads (pesstyle.hpp): a player the EDIT save holds carries his row's +0x48 word
+  // (PlayerTraits::row, DecodeEditRow); every other player's is his GF style's engine bit.
+  // ponytail: the second is GF's own style standing in for a row GF cannot build; goes with the Player.bin row loader.
+  uint32_t StyleWordOf(const PlayerData* data) const;
+  // A direct bit test of the style word, as PES's keeper, Destroyer and cross sites read it (`word >> bit & 1`, no compat row).
+  bool StyleHas(const PlayerData* data, PlayingStyles::Player style) const;
   // The named stand-ins for a player with no PES record of his own: the middle injury tier, the right foot, raw
   // Form 3 and the 0x46 condition default. The synthetic squads deal Normal from the default, as PES's unedited
   // records do (condition-import 1).
@@ -627,6 +652,8 @@ protected:
   bool ballIsInGoal = false;
   int lastGoalTeamID = 0;
   Player* lastGoalScorer = nullptr;
+  Vector3 goalCelebrationSpot;
+  bool goalCelebrationSpotSet = false;
   int pendingPenaltyTeamID = -1;
   Player* pendingPenaltyTaker = nullptr;
   unsigned long pendingPenaltyDeadline_ms = 0;
@@ -723,6 +750,8 @@ protected:
   pes::marktable::Constants pesMarkTableConstants{};
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
+  pes::PesActorConstants pesActorConstants{};
+  std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
   std::optional<pes::formation::FormationTables> pesFormations;
   std::optional<pes::formation::SheetConstants> pesSheetConstants;
@@ -732,6 +761,7 @@ protected:
   float matchDifficulty;
   // The tick-order switch (config pes_loop, SW), read once in the constructor.
   bool pesLoop = false;
+  bool restartHeldForScene = false;  // HoldRestartForScene
   std::vector<TickStage> tickStages;
 
   uint64_t determinismHash;

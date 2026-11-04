@@ -834,6 +834,67 @@ TEST(PesFdcCutOffset, RotYOutsideZeroToThreeSixtyTurnsTheShotLikeItsWrappedAngle
 }
 
 // ---------------------------------------------------------------------------------------------------
+// The player's cut offset at cut start (0x141F2DD80 at 0x141F2E11C..0x141F2E1B0): the player takes the
+// stage default (+0xAC0..+0xAD0), and the first cut of its map (the smallest id >= 0: a lower_bound on key 0)
+// replaces it when that Cut's offset flag (record +0x19) is set, with offsetPos (+0x1C), offsetRotY (+0x28)
+// and offsetFlipX (+0x2C).
+
+namespace {
+
+std::vector<uint8_t> CutBytes(uint32_t id, uint8_t offsetFlag, std::array<float, 3> pos, float rotY, uint8_t flip) {
+  std::vector<uint8_t> r(64, 0);
+  PutU32At(r, 0x00, id);
+  r[0x19] = offsetFlag;
+  PutF32At(r, 0x1c, pos[0]);
+  PutF32At(r, 0x20, pos[1]);
+  PutF32At(r, 0x24, pos[2]);
+  PutF32At(r, 0x28, rotY);
+  r[0x2c] = flip;
+  return r;
+}
+
+pes::fdc::CutOffset StartOffsetOf(const std::vector<Rec>& recs, const pes::fdc::CutOffset& stageDefault) {
+  File f;
+  std::string err;
+  EXPECT_TRUE(pes::fdc::Parse(MakeFile("cpk_dat/x.fdc", recs, {}), &f, &err)) << err;
+  return pes::fdc::CutStartOffset(f, stageDefault);
+}
+
+}  // namespace
+
+TEST(PesFdcCutStart, ACutWithTheOffsetFlagReplacesTheStageDefaultWithItsFields) {
+  pes::fdc::CutOffset def;
+  def.pos = {7, 8, 9};
+  def.rotYDeg = 33;
+  const auto got = StartOffsetOf({{0, CutBytes(0, 1, {1.5f, 0.25f, -3.0f}, 90.0f, 1)}}, def);
+  EXPECT_EQ(got.pos, (std::array<float, 3>{1.5f, 0.25f, -3.0f}));
+  EXPECT_EQ(got.rotYDeg, 90.0f);
+  EXPECT_TRUE(got.flip);
+}
+
+TEST(PesFdcCutStart, ACutWithoutTheOffsetFlagKeepsTheStageDefaultWholeEvenWithFieldsSet) {
+  pes::fdc::CutOffset def;
+  def.pos = {7, 8, 9};
+  def.rotYDeg = 33;
+  def.flip = true;
+  const auto got = StartOffsetOf({{0, CutBytes(0, 0, {1.5f, 0.25f, -3.0f}, 90.0f, 0)}}, def);
+  EXPECT_EQ(got.pos, def.pos);
+  EXPECT_EQ(got.rotYDeg, 33.0f);
+  EXPECT_TRUE(got.flip);
+}
+
+TEST(PesFdcCutStart, TheCutOfTheSmallestIdIsTheOneThatStartsNotTheFirstInTheFile) {
+  const auto got = StartOffsetOf({{0, CutBytes(5, 1, {50, 0, 0}, 0, 0)}, {0, CutBytes(2, 1, {20, 0, 0}, 0, 0)}}, {});
+  EXPECT_EQ(got.pos[0], 20.0f);
+}
+
+TEST(PesFdcCutStart, AFileWithNoCutLeavesTheStageDefault) {
+  pes::fdc::CutOffset def;
+  def.pos = {1, 2, 3};
+  EXPECT_EQ(StartOffsetOf({{6, CameraBytes(0, 0, "", 1, 2)}}, def).pos, def.pos);
+}
+
+// ---------------------------------------------------------------------------------------------------
 // The live camera of the entrance (rendezvous capture 008 of the cut_offset hook 0x141F39CC0, taken the
 // frame ent_001_order_st000_cam0001 replaced ent_001_view_st000_cam0000 at clock 180 ticks). At the call
 // the FixDemo player's camera holds cam0000 evaluated at the capture clock c (SetTime has run, Update has

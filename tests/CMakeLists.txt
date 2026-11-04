@@ -19,6 +19,10 @@ add_executable(pes_formats_test pes_formats_test.cpp)
 target_link_libraries(pes_formats_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_formats_test)
 
+add_executable(pes_vfs_order_test pes_vfs_order_test.cpp)
+target_link_libraries(pes_vfs_order_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_vfs_order_test)
+
 add_executable(pes_animetable_test pes_animetable_test.cpp)
 target_link_libraries(pes_animetable_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_animetable_test)
@@ -59,6 +63,18 @@ add_executable(pes_kick_chooser_oracle_test pes_kick_chooser_oracle_test.cpp)
 target_link_libraries(pes_kick_chooser_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_kick_chooser_oracle_test)
 
+add_executable(pes_trap_data_test pes_trap_data_test.cpp)
+target_link_libraries(pes_trap_data_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_trap_data_test)
+
+add_executable(pes_physique_test pes_physique_test.cpp)
+target_link_libraries(pes_physique_test PRIVATE pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_physique_test)
+
+add_executable(pes_stamina_cells_test pes_stamina_cells_test.cpp)
+target_link_libraries(pes_stamina_cells_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_stamina_cells_test)
+
 add_executable(pes_danger_oracle_test pes_danger_oracle_test.cpp)
 target_link_libraries(pes_danger_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_danger_oracle_test)
@@ -66,6 +82,10 @@ gtest_discover_tests(pes_danger_oracle_test)
 add_executable(pes_walk_oracle_test pes_walk_oracle_test.cpp)
 target_link_libraries(pes_walk_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_walk_oracle_test)
+
+add_executable(pes_dribble_oracle_test pes_dribble_oracle_test.cpp)
+target_link_libraries(pes_dribble_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_dribble_oracle_test)
 
 # Godot-side checks run the real extension headless; 77 = skipped (no PES21_ROOT).
 add_test(NAME godot_character_test
@@ -172,6 +192,24 @@ add_executable(pes_fixdemo_table_test pes_fixdemo_table_test.cpp)
 target_link_libraries(pes_fixdemo_table_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fixdemo_table_test)
 
+add_executable(pes_fixdemo_select_test pes_fixdemo_select_test.cpp)
+target_link_libraries(pes_fixdemo_select_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_fixdemo_select_test)
+
+# The timeline is pure: the test compiles it directly instead of linking pesfmt (and the whole translated layer).
+add_executable(pes_cutscene_timeline_test pes_cutscene_timeline_test.cpp ${CMAKE_SOURCE_DIR}/src/pes/cutscene_timeline.cpp)
+target_include_directories(pes_cutscene_timeline_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(pes_cutscene_timeline_test PRIVATE GTest::gtest_main)
+gtest_discover_tests(pes_cutscene_timeline_test)
+
+add_executable(pes_goal_anchor_test pes_goal_anchor_test.cpp)
+target_link_libraries(pes_goal_anchor_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_goal_anchor_test)
+
+add_executable(pes_proc_camera_test pes_proc_camera_test.cpp)
+target_link_libraries(pes_proc_camera_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_proc_camera_test)
+
 add_executable(pes_fox2_test pes_fox2_test.cpp)
 target_link_libraries(pes_fox2_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fox2_test)
@@ -197,15 +235,18 @@ add_test(NAME godot_effects_test
 set_tests_properties(godot_effects_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
 # The compose pass needs a GPU: gamescope, as tools/capture_viewer.sh does. gamescope exits 0 whatever
-# the child does, so the verdict is the script's own summary line.
+# the child does, so the verdict is the script's own summary line. Every GPU test holds one machine-wide lock
+# (gf-gpu.lock beside the worktrees, like gf-sim.lock): several gates rendering at once beside the live PES rig hung
+# the amdgpu driver and rebooted the machine (03-11-26). The timeout covers the wait for the lock.
+set(GF_GPU_LOCK ${CMAKE_SOURCE_DIR}/../gf-gpu.lock)
 add_test(NAME godot_post_compose_test
-  COMMAND gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_compose.gd)
-set_tests_properties(godot_post_compose_test PROPERTIES PASS_REGULAR_EXPRESSION "post compose: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 180)
+  COMMAND flock ${GF_GPU_LOCK} gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_compose.gd)
+set_tests_properties(godot_post_compose_test PROPERTIES PASS_REGULAR_EXPRESSION "post compose: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 900)
 
 # The meter passes need a GPU for the same reason: the verdict is the script's summary line.
 add_test(NAME godot_post_meter_test
-  COMMAND gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_meter.gd)
-set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 180)
+  COMMAND flock ${GF_GPU_LOCK} gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_meter.gd)
+set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 900)
 
 add_executable(pes_events_test pes_events_test.cpp)
 target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
@@ -253,8 +294,48 @@ add_test(NAME translate_setcc_store_test
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_setcc_store.py'")
 set_tests_properties(translate_setcc_store_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
+# A switch's own byte map and dword table are baked (the GF runtime maps no image, so a live read is 0): synthetic image,
+# translated, compiled and run with no image view. Needs g++. Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_switch_tables_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_tables.py'")
+set_tests_properties(translate_switch_tables_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# The lint behind gen_translated: every live read of a read-only image address is found (reaching definitions) and every
+# declared or constant one is baked. Synthetic image, compiled and run with no image view. Needs g++. Skips (77) without
+# GF_DIFF_PYTHON.
+add_test(NAME translate_image_reads_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_image_reads.py'")
+set_tests_properties(translate_image_reads_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# The snapshot replay harness's return-address model (snapcase.py): a non-RET read of a return-address slot is 0 as the
+# translation pushed it, RET gets the real address, an overwritten slot is data again, a page-end CALL decodes. Skips (77)
+# without GF_DIFF_PYTHON (needs unicorn).
+add_test(NAME translate_snapcase_slots_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/test_snapcase_slots.py'")
+set_tests_properties(translate_snapcase_slots_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
 # Fast-gate selector: a mutated closure callee selects its recorded caller, an unrelated change selects nothing.
 # Plain python3 (no harness Python), so it always runs.
 add_test(NAME translate_select_recorded_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_select_recorded.py)
 set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
+
+# capz.py (capture pack/unpack): a full capture round-trips byte-identical, a sparse slim one is never packed and unpacks
+# sparse. Plain python3 + zstd.
+add_test(NAME capz_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/rendezvous/test_capz.py)
+set_tests_properties(capz_test PROPERTIES TIMEOUT 120)
+
+# rv_watch.sweep_done: finished rendezvous calls (done_<seq>) lose their run files; parked ones keep them. Plain python3.
+add_test(NAME rv_sweep_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/rendezvous/test_rv_sweep.py)
+set_tests_properties(rv_sweep_test PROPERTIES TIMEOUT 60)
+
+# Adding one translated function must not recompile the layer: no pes_fn TU includes translated.hpp or the dispatch
+# table, and one added member changes only its TU, translated.hpp and pes_dispatch_gen.cpp. Plain python3.
+add_test(NAME translate_layer_headers_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_layer_headers.py)
+set_tests_properties(translate_layer_headers_test PROPERTIES TIMEOUT 300)

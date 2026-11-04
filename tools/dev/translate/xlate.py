@@ -24,7 +24,6 @@ import re
 import struct
 import sys
 import flow
-from stubs import LIBM1
 
 BASE = 0x140000000
 
@@ -124,7 +123,9 @@ class Image:
         Reads the section table from the image itself (no bridge). The
         unpacked dump keeps the packed layout's section table, so VAs
         map the same way. Unknown VA -> writable (safe: live memory
-        read, never a stale baked constant).
+        read, never a stale baked constant). `.impdata` (rwx, the protector's section) is constant outside the
+        measured IMPDATA_VOLATILE_RVA pages (full_snapshot.py): its xor-masked constants (`mov eax,[w]; xor eax,K`) are
+        the image's words in every capture, so they bake like read-only data; a volatile page stays a live read.
         """
         if self._secs is None:
             self._secs = []
@@ -148,13 +149,14 @@ class Image:
                     flags = int.from_bytes(raw[36:40], "little")
                     size = max(vsize, rsize)
                     if size and rsize:
-                        self._secs.append((base + rva, size,
-                                           bool(flags & 0x80000000)))
+                        self._secs.append((base + rva, size, bool(flags & 0x80000000),
+                                           raw[:8].rstrip(b"\0") == b".impdata"))
             except OSError:
                 pass
-        for sva, ssize, wr in self._secs:
+        from full_snapshot import IMPDATA_VOLATILE_RVA
+        for sva, ssize, wr, imp in self._secs:
             if sva <= va < sva + ssize:
-                return wr
+                return wr and not (imp and (va - BASE) & ~0xFFF not in IMPDATA_VOLATILE_RVA)
         return True
 
 
@@ -259,24 +261,127 @@ def bounded_index(em, p, ia):
     return count
 
 
-def lea_const(em, breg, ia):
-    """The absolute VA register parent breg holds from a straight-line
-    LEA breg, [abs] before access ia; None where that is not known."""
-    lines = em.lines
-    k = ia - 1
-    while k >= 0:
-        a, m, ops = lines[k]
-        if ops and PARENT.get(ops[0].strip().lower()) == breg:
-            if m == "LEA" and len(ops) == 2 and "[" in ops[1]:
-                mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
-                if mp and mp["absolute"] is not None and mp["base"] is None \
-                        and mp["index"] is None:
-                    return mp["absolute"]
-            return None
-        if a in em.labels:
-            return None  # a join point between the LEA and the access
-        k -= 1
+# Instructions that write registers their operand list does not name; a CALL clobbers the caller-saved set.
+IMPLICIT_WRITERS = {"MUL", "DIV", "IDIV", "CDQ", "CQO", "CWD", "CDQE", "CBW", "CWDE", "CPUID", "RDTSC", "LEAVE", "MOVSB",
+                    "MOVSW", "MOVSD", "MOVSQ", "STOSB", "STOSW", "STOSD", "STOSQ", "LODSB", "LODSW", "LODSD", "LODSQ",
+                    "SCASB", "CMPSB", "SYSCALL"}
+NO_REG_WRITE = {"CMP", "TEST", "PUSH", "UCOMISS", "COMISS", "UCOMISD", "COMISD", "BT", "NOP", "RET"}
+CALLER_SAVED = ("rax", "rcx", "rdx", "r8", "r9", "r10", "r11")
+
+
+def written(m, ops):
+    """The register parents instruction (m, ops) may write."""
+    if m == "CALL":
+        return CALLER_SAVED
+    if m in IMPLICIT_WRITERS or (m == "IMUL" and len(ops) == 1):
+        return ("rax", "rcx", "rdx", "rsi", "rdi")
+    if not ops or m in NO_REG_WRITE or m.startswith("J"):
+        return ()
+    dests = [ops[0]] + (ops[1:2] if m in ("XCHG", "XADD") else [])
+    return tuple(r for r in (PARENT.get(o.strip().lower()) for o in dests) if r in GPR) + \
+        (("rax",) if m == "CMPXCHG" else ())
+
+
+def reaching_defs(lines, jmpreg):
+    """before[i]: register parent -> frozenset of the instruction indices whose write may reach instruction i (a
+    register missing from the map holds a value from outside the function). Forward may-analysis over the CFG."""
+    at = {a: i for i, (a, _, _) in enumerate(lines)}
+    before = [None] * len(lines)
+    before[0] = {}
+    work = [0]
+    while work:
+        i = work.pop()
+        a, m, ops = lines[i]
+        out = dict(before[i])
+        for r in written(m, ops):
+            out[r] = frozenset([i])
+        succ = []
+        info = jmpreg.get(a)
+        if m == "JMP":
+            if info and info.get("words"):
+                succ = [info["base"] + w for w in info["words"]]
+            elif ops and is_imm(ops[0]):
+                succ = [imm_val(ops[0])]
+        elif m != "RET":
+            succ = [lines[i + 1][0]] if i + 1 < len(lines) else []
+            if m.startswith("J") and ops and is_imm(ops[0]):
+                succ.append(imm_val(ops[0]))
+        for t in succ:
+            j = at.get(t)
+            if j is None:
+                continue
+            old = before[j]
+            outside = frozenset([-1])  # a path on which the register was never written here
+            new = out if old is None else {r: old.get(r, outside) | out.get(r, outside) for r in set(old) | set(out)}
+            if new != old:
+                before[j] = new
+                work.append(j)
+    return before
+
+
+def image_value(em, d):
+    """The image VA instruction d loads into its 64-bit register: a LEA of an image VA, or a MOV of a pointer stored in a
+    read-only image slot. None for any other write."""
+    if d < 0:
+        return None
+    _, m, ops = em.lines[d]
+    if m not in ("LEA", "MOV") or len(ops) != 2 or "[" not in ops[1] or ops[0].strip().lower() not in GPR:
+        return None
+    mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
+    if not mp or mp["absolute"] is None or mp["base"] is not None or mp["index"] is not None or mp.get("seg"):
+        return None
+    va = mp["absolute"]
+    if m == "LEA":
+        return va if BASE <= va < BASE + em.img.size else None
+    if BASE <= va and va + 8 <= BASE + em.img.size and not em.img.writable(va):
+        p = struct.unpack("<Q", em.img.read(va, 8))[0]
+        return p if BASE <= p < BASE + em.img.size else None
     return None
+
+
+def reg_defs(em, breg, ia):
+    return em.defs[ia].get(breg, frozenset()) if em.defs[ia] else frozenset()
+
+
+def image_pointer(em, breg, ia):
+    """The image VA register parent breg holds before instruction ia when every definition reaching it loads the same one
+    (image_value); None otherwise."""
+    vals = {image_value(em, d) for d in reg_defs(em, breg, ia)}
+    return vals.pop() if len(vals) == 1 and None not in vals else None
+
+
+def image_origins(em, breg, ia, seen=None):
+    """The image VAs register parent breg before instruction ia may be derived from: image_value defs, followed through
+    pointer arithmetic, register copies and LEAs (a loop-walked pointer keeps its origin)."""
+    seen = set() if seen is None else seen
+    out = set()
+    for d in reg_defs(em, breg, ia):
+        if (breg, d) in seen:
+            continue
+        seen.add((breg, d))
+        v = image_value(em, d)
+        if v is not None:
+            out.add(v)
+            continue
+        if d < 0:
+            continue
+        _, m, ops = em.lines[d]
+        if not ops or ops[0].strip().lower() not in GPR:
+            continue
+        if m in ("ADD", "SUB", "INC", "DEC", "AND"):
+            regs = [ops[0]] + (ops[1:2] if m == "ADD" else [])
+        elif m == "MOV":
+            regs = ops[1:2]
+        elif m == "LEA" and len(ops) == 2 and "[" in ops[1]:
+            mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
+            regs = [r for r in (mp["base"], mp["index"]) if r] if mp else []
+        else:
+            continue
+        for r in regs:
+            p = PARENT.get(r.strip().lower())
+            if p in GPR:
+                out |= image_origins(em, p, d, seen)
+    return out
 
 
 def parse_mem(inner):
@@ -362,7 +467,7 @@ def import_model_lines(op, jump):
     if not slot or slot.get("kind") != "export":
         return None
     e = models.get((slot["module"].lower(), slot["export"]))
-    if e is None:
+    if e is None or "do" not in e:  # no translator mirror (a harness-only code_hex model): the call stays on the dispatch path
         return None
     push_ret = "" if jump else "s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8);"
     pop_ret = "" if jump else " s.gpr[4] += 8;"
@@ -390,17 +495,20 @@ def import_model_lines(op, jump):
                 " if (_dst > _src && _dst < _src + _n) { for (uint64_t _i = _n; _i-- > 0;) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " else { for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1); }"
                 " s.gpr[1] = 0; s.gpr[4] += 16;%s }" % pop_ret]
-    if e["do"] == "finite":
-        # ucrtbase!_finite(double xmm0), the code_hex model register for register: movsd [rsp+8], xmm0 (the caller's home slot);
-        # rax = ((x & 0x7FFF...) - 0x7FF0...) >> 63 (logical); rcx = 0x7FF0000000000000.
-        return ["{ " + push_ret + " uint64_t _x = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _x, 8);"
-                " s.gpr[0] = ((_x & 0x7FFFFFFFFFFFFFFFULL) - 0x7FF0000000000000ULL) >> 63; s.gpr[1] = 0x7FF0000000000000ULL;%s }" % pop_ret]
-    if e["do"] == "isnan":
-        # ucrtbase!_isnan(double xmm0), the code_hex model register for register: movsd [rsp+8], xmm0 (the caller's home slot);
-        # rcx = x & 0x7FFF...; rdx = 0x7FF0000000000000; rax = rcx > rdx (unsigned).
-        return ["{ " + push_ret + " uint64_t _x = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _x, 8);"
-                " s.gpr[1] = _x & 0x7FFFFFFFFFFFFFFFULL; s.gpr[2] = 0x7FF0000000000000ULL;"
-                " s.gpr[0] = s.gpr[1] > s.gpr[2] ? 1ULL : 0ULL;%s }" % pop_ret]
+    if e["do"] == "vsprintf_s":
+        # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
+        return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "memcmp":
+        # Win64 memcmp(rcx = a, rdx = b, r8 = n): pes_model_memcmp (pes_stubs.hpp) mirrors the import_stubs.json code_hex
+        # register for register where a caller can see it (the scratch registers it leaves are spilled by callers).
+        return ["{ " + push_ret + " pes_model_memcmp(s);%s }" % pop_ret]
+    if e["do"] == "memchr":
+        # Win64 memchr(rcx = p, dl = c, r8 = n): rax = the first byte equal to dl, or 0 (import_stubs.json code_hex; no stack
+        # write); rcx ends at the found byte or one past the scan, r8 at the bytes left, as the model's inc/dec leave them.
+        return ["{ " + push_ret +
+                " uint64_t _p = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2]; s.gpr[0] = 0;"
+                " for (; _n != 0; ++_p, --_n) if ((uint8_t)s.rd(_p, 1) == _c) { s.gpr[0] = _p; break; }"
+                " s.gpr[1] = _p; s.gpr[8] = _n;%s }" % pop_ret]
     if e["do"] == "qpc":
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
@@ -458,8 +566,67 @@ def import_model_lines(op, jump):
         # RtlSetLastWin32Error(ecx): TEB.LastErrorValue (gs:[0x30]+0x68) = ecx; rax = the TEB self pointer (the machine code).
         return ["{ " + push_ret + " uint64_t _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[0] = _self;"
                 " s.wr(_self + 0x68ULL, s.gpr[1] & 0xFFFFFFFFULL, 4);%s }" % pop_ret]
+    if e["do"] == "memset":
+        # memset(rcx=dst, edx=c, r8=n), the code_hex model register for register: mov r9,rcx; push rdi; rep stosb (n bytes of the low
+        # byte of c from dst, direction flag clear); mov rax,r9; pop rdi. rcx ends 0, r9 = rax = dst, rdi restored.
+        return ["{ " + push_ret +
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
+                " uint64_t _dst = s.gpr[1], _n = s.gpr[8];"
+                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.gpr[2] & 0xFFULL, 1);"
+                " s.gpr[9] = _dst; s.gpr[0] = _dst; s.gpr[1] = 0;"
+                " s.gpr[4] += 8;%s }" % pop_ret]
+    if e["do"] == "isnan":
+        # ucrtbase _isnan(xmm0 = double): the code_hex model register for register. The caller's home slot [rsp+8] (the
+        # callee's rsp+8 after the return address) takes the bits of x; rcx = |x| bits; rdx = +inf bits; rax = 0 or 1.
+        return ["{ " + push_ret + " uint64_t _b = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _b, 8);"
+                " s.gpr[1] = _b & 0x7FFFFFFFFFFFFFFFULL; s.gpr[2] = 0x7FF0000000000000ULL;"
+                " s.gpr[0] = (s.gpr[1] > s.gpr[2]) ? 1ULL : 0ULL;%s }" % pop_ret]
+    if e["do"] == "floorf":
+        # floorf(xmm0 = float): roundss xmm0,xmm0,9 (the code_hex model): the low float is the floor, bits 32-127 stay.
+        return ["{ " + push_ret + " s.set_x_f32(0, pes_model_floorf(s.x_f32(0)));%s }" % pop_ret]
+    if e["do"] == "finite":
+        # ucrtbase _finite(xmm0 = double): the code_hex model register for register. The home slot [rsp+8] takes the bits of x;
+        # rcx = +inf bits; rax = ((|x| bits - +inf bits) >> 63) = 1 for a finite x, else 0.
+        return ["{ " + push_ret + " uint64_t _b = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _b, 8);"
+                " s.gpr[1] = 0x7FF0000000000000ULL;"
+                " s.gpr[0] = ((_b & 0x7FFFFFFFFFFFFFFFULL) - s.gpr[1]) >> 63;%s }" % pop_ret]
+    if e["do"] == "fdtest":
+        # ucrtbase _fdtest(rcx=float*): the code_hex model register for register. exp = the word at +2 & 0x7F80 (left in rdx);
+        # all-ones exponent: 1 for an infinity (mantissa zero), else 2; else a zero is 0; else the exponent negated in dx
+        # (rdx = that word) selects subnormal -2 (exponent 0) or normal -1. rax = the class, zero-extended.
+        return ["{ " + push_ret + " uint32_t _hi = (uint32_t)s.rd(s.gpr[1] + 2ULL, 2), _lo = (uint32_t)s.rd(s.gpr[1], 2);"
+                " uint32_t _exp = _hi & 0x7F80u; uint64_t _dx = _exp; uint32_t _r;"
+                " if (_exp == 0x7F80u) _r = ((_hi & 0x7Fu) == 0 && _lo == 0) ? 1u : 2u;"
+                " else if ((_hi & 0x7FFFu) == 0 && _lo == 0) _r = 0u;"
+                " else { _dx = (uint32_t)(0u - _exp) & 0xFFFFu; _r = _exp != 0 ? 0xFFFFFFFFu : 0xFFFFFFFEu; }"
+                " s.gpr[2] = _dx; s.gpr[0] = _r;%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
+
+
+# function VA -> {(site VA, image VA)}: the live reads of read-only image bytes each translated function still carries
+# (Emitter.note_live_ro). gen_translated fails the generation on any: the GF runtime maps no image, so such a read returns 0.
+LIVE_RO = {}
+
+# Declared read-only tables (ro_tables.json): the extent of each table a register-formed read walks without a guard the
+# translator can bound (a loop pointer, a parameter-driven index). Each is baked whole, so the read is the image's bytes.
+# An entry with a "bound" note is NOT baked: a runtime binding serves it (the note names it), and the read stays live.
+RO_TABLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ro_tables.json")
+_RO_WINDOWS = []
+
+
+def ro_windows():
+    """[(lo, hi, bound note or None)] of the declared tables (RO_TABLES)."""
+    if not _RO_WINDOWS:
+        with open(RO_TABLES) as f:
+            _RO_WINDOWS.extend((int(t["va"], 0), int(t["va"], 0) + int(t["bytes"], 0), t.get("bound"))
+                               for t in json.load(f))
+    return _RO_WINDOWS
+
+
+def live_reads(found):
+    """The lint's findings (LIVE_RO shape in), as sorted (function VA, site VA, image VA)."""
+    return sorted((fn, site, va) for fn, reads in found.items() for site, va in reads)
 
 
 class Emitter:
@@ -477,6 +644,20 @@ class Emitter:
         self.guards = []
         self.cur = None  # index of the instruction being emitted
         self.ro_tabs = {}  # (window VA, span) -> bytes of baked table windows
+        self.sw_tabs = {}  # window VA -> span: the byte map / dword table of each resolved JMP-reg switch (prepass)
+        self.live_ro = set()  # (site VA, read VA): live reads of a read-only image address no bake served (lint, LIVE_RO)
+
+    def note_live_ro(self, mp):
+        """The read emitted live below goes through a base or index register that may hold an image VA (image_origins)
+        and lands in a read-only section: the GF runtime maps no image there, so it reads 0. Record it for
+        gen_translated's lint, unless a runtime binding serves it (a `bound` table in RO_TABLES)."""
+        if self.cur is None or mp.get("seg"):
+            return
+        for reg in (mp["base"], mp["index"]):
+            for o in image_origins(self, PARENT.get(reg, reg), self.cur) if reg else ():
+                v = o + mp["disp"]
+                if not self.img.writable(v) and not any(lo <= v < hi and bound for lo, hi, bound in ro_windows()):
+                    self.live_ro.add((self.lines[self.cur][0], v))
 
     def bake(self, va, n):
         if (va, n) not in self.consts:
@@ -497,22 +678,55 @@ class Emitter:
             terms.append("(0x%XULL)" % (d & 0xFFFFFFFFFFFFFFFF) if d >= 0 else "(0ULL - 0x%XULL)" % (-d))
         return ("(%s)" % " + ".join(terms)) if terms else "0ULL"
 
+    def bake_window(self, mp, width, flt):
+        """A register-formed read of a read-only image table that no guard bounds, whose every origin lies in a declared
+        table (RO_TABLES): bake the hull of the declared tables holding it (the harness corpus drives a parameter-indexed
+        read over a wide domain, and a wider window only adds image bytes) and read it at the address's offset into it.
+        None when the read is not image-derived, lies in no declared table, is served by a runtime binding, or is a
+        128-bit read."""
+        if self.cur is None or width == 128 or mp.get("seg"):
+            return None
+        starts = {o + mp["disp"] for reg in (mp["base"], mp["index"]) if reg
+                  for o in image_origins(self, PARENT.get(reg, reg), self.cur)}
+        if not starts or any(self.img.writable(v) for v in starts):
+            return None
+        held = [(lo, hi, bound) for lo, hi, bound in ro_windows() if all(lo <= v < hi for v in starts)]
+        fit = [(lo, hi) for lo, hi, bound in held if not bound]
+        if not fit or len(fit) < len(held):
+            return None
+        lo, span = min(l for l, _ in fit), max(h for _, h in fit) - min(l for l, _ in fit)
+        n = 4 if (flt == "f32" or width == 32) else width // 8
+        if flt == "f64":
+            n = 8
+        self.ro_tabs[(lo, span)] = self.img.read(lo, span)
+        rd = "ro_rd(k_t%X_%X, %d, (uint64_t)(%s) - 0x%XULL, %d)" % (lo, span, span, self.addr_expr(mp), lo, n)
+        if flt == "f32":
+            return "PesState::f32((uint32_t)%s)" % rd
+        if flt == "f64":
+            return "PesState::f64(%s)" % rd
+        return rd
+
     def bake_ro(self, mp, width, flt):
         """A register-indexed read of a read-only image table whose base is a
         LEA constant and whose index a guard bounds: bake the window the guard
         admits (build-time bytes, VA-cited). None when any part is unknown."""
         if self.cur is None or width == 128 or mp.get("seg"):  # a segment-relative read is never a baked table
             return None
-        base = lea_const(self, PARENT.get(mp["base"], mp["base"]), self.cur)
+        base = image_pointer(self, PARENT.get(mp["base"], mp["base"]), self.cur)
         count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
                               self.cur)
-        if base is None or count is None:
+        if base is None:
             return None
         n = 4 if (flt == "f32" or width == 32) else width // 8
         if flt == "f64":
             n = 8
         start = base + mp["disp"]
-        span = count * mp["scale"] + n
+        if count is not None:
+            span = count * mp["scale"] + n
+        elif start in self.sw_tabs:  # a switch's own table: its size is the prepass's, not a guard's
+            span = self.sw_tabs[start]
+        else:
+            return None
         if not (BASE <= start and start + span <= BASE + self.img.size):
             return None
         if self.img.writable(start) or self.img.writable(start + span - 1):
@@ -567,10 +781,20 @@ class Emitter:
             if n == 2:
                 return "k_c%X_h" % va
             return "k_c%X_b" % va
+        if mp["base"] is not None and mp["index"] is None and self.cur is not None and not mp.get("seg"):
+            # A base register holding an image VA makes the address a constant: read it as the absolute operand.
+            c = image_pointer(self, PARENT.get(mp["base"], mp["base"]), self.cur)
+            if c is not None and BASE <= c + mp["disp"] and c + mp["disp"] + width // 8 <= BASE + self.img.size \
+                    and not self.img.writable(c + mp["disp"]):
+                return self.mem_val("[0x%X]" % (c + mp["disp"]), width, flt)
         if mp["base"] is not None and mp["index"] is not None:
             baked = self.bake_ro(mp, width, flt)
             if baked is not None:
                 return baked
+        baked = self.bake_window(mp, width, flt)
+        if baked is not None:
+            return baked
+        self.note_live_ro(mp)
         a = self.addr_expr(mp)
         if width == 128:
             return "s.rd128(%s)" % a
@@ -640,6 +864,9 @@ class Emitter:
             return self.do_xadd(m, ops)
         if m in ("IMUL", "MUL"):
             return self.do_mul(m, ops)
+        if m == "BSWAP":
+            w = self.op_width(ops[0])
+            return [reg_write(ops[0], "(uint64_t)__builtin_bswap%d((uint%d_t)(%s))" % (w, w, reg_read(ops[0].strip().lower())))]
         if m in ("BSF", "BSR"):
             return self.do_bitscan(m, ops)
         if m in ("BT", "BTC", "BTR", "BTS"):
@@ -1010,6 +1237,31 @@ class Emitter:
             return "s.xmm[%d][0]" % int(o[3:])
         return "(uint64_t)(%s)" % self.mem_val(op[op.find("["):], 64, None)
 
+    def do_packed_int(self, m, ops, x, d):
+        """Integer SSE forms with their own lane shapes: PMULLD (low 32 bits of each 32x32 product), PMOVSXBD (the low
+        four source bytes sign-extended to dwords; a memory source reads 4 bytes), PUNPCKLBW / PUNPCKLWD (interleave the
+        low eight bytes / four words of destination and source, destination first). SDM vol. 2 pages for each."""
+        if m == "PMOVSXBD":
+            o = ops[1].strip().lower()
+            src = ("(uint64_t)(%s)" % self.mem_val(ops[1][ops[1].find("["):], 32, None)
+                   if "[" in o else "(uint64_t)(%s)" % self.src128(ops[1]))
+            body = ("{ uint64_t _s = %s; unsigned __int128 _o = 0; "
+                    "for (int _i = 0; _i < 4; ++_i) _o = PesState::put_u32(_o, _i, (uint32_t)(int32_t)(int8_t)(_s >> (8 * _i))); "
+                    % src)
+        elif m == "PMULLD":
+            body = ("{ unsigned __int128 _d = %s, _s = %s, _o = 0; "
+                    "for (int _i = 0; _i < 4; ++_i) _o = PesState::put_u32(_o, _i, PesState::lane_u32(_d, _i) * PesState::lane_u32(_s, _i)); "
+                    % (d, self.src128(ops[1])))
+        else:
+            n, bits = (8, 8) if m == "PUNPCKLBW" else (4, 16)
+            ty = "uint%d_t" % bits
+            body = ("{ unsigned __int128 _d = %s, _s = %s, _o = 0; "
+                    "for (int _i = 0; _i < %d; ++_i) { "
+                    "_o |= (unsigned __int128)(%s)(_d >> (%d * _i)) << (%d * _i); "
+                    "_o |= (unsigned __int128)(%s)(_s >> (%d * _i)) << (%d * _i + %d); } "
+                    % (d, self.src128(ops[1]), n, ty, bits, 2 * bits, ty, bits, 2 * bits, bits))
+        return [body + "s.xmm[%d][0] = (uint64_t)_o; s.xmm[%d][1] = (uint64_t)(_o >> 64); }" % (x, x)]
+
     def do_packed(self, m, ops):
         """Packed 32-bit-lane SSE on the 128-bit value (PesState::lane_u32 / put_u32)."""
         dst = ops[0].strip().lower()
@@ -1018,6 +1270,8 @@ class Emitter:
         x = int(dst[3:])
         d = ("((unsigned __int128)s.xmm[%d][0] | "
              "((unsigned __int128)s.xmm[%d][1] << 64))" % (x, x))
+        if m in ("PMULLD", "PMOVSXBD", "PUNPCKLBW", "PUNPCKLWD"):
+            return self.do_packed_int(m, ops, x, d)
         if m in ("PSLLD", "PSRLD"):
             n = imm_val(ops[1]) & 0xFF
             sh = "<<" if m == "PSLLD" else ">>"
@@ -1178,6 +1432,12 @@ class Emitter:
         if not (dst.startswith("xmm") and "[" not in dst):
             return ["/*UNHANDLED %s %s*/(void)0;" % (m, ops)]
         x = int(dst[3:])
+        if m in ("MAXSD", "MINSD"):
+            # Intel MAXSD/MINSD as MAXSS/MINSS: the destination is kept only when dst > src (MAXSD) / dst < src (MINSD);
+            # equal values and NaN take the SOURCE.
+            cmp_ = ">" if m == "MAXSD" else "<"
+            return ["{ double _a = s.x_f64(%d), _b = PesState::f64(%s); s.set_x_f64(%d, (_a %s _b) ? _a : _b); }"
+                    % (x, self.sd_src(ops[1]), x, cmp_)]
         op = {"ADDSD": "+", "SUBSD": "-", "MULSD": "*", "DIVSD": "/"}[m]
         return ["s.set_x_f64(%d, s.x_f64(%d) %s PesState::f64(%s));"
                 % (x, x, op, self.sd_src(ops[1]))]
@@ -1378,12 +1638,14 @@ class Emitter:
                  "SQRTPS", "RCPPS", "RSQRTPS", "CMPEQPS", "CMPLTPS", "CMPLEPS", "CMPUNORDPS",
                  "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS"):
             return self.do_packed(m, ops)
-        if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD"):
+        if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD", "MAXSD", "MINSD"):
             return self.do_sd_arith(m, ops)
         if m in ("COMISD", "UCOMISD"):
             return self.do_comisd(ops)
         if m in ("CVTTSD2SI", "CVTSI2SD"):
             return self.do_cvt_sd(m, ops)
+        if m in ("PMULLD", "PMOVSXBD", "PUNPCKLBW", "PUNPCKLWD"):
+            return self.do_packed(m, ops)
         if m in ("MOVHLPS", "MOVLHPS", "PUNPCKLQDQ", "PUNPCKHQDQ", "PADDQ"):
             return self.do_qword(m, ops)
         if m == "CMPNLTSS":
@@ -1626,6 +1888,22 @@ class Emitter:
                     "  s.xmm[%d][0] = ((uint64_t)_l1 << 32) | _l0; "
                     "s.xmm[%d][1] = ((uint64_t)_l3 << 32) | _l2; }"
                     % (x, x)]
+        if m == "CVTDQ2PD":
+            # Two signed dwords (low quad of the source: xmm or m64) become two doubles.
+            return ["{ uint64_t _q = (uint64_t)(%s); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);"
+                    % self.sd_src(src),
+                    "  memcpy(&s.xmm[%d][0], &_lo, 8); memcpy(&s.xmm[%d][1], &_hi, 8); }" % (x, x)]
+        if m == "CVTPS2DQ":
+            # Four floats to four signed dwords, rounded in the current mode (MXCSR default: nearest-even; PesState::cvt_i32).
+            if s.startswith("xmm") and "[" not in s:
+                y = int(s[3:])
+                lanes = ["PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[%d][%d] >> %d)))" % (y, i // 2, (i % 2) * 32)
+                         for i in range(4)]
+            else:
+                e = self.mem_val(src[src.find("["):], 128, None)
+                lanes = ["PesState::cvt_i32((double)PesState::lane_f32(%s, %d))" % (e, i) for i in range(4)]
+            return ["{ uint32_t _l0 = (uint32_t)%s, _l1 = (uint32_t)%s, _l2 = (uint32_t)%s, _l3 = (uint32_t)%s;" % tuple(lanes),
+                    "  s.xmm[%d][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[%d][1] = ((uint64_t)_l3 << 32) | _l2; }" % (x, x)]
         return ["/*UNHANDLED-VEC %s %s*/(void)0;" % (m, ops)]
 
     # ---- branches ----
@@ -1744,8 +2022,19 @@ class Emitter:
         if cc:
             tgt = imm_val(ops[0])
             if ctx.get("addrs") and tgt not in ctx["addrs"]:
-                # No label exists for a target outside the decoded body: trap when taken, never an undefined goto.
-                return ["if (s.cond(\"%s\")) __builtin_trap();" % cc]
+                # No label exists for a target outside the decoded body, so it is a conditional tail call to another
+                # function (`jnz 0x1423D43D0` in 0x141EAE0F0), the Jcc form of the unconditional JMP above: taken, it
+                # calls the sibling and returns; a stubbed target runs its model; any other target is the loud abort
+                # naming the VA (the JCC marker is what snapdiff's closure walk reads; it is no TAIL_GAP refusal, since
+                # a bounded closure leaves targets no replay entered as aborts).
+                t = "0x%X" % tgt
+                stub = (ctx.get("stubs") or {}).get(t)
+                if stub is not None and stub.get("do") != "unmodellable":
+                    return ["if (s.cond(\"%s\")) { %s return; }" % (cc, " ".join(stub_lines(stub["do"])))]
+                if t in self.pilot:
+                    self.siblings.add(t)
+                    return ["if (s.cond(\"%s\")) { pes_fn_%s(s); return; }" % (cc, t[2:])]
+                return ["if (s.cond(\"%s\")) { /*OUT-OF-RANGE JCC %s*/ pes_dispatch_missing(%s); return; }" % (cc, t, t)]
             return ["if (s.cond(\"%s\")) goto L_%X;" % (cc, tgt)]
         return None
 
@@ -1975,17 +2264,22 @@ def prepass(lines, img):
                             PARENT.get(mp["base"].lower(), mp["base"].lower()) == basep:
                         bmap = baseva + mp["disp"]
                         break
+            # The windows the switch itself reads (byte map, dword table): the loads that feed the JMP register are baked
+            # (Emitter.bake_ro) even where no guard walk finds the index bound (CDQE; an index that is a byte-map value),
+            # else the GF runtime, which has no image view, reads 0 and every case falls to default.
             if bmap is not None:
                 braw = img.read(bmap, count)
                 bvals = list(struct.unpack("<%dB" % count, braw))
                 n2 = max(bvals) + 1
                 raw = img.read(tva, n2 * 4)
                 words = list(struct.unpack("<%dI" % n2, raw))
+                tabs = {bmap: count, tva: n2 * 4}
             else:
                 raw = img.read(tva, count * 4)
                 words = list(struct.unpack("<%dI" % count, raw))
+                tabs = {tva: count * 4}
             jmpreg[addr] = {"table": tva, "words": words, "base": baseva,
-                            "default": default}
+                            "default": default, "tabs": tabs}
             for w in words:
                 if baseva + w in addrs:
                     labels.add(baseva + w)
@@ -2003,8 +2297,14 @@ def stub_lines(do):
         return ["s.set_x_f32(0, pes_model_logf(s.x_f32(0)));"]
     if do == "powf_xmm0":
         return ["s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));"]
-    if do in [op + "_xmm0" for op in LIBM1]:
+    if do == "isnan_xmm0":
+        return ["s.gpr[0] = (uint64_t)pes_model_isnan(s.x_f64(0));"]
+    if do == "floorf_xmm0":
+        return ["s.set_x_f32(0, pes_model_floorf(s.x_f32(0)));"]
+    if do in ("sinf_xmm0", "cosf_xmm0", "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0"):
         return ["s.set_x_f32(0, pes_model_%s(s.x_f32(0)));" % do[:-5]]
+    if do == "atan2f_xmm0":
+        return ["s.set_x_f32(0, pes_model_atan2f(s.x_f32(0), s.x_f32(1)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":
@@ -2013,12 +2313,32 @@ def stub_lines(do):
     raise ValueError("stub_lines: no model for %r" % (do,))
 
 
+# Instructions with no architectural effect on the state a translated function carries (cache hint, spin-loop hint).
+IGNORED_MNEMONICS = ("PREFETCHT0", "PREFETCHT1", "PREFETCHT2", "PREFETCHNTA", "PAUSE")
+
+
+def loud_unhandled(line):
+    """A mnemonic xlate has no semantics for was a silent no-op (`/*UNHANDLED m*/(void)0;`): the registry find of the
+    FixDemo camera constructor hashed its key with PMOVSXBD/PMULLD, both unhandled, got a wrong hash and missed (ProcCamera3).
+    Now it traps when executed, and gen_translated refuses a layer that still holds the `/*UNHANDLED` marker. Only the
+    hint instructions of IGNORED_MNEMONICS stay no-ops (marked IGNORED, not UNHANDLED)."""
+    if "/*UNHANDLED" not in line or not line.rstrip().endswith("(void)0;"):
+        return line
+    name = line.split("/*UNHANDLED", 1)[1].replace("-VEC", "").split()[0]
+    if name in IGNORED_MNEMONICS:
+        return line.replace("/*UNHANDLED", "/*IGNORED")
+    return line.rstrip()[:-len("(void)0;")] + "__builtin_trap();"
+
+
 def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
     ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
     trace_pc = bool(os.environ.get("GF_XLATE_TRACE"))  # lockstep: one GF_TRACE_PC per instruction (snapdiff build only)
     body = []
     em.lines, em.labels, em.guards = lines, labels, find_guards(lines)
+    for info in jmpreg.values():
+        em.sw_tabs.update(info.get("tabs", {}))
+    em.defs = reaching_defs(lines, jmpreg)
     for idx, (addr, mnem, ops) in enumerate(lines):
         em.cur = idx
         if addr in labels:
@@ -2032,7 +2352,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
         if m in ("MOV", "MOVABS", "MOVSX", "MOVSXD", "MOVZX", "LEA", "XCHG", "ADD",
                  "SUB", "CMP", "TEST", "AND", "OR", "XOR", "ADC", "SBB",
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
-                 "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR",
+                 "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR", "BSWAP",
                  "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
                  "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
             out = em.emit_alu(m, ops)
@@ -2051,7 +2371,8 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                    "CVTPS2DQ", "CVTPD2DQ", "CVTDQ2PD", "MOVQ", "MOVHLPS", "MOVLHPS",
                    "PUNPCKLQDQ", "PUNPCKHQDQ", "PADDQ", "MINPS", "MAXPS", "HADDPS",
                   "SQRTPS", "RCPPS", "RSQRTPS", "CMPNLTSS", "CMPEQPS", "CMPLTPS", "CMPLEPS",
-                  "CMPUNORDPS", "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS"):
+                  "CMPUNORDPS", "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS",
+                  "PMULLD", "PMOVSXBD", "PUNPCKLBW", "PUNPCKLWD", "MAXSD", "MINSD"):
             out = em.emit_sse(m, ops)
         elif m.startswith("REP ") and m[4:] in ("STOSB", "STOSW", "STOSD", "STOSQ",
                                                   "MOVSB", "MOVSW", "MOVSD", "MOVSQ"):
@@ -2069,7 +2390,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
             out = em.emit_set_cmov(m, ops)
         if out is None:
             out = ["/*UNHANDLED %s %s*/(void)0;" % (m, ", ".join(ops))]
-        body.extend(out)
+        body.extend(loud_unhandled(l) for l in out)
     return body
 
 
@@ -2081,7 +2402,8 @@ def const_decls(em):
         if n == 4:
             f = struct.unpack("<f", blob)[0]
             decls.append("static constexpr uint32_t k_c%X_w = 0x%08XU;" % (va, vals[0]))
-            decls.append("static constexpr float k_c%X_f = %af; // %r" % (va, f, f))
+            decls.append("static constexpr float k_c%X_f = %s;" % (va, ("%af; // %r" % (f, f)) if __import__("math").isfinite(f)
+                                                                   else "__builtin_bit_cast(float, 0x%08XU); // non-finite" % vals[0]))
         elif n == 8:
             decls.append("static constexpr uint64_t k_c%X_q = 0x%016XULL;" % (va, struct.unpack("<Q", blob)[0]))
             # Non-finite doubles (%a renders nan/inf, invalid C++): always
@@ -2096,7 +2418,8 @@ def const_decls(em):
             if n % 4 == 0:
                 decls.append("static constexpr uint32_t k_c%X_w = 0x%08XU;" % (va, vals[0]))
                 f = struct.unpack("<f", blob[:4])[0]
-                decls.append("static constexpr float k_c%X_f = %af; // %r" % (va, f, f))
+                decls.append("static constexpr float k_c%X_f = %s;" % (va, ("%af; // %r" % (f, f)) if __import__("math").isfinite(f)
+                                                                       else "__builtin_bit_cast(float, 0x%08XU); // non-finite" % vals[0]))
             if n % 4 == 2:
                 decls.append("static constexpr uint16_t k_c%X_h = 0x%04XU;" % (va, struct.unpack("<H", blob[:2])[0]))
             if n % 2 == 1:
@@ -2129,6 +2452,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
     labels, jmpreg = prepass(lines, img)
     em = Emitter(img, va, pilot)
     body = emit_function(em, va, lines, labels, jmpreg, pilot, stubs)
+    LIVE_RO[va] = em.live_ro
     # tail jumps to in-set VAs: fill from the sibling set
     out = []
     for b in body:

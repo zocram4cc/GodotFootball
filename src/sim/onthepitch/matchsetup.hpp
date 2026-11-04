@@ -60,6 +60,8 @@ struct Rig;
 #include "pes/movestep_bundle.hpp"
 #include "pes/playerdb.hpp"
 #include "pes/formation.hpp"
+// PES's Trap action chain (docs/ports/pes-port-TrapCutover.md): the install's data the reaction trap's kind-0 chain runs on.
+#include "pestrapdata.hpp"
 
 struct MatchSetup {
   int homeTeamDbId = 0;
@@ -197,6 +199,9 @@ struct MatchSetup {
   // image constants, read from the install's exe. Required: the build's every
   // number lives in the image.
   const pes::marktable::Constants* pesMarkTableConstants = nullptr;
+  // PES 2021's Trap action chain's inputs from the install (pestrapdata.hpp LoadTrapSource): the image slice, the actor
+  // constants and the loader data. Required: the reaction trap's clip is the chain's commit, and there is no GF picker.
+  const pes::PesTrapSource* pesTrapSource = nullptr;
   // The install's own table bytes the translated window runs read at register-held image addresses (pesimagetables.hpp:
   // the anime class table, the quarter sine table, the frame-rate cells), read from the install's exe. Required: the danger
   // builder's lane lists differ from PES's without them.

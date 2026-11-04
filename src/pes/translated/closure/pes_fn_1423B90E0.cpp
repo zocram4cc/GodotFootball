@@ -165,7 +165,8 @@ void pes_fn_1423B90E0(PesState& s) {
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)((1ULL)), 4);
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)((2ULL)), 4);
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)((2147483648ULL)), 4);
-  /*UNHANDLED-VEC CVTPS2DQ ['xmm1', 'xmm0']*/(void)0;
+  { uint32_t _l0 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][0] >> 0))), _l1 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][0] >> 32))), _l2 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][1] >> 0))), _l3 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][1] >> 32)));
+    s.xmm[1][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[1][1] = ((uint64_t)_l3 << 32) | _l2; }
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 32));
     s.xmm[2][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[2][1] = ((uint64_t)_l3 << 32) | _l2; }
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[5][0] | ((unsigned __int128)s.xmm[5][1] << 64))) & ((s.xmm[1][0] | ((unsigned __int128)s.xmm[1][1] << 64))); s.xmm[5][0] = (uint64_t)_v; s.xmm[5][1] = (uint64_t)(_v >> 64); }

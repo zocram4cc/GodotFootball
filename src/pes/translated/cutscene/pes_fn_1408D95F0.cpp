@@ -7,6 +7,8 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
+// image window @ 0x142616C4B (24 bytes, read-only)
+static constexpr uint8_t k_t142616C4B_18[24] = {0x00, 0x73, 0x6B, 0x69, 0x70, 0x00, 0x00, 0x00, 0x00, 0x77, 0x61, 0x69, 0x74, 0x00, 0x00, 0x00, 0x00, 0x66, 0x6F, 0x72, 0x63, 0x65, 0x64, 0x00};
 
 void pes_fn_1408D95F0(PesState& s);
 
@@ -29,7 +31,7 @@ void pes_fn_1408D95F0(PesState& s) {
     s.of = (_a == 0xFFFFFFFFFFFFFFFFULL);
     s.gpr[8] = (uint64_t)(_r);
   }
-  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(s.rd(((s.gpr[2]) + ((s.gpr[8])*1ULL) + (0ULL - 0x1ULL)), 1)), _r = (_a - _b) & 0xFFULL;
+  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(ro_rd(k_t142616C4B_18, 24, (uint64_t)(((s.gpr[2]) + ((s.gpr[8])*1ULL) + (0ULL - 0x1ULL))) - 0x142616C4BULL, 1)), _r = (_a - _b) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
@@ -50,7 +52,7 @@ void pes_fn_1408D95F0(PesState& s) {
     s.of = (_a == 0xFFFFFFFFFFFFFFFFULL);
     s.gpr[2] = (uint64_t)(_r);
   }
-  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(s.rd(((s.gpr[8]) + ((s.gpr[2])*1ULL) + (0ULL - 0x1ULL)), 1)), _r = (_a - _b) & 0xFFULL;
+  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(ro_rd(k_t142616C4B_18, 24, (uint64_t)(((s.gpr[8]) + ((s.gpr[2])*1ULL) + (0ULL - 0x1ULL))) - 0x142616C4BULL, 1)), _r = (_a - _b) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
@@ -71,7 +73,7 @@ void pes_fn_1408D95F0(PesState& s) {
     s.of = (_a == 0xFFFFFFFFFFFFFFFFULL);
     s.gpr[0] = (uint64_t)(_r);
   }
-  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(s.rd(((s.gpr[2]) + ((s.gpr[0])*1ULL) + (0ULL - 0x1ULL)), 1)), _r = (_a - _b) & 0xFFULL;
+  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(ro_rd(k_t142616C4B_18, 24, (uint64_t)(((s.gpr[2]) + ((s.gpr[0])*1ULL) + (0ULL - 0x1ULL))) - 0x142616C4BULL, 1)), _r = (_a - _b) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
@@ -81,7 +83,7 @@ void pes_fn_1408D95F0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFFFFFFFFFULL) < (_b & 0xFFFFFFFFFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1; }
   if (s.cond("nz")) goto L_1408D9652;
-  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(s.rd(((s.gpr[2]) + ((s.gpr[0])*1ULL) + (0ULL - 0x1ULL)), 1)), _r = (_a - _b) & 0xFFULL;
+  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _b = (uint64_t)(ro_rd(k_t142616C4B_18, 24, (uint64_t)(((s.gpr[2]) + ((s.gpr[0])*1ULL) + (0ULL - 0x1ULL))) - 0x142616C4BULL, 1)), _r = (_a - _b) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }

@@ -48,8 +48,8 @@ protected:
                                    bool idleTurnToOpponentGoal = false, bool knockOn = false,
                                    bool stickyRunDirection = false,
                                    bool keepCurrentBodyDirection = false);
-  // PES 2021's first touch (docs/re/pes-re-receiving.md §4).
-  void _TrapCommand(PlayerCommandQueue& commandQueue);
+  // PES 2021's first touch (docs/re/pes-re-receiving.md §4). False when PES's trap chain refuses (the entry returns 0).
+  bool _TrapCommand(PlayerCommandQueue& commandQueue);
   // PES 2021's reaction entry 3, the receive (docs/re/pes-re-receiving.md §1,
   // §3) as a predicate for the reaction walk.
   bool _ReceiveCandidate();

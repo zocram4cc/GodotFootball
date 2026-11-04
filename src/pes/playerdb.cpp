@@ -51,6 +51,9 @@ std::optional<PlayerDatabase> PlayerDatabase::Parse(std::span<const uint8_t> blo
     if (tier > kInjuryTierA) continue;
     PlayerTraits traits{int(tier), Field(rec, kStrongerFootBit, 1) == 1,
                         int(Field(rec, kFormBit, kFormBits)), MixCondition(rec)};
+    traits.speed = uint8_t(Field(rec, kSpeedBit, kAbilityBits) + kAbilityBias);
+    traits.jump = uint8_t(Field(rec, kJumpBit, kAbilityBits) + kAbilityBias);
+    traits.heightCm = uint8_t(Field(rec, kHeightBit, kHeightBits) + kHeightBiasCm);
     db.byId_.emplace(id, traits);
   }
   return db;
@@ -60,6 +63,34 @@ std::optional<PlayerTraits> PlayerDatabase::Find(int playerId) const {
   auto it = byId_.find(playerId);
   if (it == byId_.end()) return std::nullopt;
   return it->second;
+}
+
+void PlayerDatabase::ApplyEditSave(const EditSave& save) {
+  for (const EditPlayerRecord& rec : save.players) {
+    uint32_t id = 0;
+    std::memcpy(&id, rec.data() + kEditIdOffset, sizeof id);
+    auto it = byId_.find(int(id));
+    if (it == byId_.end()) continue;
+    PlayerTraits& traits = it->second;
+    // The roster row's bytes, field by field as PES builds them; a field the save holds out of range keeps Player.bin's value.
+    const EditRow row = DecodeEditRow(rec);
+    if (row.set[kRowSpeed]) traits.speed = row.byte[kRowSpeed];
+    if (row.set[kRowJump]) traits.jump = row.byte[kRowJump];
+    if (row.set[kRowHeightCm]) traits.heightCm = row.byte[kRowHeightCm];
+    if (row.set[kRowStrongerFoot]) traits.leftFooted = row.byte[kRowStrongerFoot] == 1;
+    if (row.set[kRowInjuryResistance]) traits.injuryResistance = row.byte[kRowInjuryResistance];
+    if (row.set[kRowForm]) traits.form = row.byte[kRowForm];
+    // The block PES copies into the AI record. ponytail: a byte whose save field failed its gate is 0 in the decode, while PES's live
+    // record keeps its initial value there (FUN_140AA1700, pes-port-EditSaveFields.md 6.3); the six bytes GF reads take Player.bin's
+    // value instead. Remove with the live record's initial values.
+    traits.row = row.image;
+    (*traits.row)[kRowSpeed] = traits.speed;
+    (*traits.row)[kRowJump] = traits.jump;
+    (*traits.row)[kRowHeightCm] = traits.heightCm;
+    (*traits.row)[kRowStrongerFoot] = traits.leftFooted ? 1 : 0;
+    (*traits.row)[kRowInjuryResistance] = uint8_t(traits.injuryResistance);
+    (*traits.row)[kRowForm] = uint8_t(traits.form);
+  }
 }
 
 }  // namespace pes

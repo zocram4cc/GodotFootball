@@ -12,8 +12,8 @@ its behaviour is proven only through their diffs.
 Output:
   <root>/<subsystem>/pes_fn_<VA>.cpp   recorded functions, one per file
   <root>/closure/pes_fn_<VA>.cpp       callee closure members
-  <root>/translated.hpp                declarations of every committed function
-  <root>/pes_dispatch_gen.hpp          indirect-call table over the same set
+  <root>/translated.hpp                declarations of every committed function (for GF-side callers only)
+  <root>/pes_dispatch_gen.cpp          indirect-call table over the same set (the one TU naming every function)
 
 Usage:
   gen_translated.py --image IMG [--root DIR]     regenerate the layer
@@ -33,16 +33,29 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import driver  # noqa: E402  (the universe, stub map and translator the diff runs use)
 import gen_dispatch  # noqa: E402
+import xlate  # noqa: E402
 
 ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 # (committed results file, spec subdirectory of tools/dev/diffharness/specs).
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"),
         ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
-        ("results_fixdemo.json", "fixdemo"), ("results_kickkind.json", "kickkind"))
+        ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"),
+        ("results_dribble.json", "dribble"), ("results_proccam.json", "proccam"),
+        ("results_kickkind.json", "kickkind"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
+# Calls the translator links through the dispatch table (a virtual tail jump, `jmp [rax+0x18]`), which the closure walk
+# over direct `pes_fn_` calls cannot see: caller -> the one target the table resolves to in PES. 0x141F61CC0 ends in the
+# FixDemo list's virtual expand (vtable 0x142BA67D0 slot 3 = 0x141F616F0); a layer without it aborts there at run time.
+INDIRECT_EDGES = {
+    "0x141F61CC0": ("0x141F616F0",),
+    # 0x141F616F0's `__ehvec_dtor` callbacks (0x140400F50, 0x140400DF0, 0x140B28910) are called through a function pointer.
+    "0x141F616F0": ("0x140400F50", "0x140400DF0", "0x140B28910"),
+    # 0x1415A01DC is the CFG check thunk `jmp [IAT]`; the unpacked image's slot holds a bare `ret` (0x1415A02B0).
+    "0x1415A01DC": ("0x1415A02B0",),
+}
 
 
 def spec_dir(name):
@@ -72,6 +85,29 @@ def closure_members(va):
     return set()
 
 
+def bounded_roots():
+    """The records proven by a capture-bounded closure (snapdiff --bounded; results field `bounded`): a call or tail jump the
+    replays never entered stays a loud abort there, so neither the tail-target walk nor the silent-tail lint applies to them."""
+    out = set()
+    for fname, _ in SETS:
+        with open(os.path.join(HERE, fname)) as f:
+            out |= {r["va"] for r in json.load(f)["results"] if r.get("bounded")}
+    return out
+
+
+def recorded_vas():
+    """Every VA a results set records bit-exact (diffed): proven standalone, so any layer function may link it (owner
+    ruling 01-11-26, Main: a callee recorded in a proven set is not an OUT-OF-SET gap, whichever set the caller was proven
+    in). A callee only a closure holds (never recorded) stays a gap: it was never proven standalone."""
+    return {va for va, _, diffed, _ in records() if diffed}
+
+
+def link_universe(universe, members):
+    """The callees a translation may link: the set's own universe, the closure its proof built, and every recorded
+    function."""
+    return universe | members | recorded_vas()
+
+
 def context(name, va, image):
     """Spec, stub map and universe that a diff run of va in set name translates under."""
     sdir = spec_dir(name)
@@ -80,7 +116,8 @@ def context(name, va, image):
         raise SystemExit("gen_translated: no spec for %s in %s" % (va, name))
     stubs = driver.MODEL_MAP
     base = driver.universe_of(sdir)
-    universe = base | set(driver.runnable_extra(spec, image, universe=base)[0])
+    tails = None if va in bounded_roots() else base
+    universe = base | set(driver.runnable_extra(spec, image, universe=tails)[0])
     return spec, stubs, universe
 
 
@@ -110,14 +147,37 @@ def choose_variant(old, new):
 TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
 
 
-def silent_tail_sites(members):
+def silent_tail_sites(members, exempt=frozenset()):
     """Refuse a layer holding a tail jump into the image's code that the layer does not translate: PES continues there,
     the layer only aborts (xlate emits pes_dispatch_missing), and the closure walk should have pulled the target in.
-    A target outside the code range is dead decode noise (a jmp after a ret into no image address) and stays an abort."""
-    bad = ["%s: jmp %s" % (va, t) for va, m in sorted(members.items()) for t in TAIL_GAP.findall(m["raw"])
-           if driver.CODE_LO <= int(t, 16) < driver.CODE_HI]
+    A target outside the code range is dead decode noise (a jmp after a ret into no image address) and stays an abort.
+    exempt: the members of a capture-bounded closure (bounded_roots), whose unentered tail targets are loud aborts by design."""
+    bad = ["%s: jmp %s" % (va, t) for va, m in sorted(members.items()) if va not in exempt
+           for t in TAIL_GAP.findall(m["raw"]) if driver.CODE_LO <= int(t, 16) < driver.CODE_HI]
     if bad:
         raise SystemExit("gen_translated: %d tail jump(s) into code the layer does not hold:\n  %s"
+                         % (len(bad), "\n  ".join(bad[:30])))
+
+
+# Functions whose only unhandled instructions are decode noise: linear decode runs past the function's last reachable
+# ret/int3 into data, and the noise (FADD/FILD/FDIV/OUT/OUTSD) has no label any reachable branch targets.
+UNHANDLED_DEAD_NOISE = {
+    "0x140480030": "FADD/FILD/OUT after the cold path's final int3 (labels L_1404803A9..C5 end in traps)",
+    "0x1404B6ED0": "FDIV/OUTSD after the unconditional goto L_1404B74FF, behind no reached label",
+    "0x140721800": "IRETD/CMPSD after the unconditional goto L_1407231E2 (kick chooser closure): the labels L_140723290..L_14072329C "
+                   "are reached only by conditional jumps inside the noise itself, so no reachable branch lands there",
+}
+
+
+def silent_unhandled_sites(members):
+    """Refuse a layer holding an instruction xlate has no semantics for. It was a silent no-op: the FixDemo camera
+    constructor's registry find hashed with PMOVSXBD/PMULLD, got the wrong hash and missed (ProcCamera3). xlate now
+    emits a trap for it; here the generation fails, so a missing instruction is found at translate time, not by a proof
+    that happens to execute it. UNHANDLED_DEAD_NOISE lists the functions where the only ones are unreachable decode noise."""
+    bad = ["%s: %s" % (va, ", ".join(sorted(set(re.findall(r"/\*UNHANDLED(?:-VEC)? ([A-Za-z0-9_]+)", m["raw"])))))
+           for va, m in sorted(members.items()) if "/*UNHANDLED" in m["raw"] and va not in UNHANDLED_DEAD_NOISE]
+    if bad:
+        raise SystemExit("gen_translated: %d function(s) hold instructions the translator does not implement:\n  %s"
                          % (len(bad), "\n  ".join(bad[:30])))
 
 
@@ -143,7 +203,7 @@ def build(image):
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
         members = closure_members(va)
-        universe = universe | members
+        universe = link_universe(universe, members)
         queue, seen = [va] + sorted(members - {va}), {va} | members
         while queue:
             cur = queue.pop(0)
@@ -158,8 +218,7 @@ def build(image):
                 else:
                     texts[cur] = pick
             texts.setdefault(cur, text)
-            for c in CALLEE.findall(text):
-                cv = "0x" + c.upper()
+            for cv in [("0x" + c.upper()) for c in CALLEE.findall(text)] + list(INDIRECT_EDGES.get(cur, ())):
                 if cv != cur and cv in universe and cv not in seen:
                     seen.add(cv)
                     queue.append(cv)
@@ -184,8 +243,21 @@ def build(image):
         for c in CALLEE.findall(m["raw"]):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
                 raise SystemExit("gen_translated: %s calls %s, which is not committed" % (cur, c))
-    silent_tail_sites(members)
+    bounded = bounded_roots()
+    silent_tail_sites(members, {v for root in bounded for v in closure_of.get(root, ())})
+    silent_unhandled_sites(members)
     return members
+
+
+def lint(members):
+    """Fail loudly on a committed function that reads a read-only image address live: the GF runtime maps no image there,
+    so the read returns 0, while the harness maps the image flat and its diffs stay bit-exact. The translator must bake
+    every such read (a guard-bounded window, a switch table, or a declared table in ro_tables.json)."""
+    bad = xlate.live_reads({va: r for va, r in xlate.LIVE_RO.items() if va in members})
+    if bad:
+        raise SystemExit("gen_translated: %d live read(s) of a read-only image address (declare the table in ro_tables.json "
+                         "or teach xlate to bake it):\n  %s"
+                         % (len(bad), "\n  ".join("function %s site 0x%X reads image 0x%X" % b for b in bad)))
 
 
 def member_text(va, m):
@@ -207,7 +279,7 @@ def layer_files(members):
             "#pragma once",
             "struct PesState;"]
     files["translated.hpp"] = "\n".join(head + ["void pes_fn_%s(PesState& s);" % va[2:] for va in vas]) + "\n"
-    files["pes_dispatch_gen.hpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
+    files["pes_dispatch_gen.cpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
     return files
 
 
@@ -250,6 +322,7 @@ def main():
                     help="regenerate in memory and fail on any drift from the committed layer")
     args = ap.parse_args()
     members = build(args.image)
+    lint(members)
     files = layer_files(members)
     recorded = sum(1 for m in members.values() if m["recorded"])
     summary = "%d functions (%d recorded bit-exact, %d closure)" % (

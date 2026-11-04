@@ -7,13 +7,16 @@
 // GF_PES_WALK_ORACLE names a directory of per-capture directories (PES-derived, never committed), each made by
 // tools/dev/translate/danger_oracle.py ... walk. A directory named syn_* is a SYNTHETIC state (tools/dev/translate/synth_walk.py
 // --patch-clear: a real danger-builder capture run forward to the walk's entry with the kind-1 record's type set to 5, the Clear
-// unit's output; everything else is PES's state); the others are real calls. Without the variable the oracle tests skip.
+// unit's output; everything else is PES's state); the others are real: the walk's own captures, and the states
+// tools/dev/translate/synth_walk.py (no --patch-clear) runs forward from a danger-predicated carrier_clear_2109EB0 capture to the
+// walk's entry, whose kind-1 record is PES's own type 5. Without the variable the oracle tests skip.
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <set>
 #include <string>
@@ -58,7 +61,7 @@ class WalkOracle : public ::testing::Test {
 };
 
 TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
-  std::set<uint32_t> realKinds, syntheticKinds;
+  std::set<uint32_t> realKinds, syntheticKinds, clearRecordKinds;
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
@@ -69,6 +72,7 @@ TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
     const uint32_t got = b.world->RunWalk(b.side, b.ext);
     EXPECT_EQ(got, want) << dir << (Synthetic(dir) ? " (synthetic)" : " (real)");
     (Synthetic(dir) ? syntheticKinds : realKinds).insert(want);
+    if (!Synthetic(dir) && LoadU32(KindRecord(*b.world, b.side, kClearKind), 0) == kClearType) clearRecordKinds.insert(want);
     // GF's production run holds no capture bytes outside the window: the kind must not depend on them.
     Built production;
     Build(o, production, false, true);
@@ -77,30 +81,33 @@ TEST_F(WalkOracle, EveryCapturedWalkCallOnGfsWindowReturnsPesKind) {
   EXPECT_TRUE(realKinds.count(pes::kWalkNoKind)) << "the real set holds a call PES answers 'no kind' for";
   EXPECT_TRUE(realKinds.count(3)) << "the real set holds a call PES answers a chain kind (3) for";
   EXPECT_TRUE(syntheticKinds.count(kClearKind)) << "the synthetic set reaches the Clear arm and PES keeps the clear";
+  EXPECT_TRUE(clearRecordKinds.count(kClearKind)) << "the real set holds a call whose own Clear record PES keeps";
+  EXPECT_GT(clearRecordKinds.size(), 1u) << "the real set holds a call whose own Clear record PES does not keep";
 }
 
-// The Clear arm is live on the synthetic states: the kind-1 record's type word (5) is what the walk keys on, so a window whose
-// record answers nothing must not come back with the clear.
-TEST_F(WalkOracle, TheSyntheticClearArmKeysOnTheClearRecordsType) {
-  int checked = 0;
+// The Clear arm keys on the kind-1 record's type word (5): where PES keeps the clear (synthetic or real), a window whose record
+// answers nothing must not come back with the clear.
+TEST_F(WalkOracle, TheClearArmKeysOnTheClearRecordsType) {
+  int syntheticChecked = 0, realChecked = 0;
   for (const std::string& dir : dirs_) {
-    if (!Synthetic(dir)) continue;
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
     SetOverlay(o);
     Built b;
     Build(o, b, true, true);
-    ASSERT_EQ(LoadU32(KindRecord(*b.world, b.side, kClearKind), 0), kClearType) << dir << ": the patched type";
+    if (LoadU32(KindRecord(*b.world, b.side, kClearKind), 0) != kClearType || PesReturn(o) != kClearKind) continue;
     StoreU32(KindRecord(*b.world, b.side, kClearKind), 0, 0);
     EXPECT_NE(b.world->RunWalk(b.side, b.ext), kClearKind) << dir;
-    ++checked;
+    ++(Synthetic(dir) ? syntheticChecked : realChecked);
   }
-  EXPECT_GT(checked, 0) << "no synthetic state in the oracle set";
+  EXPECT_GT(syntheticChecked, 0) << "no synthetic Clear-arm state in the oracle set";
+  EXPECT_GT(realChecked, 0) << "no real Clear-arm state in the oracle set";
 }
 
-// The list GF writes is PES's list: read each capture's list back (count, kinds, the record at each kind's slot), rewrite it with
-// SetUnitList over a zeroed list region, and the walk must still return PES's kind. A wrong rank byte or a record at the wrong
-// slot changes the walk's order or its answers.
+// The list GF writes is PES's list: read each capture's list from the capture's own memory (count, kinds, the record at each
+// kind's slot; the window holds only the bytes the walk read, and the Clear arm's chain reads a kind's record without reading its
+// position, as seq15049's kind 6), rewrite it with SetUnitList over a zeroed list region, and the walk must still return PES's
+// kind. A wrong rank byte or a record at the wrong slot changes the walk's order or its answers.
 TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
   for (const std::string& dir : dirs_) {
     Oracle o;
@@ -109,25 +116,27 @@ TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
     Built b;
     Build(o, b, true, true);
     uint8_t* list = b.world->Carrier(b.side) + pes::kBpListOffset;
+    const uint64_t pesList = o.regs.at("rcx") + pes::kBpListOffset;
+    std::vector<uint8_t> captured(pes::kListBytes);
+    for (std::size_t at = 0; at < captured.size(); ++at) captured[at] = static_cast<uint8_t>(Read(o, pesList + at, 1));
     std::vector<pes::PesWorld::WalkEntry> entries;
-    for (uint32_t position = 0, count = LoadU32(list, 0); position < count; ++position) {
+    for (uint32_t position = 0, count = LoadU32(captured.data(), 0); position < count; ++position) {
       pes::PesWorld::WalkEntry e;
-      e.kind = LoadU32(list, sizeof(uint32_t) * (1 + position));
-      std::copy_n(KindRecord(*b.world, b.side, e.kind), e.record.size(), e.record.begin());
+      e.kind = LoadU32(captured.data(), sizeof(uint32_t) * (1 + position));
+      std::copy_n(captured.begin() + pes::kListRecordOffset + pes::kListRecordStride * e.kind, e.record.size(), e.record.begin());
       entries.push_back(e);
     }
-    const std::vector<uint8_t> captured(list, list + pes::kListBytes);
     ASSERT_FALSE(entries.empty()) << dir;
     b.world->SetUnitList(b.side, entries);
-    // PES's own list bytes: the count, the kinds, every rank byte (-1 unlisted) and each listed kind's record.
+    // PES's own list bytes: the count, the kinds, every single-listed kind's rank byte and each listed kind's record.
     for (std::size_t at = 0; at < sizeof(uint32_t) * (1 + entries.size()); ++at) EXPECT_EQ(list[at], captured[at]) << dir << " list+" << at;
-    // A rank byte is the kind's position in the list (PES's own bytes, where the call read them: the rest of the window is zero).
-    // PES's list can name a kind twice (seq5878 lists kind 0 at two positions); GF's builder never does, so only single kinds count.
+    // A rank byte is the kind's position in the list. PES's list can name a kind twice (seq5878 lists kind 0 at two positions); GF's
+    // builder never does, so only single kinds count.
     for (std::size_t position = 0; position < entries.size(); ++position) {
       const uint32_t kind = entries[position].kind;
       if (std::count_if(entries.begin(), entries.end(), [kind](const auto& e) { return e.kind == kind; }) != 1) continue;
       const std::size_t at = pes::kListRankOffset + kind;
-      EXPECT_TRUE(captured[at] == position || captured[at] == 0) << dir << " captured rank of kind " << kind;
+      EXPECT_EQ(captured[at], position) << dir << " captured rank of kind " << kind;
       EXPECT_EQ(list[at], position) << dir << " rank of kind " << kind;
     }
     for (const auto& e : entries)
@@ -137,6 +146,47 @@ TEST_F(WalkOracle, TheListGfWritesReproducesPesKindOnEveryCapture) {
       }
     EXPECT_EQ(b.world->RunWalk(b.side, b.ext), PesReturn(o)) << dir;
   }
+}
+
+// The stand-down gate (0x14210F4E8): a carrier whose Clear unit answered (kind-1 record type 5) is NOT cleared where PES's dribble
+// proposal heads within 60 degrees of the turn reference (BP+0x3380 against BP+0x4210). GF's window never wrote those two inputs, so
+// on such a state it answered kind 1 (the Clear block) where PES answered 0x19 or 0xB. The chain RunDribbleProposal (0x14211D710,
+// 0x14211ED10, 0x1421102D0) writes them: from each state's whole records, with BP+0x3380 and the proposal record BP+0x4204 zeroed
+// (as GF's window held them), the walk must return PES's kind, on the window with the capture's out-of-window bytes and on the
+// production window. The state is the one the walk saw, after PES's own writers ran once: the chain ticks the kind objects again.
+TEST_F(WalkOracle, TheDribbleProposalChainStandsTheClearDownWherePesDoes) {
+  int compared = 0, zeroedWrong = 0;
+  std::set<uint32_t> kinds;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    const uint32_t want = PesReturn(o);
+    for (bool captureBytes : {true, false}) {
+      const auto window = [&](Built& b) {
+        Build(o, b, captureBytes, true);
+        CopyRecords(o, b, true);
+        uint8_t* bp = b.world->Carrier(b.side);
+        std::memset(bp + pes::kBpProposalOffset, 0, pes::kProposalRecordBytes);
+        StoreU32(bp, pes::kBpTurnReferenceOffset, 0);
+      };
+      Built chained;
+      window(chained);
+      if (LoadU32(KindRecord(*chained.world, chained.side, kClearKind), 0) != kClearType) break;  // no Clear answer: the gate is not reached
+      const uint8_t* bp = chained.world->Carrier(chained.side);
+      chained.world->RunDribbleProposal(chained.side, LoadU32(bp, pes::kBpUnitInfoOffset + pes::kUnitSlotOffset), chained.ext);
+      EXPECT_EQ(chained.world->RunWalk(chained.side, chained.ext), want) << dir << (captureBytes ? " (capture bytes)" : " (production window)");
+      if (!captureBytes) continue;
+      Built held;  // the window as GF held it before the chain: the gate's two inputs zero
+      window(held);
+      ++compared;
+      kinds.insert(want);
+      if (held.world->RunWalk(held.side, held.ext) != want) ++zeroedWrong;
+    }
+  }
+  EXPECT_GT(compared, 0) << "no state in the oracle set whose Clear record is PES's type 5";
+  EXPECT_GT(zeroedWrong, 0) << "the zeroed window answered PES's kind everywhere: the set holds no stand-down state, the chain proves nothing";
+  EXPECT_GT(kinds.size(), 1u) << "every compared state answers one kind";
 }
 
 // A list whose records all answer nothing: the walk skips every kind and returns PES's 'no kind' word.
@@ -216,10 +266,11 @@ TEST_F(UnitOracle, DangerBuilderOnTheWindowWritesTheWalksDangerByteAndZone) {
   }
 }
 
-// What GF's production profile writer (SetCarrierProfile, called by the carrier controller before every walk) puts in the window,
-// read back through PES's own readers: the skill bit 0x14063E960(ctx, slot, bit) and the height stat byte 0x14063D8A0(ctx, slot,
-// 0x31). Both go through the slot -> info map (0x140A3AF90) of G's team-info table, so a record written under the wrong index, a
-// wrong side record or a wrong map entry changes what PES reads for some slot.
+// What GF's production profile writers (SetCarrierProfile for the carrier's skill mask, StoreLiveAbility for every slot's ability
+// bytes, both called by the carrier controller before every walk) put in the window, read back through PES's own readers: the
+// skill bit 0x14063E960(ctx, slot, bit) and the height stat byte 0x14063D8A0(ctx, slot, 0x31). The skill goes through the slot ->
+// info map (0x140A3AF90) of G's team-info table, the ability byte through the slot's record (0x140A489F0), so a record written
+// under the wrong index, a wrong side record or a wrong map entry changes what PES reads for some slot.
 uint64_t PesRead(pes::PesWorld& w, void (*reader)(PesState&), uint32_t slot, uint32_t arg) {
   PesState s;
   w.BindCall(s);
@@ -229,23 +280,23 @@ uint64_t PesRead(pes::PesWorld& w, void (*reader)(PesState&), uint32_t slot, uin
   return s.gpr[0];
 }
 
-TEST(CarrierProfile, PesReadersSeeTheCarriersMaskAndHeightAndNobodyElses) {
-  constexpr uint32_t kHeightStatIndex = 0x31;  // the walk's `MOV R8D,0x31` for 0x14063D8A0 (height cm)
+TEST(CarrierProfile, PesReadersSeeTheCarriersMaskAndEverySlotsHeight) {
+  constexpr uint32_t kHeightStatIndex = pes::kAbilityHeightId;  // the walk's `MOV R8D,0x31` for 0x14063D8A0 (height cm)
   constexpr int kSkills[] = {pes::kSkillOneTouchShot, pes::kSkillOneTouchPass, pes::kSkillPinpointCross};
   constexpr uint32_t kPlace = 7;
+  constexpr uint8_t kHeightFloor = 150;  // slot k is k cm above it: no two slots share a height, so a byte in the wrong record shows
   const uint64_t masks[2] = {(1ull << pes::kSkillOneTouchShot) | (1ull << pes::kSkillPinpointCross), 1ull << pes::kSkillOneTouchPass};
-  const uint8_t heights[2] = {171, 193};
   pes::PesWorld w;
   BindWorld(w);
-  for (int side = 0; side < 2; ++side) w.SetCarrierProfile(side, side * pes::kSlotsPerSide + kPlace, masks[side], heights[side]);
+  for (int side = 0; side < 2; ++side) w.SetCarrierProfile(side, side * pes::kSlotsPerSide + kPlace, masks[side]);
+  for (uint32_t slot = 0; slot < 2 * pes::kSlotsPerSide; ++slot) w.StoreLiveAbility(static_cast<int>(slot), kHeightStatIndex, kHeightFloor + slot);
   for (uint32_t slot = 0; slot < 2 * pes::kSlotsPerSide; ++slot) {
     const int side = static_cast<int>(slot / pes::kSlotsPerSide);
     const bool carrier = slot % pes::kSlotsPerSide == kPlace;
     for (int skill : kSkills)
       EXPECT_EQ(PesRead(w, &pes_fn_14063E960, slot, skill) & 1, carrier && ((masks[side] >> skill) & 1) ? 1u : 0u)
           << "slot " << slot << " skill " << skill;
-    EXPECT_EQ(PesRead(w, &pes_fn_14063D8A0, slot, kHeightStatIndex) & 0xFF, carrier ? heights[side] : 0u)
-        << "slot " << slot;
+    EXPECT_EQ(PesRead(w, &pes_fn_14063D8A0, slot, kHeightStatIndex) & 0xFF, kHeightFloor + slot) << "slot " << slot;
   }
 }
 
@@ -264,7 +315,7 @@ TEST(CarrierProfile, TheWalkReadsTheTakerFromTheSideRecordAndTheCarrierFromTheUn
     w.Period().playState = kPlayStateStopped;
     const uint32_t slot = side * pes::kSlotsPerSide + 4;
     StoreU32(w.Carrier(side), pes::kBpUnitInfoOffset + pes::kUnitSideOffset, side);
-    w.SetCarrierProfile(side, slot, 0, 180);
+    w.SetCarrierProfile(side, slot, 0);
     w.SetUnitList(side, {{kListedKind, pes::EncodeAnswerRecord({pes::kAnswerDribble, 0, 0.0f})}});
     StoreU32(w.Carrier(side), pes::kBpUnitInfoOffset + pes::kUnitSlotOffset, slot);
     EXPECT_EQ(w.RunWalk(side), pes::kWalkNoKind) << "the taker himself, side " << side;

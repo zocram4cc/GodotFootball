@@ -28,6 +28,13 @@ inline constexpr uint64_t kQuarterSineCount = 513;
 inline constexpr uint64_t kFrameCellsVa = 0x14351AE50;
 inline constexpr uint64_t kFrameCellsBytes = 8;
 inline constexpr uint64_t kFrameFloatSourceVa = 0x14259D624;
+// The vtables of the carrier block's objects (0x14210D320 stores their VAs: the block 0x142BEF090, the plan 0x142BEED60, the 25 unit
+// kinds 0x142BEED90..0x142BEF..., the carrier manager 0x142BEFFE8 and its nine step objects, the last at 0x142BF0270 + 0x48, and the
+// kind-0x18 object's 0x142BF0F70 (0x1421349E0), the last vtable the constructor stores). The virtual calls of 0x14211D710,
+// 0x1421102D0 and the block reset 0x14210E5F0 (slot +8 of every kind object) read their slots from the image's read-only data, so
+// the window binds the span.
+inline constexpr uint64_t kBpVtablesVa = 0x142BEED00;
+inline constexpr uint64_t kBpVtablesBytes = 0x142BF0F90 - kBpVtablesVa;
 // The tier table 0x140A603C0 reads for the carrier walk's capability gate 0x140A604D0 (BP+0x60 = tier * 100): 0x22 rows (the
 // `0x21 < param_2` bound) of 0x20 bytes, row r at 0x142645A40 + 0x20 * r (a flag byte, then seven f32 per tier, `+0x20 * r` in the
 // `&DAT_142645a44 + (tier + r * 8) * 4` reads).

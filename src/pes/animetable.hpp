@@ -43,6 +43,9 @@ class Animetable {
   const AnimetableLayout& Layout() const { return layout_; }
   const std::vector<std::string>& Labels() const { return labels_; }
   AnimetableCell Cell(int row, int col) const;
+  // The cell as FUN_1406aa440 stores it in the table buffer behind 0x1436F2378[0] (s16 motion - 1, and the flag byte after the
+  // cells): no patch (FUN_1406abb30 applies the patch cell at lookup) and the mirror bit kept on an empty cell too.
+  AnimetableCell BufferCell(int row, int col) const;
   bool Populated(int row, int col) const { return Cell(row, col).motionNo >= 0; }
   // The populated column nearest the relative angle (degrees), the middle
   // column when none is.

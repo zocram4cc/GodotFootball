@@ -10,7 +10,7 @@ add_test(NAME diff_pilot_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
---out-dir '${CMAKE_BINARY_DIR}/pilot-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results.json' \"\${SEL[@]}\"")
+--jobs \${GF_DIFF_JOBS:-2} --out-dir '${CMAKE_BINARY_DIR}/pilot-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results.json' \"\${SEL[@]}\"")
 set_tests_properties(diff_pilot_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
 
 # diff_cutscene_recorded: the same check for the cutscene set (specs/cutscene; results_cutscene.json records its diffed VAs).
@@ -19,7 +19,7 @@ add_test(NAME diff_cutscene_recorded
 SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/cutscene' \
---out-dir '${CMAKE_BINARY_DIR}/cutscene-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_cutscene.json' \"\${SEL[@]}\"")
+--jobs \${GF_DIFF_JOBS:-2} --out-dir '${CMAKE_BINARY_DIR}/cutscene-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_cutscene.json' \"\${SEL[@]}\"")
 # 4800 s: the full 685-function check took 2855 s at load ~30 (batch AO); 2400 timed out twice there.
 set_tests_properties(diff_cutscene_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 4800)
 
@@ -30,7 +30,7 @@ add_test(NAME diff_presentation_recorded
 SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/presentation' \
---out-dir '${CMAKE_BINARY_DIR}/presentation-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_presentation.json' \"\${SEL[@]}\"")
+--jobs \${GF_DIFF_JOBS:-2} --out-dir '${CMAKE_BINARY_DIR}/presentation-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_presentation.json' \"\${SEL[@]}\"")
 # 4800 s: 1881 s alone at load ~30 (batch AO); under the full fast tier at load ~30 (batch AP) 2400 timed out.
 set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 4800)
 
@@ -42,10 +42,11 @@ add_test(NAME diff_core_recorded
 SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/core' \
---out-dir '${CMAKE_BINARY_DIR}/core-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_core.json' \"\${SEL[@]}\"")
+--jobs \${GF_DIFF_JOBS:-2} --out-dir '${CMAKE_BINARY_DIR}/core-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_core.json' \"\${SEL[@]}\"")
 # The check replays all 2,253 recorded core functions: about 2.5 h on a loaded machine (EndClear2, 28-10-26), past the
 # old 2 h cap when the gate shares the machine with agents.
-set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 14400)
+# COST: ctest starts the most expensive test first; this check is the gate's critical path (about 3 h at --jobs 2).
+set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 14400 COST 1000)
 
 # diff_impure_recorded: the same check for the impure set (specs/impure; results_impure.json records its diffed VAs).
 # Without it the impure record was never re-checked: the driver's default spec dir (specs/pilot) held none of its VAs.
@@ -59,7 +60,7 @@ BANK=(); [ -n \"$GF_IMPURE_BANKS\" ] && BANK=(--seed-bank \"$GF_IMPURE_BANKS\");
 SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/impure' \
---out-dir '${CMAKE_BINARY_DIR}/impure-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_impure.json' \
+--jobs \${GF_DIFF_JOBS:-2} --out-dir '${CMAKE_BINARY_DIR}/impure-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_impure.json' \
 \"\${BANK[@]}\" \"\${SEL[@]}\"")
 set_tests_properties(diff_impure_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 3600)
 
@@ -99,6 +100,22 @@ set_tests_properties(translate_tail_jump_loud PROPERTIES SKIP_RETURN_CODE 77 TIM
 add_test(NAME translate_libm_models
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_libm_models.py'")
 set_tests_properties(translate_libm_models PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
+
+# finish_one's coverage record skips an undecodable function (block_coverage's None), never unpacks it (plain python3).
+add_test(NAME translate_finish_coverage
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_finish_coverage.py)
+set_tests_properties(translate_finish_coverage PROPERTIES TIMEOUT 120)
+
+# traced_cov's report leaves an undecodable function (block_coverage's None) out, never unpacks it (plain python3).
+add_test(NAME translate_traced_cov
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_traced_cov.py)
+set_tests_properties(translate_traced_cov PROPERTIES TIMEOUT 120)
+# The driver's two caches (buildcache.py): the object and corpus keys, the corpus record's validity and its output fidelity
+# (a sys.exit text and a traceback print as a direct run prints them). The record runs run.py's harness, so it needs the
+# harness Python (GF_DIFF_PYTHON); without it the test skips (77).
+add_test(NAME translate_buildcache
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_buildcache.py'")
+set_tests_properties(translate_buildcache PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
 
 # Drift: regenerating every committed translated function from the image must reproduce the committed files.
 # Hand-refined functions are skipped by the check (their bit-exact proof is the harness check above).

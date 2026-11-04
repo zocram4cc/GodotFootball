@@ -1,0 +1,51 @@
+{
+ "note": "snapshot-backed diff of synthetic calls (snapdiff.py): the goal event position 0x140476C50 and radius 0x140474CF0, each replayed from the full snapshot of a captured goal anchor call (A0 rcx and ctx rdx from the anchor call's registers; the radius's cut list laid in dead stack from DemoInfo+0x10+0x1C*i) on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated. The call is built by tools/dev/cutscene/goal_event_calls.py. Both functions read the live RNG at A0+0x114 and the post-call A0, so a replay equals A0 only for the default arm after rewinding that RNG one draw (goal_event_calls.py --check-only); this record compares translated to PES's bytes.",
+ "proven_count": 2,
+ "captures": "live2/pid2621613 (calc seq1532 regs, seq1531 memory); live2/pid132854 calc seq2152 2962 3783 4195 4721 5566; replayed with tools/dev/cutscene/replay_verdicts.py --hook 0x140476C50 / 0x140474CF0 over goal_event_calls.py output (frame_trace.py recorded + snapdiff.py --hooks hooks.cfg --spec-dir specs/core). own_block = the best single run's block coverage (not a union)",
+ "results": [
+  {
+   "va": "0x140476C50",
+   "calls": 7,
+   "replayed": 7,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq1532_pid2621613": {"calls": 1, "replayed": 1},
+    "seq2152_pid132854": {"calls": 1, "replayed": 1},
+    "seq2962_pid132854": {"calls": 1, "replayed": 1},
+    "seq3783_pid132854": {"calls": 1, "replayed": 1},
+    "seq4195_pid132854": {"calls": 1, "replayed": 1},
+    "seq4721_pid132854": {"calls": 1, "replayed": 1},
+    "seq5566_pid132854": {"calls": 1, "replayed": 1}
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {"reached": 25, "total": 61, "fraction": 0.4098},
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140474CF0",
+   "calls": 7,
+   "replayed": 7,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq1532_pid2621613": {"calls": 1, "replayed": 1},
+    "seq2152_pid132854": {"calls": 1, "replayed": 1},
+    "seq2962_pid132854": {"calls": 1, "replayed": 1},
+    "seq3783_pid132854": {"calls": 1, "replayed": 1},
+    "seq4195_pid132854": {"calls": 1, "replayed": 1},
+    "seq4721_pid132854": {"calls": 1, "replayed": 1},
+    "seq5566_pid132854": {"calls": 1, "replayed": 1}
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {"reached": 28, "total": 214, "fraction": 0.1308},
+   "proven": true,
+   "blocked_callees": []
+  }
+ ]
+}

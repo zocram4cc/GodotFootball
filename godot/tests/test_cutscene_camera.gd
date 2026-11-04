@@ -48,12 +48,12 @@ func _initialize() -> void:
 
 	# The record asks for the player's offset (+0xA6 = 1): a position offset moves the eye by exactly it.
 	var off := Vector3(10.0, -1.0, 5.0)
-	cut.set_cut_offset(off, 0.0, false)
+	cut.set_stage_default(off, 0.0, false)
 	cut.update(camera, t_s)
 	check(camera.global_position.distance_to(eye + off) < TOL, "position offset is added to the eye")
 
 	# rotY turns the shot about world Y (0x141F7B8FC): (x, y, z) goes to (z, y, -x) for 90 degrees.
-	cut.set_cut_offset(Vector3.ZERO, 90.0, false)
+	cut.set_stage_default(Vector3.ZERO, 90.0, false)
 	cut.update(camera, t_s)
 	check(camera.global_position.distance_to(Vector3(eye.z, eye.y, -eye.x)) < 1e-3,
 		"rotY 90 turns the eye about Y (%s)" % camera.global_position)
@@ -62,7 +62,7 @@ func _initialize() -> void:
 		"rotY 90 turns the view direction about Y (%s)" % forward)
 
 	# Flip mirrors X: the eye's x changes sign.
-	cut.set_cut_offset(Vector3.ZERO, 0.0, true)
+	cut.set_stage_default(Vector3.ZERO, 0.0, true)
 	cut.update(camera, t_s)
 	check(absf(camera.global_position.x + eye.x) < TOL, "flip mirrors the eye's x")
 	quit(1 if failures > 0 else 0)

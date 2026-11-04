@@ -198,6 +198,9 @@ public:
   // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
+  // The phase-1 forward-line count of the team record (T+0x87CC, pesroles.hpp's band rows): FUN_1405D8B70's gate for
+  // roles 5-6.
+  int ForwardLineMen() const;
   // The defensive line of a player: the reclassify of his slot's B class on the PES path (pesmentality.hpp).
   int DefensiveLineOf(Player* p, e_PlayerRole role) const;
   // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
@@ -460,5 +463,12 @@ class Match;
 // PES's movement records (man +0x55C..+0x57C) for every active player, written at the start of the tick on the PES
 // path: Match::Process calls it before any reader. GF mode writes them per run build (BuildRunWorld) instead.
 void WritePesMovementRecords(Match& match);
+// Every active player's P (PES's AnimePlayer, pestrapactor.hpp) from his state, written right after the movement records: the
+// Trap chain's actor objects, one per player. Match::Process calls it on the PES path.
+void WritePesTrapActors(Match& match);
+// Every man in the Trap action runs PES's action tick on the window and plays the clip it issues (after WritePesTrapActors).
+void RunPesTrapTicks(Match& match);
+// One player's man record movement fields (position, velocity in m per PES frame, facing), from GF's player state.
+void WritePesManMovement(Player& player, uint8_t* man);
 
 #endif

@@ -57,7 +57,8 @@ struct RefereeBuffer {
 struct Foul {
   Player* foulPlayer;
   Player* foulVictim;
-  int foulType;  // 0: nothing, 1: foul, 2: yellow, 3: red
+  int foulType;  // 0: nothing, 1: foul, 2: yellow, 3: red (this engine's ladder; the card the player is given)
+  int level = 0;  // PES's judge level (PesWorld::DecideJudge, the translated 0x1405B7470): 1 foul, 2 foul + warning, 3 yellow, 4 red
   bool advantage;
   // PES's advantage (docs/re/pes-re-duels-fouls.md 3): decided once, in the
   // last third of the whistle hold, then a clock that runs out or is called back.
@@ -84,9 +85,14 @@ public:
   virtual ~Referee();
 
   void Process();
-  // Writes this referee's stoppage state into the match-info block at PES's offsets (pesworldrecord.hpp kMi*), for the
-  // translated stoppage functions. Runs at the end of every Process().
+  // Mirrors the stops the whistle does not write (every stop but a foul's) into the match-info block at PES's offsets
+  // (pesworldrecord.hpp kMi*), for the translated stoppage functions. Runs at the end of every Process().
   void PublishPesStoppage();
+  // PES's sanction tree 0x14047F170 (PesWorld::DecideSanction), run on the first tick of every foul stop: the scene id
+  // it chose (0x20022 is "no scene") and a serial that counts the decisions, so a reader detects a new one. Zero until
+  // the first foul stop. The cutscene request reads these two.
+  uint32_t SanctionScene() const { return sanctionScene; }
+  unsigned SanctionSerial() const { return sanctionSerial; }
 
   void PrepareSetPiece(e_SetPiece setPiece);
 
@@ -117,6 +123,7 @@ public:
   void CancelSetPiece();
 
   Player* GetCurrentFoulPlayer() { return foul.foulPlayer; }
+  Player* GetCurrentFoulVictim() { return foul.foulVictim; }
   int GetCurrentFoulType() { return foul.foulType; }
 
   // PES 2021's offside category for a player (docs/re/pes-re-offside.md 4):
@@ -173,11 +180,21 @@ protected:
   // stoppage.
   void IssueDeferredCards();
 
-  // Law 12 DOGSO: escalates a foul on a player who was through on goal.
-  // PES 2021's foul decision for one contact: this engine's foul type 0..3.
-  int JudgeContact(Player* tripee, Player* tripper, pes::JudgeAction action, bool victimFell,
-                   bool targeted);
-  void RecordFoul(Player* tripee, Player* tripper, int foulType);
+  // PES 2021's foul decision for one contact: PES's judge level 0..4 (the translated 0x1405B7470 on the world window).
+  int JudgeContact(Player* tripee, Player* tripper, pes::ContactAction foulerAction, bool victimStaggered, bool victimFell,
+                   bool targeted, bool playedBall);
+  // The field info and attack signs the judge and the sanction tree read, written on the world window.
+  void StagePesField();
+  void RecordFoul(Player* tripee, Player* tripper, int level);
+  // Stages the foul stop's records on the world window (the foul event ring, the booking counts, the field info) and
+  // runs PES's sanction tree on them. Called once per foul stop, after PublishPesStoppage wrote the match-info block.
+  void DecideSanction();
+  bool sanctionDue = false;
+  // The foul stop's stoppage words in the match-info block are the whistle's (CheckFoul ran the commit); PublishPesStoppage
+  // leaves them alone until the stop ends.
+  bool stoppageWhistled = false;
+  uint32_t sanctionScene = 0;
+  unsigned sanctionSerial = 0;
   float NearestToBall_m(Team* team) const;
 
   // PES 2021's offside whistle (docs/re/pes-re-duels-fouls.md 5.1): after the

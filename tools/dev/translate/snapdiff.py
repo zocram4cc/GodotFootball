@@ -33,6 +33,14 @@ import stubs as stub_table  # noqa: E402
 
 JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
+# .impdata (full_snapshot.IMPDATA): the game's relocated code, up to the next section (.reloc). Its leaves (the proc camera's
+# stage presets 0x1440558C0, 0x144056E40, ...) carry .pdata entries but are outside the pilot range.
+IMPDATA_LO, IMPDATA_HI = 0x143D14000, 0x15B952000
+
+
+def is_code(va):
+    """An address the bounded closure may translate when a replay entered it: plain code or relocated .impdata code."""
+    return CODE_LO <= va < CODE_HI or IMPDATA_LO <= va < IMPDATA_HI
 
 
 
@@ -127,10 +135,10 @@ def build_closure(va, spec, args, pilot, reached, executed=None):
             # the build translates it too. A call to a stubbed or blocked callee is excluded by the harness, not added.
             # Bounded: a callee the replays entered is built even when stubs.json calls it unmodellable (the harness ran
             # its bytes; only a modelled callee is inlined), and one they never entered keeps its loud abort.
-            for m in re.finditer(r"OUT-OF-(?:RANGE JMP|SET CALL) 0x([0-9A-Fa-f]+)", text):
+            for m in re.finditer(r"OUT-OF-(?:RANGE (?:JMP|JCC)|SET CALL) 0x([0-9A-Fa-f]+)", text):
                 t = "0x" + m.group(1).upper()
                 runs_real = (int(t, 16) in ran and t not in drv.MODEL_MAP) if bounded else int(t, 16) not in drv.STUB_TABLE
-                if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and runs_real:
+                if is_code(int(t, 16)) and t not in build_pilot and runs_real:
                     if not pd.is_boundary(int(t, 16)):
                         # An address inside a function or an instruction is no callee: the build never translates it,
                         # and the closure is reported as not built rather than compared without it.
@@ -146,10 +154,10 @@ def build_closure(va, spec, args, pilot, reached, executed=None):
             return need, None
 
 
-def build_binary(va, spec, args, pilot, reached, native=False, executed=None):
-    """The diff main and the translated closure, compiled. Returns (binary path, error). native: the production
-    dispatch (gen_dispatch --native), GF's PesHeap attached per call, and PES's allocator targets left out of the closure.
-    executed: the instruction addresses the replays ran (--bounded), or None for the unbounded closure."""
+def build_binary(va, spec, args, pilot, reached, executed=None, native=False):
+    """The diff main and the translated closure, compiled. Returns (binary path, error). executed: the addresses the replays
+    ran (--bounded), else None. native: the production dispatch (gen_dispatch --native), GF's PesHeap attached per call, and
+    PES's allocator targets left out of the closure."""
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
     need, err = build_closure(va, spec, args, pilot, reached, executed)
@@ -175,7 +183,7 @@ def build_binary(va, spec, args, pilot, reached, native=False, executed=None):
     subprocess.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"), "--out", gen]
                    + (["--native"] if native else []) + ["--vas"] + sorted(need), check=True)
     bin_p = os.path.join(gen, "snapdiff_%s%s" % (tag, sfx))
-    srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need] + [os.path.join(gen, "pes_dispatch_gen.cpp")]
     if native:
         srcs.append(os.path.join(gen, "pes_native.cpp"))
     trace = ["-include", os.path.join(HERE, "lockstep_trace.h")] if os.environ.get("GF_XLATE_TRACE") else []
@@ -311,11 +319,10 @@ def run_one(va, args, pilot, pairs):
             res["excluded"], res["calls"], "; ".join("%s x%d" % kv for kv in top) or "none recorded",
             ",".join(res.get("blocked_callees") or []) or "none")
         return res
-    executed = addrs if args.bounded else None
-    bin_p, err = build_binary(va, spec, args, pilot, reached, executed=executed)
+    bin_p, err = build_binary(va, spec, args, pilot, reached, addrs if args.bounded else None)
     nbin_p = None
     if not err and args.native:
-        nbin_p, err = build_binary(va, spec, args, pilot, reached, native=True, executed=executed)
+        nbin_p, err = build_binary(va, spec, args, pilot, reached, addrs if args.bounded else None, native=True)
     if err:
         # A closure that did not build compares nothing: its replays are unverified, never passed.
         res["unverified"] = res["replayed"]

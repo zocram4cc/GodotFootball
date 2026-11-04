@@ -22,12 +22,15 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <cstring>
 #include <map>
 #include <utility>
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
 #include "pes/movestep.hpp"
+#include "pesmovestep.hpp"
+#include "pestrapactor.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
 #include "pes/mbinfo.hpp"
@@ -858,36 +861,22 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
       xFocusStrength, yFocus, yFocusStrength, microFocus, microFocusStrength, midfieldFocus,
       midfieldFocusStrength, useDynamicFormationPosition);
 
-  // The playing style bends the formation spot: a hole player pushes on while
-  // his team attacks, an anchor man sits, a roaming flank tucks inside, and a
-  // goal poacher ignores his depth altogether to lurk on the opponent's
-  // offside line (roadmap 4D, docs/PES21_IMPORT.md).
-  const PlayingStyles::Player style = player->GetPlayerData()->GetPlayingStyle();
-  float styleDepth = PlayingStyles::GetDepthOffset(style, teamHasPossession);
-  // pes_loop: PES's run-depth term for the two run styles decoded so far (FUN_1405d8b70
-  // L650-657); every other style keeps the GF stand-in above.
-  if (match->PesLoop() &&
-      (style == PlayingStyles::Player::GoalPoacher || style == PlayingStyles::Player::FoxInTheBox))
-    styleDepth = pes::offball::StyleRunDepth(
-        match->GetPesOffBallConstants(),
-        RoleClassOfSlot(team->FormationSlotOf(player)),
-        pes::style::StyleWord(style), GetRunState(player),
-        match->GetDesignatedPossessionPlayer() == player);
+  // Run depth: PES's rule on the player's style word (FUN_1405d8b70 L644-662, FUN_140a64030 per
+  // bit: style word AND the role class's compat row), on both loop paths. The word is the save
+  // row's +0x48 (Match::StyleWordOf). PES has a depth term in that function for bits 0, 2 and 4
+  // only; GF's old per-style depth table, width tuck and poacher offside-line spot had no PES site
+  // (the real width terms are FUN_1405e6e80 L527-582, which edit its lateral band edges: not ported) and are gone.
+  // Roles 5-6 are gated on the phase-1 forward-line count the shape build leaves in the team record (T+0x87CC).
+  const float styleDepth = pes::offball::StyleRunDepth(
+      match->GetPesOffBallConstants(), RoleClassOfSlot(team->FormationSlotOf(player)),
+      match->StyleWordOf(player->GetPlayerData()), GetRunState(player),
+      match->GetDesignatedPossessionPlayer() == player, ForwardLineMen());
   // Track Back: a midfielder or forward with the card drops deeper when his
   // team loses the ball.
   desiredPos.coords[0] +=
       -team->GetSide() * (styleDepth +
                           PlayerSkills::GetTrackBackDepth(player->GetPlayerData()->GetSkills(),
                                                           teamHasPossession));
-  desiredPos.coords[1] += signSide(desiredPos.coords[1]) *
-                          PlayingStyles::GetWidthOffset(style, teamHasPossession);
-  if (style == PlayingStyles::Player::GoalPoacher && teamHasPossession &&
-      AI_GetMindSet(role) > 0.5f) {
-    const float oppOffsideLineX =
-        AI_GetOffsideLine(match, match->GetMentalImage(0), abs(team->GetID() - 1));
-    desiredPos.coords[0] = PlayingStyles::GetPoacherTargetX(style, desiredPos.coords[0],
-                                                            oppOffsideLineX, team->GetSide());
-  }
   desiredPos.coords[0] = clamp(desiredPos.coords[0], -pitchHalfW, pitchHalfW);
   desiredPos.coords[1] = clamp(desiredPos.coords[1], -pitchHalfH, pitchHalfH);
 
@@ -3315,7 +3304,20 @@ void TeamAIController::WriteRoleArrays(bool head) {
   // (FUN_1404F5F10: f = 2 - (F != 0), 0 when MI+0x116C != 1 && MI+0x1554 == 1; 0x1404F5F38-4A). They coincide on every
   // reachable path today (audit F6); split them when a level-0 phase lands.
   WriteSlotPoints(level);
-  if (head) return;
+  if (head) {
+    // The shape build (FUN_14051D9E0, whose head write is the one above) then runs FUN_1405EC600, whose FUN_1405F9CD0
+    // leaves the line counts of the phase this frame builds in the team record (pesroles.hpp: BuiltPhase).
+    // ponytail: PES builds only in some states of MI+0x116C (state 3 every fifth frame, 0x14051DA80, and the
+    // MI+0x1775 arms); GF's play states are 1 and 2, so it builds every tick.
+    std::array<bool, pes::roles::kSideSlots> active{};
+    const auto& players = team->GetAllPlayers();
+    for (int slot = 0; slot < pes::roles::kSideSlots; ++slot)
+      active[slot] = slot < static_cast<int>(players.size()) && players[slot] && players[slot]->IsActive();
+    pes::roles::WriteBandRows(teamRecord.reserved_before_sheet.data(),
+                              pes::roles::BuiltPhase(static_cast<int>(match->GetSimFrame()), possession), roles,
+                              active);
+    return;
+  }
   if (match->PesLoop()) UpdateLaneLine();
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
   if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
@@ -3369,6 +3371,11 @@ int TeamAIController::RoleClassOfSlot(int slot) const {
   return roles.b[slot];
 }
 
+int TeamAIController::ForwardLineMen() const {
+  return pes::roles::BandRowMen(teamRecord.reserved_before_sheet.data(), pes::roles::kBandPhasePossession,
+                                pes::mentality::kForwardLine);
+}
+
 void TeamAIController::UpdateLaneLine() {
   if (!match->PesLoop()) return;
   pes::mentality::LaneWordsInput in;
@@ -3420,7 +3427,7 @@ std::vector<Player*> TeamAIController::PesBoxMen(int boxCount) {
     in.aerial[slot] = data->GetHeight() + player->GetStat("physical_jump") +
                       player->GetStat("technical_header");
     in.extraFrontman[slot] = pes::style::Gate(compat, in.classB[slot],
-                                              pes::style::StyleWord(data->GetPlayingStyle()),
+                                              match->StyleWordOf(data),
                                               kExtraFrontmanBit);
     if (in.onPitch[slot]) ++in.eligibleCount;
   }
@@ -3446,12 +3453,16 @@ float PesYawDeg(const Vector3& v) {
              ? 0.0f
              : std::fmod(std::atan2(v.coords[0], v.coords[1]) * 180.0f / pi + 360.0f, 360.0f);
 }
+}  // namespace
 
 // The movement fields of a player's man record: position from GF's coordinates (x = coords[0], z = coords[1] = PES z,
 // coords[2] = height), velocity in m per PES frame (GF m/s over kPesFps), facing in degrees.
-void WriteManMovement(Player& pl, uint8_t* man) {
+void WritePesManMovement(Player& pl, uint8_t* man) {
   const Vector3 pos = pl.GetPosition();
   const Vector3 mov = pl.GetMovement();
+  // The previous position (+0x568) is last tick's: the record still holds it until the new one is written below (P+0x14 is a
+  // copy of it).
+  std::memcpy(man + pes::kManPrevPosXOffset, man + pes::kManPosXOffset, 3 * sizeof(float));
   pes::StoreF32(man, pes::kManPosXOffset, pos.coords[0]);
   pes::StoreF32(man, pes::kManPosZOffset, pos.coords[1]);
   // PES's man record holds the height too (+0x560, +0x578 m per frame). GF's coords[2] is the height (INF).
@@ -3462,8 +3473,51 @@ void WriteManMovement(Player& pl, uint8_t* man) {
   pes::StoreF32(man, pes::kManFacingOffset, PesYawDeg(pl.GetDirectionVec()));
 }
 
-}  // namespace
+namespace {
 
+// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state.
+pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
+  pes::PesActorFacts f;
+  f.slot = slot;
+  f.side = slot / pes::kSlotsPerSide;
+  f.heightCm = pesmovestep::PhysiqueHeightCmOf(pl);
+  const pes::MoveStepRecord& rec = pl.GetMoveStep();
+  f.phase = static_cast<uint8_t>(rec.state);  // P+0x245C is the MOVESTEP record's state
+  // ponytail: GF has no PES action id for the body (P+0xAC8; MOVESTEP's AnimeState answers 2 for movement-like functions too).
+  // The receiving man is in MOVE (2) or STEP_MOVE (3) when entry 3 fires (the six kind-0 captures show both with the same
+  // phases), and nothing in GF tells them apart, so MOVE stands in for the pair and the previous pair. A body action that has an
+  // id replaces this.
+  f.action = f.sub = f.prevAction = f.prevSub = pes::kAnimeActionMove;
+  // P+0xAE0: the PES motion number of the clip the humanoid plays; the AI's own clip has none, so the no-motion sentinel.
+  const int motion = pesmovestep::CurrentMotionOf(pl);
+  f.motion = motion < 0 ? pes::kPNoMotion : static_cast<uint16_t>(motion);
+  // The anime player's motion list (PesActorFacts::playing's ponytail): the PES clip on the body, while it has frames left (the
+  // finished test is PlayIssuedClip's). GF's animation frames are 10 ms.
+  constexpr float kGfAnimFrame_s = 0.01f;
+  if (motion >= 0) {
+    const Anim* clip = pl.GetCurrentAnim();
+    if (pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
+      f.playing[0].id = static_cast<uint16_t>(motion);
+      f.playing[0].seconds = static_cast<float>(pl.GetFrameNum()) * kGfAnimFrame_s;
+      f.playingCount = 1;
+    }
+  }
+  f.kickApproach = 0;  // the kick approach (adjuster A) is never armed in GF
+  // P+0x277C / +0x2780: the first dwell's elapsed and limit, MOVESTEP's carried words req[0x1a] / req[0x1b].
+  const auto carried = [&rec](int word) {
+    float v;
+    std::memcpy(&v, &rec.carried[word - pes::moveword::kRecordStampA], sizeof v);
+    return v;
+  };
+  f.word277C = carried(pes::moveword::kDwellElapsed);
+  f.word2780 = carried(pes::moveword::kDwellLimit);
+  f.speedByte = pesmovestep::SpeedByteOf(pl);
+  f.legSlider = 0.0f;  // ponytail: FUN_141AD98B0 has no GF source (the same stand-in as PesMovestepHost::PhysiqueG)
+  f.stamina = pl.GetStamina();
+  return f;
+}
+
+}  // namespace
 // Every active player's movement record at the tick's start (Match::Process, PES mode). The cap is BuildRunWorld's: at
 // most kSlots active players a side, in roster order.
 void WritePesMovementRecords(Match& match) {
@@ -3472,7 +3526,66 @@ void WritePesMovementRecords(Match& match) {
     for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
       if (!p->IsActive() || written == ob::kSlots) continue;
       ++written;
-      WriteManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
+      WritePesManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
+    }
+  }
+}
+
+// Every active player's P at the tick's start, after the movement records it is made from (Match::Process, PES mode).
+// ponytail: SBn, the squad-order record of table B (G+0x1978, read by FUN_140A3B320 in 9 of 24 captured calls), has no decoded
+// writer and no GF source: table B stays unbound, so its reads answer zero. FUN_140A3B320's table-B writer removes this.
+// ponytail: the same table-B record's player-info entries (record + 0xA8 + idx * 0x128) hold the roster's ability bytes from +0x50
+// (FUN_140862530 reads +0x50 in the tick's contact-point search, FUN_14085E3C0) and the player id at +0x30/+0x34/+0x118
+// (FUN_140A62D90): GF writes only +0x34 and +0x78 elsewhere (SetPlayerInfo, SetCarrierProfile), so those reads answer zero in a match. The
+// oracle serves them from the capture (seq1917). The roster loader's writer of the entry removes this.
+void WritePesTrapActors(Match& match) {
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      pes::PesActorOpenInputs open;
+      const uint8_t* man = match.PesWorldOf().ManRecord(slot);
+      for (std::size_t k = 0; k < pes::kVelocityRingEntries; ++k)
+        std::memcpy(open.velocityRing.data() + k * pes::kVelocityRingEntryBytes, man + pes::kManVelXOffset,
+                    pes::kVelocityRingEntryBytes);
+      pes::PesActorFacts facts = TrapFactsOf(*p, slot);
+      facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
+      pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
+                       match.GetPesMoveStepConstants().physique);
+      // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
+      // cell whose hash does not match (0x140A58550). The ring index's clock dword has no GF source: the match's clock stands in
+      // (WriteSlotStamina's ponytail).
+      pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
+                            static_cast<uint32_t>(match.GetActualTime_ms()));
+    }
+  }
+}
+
+// Every man in the Trap action runs PES's action tick 0x140797CD0 (the phase machine) on his P and the world window, after the
+// actors were written. A start tick (phase 0, which runs SetMotion on the committed plan) plays the clip it issued: the motion
+// number, the playback rate and the mirror byte it left in P are PlayIssuedClip's arguments. A phase no capture reached aborts in
+// the translated dispatch (pes_dispatch_missing): docs/ports/pes-port-TrapTick.md 4.
+void RunPesTrapTicks(Match& match) {
+  constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
+  pes::PesWorld& world = match.PesWorldOf();
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      uint8_t* pb = world.P(slot);
+      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      const uint8_t phaseBefore = pb[pes::kPPhaseOffset];
+      // GF's heading is atan2(y, x); PES's yaw is atan2(x, y) (the man record's facing).
+      const Vector3 dir = p->GetDirectionVec();
+      const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
+      world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
+      if (phaseBefore == 0)
+        p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
     }
   }
 }
@@ -3520,9 +3633,9 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       // The man record is keyed by PES's slot (his squad place): the block the translated accessors read.
       const int recordSlot = match->PesSlotOf(pl);
       f.man = match->PesWorldOf().ManRecord(recordSlot);
-      if (!match->PesLoop()) WriteManMovement(*pl, f.man);
+      if (!match->PesLoop()) WritePesManMovement(*pl, f.man);
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
-      f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
+      f.styleWord = match->StyleWordOf(pl->GetPlayerData());
       // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.
       // The byte sits in the player's anime record (pesworldrecord.hpp), keyed by his PES slot (his squad place).
       match->PesWorldOf().SetAnimeClass(

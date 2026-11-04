@@ -43,6 +43,36 @@ def call_matches(pid, cap, expr):
         return False
 
 
+def finished_seqs(names):
+    """The seqs whose done_<seq> is in a run-dir listing. Only the final name counts: the DLL writes done_<seq>.tmp and
+    renames it, so deleting the .tmp (03-11-26) made the rename fail and left that call's files behind forever."""
+    return {n[5:] for n in names if n.startswith("done_") and n[5:].isdigit()}
+
+
+def sweep_done(run, names, seen):
+    """Delete the files of every call the DLL has finished (done_<seq> written: it never reads that seq again) and
+    forget them in `seen`. Without this the run dir grows by three files per hooked call (130k after 4.5 h on
+    02-11-26) and every pass of the loop rescans all of them, so release falls behind and the game crawls on its
+    rendezvous waits. Returns how many calls were swept."""
+    n = 0
+    for seq in finished_seqs(names):
+        for f in ("capture_%s.txt" % seq, "release_%s" % seq, "done_%s" % seq):
+            try:
+                os.remove(os.path.join(run, f))
+            except FileNotFoundError:
+                pass
+        seen.discard(os.path.join(run, "capture_%s.txt" % seq))
+        n += 1
+    return n
+
+
+def parked_captures(names):
+    """The capture files of a run-dir listing whose call is not finished (no done_<seq> in the same listing): the ones
+    a pass may still release. A finished call's files were swept in the same pass."""
+    done = finished_seqs(names)
+    return [n for n in names if n.startswith("capture_") and n.endswith(".txt") and n[8:-4] not in done]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True, help="the game's rendezvous\\run directory (where the DLL writes captures)")
@@ -128,7 +158,9 @@ def main():
             os.makedirs(launch, exist_ok=True)
             os.chown(launch, uid, gid)
             per_hook = launch_counts(launch)
-        for f in sorted(glob.glob(os.path.join(a.run, "capture_*.txt"))):
+        names = os.listdir(a.run)
+        sweep_done(a.run, names, seen)
+        for f in sorted(os.path.join(a.run, n) for n in parked_captures(names)):
             if f in seen:
                 continue
             seen.add(f)
@@ -151,8 +183,9 @@ def main():
                 release(cap, "per-hook cap %d reached" % cap_n)
                 continue
             snap = fs.rv_take(pid, a.run, launch, cap, args, say, pauses)
-            for p in glob.glob(os.path.join(a.run, "release_*")):
-                os.chown(p, uid, gid)
+            rel = os.path.join(a.run, "release_%d" % cap["seq"])
+            if os.path.exists(rel):
+                os.chown(rel, uid, gid)
             d = os.path.join(launch, "seq%03d" % cap["seq"])
             if os.path.isdir(d):
                 chown_tree(d, uid, gid)

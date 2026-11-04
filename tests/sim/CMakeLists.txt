@@ -77,6 +77,15 @@ add_executable(pes_judge_test pes_judge_test.cpp)
 target_link_libraries(pes_judge_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_judge_test)
 
+add_executable(pes_judge_decide_test pes_judge_decide_test.cpp)
+target_link_libraries(pes_judge_decide_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_judge_decide_test)
+
+add_executable(pes_foul_whistle_test pes_foul_whistle_test.cpp)
+target_link_libraries(pes_foul_whistle_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_foul_whistle_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_foul_whistle_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_offside_test pes_offside_test.cpp)
 target_link_libraries(pes_offside_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_offside_test)
@@ -93,7 +102,10 @@ gtest_discover_tests(pes_restart_sequencer_test)
 add_executable(pes_restart_delay_test pes_restart_delay_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 1800)
+# 3600 s like the diff tests: AReleasedThrowInCarriesItsBallInsideTheTouchline plays two two-minute matches (seed 7 releases none, so
+# the search runs on to seed 3) and measured 1671 s standalone at machine load ~21 (PASSED), and hit the old 1800 s limit at load ~63
+# in the StoppageFlow fast gate. The assertions are untouched.
+gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 3600)
 
 add_executable(pes_throwin_release_test pes_throwin_release_test.cpp)
 target_link_libraries(pes_throwin_release_test PRIVATE gfsim pesfmt GTest::gtest_main)
@@ -104,9 +116,9 @@ add_executable(pes_random_test pes_random_test.cpp)
 target_link_libraries(pes_random_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_random_test)
 
-add_executable(pes_goal_scene_test pes_goal_scene_test.cpp)
-target_link_libraries(pes_goal_scene_test PRIVATE gfsim pesfmt GTest::gtest_main)
-gtest_discover_tests(pes_goal_scene_test)
+add_executable(pes_goal_celebration_test pes_goal_celebration_test.cpp)
+target_link_libraries(pes_goal_celebration_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_goal_celebration_test)
 
 add_executable(pes_ball_collision_test pes_ball_collision_test.cpp)
 target_link_libraries(pes_ball_collision_test PRIVATE gfsim pesfmt GTest::gtest_main)
@@ -174,6 +186,11 @@ target_link_libraries(pes_stall_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_stall_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_stall_test PROPERTIES TIMEOUT 1800)
 
+add_executable(pes_goal_scene_hold_test pes_goal_scene_hold_test.cpp)
+target_link_libraries(pes_goal_scene_hold_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_goal_scene_hold_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_goal_scene_hold_test PROPERTIES TIMEOUT 900)
+
 add_executable(pes_match_info_test pes_match_info_test.cpp)
 target_link_libraries(pes_match_info_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_match_info_test)
@@ -181,6 +198,10 @@ gtest_discover_tests(pes_match_info_test)
 add_executable(pes_involvement_test pes_involvement_test.cpp)
 target_link_libraries(pes_involvement_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_involvement_test)
+
+add_executable(pes_sanction_test pes_sanction_test.cpp)
+target_link_libraries(pes_sanction_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_sanction_test)
 
 add_executable(pes_setpiece_taker_test pes_setpiece_taker_test.cpp)
 target_link_libraries(pes_setpiece_taker_test PRIVATE gfsim pesfmt GTest::gtest_main)

@@ -23,6 +23,7 @@
 #include "pespossession.hpp"
 #include "pesreceive.hpp"
 #include "pesstoppage.hpp"
+#include "pesstyle.hpp"
 #include "player/playerofficial.hpp"
 #include "simcontext.hpp"
 
@@ -283,6 +284,17 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES stamina constants missing: read them from the install with "
         "pes::LoadStaminaConstants into MatchSetup::pesStaminaConstants");
   pesStaminaConstants = std::make_unique<pes::StaminaConstants>(*setup.pesStaminaConstants);
+  // PES's Trap action chain: the match's own copy of the install's image slice and loader data, built once here (the chain
+  // writes image globals, so two matches never share them); WriteTrapActors writes every player's P from his state each tick.
+  if (setup.pesTrapSource == nullptr)
+    throw std::runtime_error(
+        "PES trap data missing: read them from the install with pes::LoadTrapSource into MatchSetup::pesTrapSource");
+  pesActorConstants = setup.pesTrapSource->actor;
+  for (int slot = 0; slot < pes::kSlotCount; ++slot) {
+    pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
+    pes::ConstructAnimPlugin(*pesWorld, slot);
+  }
+  pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;
   if (setup.pesSheetConstants) pesSheetConstants = *setup.pesSheetConstants;
@@ -890,7 +902,11 @@ void Match::Process() {
   // the men of a restart (PrepareSetPiece's ResetPosition, ResetSituation), so the writer runs after it and before the
   // first reader (the holder recompute, the S1 rows, the mark table, the run world). The ball and event stages and the
   // referee read no records, so nothing before this point needs them.
-  if (pesLoop) WritePesMovementRecords(*this);
+  if (pesLoop) {
+    WritePesMovementRecords(*this);
+    WritePesTrapActors(*this);
+    RunPesTrapTicks(*this);
+  }
 
   if (pesLoop) {
     // W1's recompute runs off the restart step each tick, before anything reads the holder. ponytail:
@@ -1042,8 +1058,10 @@ void Match::Process() {
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;
-  else
+  else {
     goalScoredTimer = 0;
+    goalCelebrationSpotSet = false;
+  }
 
   if (IsInPlay() && !IsInSetPiece())
     GetMatchData()->AddPossessionTime(designatedPossessionPlayer->GetTeamID(), kTick_ms);
@@ -1177,6 +1195,22 @@ std::optional<pes::PlayerTraits> TraitsOf(const std::optional<pes::PlayerDatabas
 int Match::InjuryResistanceOf(const PlayerData* data) const {
   const auto traits = TraitsOf(pesPlayerDatabase, data);
   return traits ? traits->injuryResistance : kFallbackInjuryResistance;
+}
+
+std::optional<pes::PlayerTraits> Match::PesTraitsOf(const PlayerData* data) const {
+  return TraitsOf(pesPlayerDatabase, data);
+}
+
+uint32_t Match::StyleWordOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  if (!traits || !traits->row) return pes::style::StyleWord(data->GetPlayingStyle());
+  uint32_t word;
+  std::memcpy(&word, traits->row->data() + pes::kRowStyleMask, sizeof word);
+  return word;
+}
+
+bool Match::StyleHas(const PlayerData* data, PlayingStyles::Player style) const {
+  return (StyleWordOf(data) & pes::style::StyleWord(style)) != 0;
 }
 
 bool Match::LeftFootedOf(const PlayerData* data) const {

@@ -44,6 +44,7 @@ Error PesLibrary::open(const String& root) {
   else UtilityFunctions::push_warning("PES21 PlayerAppearance.bin unreadable: ", ToGd(err));
   // Hand rig. The motion name table lives in the game's executable.
   auto exe = pes::PeImage::Open(FromGd(root) + "/" + EXE_NAME, &err);
+  if (exe) exe_ = *exe;  // kept: FixDemo selection maps the evaluator's switch tables from it
   if (exe) motionNames_ = pes::MotionNames(*exe, vfs_, &err);
   if (motionNames_) handSequences_ = pes::LoadHandSequences(vfs_, &*exe, &err);
   if (handSequences_) handPoses_ = pesrig::LoadHandPoses(vfs_, handSequences_->poses, &err);
@@ -203,6 +204,14 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 mark table constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  // PES 2021's Trap action chain: the image slice, the actor constants and the loader data (pestrapdata.hpp).
+  const char* imagePath = std::getenv("PES_EXE");  // the memory dump of the running game (tools/pes21_import/README.md)
+  if (exe && imagePath != nullptr && *imagePath != '\0') trapSource_ = pes::LoadTrapSource(*exe, vfs_, imagePath, &err);
+  else if (exe) err = "PES_EXE (the game's memory dump) is not set";
+  if (!trapSource_) {
+    UtilityFunctions::push_error("PES21 trap data unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   // The install's table bytes the translated window runs read (pesimagetables.hpp).
   if (exe) imageTables_ = pes::LoadPesImageTables(*exe, &err);
   if (!imageTables_) {
@@ -269,6 +278,8 @@ Error PesLibrary::load_edit_save(const String& path) {
     return ERR_PARSE_ERROR;
   }
   for (auto& [id, record] : save->appearances) appearances_[id] = record;  // the save wins
+  // The save's records win over Player.bin for Speed, Jump, Height, the stronger foot, the injury tier and Form (the roster's source).
+  if (playerDatabase_) playerDatabase_->ApplyEditSave(*save);
   return OK;
 }
 

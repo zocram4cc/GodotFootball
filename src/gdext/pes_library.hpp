@@ -6,6 +6,7 @@
 #include <array>
 #include <optional>
 
+#include "onthepitch/pestrapdata.hpp"
 #include "pes/camera.hpp"
 #include "pes/movestep_bundle.hpp"
 #include "onthepitch/pescarrier.hpp"
@@ -100,6 +101,8 @@ class PesLibrary : public RefCounted {
   const pes::RngConstants* rng_constants() const {
     return rngConstants_ ? &*rngConstants_ : nullptr;
   }
+  // The install's PES2021.exe (null when it did not open): PES's code tables the translated layer reads.
+  const pes::PeImage* exe() const { return exe_ ? &*exe_ : nullptr; }
   // PES 2021's goalkeeper deflect point and post-catch distribution target
   // (docs/re/pes-re-keeper-port.md).
   const pes::KeeperConstants* keeper_constants() const {
@@ -218,6 +221,8 @@ class PesLibrary : public RefCounted {
   const pes::marktable::Constants* mark_table_constants() const {
     return markTableConstants_ ? &*markTableConstants_ : nullptr;
   }
+  // PES 2021's Trap action chain (pestrapdata.hpp).
+  const pes::PesTrapSource* trap_source() const { return trapSource_ ? &*trapSource_ : nullptr; }
   // The install's table bytes the translated window runs read (pesimagetables.hpp).
   const pes::PesImageTables* image_tables() const { return imageTables_ ? &*imageTables_ : nullptr; }
 
@@ -254,6 +259,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::TeamConceptConstants> teamConceptConstants_;
   std::optional<pes::SubstitutionConstants> substitutionConstants_;
   std::optional<pes::RngConstants> rngConstants_;
+  std::optional<pes::PeImage> exe_;
   std::optional<pes::KeeperConstants> keeperConstants_;
   std::optional<pes::StaminaConstants> staminaConstants_;
   std::optional<pes::fdc::PoseConstants> cutsceneCameraConstants_;
@@ -266,6 +272,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::MoveStepConstants> moveStepConstants_;
   std::optional<pes::PressConstants> pressConstants_;
   std::optional<pes::marktable::Constants> markTableConstants_;
+  std::optional<pes::PesTrapSource> trapSource_;
   std::optional<pes::PesImageTables> imageTables_;
   std::optional<pes::SetPieceTakerConstants> setPieceTakerConstants_;
   std::optional<pes::SetPieceTeamConstants> setPieceTeamConstants_;

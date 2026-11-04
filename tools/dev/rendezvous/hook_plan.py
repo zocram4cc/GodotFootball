@@ -87,6 +87,74 @@ TARGETS = [
     # The actor's action switch (TrapTick2): the trap end handler 0x14079E5C0 calls it; it runs PES's per-action objects.
     ("action_switch_6EEBB0", 0x1406EEBB0, "actor action switch (P+0xAC8 action id; per-action objects)"),
     ("trap_end_other_79D4B0", 0x14079D4B0, "trap end handler's other branch"),
+    # Goal cutscene kind-3 recompute (CutAnchor6): per-tick DemoInfo recompute and the A0+0xBC writer.
+    ("recompute_471A80", 0x140471A80, "goal DemoInfo recompute (A0+0x30 for kind-3 rows)"),
+    ("bcwriter_4B88B0", 0x1404B88B0, "A0+0xBC writer"),
+    # Cutscene timing (CutsceneTiming): step end, step machine and the DemoInfo update (start delay, scene end).
+    ("fixdemo_step_end_141F572F0", 0x141F572F0, "FixDemo step end (player state finished)"),
+    ("fixdemo_step_machine_141F59380", 0x141F59380, "FixDemo step machine (frame after each step start)"),
+    ("demoinfo_update_47C830", 0x14047C830, "DemoInfo update (go flag, first manager update, scene end)"),
+    # Trap end handler (diagnostic): does the live game reach it at all? (no action_switch/trap_end_other capture yet)
+    ("trap_end_handler_79E5C0", 0x14079E5C0, "Trap action end handler"),
+    # SetMotion's anime interface slot +0x80 (TrapTick6): reached when FUN_1406AFBC0 returns 0 for the motion.
+    ("anime_iface_80_6E72A0", 0x1406E72A0, "anime interface vtable slot +0x80 (SetMotion branch)"),
+    # The FixDemo procedural camera engine (CutsceneTiming7): drives the cameras of records with no anime path.
+    ("proc_camera_141F7BFE0", 0x141F7BFE0, "FixDemo procedural camera engine"),
+    # SetMotion-adjacent displacement (TrapTick7): the trap tick phase fn calls it when action+0x26 == 0.
+    ("anime_displace_6E85B0", 0x1406E85B0, "anime position displacement (trap tick phase)"),
+    # Untranslated callee in the trap tick (TrapTick8): unbounded replays of trap_action_tick abort here.
+    ("trap_tick_callee_84F140", 0x14084F140, "trap tick callee"),
+    # --- PortMapMotion block (motion-side map; docs/re/pes-re-portmap-motion.md). Append-only.
+    ("mot_kick_req_7324B0", 0x1407324B0, "PortMapMotion: kick request builder (heading/spot/bucket)"),
+    ("mot_kick_geom_829E80", 0x140829E80, "PortMapMotion: kick geometry candidacy tests"),
+    ("mot_kick_shot_8371A0", 0x1408371A0, "PortMapMotion: shot request builder (req 10)"),
+    ("mot_kick_ground_837670", 0x140837670, "PortMapMotion: ground-pass request builder (req 9)"),
+    ("mot_kick_high_8360F0", 0x1408360F0, "PortMapMotion: high-ball request builder (req 8)"),
+    ("mot_kick_first_837FC0", 0x140837FC0, "PortMapMotion: first-time byte ap+0x2756"),
+    ("mot_contact_head_876020", 0x140876020, "PortMapMotion: contact-chain head into the 876360 tick"),
+    ("mot_judge_upd_7A14E0", 0x1407A14E0, "PortMapMotion: Judge::Update (referee movement)"),
+    ("mot_linesman_upd_7A2920", 0x1407A2920, "PortMapMotion: LinesmanAction::Update"),
+    ("mot_linesman_mov_7A1F30", 0x1407A1F30, "PortMapMotion: LinesmanMove::Update"),
+    ("mot_ability_6E6660", 0x1406E6660, "PortMapMotion: ability byte (locomotion entries + kick stat)"),
+    ("mot_entry_aim_BA7D0", 0x1406BA7D0, "PortMapMotion: entry relax/aim flag"),
+    ("mot_cliplen_6B10D0", 0x1406B10D0, "PortMapMotion: clip length ticks (start-time formula)"),
+    ("mot_ticklen_6B11E0", 0x1406B11E0, "PortMapMotion: tick length (start-time pair)"),
+    ("mot_blendrec_AF620", 0x1406AF620, "PortMapMotion: blend/fixed record reader"),
+    ("mot_cancelrec_AF8E0", 0x1406AF8E0, "PortMapMotion: cancel-frame record reader"),
+    ("mot_rotend_6B1D00", 0x1406B1D00, "PortMapMotion: RotData end reader"),
+    ("mot_rotoff_6B1F00", 0x1406B1F00, "PortMapMotion: RotData signed-offset reader"),
+    ("mot_setkick_place_732D40", 0x140732D40, "PortMapMotion: SetKick placer (restart placement)"),
+    ("mot_corner_body_732E30", 0x140732E30, "PortMapMotion: CornerKick::Update phases"),
+    ("mot_tackle_reach_78A640", 0x14078A640, "PortMapMotion: tackle reach test"),
+    ("mot_clip_solver_6ECBB0", 0x1406ECBB0, "PortMapMotion: clip-solver physics prediction"),
+    ("mot_tracked_842BE0", 0x140842BE0, "PortMapMotion: per-part contact distance"),
+    ("mot_tracked_max_843C50", 0x140843C50, "PortMapMotion: max over tracked parts (feet gate shares fn)"),
+    # --- PortMapAI block (decision-side map; docs/re/pes-re-portmap-ai.md). Append-only.
+    ("ai_press_writer_536FC0", 0x140536FC0, "PortMapAI: press writer (replaces PesLooseWriterTick stand-in)"),
+    ("ai_press_eval_633940", 0x140633940, "PortMapAI: press target eval (replaces PesPressTick pass-2)"),
+    ("ai_press_coord_634470", 0x140634470, "PortMapAI: press coordinator (replaces PesSecondPresserTick)"),
+    ("ai_team_tick_4F6C30", 0x1404F6C30, "PortMapAI: team tick root (replaces Team::Process PES path)"),
+    ("ai_concept_sel_579840", 0x140579840, "PortMapAI: concept selector (replaces RunConcepts)"),
+    ("ai_lane_line_681FF0", 0x140681FF0, "PortMapAI: lane line post-step (replaces UpdateLaneLine)"),
+    ("ai_forward_pull_682770", 0x140682770, "PortMapAI: forward pull (replaces Block A stand-in)"),
+    ("ai_chance_606060", 0x140606060, "PortMapAI: ChanceSpaceRun (replaces ProcessRunManager chance)"),
+    ("ai_secondline_60D210", 0x14060D210, "PortMapAI: SecondLine runner (replaces ProcessRunManager)"),
+    ("ai_postplay_61F940", 0x14061F940, "PortMapAI: PostPlay executor (replaces ProcessRunManager)"),
+    ("ai_cross_unit_2129590", 0x142129590, "PortMapAI: Cross unit (replaces CrossUnit stand-in)"),
+    ("ai_receive_9F8220", 0x1409F8220, "PortMapAI: receive entry 3 (replaces _ReactionCommands receive)"),
+    # --- AIConcepts block (concept slot functions no capture has entered; docs/ports/pes-port-AIConcepts.md). Append-only.
+    ("aic_forecheck_start_5747F0", 0x1405747F0, "AIConcepts: ForeCheckPress start"),
+    ("aic_forecheck_end_574710", 0x140574710, "AIConcepts: ForeCheckPress end"),
+    ("aic_transchase_start_575510", 0x140575510, "AIConcepts: TransitionChase start"),
+    ("aic_transchase_exec_575DA0", 0x140575DA0, "AIConcepts: TransitionChase execute"),
+    ("aic_retreatblock_start_575EA0", 0x140575EA0, "AIConcepts: RetreatBlockCreate start"),
+    ("aic_sidecounter_end_5404A0", 0x1405404A0, "AIConcepts: SideCounter end"),
+    ("aic_sidecounter_exec_5415B0", 0x1405415B0, "AIConcepts: SideCounter execute"),
+    ("aic_transchase_exec_575B60", 0x140575B60, "AIConcepts: TransitionChase execute (owner of the 0x140575DA0 thunk)"),
+    # --- PressAI block (how PES starts a loose-ball press; docs/ports/pes-port-PressAI.md Left 1, 3). Append-only.
+    ("press_order_A42940", 0x140A42940, "PressAI: order-word writer (r8d == 0x34 starts a press)"),
+    ("press_reset_536690", 0x140536690, "PressAI: dispatcher slot reset"),
+    ("press_helper_62AF10", 0x14062AF10, "PressAI: order-word helper"),
 ]
 
 

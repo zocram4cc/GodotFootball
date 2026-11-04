@@ -740,13 +740,13 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // ball more than 3.3 s away is never chased. This replaces the flat "within
     // 1000 ms and designated" rule, which had no idea who else was going.
     //
-    // PES's style bits 19/20 are GF's Offensive/Defensive GK playing styles.
-    // Where the style is neither, the no-style factors apply.
+    // PES's style bits 19/20 (the style word's Offensive/Defensive GK bits, read directly).
+    // Where the word has neither, the no-style factors apply.
     const pes::KeeperConstants& keeperConstants = match->GetPesKeeperConstants();
-    const PlayingStyles::Player gkStyle =
-        CastPlayer()->GetPlayerData()->GetPlayingStyle();
-    const bool offensiveStyle = gkStyle == PlayingStyles::Player::OffensiveGoalkeeper;
-    const bool defensiveStyle = gkStyle == PlayingStyles::Player::DefensiveGoalkeeper;
+    const bool offensiveStyle =
+        match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::OffensiveGoalkeeper);
+    const bool defensiveStyle =
+        match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::DefensiveGoalkeeper);
     const float factor = pes::PesKeeperRushFactor(offensiveStyle, defensiveStyle, keeperConstants);
     const bool rushing =
         pes::PesKeeperRushRaceWins(CastPlayer()->GetTimeNeededToGetToBall_ms() * 0.001f,
@@ -976,6 +976,8 @@ inline float BearingDeg(const Vector3& from, const Vector3& to) {
 
 inline float AngleBetweenDeg(float a, float b) { return std::fabs(WrapDeg(a - b)); }
 
+}  // namespace
+
 // PES 2021's anime action class (the table `0x1434a5470`, 0 NOTHING,
 // 2 MOVE, 3 STEP_MOVE, 4 DRIBBLE, 5/6 DRIBBLE_SIDE_BACK/STEP_MOVE, 7 TRAP,
 // 8/9/10 LONG_PASS/SHORT_PASS/SHOOT, 11/12 SLIDING(_KEEP), 13 TACKLE,
@@ -1010,6 +1012,8 @@ int AnimeClassOf(Player* p) {
   return 0;
 }
 
+namespace {
+
 // Whether the team is playing one of its deepest mentality rungs, the only GF
 // analogue the report leaves open for PES's single `T+0xa298` defensive mode
 // byte (report 11 item 5: what that byte counts is unresolved).
@@ -1026,6 +1030,40 @@ bool DeepDefensiveMode(const TeamInstructions::State& instructions) {
 int CarrierRoleClass(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK ? 0 : 1; }
 
 }  // namespace
+
+// The ability bytes the carrier manager's candidate scores and the corridor angle read (0x14211CBD0: Speed 0x27, the aerial byte
+// 0x2C, height 0x31; 0x142108630: height and the stronger-foot byte 0x34), written to a slot's record the way PES's stat rebuild
+// 0x14092AF10 does (StoreLiveAbility): the base byte is the roster row's, which for a player with a PES id is his Player.bin record
+// patched by the EDIT save's record of the same id (PlayerDatabase::ApplyEditSave: the row's Speed/Jump/Height/foot bytes equal the
+// save's fields on 34 captured players; for the install's 4cc players Player.bin holds placeholders), and the cells GF carries (A2
+// the condition arrow, A3 the position familiarity, A5 the fatigue factor on the ids it covers, 0x14092B6CB / 0x14092B5DB / the A5
+// writer in 0x14092AF10, pes-re-stamina-drain.md 4: 0x28..0x2C, not Speed).
+// ponytail: A4 (the super-sub pair table 0x142632F74, 0x14092B7FC) is 1.0: GF has no super-sub state. A player with no PES id (the
+// synthetic squads) takes GF's own stat over 100 and height as the base byte, and the right foot (Match::kFallbackLeftFooted); a
+// player the EDIT save holds starts from PES's copy of his row (FUN_140922BC0 -> FUN_140A58F00, PesWorld::LoadRosterRow: the row's
+// 0x50 bytes become the block); a Player.bin-only player has no row GF can build (the row loader for him is not decoded), so his
+// block starts from the store step's base alone.
+void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Player& p) {
+  PlayerData* data = p.GetPlayerData();
+  const std::optional<pes::PlayerTraits> bin = match.PesTraitsOf(data);
+  if (bin && bin->row) world.LoadRosterRow(slot, *bin->row);
+  const auto byteOf = [&](const char* stat) {
+    return static_cast<uint8_t>(std::lround(std::clamp(data->GetStat(stat) * pes::kAbilityBytesPerStat, 0.0f, 255.0f)));
+  };
+  const auto cellsOf = [&](const char* stat, bool fatigued) {
+    pes::AbilityCells cells;
+    cells.a2 = FormState::ArrowMultiplierFor(p.GetConditionArrow(), stat);
+    cells.a3 = FormState::FamiliarityMultiplierFor(p.GetDeployedFamiliarity(), stat);
+    if (fatigued) cells.a5 = p.GetFatigueFactor();
+    return cells;
+  };
+  world.StoreLiveAbility(slot, pes::kAbilitySpeedId, bin ? bin->speed : byteOf("physical_velocity"),
+                         cellsOf("physical_velocity", false));
+  world.StoreLiveAbility(slot, pes::kAbilityJumpId, bin ? bin->jump : byteOf("physical_jump"), cellsOf("physical_jump", true));
+  world.StoreLiveAbility(slot, pes::kAbilityHeightId,
+                         bin ? bin->heightCm : static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
+  world.StoreLiveAbility(slot, pes::kAbilityStrongerFootId, match.LeftFootedOf(data) ? 1 : 0);
+}
 
 Player* ElizaController::_Carrier() {
   // PES's FUN_140a50e00 (docs/re/pes-re-receiving-port.md): the ball's owner
@@ -1068,7 +1106,7 @@ int ElizaController::_TackleAggressionLevel() {
   // PES's A: ENFORCER (+1) and the team's defensive mode (+1). The team-sheet
   // flag that zeroes it (FUN_140a3b520 / FUN_1414dab90) has no GF counterpart.
   int A = 0;
-  if (CastPlayer()->GetPlayerData()->GetPlayingStyle() == PlayingStyles::Player::TheDestroyer) ++A;
+  if (match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::TheDestroyer)) ++A;
   if (DeepDefensiveMode(team->GetController()->GetInstructions())) ++A;
   return A;
 }
@@ -1077,7 +1115,7 @@ pes::SlideAggressionInput ElizaController::_SlideAggression() {
   const TeamInstructions::State& instructions = team->GetController()->GetInstructions();
   pes::SlideAggressionInput in;
   in.enforcerStyle =
-      CastPlayer()->GetPlayerData()->GetPlayingStyle() == PlayingStyles::Player::TheDestroyer;
+      match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::TheDestroyer);
   // PES's FUN_140a62180(ctx, side, 6) == 0: the Pressuring sheet toggle is
   // Aggressive rather than Conservative (pes-re-tactics.md 2).
   in.aggressiveTeamSheet = team->GetController()->GetTeamSheet().Toggle(pes::kPressuring) == 0;
@@ -1207,7 +1245,11 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   // to the action dispatch. The mark bit is read on the own-side table
   // (IsMarkedByTable); the PES path only, like the R1/R2 arms.
   const bool marked = match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer());
-  const pes::DefenderReaction chosen = pes::ChooseMarkedReaction(in, marked);
+  pes::DefenderReaction chosen = pes::ChooseMarkedReaction(in, marked);
+  if (chosen == pes::DefenderReaction::kReceive && !_TrapCommand(commandQueue)) {
+    in.receive = false;
+    chosen = pes::ChooseMarkedReaction(in, marked);
+  }
   int dodgeKind = 0;
   switch (chosen) {
     case pes::DefenderReaction::kDodgeBall: dodgeKind = dodgeKindBall; break;
@@ -1218,8 +1260,7 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   }
   switch (chosen) {
     case pes::DefenderReaction::kReceive:
-      _TrapCommand(commandQueue);
-      break;
+      break;  // _TrapCommand queued its command above
     case pes::DefenderReaction::kTackle:
       CastPlayer()->SetPesChallenge(pes::ContactAction::kTackle);
       _TackleCommand(commandQueue, contact);
@@ -1246,6 +1287,8 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
     case pes::DefenderReaction::kNone:
       break;
   }
+  // PES's receive entry (FUN_1409F8220) returns 0 on a refusal (0x1409F8538) and the walk goes on to the later entries: the
+  // refused man takes whichever of them says yes. The dodge entries are gated like PES's own (_DodgeBallCandidate).
 }
 
 bool ElizaController::_TackleCandidate(const pes::DefenderDecisionConstants& k) {
@@ -1423,6 +1466,12 @@ bool ElizaController::_DodgeBallCandidate(int* kind) {
   const Vector3 ballFar = _mentalImage->GetBallPrediction(200);
   if ((ballNear.Get2D() - CastPlayer()->GetPosition()).GetLength() > 3.0f) return false;
   const pes::DodgeConstants& k = match->GetPesDodgeConstants();
+  // FUN_140a070e0's head: the ball must be about to reach him. A ball at rest (the loose ball a man is walking onto) never
+  // is, so he does not dodge it. ponytail: PES reads his entry of the ball-distance table (MA+0x24710, sorted by distance to
+  // the ball); his own squared distance to the ball stands in for it, as the receive entry's table read does.
+  const Vector3 toBall = ballNear.Get2D() - CastPlayer()->GetPosition().Get2D();
+  if (!pes::BallDodgeEntryGate(k, toBall.GetDotProduct(toBall), match->GetBall()->GetMovement().Get2D().GetLength()))
+    return false;
   // FUN_140a07bf0: the eligibility. PES reads the player's own live anime
   // action class (0..93) out of the game's per-player record; GF's engine
   // carries its own action on the player, so the class is derived from it.
@@ -2400,8 +2449,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
              pes::kPlanCross, carrier, finishing,
              // PES's Cross start (0x14211AB10): the Crosser style, the Early
              // Cross COM or Pinpoint Crossing.
-             CastPlayer()->GetPlayerData()->GetPlayingStyle() ==
-                     PlayingStyles::Player::CrossSpecialist ||
+             match->StyleHas(CastPlayer()->GetPlayerData(), PlayingStyles::Player::CrossSpecialist) ||
                  PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing),
              PlayingStyles::Has(comStyles, PlayingStyles::Com::EarlyCross), false),
          // Cross needs the carrier inside the cross zone: the close band.
@@ -3349,19 +3397,20 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // (0x141FC0335), not by a match in play; the 9 and 10 vetoes have no writer. Open play reads 0 in all 9 readable captures.
   pesWorld.MatchInfo()[pes::kMiWalkStateOffset] = 0;
   pes::StoreU32(bp, pes::kBpIntentionOffset, static_cast<uint32_t>(intention));  // 0x141052E30(BP+0x32B0)
-  // ponytail: BP+0x3380 (the turn reference the kind-4 tail measures the facing against) is written inside 0x14211D710's
-  // sub-builders 0x14211E2D0 / 0x14211E210 / 0x14211E650 (untranslated, run only while the state's word 0 is 0): the carrier's
-  // facing stands in until they land.
-  const Vector3 walkDir = CastPlayer()->GetDirectionVec();
-  pes::StoreF32(bp, pes::kBpTurnReferenceOffset, pes::PesBearingDeg(0.0f, 0.0f, walkDir.coords[0], walkDir.coords[1]));
   // The zone record at BP+0xAB8 is the danger builder run's own output (run above; equal to PES on the unslimmed captures).
   uint64_t skillMask = 0;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot)) skillMask |= 1ull << pes::kSkillOneTouchShot;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass)) skillMask |= 1ull << pes::kSkillOneTouchPass;
   if (PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing)) skillMask |= 1ull << pes::kSkillPinpointCross;
-  const float heightCm = std::clamp(CastPlayer()->GetStat("physical_height") * 100.0f, 0.0f, 255.0f);
-  pesWorld.SetCarrierProfile(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())), skillMask,
-                             static_cast<uint8_t>(heightCm));
+  pesWorld.SetCarrierProfile(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())), skillMask);
+  for (const std::vector<Player*>* squad : {&ownActive, &oppActive})
+    for (Player* p : *squad) WriteSlotAbilities(*match, pesWorld, match->PesSlotOf(p), *p);
+  // The dribble-proposal chain of the unit driver 0x142110D30, in PES's order after the danger builder and the plan word above:
+  // the turn-reference builder 0x14211D710 (BP+0x3380, the angle the kind-4 tail measures the facing against), the step object
+  // 0x14211ED10 and the proposal writer 0x1421102D0 (BP+0x4204), all translated and equal to PES on seven forward-emulated states
+  // (pes_dribble_oracle_test TheProposalChain...). The kind objects evolve across steps on the window like PES's.
+  // The slot records' ability bytes the manager's candidate scores read are written for every slot above (WriteSlotAbilities).
+  pesWorld.RunDribbleProposal(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
   std::vector<pes::PesWorld::WalkEntry> entries;
   for (const pes::UnitSlot& slot : table) entries.push_back({static_cast<uint32_t>(slot.kind), pes::EncodeAnswerRecord(slot.answer)});
   pesWorld.SetUnitList(sideIndex, entries);
@@ -3557,6 +3606,13 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
   float runX = player->GetPosition().coords[0], runY = player->GetPosition().coords[1];
   GoalCelebration::RunTarget(runX, runY, xSide, ySide, pitchHalfW, pitchHalfH, &runX, &runY);
   Vector3 celebrationPosition = Vector3(runX, runY, 0);
+  // The scorer runs to PES's celebration spot T where a PES goal scene gave one (Match::GetGoalCelebrationSpot, 0x140476C50's
+  // answer), not the capped run above: PES's scorer runs the whole way and its goal gate opens on his arrival.
+  // ponytail: the run's driver in PES (the controller that moves the scorer to T) is not decoded; this sprint stands in for it.
+  // The capped RunTarget stays for the headless sim, which builds no PES goal scene.
+  Vector3 pesSpot;
+  const bool runsToPesSpot = match->GetLastGoalScorer() == player && match->GetGoalCelebrationSpot(&pesSpot);
+  if (runsToPesSpot) celebrationPosition = pesSpot;
 
   // Flat by contract: Humanoid::SelectAnim asserts a movement direction has no
   // height. A scorer lifted off the turf by his own anim would otherwise hand it
@@ -3614,7 +3670,8 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
   const float toTarget = (celebrationPosition - player->GetPosition()).GetLength();
   const bool ready =
       match->GetLastGoalScorer() != player ||
-      GoalCelebration::HasArrived(toTarget, match->GetGoalScoredTimer());
+      GoalCelebration::HasArrived(toTarget, match->GetGoalScoredTimer(),
+                                  runsToPesSpot ? GoalCelebration::kPesSpotApproachCap_ms : GoalCelebration::kApproachCap_ms);
   if (ready && GoalCelebration::IsPerforming(match->GetGoalScoredTimer(),
                                              GoalSequence::kCelebration_ms)) {
     PlayerCommand command;

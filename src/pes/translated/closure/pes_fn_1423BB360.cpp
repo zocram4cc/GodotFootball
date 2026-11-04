@@ -191,7 +191,8 @@ void pes_fn_1423BB360(PesState& s) {
       s.wr(((s.gpr[4]) + (0x40ULL)), (uint64_t)((2ULL)), 4);
       s.wr(((s.gpr[4]) + (0x40ULL)), (uint64_t)((2147483648ULL)), 4);
       { unsigned __int128 _d = ((unsigned __int128)s.xmm[0][0] | ((unsigned __int128)s.xmm[0][1] << 64)), _s = ((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::bits(PesState::lane_f32(_d, 0) * PesState::lane_f32(_s, 0))); _o = PesState::put_u32(_o, 1, PesState::bits(PesState::lane_f32(_d, 1) * PesState::lane_f32(_s, 1))); _o = PesState::put_u32(_o, 2, PesState::bits(PesState::lane_f32(_d, 2) * PesState::lane_f32(_s, 2))); _o = PesState::put_u32(_o, 3, PesState::bits(PesState::lane_f32(_d, 3) * PesState::lane_f32(_s, 3))); s.xmm[0][0] = (uint64_t)_o; s.xmm[0][1] = (uint64_t)(_o >> 64); }
-      /*UNHANDLED-VEC CVTPS2DQ ['xmm1', 'xmm0']*/(void)0;
+      { uint32_t _l0 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][0] >> 0))), _l1 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][0] >> 32))), _l2 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][1] >> 0))), _l3 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][1] >> 32)));
+        s.xmm[1][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[1][1] = ((uint64_t)_l3 << 32) | _l2; }
       { unsigned __int128 _v = (k_c142577FA0); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
       { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 32));
         s.xmm[2][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[2][1] = ((uint64_t)_l3 << 32) | _l2; }
@@ -645,7 +646,8 @@ void pes_fn_1423BB360(PesState& s) {
         s.wr(((s.gpr[4]) + (0x40ULL)), (uint64_t)((2ULL)), 4);
         s.wr(((s.gpr[4]) + (0x40ULL)), (uint64_t)((2147483648ULL)), 4);
         { unsigned __int128 _d = ((unsigned __int128)s.xmm[0][0] | ((unsigned __int128)s.xmm[0][1] << 64)), _s = ((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::bits(PesState::lane_f32(_d, 0) * PesState::lane_f32(_s, 0))); _o = PesState::put_u32(_o, 1, PesState::bits(PesState::lane_f32(_d, 1) * PesState::lane_f32(_s, 1))); _o = PesState::put_u32(_o, 2, PesState::bits(PesState::lane_f32(_d, 2) * PesState::lane_f32(_s, 2))); _o = PesState::put_u32(_o, 3, PesState::bits(PesState::lane_f32(_d, 3) * PesState::lane_f32(_s, 3))); s.xmm[0][0] = (uint64_t)_o; s.xmm[0][1] = (uint64_t)(_o >> 64); }
-        /*UNHANDLED-VEC CVTPS2DQ ['xmm1', 'xmm0']*/(void)0;
+        { uint32_t _l0 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][0] >> 0))), _l1 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][0] >> 32))), _l2 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][1] >> 0))), _l3 = (uint32_t)PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[0][1] >> 32)));
+          s.xmm[1][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[1][1] = ((uint64_t)_l3 << 32) | _l2; }
         { unsigned __int128 _v = (k_c142577FA0); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
         { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 32));
           s.xmm[2][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[2][1] = ((uint64_t)_l3 << 32) | _l2; }

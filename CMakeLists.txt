@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.24)
 project(GodotFootball LANGUAGES C CXX)
 
+# Every worktree rebuilds the same ~4,800 translated TUs; ccache (with base_dir set to the worktrees' parent and
+# hash_dir=false in the user's ccache.conf) shares their objects across worktrees and merges. An explicit launcher wins.
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+  set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -25,8 +33,8 @@ find_package(ZLIB REQUIRED)
 add_library(pesfmt STATIC
   src/pes/strcode.cpp src/pes/cpk.cpp src/pes/fpk.cpp src/pes/vfs.cpp src/pes/ask.cpp src/pes/skl.cpp
   src/pes/ftex.cpp src/pes/fmdl.cpp src/pes/pack_rules.cpp src/pes/mtar.cpp src/pes/gani.cpp src/pes/clips.cpp
-  src/pes/formation.cpp src/pes/fdc.cpp src/pes/fixdemo_table.cpp
-  src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/playerdb.cpp src/pes/condition.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_common.cpp src/pes/movestep_bundle.cpp src/pes/movestep_run.cpp src/pes/movestep_group_a.cpp src/pes/movestep_step.cpp src/pes/movestep_turn.cpp src/pes/effects.cpp src/pes/derivation.cpp)
+  src/pes/formation.cpp src/pes/fdc.cpp src/pes/fixdemo_table.cpp src/pes/fixdemo_select.cpp src/pes/fixdemo_camera_rig.cpp src/pes/cutscene_timeline.cpp
+  src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/playerdb.cpp src/pes/condition.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_common.cpp src/pes/movestep_bundle.cpp src/pes/movestep_run.cpp src/pes/movestep_group_a.cpp src/pes/movestep_step.cpp src/pes/movestep_turn.cpp src/pes/effects.cpp src/pes/derivation.cpp src/pes/physique.cpp)
 target_include_directories(pesfmt PUBLIC src)
 # fdc.cpp takes the cut offset's sine from the translated 0x140A92C80 (the static library pulls in only that object).
 target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB pestranslated)
@@ -42,10 +50,13 @@ target_link_libraries(pesrig PUBLIC pesfmt)
 
 # The committed translated layer (src/pes/translated; regenerated and drift-checked by
 # tools/dev/translate/gen_translated.py). Built unconditionally and linked into gfsim.
+# pes_dispatch_gen.cpp is the one TU naming every function (the indirect-call table): adding a function recompiles
+# the new TU and that one, nothing else.
 file(GLOB_RECURSE PES_TRANSLATED_SRCS CONFIGURE_DEPENDS
      "${CMAKE_SOURCE_DIR}/src/pes/translated/*/pes_fn_*.cpp")
 # pes_native.cpp: the GF-native services the dispatch table routes to (the heap behind PES's allocator tables).
-add_library(pestranslated STATIC ${PES_TRANSLATED_SRCS} ${CMAKE_SOURCE_DIR}/src/pes/translated/pes_native.cpp)
+add_library(pestranslated STATIC ${PES_TRANSLATED_SRCS} ${CMAKE_SOURCE_DIR}/src/pes/translated/pes_dispatch_gen.cpp
+            ${CMAKE_SOURCE_DIR}/src/pes/translated/pes_native.cpp)
 target_include_directories(pestranslated PUBLIC ${CMAKE_SOURCE_DIR}/src/pes/translated)
 
 add_executable(pesfmt_dump apps/pesfmt_dump.cpp)
