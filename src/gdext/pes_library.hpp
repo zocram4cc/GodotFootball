@@ -25,6 +25,7 @@
 #include "onthepitch/pesball.hpp"
 #include "onthepitch/pesjudge.hpp"
 #include "onthepitch/peskeeper.hpp"
+#include "onthepitch/peskickmotion.hpp"
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pessetpiecetaker.hpp"
 #include "onthepitch/pessetpieceteam.hpp"

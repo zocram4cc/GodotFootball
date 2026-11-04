@@ -192,19 +192,24 @@ TEST_F(KickChooserOracle, AGfBuiltRequestPutsTheFieldsWherePesDoesAndTheChooserA
     ASSERT_TRUE(image.Open(exe_));
     Built b;
     Build(o, image.bytes, image.size, b);
+    // The builder FUN_140833CD0 writes its request as words: param_1[0] the action, [1] the subtype, [0x19..0x1b] the target. The
+    // words are read here by those indices, not by the header's offsets, so a wrong offset there shows.
+    const auto word = [](const pes::PesKickRequest& r, size_t i) {
+      uint32_t v;
+      std::memcpy(&v, r.bytes.data() + 4 * i, sizeof v);
+      return v;
+    };
+    constexpr size_t kActionWord = 0, kSubtypeWord = 1, kTargetWord = 0x19;
     int32_t action;
     float target[3];
-    std::memcpy(&action, b.request.bytes.data() + pes::kKickRequestActionOffset, sizeof action);
-    std::memcpy(target, b.request.bytes.data() + pes::kKickRequestTargetOffset, sizeof target);
+    std::memcpy(&action, &b.request.bytes[4 * kActionWord], sizeof action);
+    std::memcpy(target, &b.request.bytes[4 * kTargetWord], sizeof target);
     const pes::PesKickRequest gf = pes::KickRequestFor(action, target);
-    for (const size_t off : {pes::kKickRequestActionOffset, pes::kKickRequestTargetOffset, pes::kKickRequestTargetOffset + 4,
-                             pes::kKickRequestTargetOffset + 8})
-      EXPECT_EQ(std::memcmp(gf.bytes.data() + off, b.request.bytes.data() + off, 4), 0) << dir << " request+0x" << std::hex << off;
+    for (const size_t i : {kActionWord, kTargetWord, kTargetWord + 1, kTargetWord + 2})
+      EXPECT_EQ(word(gf, i), word(b.request, i)) << dir << " request word " << i;
     // A ground pass (9) with no order flag set has subtype 1 in PES's own request (FUN_1407204E0's default branch); the lofted
     // captures carry an order flag GF has no state for.
-    if (action == 9)
-      EXPECT_EQ(std::memcmp(gf.bytes.data() + pes::kKickRequestSubtypeOffset, b.request.bytes.data() + pes::kKickRequestSubtypeOffset, 4), 0)
-          << dir;
+    if (action == 9) EXPECT_EQ(word(gf, kSubtypeWord), word(b.request, kSubtypeWord)) << dir;
     const pes::PesKickDescriptor got = b.world->RunKickChooser(kSlot, gf, b.ext);
     EXPECT_TRUE(got.Kind() == pes::kKickNoKind || (got.Kind() >= 1 && got.Kind() < pes::kClipKinds)) << dir << " kind " << got.Kind();
   }
