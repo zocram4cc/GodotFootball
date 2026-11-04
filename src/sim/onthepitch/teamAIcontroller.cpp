@@ -2438,14 +2438,29 @@ void TeamAIController::PesPressTick() {
   };
   pes::PesWorld::PressFacts f;
   f.designated = globalSlot(team->GetDesignatedTeamPossessionPlayer());  // T+0x78 (writer: the designation publisher FUN_14051E350)
-  // T+0x7C: ponytail: PES's writer of the second designated man is open (pes-re-press-coord.md section 10); none stands in.
-  f.second = pes::kTeamNoMan;
+  // T+0x7C is written by the MATCH_UP writer (PesWorld::RunMatchUp: FUN_140536210), not staged.
   // MA+0x2601C: the last toucher (FUN_140457070, W1 0x14045725A; Match::RecomputePesHolder).
   const Player* holder = match->GetPesHolder();
   if (holder != nullptr) {
     const pes::ActorKey key = match->PesActorKeyOf(holder);
     if (key.Valid() && key.team < 2 && key.slot < pes::kSlotsPerSide)
       f.holder = static_cast<uint32_t>(key.team) * pes::kSlotsPerSide + key.slot;
+  }
+  // T+0x558[k]: who slot k marks. ponytail: PES's mark pass 1 (FUN_140546FB0 0x140547814) gives the carrier (the last toucher) his
+  // first defender (pes-re-defensive-shape.md 14.4, INF high); GF has no such table, so the nearest active outfield man of this side
+  // marks an opposing holder. Removal: the mark pass's partner words.
+  if (f.holder < 2 * pes::kSlotsPerSide && static_cast<int>(f.holder / pes::kSlotsPerSide) != side) {
+    const Vector3 holderAt = match->GetTeam(static_cast<int>(f.holder / pes::kSlotsPerSide))
+                                 ->GetAllPlayers()[f.holder % pes::kSlotsPerSide]->GetPosition();
+    int best = -1;
+    float bestDist = 0.0f;
+    for (int k = 1; k < pes::kSlotsPerSide && k < static_cast<int>(team->GetAllPlayers().size()); ++k) {
+      Player* p = team->GetAllPlayers()[k].get();
+      if (!p->IsActive()) continue;
+      const float d = (p->GetPosition() - holderAt).GetLength();
+      if (best < 0 || d < bestDist) { best = k; bestDist = d; }
+    }
+    if (best >= 0) f.partner[best] = f.holder;
   }
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   f.playState = static_cast<uint32_t>(pes::PlayStateFor(
@@ -2485,6 +2500,7 @@ void TeamAIController::PesPressTick() {
   std::array<uint8_t, pes::kSlotCount> onPitch{};
   std::memcpy(onPitch.data(), world.MatchInfo() + pes::kMiOnPitchOffset, onPitch.size());
   world.StagePress(side, f);
+  world.RunMatchUp(side);
   world.RunPressCoordinator(side);
   world.ResetPress(side);
   world.RunPressWriter(side);

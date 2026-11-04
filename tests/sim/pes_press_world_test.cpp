@@ -316,4 +316,52 @@ TEST_F(PesPressWorld, TheResetClearsTheDispatchersLastTargetWord) {
   EXPECT_EQ(LoadU32(s.world.SideRecord(kSide), kTeamResetTargetOffset), kNobody);  // T+0x214 = 0xFF (0x140536690 entry)
 }
 
+// The MATCH_UP writer (FUN_140536210, run by the dispatcher before the coordinator): the own on-pitch man whose mark partner word
+// T+0x558 is the holder becomes MATCH_UP (0x3A) and T+0x7C; the next tick releases him before the writer picks again.
+constexpr uint32_t kMatchUp = 0x3A;
+constexpr uint32_t kOpposingHolder = kSlotsPerSide + 6;
+
+struct MatchUpScene : Staged {
+  MatchUpScene() {
+    facts.holder = kOpposingHolder;  // MA+0x2601C: an opposing man touched last
+    facts.partner[kNearMan] = kOpposingHolder;
+  }
+  void Run() {
+    world.StagePress(kSide, facts);
+    world.RunMatchUp(kSide);
+  }
+  uint32_t Second() { return LoadU32(world.SideRecord(kSide), kTeamSecondOffset); }
+};
+
+TEST_F(PesPressWorld, TheManMarkingTheHolderBecomesMatchUp) {
+  MatchUpScene s;
+  s.Run();
+  EXPECT_EQ(s.Second(), kNearId);
+  EXPECT_EQ(s.world.PressAction(kSide, kNearMan), kMatchUp);
+}
+
+TEST_F(PesPressWorld, NobodyIsMatchUpWhenNoOwnManMarksTheHolder) {
+  MatchUpScene s;
+  s.facts.partner[kNearMan] = kSlotsPerSide + 7;  // marks another opponent
+  s.Run();
+  EXPECT_EQ(s.Second(), kNobody);
+  EXPECT_NE(s.world.PressAction(kSide, kNearMan), kMatchUp);
+}
+
+TEST_F(PesPressWorld, AManOffThePitchIsNotMatchUp) {
+  MatchUpScene s;
+  s.facts.onPitch[kNearMan] = false;  // MI+0x1748
+  s.Run();
+  EXPECT_EQ(s.Second(), kNobody);
+}
+
+TEST_F(PesPressWorld, TheMatchUpManIsReleasedWhenTheNextTickHasNoPartner) {
+  MatchUpScene s;
+  s.Run();
+  ASSERT_EQ(s.world.PressAction(kSide, kNearMan), kMatchUp);
+  s.facts.partner[kNearMan] = kNobody;
+  s.Run();
+  EXPECT_NE(s.world.PressAction(kSide, kNearMan), kMatchUp);
+  EXPECT_EQ(s.Second(), kNobody);
+}
 }  // namespace

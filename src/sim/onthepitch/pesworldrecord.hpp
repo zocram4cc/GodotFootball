@@ -320,6 +320,7 @@ inline constexpr std::size_t kTeamKeepXOffset = 0x4B4C;        // f32 at +12 per
 inline constexpr std::size_t kTeamActionOffset = 0xA2A0;       // u32[11]: the slot's action word (0x34 PRESS, 0x33 DELAY, 0x3A MATCH_UP, 0 none)
 inline constexpr uint32_t kTeamActionPress = 0x34;             // T+0xA2A0 words: PRESS and DELAY (FUN_140A42940's setter)
 inline constexpr uint32_t kTeamActionDelay = 0x33;
+inline constexpr uint32_t kTeamActionMatchUp = 0x3A;           // the MATCH_UP word FUN_140536210 writes with T+0x7C
 inline constexpr std::size_t kTeamPressSlotsOffset = 0xA548;   // u32[4]: the men the writer enrolled (0xFF none); +0xA558 the held man
 inline constexpr std::size_t kTeamPressTimerOffset = 0xA53C;   // u8: the press timer (0 in every capture)
 inline constexpr std::size_t kTeamOrderWordOffset = 0xB748;    // u32[11]: the order word (0x24 bars the eval's candidate)
@@ -975,7 +976,10 @@ class PesWorld {
   // PES writer). The press result is T+0xA2A0 (the action words), +0xA548 (the enrolled men) and PP[2] (the second presser). ----
   struct PressFacts {
     uint32_t designated = kTeamNoMan;  // T+0x78: the side's designated man (global slot 0..21), 0xFF none
-    uint32_t second = kTeamNoMan;      // T+0x7C
+    // T+0x558[k]: the man slot k marks (global 0..21, 0xFF none); PES's mark pass writes them (FUN_140546FB0). The MATCH_UP writer
+    // 0x140536210 (RunMatchUp) picks the slot whose partner is the holder and writes T+0x7C itself.
+    std::array<uint32_t, kSlotsPerSide> partner = {kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan,
+                                                   kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan};
     uint32_t holder = kTeamNoMan;      // MA+0x2601C: the last toucher (FUN_140457070), 0xFF none
     uint32_t playState = 0;            // MI+0x116C
     uint32_t frame = 0;                // T+0x21C
@@ -995,6 +999,12 @@ class PesWorld {
   // a slot holding PRESS or DELAY that is not the coordinator's second presser PP[2] and not enrolled in T+0xA548[0..3] goes
   // back to 0; its set-piece tail (T+0xF0 / T+0x140) starts a press through FUN_14062AF10 when T+0xF1 is 0.
   void ResetPress(int side);
+  // The dispatcher's MATCH_UP step (FUN_140535C60: the clear of the last tick's MATCH_UP man, then FUN_140536210): T+0x7C and the
+  // 0x3A word of the own man whose partner word T+0x558 is the holder. Run after StagePress, before the coordinator, which reads
+  // T+0x7C. ponytail: the writer's first loop wants an anime entry with +0x1C != 0 and +0x1A <= +0x1C (a per-slot counter pair whose
+  // writer is undecoded, pes-re-record-ids.md section 4): the own men get {0, 1} for the run and their words are put back.
+  // Removal: the pair's writer.
+  void RunMatchUp(int side);
   // The dispatcher's order-word loop (FUN_140535C60 0x140536011-0x140536059), after the writer: a slot whose order word
   // T+0xB748+4k is 0x26 and whose action word is neither DELAY nor PRESS gets DELAY when FUN_14062AF10 finds another presser
   // with the ball on his side, else PRESS, through the setter 0x140A42940. Nothing in GF writes the order words (the concept

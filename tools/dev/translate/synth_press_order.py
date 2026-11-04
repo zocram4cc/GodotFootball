@@ -45,7 +45,8 @@ SLOT_BASE = 0xF3                    # FUN_140A489F0(G, slot): the slot record (t
 ACTIONS = (0, 0, 0x33, 0x34, 0x34, 0x3A, 5, 5, 7, 0x36)
 INFO_KINDS = (0, 1, 2, 3, 5, 0xB, 0xC, 0x10, 0x11, 0x14, 0x57, 0x20, 0x40, 0x7F)
 INFO_FLAGS = (0, 1, 2, 5, 5)
-SETS = {"0x14062AF10": ("closure_press_order.json", 28), "0x140536690": ("closure_press_reset.json", 56)}
+SETS = {"0x14062AF10": ("closure_press_order.json", 28), "0x140536690": ("closure_press_reset.json", 56),
+        "0x140536210": ("closure_press_matchup.json", 56)}
 
 
 class State:
@@ -251,7 +252,56 @@ def writer_case(st, w, work, n, scratch):
     return ["rcx=%#x" % st.reg["rcx"], "rdx=%#x" % st.reg["rdx"], "r8=%#x" % st.reg["r8"]], pk
 
 
-BUILDERS = {"0x14062AF10": helper_case, "0x140536690": reset_case, "0x140536FC0": writer_case}
+def matchup_case(st, w, work, n, scratch):
+    """The MATCH_UP writer 0x140536210 (the dispatcher calls it every tick before the coordinator; it writes T+0x7C and the 0x3A
+    word): a full match state with the play state, MI+0x1775 (the restart class byte), the men's anime-record limits and classes,
+    the partner words T+0x558 (who marks the holder), the on-pitch bytes, the ball-distance lists and the set-piece object chosen."""
+    rnd = random.Random(0x6210 + n)
+    pk = Poker()
+    scatter(w, rnd, pk)
+    side = n % 2
+    for s in range(2):
+        team_words(w, rnd, pk, s)
+    list_entries(w, rnd, pk)
+    mi = st.u64(w.g + 0x270)
+    pk.put(mi + 0x116C, u32(rnd.choice((1, 1, 1, 2, 3))))
+    pk.put(mi + 0x1554, u32(rnd.choice((0, 3))))
+    pk.put(mi + 0x1775, "%02x" % rnd.choice((0, 1, 3, 8, 9, 10, 11)))
+    pk.put(w.ma + 0x251F8, "%02x%02x" % (rnd.choice((0, 1)), rnd.choice((0, 1))))
+    for j in range(22):
+        pk.put(mi + 0x1748 + j, "%02x" % rnd.choice((1, 1, 1, 0)))
+        a = w.info[j]
+        hi = rnd.choice((0, 255, 255, 300))
+        pk.put(a + 0x1C, struct.pack("<H", hi).hex())
+        pk.put(a + 0x1A, struct.pack("<H", rnd.choice((0, hi // 2, hi, hi + 5))).hex())
+        pk.put(a + 8, u32(rnd.choice((0, 1 << 22, 1 << 9, (1 << 22) | (1 << 9)))))
+    t = w.team[side]
+    holder = rnd.randrange(22)
+    pk.put(w.ma + MA_HOLDER, u32(rnd.choice((holder, 0xFF))))
+    pk.put(t + 0x78, u32(rnd.choice((0xFF, rnd.randrange(22)))))
+    pk.put(t + 0x6E7, "%02x" % rnd.choice((0, 1)))
+    for j in range(11):
+        pk.put(t + 0x558 + 4 * j, u32(rnd.choice((holder, holder, rnd.randrange(22), 0xFF))))
+    for sd in range(2):
+        for j in range(11):
+            pk.put(w.ma + 0x24840 + (sd * 11 + j) * 8, u32(rnd.randrange(22)))
+    pk.put(w.setpiece + 0x9C, "%02x" % rnd.choice((0, 1)))
+    pk.put(w.setpiece + 0x8C, u32(rnd.choice((0, 2, 10, 21, 0x19, 3))))
+    for i in range(22):
+        pk.put(w.setpiece + 0xE664 + i, "%02x" % rnd.choice((0, 1)))
+    arg, pp = scratch["dst"], scratch["src"]
+    # The event store E (ctx + 0xE0): its newest-record page (E + 0x180698, kind at +0, int at +0x1C; +0x1806D0 the u64 the
+    # accessor 0x140A3E900 copies) is not in any capture (a hole), so E points at a scratch block laid out around it: CHOSEN.
+    newest = scratch["dst"] - 0x400
+    pk.put(w.ctx + 0xE0, struct.pack("<Q", (newest - 0x180698) & 0xFFFFFFFFFFFFFFFF).hex())
+    pk.put(newest, u32(rnd.choice((0, 1, 2, 3, 7, 0x10, 0x37))))
+    pk.put(newest + 0x1C, u32(rnd.choice((0, 3, 5))))
+    pk.put(newest + 0x38, struct.pack("<II", rnd.choice((0, 1, 5)), rnd.randrange(22)).hex())
+    pk.put(arg, struct.pack("<QQI", w.ctx, 0, side).hex())
+    return ["rcx=%#x" % pp, "rdx=%#x" % arg, "r8=%#x" % t], pk
+
+
+BUILDERS = {"0x14062AF10": helper_case, "0x140536690": reset_case, "0x140536FC0": writer_case, "0x140536210": matchup_case}
 
 
 def build_case(st, w, work, va, n):

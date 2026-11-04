@@ -551,7 +551,7 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
   static_assert(kSideRecordBytes == kTeamRecordBytes, "the world's side record is GF's T");
   uint8_t* t = SideRecord(side);
   StoreU32(t, kTeamDesignatedOffset, f.designated);
-  StoreU32(t, kTeamSecondOffset, f.second);
+  // T+0x7C is the MATCH_UP writer's (RunMatchUp): it is not staged here.
   t[kTeamArmedOffset] = f.armed;
   StoreU32(t, kTeamFrameOffset, f.frame);
   StoreU32(t, kTeamAttackLevelOffset, f.attackLevel);
@@ -562,9 +562,9 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
     StoreU32(t, kSideUnitWordsOffset + sizeof(uint32_t) * k, f.roleClass[k]);
     StoreU32(t, kTeamRoleClassOffset + kTeamRoleClassStride * k, f.roleClass[k]);
     StoreF32(t, kTeamKeepXOffset + 12 * k, f.keepX[k]);
-    // ponytail: PES's mark and swap partner words (T+0x558, T+0x620) have no GF carrier; "no partner" (> 21) keeps the eval's
-    // refusal quiet. Writer: the mark table writer FUN_140546FB0 (mark-cone.md section 1).
-    StoreU32(t, kTeamMarkPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
+    // The mark partner words T+0x558 come from the caller (PressFacts::partner; PES's mark pass FUN_140546FB0 writes them). The
+    // swap partner words T+0x620 have no GF carrier: "no partner" (> 21) keeps the eval's refusal quiet.
+    StoreU32(t, kTeamMarkPartnerOffset + sizeof(uint32_t) * k, f.partner[k]);
     StoreU32(t, kTeamSwapPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
     // The candidate table 0x140639830 enrols a man whose own action word P+0x5D0 is PRESS (docs/re/pes-re-press-life.md 5): PES's
     // action machine mirrors T+0xA2A0 into the man record, so the press the writer or coordinator marked keeps its man.
@@ -598,6 +598,42 @@ void PesWorld::RunPressWriter(int side) {
   s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
   s.gpr[8] = SideVa(side);      // r8: T
   ::pes_fn_140536FC0(s);
+}
+
+void PesWorld::RunMatchUp(int side) {
+  uint8_t* t = SideRecord(side);
+  // FUN_140535C60 (0x14053... after FUN_140635AB0): last tick's MATCH_UP man is released before the writer picks again.
+  const uint32_t last = LoadU32(t, kTeamSecondOffset);
+  if (last < kSlotCount) {
+    const uint32_t slot = last % kSlotsPerSide;
+    if (LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * slot) == kTeamActionMatchUp) {
+      PesState s = NewCall(Bytes());
+      s.gpr[1] = SideVa(side);  // rcx: T
+      s.gpr[2] = slot;          // edx: the slot
+      ::pes_fn_140A40820(s);
+    }
+    StoreU32(t, kTeamSecondOffset, kTeamNoMan);
+  }
+  // ponytail: the anime entry's {+0x1A, +0x1C} pair the writer's first loop tests (0x1C != 0 and 0x1A <= 0x1C) has no GF writer.
+  std::array<std::array<uint8_t, 4>, kSlotsPerSide> pairs{};
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
+    std::memcpy(pairs[k].data(), anime + kAnimeLoOffset, 2);
+    std::memcpy(pairs[k].data() + 2, anime + kAnimeHiOffset, 2);
+    const uint16_t lo = 0, hi = 1;
+    std::memcpy(anime + kAnimeLoOffset, &lo, 2);
+    std::memcpy(anime + kAnimeHiOffset, &hi, 2);
+  }
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);      // r8: T
+  ::pes_fn_140536210(s);
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
+    std::memcpy(anime + kAnimeLoOffset, pairs[k].data(), 2);
+    std::memcpy(anime + kAnimeHiOffset, pairs[k].data() + 2, 2);
+  }
 }
 
 void PesWorld::ResetPress(int side) {
