@@ -98,6 +98,14 @@ inline constexpr int kSideCount = 2;
 inline constexpr int kAnimeCount = 26;
 inline constexpr int kManCount = 26;
 inline constexpr int kSlotCount = 22;
+// G's roster pointer, the table FUN_140833CD0 scans (docs/ports/pes-port-KickHeader.md section 3): 24 entries of 0x74 bytes, the
+// actor id u32 at +0x20 (a player id < 0x16, 0x18 none), a flag byte at +0xD, a record at +0x68 read through 0x140A74160. The window
+// holds the table at kRosterOffset in G's own space.
+inline constexpr std::size_t kRosterPtrOffset = 0x180;
+inline constexpr std::size_t kRosterOffset = 0x400;
+inline constexpr std::size_t kRosterEntryBytes = 0x74;
+inline constexpr std::size_t kRosterEntries = 0x18;
+inline constexpr std::size_t kRosterIdOffset = 0x20;
 // G's competition pointer the sanction tree 0x14047F170 reads past the tables (docs/ports/pes-port-FoulSanction.md 2): the
 // competition rules object read by the card-history reader 0x140A81230 (null here: GF has no aggregate-tie object,
 // 0x140A80D10 answers 0). The tree's field info is the pitch record F at kPitchPtrOffset.
@@ -125,11 +133,15 @@ static_assert(sizeof(PesTableEntry) == kTableEntryBytes);
 struct PesWorldTables {
   std::array<uint8_t, kBallPtrOffset> reserved_head{};        // G+0x0 .. G+0x40
   uint64_t ball = 0;                                          // G+0x40: the ball record (BallVa)
-  std::array<uint8_t, kMatchInfoPtrOffset - kBallPtrOffset - sizeof(uint64_t)> reserved_ball{};  // G+0x48 .. G+0x270
+  std::array<uint8_t, kRosterPtrOffset - kBallPtrOffset - sizeof(uint64_t)> reserved_ball{};  // G+0x48 .. G+0x180
+  uint64_t roster = 0;                                        // G+0x180: the roster table (RosterVa), read by the kick request builder
+  std::array<uint8_t, kMatchInfoPtrOffset - kRosterPtrOffset - sizeof(uint64_t)> reserved_roster{};  // G+0x188 .. G+0x270
   uint64_t match = 0;                                         // G+0x270: the VA of the match-info block (MatchInfoVa)
   std::array<uint8_t, kFrameRandomPtrOffset - kMatchInfoPtrOffset - sizeof(uint64_t)> reserved_match{};  // G+0x278 .. G+0x360
   uint64_t frameRandom = 0;                                   // G+0x360: the frame-random record (FrameRandomVa)
-  std::array<uint8_t, kSideTableAOffset - kFrameRandomPtrOffset - sizeof(uint64_t)> reserved_mid{};  // G+0x368 .. G+0x1928
+  std::array<uint8_t, kRosterOffset - kFrameRandomPtrOffset - sizeof(uint64_t)> reserved_mid{};  // G+0x368 .. G+0x400
+  std::array<uint8_t, kRosterEntries * kRosterEntryBytes> rosterTable{};  // G+0x400: the roster (0x140833CD0: id at +0x20, flag at +0xD)
+  std::array<uint8_t, kSideTableAOffset - kRosterOffset - kRosterEntries * kRosterEntryBytes> reserved_mid2{};  // .. G+0x1928
   std::array<PesTableEntry, kSideCount> sideA{};                      // G+0x1928 (0x140A48A30)
   std::array<PesTableEntry, kSideCount> sideB{};                      // G+0x1978 (0x140A489D0)
   std::array<PesTableEntry, kAnimeCount> anime{};                     // G+0x19C8 (0x140A48910)
@@ -658,6 +670,14 @@ class PesWorld {
     image_->tables.match = MatchInfoVa();
     image_->tables.frameRandom = FrameRandomVa();
     image_->tables.pitch = PitchVa();
+    // ponytail: the roster's entries are the player ids in slot order with every other byte zero (flag +0xD clear, the record at +0x68
+    // empty): GF holds no squad table in PES layout. PES builds it at match setup (writer OPEN: docs/ports/pes-port-KickHeader.md
+    // section 3). Remove when the setup that fills G+0x180 is ported.
+    image_->tables.roster = kWorldWindowVa + kRosterOffset;
+    for (std::size_t i = 0; i < kRosterEntries; ++i) {
+      const uint32_t id = i < static_cast<std::size_t>(kSlotCount) ? static_cast<uint32_t>(i) : 0xFFFFFFFFu;
+      std::memcpy(image_->tables.rosterTable.data() + i * kRosterEntryBytes + kRosterIdOffset, &id, sizeof id);
+    }
     for (int team = 0; team < kSideCount; ++team) {
       SetEntry(WorldTable::kSideA, team, SideVa(team));
       SetEntry(WorldTable::kSideB, team, TeamInfoVa(team));
@@ -994,6 +1014,8 @@ class PesWorld {
   uint8_t* BallRecord() { return image_->ball.bytes.data(); }
   uint8_t* PitchRecord() { return image_->pitch.bytes.data(); }
   uint8_t* FrameRandomRecord() { return image_->frameRandom.bytes.data(); }
+  // G's roster table (kRosterEntries entries of kRosterEntryBytes): the stand-in above, or a capture's bytes in a test.
+  uint8_t* RosterRecord() { return image_->tables.rosterTable.data(); }
   uint8_t* SideRecord(int team) { return image_->sides[team].bytes.data(); }
   uint8_t* TeamInfoRecord(int team) { return image_->teamInfos[team].bytes.data(); }
   // The match setting the unit info's tier word reads (the side record's +0xA294; the flag byte clear).

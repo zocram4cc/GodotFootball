@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "onthepitch/peskickchooser.hpp"
+#include "onthepitch/peskickmotion.hpp"
 #include "pes_kick_oracle_common.hpp"
 
 namespace {
@@ -73,6 +74,40 @@ TEST_F(KickChooserOracle, EveryCapturedCallOnGfsWindowGivesPesDescriptor) {
     real += got.Kind() != pes::kKickNoKind;
   }
   RecordProperty("real_kinds", static_cast<int>(real));
+}
+
+// The request GF builds (KickRequestFor: the action, the subtype and the target) puts those fields where PES's builder does, and the
+// chooser runs to an answer on it: a descriptor kind in the clip table's range or none, never a loud abort of a path the closure lacks.
+TEST_F(KickChooserOracle, AGfBuiltRequestPutsTheFieldsWherePesDoesAndTheChooserAnswers) {
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    Image image;
+    ASSERT_TRUE(image.Open(exe_));
+    Built b;
+    Build(o, image.bytes, image.size, b);
+    // The builder FUN_140833CD0 writes its request as words: param_1[0] the action, [1] the subtype, [0x19..0x1b] the target. The
+    // words are read here by those indices, not by the header's offsets, so a wrong offset there shows.
+    const auto word = [](const pes::PesKickRequest& r, size_t i) {
+      uint32_t v;
+      std::memcpy(&v, r.bytes.data() + 4 * i, sizeof v);
+      return v;
+    };
+    constexpr size_t kActionWord = 0, kSubtypeWord = 1, kTargetWord = 0x19;
+    int32_t action;
+    float target[3];
+    std::memcpy(&action, &b.request.bytes[4 * kActionWord], sizeof action);
+    std::memcpy(target, &b.request.bytes[4 * kTargetWord], sizeof target);
+    const pes::PesKickRequest gf = pes::KickRequestFor(action, target);
+    for (const size_t i : {kActionWord, kTargetWord, kTargetWord + 1, kTargetWord + 2})
+      EXPECT_EQ(word(gf, i), word(b.request, i)) << dir << " request word " << i;
+    // A ground pass (9) with no order flag set has subtype 1 in PES's own request (FUN_1407204E0's default branch); the lofted
+    // captures carry an order flag GF has no state for.
+    if (action == 9) EXPECT_EQ(word(gf, kSubtypeWord), word(b.request, kSubtypeWord)) << dir;
+    const pes::PesKickDescriptor got = b.world->RunKickChooser(kSlot, gf, b.ext);
+    EXPECT_TRUE(got.Kind() == pes::kKickNoKind || (got.Kind() >= 1 && got.Kind() < pes::kClipKinds)) << dir << " kind " << got.Kind();
+  }
 }
 
 }  // namespace

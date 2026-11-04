@@ -96,6 +96,11 @@ inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Bu
       }
     }
   }
+  // The roster table the window holds as a stand-in (G+0x180): the capture's own bytes, where its pointer is readable.
+  if (const uint64_t roster = Read(o, g + pes::kRosterPtrOffset, 8); roster != 0) {
+    uint8_t* dst = w.RosterRecord();
+    for (size_t i = 0; i < pes::kRosterEntries * pes::kRosterEntryBytes; ++i) dst[i] = static_cast<uint8_t>(Read(o, roster + i, 1));
+  }
   b.ext.image = const_cast<uint8_t*>(image);
   b.ext.imageBytes = imageBytes;
 }
