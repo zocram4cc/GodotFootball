@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 2131eaa740b72b45 -->
+<!-- LEDGER-STAMP 1c8ab4ca6e865b5b -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,13 +13,13 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 18622 | 19481 | 38103 |
+| total | 18624 | 19481 | 38105 |
 | ported | 411 | 0 | 411 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
 | stand-in | 102 | 0 | 102 |
 | decoded | 1209 | 0 | 1209 |
-| leaf accessor | 1916 | 0 | 1916 |
+| leaf accessor | 1918 | 0 | 1918 |
 | engine | 1242 | 0 | 1242 |
 | undecoded | 13524 | 0 | 13524 |
 | inert | 1 | 0 | 1 |
@@ -161,9 +161,10 @@ Rows per subsystem and status:
 | dribble | 97 | 2 | 0 | 0 | 2 | 5 | 35 | 0 | 53 | 0 |
 | dribblereset | 5 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 2 | 0 |
+| motion | 2 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 |
 | proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
 | trapchain | 105 | 1 | 0 | 0 | 0 | 8 | 46 | 0 | 50 | 0 |
-| total | 18622 | 411 | 154 | 63 | 102 | 1209 | 1916 | 1242 | 13524 | 1 |
+| total | 18624 | 411 | 154 | 63 | 102 | 1209 | 1918 | 1242 | 13524 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -188,9 +189,10 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | dribble | 97 | 56 | 4 | 2 | 0 | 0 | 0 |
 | dribblereset | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| motion | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
 | proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
 | trapchain | 105 | 68 | 1 | 1 | 0 | 0 | 0 |
-| total | 18622 | 5820 | 667 | 381 | 9941 | 8139 | 289 |
+| total | 18624 | 5822 | 667 | 381 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -398,7 +400,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 1916 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 1918 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 466 | 465 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -19034,6 +19036,13 @@ Not found (owner's list):
 | 0x14063A290 | FUN_14063a290 | decoded | OBS | pes-re-carrier-units.md | - | 1 | 33 | - | closure |  |
 | 0x142108630 | FUN_142108630 | undecoded | - | - | - | 1 | 1448 | - | closure |  |
 | 0x142109EB0 | FUN_142109eb0 | undecoded | - | - | - | 0 | 17 | - | closure |  |
+
+## motion (2)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x1406EA810 | FUN_1406ea810 | leaf accessor | CONFIRMED | pes-re-a3helpers.md | - | 0 | 2 | y | closure |  |
+| 0x1406EAAF0 | FUN_1406eaaf0 | leaf accessor | OBS | pes-re-gaps-anime.md | - | 0 | 2 | y | closure |  |
 
 ## proccam (8)
 
