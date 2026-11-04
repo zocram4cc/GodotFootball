@@ -236,5 +236,70 @@ class SharedAcrossCheckouts(unittest.TestCase):
         self.assertFalse(bc.entry_is_valid(doc))
 
 
+
+class SharedSlotPerHarnessVariant(unittest.TestCase):
+    """Worktrees whose harness files differ (here dep.py) share one corpus key. Each record is valid only for the harness
+    state it was made in, and every state keeps its record: a second state's miss must not evict the first's, or the
+    lanes overwrite each other and every warm re-check misses (04-11-26: BC's 2253 corpus misses)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        d = self.dir = self.tmp.name
+        self.dep = os.path.join(d, "dep.py")
+        self.root = os.path.join(d, "corpus", "KEY")
+        self.gen = os.path.join(d, "gen")
+        self.restored = os.path.join(d, "restored")
+        os.makedirs(self.gen)
+        os.makedirs(self.restored)
+        write(os.path.join(self.gen, "corp_T.jsonl"), "row\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def store(self, state):
+        write(self.dep, state)
+        record = {"files": [self.dep], "decode": []}
+        bc.corpus_store(self.root, "out " + state.strip(), ["corp_T.jsonl"], self.gen, record)
+
+    def hit(self):
+        doc = bc.corpus_lookup(self.root, self.restored)
+        return None if doc is None else doc["out"]
+
+    def test_a_record_is_a_hit_in_its_own_harness_state_and_restores_its_outputs(self):
+        self.store("A\n")
+        self.assertEqual(self.hit(), "out A")
+        with open(os.path.join(self.restored, "corp_T.jsonl")) as f:
+            self.assertEqual(f.read(), "row\n")
+
+    def test_a_second_harness_state_keeps_the_first_records_hit(self):
+        self.store("A\n")
+        self.store("B\n")
+        self.assertEqual(self.hit(), "out B")
+        write(self.dep, "A\n")
+        self.assertEqual(self.hit(), "out A")
+
+    def test_an_unrecorded_harness_state_misses(self):
+        self.store("A\n")
+        write(self.dep, "C\n")
+        self.assertIsNone(self.hit())
+
+    def test_every_state_up_to_the_kept_count_stays_warm(self):
+        for i in range(bc.CORPUS_VARIANTS_KEPT):
+            self.store("S%d\n" % i)
+        write(self.dep, "S0\n")
+        self.assertEqual(self.hit(), "out S0")
+
+    def test_a_hit_refreshes_its_state_so_the_least_recently_used_is_evicted(self):
+        for i in range(bc.CORPUS_VARIANTS_KEPT):
+            self.store("S%d\n" % i)
+        write(self.dep, "S0\n")
+        self.assertEqual(self.hit(), "out S0")
+        self.store("S%d\n" % bc.CORPUS_VARIANTS_KEPT)
+        write(self.dep, "S0\n")
+        self.assertEqual(self.hit(), "out S0")
+        write(self.dep, "S1\n")
+        self.assertIsNone(self.hit())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,7 @@ import runpy
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -148,6 +149,75 @@ def tu_object_key(tu_path, compiler, flags, include_dir):
 def corpus_key(run_args, inputs):
     """An entry's key: run.py's flags (paths are inputs, by digest, in inputs) and the digests of its inputs."""
     return sha(json.dumps({"v": 2, "args": list(run_args), "inputs": inputs}, sort_keys=True))
+
+
+# A key's records are one per harness state (the run.py files and translator tables a record validates against). Checkouts
+# whose harness files differ share a key, so each state keeps its own record, up to this many (least recently used goes first).
+CORPUS_VARIANTS_KEPT = 4  # ponytail: LRU by file time; a fifth state evicts the least recently used record.
+
+
+def _read_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except OSError:
+        return None
+
+
+def _touch(path):
+    now = time.time_ns()
+    os.utime(path, ns=(now, now))
+
+
+def _records(root):
+    """The record directories under root, most recently used first. A record is a directory holding run.json."""
+    try:
+        names = os.listdir(root)
+    except OSError:
+        return []
+    dirs = [os.path.join(root, n) for n in names if os.path.isfile(os.path.join(root, n, "run.json"))]
+    return sorted(dirs, key=lambda d: os.stat(os.path.join(d, "run.json")).st_mtime_ns, reverse=True)
+
+
+def corpus_lookup(root, gen):
+    """The first record under root that still holds in this checkout: its outputs are copied into gen, it is touched as
+    recently used, and its document (run.py's stdout as "out") is returned. None when no record holds. A record of the
+    single-slot layout (run.json directly under root) is still read, and is never evicted."""
+    candidates = ([root] if os.path.isfile(os.path.join(root, "run.json")) else []) + _records(root)
+    for record in candidates:
+        doc = _read_json(os.path.join(record, "run.json"))
+        if doc is None or not entry_is_valid(doc["deps"]):
+            continue
+        try:
+            for name in doc["files"]:
+                shutil.copyfile(os.path.join(record, name), os.path.join(gen, name))
+        except OSError:  # evicted by another run since it was listed: a miss
+            continue
+        _touch(os.path.join(record, "run.json"))
+        return doc
+    return None
+
+
+def corpus_store(root, out, names, gen, record):
+    """Commit a successful run under root as the record of its harness state: its outputs (copied from gen) and its
+    validation document, stored under the digest of that document. run.json is written last, so its presence commits the
+    record. Beyond CORPUS_VARIANTS_KEPT records, the least recently used are evicted."""
+    os.makedirs(root, exist_ok=True)
+    deps = entry_doc(record)
+    tmp = tempfile.mkdtemp(dir=root)
+    for name in names:
+        shutil.copyfile(os.path.join(gen, name), os.path.join(tmp, name))
+    with open(os.path.join(tmp, "run.json"), "w") as f:
+        json.dump({"out": out, "files": names, "deps": deps}, f)
+    _touch(os.path.join(tmp, "run.json"))
+    dest = os.path.join(root, sha(json.dumps(deps, sort_keys=True)))
+    shutil.rmtree(dest, ignore_errors=True)
+    try:
+        os.replace(tmp, dest)
+    except OSError:  # another run committed this state first (shared cache): its record is the same, keep it
+        shutil.rmtree(tmp, ignore_errors=True)
+    for stale in _records(root)[CORPUS_VARIANTS_KEPT:]:
+        shutil.rmtree(stale, ignore_errors=True)
 
 
 def decode_digest(image_path, va):
