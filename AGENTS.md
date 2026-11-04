@@ -73,7 +73,8 @@ write the minimal code that passes, then refactor while green. A test written
 after the code proves nothing: it was never seen to catch anything.
 
 Tests that need a PES install read it from `PES21_ROOT` and `GTEST_SKIP` when
-it is unset; they assert on real decoded data, never on mocks.
+it is unset; they assert on real decoded data, never on mocks. A test that builds a `Match` also needs `PES_EXE` (the dump from
+`tools/pes21_import/dump_image.py`, `tools/pes21_import/README.md`) and skips without it; `gfsim_run` refuses to start without it.
 
 ## Nothing is done until it is verifiably correct
 

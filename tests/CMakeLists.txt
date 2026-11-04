@@ -67,6 +67,17 @@ add_executable(pes_trap_oracle_test pes_trap_oracle_test.cpp)
 target_link_libraries(pes_trap_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_trap_oracle_test)
 
+add_executable(pes_trap_data_test pes_trap_data_test.cpp)
+target_link_libraries(pes_trap_data_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_trap_data_test)
+
+add_executable(pes_physique_test pes_physique_test.cpp)
+target_link_libraries(pes_physique_test PRIVATE pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_physique_test)
+
+add_executable(pes_stamina_cells_test pes_stamina_cells_test.cpp)
+target_link_libraries(pes_stamina_cells_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_stamina_cells_test)
 add_executable(pes_danger_oracle_test pes_danger_oracle_test.cpp)
 target_link_libraries(pes_danger_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_danger_oracle_test)

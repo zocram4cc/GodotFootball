@@ -253,12 +253,18 @@ class MoveHostAdapter final : public pes::MoveHost {
     player_.RequestCommand(queue);
     PesDecision& decision = player_.GetPesDecision();
     decision.frame = match_.GetPesFrame();
-    decision.command = pesmovestep::MovementDecision(queue);
+    decision.command = pesmovestep::MovementDecision(queue, player_.HasPossession());
   }
   float CurrentSpeedKmh() const override {
     return player_.GetMovement().GetLength() * c_.run.speed3600;
   }
-  float PhysiqueG() const override { return 1.0f; }  // ponytail: FUN_141af3180 of P+0xa08.
+  // FUN_141af3180(P+0xa08): G = the root bone's body scale from the physique block (pes::PhysiqueG, FUN_141EB5810's arm).
+  // PES's block height is a whole number of cm (the 22 scanned players of seq4046: 175..199); GF's physical_height is that
+  // /100 as a float, so rounding restores the block's value.
+  // ponytail: the leg-length slider (block+0x30: appearance nibble 0x11:0, FUN_141AD98B0) has no GF source; 0 is neutral.
+  float PhysiqueG() const override {
+    return pes::PhysiqueG(c_.physique, {pesmovestep::PhysiqueHeightCmOf(player_), 0.0f, false});
+  }
   float TicksPerSecond() const override { return static_cast<float>(Match::kFramesPerSecond); }
   int MatchTick() const override { return match_.GetPesFrame(); }
   int RecentStamp(int index) const override {
@@ -582,10 +588,9 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetU(pes::moveword::kParamState, kSingleClip);  // PES's init: a single clip (req[0x37] == 0x11)
   // FUN_1406f99f0's store (P+0x377c): the TopRate ceiling at the record's G, once per match tick.
   // ponytail: the Speed byte (0x27) = clamp(trunc(base[0x27] * A1..A5), 40, 99), written by FUN_14092AF10
-  // (docs/re/pes-re-speed-inputs.md). Its base row has no GF source yet, so physical_velocity stands in for it.
+  // (docs/re/pes-re-speed-inputs.md). Its base row has no GF source yet, so physical_velocity stands in for it (SpeedByteOf).
   pes::StoreRateCeiling(rec, host.MatchTick(),
-                        pes::MoveTopRate(match.GetPesStaminaConstants(),
-                                         player.GetStat("physical_velocity"), player.GetStamina(),
+                        pes::MoveTopRate(match.GetPesStaminaConstants(), SpeedByteOf(player), player.GetStamina(),
                                          host.PhysiqueG()));
 
   const pes::MoveState stateAtEntry = rec.state;
@@ -625,12 +630,29 @@ int CurrentMotionOf(Player& player) {
   return std::atoi(anim->anim->GetVariable("specialvar2").c_str());
 }
 
-// MOVESTEP's decision: the first queued command that is not a ball action (pes-re-decision-read.md 1 and 3).
-std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue) {
+// MOVESTEP's decision: the first queued command that is movement (pes-re-decision-read.md 1 and 3). The keeper's Deflect carries
+// no move target (velocity 0), so taking it held a designated keeper 2.3 m from a ball at rest in IDLE for the whole stall; the
+// BallControl a rushing keeper queues is the dribble, whose direction is upfield, not toward a ball he has yet to reach.
+// ponytail: GF's keeper has no PES mover (KP_PRESS action 0x3e, not decoded); the movement command's ball magnet walks him.
+std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue, bool holdsBall) {
   for (const PlayerCommand& command : queue) {
-    if (!IsBallActionFunction(command.desiredFunctionType)) return command;
+    if (IsBallActionFunction(command.desiredFunctionType)) continue;
+    if (command.desiredFunctionType == e_FunctionType_Deflect) continue;
+    if (command.desiredFunctionType == e_FunctionType_BallControl && !holdsBall) continue;
+    return command;
   }
   return std::nullopt;
+}
+
+}  // namespace pesmovestep
+
+namespace pesmovestep {
+
+float PhysiqueHeightCmOf(const Player& player) { return std::round(player.GetStat("physical_height") * 100.0f); }
+
+float SpeedByteOf(const Player& player) {
+  constexpr float kStatPerUnit = 100.0f;  // GF stores PES's 40..99 as 0.40..0.99
+  return player.GetStat("physical_velocity") * kStatPerUnit;
 }
 
 }  // namespace pesmovestep

@@ -40,8 +40,8 @@ ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"),
         ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
-        ("results_fixdemo.json", "fixdemo"), ("results_dribble.json", "dribble"), ("results_proccam.json", "proccam"),
-        ("results_motion.json", "motion"))
+        ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"),
+        ("results_dribble.json", "dribble"), ("results_proccam.json", "proccam"), ("results_motion.json", "motion"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -84,6 +84,16 @@ def closure_members(va):
     return set()
 
 
+def bounded_roots():
+    """The records proven by a capture-bounded closure (snapdiff --bounded; results field `bounded`): a call or tail jump the
+    replays never entered stays a loud abort there, so neither the tail-target walk nor the silent-tail lint applies to them."""
+    out = set()
+    for fname, _ in SETS:
+        with open(os.path.join(HERE, fname)) as f:
+            out |= {r["va"] for r in json.load(f)["results"] if r.get("bounded")}
+    return out
+
+
 def recorded_vas():
     """Every VA a results set records bit-exact (diffed): proven standalone, so any layer function may link it (owner
     ruling 01-11-26, Main: a callee recorded in a proven set is not an OUT-OF-SET gap, whichever set the caller was proven
@@ -105,7 +115,8 @@ def context(name, va, image):
         raise SystemExit("gen_translated: no spec for %s in %s" % (va, name))
     stubs = driver.MODEL_MAP
     base = driver.universe_of(sdir)
-    universe = base | set(driver.runnable_extra(spec, image, universe=base)[0])
+    tails = None if va in bounded_roots() else base
+    universe = base | set(driver.runnable_extra(spec, image, universe=tails)[0])
     return spec, stubs, universe
 
 
@@ -135,12 +146,13 @@ def choose_variant(old, new):
 TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
 
 
-def silent_tail_sites(members):
+def silent_tail_sites(members, exempt=frozenset()):
     """Refuse a layer holding a tail jump into the image's code that the layer does not translate: PES continues there,
     the layer only aborts (xlate emits pes_dispatch_missing), and the closure walk should have pulled the target in.
-    A target outside the code range is dead decode noise (a jmp after a ret into no image address) and stays an abort."""
-    bad = ["%s: jmp %s" % (va, t) for va, m in sorted(members.items()) for t in TAIL_GAP.findall(m["raw"])
-           if driver.CODE_LO <= int(t, 16) < driver.CODE_HI]
+    A target outside the code range is dead decode noise (a jmp after a ret into no image address) and stays an abort.
+    exempt: the members of a capture-bounded closure (bounded_roots), whose unentered tail targets are loud aborts by design."""
+    bad = ["%s: jmp %s" % (va, t) for va, m in sorted(members.items()) if va not in exempt
+           for t in TAIL_GAP.findall(m["raw"]) if driver.CODE_LO <= int(t, 16) < driver.CODE_HI]
     if bad:
         raise SystemExit("gen_translated: %d tail jump(s) into code the layer does not hold:\n  %s"
                          % (len(bad), "\n  ".join(bad[:30])))
@@ -228,7 +240,8 @@ def build(image):
         for c in CALLEE.findall(m["raw"]):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
                 raise SystemExit("gen_translated: %s calls %s, which is not committed" % (cur, c))
-    silent_tail_sites(members)
+    bounded = bounded_roots()
+    silent_tail_sites(members, {v for root in bounded for v in closure_of.get(root, ())})
     silent_unhandled_sites(members)
     return members
 

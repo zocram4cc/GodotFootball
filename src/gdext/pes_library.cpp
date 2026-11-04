@@ -204,6 +204,14 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 mark table constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  // PES 2021's Trap action chain: the image slice, the actor constants and the loader data (pestrapdata.hpp).
+  const char* imagePath = std::getenv("PES_EXE");  // the memory dump of the running game (tools/pes21_import/README.md)
+  if (exe && imagePath != nullptr && *imagePath != '\0') trapSource_ = pes::LoadTrapSource(*exe, vfs_, imagePath, &err);
+  else if (exe) err = "PES_EXE (the game's memory dump) is not set";
+  if (!trapSource_) {
+    UtilityFunctions::push_error("PES21 trap data unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   // The install's table bytes the translated window runs read (pesimagetables.hpp).
   if (exe) imageTables_ = pes::LoadPesImageTables(*exe, &err);
   if (!imageTables_) {

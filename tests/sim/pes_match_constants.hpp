@@ -35,6 +35,7 @@
 #include "onthepitch/pesteamconcepts.hpp"
 #include "pes/vfs.hpp"
 #include "pes/playerdb.hpp"
+#include "onthepitch/pestrapdata.hpp"
 
 namespace pestest {
 
@@ -73,6 +74,7 @@ struct PesMatchConstants {
   std::optional<pes::formation::FormationTables> formationTables;
   std::optional<pes::formation::SheetConstants> sheetConstants;
   std::optional<pes::PlayerDatabase> playerDatabase;
+  std::optional<pes::PesTrapSource> trap;
 };
 
 inline const PesMatchConstants& SharedPesMatchConstants() {
@@ -121,6 +123,9 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   c.imageTables = pes::LoadPesImageTables(*exe, &err);
   if (mounted) c.formationTables = pes::formation::FormationTables::Load(vfs, &err);
   if (mounted) c.playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
+  // The chain's image slice is the game's memory dump (PES_EXE); without it the trap source stays empty and the caller skips.
+  if (const char* image = std::getenv("PES_EXE"); mounted && image != nullptr && *image != '\0')
+    c.trap = pes::LoadTrapSource(*exe, vfs, image, &err);
   c.sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
   return c;
 }
@@ -167,6 +172,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesMoveStepConstants, c.moveStep);
   fill(setup->pesPressConstants, c.press);
   fill(setup->pesMarkTableConstants, c.markTable);
+  fill(setup->pesTrapSource, c.trap);
   fill(setup->pesImageTables, c.imageTables);
   return ok;
 }
