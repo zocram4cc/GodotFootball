@@ -77,6 +77,9 @@ struct MotionRecord {
   std::vector<FootRecord> foot;   // kind 9
   std::vector<PivotRecord> pivot; // kind 12
   std::vector<SubRecord> sub;     // kind 2
+  // The raw words behind blend, cancel and rot, as the files have them (Animation +0/+4, CancelData +0/+4, RotData +0/+4),
+  // admitted under the same caps in the same order. pesclipreaders lays them out as PES's table does.
+  std::vector<std::array<uint32_t, 2>> blendWords, cancelWords, rotWords;
 
   // The readers' answers. Past the end of a list they give PES's fallback value.
   int BlendStart() const { return blend.empty() ? 0 : blend[0]; }
@@ -87,6 +90,10 @@ struct MotionRecord {
   RotRecord Rot(int i) const;                                          // FUN_1406b1c70 / b1f00 / b1d00
   bool PivotFlag(int i) const;                                         // FUN_1406b1930(.., i)
 };
+
+// The four clip-record readers PES's movestep calls for a motion's record value in ticks (docs/re/pes-re-portmap-motion.md M2):
+// 0x1406AF620 blend, 0x1406AF8E0 cancel, 0x1406B1F00 RotData start, 0x1406B1D00 RotData end.
+enum class ClipReader { kBlend, kCancel, kRotStart, kRotEnd };
 
 // PES's per-kind list caps (DAT_1425dc370, one dword per kind), read from the exe by VA.
 struct MotionCaps {

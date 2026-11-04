@@ -1,0 +1,10 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of 0x1406E6660: ability byte FUN_1406E6660(ap, idx). The root and each function the replays entered (direct callees, tail targets, vtable methods); every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "root": "0x1406E6660",
+ "members": [
+  "0x1406E6660",
+  "0x1406EAAF0",
+  "0x140A489F0",
+  "0x14124DAD0"
+ ]
+}

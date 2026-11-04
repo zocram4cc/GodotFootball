@@ -42,7 +42,8 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
         ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"),
         ("results_dribble.json", "dribble"), ("results_proccam.json", "proccam"),
-        ("results_kickkind.json", "kickkind"), ("results_kick.json", "kick"))
+        ("results_kickkind.json", "kickkind"), ("results_kick.json", "kick"),
+        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -166,6 +167,7 @@ UNHANDLED_DEAD_NOISE = {
     "0x1404B6ED0": "FDIV/OUTSD after the unconditional goto L_1404B74FF, behind no reached label",
     "0x140721800": "IRETD/CMPSD after the unconditional goto L_1407231E2 (kick chooser closure): the labels L_140723290..L_14072329C "
                    "are reached only by conditional jumps inside the noise itself, so no reachable branch lands there",
+    "0x1405EC600": "POP/RETF/ADD after the final unconditional goto L_1405ED02B (0x1405ED1ED JMP), behind no label",
 }
 
 

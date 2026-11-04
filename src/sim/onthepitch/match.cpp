@@ -242,6 +242,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "MatchSetup::pesMbinfo");
   pesAnimetable = std::make_unique<pes::Animetable>(*setup.pesAnimetable);
   pesMbinfo = std::make_unique<pes::Mbinfo>(*setup.pesMbinfo);
+  pesClipReaders = std::make_unique<pes::PesClipReaders>(*pesMbinfo);
   // PES 2021's standing-tackle sub-kind (docs/re/pes-re-contact-port.md stage C).
   if (setup.pesTackleConstants == nullptr)
     throw std::runtime_error(
