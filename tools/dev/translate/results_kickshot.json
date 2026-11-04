@@ -1,0 +1,41 @@
+{
+ "note": "kickshot results. diffed = bit-exact vs the unicorn harness over 40 SYNTHETIC modified calls of the kick chooser (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickkind.json",
+   "coverage": {
+    "0x1408364D0": {
+     "fraction": 0.2837,
+     "reached": 59,
+     "total": 208
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every SYNTHETIC modified call replayed bit-exact, 40 of 40 (pes-port-KickBranch.md). The states are PES's own bytes on the synthetic chooser state h4358 (synth_chooser.py over the kick_header_833CD0 capture seq4358, a shot) with the kicker's position (P+8, P+0x10) and the request's +0x2C, +0x30, +0x5D, +0x80, +0x94, +0xEC, +0xFC drawn at random (seeds 1, 2) at the chooser's entry, so that the shot candidate FUN_14082E370 reaches FUN_140A641D0 (the abort the pes-loop smoke hit at seed 7). The closure is capture-bounded (the members of results_kickkind.json plus 0x140830380, 0x140831CA0, 0x140A641D0); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 40,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.2837,
+     "reached": 59,
+     "total": 208
+    },
+    "replayed": 40,
+    "source": "tools/dev/translate/results_kickshot.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1408364D0"
+  }
+ ]
+}

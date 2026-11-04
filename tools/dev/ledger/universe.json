@@ -235480,6 +235480,37 @@
    "vtables": [],
    "walked": true
   },
+  "140830380": {
+   "boundary": null,
+   "callees": {
+    "140581CE0": "direct",
+    "140820D80": "direct",
+    "140829E80": "direct",
+    "140830B50": "direct",
+    "140A92C80": "direct",
+    "141E532D0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140830380",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 210,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1408306F0": {
    "boundary": null,
    "callees": {
@@ -235703,6 +235734,31 @@
    ],
    "scope": "in",
    "size": 139,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140831CA0": {
+   "boundary": null,
+   "callees": {
+    "140829E80": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140831ca0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 134,
    "source": "pdata",
    "subsystem": "kickkind",
    "tables": 0,
@@ -337538,6 +337594,33 @@
    "source": "bridge",
    "subsystem": "gameplay",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "140A641D0": {
+   "boundary": null,
+   "callees": {
+    "140A3AF90": "direct",
+    "140A489D0": "direct",
+    "141B59E20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a641d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 27,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1300262,7 +1300345,7 @@
     ]
    },
    "kickkind": {
-    "members": 255,
+    "members": 258,
     "roots": [
      "0x1408364D0"
     ]
