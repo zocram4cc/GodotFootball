@@ -155,6 +155,8 @@ TARGETS = [
     ("press_order_A42940", 0x140A42940, "PressAI: order-word writer (r8d == 0x34 starts a press)"),
     ("press_reset_536690", 0x140536690, "PressAI: dispatcher slot reset"),
     ("press_helper_62AF10", 0x14062AF10, "PressAI: order-word helper"),
+    # --- KickCutover block (the chooser's geometry words come from this builder; docs/ports/pes-port-KickCutover.md). Append-only.
+    ("kick_header_833CD0", 0x140833CD0, "KickCutover: kick request header builder (fills the order-record geometry)"),
 ]
 
 
