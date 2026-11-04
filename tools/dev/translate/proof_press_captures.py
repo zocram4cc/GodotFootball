@@ -26,7 +26,8 @@ import synth_press_order as sp  # noqa: E402
 
 ROOTS = {"ai_press_writer_536FC0": ("0x140536FC0", "closure_press_writer.json", "the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots)"),
          "ai_press_eval_633940": ("0x140633940", "closure_press_eval.json", "the press target eval FUN_140633940 (second presser pick)"),
-         "ai_press_coord_634470": ("0x140634470", "closure_press_coord.json", "the press coordinator FUN_140634470 (PRESS/SAND second presser)")}
+         "ai_press_coord_634470": ("0x140634470", "closure_press_coord.json", "the press coordinator FUN_140634470 (PRESS/SAND second presser)"),
+         "press_matchup_536210": ("0x140536210", "closure_press_matchup.json", "the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word)")}
 
 
 def captures(launches):
@@ -72,7 +73,7 @@ def main():
             snaps += ["--snapshot", "%s=%s" % (d, trace)]
             used.append(label)
         synthetic = 0
-        if va == "0x140536FC0" and a.state:
+        if va in ("0x140536FC0", "0x140536210") and a.state:
             # a case whose call needs a page the slim base dropped does not trace: it is discarded, never faked
             bases = [(sp.State(s), None) for s in a.state]
             bases = [(st, sp.World(st)) for st, _ in bases]
@@ -104,8 +105,9 @@ def main():
         keep = [r for r in doc["results"] if r["va"].upper() not in vas]
         new = []
         for va, closure_file, what, raw, members, used, skipped, synthetic in records:
-            extra = ("; plus %d SYNTHETIC states over one full match state (synth_press_order.py writer_case: the play state, the side's men "
-                     "off the body filter, T+0xF1 armed, men near the ball are chosen)" % synthetic) if synthetic else ""
+            extra = ("; plus %d SYNTHETIC states over one full match state (synth_press_order.py %s: the men's words, positions, the "
+                     "partner words, the ball-distance lists and the set-piece object are chosen)" % (
+                         synthetic, "matchup_case" if va == "0x140536210" else "writer_case")) if synthetic else ""
             rec = {"aborted": 0, "capped": 0, "cases": 0, "closure_file": closure_file, "coverage": {va: raw["own_block"]},
                    "dead_blocks": {}, "diffed": bool(raw["proven"]), "failed": 0, "failure_class": None, "icount_max": 0, "nonreturn": 0,
                    "note": "proof snapdiff --bounded: every replayed call bit-exact, %d of %d (%s; %d real captures of the hook in %s, %d "

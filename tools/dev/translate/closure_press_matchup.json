@@ -1,5 +1,5 @@
 {
- "note": "the functions built for the SYNTHETIC proof of 0x140536210 (synth_press_order.py): every function the replays entered (snapdiff --bounded: 24) plus the root's static direct-call closure (1 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
+ "note": "the functions built for the proof of the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word) over 12 real captures and 56 SYNTHETIC states (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 24) plus the root's static direct-call closure (1 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
  "root": "0x140536210",
  "members": [
   "0x140536210",

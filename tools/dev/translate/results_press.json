@@ -205,25 +205,25 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 56 of 56. SYNTHETIC: 56 call states over one full match state (synth_press_order.py: the men's words, positions and kinds, the ball-distance lists, the enrolment words, the set-piece bytes, the G+0x180 list and the argument objects are chosen, not observed). The press dispatcher FUN_140535C60's order-word helper / slot reset: no hook, no capture calls it.",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 68 of 68 (the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word); 12 real captures of the hook in pid1513193, 0 skipped: their trace left the captured pages; plus 56 SYNTHETIC states over one full match state (synth_press_order.py matchup_case: the men's words, positions, the partner words, the ball-distance lists and the set-piece object are chosen)). proof_press_captures.py.",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 56,
+    "calls": 68,
     "mismatches": 0,
     "own_block": {
      "reached": 86,
      "total": 94,
      "fraction": 0.9149
     },
-    "replayed": 56,
+    "replayed": 68,
     "source": "tools/dev/translate/results_press.json"
    },
    "stubs": [],
-   "synthetic": true,
-   "synthetic_cases": 56,
    "translated": true,
-   "va": "0x140536210"
+   "va": "0x140536210",
+   "synthetic": true,
+   "synthetic_cases": 56
   }
  ]
 }
