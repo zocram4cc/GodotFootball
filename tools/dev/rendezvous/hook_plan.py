@@ -157,6 +157,8 @@ TARGETS = [
     ("press_helper_62AF10", 0x14062AF10, "PressAI: order-word helper"),
     # --- KickCutover block (the chooser's geometry words come from this builder; docs/ports/pes-port-KickCutover.md). Append-only.
     ("kick_header_833CD0", 0x140833CD0, "KickCutover: kick request header builder (fills the order-record geometry)"),
+    # --- PressAI3 block (PES starts a press via MATCH_UP writer -> coordinator -> eval; its proof is synthetic only). Append-only.
+    ("press_matchup_536210", 0x140536210, "PressAI3: MATCH_UP writer (real calls for the synthetic-only proof)"),
 ]
 
 
