@@ -151,6 +151,10 @@ TARGETS = [
     ("aic_sidecounter_end_5404A0", 0x1405404A0, "AIConcepts: SideCounter end"),
     ("aic_sidecounter_exec_5415B0", 0x1405415B0, "AIConcepts: SideCounter execute"),
     ("aic_transchase_exec_575B60", 0x140575B60, "AIConcepts: TransitionChase execute (owner of the 0x140575DA0 thunk)"),
+    # --- PressAI block (how PES starts a loose-ball press; docs/ports/pes-port-PressAI.md Left 1, 3). Append-only.
+    ("press_order_A42940", 0x140A42940, "PressAI: order-word writer (r8d == 0x34 starts a press)"),
+    ("press_reset_536690", 0x140536690, "PressAI: dispatcher slot reset"),
+    ("press_helper_62AF10", 0x14062AF10, "PressAI: order-word helper"),
 ]
 
 
