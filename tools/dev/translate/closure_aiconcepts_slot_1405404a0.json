@@ -1,0 +1,8 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of 0x1405404A0 (SideCounter end test (concept 3 slot +0x18)): the root and each function the three synthetic replays entered, with the indirect targets they reached.",
+ "root": "0x1405404A0",
+ "members": [
+  "0x1405404A0",
+  "0x140A48A30"
+ ]
+}

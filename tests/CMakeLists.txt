@@ -35,6 +35,14 @@ add_executable(pes_mbinfo_test pes_mbinfo_test.cpp)
 target_link_libraries(pes_mbinfo_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_mbinfo_test)
 
+add_executable(pes_clip_readers_test pes_clip_readers_test.cpp)
+target_link_libraries(pes_clip_readers_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_clip_readers_test)
+
+add_executable(pes_player_object_test pes_player_object_test.cpp)
+target_link_libraries(pes_player_object_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_player_object_test)
+
 add_executable(pes_dodge_test pes_dodge_test.cpp)
 target_link_libraries(pes_dodge_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_dodge_test)

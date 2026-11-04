@@ -1,0 +1,293 @@
+{
+ "note": "motion results. diffed = bit-exact vs the unicorn harness over the rendezvous captures named in each record (snapdiff --bounded); pes-port-MotionClips.md.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406E6660.json",
+   "coverage": {
+    "0x1406E6660": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (rendezvous hook mot_ability_6E6660, live2 pid296049 seq017, seq038, seq056); ability byte FUN_1406E6660(ap, idx); the closure is capture-bounded (4 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E6660"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406BA7D0.json",
+   "coverage": {
+    "0x1406BA7D0": {
+     "reached": 21,
+     "total": 23,
+     "fraction": 0.913
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (rendezvous hook mot_entry_aim_BA7D0, live2 pid296049 seq025, seq1315, seq1393); locomotion entry relax/aim flag FUN_1406BA7D0; the closure is capture-bounded (10 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 21,
+     "total": 23,
+     "fraction": 0.913
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406BA7D0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406B10D0.json",
+   "coverage": {
+    "0x1406B10D0": {
+     "reached": 9,
+     "total": 13,
+     "fraction": 0.6923
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 17 of 17 (rendezvous hook mot_cliplen_6B10D0, live2 pid296049 seq022, seq1352, seq4405; pid1037286 seq798, seq1122, seq1427, seq2669, seq3495, seq4730; pid23358 seq024, seq235, seq403, seq675, seq5053, seq5396; pid358243 seq373885; pid802552 seq4624), including the zero-record fallback arm (the LEA at 0x1406B1114 reads the fallback object 0x1436F23D8, all zero in the full captures); clip length (ticks) FUN_1406B10D0; the closure is capture-bounded (2 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 17,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 9,
+     "total": 13,
+     "fraction": 0.6923
+    },
+    "replayed": 17,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B10D0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406B11E0.json",
+   "coverage": {
+    "0x1406B11E0": {
+     "reached": 9,
+     "total": 13,
+     "fraction": 0.6923
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 17 of 17 (rendezvous hook mot_ticklen_6B11E0, live2 pid296049 seq021, seq1357, seq4626; pid1037286 seq797, seq1160, seq1441, seq1702, seq2902, seq3613; pid23358 seq023, seq280, seq5328; pid42407 seq229006, seq258578; pid358243 seq121110, seq241576; pid802552 seq036), including the zero-record fallback arm (the LEA at 0x1406B1224 reads the fallback object 0x1436F23D8, all zero in the full captures); clip tick length FUN_1406B11E0; the closure is capture-bounded (2 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 17,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 9,
+     "total": 13,
+     "fraction": 0.6923
+    },
+    "replayed": 17,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B11E0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406AF620.json",
+   "coverage": {
+    "0x1406AF620": {
+     "reached": 8,
+     "total": 13,
+     "fraction": 0.6154
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (rendezvous hook mot_blendrec_AF620, live2 pid296049 seq014, seq015, seq023); blend/fixed clip record reader FUN_1406AF620; the closure is capture-bounded (2 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 13,
+     "fraction": 0.6154
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406AF620"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406AF8E0.json",
+   "coverage": {
+    "0x1406AF8E0": {
+     "reached": 9,
+     "total": 13,
+     "fraction": 0.6923
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 21 of 21 (rendezvous hook mot_cancelrec_AF8E0, live2 pid296049 seq005, seq026, seq030; pid1037286 seq861, seq1130, seq1395, seq3272, seq3333, seq4990; pid23358 seq276, seq876, seq951, seq5251, seq5345; pid358243 seq75737, seq77625, seq129103, seq129912, seq237977, seq243193; pid802552 seq4441), including the zero-record fallback arm (the LEA at 0x1406AF924 reads the fallback object 0x1436F2500, all zero in the full captures); cancel-frame clip record reader FUN_1406AF8E0; the closure is capture-bounded (2 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 21,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 9,
+     "total": 13,
+     "fraction": 0.6923
+    },
+    "replayed": 21,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406AF8E0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406B1D00.json",
+   "coverage": {
+    "0x1406B1D00": {
+     "reached": 8,
+     "total": 13,
+     "fraction": 0.6154
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (rendezvous hook mot_rotend_6B1D00, live2 pid296049 seq031, seq035, seq039); RotData end reader FUN_1406B1D00; the closure is capture-bounded (2 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 13,
+     "fraction": 0.6154
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B1D00"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_motion_1406B1F00.json",
+   "coverage": {
+    "0x1406B1F00": {
+     "reached": 8,
+     "total": 13,
+     "fraction": 0.6154
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3 (rendezvous hook mot_rotoff_6B1F00, live2 pid296049 seq044, seq1295, seq1311); RotData signed offset reader FUN_1406B1F00; the closure is capture-bounded (2 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it (pes-port-MotionClips.md)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 13,
+     "fraction": 0.6154
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_motion.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B1F00"
+  }
+ ]
+}

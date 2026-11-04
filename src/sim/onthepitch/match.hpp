@@ -33,6 +33,7 @@ class PlayerData;
 #include "peskickerror.hpp"
 #include "pesworldrecord.hpp"
 #include "pesdodge.hpp"
+#include "pesclipreaders.hpp"
 #include "pestackle.hpp"
 #include "pesoffball.hpp"
 #include "penaltyshootoutcontroller.hpp"
@@ -359,6 +360,8 @@ public:
   // the dodge selectors read.
   const pes::Animetable& GetPesAnimetable() const { return *pesAnimetable; }
   const pes::Mbinfo& GetPesMbinfo() const { return *pesMbinfo; }
+  // PES's clip-record readers (0x1406AF620, 0x1406AF8E0, 0x1406B1F00, 0x1406B1D00) on the motion table filed from Mbinfo.
+  const pes::PesClipReaders& GetPesClipReaders() const { return *pesClipReaders; }
   // PES 2021's standing-tackle sub-kind (pes-re-contact-port.md stage C): the
   // per-kind group tables and the readiness mask's constants.
   const pes::TackleConstants& GetPesTackleConstants() const { return pesTackleConstants; }
@@ -732,6 +735,7 @@ protected:
   pes::DodgeConstants pesDodgeConstants{};
   std::unique_ptr<pes::Animetable> pesAnimetable;
   std::unique_ptr<pes::Mbinfo> pesMbinfo;
+  std::unique_ptr<pes::PesClipReaders> pesClipReaders;
   // PES 2021's standing-tackle sub-kind (stage C).
   pes::TackleConstants pesTackleConstants{};
   // PES 2021's MOVESTEP handlers' install constants, copied from MatchSetup at construction.

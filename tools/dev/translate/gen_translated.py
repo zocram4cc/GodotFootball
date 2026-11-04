@@ -42,6 +42,7 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
         ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"),
         ("results_dribble.json", "dribble"), ("results_proccam.json", "proccam"),
+        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"),
         ("results_press.json", "press"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
@@ -164,6 +165,7 @@ def silent_tail_sites(members, exempt=frozenset()):
 UNHANDLED_DEAD_NOISE = {
     "0x140480030": "FADD/FILD/OUT after the cold path's final int3 (labels L_1404803A9..C5 end in traps)",
     "0x1404B6ED0": "FDIV/OUTSD after the unconditional goto L_1404B74FF, behind no reached label",
+    "0x1405EC600": "POP/RETF/ADD after the final unconditional goto L_1405ED02B (0x1405ED1ED JMP), behind no label",
 }
 
 

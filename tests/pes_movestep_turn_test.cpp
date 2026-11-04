@@ -10,10 +10,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "movestep_team_synthetic.hpp"
+#include "clip_ticks_fake.hpp"
 #include "pes/movestep_turn.hpp"
 
 namespace {
@@ -190,7 +193,8 @@ class FakeHost : public MoveHost {
   pes::StyleConstants style{};
   const pes::StyleConstants& StyleConstantsView() const override { return style; }
   bool ScriptedSlotIsOurs() const override { return false; }
-  int StaminaPercent() const override { return 100; }
+  int StaminaPercent() const override { return stamina; }
+  int stamina = 100;  // FUN_140a58550, the tank percentage
   float PlayerHeightCm() const override { return 180.0f; }
   void BallSample(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
   float BallMotionHeadingDeg() const override { return 0.0f; }
@@ -256,8 +260,15 @@ class FakeHost : public MoveHost {
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return animeState; }
+  int ClipTicks(pes::ClipReader reader, int, float rate, int index) const override {
+    return pes::FakeClipTicks(record, reader, rate, index, TicksPerSecond());
+  }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  int AbilityByte(int id) const override { return id == 0x29 ? abilityByte : 0; }
+  bool EntryAimFlag() const override { return entryAim; }
+  int abilityByte = 50;   // FUN_1406e6660's answer for id 0x29 (Balance)
+  bool entryAim = false;  // FUN_1406ba7d0's answer
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   // The turn tests do not reach RUN_LOOP's tail, so the sine view is never read here.
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }
@@ -961,6 +972,26 @@ TEST(EnterRunTurnRun, SelectsTheRowAndAsksForTheRunTurnRunState) {
   // The entry issues the ladder's row with the vt+0x10 blend duration.
   EXPECT_EQ(host.issued.motion, 0x5be);
   EXPECT_NEAR(host.issued.duration, 1.0f / 6.0f, 1e-6f);
+}
+
+// FUN_1406d6780's tail (0x1406D7811 CALL 0x140A58550, 0x1406D783F CMP DIL,0x14): a tank under 20 percent takes the tired row 0x5b6
+// in place of the 0x5b3 cell; the port read the ability reader's id 0 there (stand-in 50), so a tired player never took it.
+TEST(EnterRunTurnRun, ATankUnderTwentyPercentTakesTheTiredRowInPlaceOfTheStandardCell) {
+  const std::vector<std::pair<int, int>> cases = {{19, 0x5b6}, {20, 0x5b3}, {100, 0x5b3}};
+  for (const auto& [stamina, expected] : cases) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    req.SetU(pes::moveword::kClassWord, 1);  // the speed word at or under 1: the 0x5b3 / 0x5b9 ladder
+    req.SetU(pes::moveword::kCommandSpeedClass, 1);
+    req.SetU(pes::moveword::kMoveBucket, 3);
+    req.SetU(pes::moveword::kKind, 2);
+    host.currentMotion = 0x1000;
+    host.cellMotion = 0x5b3;
+    host.stamina = stamina;
+    EnterRunTurnRun(host, req, SyntheticTurn());
+    EXPECT_EQ(host.lastRow, expected) << "stamina " << stamina;
+  }
 }
 
 // PES's entry takes its cell at row 0xBE5 when the kind-2 band-2 request has no precise flag (the default motion). Row

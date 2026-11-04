@@ -228,16 +228,14 @@ struct ClipHits {
 ClipHits ReadClipHits(const MoveHost& host, int motion, const RunConstants& k, bool mirror) {
   const pes::MotionRecord& rec = host.Motion(motion);
   const RotRecord rot = rec.Rot(0);
-  const auto ticks = [&](int v) {
-    return pes::movestep::RecordTicks(host, static_cast<float>(v), k.one, k.kmh60, k.half, k.one);
-  };
   ClipHits h;
-  h.total = ticks(rot.start);
-  h.end = ticks(rot.end);
+  h.total = host.ClipTicks(pes::ClipReader::kRotStart, motion, k.one, 0);
+  h.end = host.ClipTicks(pes::ClipReader::kRotEnd, motion, k.one, 0);
   h.signedLen = static_cast<float>(rot.offset) * (mirror ? k.neg : k.one);
   h.cancelCount = rec.CancelCount();
-  const int blend = ticks(rec.BlendStart());
-  for (int i = 0; i < 3; ++i) h.hit[i] = i < h.cancelCount ? ticks(rec.CancelFrames(i)) : blend;
+  const int blend = host.ClipTicks(pes::ClipReader::kBlend, motion, k.one, 0);
+  for (int i = 0; i < 3; ++i)
+    h.hit[i] = i < h.cancelCount ? host.ClipTicks(pes::ClipReader::kCancel, motion, k.one, i) : blend;
   h.blend = blend;
   return h;
 }
@@ -1771,7 +1769,8 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
   const int band = static_cast<int>(req.U(moveword::kRateBand));
   const int motion = host.CurrentMotion();
-  const float f2468 = std::max(host.RecordF2468(), k.ramp85);
+  // PES 0x1406BCD20 (line 46): P+0x2468 under 0.85 (0x1425AB120) reads 1.0 (0x14256AE1C).
+  const float f2468 = host.RecordF2468() < k.ramp85 ? k.one : host.RecordF2468();
   // The hit ticks come from the live motion's record (ReadClipHits), as in ACCELERATE.
   const ClipHits clip = ReadClipHits(host, motion, k, host.ClipFlag());
   int hitTotal = clip.total;
