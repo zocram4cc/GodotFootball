@@ -183,6 +183,10 @@ inline constexpr int kFootFlag = 0x98;         // req[0x98] byte (byte req+0x26)
 inline constexpr int kPrevClassWord = 0x24;    // req[0x24] (byte 0x90): the class before the change
 inline constexpr int kRootFacing = 0x3a;       // req[0x3a] byte: a root-facing write is due (OBS: FUN_1406c14c0 rate tail)
 inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-facing angle, degrees (OBS)
+inline constexpr int kTurnLockFlag = 0x3c;     // req[0x3c] byte: a turn lock is due (the toe-off window and IDLE_TURN write 1; CONFIRMED 0x1406CACAC, 0x1406BFFAE)
+inline constexpr int kTurnLockStamp = 0x3d;    // req[0x3d]: the lock's stamp, req[0x18] at the write (0x1406CACA3)
+inline constexpr int kTurnLockTicks = 0x3e;    // req[0x3e]: the lock's tick count (0x1406CACB4)
+inline constexpr int kTurnLockDir = 0x3f;      // req[0x3f] byte: the lock's direction flag, 0 at the write (0x1406CACBB)
 inline constexpr int kSlipActive = 0xe8;       // req[0xe8] byte: slip damping is active (OBS: FUN_1406c2f80)
 inline constexpr int kSlipAngle = 0xec;        // req[0xec]: the damped facing, degrees (OBS). The adapter copies it to P+0xbec.
 inline constexpr int kLiveKind = 0x1e;        // req[0x1e]: the live clip's kind; FUN_1406d5d60 writes it (OBS per MovestepRun)
@@ -651,15 +655,24 @@ class MoveHost {
   virtual const PlaybackConstants& PlaybackConstantsView() const = 0;
   // The +0xab8 anime interface: the current motion number (vt+0x18, PES's motion id).
   virtual int CurrentMotion() const = 0;
-  // The motion table's entry for a motion (PES's FUN_1406b0ed0 record). Every record read the
-  // MOVESTEP groups make goes through this one read: FUN_1406af620 (the Animation blend), the
-  // RotData start, end and offset (FUN_1406b1f00 / b1d00 / b1c70), the CancelData frames and count
-  // (FUN_1406af8e0 / afbc0 at +5), the FootType pair and count (FUN_1406afe20 / afbc0 at +9). A
-  // motion with no record reads as an empty entry, which gives PES's fallback values.
+  // PES's clip-record readers, run as PES's translated code on the motion table (FUN_1406af620 blend,
+  // FUN_1406af8e0 cancel at `index`, FUN_1406b1f00 / FUN_1406b1d00 RotData start / end at `index`): the record's
+  // value in ticks at `rate`, int(2 v / rate * (tps / 60) + 0.5), a rate that is not positive being 1.0.
+  // Every tick read of a clip record goes through this one call.
+  virtual int ClipTicks(pes::ClipReader reader, int motion, float rate, int index) const = 0;
+  // The motion table's entry for a motion (PES's FUN_1406b0ed0 record), for the reads that have no translated reader
+  // yet: the RotData offset (FUN_1406b1c70), the CancelData and FootType counts (FUN_1406afbc0 at +5 / +9) and the
+  // FootType pair (FUN_1406afe20). A motion with no record reads as an empty entry, which gives PES's fallback values.
+  // ponytail: these four readers have no capture proof yet; the translated bodies (results_core, 0 cases) replace
+  // this read once a mot_ hook captures them.
   virtual const pes::MotionRecord& Motion(int motionNo) const = 0;
   // The anime interface's flag byte, vt+0x30 (P+0x2472): the mirror argument FUN_1406b1c70 takes in
   // GOTO_RUN and ACCELERATE. Its writer is not decoded; the adapter names the stand-in.
   virtual bool ClipFlag() const = 0;
+  // The player object P's reads, PES's translated code on the world window (PesWorld::RunAbilityByte / RunEntryAim):
+  // FUN_1406e6660(P, id), the byte of the slot record's ability block, and FUN_1406ba7d0(P), the entry-aim flag.
+  virtual int AbilityByte(int id) const = 0;
+  virtual bool EntryAimFlag() const = 0;
 
   // Group A's match, roster and record reads. Each method names the PES read it stands for.
   virtual const MoveConstants& MoveConstantsView() const = 0;
@@ -929,13 +942,6 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
 // PES 0x141194330's body-bucket flag (TeamDecode, audited): 1 iff recordValue * 100 is in [0, 2^32] (100.0 at
 // 0x14253EE30, 2^32 at 0x1427341A0). The write is 0x1411944E6.
 int BodyBucketFlag(float recordValue);
-// PES's conversion of a motion-record value to ticks (FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00,
-// FUN_1406af8e0): int(2 v / rate * (ticks / fps) + half), with the host's ticks per second. A rate
-// that is not positive is PES's one. fps and half are the install's DAT_14259a764 and DAT_142565600.
-inline int RecordTicks(const MoveHost& host, float v, float rate, float fps, float half, float one) {
-  if (rate <= 0.0f) rate = one;
-  return static_cast<int>((v + v) / rate * (host.TicksPerSecond() / fps) + half);
-}
 // The sim adapter's per-tick tail (FUN_1406b8340's P+0xbec and playback stores): after a slip,
 // P+0xbec is req[0xec]; otherwise a root-facing write is req[0x3b] when req[0x3a] is set. The
 // request's playback word is stored at P+0x3758 (MoveStepRecord::playbackSpeed).

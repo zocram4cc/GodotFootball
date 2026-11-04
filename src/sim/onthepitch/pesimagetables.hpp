@@ -35,6 +35,11 @@ inline constexpr uint64_t kFrameFloatSourceVa = 0x14259D624;
 // the window binds the span.
 inline constexpr uint64_t kBpVtablesVa = 0x142BEED00;
 inline constexpr uint64_t kBpVtablesBytes = 0x142BF0F90 - kBpVtablesVa;
+// The player object P's anime interface (P+0xAB8) vtable, which the movestep's reads call through: slot 0 (0x1406EAAF0) answers the
+// pointer at P+0x3AC0, slot 1 (0x1406EA810) the slot byte P+0x2458; the other slots (motion +0x18, anime state +0x28, flag +0x30,
+// elapsed +0x38, ...) are GF's host reads. 0x12 slots, 0x1425E3508..0x1425E3598.
+inline constexpr uint64_t kPInterfaceVtableVa = 0x1425E3508;
+inline constexpr uint64_t kPInterfaceVtableBytes = 0x90;
 // The tier table 0x140A603C0 reads for the carrier walk's capability gate 0x140A604D0 (BP+0x60 = tier * 100): 0x22 rows (the
 // `0x21 < param_2` bound) of 0x20 bytes, row r at 0x142645A40 + 0x20 * r (a flag byte, then seven f32 per tier, `+0x20 * r` in the
 // `&DAT_142645a44 + (tier + r * 8) * 4` reads).

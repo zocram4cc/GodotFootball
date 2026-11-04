@@ -345,6 +345,34 @@ PesTrapResult PesWorld::RunTrapKind0(int slot, const PesTrapRequest& request, Pe
   return result;
 }
 
+uint8_t PesWorld::RunAbilityByte(int slot, uint32_t id) {
+  uint8_t* p = P(slot);
+  p[kPByte2458Offset] = static_cast<uint8_t>(slot);
+  StoreU64(p, kPInterfaceVtable0Offset, kPInterfaceVtableVa);
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = PVa(slot);  // rcx: P
+  s.gpr[2] = id;         // edx: the ability id
+  ::pes_fn_1406E6660(s);
+  return static_cast<uint8_t>(s.gpr[0]);
+}
+
+bool PesWorld::RunEntryAim(int slot, int side, uint32_t playState) {
+  uint8_t* p = P(slot);
+  p[kPByte2458Offset] = static_cast<uint8_t>(slot);
+  StoreU64(p, kPInterfaceVtable0Offset, kPInterfaceVtableVa);
+  StoreU64(p, kPPtr3AC0Offset, CtxVa(side));
+  PeriodRecord& period = Period();
+  const uint32_t saved = period.playState;
+  period.playState = playState;
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = PVa(slot);  // rcx: P
+  ::pes_fn_1406BA7D0(s);
+  period.playState = saved;
+  return (s.gpr[0] & 0xFF) != 0;
+}
+
 PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
   const std::size_t lent = LendExternals(s, ext);

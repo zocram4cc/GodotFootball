@@ -1428,25 +1428,25 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   const float facing = req.F(moveword::kFacing);
   const float tick = ClockStep(host);
 
-  // 1. The motion's own record: the toe-off window and the rate.
-  // ponytail: PES reads the motion record through FUN_1406b1f00 / FUN_1406b1d00 (the hit-frame
-  // and the foot-contact frames of the current clip); GF has neither record, so the port uses
-  // the clip's frame count the adapter supplies and the record's 0.85 divisor (P+0x2468, which
-  // the contract exposes).
-  const float divisor = std::max(host.RecordF2468(), k.s0p85);
-  const int frames = host.CurrentClipFrames();
-  // ponytail: the record's cancel/foot frames (FUN_1406af8e0/afbc0 of the live motion's
-  // record); neither is a km/h band speed, so both stand at the no-record answer until the
-  // record reader is ported.
-  const int cancelFrames = 0;
-  const int footFrames = 0;
-  const bool yawBusy = host.AnimeState() != 0;
-  if (!yawBusy && footFrames <= cancelFrames &&
-      cancelFrames < (footFrames + footFrames * 2) / 3) {
-    // ponytail: the toe-off window writes req[0x3d]/[0x3e]/[0x3f]; the port keeps PES's test
-    // and leaves the window to the record's own two frames, which stand in for the unwritten
-    // motion record.
-    (void)frames;
+  // 1. The motion's own record: the toe-off window and the divisor (0x1406CAB95..0x1406CACBB).
+  // P+0x2468 under 0.85 (0x1425AB120, COMISS at 0x1406CABC1) reads 1.0 (0x14256AE1C, 0x1406CABD2).
+  const float divisor = host.RecordF2468() < k.s0p85 ? k.one : host.RecordF2468();
+  const int motion = host.CurrentMotion();       // (P+0xab8 vt+0x18)()
+  const int elapsed = host.CurrentClipFrames();  // (P+0xab8 vt+0x38)()
+  const int start = host.ClipTicks(pes::ClipReader::kRotStart, motion, k.one, 0);  // FUN_1406b1f00
+  const int end = host.ClipTicks(pes::ClipReader::kRotEnd, motion, k.one, 0);      // FUN_1406b1d00
+  // ponytail: FUN_141eb3320(P+0x4d0) (the AdjustAngle adjuster's state == 2) is held clear, as RUN's turn-lock block holds it; the
+  // adjuster object (P+0x4d0 vt+0x08, AS 6) is not ported, and its port replaces this constant.
+  const bool adjusterBusy = false;
+  if (!adjusterBusy && start <= elapsed && elapsed < (start + end * 2) / 3) {
+    const int ticks = int(float(end - elapsed) / divisor + k.half);
+    // FUN_14043a0a0(req[2], req[0x18]) (0x1406CAC77): the facing against the stamp, per tick, under 45 degrees (0x14259BE30).
+    if (std::fabs(Wrap180(facing - req.F(moveword::kRecordStampB))) / float(ticks) < k.deg45) {
+      req.SetU(moveword::kTurnLockStamp, req.U(moveword::kRecordStampB));
+      req.SetByte(moveword::kTurnLockFlag, 1);
+      req.SetU(moveword::kTurnLockTicks, uint32_t(ticks));
+      req.SetByte(moveword::kTurnLockDir, 0);
+    }
   }
   const float distance = req.F(moveword::kDistToTarget);
   const float distanceFactor =
@@ -1631,19 +1631,14 @@ void TurnStop(MoveHost& host, MoveReq& req) {
     const bool replayOnly = host.MatchPhase() == 2 && host.IsReplay();
     if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2)) return;
     if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit) * k.s0p6) return;
-    // ponytail: PES reads the motion record's hit-frame (FUN_1406af620) and cancel-frame
-    // (FUN_1406af8e0); GF has neither record, so the port's dwell uses the two frame counts the
-    // adapter supplies and stands in for the record.
-    const float dwell = replayOnly ? (k.one / tick) * float(cancelFrames) : req.F(moveword::kDwellLimit);
-    bool stopNow = false;
-    if (!replayOnly) {
-      if (speedClass > 1 || int(req.U(moveword::kClassWord)) > 2 ||
-          (footFrames + cancelFrames) / 2 <= static_cast<int>(divisor)) {
-        stopNow = true;
-      }
-    }
-    const int footFramesBack = footFrames;
-    const int cancelFramesBack = cancelFrames;
+    // PES 0x1406CB523 / 0x1406CB541: blend = FUN_1406af620(motion, 1.0), cancel0 = FUN_1406af8e0(motion, 1.0, 0); the replay dwell
+    // is blend / tps (0x1406CB55C FUN_141e532d0); otherwise the stop is due when req[9] > 1 (0x1406CB570 JG), req[0x1f] < 3
+    // (0x1406CB576 CMP [R13+0x7C],3 / JL) or (cancel0 + blend) / 2 <= elapsed (0x1406CB57D..0x1406CB588).
+    const int blend = host.ClipTicks(pes::ClipReader::kBlend, motion, k.one, 0);
+    const int cancel0 = host.ClipTicks(pes::ClipReader::kCancel, motion, k.one, 0);
+    const float dwell = replayOnly ? float(blend) / host.TicksPerSecond() : req.F(moveword::kDwellLimit);
+    const bool stopNow =
+        !replayOnly && (speedClass > 1 || int(req.U(moveword::kClassWord)) < 3 || (cancel0 + blend) / 2 <= elapsed);
     if (speedClass > 0 && int(req.U(moveword::kClassWord)) > 0) {
       const float turn = Wrap180(DisplacementHeading(host) - facing);
       if (k.deg22p5 <= std::fabs(turn)) {
@@ -1699,7 +1694,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
             int(req.U(moveword::kCommandId)) != 0x79) {
           return;  // FUN_1406d1390 is not decompiled; the handler keeps the tick.
         }
-        if (footFramesBack < cancelFramesBack) return;
+        if (elapsed < blend) return;  // 0x1406CB8F3 CMP R14D,R15D / JL: the clip has not reached its blend tick
         // The idle row.
         req.SetByte(moveword::kMotionPending, 1);
         const int row = kind < 8 ? IdleRow(host, req) : 0x5a1;
