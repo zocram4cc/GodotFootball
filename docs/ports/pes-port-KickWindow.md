@@ -1,6 +1,6 @@
 # PES port: KickWindow: the 6 of 25 chooser window cases that differed are closed on every byte (22/22 + 2/2); the wiring, the pes-loop hash ablation, the real-call check and the gate are NOT done (04-11-26)
 
-Branch `KickMotion` (worktree `/mnt/Extra4/gf-KickMotion`). Image `pes_full.bin`, base `0x140000000`. CONFIRMED = a tool run this session; INF = inference; OPEN = blocker named. Predecessor: `pes-port-KickChooser.md` (six callees proven 64/64; 6 of 25 window cases differed), `pes-port-KickHeader.md`.
+Branch `KickMotion` (pushed). Image `pes_full.bin`, base `0x140000000`. CONFIRMED = a tool run this session; INF = inference; OPEN = blocker named. Predecessor: `pes-port-KickChooser.md` (six callees proven 64/64; 6 of 25 window cases differed), `pes-port-KickHeader.md`.
 
 ## 0. Status against the ticket
 
@@ -38,7 +38,7 @@ The oracle serves the anime player chain from the capture. In a match, `WriteAct
 
 - `tests/pes_kick_oracle_common.hpp`: `CopyNamed`, team-info mapping, GX/GY segments, ctx pointer (the only source change).
 - `tests/pes_kick_chooser_oracle_test.cpp`: unchanged.
-- Scratch `/mnt/Extra4/gf-KickMotion-scratch` (syn/ ~44 GB, `oracle2`, `oracle3`, `oracle4`, tracer copy, analysis scripts `an.py ctx.py fnset.py`) kept for the follow-up. All captures I unpacked are packed again (pid615629 seq15863, 15864, 16063, 16064; pid1513193 seq1151, 1170).
+- Scratch `gf-KickMotion-scratch` (syn/ ~44 GB, `oracle2`, `oracle3`, `oracle4`, tracer copy, analysis scripts `an.py ctx.py fnset.py`) kept for the follow-up. All captures I unpacked are packed again (pid615629 seq15863, 15864, 16063, 16064; pid1513193 seq1151, 1170).
 
 ## 5. Left
 
