@@ -246,7 +246,8 @@ class SharedSlotPerHarnessVariant(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         d = self.dir = self.tmp.name
         self.dep = os.path.join(d, "dep.py")
-        self.root = os.path.join(d, "corpus", "KEY")
+        self.corpus = os.path.join(d, "records")
+        self.root = os.path.join(self.corpus, "KEY")
         self.gen = os.path.join(d, "gen")
         self.restored = os.path.join(d, "restored")
         os.makedirs(self.gen)
@@ -256,13 +257,13 @@ class SharedSlotPerHarnessVariant(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def store(self, state):
+    def store(self, state, root=None):
         write(self.dep, state)
         record = {"files": [self.dep], "decode": []}
-        bc.corpus_store(self.root, "out " + state.strip(), ["corp_T.jsonl"], self.gen, record)
+        bc.corpus_store(root or self.root, "out " + state.strip(), ["corp_T.jsonl"], self.gen, record)
 
-    def hit(self):
-        doc = bc.corpus_lookup(self.root, self.restored)
+    def hit(self, root=None):
+        doc = bc.corpus_lookup(root or self.root, self.restored)
         return None if doc is None else doc["out"]
 
     def test_a_record_is_a_hit_in_its_own_harness_state_and_restores_its_outputs(self):
@@ -283,20 +284,26 @@ class SharedSlotPerHarnessVariant(unittest.TestCase):
         write(self.dep, "C\n")
         self.assertIsNone(self.hit())
 
-    def test_every_state_up_to_the_kept_count_stays_warm(self):
-        for i in range(bc.CORPUS_VARIANTS_KEPT):
+    def test_every_state_stays_warm_until_the_corpus_is_trimmed(self):
+        for i in range(4):
             self.store("S%d\n" % i)
         write(self.dep, "S0\n")
         self.assertEqual(self.hit(), "out S0")
 
-    def test_a_hit_refreshes_its_state_so_the_least_recently_used_is_evicted(self):
-        for i in range(bc.CORPUS_VARIANTS_KEPT):
-            self.store("S%d\n" % i)
+    def test_trim_evicts_the_least_recently_used_record_across_keys(self):
+        other = os.path.join(self.corpus, "OTHER")
+        write(self.dep, "T0\n")
+        bc.corpus_store(other, "out T0", ["corp_T.jsonl"], self.gen, {"files": [self.dep], "decode": []})
+        for state in ("S0\n", "S1\n", "S2\n"):
+            self.store(state)
         write(self.dep, "S0\n")
+        self.assertEqual(self.hit(), "out S0")  # S0 is now the most recently used
+        size = sum(os.path.getsize(os.path.join(d, f)) for d, _, files in os.walk(self.corpus) for f in files)
+        bc.corpus_trim(self.corpus, cap=size // 2)  # four equal records: keep two
+        self.assertIsNone(bc.corpus_lookup(other, self.restored))
         self.assertEqual(self.hit(), "out S0")
-        self.store("S%d\n" % bc.CORPUS_VARIANTS_KEPT)
-        write(self.dep, "S0\n")
-        self.assertEqual(self.hit(), "out S0")
+        write(self.dep, "S2\n")
+        self.assertEqual(self.hit(), "out S2")
         write(self.dep, "S1\n")
         self.assertIsNone(self.hit())
 

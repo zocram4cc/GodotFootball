@@ -151,9 +151,11 @@ def corpus_key(run_args, inputs):
     return sha(json.dumps({"v": 2, "args": list(run_args), "inputs": inputs}, sort_keys=True))
 
 
-# A key's records are one per harness state (the run.py files and translator tables a record validates against). Checkouts
-# whose harness files differ share a key, so each state keeps its own record, up to this many (least recently used goes first).
-CORPUS_VARIANTS_KEPT = 4  # ponytail: LRU by file time; a fifth state evicts the least recently used record.
+# The corpus records: one directory per key (corpus_key), holding one record per harness state: the run.py files, stubs and
+# translator tables that record validates against. Checkouts whose harness files differ share a key, so a record is never
+# overwritten by another state's. corpus_trim keeps the whole directory under CORPUS_CAP_BYTES.
+CORPUS_DIR = "records"
+CORPUS_CAP_BYTES = 10 * 2 ** 30  # ponytail: one trim walk per driver process, at start; a run's own records may exceed the cap until the next.
 
 
 def _read_json(path):
@@ -170,21 +172,24 @@ def _touch(path):
 
 
 def _records(root):
-    """The record directories under root, most recently used first. A record is a directory holding run.json."""
+    """The record directories under root (a record holds run.json), most recently used first."""
     try:
         names = os.listdir(root)
     except OSError:
         return []
-    dirs = [os.path.join(root, n) for n in names if os.path.isfile(os.path.join(root, n, "run.json"))]
-    return sorted(dirs, key=lambda d: os.stat(os.path.join(d, "run.json")).st_mtime_ns, reverse=True)
+    found = []
+    for name in names:
+        try:
+            found.append((os.stat(os.path.join(root, name, "run.json")).st_mtime_ns, os.path.join(root, name)))
+        except OSError:  # not a record, or evicted since it was listed
+            continue
+    return [d for _, d in sorted(found, reverse=True)]
 
 
 def corpus_lookup(root, gen):
-    """The first record under root that still holds in this checkout: its outputs are copied into gen, it is touched as
-    recently used, and its document (run.py's stdout as "out") is returned. None when no record holds. A record of the
-    single-slot layout (run.json directly under root) is still read, and is never evicted."""
-    candidates = ([root] if os.path.isfile(os.path.join(root, "run.json")) else []) + _records(root)
-    for record in candidates:
+    """The first record under root that still holds in this checkout, most recently used first: its outputs are copied into
+    gen, it is touched as recently used, and its document (run.py's stdout as "out") is returned. None when none holds."""
+    for record in _records(root):
         doc = _read_json(os.path.join(record, "run.json"))
         if doc is None or not entry_is_valid(doc["deps"]):
             continue
@@ -201,7 +206,7 @@ def corpus_lookup(root, gen):
 def corpus_store(root, out, names, gen, record):
     """Commit a successful run under root as the record of its harness state: its outputs (copied from gen) and its
     validation document, stored under the digest of that document. run.json is written last, so its presence commits the
-    record. Beyond CORPUS_VARIANTS_KEPT records, the least recently used are evicted."""
+    record. The same state recorded again replaces its own record."""
     os.makedirs(root, exist_ok=True)
     deps = entry_doc(record)
     tmp = tempfile.mkdtemp(dir=root)
@@ -216,8 +221,29 @@ def corpus_store(root, out, names, gen, record):
         os.replace(tmp, dest)
     except OSError:  # another run committed this state first (shared cache): its record is the same, keep it
         shutil.rmtree(tmp, ignore_errors=True)
-    for stale in _records(root)[CORPUS_VARIANTS_KEPT:]:
-        shutil.rmtree(stale, ignore_errors=True)
+
+
+def corpus_trim(corpus, cap=CORPUS_CAP_BYTES):
+    """Evict the least recently used records, across every key, until the corpus holds at most cap bytes."""
+    try:
+        keys = os.listdir(corpus)
+    except OSError:
+        return
+    found = []  # (last use, bytes, directory)
+    for key in keys:
+        for record in _records(os.path.join(corpus, key)):
+            try:
+                size = sum(os.path.getsize(os.path.join(record, n)) for n in os.listdir(record))
+                last = os.stat(os.path.join(record, "run.json")).st_mtime_ns
+            except OSError:  # evicted by another run meanwhile
+                continue
+            found.append((last, size, record))
+    total = sum(size for _, size, _ in found)
+    for _, size, record in sorted(found):
+        if total <= cap:
+            break
+        shutil.rmtree(record, ignore_errors=True)
+        total -= size
 
 
 def decode_digest(image_path, va):
