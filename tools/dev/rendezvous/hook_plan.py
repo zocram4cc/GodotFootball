@@ -142,6 +142,19 @@ TARGETS = [
     ("ai_postplay_61F940", 0x14061F940, "PortMapAI: PostPlay executor (replaces ProcessRunManager)"),
     ("ai_cross_unit_2129590", 0x142129590, "PortMapAI: Cross unit (replaces CrossUnit stand-in)"),
     ("ai_receive_9F8220", 0x1409F8220, "PortMapAI: receive entry 3 (replaces _ReactionCommands receive)"),
+    # --- AIConcepts block (concept slot functions no capture has entered; docs/ports/pes-port-AIConcepts.md). Append-only.
+    ("aic_forecheck_start_5747F0", 0x1405747F0, "AIConcepts: ForeCheckPress start"),
+    ("aic_forecheck_end_574710", 0x140574710, "AIConcepts: ForeCheckPress end"),
+    ("aic_transchase_start_575510", 0x140575510, "AIConcepts: TransitionChase start"),
+    ("aic_transchase_exec_575DA0", 0x140575DA0, "AIConcepts: TransitionChase execute"),
+    ("aic_retreatblock_start_575EA0", 0x140575EA0, "AIConcepts: RetreatBlockCreate start"),
+    ("aic_sidecounter_end_5404A0", 0x1405404A0, "AIConcepts: SideCounter end"),
+    ("aic_sidecounter_exec_5415B0", 0x1405415B0, "AIConcepts: SideCounter execute"),
+    ("aic_transchase_exec_575B60", 0x140575B60, "AIConcepts: TransitionChase execute (owner of the 0x140575DA0 thunk)"),
+    # --- PressAI block (how PES starts a loose-ball press; docs/ports/pes-port-PressAI.md Left 1, 3). Append-only.
+    ("press_order_A42940", 0x140A42940, "PressAI: order-word writer (r8d == 0x34 starts a press)"),
+    ("press_reset_536690", 0x140536690, "PressAI: dispatcher slot reset"),
+    ("press_helper_62AF10", 0x14062AF10, "PressAI: order-word helper"),
 ]
 
 
