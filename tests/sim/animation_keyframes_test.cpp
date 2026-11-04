@@ -1,6 +1,5 @@
 // Keyframe storage of blunted::Animation: one node's keys stay sorted and unique, lookups find exactly the
-// stored frames, interpolation mixes the two bracketing keys, and a loaded clip costs a bounded amount of
-// heap per key.
+// stored frames, interpolation mixes the two bracketing keys, and a loaded clip costs one key record per key.
 #include <gtest/gtest.h>
 #include <malloc.h>
 
@@ -13,9 +12,10 @@ using namespace blunted;
 
 namespace {
 
-// One key is a std::pair<int, KeyFrame>, 32 B: an int and a quaternion and a vector of floats. A sorted
-// vector of them costs about 32 B per key plus allocator rounding. A std::map node is about 80 B per key.
-constexpr size_t kMaxHeapBytesPerKeyFrame = 40;
+// A loaded key costs one record, std::pair<int, KeyFrame>, in a block per node. A glibc malloc header adds 8 B
+// to a block, the allowance here. A std::map node costs its record plus a 32 B tree header on top of that.
+constexpr size_t kMallocHeaderBytes = 8;
+constexpr size_t kMaxHeapBytesPerKeyFrame = sizeof(std::pair<int, KeyFrame>) + kMallocHeaderBytes;
 
 // Keys per node in the bulk clip. Large enough that per-key cost dominates the fixed allocations of a load.
 constexpr int kBulkKeyFrames = 20000;
