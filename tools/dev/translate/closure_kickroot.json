@@ -1,5 +1,5 @@
 {
- "note": "the functions snapdiff --bounded built for the proof of 0x141AFDF10, the kick geometry test's root-motion reader (75 replayed calls of the kick chooser's runs: 72 + 3, pes-port-KickRoot.md): the root and each function the replays entered. Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+ "note": "the functions snapdiff --bounded built for the proof of 0x141AFDF10, the kick geometry test's root-motion reader (75 replayed calls of the kick chooser's runs: 72 + 3, pes-port-KickRoot.md; and 288 SYNTHETIC modified calls, pes-port-KickBranch.md, which add 0x1423BAEB0, the segment evaluator the clips that turn the mover reach): the root and each function the replays entered. Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
  "root": "0x141AFDF10",
  "members": [
   "0x1403DB210",
@@ -21,6 +21,7 @@
   "0x1423B9030",
   "0x1423B90E0",
   "0x1423BA9D0",
+  "0x1423BAEB0",
   "0x1423BB360",
   "0x1423BE8C0"
  ]

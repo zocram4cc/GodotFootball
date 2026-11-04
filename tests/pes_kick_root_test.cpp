@@ -72,8 +72,8 @@ class KickRoot : public ::testing::Test {
 };
 
 // The recorded calls of each capture (rootmotion.tsv: the reader's real calls inside the chooser's run) and, beside the first
-// capture, PES's own bytes asked other motions and times on the same memory (rootmotion_synthetic.tsv, SYNTHETIC: the motions
-// whose clip the translated closure evaluates; 21 motions at four times).
+// capture, PES's own bytes asked other motions and times on the same memory (rootmotion_synthetic.tsv, SYNTHETIC: 72 motions at
+// four times, the clips that turn the mover included).
 TEST_F(KickRoot, TheChainGfBuildsGivesPesRootMotionOnEveryCapturedKick) {
   size_t real = 0, synthetic = 0, turning = 0;
   const char* only = std::getenv("GF_PES_KICK_ROOT_MOTION");  // one motion only (a bisect of the closure's reach)
@@ -100,9 +100,10 @@ TEST_F(KickRoot, TheChainGfBuildsGivesPesRootMotionOnEveryCapturedKick) {
     }
   }
   EXPECT_GT(real, 0u);
-  // OPEN (docs/ports/pes-port-KickRoot.md): every vector PES returns here is the identity quaternion (0, 0, 0, 1). A clip that turns
-  // the mover reaches the evaluator's callee 0x1423BAEB0, which no recorded call has entered, so it is not in the translated
-  // closure (the call aborts loudly); the 131 non-identity synthetic rows PES gave are not in rootmotion_synthetic.tsv.
+  // The synthetic rows hold the motions whose clip turns the mover: PES returns a rotation there, not the identity (0, 0, 0, 1),
+  // and the vector comes from the evaluator's callee 0x1423BAEB0 (in the translated closure since docs/ports/pes-port-KickBranch.md).
+  // A file with none would leave that branch unchecked.
+  EXPECT_GT(turning, 0u) << "no row of rootmotion_synthetic.tsv turns the mover";
   RecordProperty("non_identity_vectors", static_cast<int>(turning));
   RecordProperty("real_calls", static_cast<int>(real));
   RecordProperty("synthetic_calls", static_cast<int>(synthetic));

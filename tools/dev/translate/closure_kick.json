@@ -1,9 +1,12 @@
 {
-  "note": "the functions snapdiff --bounded built for the proof of 0x140833CD0 (the 15 replayable captured kick_header calls of live2/pid802552): the root and each function the replays entered (direct callees, tail targets, vtable methods). Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
+  "note": "the functions snapdiff --bounded built for the proof of 0x140833CD0 (the 15 replayable captured kick_header calls of live2/pid802552, plus 61 SYNTHETIC modified calls of the builder on kick_header capture seq030: ball and order target moved so the pass-target gate FUN_1406DDA60 reaches FUN_140A510F0; the 5 functions only those entered: 0x140439EF0, 0x140439FE0, 0x14043A0A0, 0x140A510F0, 0x140A513A0): the root and each function the replays entered (direct callees, tail targets, vtable methods). Every other call stays the translator's loud abort. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. VAs only.",
   "root": "0x140833CD0",
   "members": [
     "0x14042D470",
     "0x140439E50",
+    "0x140439EF0",
+    "0x140439FE0",
+    "0x14043A0A0",
     "0x14046F230",
     "0x14046F260",
     "0x140474C40",
@@ -50,6 +53,8 @@
     "0x140A489F0",
     "0x140A48A10",
     "0x140A48A30",
+    "0x140A510F0",
+    "0x140A513A0",
     "0x140A57450",
     "0x140A57650",
     "0x140A57800",

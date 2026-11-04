@@ -23,25 +23,6 @@ struct PesKickRequest {
   std::array<uint8_t, kKickRequestBytes> bytes{};
 };
 
-// The request the PES-loop kick start still builds: the action id, the subtype and the target point (`target` in PES axes: x, height,
-// z), every other word zero.
-// ponytail: the request FUN_140833CD0 builds (proven: RunKickRequest, section KickHeader) makes the chooser leave its bounded
-// closure on all 15 captured kicks (untranslated 0x1408371A0, 0x1408387F0, 0x1408223F0, 0x140830B50, 0x1406E7A60, 0x1406EA340: the
-// 24 kick_chooser captures hold none/42/100 only), so GF's chooser still sees zero geometry and answers none. Remove when the chooser's
-// closure is widened over fresh kick_chooser captures and humanoid.cpp builds KickOrderFor + RunKickRequest (docs/ports/pes-port-KickHeader.md section 5).
-// FUN_1407204E0 reads the order bytes +0x149 / +0x14A / +0x14C and cmd[7] for the subtype; with them zero it answers 7 (lofted), 1
-// (ground) or 9 (shot), which is what GF writes.
-inline PesKickRequest KickRequestFor(int32_t action, const float (&target)[3]) {
-  constexpr int32_t kLofted = 8, kGround = 9, kShot = 10, kOtherSubtype = 0x14;  // the chooser's request ids; 0x14 = FUN_1407204E0's default
-  constexpr int32_t kSubtypeLofted = 7, kSubtypeGround = 1, kSubtypeShot = 9;
-  const int32_t subtype = action == kLofted ? kSubtypeLofted : action == kGround ? kSubtypeGround : action == kShot ? kSubtypeShot : kOtherSubtype;
-  PesKickRequest r;
-  __builtin_memcpy(r.bytes.data() + kKickRequestActionOffset, &action, sizeof action);
-  __builtin_memcpy(r.bytes.data() + kKickRequestSubtypeOffset, &subtype, sizeof subtype);
-  __builtin_memcpy(r.bytes.data() + kKickRequestTargetOffset, target, sizeof target);
-  return r;
-}
-
 // The order the Kick start hands FUN_140833CD0 (r8 = cmd = param_4+0xB8 of FUN_140724CC0): cmd[0] is the action id (8 lofted pass,
 // 9 ground pass, 10 shot), cmd+8 points to the AI's order record, cmd[7] (+0x1C) names the order's kind. The record is a 0x160-byte
 // block; the offsets are the bytes the builder and FUN_1407204E0 read (docs/ports/pes-port-KickHeader.md, readset.py over the 15
@@ -76,11 +57,19 @@ struct PesKickOrder {
 };
 
 // The order GF builds from what its decision holds: the action id, the target point (PES axes: x, height, z), the receiver's slot
-// (kOrderNoReceiver when GF's decision names none), and for a shot its heading (deg) and power. cmd[7] follows the action as the
-// captures show it: a lofted pass to a receiver 0x13, without 0x15, a ground pass 0x16, a shot 0x19.
-// ponytail: every other byte of the record (+0x1C, +0x28, +0x5C/+0x5D, +0xB4, +0xCC, +0x149/+0x14A/+0x14C and a pass's +0x8) stays
-// zero: GF's decision has no such state; PES's AI order path writes them (OPEN, docs/ports/pes-port-KickHeader.md section 4).
-inline PesKickOrder KickOrderFor(int32_t action, const float (&target)[3], uint32_t receiver, float headingDeg, float power) {
+// (kOrderNoReceiver when GF's decision names none), the launch speed, and for a shot its heading (deg) and power. cmd[7] follows the
+// action as the captures show it: a lofted pass to a receiver 0x13, without 0x15, a ground pass 0x16, a shot 0x19.
+// The 15 kick_header captures (pid802552; hdrprobe over their orders) carry in every order +0x149 == 2 (the record's default word
+// +0x148 = 0x200: FUN_1407204E0 then answers subtype 5 for a receiver pass, where a zero byte would answer 7); +0x8 = 1.0 in the four
+// lofted passes without a receiver (0 in the receiver passes and ground passes, 0.7 in the shots); +0xB4 = the pass speed in the five
+// receiver passes (24.05..29.04, GF: the launch speed, whose factors the builder takes: x 3.6 / 3.5).
+// ponytail: every other byte of the record (+0x1C, +0x28, +0x5C/+0x5D, +0xCC, +0x14A/+0x14C) stays zero as in all 15 captures; the
+// values above are the AI order path's (OPEN, docs/ports/pes-port-KickHeader.md section 4): the record's initialiser and the order
+// writers are not found yet. Remove each when that writer is ported.
+inline constexpr uint8_t kOrderByte149Default = 2;  // +0x149 in 15 of 15 captured orders
+inline constexpr float kOrderLoftedNoReceiverPower = 1.0f;  // +0x8 in the 4 captured lofted passes without a receiver
+inline PesKickOrder KickOrderFor(int32_t action, const float (&target)[3], uint32_t receiver, float headingDeg, float power,
+                                 float launchSpeed) {
   constexpr int32_t kLofted = 8, kShot = 10;  // the action ids (cmd[0])
   PesKickOrder o;
   o.action = action;
@@ -89,9 +78,14 @@ inline PesKickOrder KickOrderFor(int32_t action, const float (&target)[3], uint3
                                : kOrderKindGround;
   o.SetTarget(target);
   o.SetU32(kOrderReceiverOffset, receiver);
+  o.record[kOrderByte149Offset] = kOrderByte149Default;
   if (action == kShot) {
     o.SetF32(kOrderHeadingOffset, headingDeg);
     o.SetF32(kOrderPowerOffset, power);
+  } else if (o.kind == kOrderKindLofted) {
+    o.SetF32(kOrderPowerOffset, kOrderLoftedNoReceiverPower);
+  } else if (o.kind == kOrderKindReceiverPass) {
+    o.SetF32(kOrderSpeedOffset, launchSpeed);
   }
   return o;
 }

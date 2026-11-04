@@ -149,7 +149,8 @@ TEST_F(KickHeaderOracle, DISABLED_TheChooserAnswersAsPesDoesOnTheBuiltRequestAnd
                              RecordF32(captured, pes::kOrderTargetOffset + 8)};
     const pes::PesKickOrder gf = pes::KickOrderFor(captured.action, target, RecordU32(captured, pes::kOrderReceiverOffset),
                                                    RecordF32(captured, pes::kOrderHeadingOffset),
-                                                   RecordF32(captured, pes::kOrderPowerOffset));
+                                                   RecordF32(captured, pes::kOrderPowerOffset),
+                                                   RecordF32(captured, pes::kOrderSpeedOffset));
     const Answer fed = AnswerOf(b.world->RunKickChooser(kSlot, b.world->RunKickRequest(kSlot, gf, b.ext), b.ext));
     EXPECT_EQ(fed, want) << dir << ": GF's order (action " << captured.action << ")";
   }

@@ -58,8 +58,8 @@ const char* KickStat(e_FunctionType type, bool header) {
   return "technical_shortpass";
 }
 
-// In a PES-loop match PES's chooser FUN_1408364D0 (translated, peskickchooser.hpp) picks the kick kind, band, bucket and side from a
-// request (pes::KickRequestFor). The default engine writes no P into the window, so it cannot run the chooser; it keeps these
+// In a PES-loop match PES's request builder FUN_140833CD0 and chooser FUN_1408364D0 (translated, peskickchooser.hpp) pick the kick
+// kind, band, bucket and side from the kicker's order. The default engine writes no P into the window, so it cannot run the chooser; it keeps these
 // stand-ins (PesKickSituation's else branch): the first candidate of each request's list (docs/re/pes-re-kick-kinds.md 5): shot
 // (request 10, FUN_1408371A0) 0x69, ground pass (9, FUN_140837670) 0x21, lofted pass (8, FUN_1408360F0) 0x49, and a header the first
 // of the class-3 high-ball family (1..27, FUN_1408272A0) 1, with the ball-height band (FUN_140A6D380, body scale 1) and the bucket
@@ -81,7 +81,7 @@ constexpr int kPesRequestLofted = 8, kPesRequestGround = 9, kPesRequestShot = 10
 // ap+0xAB8) and ap+0x281C (stamina accumulator of FUN_1406F6790) have no GF producer: no window, AI bit 0, no touch, stamina 0.
 // ap+0x247C (heading) and ap+0xBE4 (body turn) both take GF's direction vectors. Remove each as its PES writer lands.
 pes::KickSituation PesKickSituation(Match* match, Player* player, const pes::KickErrorConstants& k, const Vector3& launch,
-                                    e_FunctionType type, bool header, float quality) {
+                                    e_FunctionType type, bool header, float quality, float shotPower) {
   const pes::SituationConstants& c = k.situation;
   pes::KickSituation s;
   s.b2754 = kPesNoBand;
@@ -107,13 +107,23 @@ pes::KickSituation PesKickSituation(Match* match, Player* player, const pes::Kic
   int band = 0, bucket = 0;
   bool flagA = false;
   if (match->PesLoop()) {
-    // The chooser FUN_1408364D0 (translated) runs on the kicker's P in the window; the request is what GF can build
-    // (pes::KickRequestFor). The target point is the ball plus the launch vector in PES axes (x, height, z).
-    // ponytail: the order's target (FUN_14080ECE0 / FUN_14080EBA0) is the AI's, which GF has no state for.
+    // The Kick start's two calls on the kicker's P in the window: the request builder FUN_140833CD0 over the order GF's decision
+    // makes (pes::KickOrderFor), then the chooser FUN_1408364D0 on the request it built. The target point is the ball plus the launch
+    // vector in PES axes (x, height, z); the receiver is the team's pass target.
+    // ponytail: the order's target (FUN_14080ECE0 / FUN_14080EBA0), receiver slot and a shot's heading and power are the AI order
+    // path's (OPEN, docs/ports/pes-port-KickHeader.md section 4); GF's decision stands in: the launch heading and the shot power.
     const float target[3] = {ballAt.coords[0] + launch.coords[0], ballAt.coords[2] + launch.coords[2],
                              -(ballAt.coords[1] + launch.coords[1])};
-    const pes::PesKickDescriptor d = match->PesWorldOf().RunKickChooser(
-        match->PesSlotOf(player), pes::KickRequestFor(request, target), match->PesTrapExternalsOf());
+    const Player* passTarget = player->GetTeam()->GetPassTarget();
+    const uint32_t receiver =
+        passTarget != nullptr ? static_cast<uint32_t>(match->PesSlotOf(passTarget)) : pes::kOrderNoReceiver;
+    const float launchHeading_deg = pes::PesHeadingDeg(launch.coords[0], -launch.coords[1]);
+    const int slot = match->PesSlotOf(player);
+    pes::PesWorld& world = match->PesWorldOf();
+    const pes::PesKickRequest built = world.RunKickRequest(
+        slot, pes::KickOrderFor(request, target, receiver, launchHeading_deg, shotPower, launch.GetLength()),
+        match->PesTrapExternalsOf());
+    const pes::PesKickDescriptor d = world.RunKickChooser(slot, built, match->PesTrapExternalsOf());
     s.kind = d.ChosenKind();
     band = d.Band();
     bucket = d.Bucket();
@@ -198,7 +208,7 @@ Vector3 ApplyPesKickError(Match* match, Player* player, const Vector3& launch,
                                 opp->GetPosition().GetDistance(player->GetPosition()))
           : 1.0f;
   // Action bytes 9 (pass) and 10 (shoot) both halve a downward pitch error.
-  const pes::KickSituation situation = PesKickSituation(match, player, k, launch, type, header, quality);
+  const pes::KickSituation situation = PesKickSituation(match, player, k, launch, type, header, quality, shotPower);
   const pes::KickError e = pes::DrawKickError(
       k, player->GetPesRandom(),
       pes::BuildScatter(k, quality, launchPenalty, pressure, pes::SituationFactor(k.situation, situation)), true);
