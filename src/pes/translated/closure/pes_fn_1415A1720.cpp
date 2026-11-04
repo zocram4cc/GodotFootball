@@ -246,6 +246,6 @@ static constexpr double k_c1425306F8_d = 6.0841853411307e-310; // 6.084185341130
 void pes_fn_1415A1720(PesState& s);
 
 void pes_fn_1415A1720(PesState& s) {
-  {  s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8); uint64_t _dst = s.gpr[1], _n = s.gpr[8]; for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.gpr[2] & 0xFFULL, 1); s.gpr[9] = _dst; s.gpr[0] = _dst; s.gpr[1] = 0; s.gpr[4] += 8; }
+  {  s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8); uint64_t _dst = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2]; s.gpr[9] = _dst; for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, _c, 1); s.gpr[0] = _dst; s.gpr[1] = 0; s.gpr[4] += 8; }
   return;
 }
