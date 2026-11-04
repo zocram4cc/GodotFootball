@@ -211213,6 +211213,75 @@
    "vtables": [],
    "walked": true
   },
+  "1406B3560": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406b3560",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 137,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1406B3780": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406b3780",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 99,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1406B3910": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406b3910",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406B3C50": {
    "boundary": null,
    "callees": {},
@@ -220402,6 +220471,32 @@
    "vtables": [],
    "walked": true
   },
+  "1406E8CC0": {
+   "boundary": null,
+   "callees": {
+    "1406AFF90": "direct",
+    "1406B0ED0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406e8cc0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 50,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406E8E60": {
    "boundary": null,
    "callees": {
@@ -229511,6 +229606,33 @@
    "vtables": [],
    "walked": true
   },
+  "140726AD0": {
+   "boundary": null,
+   "callees": {
+    "14046F230": "direct",
+    "1404BCAD0": "direct",
+    "1405BB170": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140726ad0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 88,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140726C60": {
    "boundary": null,
    "callees": {},
@@ -233347,6 +233469,76 @@
    "vtables": [],
    "walked": true
   },
+  "1408217D0": {
+   "boundary": null,
+   "callees": {
+    "14046F230": "direct",
+    "1406EAD40": "direct",
+    "140829E80": "direct",
+    "140A57450": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1408217FB",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1408217d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 148,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140821A30": {
+   "boundary": null,
+   "callees": {
+    "1406EAD40": "direct",
+    "140829E80": "direct",
+    "140A714A0": "direct",
+    "1415A1780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "140821AF2",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "140821B06",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_140821a30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 242,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140821E00": {
    "boundary": null,
    "callees": {
@@ -233384,6 +233576,123 @@
    ],
    "scope": "in",
    "size": 348,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1408223F0": {
+   "boundary": null,
+   "callees": {
+    "1406B0250": "direct",
+    "1406B03D0": "direct",
+    "1406B0ED0": "direct",
+    "1408217D0": "direct",
+    "140829E80": "direct",
+    "14082DE40": "direct",
+    "140830B50": "direct",
+    "1408314C0": "direct",
+    "140A3E890": "direct",
+    "140A57450": "direct",
+    "140A627E0": "direct",
+    "140A6E5E0": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct",
+    "141E532E0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "140822419",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "14082242C",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "140822649",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "140822665",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "140822690",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1408227A5",
+     "text": "call qword ptr [rax + 0x28]"
+    },
+    {
+     "site": "1408227C5",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1408227E7",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "14082280F",
+     "text": "call qword ptr [rdx + 0x38]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1408223f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 521,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140822C10": {
+   "boundary": null,
+   "callees": {
+    "1406E6660": "direct",
+    "1406EAD40": "direct",
+    "140824550": "direct",
+    "140829E80": "direct",
+    "1408383D0": "direct",
+    "1408387F0": "direct",
+    "140A6E340": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "140822CCC",
+     "text": "call qword ptr [rax + 0x28]"
+    },
+    {
+     "site": "140822D67",
+     "text": "call qword ptr [rax + 0x28]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_140822c10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 278,
    "source": "pdata",
    "subsystem": "kickkind",
    "tables": 0,
@@ -233643,6 +233952,55 @@
    ],
    "scope": "in",
    "size": 293,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140824550": {
+   "boundary": null,
+   "callees": {
+    "140439FE0": "direct",
+    "140474C40": "direct",
+    "1404B6390": "direct",
+    "1406EAD40": "direct",
+    "1406EB030": "direct",
+    "140829E80": "direct",
+    "140A48A10": "direct",
+    "140A62690": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "140824582",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "140824600",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1408246E8",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "140824765",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_140824550",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 280,
    "source": "pdata",
    "subsystem": "kickkind",
    "tables": 0,
@@ -234520,6 +234878,55 @@
    "vtables": [],
    "walked": true
   },
+  "14082E370": {
+   "boundary": null,
+   "callees": {
+    "14046F230": "direct",
+    "1406E69F0": "direct",
+    "1406EBF30": "direct",
+    "140824550": "direct",
+    "140828DA0": "direct",
+    "140829E80": "direct",
+    "14082DE40": "direct",
+    "14082F000": "direct",
+    "140A641D0": "direct",
+    "140A6CF70": "direct",
+    "141E532D0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "14082E3B0",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "14082E60D",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "14082E618",
+     "text": "call qword ptr [rdx]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_14082e370",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 701,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14082EEB0": {
    "boundary": null,
    "callees": {},
@@ -234799,6 +235206,50 @@
    ],
    "scope": "in",
    "size": 262,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140830B50": {
+   "boundary": null,
+   "callees": {
+    "1406E7A60": "direct",
+    "1406EAD40": "direct",
+    "140829E80": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "140830C04",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "140830C28",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "140830C5F",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "140830C7D",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_140830b50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 141,
    "source": "pdata",
    "subsystem": "kickkind",
    "tables": 0,
@@ -235606,6 +236057,60 @@
    "vtables": [],
    "walked": true
   },
+  "1408371A0": {
+   "boundary": null,
+   "callees": {
+    "1406E6660": "direct",
+    "1406E7A60": "direct",
+    "1406EAD40": "direct",
+    "140821A30": "direct",
+    "140822C10": "direct",
+    "140823570": "direct",
+    "1408262B0": "direct",
+    "1408272A0": "direct",
+    "140828A00": "direct",
+    "140829E80": "direct",
+    "14082E370": "direct",
+    "14082EEB0": "direct",
+    "14082F6A0": "direct",
+    "1408306F0": "direct",
+    "140831EA0": "direct",
+    "140838AB0": "direct",
+    "1408CAF60": "direct",
+    "140A57450": "direct",
+    "140A6CF70": "direct",
+    "140A714A0": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1408371CE",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "14083728C",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1408371a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 299,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140837670": {
    "boundary": null,
    "callees": {
@@ -235799,6 +236304,31 @@
    "vtables": [],
    "walked": true
   },
+  "1408383D0": {
+   "boundary": null,
+   "callees": {
+    "144034450": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1408383d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1408384B0": {
    "boundary": null,
    "callees": {
@@ -235840,6 +236370,70 @@
    ],
    "scope": "in",
    "size": 132,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1408386D0": {
+   "boundary": null,
+   "callees": {
+    "1406E7A60": "direct",
+    "140A48A10": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "140838714",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1408386d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 69,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1408387F0": {
+   "boundary": null,
+   "callees": {
+    "140474C40": "direct",
+    "140A8F8F0": "direct",
+    "140A90D80": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "140838859",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1408387f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 153,
    "source": "pdata",
    "subsystem": "kickkind",
    "tables": 0,
@@ -1288621,6 +1289215,31 @@
    "vtables": [],
    "walked": false
   },
+  "144034450": {
+   "boundary": null,
+   "callees": {
+    "140474C40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_144034450",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kickkind"
+   ],
+   "scope": "in",
+   "size": 46,
+   "source": "pdata",
+   "subsystem": "kickkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1440374C0": {
    "boundary": null,
    "callees": {},
@@ -1299257,7 +1299876,7 @@
     ]
    },
    "kickkind": {
-    "members": 216,
+    "members": 255,
     "roots": [
      "0x1408364D0"
     ]

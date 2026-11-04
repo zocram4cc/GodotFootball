@@ -8,8 +8,8 @@
    "closure_file": "closure_kickkind.json",
    "coverage": {
     "0x1408364D0": {
-     "fraction": 0.4231,
-     "reached": 88,
+     "fraction": 0.8317,
+     "reached": 173,
      "total": 208
     }
    },
@@ -19,18 +19,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 24 of 24 (pes-port-KickKind2.md); the closure is capture-bounded (216 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 64 of 64 (pes-port-KickChooser.md): 23 REAL kick_chooser calls (live2/pid615629), 7 REAL calls (live2/pid1513193 seq816 881 972 1041 1117 1151 1170: PES restarted 04-11-26 with the hook predicate d(r8) in 8,9,10, No Mod), 16 REAL calls (live2/pid1010053 seq046 171 172 22012 22016 22466 22470 24042 24046 24050 24054 24065 451, live2/pid1330921 seq5035 5038 5040: mod-era launches, valid for translation proofs) and 18 SYNTHETIC calls (synth_chooser.py: PES's own builder FUN_140833CD0 run over each of the 15 kick_header_833CD0 captures of live2/pid802552, its output as the chooser's request at the caller's frame layout; three more with P+0x2816 poked 0xFF -> 0, GF's window value). Callees reached: 0x1408371A0 real 2 / synthetic 2, 0x1408387F0 real 5 / 5, 0x140830B50 real 3 / 4, 0x1406E7A60 real 4 / 8, 0x1408223F0 synthetic only (4), 0x1406EA340 synthetic only (the 3 poked cases). The closure is capture-bounded (255 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 24,
+    "calls": 64,
     "mismatches": 0,
     "own_block": {
-     "reached": 88,
+     "reached": 173,
      "total": 208,
-     "fraction": 0.4231
+     "fraction": 0.8317
     },
-    "replayed": 24,
+    "replayed": 64,
     "source": "tools/dev/translate/results_kickkind.json"
    },
    "stubs": [],
