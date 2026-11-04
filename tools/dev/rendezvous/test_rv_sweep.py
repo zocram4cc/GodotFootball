@@ -59,6 +59,15 @@ class SweepDone(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(self.run)), ["capture_4.txt", "done_4.tmp", "release_4"])
         self.assertEqual(rv_watch.parked_captures(names), ["capture_4.txt"])
 
+    def test_caps_count_every_launch(self):
+        # A restart opens a new launch folder; the captures of earlier launches still count toward the cap.
+        import json
+        for launch, seq, hook in (("pid1", "seq001", "a"), ("pid2", "seq001", "a"), ("pid2", "seq002", "b")):
+            d = os.path.join(self.run, launch, seq)
+            os.makedirs(d)
+            json.dump({"rv": {"hook": hook}}, open(os.path.join(d, "index.json"), "w"))
+        self.assertEqual(rv_watch.capture_counts(self.run), {"a": 2, "b": 1})
+
 
 if __name__ == "__main__":
     unittest.main()

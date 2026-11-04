@@ -43,6 +43,22 @@ def call_matches(pid, cap, expr):
         return False
 
 
+def capture_counts(out):
+    """{hook: captures on disk} over every launch folder under out. Each launch gets its own folder (the DLL's seq numbers
+    restart at 1, so a shared folder would overwrite the last launch's captures: 28-10-26, seq001-080 lost). Caps count
+    every launch's captures: counted per launch, each PES restart re-snapshotted every hook up to its cap (~270 snapshots,
+    half an hour of pauses at 4-17 s each; 04-11-26 the match crawled at 8 frames/10 s after every restart). Raise a
+    hook's --hook-max to get more."""
+    counts = {}
+    for idx in glob.glob(os.path.join(out, "pid*", "seq*", "index.json")):
+        try:
+            hook = json.load(open(idx)).get("rv", {}).get("hook")
+        except (OSError, ValueError):
+            continue
+        counts[hook] = counts.get(hook, 0) + 1
+    return counts
+
+
 def finished_seqs(names):
     """The seqs whose done_<seq> is in a run-dir listing. Only the final name counts: the DLL writes done_<seq>.tmp and
     renames it, so deleting the .tmp (03-11-26) made the rename fail and left that call's files behind forever."""
@@ -80,7 +96,8 @@ def main():
     ap.add_argument("--max", type=int, default=40)
     ap.add_argument("--min-free-gib", type=int, default=150)
     ap.add_argument("--per-hook-max", type=int, default=0,
-                    help="snapshots per hook per game launch; past it calls are released unsnapshotted (0: no cap)")
+                    help="snapshots per hook over every launch folder under --out (captures already on disk count); past "
+                         "it calls are released unsnapshotted (0: no cap)")
     ap.add_argument("--only", default="",
                     help="comma-separated hook names to snapshot; calls of every other hook are released unsnapshotted, "
                          "so rare hooks an agent waits on are not starved by frequent ones filling the disk floor")
@@ -125,14 +142,6 @@ def main():
         open(os.path.join(a.run, "release_%d" % cap["seq"]), "w").close()
         say("seq%d %s released without snapshot: %s" % (cap["seq"], cap["hook"], why))
 
-    # Each launch gets its own folder: the DLL's seq numbers restart at 1, so a shared folder would overwrite the last
-    # launch's captures (28-10-26: seq001-080 of one launch lost that way).
-    def launch_counts(launch):
-        counts = {}
-        for idx in glob.glob(os.path.join(launch, "seq*", "index.json")):
-            hook = json.load(open(idx)).get("rv", {}).get("hook")
-            counts[hook] = counts.get(hook, 0) + 1
-        return counts
 
     pid, seen, taken, launch, per_hook = None, set(), 0, None, {}
     # 60 s: a capture takes as long as it needs (owner, 27-10-26); the bot runs with RIGBOT_ALLOW_FROZEN_FRAMES so a
@@ -157,7 +166,7 @@ def main():
             launch = os.path.join(a.out, "pid%d" % pid)
             os.makedirs(launch, exist_ok=True)
             os.chown(launch, uid, gid)
-            per_hook = launch_counts(launch)
+            per_hook = capture_counts(a.out)
         names = os.listdir(a.run)
         sweep_done(a.run, names, seen)
         for f in sorted(os.path.join(a.run, n) for n in parked_captures(names)):
