@@ -1,0 +1,227 @@
+{
+ "note": "trapaction results. diffed = bit-exact vs the unicorn harness over the 14 captured Trap action ticks (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapaction.json",
+   "coverage": {
+    "0x140797CD0": {
+     "fraction": 0.7407,
+     "reached": 20,
+     "total": 27
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 38 of 38 (14: pes-port-TrapS5.md; 12 No-Mod: pes-port-TrapTick9.md; 12 No-Mod start and mirrored ticks: pes-port-TrapTick12.md); the closure is capture-bounded (350 functions), every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 38,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 20,
+     "total": 27,
+     "fraction": 0.7407
+    },
+    "replayed": 38,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140797CD0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapend.json",
+   "coverage": {
+    "0x14079E5C0": {
+     "fraction": 0.1045,
+     "reached": 7,
+     "total": 67
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 6 of 6 (live2/pid2122415 seq884, 887, 889, 892, 894, 896, FULL captures of hook trap_end_handler_79E5C0; pes-port-TrapTick4.md); all six take the first early return (the playing motion is in the anime's motion table, FUN_1406EBEE0 true, so the handler returns 0), every other exit aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 67,
+     "fraction": 0.1045
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14079E5C0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapswitch.json",
+   "coverage": {
+    "0x1406EEBB0": {
+     "fraction": 0.6818,
+     "reached": 30,
+     "total": 44
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 31 of 31 (live2/pid2122415, FULL captures of hook action_switch_6EEBB0: seq26383, 26384, 26385, 26388, 26389, 26391, 26399, 26402, 26411, 26412, 26417, 26418 (same-action early exits and MOVE<->2/3 changes, action argument 0x5E), seq49986, 49987, 49990, 49995, 50002, 50005, 50045, 50058, 50068, 50081, 50089 (MOVE<->2/3 locomotion changes: no exit/enter block), seq50050 (MOVE -> TRAP: exit of MOVE, enter of TRAP), seq55280, 55536, 55760, 55933, 56216, 56436, 56906 (TRAP -> 9, 8, 4, 9, 4, 8, 4: exit of TRAP 0x140797C90, enter of the new action); pes-port-TrapTick6.md); every other exit aborts loudly; no capture leaves TRAP for MOVE (2): its enter and exit are the vtable 0x1425E13F0 slots +0x18/+0x28 = 0x141794410 (a `ret`, image read), which seq49986 and seq50050 replay; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 31,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 30,
+     "total": 44,
+     "fraction": 0.6818
+    },
+    "replayed": 31,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406EEBB0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapanime.json",
+   "coverage": {
+    "0x1406E72A0": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 12 of 12 (live2/pid3061186, FULL captures of hook anime_iface_80_6E72A0: seq707..715, 726, 727, 733; pes-port-TrapTick7.md); every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 12,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 9,
+     "total": 10,
+     "fraction": 0.9
+    },
+    "replayed": 12,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E72A0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapanime.json",
+   "coverage": {
+    "0x1406E85B0": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 1 of 1 (live2/pid3439759/seq10956, FULL capture of hook anime_displace_6E85B0, rv hooks.cfg line 57 for the displaced bytes); every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E85B0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapanime.json",
+   "coverage": {
+    "0x14084F140": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every real call replayed bit-exact, 6 of 6 (live2/pid3741448, FULL captures of hook trap_tick_callee_84F140: seq4762, 9095, 9107, 9541, 9978, 10028; hooks.cfg for the displaced bytes); every other call aborts loudly; the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14084F140"
+  }
+ ]
+}

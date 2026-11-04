@@ -45,7 +45,8 @@ def build_image(path):
     entries = [(0x1200, 0x1218, root_u), (0x1230, 0x1235, c1_u), (0x1235, 0x123A, c2_u), (0x1300, 0x1304, root_u),
                (0x1400, 0x1405, root_u), (0x1405, 0x140B, root_u), (0x1440, 0x1445, root_u), (0x1445, 0x1446, root_u),
                (0x1460, 0x1462, root_u), (0x1462, 0x1463, root_u), (0x1480, 0x1486, root_u), (0x14A0, 0x14A6, root_u),
-               (0x14C0, 0x14C5, root_u), (0x14E0, 0x14E1, root_u), (0x1500, 0x150A, root_u), (0x11520, 0x11521, root_u)]
+               (0x14C0, 0x14C5, root_u), (0x14E0, 0x14E1, root_u), (0x1500, 0x150A, root_u), (0x1600, 0x1630, root_u),
+               (0x11520, 0x11521, root_u)]
     struct.pack_into("<II", img, 0x98 + 112 + 24, 0x400, 12 * len(entries))
     for i, e in enumerate(entries):
         struct.pack_into("<III", img, 0x400 + 12 * i, *e)
@@ -70,6 +71,13 @@ def build_image(path):
     img[0x14E0] = 0xC3
     img[0x1500:0x150A] = bytes.fromhex("4885c0" "0f84") + struct.pack("<i", 0x11520 - 0x1509) + b"\xc3"  # je far ; ret
     img[0x11520] = 0xC3
+    # A switch whose case blocks follow the first ret, as PES 0x1408653E0 (the table sits after the code, outside the range):
+    # cmp edi,1 ; ja 0x161b ; lea rdx,[image] ; movsxd rax,edi ; mov ecx,[rdx+rax*4+0x1630] ; add rcx,rdx ; jmp rcx
+    # 0x161b: xor eax,eax ; ret | case 0 at 0x161e: mov eax,7 ; ret | case 1 at 0x1624: mov eax,8 ; ret
+    img[0x1600:0x162A] = (bytes.fromhex("83ff01" "7716" "488d15") + struct.pack("<i", -0x160C) +
+                          bytes.fromhex("4863c7" "8b8c8230160000" "4801d1" "ffe1" "31c0c3"
+                                        "b807000000c3" "b808000000c3"))
+    struct.pack_into("<II", img, 0x1630, 0x161E, 0x1624)
     with open(path, "wb") as f:
         f.write(img)
 
@@ -124,6 +132,11 @@ class SyntheticExtent(unittest.TestCase):
 
     def test_the_next_function_is_untouched(self):
         self.assertEqual([m for _, m, _ in xlate.capstone_decode(self.image, G)], ["MOV", "RET"])
+
+    def test_switch_cases_past_the_first_ret_are_decoded_and_the_table_is_not(self):
+        S = BASE + 0x1600
+        self.assertEqual(addrs(xlate.capstone_decode(self.image, S)),
+                         [S + o for o in (0, 3, 5, 0xC, 0xF, 0x16, 0x19, 0x1B, 0x1D, 0x1E, 0x23, 0x24, 0x29)])
 
     def test_the_classifier_walk_follows_the_chunks_and_stops_at_the_extent(self):
         AN.open_image(self.image)

@@ -353,6 +353,12 @@ int main(int argc, char** argv) {
   // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a).
   auto markTableConstants = pes::marktable::LoadMarkTableConstants(*exe, &err);
   if (!markTableConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's Trap action chain: the image slice, the actor constants and the loader data (pestrapdata.hpp).
+  const char* imagePath = std::getenv("PES_EXE");  // the memory dump of the running game (tools/pes21_import/README.md)
+  if (imagePath == nullptr || *imagePath == '\0')
+    return std::fprintf(stderr, "PES_EXE (the game's memory dump, tools/pes21_import/README.md) is not set\n"), 1;
+  auto trapSource = pes::LoadTrapSource(*exe, vfs, imagePath, &err);
+  if (!trapSource) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // The install's table bytes the translated window runs read (pesimagetables.hpp).
   auto imageTables = pes::LoadPesImageTables(*exe, &err);
   if (!imageTables) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
@@ -402,6 +408,7 @@ int main(int argc, char** argv) {
   setup.pesOffBallConstants = &*offBallConstants;
   setup.pesMoveStepConstants = &*moveStepConstants;
   setup.pesMarkTableConstants = &*markTableConstants;
+  setup.pesTrapSource = &*trapSource;
   setup.pesImageTables = &*imageTables;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData

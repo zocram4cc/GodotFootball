@@ -29,22 +29,6 @@ constexpr uint8_t kInterceptAgeOpcode[] = {0x6b, 0xd0};
 constexpr uint8_t kPercentDivide[] = {0xb8, 0x1f, 0x85, 0xeb, 0x51};  // mov eax, 0x51eb851f
 constexpr int kPercent = 100;
 
-// The action-clip table the trap picker walks (FUN_14081ff70): DAT_14348dac0, 0x1c0 rows of 0x1c bytes
-// (FUN_140845bd0 returns 0x1c0). Row fields: the clip (int32 at +0), the action (+4), the priority (+5), two
-// keys (+6, +7) and the clip-space window (floats at +8 xb, +0xc zb, +0x10 xe, +0x14 ze).
-constexpr uint64_t kActionRowTableVa = 0x14348DAC0;
-constexpr size_t kActionRowCount = 0x1C0;
-constexpr size_t kActionRowBytes = 0x1C;
-constexpr size_t kRowClipOffset = 0x0;
-constexpr size_t kRowActionOffset = 0x4;
-constexpr size_t kRowPrioOffset = 0x5;
-constexpr size_t kRowKeyAOffset = 0x6;
-constexpr size_t kRowKeyBOffset = 0x7;
-constexpr size_t kRowXbOffset = 0x8;
-constexpr size_t kRowZbOffset = 0xC;
-constexpr size_t kRowXeOffset = 0x10;
-constexpr size_t kRowZeOffset = 0x14;
-
 // trap.o disk-record offsets. The deserializer (FUN_141e681c0) stores these
 // fields at +0xd8..+0xe8 and +0x1b4..+0x1c4; the disk record is laid out
 // differently (the 4-byte slots run 0x1a0..0x1b0 and 0x3c0..0x3d0), checked
@@ -150,31 +134,6 @@ std::optional<ReceiveConstants> LoadReceiveConstants(const PeImage& exe, const P
     *error = "trap.o: field past end";
     return std::nullopt;
   }
-  // The trap picker's rows: the action-7 rows of the action-clip table.
-  std::vector<uint8_t> table(kActionRowCount * kActionRowBytes);
-  if (!exe.ReadVa(kActionRowTableVa, table.size(), table.data())) {
-    *error = "receive: the action-clip table at 0x14348dac0 is unmapped";
-    return std::nullopt;
-  }
-  for (size_t row = 0; row < kActionRowCount; ++row) {
-    const uint8_t* r = table.data() + row * kActionRowBytes;
-    if (r[kRowActionOffset] != kTrapActionRow) continue;
-    ActionRow a;
-    std::memcpy(&a.clip, r + kRowClipOffset, sizeof a.clip);
-    a.action = r[kRowActionOffset];
-    a.prio = r[kRowPrioOffset];
-    a.keyA = r[kRowKeyAOffset];
-    a.keyB = r[kRowKeyBOffset];
-    std::memcpy(&a.xb, r + kRowXbOffset, sizeof a.xb);
-    std::memcpy(&a.zb, r + kRowZbOffset, sizeof a.zb);
-    std::memcpy(&a.xe, r + kRowXeOffset, sizeof a.xe);
-    std::memcpy(&a.ze, r + kRowZeOffset, sizeof a.ze);
-    c.trapRows.push_back(a);
-  }
-  if (c.trapRows.empty()) {
-    *error = "receive: no trap rows in the action-clip table";
-    return std::nullopt;
-  }
   return c;
 }
 
@@ -209,39 +168,21 @@ bool RetouchAllowed(const ReceiveConstants& c, const LockoutInput& in, float eve
   return ageFrames >= static_cast<long>(fps * RetouchLockout_s(c, in));
 }
 
-std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball,
-                                const std::function<ClipPoint(int clip)>& hitCm) {
-  std::optional<int> best;
-  uint8_t bestPrio = 0;
-  float bestDist = 0.0f;
-  for (const ActionRow& row : k.trapRows) {
-    if (!(ball.x > row.xb && ball.x < row.xe)) continue;  // x strictly inside the window
-    if (!(ball.z > row.zb && ball.z < row.ze)) continue;  // z strictly inside the window
-    const ClipPoint cm = hitCm(row.clip);
-    const ClipPoint hit{cm.x * kHitCmToMetres, cm.y * kHitCmToMetres, cm.z * kHitCmToMetres};
-    if (hit.y - ball.y > kTrapHeightTolerance_m) continue;  // the hit sits too high above the ball
-    const float dx = ball.x - hit.x, dy = ball.y - hit.y, dz = ball.z - hit.z;
-    const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-    if (!best || row.prio < bestPrio || (row.prio == bestPrio && dist < bestDist)) {
-      best = row.clip;
-      bestPrio = row.prio;
-      bestDist = dist;
-    }
-  }
-  return best;
+PesTrapRequest TrapRequestFor(const FirstTouch& touch, float headingYaw_deg) {
+  PesTrapRequest r;
+  const bool directional = touch.kind == TouchKind::kDirectional;
+  const auto put32 = [&r](std::size_t off, uint32_t v) { std::memcpy(r.bytes.data() + off, &v, sizeof v); };
+  std::memcpy(r.bytes.data() + kReqWord0Offset, &headingYaw_deg, sizeof headingYaw_deg);  // R[8]: the touch heading
+  put32(kReqWord1Offset, directional ? kTrapTouchPlanned : kTrapTouchControl);            // R[0]: the touch kind
+  put32(kReqKindOffset, directional ? kTrapKindDirectional : kTrapKindControl);           // R[1]: the dispatcher's kind
+  // word 3 is param_5 clamped to >= 0: 0 in all 24 captured calls (stack arg +0x38). The plan flag bytes stay 0.
+  return r;
 }
 
-ClipPoint TrapBallClipPoint(float facingX, float facingY, float aheadX, float aheadY, float height_m, float scale) {
-  const float len = std::hypot(facingX, facingY);
-  const float fx = len > 0.0f ? facingX / len : 1.0f;
-  const float fy = len > 0.0f ? facingY / len : 0.0f;
-  const float forward = fx * aheadX + fy * aheadY;
-  const float lateral = -fy * aheadX + fx * aheadY;
-  // The clip frame's forward is -z (pes-re-trap-windows.md section 9). Every action-7 row's first hit lies in its window
-  // at z < 0 in front of the root: clip 0x547 at (0, 11.6, -10) cm, clip 0x57D at (45, 191, -50) cm. The picker's point is
-  // built by FUN_140769FE0, which rotates the ball by the body record through FUN_1404BCAD0; which record the trap path
-  // rotates by is not traced. Lateral x: sign OPEN (only rows 0x57D and 0x57F depend on it).
-  return ClipPoint{lateral / scale, height_m / scale, -forward / scale};
+bool RetryTrapAsControl(int32_t kind, uint32_t refusal, uint8_t planByte35) {
+  // FUN_1409F8640: `(refusal - 3) & ~5 == 0 && refusal != 4` is {3, 7, 8}; kind 4 and plan byte +0x35 clear.
+  const bool inSet = refusal == 3 || refusal == 7 || refusal == 8;
+  return inSet && kind == kTrapKindDirectional && planByte35 == 0;
 }
 
 bool ShotRunsThrough(const ReceiveConstants& c, const ShotThroughInput& in) {
