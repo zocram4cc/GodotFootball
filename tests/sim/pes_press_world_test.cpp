@@ -364,4 +364,12 @@ TEST_F(PesPressWorld, TheMatchUpManIsReleasedWhenTheNextTickHasNoPartner) {
   EXPECT_NE(s.world.PressAction(kSide, kNearMan), kMatchUp);
   EXPECT_EQ(s.Second(), kNobody);
 }
+
+// PES's press state PP starts as {0xFF, 0xFF, 0xFF} (every coordinator capture before the first presser: pid296049 seq008, seq4263).
+// A zero PP[2] names man 0, the keeper: the coordinator's first call would release him as a second presser through the setter and
+// an in-play restart's taker would be ordered to PRESS instead of kicking (pes-loop seed 7: a goal kick the keeper never took).
+TEST_F(PesPressWorld, TheCoordinatorsPressStateStartsWithNoManNamed) {
+  PesWorld world;
+  for (int side = 0; side < kSideCount; ++side) EXPECT_EQ(world.PressSecond(side), kNobody);
+}
 }  // namespace

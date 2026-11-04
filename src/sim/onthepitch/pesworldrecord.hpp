@@ -728,6 +728,7 @@ class PesWorld {
       StoreU64(Ctx(side), kCtxMaOffset, MaVa(side));
       StoreU64(Ctx(side), kCtxEventsOffset, EventsVa());
     }
+    for (auto& pp : image_->press.pp) pp.fill(kTeamNoMan);  // PES's PP starts {0xFF, 0xFF, 0xFF} (coordinator captures before a first presser)
     StoreU64(Bytes(), kWorldListOffset, kWorldWindowVa + kPressOffset + offsetof(PesPressImage, list));
     for (int i = 0; i < kWorldListEntries; ++i)
       StoreU32(image_->press.list.data(), kWorldListStride * i + kWorldListIdOffset, 0xFFFFFFFFu);
