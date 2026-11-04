@@ -821,6 +821,11 @@ class PesWorld {
   // arguments), then the chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp); its segments are lent to
   // the call (moved in and back), so the loader data is never copied.
   PesTrapResult RunTrapKind0(int slot, const PesTrapRequest& request, PesTrapExternals& ext);
+  // PES's kick request builder FUN_140833CD0 (translated, set kick) on the window for `slot`'s P, as the Kick start FUN_140724CC0
+  // calls it: the order's cmd and record in the frame above the stack arguments, the request out at the frame's request slot.
+  // `ext` as for RunKickChooser. The Kick object's three fields the builder takes as arguments (last order's +8, last stamp, the
+  // word the 8th argument points to) are the order's own +8, the match frame and zero (ponytail at the call).
+  PesKickRequest RunKickRequest(int slot, const PesKickOrder& order, PesTrapExternals& ext);
   // PES's kick chooser FUN_1408364D0 on the window for `slot`'s P: the request laid out as the Kick start's frame (peskickchooser.hpp),
   // P, the ball, MI, man and slot records from the window, the image and loader data from `ext` (the chain's externals, lent for the
   // call). A kind outside the translated closure aborts loudly (pes_dispatch_missing).

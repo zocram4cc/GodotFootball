@@ -345,6 +345,42 @@ PesTrapResult PesWorld::RunTrapKind0(int slot, const PesTrapRequest& request, Pe
   return result;
 }
 
+PesKickRequest PesWorld::RunKickRequest(int slot, const PesKickOrder& order, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+
+  // The Kick start's call (FUN_140724CC0 at 0x140724DEF): the request out (rcx), P (rdx), cmd (r8), the Kick object's byte
+  // *(param_4+0x70) (r9), and the stack arguments: *(param_4+0x75), Kick+0x40, Kick+0x18 (a float), &Kick+0x28.
+  // ponytail: the Kick object (FUN_140724CC0's param_1) does not exist in GF. Kick+0x18 holds the previous start's order +8 and
+  // Kick+0x40 the frame stamp of the last start; with no previous start GF passes this order's +8 and the current match frame, and
+  // the three request bytes the Kick object's +0x70 / +0x75 / +0x28 feed are 0, as in all 15 captures. Remove when the Kick action
+  // object (vtable 0x1425E2358) is ported.
+  const uint64_t entry = kStackVa + kStackBytes - kKickFrameBytes;
+  const uint64_t requestVa = entry + kKickRequestFrameOffset, cmdVa = entry + kKickCmdFrameOffset,
+                 recordVa = entry + kKickRecordFrameOffset, arg8Va = entry + kKickArg8WordFrameOffset;
+  s.wr(entry, 0, 8);
+  s.wr(cmdVa, static_cast<uint32_t>(order.action), 4);
+  s.wr(cmdVa + kCmdRecordPtrOffset, recordVa, 8);
+  s.wr(cmdVa + kCmdKindOffset, static_cast<uint32_t>(order.kind), 4);
+  for (std::size_t i = 0; i < kKickOrderRecordBytes; ++i) s.wr(recordVa + i, order.record[i], 1);
+  s.wr(entry + kKickArg5Offset, 0, 1);
+  s.wr(entry + kKickArg6Offset, LoadU32(MatchInfo(), kMiFrameOffset), 4);
+  s.wr(entry + kKickArg7Offset, LoadU32(order.record.data(), kOrderPowerOffset), 4);
+  s.wr(entry + kKickArg8Offset, arg8Va, 8);
+  s.wr(arg8Va, 0, 4);
+  s.gpr[4] = entry;
+  s.gpr[1] = requestVa;
+  s.gpr[2] = PVa(slot);
+  s.gpr[8] = cmdVa;
+  s.gpr[9] = 0;
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_140833CD0(s);
+  ReturnSegments(s, ext, lent);
+  PesKickRequest out;
+  for (std::size_t i = 0; i < kKickRequestBytes; ++i) out.bytes[i] = static_cast<uint8_t>(s.mem.rd(requestVa + i, 1));
+  return out;
+}
+
 PesKickDescriptor PesWorld::RunKickChooser(int slot, const PesKickRequest& request, PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
   const std::size_t lent = LendExternals(s, ext);
