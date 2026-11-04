@@ -49,11 +49,13 @@ def candidates(live2, launches, keep, min_age, refused):
     return out
 
 
-def stale_full(live2, launches, pack_after):
+def stale_full(live2, launches, pack_after, pin=frozenset()):
+    """Captures still full pack_after seconds after landing, except those of pinned hooks (an agent is replaying them;
+    packing removes the mem.bin under it)."""
     folders = sorted(glob.glob(os.path.join(live2, "pid*")), key=os.path.getmtime)[-launches:]
     now = time.time()
     return [d for f in folders for d in sorted(glob.glob(os.path.join(f, "seq*")))
-            if full(d) and now - os.path.getmtime(d) >= pack_after]
+            if full(d) and now - os.path.getmtime(d) >= pack_after and hook_of(d) not in pin]
 
 
 def main():
@@ -65,6 +67,7 @@ def main():
     ap.add_argument("--interval", type=float, default=600.0)
     ap.add_argument("--launches", type=int, default=2, help="how many newest launch folders to scan")
     ap.add_argument("--pack-after", type=float, default=0.0, help="pack captures still full this long after landing (0: never)")
+    ap.add_argument("--pin", default="", help="comma-separated hooks never packed (an agent is replaying them now)")
     a = ap.parse_args()
     keep = {h for h in a.keep.split(",") if h}
     refused_path = os.path.join(a.live2, "auto_slim_refused.txt")
@@ -79,7 +82,7 @@ def main():
                     if full(d):
                         r.write(d + "\n")
         if a.pack_after:
-            stale = stale_full(a.live2, a.launches, a.pack_after)
+            stale = stale_full(a.live2, a.launches, a.pack_after, {h for h in a.pin.split(",") if h})
             if stale:
                 print(time.strftime("%H:%M:%S"), "packing", len(stale), flush=True)
                 subprocess.run([sys.executable, os.path.join(HERE, "capz.py"), "pack"] + stale)

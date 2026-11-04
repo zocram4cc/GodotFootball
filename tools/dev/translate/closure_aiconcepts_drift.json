@@ -1,0 +1,27 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of 0x1404F8C70 (a step of the team tick, called once per tick) from the replays of live2/pid296049 seq003, seq4261, seq4479 (the team tick captures; the tick's own call into it is traced as a root of its own).",
+ "root": "0x1404F8C70",
+ "members": [
+  "0x1404F8C70",
+  "0x140599D90",
+  "0x1405A4790",
+  "0x1405A4830",
+  "0x140A489F0",
+  "0x140A48A10",
+  "0x140A48A30",
+  "0x140A4C720",
+  "0x140A580A0",
+  "0x140A58320",
+  "0x140A62610",
+  "0x140A627E0",
+  "0x140A63020",
+  "0x140A638C0",
+  "0x140A71990",
+  "0x140A76240",
+  "0x140A79050",
+  "0x140A79240",
+  "0x140A79640",
+  "0x140A92D40",
+  "0x140A92DC0"
+ ]
+}
