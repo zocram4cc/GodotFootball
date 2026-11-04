@@ -23,6 +23,23 @@ struct PesKickRequest {
   std::array<uint8_t, kKickRequestBytes> bytes{};
 };
 
+// The request GF can build (FUN_140833CD0 builds the whole 0x118 bytes from the AI's order record, which GF has no state for): the
+// action id, the subtype and the target point. `target` is in PES axes (x, height, z).
+// ponytail: FUN_1407204E0 reads the order bytes +0x149 / +0x14A / +0x14C and cmd[7] for the subtype; with them zero it answers 7
+// (lofted), 1 (ground) or 9 (shot), which is what GF writes. The first-time word (+0x2C, FUN_140837FC0), the geometry words
+// (+0x8 .. +0xAC: distances, headings, the order's flags) and every other byte of the request stay zero until FUN_140833CD0 runs
+// on an order record built from GF's pass/shot decision.
+inline PesKickRequest KickRequestFor(int32_t action, const float (&target)[3]) {
+  constexpr int32_t kLofted = 8, kGround = 9, kShot = 10, kOtherSubtype = 0x14;  // the chooser's request ids; 0x14 = FUN_1407204E0's default
+  constexpr int32_t kSubtypeLofted = 7, kSubtypeGround = 1, kSubtypeShot = 9;
+  const int32_t subtype = action == kLofted ? kSubtypeLofted : action == kGround ? kSubtypeGround : action == kShot ? kSubtypeShot : kOtherSubtype;
+  PesKickRequest r;
+  __builtin_memcpy(r.bytes.data() + kKickRequestActionOffset, &action, sizeof action);
+  __builtin_memcpy(r.bytes.data() + kKickRequestSubtypeOffset, &subtype, sizeof subtype);
+  __builtin_memcpy(r.bytes.data() + kKickRequestTargetOffset, target, sizeof target);
+  return r;
+}
+
 // The descriptor the chooser answers (rcx), FUN_140821170's copy of the chooser's local record. FUN_140724CC0 reads the kind from
 // +0, the band from +4, the bucket from +8, the first-time byte from +0xC and falls back to the alternate kind at +0x28 when +0
 // is the none value.
@@ -33,6 +50,8 @@ inline constexpr std::size_t kKickDescriptorBucketOffset = 0x8;   // s32: ap+0x2
 inline constexpr std::size_t kKickDescriptorSideOffset = 0xC;     // s32: ap+0x2756
 inline constexpr std::size_t kKickDescriptorAltKindOffset = 0x28; // s32: the retry kind (result[10])
 inline constexpr int32_t kKickNoKind = 0x97;
+inline constexpr std::size_t kKickDescriptorFlagAOffset = 0x10;   // u8: cStack_158 of FUN_140724CC0, the flag the row and the motion take
+inline constexpr std::size_t kKickDescriptorNoAltOffset = 0xDE;   // u8: cStack_8a: set, FUN_140724CC0 drops the alternate kind
 struct PesKickDescriptor {
   std::array<uint8_t, kKickDescriptorBytes> bytes{};
   int32_t Word(std::size_t offset) const {
@@ -45,6 +64,13 @@ struct PesKickDescriptor {
   int32_t Bucket() const { return Word(kKickDescriptorBucketOffset); }
   int32_t Side() const { return Word(kKickDescriptorSideOffset); }
   int32_t AltKind() const { return Word(kKickDescriptorAltKindOffset); }
+  uint8_t FlagA() const { return bytes[kKickDescriptorFlagAOffset]; }
+  // The kind the Kick start plays (FUN_140724CC0's decompile: `if (cStack_8a != 0) iStack_140 = 0x97`, then the kind, or the
+  // alternate kind when the kind is none and the alternate is not; the byte at +0xDE set drops the alternate).
+  int32_t ChosenKind() const {
+    const int32_t alt = bytes[kKickDescriptorNoAltOffset] != 0 ? kKickNoKind : AltKind();
+    return Kind() == kKickNoKind && alt != kKickNoKind ? alt : Kind();
+  }
 };
 
 // The caller's frame in the window stack: rsp at the chooser's entry (the return address slot), the request at +0xD8 and the

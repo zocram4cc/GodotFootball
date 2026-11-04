@@ -58,39 +58,32 @@ const char* KickStat(e_FunctionType type, bool header) {
   return "technical_shortpass";
 }
 
-// ponytail: PES picks the kick kind per kick (ap+0x2752, FUN_1408364D0 over FUN_140829E80's geometry tests,
-// docs/re/pes-re-kick-kinds.md 2). GF has no chooser, so each request takes the first candidate of its list (§5):
-// shot (request 10, FUN_1408371A0) 0x69, ground pass (9, FUN_140837670) 0x21, lofted pass (8, FUN_1408360F0) 0x49,
-// and a header the first of the class-3 high-ball family (1..27, FUN_1408272A0) 1. Remove when FUN_1408364D0 is ported.
+// In a PES-loop match PES's chooser FUN_1408364D0 (translated, peskickchooser.hpp) picks the kick kind, band, bucket and side from a
+// request (pes::KickRequestFor). The default engine writes no P into the window, so it cannot run the chooser; it keeps these
+// stand-ins (PesKickSituation's else branch): the first candidate of each request's list (docs/re/pes-re-kick-kinds.md 5): shot
+// (request 10, FUN_1408371A0) 0x69, ground pass (9, FUN_140837670) 0x21, lofted pass (8, FUN_1408360F0) 0x49, and a header the first
+// of the class-3 high-ball family (1..27, FUN_1408272A0) 1, with the ball-height band (FUN_140A6D380, body scale 1) and the bucket
+// of the turn angle (FUN_140723DE0). Remove with the default engine's tick order.
 constexpr int kPesKindShot = 0x69, kPesKindGroundPass = 0x21, kPesKindLoftedPass = 0x49, kPesKindHeader = 1;
 // The "no clip" values PES's kick descriptor starts with (docs/re/pes-re-header.md 1.2: band 0x0c @0x1425ef884) and the bucket
 // the writer defaults to (docs/re/pes-re-kick-kinds.md 3: 0x12): what Q sees for a kick the clip table has no motion for.
 constexpr int8_t kPesNoBand = 0xC, kPesNoBucket = 0x12;
 // The request id FUN_1408364D0 switches on and the motion interface's vtable+0x28 returns: 8 lofted pass, 9 ground pass, 10 shot.
 constexpr int kPesRequestLofted = 8, kPesRequestGround = 9, kPesRequestShot = 10;
-// ponytail: PES's kick-motion pick (FUN_140727230 -> FUN_14071EC10 / FUN_14071E570, peskickmotion.cpp) is ported whole, but its
-// inputs come from the kick chooser FUN_140829E80 / FUN_140838CA0, which GF does not port: the kind is the first candidate above,
-// the band is the ball-height band at the touch (FUN_140A6D380, body scale 1: ap+0x3B18 has no GF producer) with no scan of the
-// neighbouring bands (FUN_140838CA0 tries band-2..band+2 and accepts by reach), the side ap+0x2756 is 0, request +0x24 (the
-// bucket's spin sign) is 0, FUN_1406EAD40's action bit (ap+0x2458 class record) is 0, MI+0x1554 == 1 is false (meaning not
-// decoded), and the per-player motion swaps FUN_1406B3560/B3780 (table DAT_1436F2600) are not applied. A kick the table has no
-// motion for keeps the "none" band and bucket and descriptor 0, where PES would pick another kind.
+// ponytail: the kick motion's inputs that the chooser's descriptor does not carry are not ported, named at the call site: request
+// +8 (the scale FUN_140833CD0 writes), FUN_1406EAD40's action bit (ap+0x2458 class record) is 0, MI+0x1554 == 1 is false (meaning
+// not decoded), and the per-player motion swaps FUN_1406B3560/B3780 (table DAT_1436F2600) are not applied. A kick the chooser
+// answers none for keeps the "none" band and bucket and descriptor 0, where PES would start no kick.
 // Remove each as its PES writer lands.
-// ponytail: PES's result[1] / result[2] of FUN_140829E80 (ap+0x2754/0x2755) are the band and bucket above only when a clip exists.
-
 // The kicker-record fields Q reads (docs/re/pes-re-kick-kinds.md 3), in PES units: z = -GF y, metres per PES tick.
-// ponytail: ap+0x2756 (first-time byte, FUN_140837FC0), ap+0x2764 (window angle, W1 720.0 = none), ap+0x2460 bit 29 (AI
-// bit, writer OPEN), the touch state (vtable+0x30 of ap+0xAB8) and ap+0x281C (stamina accumulator of FUN_1406F6790) have no GF
-// producer: first-time 0, no window, AI bit 0, no touch, stamina 0. ap+0x247C (heading) and ap+0xBE4 (body turn) both take
-// GF's direction vectors. Remove each as its PES writer lands.
+// ponytail: ap+0x2756 (side / first-time byte: the chooser's in a PES-loop match, FUN_140837FC0 is not run, 0 in the default
+// engine), ap+0x2764 (window angle, W1 720.0 = none), ap+0x2460 bit 29 (AI bit, writer OPEN), the touch state (vtable+0x30 of
+// ap+0xAB8) and ap+0x281C (stamina accumulator of FUN_1406F6790) have no GF producer: no window, AI bit 0, no touch, stamina 0.
+// ap+0x247C (heading) and ap+0xBE4 (body turn) both take GF's direction vectors. Remove each as its PES writer lands.
 pes::KickSituation PesKickSituation(Match* match, Player* player, const pes::KickErrorConstants& k, const Vector3& launch,
                                     e_FunctionType type, bool header, float quality) {
   const pes::SituationConstants& c = k.situation;
   pes::KickSituation s;
-  s.kind = header ? kPesKindHeader
-                  : type == e_FunctionType_Shot ? kPesKindShot
-                  : type == e_FunctionType_HighPass || type == e_FunctionType_LongPass ? kPesKindLoftedPass
-                                                                                         : kPesKindGroundPass;
   s.b2754 = kPesNoBand;
   s.entry2755 = kPesNoBucket;
   s.window = c.noWindow;
@@ -105,23 +98,47 @@ pes::KickSituation PesKickSituation(Match* match, Player* player, const pes::Kic
   s.launchZ = -launch.coords[1];
   s.quality = quality;
 
-  // PES's kick start: the clip table row for (kind, band, side), the Animetable cell at the angle bucket, and the descriptor
-  // of that motion (FUN_140727230, FUN_1406B0250).
+  // PES's kick start: the chooser's kind, band, bucket and side, the clip table row for them, the Animetable cell at the bucket,
+  // and the descriptor of that motion (FUN_140724CC0, FUN_14071E6F0, FUN_14071E570, FUN_1406B0250).
   const pes::KickMotionConstants& km = match->GetPesKickMotionConstants();
   const Vector3 ballAt = match->GetBall()->TrackSample(0);
-  const int band = pes::BallBand(match->GetPesDodgeConstants(), ballAt.coords[2], 1.0f);
-  const int request = type == e_FunctionType_Shot ? kPesRequestShot
-                      : s.kind == kPesKindLoftedPass ? kPesRequestLofted : kPesRequestGround;
+  const bool lofted = !header && (type == e_FunctionType_HighPass || type == e_FunctionType_LongPass);
+  const int request = type == e_FunctionType_Shot ? kPesRequestShot : lofted ? kPesRequestLofted : kPesRequestGround;
+  int band = 0, bucket = 0;
+  bool flagA = false;
+  if (match->PesLoop()) {
+    // The chooser FUN_1408364D0 (translated) runs on the kicker's P in the window; the request is what GF can build
+    // (pes::KickRequestFor). The target point is the ball plus the launch vector in PES axes (x, height, z).
+    // ponytail: the order's target (FUN_14080ECE0 / FUN_14080EBA0) is the AI's, which GF has no state for.
+    const float target[3] = {ballAt.coords[0] + launch.coords[0], ballAt.coords[2] + launch.coords[2],
+                             -(ballAt.coords[1] + launch.coords[1])};
+    const pes::PesKickDescriptor d = match->PesWorldOf().RunKickChooser(
+        match->PesSlotOf(player), pes::KickRequestFor(request, target), match->PesTrapExternalsOf());
+    s.kind = d.ChosenKind();
+    band = d.Band();
+    bucket = d.Bucket();
+    s.firstTime = static_cast<int8_t>(d.Side());
+    flagA = d.FlagA() != 0;
+  } else {
+    // The default engine has no window (no P is written without the PES loop), so the chooser cannot run: it keeps its stand-ins.
+    s.kind = header ? kPesKindHeader
+             : type == e_FunctionType_Shot ? kPesKindShot
+             : lofted ? kPesKindLoftedPass
+                      : kPesKindGroundPass;
+    band = pes::BallBand(match->GetPesDodgeConstants(), ballAt.coords[2], 1.0f);
+    float turn_deg = pes::PesHeadingDeg(launch.coords[0], -launch.coords[1]) - s.heading_deg;
+    turn_deg += turn_deg > 180.0f ? -360.0f : turn_deg < -180.0f ? 360.0f : 0.0f;
+    bucket = pes::KickBucket(km, c, turn_deg, s.kind, 0.0f);
+  }
   const Vector3 ball1 = match->GetBall()->TrackSample(1), ball2 = match->GetBall()->TrackSample(2);
   pes::KickWorld world;
   world.tickOdd = match->GetSimFrame() & 1;
   world.heading_deg = s.heading_deg;
   world.dispX = s.velX, world.dispZ = s.velZ;
   world.ballX = ball1.coords[0], world.ballZ = ball1.coords[1];
-  const int row = pes::KickRow(km, c, request, s.kind, band, s.firstTime, 0.0f, false, false, &world);
-  float turn_deg = pes::PesHeadingDeg(launch.coords[0], -launch.coords[1]) - s.heading_deg;
-  turn_deg += turn_deg > 180.0f ? -360.0f : turn_deg < -180.0f ? 360.0f : 0.0f;
-  const int bucket = pes::KickBucket(km, c, turn_deg, s.kind, 0.0f);
+  // A none kind (the chooser found no candidate) has no clip: PES starts no kick then.
+  const int row = s.kind == pes::kKickNoKind ? pes::kNoClipRow
+                                             : pes::KickRow(km, c, request, s.kind, band, s.firstTime, 0.0f, flagA, false, &world);
   const int motion = row == pes::kNoClipRow ? -1 : pes::KickMotion(match->GetPesAnimetable(), row, bucket);
   pes::KickMotionStats& stats = match->PesKickMotionStats();
   ++stats.kicks;

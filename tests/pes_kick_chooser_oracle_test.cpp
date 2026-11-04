@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "onthepitch/pesworldrecord.hpp"
+#include "onthepitch/peskickmotion.hpp"
 #include "pes_oracle_snap.hpp"
 #include "pes_state.hpp"
 
@@ -34,6 +35,7 @@ namespace {
 using namespace pes_oracle;
 
 constexpr uint64_t kImageG = 0x1436F3DC8ULL;  // the image global that holds G
+constexpr int kSlot = 0;  // the window's P that stands for the capture's kicker (any slot: the request names it)
 
 uint8_t* RecordOf(pes::PesWorld& w, const std::string& kind, int idx) {
   if (kind == "B") return w.BallRecord();
@@ -44,7 +46,7 @@ uint8_t* RecordOf(pes::PesWorld& w, const std::string& kind, int idx) {
   if (kind == "anime") return w.AnimeRecord(idx);
   if (kind == "man") return w.ManRecord(idx);
   if (kind == "slot") return w.Block(idx) + pes::kSlotRecordOffset;
-  if (kind == "P") return w.P();
+  if (kind == "P") return w.P(kSlot);
   return nullptr;
 }
 
@@ -170,13 +172,42 @@ TEST_F(KickChooserOracle, EveryCapturedCallOnGfsWindowGivesPesDescriptor) {
     ASSERT_TRUE(image.Open(exe_));
     Built b;
     Build(o, image.bytes, image.size, b);
-    const pes::PesKickDescriptor got = b.world->RunKickChooser(b.request, b.ext);
+    const pes::PesKickDescriptor got = b.world->RunKickChooser(kSlot, b.request, b.ext);
     const std::map<size_t, uint8_t> want = ReferenceWrites(o);
     ASSERT_FALSE(want.empty()) << dir << ": the reference wrote no descriptor byte";
     for (const auto& [off, value] : want) EXPECT_EQ(got.bytes[off], value) << dir << " descriptor+0x" << std::hex << off;
     real += got.Kind() != pes::kKickNoKind;
   }
   RecordProperty("real_kinds", static_cast<int>(real));
+}
+
+// The request GF builds (KickRequestFor: the action, the subtype and the target) puts those fields where PES's builder does, and the
+// chooser runs to an answer on it: a descriptor kind in the clip table's range or none, never a loud abort of a path the closure lacks.
+TEST_F(KickChooserOracle, AGfBuiltRequestPutsTheFieldsWherePesDoesAndTheChooserAnswers) {
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    SetOverlay(o);
+    Image image;
+    ASSERT_TRUE(image.Open(exe_));
+    Built b;
+    Build(o, image.bytes, image.size, b);
+    int32_t action;
+    float target[3];
+    std::memcpy(&action, b.request.bytes.data() + pes::kKickRequestActionOffset, sizeof action);
+    std::memcpy(target, b.request.bytes.data() + pes::kKickRequestTargetOffset, sizeof target);
+    const pes::PesKickRequest gf = pes::KickRequestFor(action, target);
+    for (const size_t off : {pes::kKickRequestActionOffset, pes::kKickRequestTargetOffset, pes::kKickRequestTargetOffset + 4,
+                             pes::kKickRequestTargetOffset + 8})
+      EXPECT_EQ(std::memcmp(gf.bytes.data() + off, b.request.bytes.data() + off, 4), 0) << dir << " request+0x" << std::hex << off;
+    // A ground pass (9) with no order flag set has subtype 1 in PES's own request (FUN_1407204E0's default branch); the lofted
+    // captures carry an order flag GF has no state for.
+    if (action == 9)
+      EXPECT_EQ(std::memcmp(gf.bytes.data() + pes::kKickRequestSubtypeOffset, b.request.bytes.data() + pes::kKickRequestSubtypeOffset, 4), 0)
+          << dir;
+    const pes::PesKickDescriptor got = b.world->RunKickChooser(kSlot, gf, b.ext);
+    EXPECT_TRUE(got.Kind() == pes::kKickNoKind || (got.Kind() >= 1 && got.Kind() < pes::kClipKinds)) << dir << " kind " << got.Kind();
+  }
 }
 
 }  // namespace
