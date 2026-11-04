@@ -101,6 +101,11 @@ inner="$(declare -f smoke)"'
   wait'
 cmd=(bash -c "$inner")
 if [ "$slots_any" = 1 ]; then
+  # Poll for a free pair only this long, then block on (1 0): single-slot simslot users take slots one at a time, so a
+  # whole pair may never be free at a poll instant (04-11-26: a gate starved >3 h). A blocking flock waits in line like
+  # any other holder. Lock order 1 then 0 matches the GATE_SLOTS path, so the two cannot deadlock.
+  GATE_PAIR_POLL_S=600
+  poll_until=$((SECONDS + GATE_PAIR_POLL_S))
   while :; do
     for pair in "1 0" "3 2"; do
       read -r a b <<< "$pair"
@@ -108,6 +113,9 @@ if [ "$slots_any" = 1 ]; then
       if flock -n 8 && flock -n 9; then slots=($a $b); break 2; fi
       exec 8>&- 9>&-
     done
+    if [ "$SECONDS" -ge "$poll_until" ]; then
+      exec 8>"$(slotfile 1)" 9>"$(slotfile 0)"; flock 8; flock 9; slots=(1 0); break
+    fi
     sleep 5
   done
   echo "GATE sim slots held: ${slots[*]}"
