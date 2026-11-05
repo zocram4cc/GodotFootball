@@ -194,6 +194,12 @@ TARGETS = [
     # --- TeamTick3 block (frames-since-event and the event-ring reader). Append-only.
     ("tt_since_140A51320", 0x140A51320, "TeamTick3: frames since event"),
     ("tt_ringval_140A3E840", 0x140A3E840, "TeamTick3: event-ring record reader"),
+    # --- RestingBall5 block (contact-search leaves the failing tests' matches reach). Append-only.
+    ("rb5_140862CE0", 0x140862CE0, "RestingBall5: contact-search leaf (throw-in + restart tests)"),
+    ("rb5_140862AE0", 0x140862AE0, "RestingBall5: contact-search leaf (goal-scene test)"),
+    ("rb5_140861170", 0x140861170, "RestingBall5: contact-search callee, static-reachable"),
+    # --- KickJoints2 block (the Kick start's success tail). Append-only.
+    ("kick_dd80_14071DD80", 0x14071DD80, "KickJoints2: success-only call after the Kick start's cell (2 callers)"),
 ]
 
 
