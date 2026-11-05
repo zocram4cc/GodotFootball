@@ -215,6 +215,9 @@ TARGETS = [
     # --- TeamTick5 block (the carrier manager's unit 5). Append-only.
     ("ti_mgr_14211E2D0", 0x14211E2D0, "TeamTick5: carrier manager running the 9 sub-units"),
     ("ti_enter5_14211AB10", 0x14211AB10, "TeamTick5: carrier unit 5 can-enter"),
+    ("ti_mgrtick_14211D710", 0x14211D710, "TeamTick5: carrier manager tick"),
+    ("ti_enter4_14211B7B0", 0x14211B7B0, "TeamTick5: carrier unit 4 can-enter (runs just before unit 5)"),
+    ("ti_enter3_14211AF20", 0x14211AF20, "TeamTick5: carrier unit 3 can-enter"),
 ]
 
 
