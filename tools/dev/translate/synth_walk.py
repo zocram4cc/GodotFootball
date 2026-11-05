@@ -119,6 +119,10 @@ def main():
                     help="with --entry 0x14211D710 (r8 = the unit info BP+0x1C): write the state of a call of this BP constructor "
                          "(0x14210D320: rcx = BP, edx = its side word BP+0x24) on that live BP instead; the ctor re-initialises "
                          "every sub-object, so the call is a full-input case for the proof (rv.entry_va = the ctor)")
+    ap.add_argument("--in-call", action="store_true",
+                    help="the source is a capture of a call that CONTAINS the entry (a trap action tick 0x140797CD0 and 0x14084B4A0): "
+                         "run that call from its own entry and stop at the first entry of --entry, instead of running it to its "
+                         "return and continuing")
     a = ap.parse_args()
     patch_imports()
     orig = ft.hook_bytes(a.hooks) if a.hooks else None
@@ -126,9 +130,12 @@ def main():
     trace = {"out": a.out + ".trace", "impure": ft.load_impure(os.path.join(ft.DIFF, "specs", "impure")),
              "stubs": ft.stubs_for_run(stub_table.load())}
     os.makedirs(trace["out"], exist_ok=True)
-    uc, err = ft.run_recorded(a.src, orig=orig, trace=trace)
-    if err:
-        sys.exit("the recorded builder call did not return: %s" % err)
+    if a.in_call:
+        uc = None
+    else:
+        uc, err = ft.run_recorded(a.src, orig=orig, trace=trace)
+        if err:
+            sys.exit("the recorded builder call did not return: %s" % err)
 
     reached = []
 
@@ -144,9 +151,12 @@ def main():
             reached.append(True)
             u.emu_stop()
 
-    uc._ret_sentinel = 0xDEAD0000  # the run continues past the builder's return address
-    uc.hook_add(UC_HOOK_CODE, on_code)
-    uc.emu_start(call["ret"], 0, count=a.budget)
+    if a.in_call:  # the source call itself runs (models and all) until the entry; it never returns
+        uc, err = ft.run_recorded(a.src, orig=orig, trace=trace, on_code=on_code, budget=a.budget)
+    else:
+        uc._ret_sentinel = 0xDEAD0000  # the run continues past the builder's return address
+        uc.hook_add(UC_HOOK_CODE, on_code)
+        uc.emu_start(call["ret"], 0, count=a.budget)
     if not reached:
         rsp = uc.reg_read(xc.UC_X86_REG_RSP)
         sys.exit("the entry %#x was not reached from this capture: rip %#x, %s (return %#x, rcx %#x, rdx %#x, r8 %#x)" % (

@@ -210705,6 +210705,31 @@
    "vtables": [],
    "walked": true
   },
+  "1406B0DD0": {
+   "boundary": null,
+   "callees": {
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406b0dd0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 65,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406B0ED0": {
    "boundary": null,
    "callees": {
@@ -228549,6 +228574,43 @@
    "vtables": [],
    "walked": true
   },
+  "140798390": {
+   "boundary": null,
+   "callees": {
+    "1406AF620": "direct",
+    "1406AF8E0": "direct",
+    "1406B0250": "direct",
+    "1406B03D0": "direct",
+    "1406B0ED0": "direct",
+    "14079F6E0": "direct",
+    "141E532D0": "direct",
+    "141E5CA20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407983B7",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_140798390",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapendother"
+   ],
+   "scope": "in",
+   "size": 92,
+   "source": "pdata",
+   "subsystem": "trapendother",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140798500": {
    "boundary": null,
    "callees": {
@@ -229072,6 +229134,157 @@
    "size": 119,
    "source": "pdata",
    "subsystem": "trapchain",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14079D4B0": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "14043A0A0": "direct",
+    "14046F230": "direct",
+    "140581CE0": "direct",
+    "140591A10": "direct",
+    "1406AF620": "direct",
+    "1406B0ED0": "direct",
+    "1406B1C70": "direct",
+    "1406B1D00": "direct",
+    "140798390": "direct",
+    "140A6CF70": "direct",
+    "141E532D0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "14079D572",
+     "text": "call qword ptr [rdx + 0x38]"
+    },
+    {
+     "site": "14079D58C",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "14079D5B2",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "14079D5CE",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "14079D5DA",
+     "text": "call qword ptr [rdx + 0x30]"
+    },
+    {
+     "site": "14079D6C9",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_14079d4b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapendother"
+   ],
+   "scope": "in",
+   "size": 199,
+   "source": "pdata",
+   "subsystem": "trapendother",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14079EE70": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "14043A0A0": "direct",
+    "1404583B0": "direct",
+    "1404C8DC0": "direct",
+    "140581B70": "direct",
+    "1406AF620": "direct",
+    "1406B0ED0": "direct",
+    "1406B10D0": "direct",
+    "1406B1C70": "direct",
+    "1406B1D00": "direct",
+    "1406B4580": "direct",
+    "1406E69F0": "direct",
+    "1406E8320": "direct",
+    "1406EC5F0": "direct",
+    "14079D4B0": "direct",
+    "140A57800": "direct",
+    "140A6CF70": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "14079EEBD",
+     "text": "call qword ptr [r10 + 0x18]"
+    },
+    {
+     "site": "14079EEEC",
+     "text": "call qword ptr [rdx + 0x30]"
+    },
+    {
+     "site": "14079EF3A",
+     "text": "call qword ptr [rax + 0x38]"
+    },
+    {
+     "site": "14079F0F1",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "14079F190",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_14079ee70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapendxfer"
+   ],
+   "scope": "in",
+   "size": 301,
+   "source": "pdata",
+   "subsystem": "trapendxfer",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14079F6E0": {
+   "boundary": null,
+   "callees": {
+    "1406E6660": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14079f6e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapendother"
+   ],
+   "scope": "in",
+   "size": 33,
+   "source": "pdata",
+   "subsystem": "trapendother",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -232107,6 +232320,33 @@
    "vtables": [],
    "walked": true
   },
+  "140847F80": {
+   "boundary": null,
+   "callees": {
+    "1406B0A60": "direct",
+    "1406B0DD0": "direct",
+    "1406B0ED0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140847f80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 31,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140847FF0": {
    "boundary": null,
    "callees": {
@@ -232207,6 +232447,29 @@
    "size": 7,
    "source": "pdata",
    "subsystem": "trapchain",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140848AF0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_140848af0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 33,
+   "source": "pdata",
+   "subsystem": "trapkind",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -232403,6 +232666,38 @@
    "size": 13,
    "source": "pdata",
    "subsystem": "trapchain",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14084B4A0": {
+   "boundary": null,
+   "callees": {
+    "14084B310": "direct",
+    "140855150": "direct",
+    "140855B30": "direct",
+    "140855C50": "direct",
+    "1408560F0": "direct",
+    "140856310": "direct",
+    "140856370": "direct",
+    "1408565D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14084b4a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 95,
+   "source": "pdata",
+   "subsystem": "trapkind",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -233522,6 +233817,227 @@
    "size": 10,
    "source": "pdata",
    "subsystem": "trapchain",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140855150": {
+   "boundary": null,
+   "callees": {
+    "14084B310": "direct",
+    "140855C50": "direct",
+    "1415A1780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140855150",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 57,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140855B30": {
+   "boundary": null,
+   "callees": {
+    "1404C8DC0": "direct",
+    "140848AF0": "direct",
+    "140855C50": "direct",
+    "140855D10": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140855b30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 77,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140855C50": {
+   "boundary": null,
+   "callees": {
+    "144035D30": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140855c50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140855D10": {
+   "boundary": null,
+   "callees": {
+    "14084B310": "direct",
+    "1408565D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140855d10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1408560F0": {
+   "boundary": null,
+   "callees": {
+    "1404C8DC0": "direct",
+    "1406B0180": "direct",
+    "1406B0ED0": "direct",
+    "140848AF0": "direct",
+    "14084B310": "direct",
+    "140855C50": "direct",
+    "1408565D0": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1408560f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 130,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140856310": {
+   "boundary": null,
+   "callees": {
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140856310",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 21,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140856370": {
+   "boundary": null,
+   "callees": {
+    "1404C8DC0": "direct",
+    "1406B0180": "direct",
+    "1406B0ED0": "direct",
+    "140848AF0": "direct",
+    "14084B310": "direct",
+    "140855C50": "direct",
+    "140855D10": "direct",
+    "1408565D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140856370",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 149,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1408565D0": {
+   "boundary": null,
+   "callees": {
+    "1404C8DC0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1408565d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 104,
+   "source": "pdata",
+   "subsystem": "trapkind",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1284323,6 +1284839,33 @@
    "vtables": [],
    "walked": false
   },
+  "144035D30": {
+   "boundary": null,
+   "callees": {
+    "140847F80": "direct",
+    "14084B310": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_144035d30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapkind"
+   ],
+   "scope": "in",
+   "size": 44,
+   "source": "pdata",
+   "subsystem": "trapkind",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1440374C0": {
    "boundary": null,
    "callees": {},
@@ -1295022,6 +1295565,24 @@
      "0x14079FBC0",
      "0x14079AFD0",
      "0x14085B3E0"
+    ]
+   },
+   "trapendother": {
+    "members": 34,
+    "roots": [
+     "0x14079D4B0"
+    ]
+   },
+   "trapendxfer": {
+    "members": 51,
+    "roots": [
+     "0x14079EE70"
+    ]
+   },
+   "trapkind": {
+    "members": 29,
+    "roots": [
+     "0x14084B4A0"
     ]
    },
    "trapmode": {
