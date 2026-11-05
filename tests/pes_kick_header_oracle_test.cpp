@@ -99,12 +99,11 @@ class KickHeaderOracle : public ::testing::Test {
   std::string exe_;
 };
 
-// DISABLED (red; cause INF, not yet confirmed): on GF's window the builder's request differs from PES's in the words computed from the side
-// AI's MA record (+0x1C, +0x5A, +0xB0..+0x103: MA+0x22E4C lists, MA+0x247D4..): the window's MA holds ball and carrier only, the
-// capture's MA bytes sit at the capture's heap VA and are not mapped onto it. Next step: copy the manifest's MA ranges into
-// PesWorld::Ma(side) (docs/ports/pes-port-KickHeader.md section 4). The proof of the builder itself is the snapdiff record
-// (results_kick.json), which the gate re-checks.
-TEST_F(KickHeaderOracle, DISABLED_EveryCapturedOrderOnGfsWindowGivesPesRequest) {
+// The builder on GF's window reproduces PES's request on every byte the reference call wrote (15 real kick_header captures, 04-11-26:
+// the manifest's MA ranges are copied into PesWorld::Ma(side) by Build, so the earlier INF "the window's MA holds ball and carrier only"
+// no longer applies). The proof of the builder itself is the snapdiff record (results_kick.json and the kickbranch / kickleaf records),
+// which the gate re-checks.
+TEST_F(KickHeaderOracle, EveryCapturedOrderOnGfsWindowGivesPesRequest) {
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
@@ -125,9 +124,10 @@ TEST_F(KickHeaderOracle, DISABLED_EveryCapturedOrderOnGfsWindowGivesPesRequest) 
   }
 }
 
-// DISABLED: the chooser leaves its bounded closure on every captured kick (PES's own request too): 0x1408371A0, 0x1408387F0,
-// 0x1408223F0, 0x140830B50, 0x1406E7A60, 0x1406EA340 are untranslated until fresh kick_chooser captures widen it.
-TEST_F(KickHeaderOracle, DISABLED_TheChooserAnswersAsPesDoesOnTheBuiltRequestAndOnGfsOrder) {
+// The chooser answers the same kind, band, bucket, side and flag A on the builder's request as on PES's own request, and on the request
+// of the order GF builds. NOTE: PES's own answer is "none" (0x97) on all 15 captures: the Kick start re-picks every tick of the run-up and
+// answers none until the strike (docs/ports/pes-port-KickBranch2.md), so this test pins the none path and the builder's request, not a real kind.
+TEST_F(KickHeaderOracle, TheChooserAnswersAsPesDoesOnTheBuiltRequestAndOnGfsOrder) {
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;

@@ -1,0 +1,41 @@
+{
+ "note": "kickleaf results. diffed = bit-exact vs the unicorn harness over 172 SYNTHETIC modified calls of the kick request builder (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kick.json",
+   "coverage": {
+    "0x140833CD0": {
+     "fraction": 0.7002,
+     "reached": 418,
+     "total": 597
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every SYNTHETIC modified call replayed bit-exact, 172 of 172 (pes-port-KickBranch2.md). The states are PES's own bytes on the kick_header_833CD0 captures live2/pid802552 seq4358 (a shot, action 10) and seq4331 (a receiver pass, action 8) with, at the builder's entry: the ball (x, z, track and speed), the kicker's P and man position, the order's heading, target, receiver, action, kind and record bytes +0x149/+0x14A/+0x14C, and the kicker's opposing nearest list (MA+0x22E4C) drawn at random (seeded) so that the shot's defender-lane test (0x140834FFC) reaches FUN_140A907C0 (86 states) and the AI-order branches (0x14083419F, 0x1408341FD) reach FUN_14080EBA0 (51 states). No real capture takes either branch. The closure adds 0x140481B00, 0x14080EBA0, 0x140A907C0 to the 85 of closure_kick.json. NOT reached by any draw: the subtype-2 branch (FUN_1406E4230 at 0x140833ECD) and the call at 0x14083486C of FUN_14080EBA0; both stay loud aborts.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 172,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.7002,
+     "reached": 418,
+     "total": 597
+    },
+    "replayed": 172,
+    "source": "tools/dev/translate/results_kickleaf.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140833CD0"
+  }
+ ]
+}
