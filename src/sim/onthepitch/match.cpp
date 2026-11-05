@@ -344,22 +344,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   anims->Load(setup.animationDir);
   anims->AddPesClips(*setup.pesClips, *pesMbinfo);
 
-  // cache animation positions
-
-  const std::vector<Animation*>& animationsTmp = anims->GetAnimations();
-  for (unsigned int i = 0; i < animationsTmp.size(); i++) {
-    std::vector<Vector3> positions;
-    Animation* someAnim = animationsTmp.at(i);
-    Quaternion dud;
-    Vector3 position;
-    for (int frame = 0; frame < someAnim->GetFrameCount(); frame++) {
-      someAnim->GetKeyFrame("player", frame, dud, position, false, true);
-      position.coords[2] = 0.0f;
-      positions.push_back(position);
-    }
-    animPositionCache.insert(std::pair<Animation*, std::vector<Vector3>>(someAnim, positions));
-  }
-
   // teams
 
   Log(e_Notice, "Match", "Match", "Creating teams/players");

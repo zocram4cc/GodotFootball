@@ -581,6 +581,20 @@ void AnimCollection::Load(std::filesystem::path directory) {
   Log(e_Notice, "AnimCollection", "Load", "Ready");
 }
 
+// The keys of one side of a PES clip, rebuilt from the motion's text exactly as AddPesClips loaded them (the mirrored side
+// reflects the clip, as AddPesClips made it). The clip and the rig outlive the collection: the clip belongs to the install's
+// PesClipSet, which the match holds for its whole life.
+static Animation::KeyReloader ClipKeyReloader(const pes::PesClip& clip, const pesrig::Rig& rig, bool mirrored) {
+  return [&clip, &rig, mirrored](const std::vector<NodeAnimation*>& nodes) {
+    Animation rebuilt;
+    rebuilt.LoadText(clip.name, pes::PesClipAnimText(clip, rig));
+    if (mirrored) rebuilt.Mirror();
+    const std::vector<NodeAnimation*>& fresh = rebuilt.GetNodeAnimations();
+    assert(fresh.size() == nodes.size());
+    for (size_t n = 0; n < nodes.size(); ++n) nodes[n]->animation.swap(fresh[n]->animation);
+  };
+}
+
 void AnimCollection::AddPesClips(const pes::PesClipSet& clips, const pes::Mbinfo& mbinfo) {
   boost::intrusive_ptr<Node> playerNode = BuildPlayerNode(rig);
   std::list<boost::intrusive_ptr<Object>> bodyParts;
@@ -607,6 +621,11 @@ void AnimCollection::AddPesClips(const pes::PesClipSet& clips, const pes::Mbinfo
         mirrored->SetVariable("touchframe", touch);
       }
     }
+    // Each side keeps its metadata and derived values; its keys are rebuilt from the motion on the first key read.
+    animation->SetKeyReloader(ClipKeyReloader(clip, rig, false));
+    mirrored->SetKeyReloader(ClipKeyReloader(clip, rig, true));
+    animation->ReleaseKeys();
+    mirrored->ReleaseKeys();
   }
   playerNode->Exit();
 }
