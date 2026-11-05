@@ -86,10 +86,10 @@ struct PesKickPick {
 };
 
 // What the match's kick picks came to (a diagnostic the smoke prints): the Kick start's tries and the ones that answered none or
-// found no clip (the AI asks again next tick), then at the contact frame the kicks made, the ones with no clip, those whose
-// motion descriptor is 1, and those that reach Q's in-flight branch (descriptor 1 and kind subclass 2..12).
+// found no clip, then at the contact frame the kicks made, the ones with no clip, those whose motion descriptor is 1, and those that
+// reach Q's in-flight branch (descriptor 1 and kind subclass 2..12).
 struct KickMotionStats {
-  uint32_t tries = 0, refused = 0;
+  uint32_t tries = 0, answeredNone = 0;
   uint32_t kicks = 0, noClip = 0, descriptorOne = 0, inFlight = 0;
 };
 }  // namespace pes

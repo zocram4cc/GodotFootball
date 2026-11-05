@@ -2976,9 +2976,13 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     }
   }
 
-  // PES's Kick action starts only when its Kick start (FUN_140724CC0, PesKickStart) answers a kind with a clip; until then the AI's
-  // order stays pending and the pair runs again next tick, so the player keeps doing what the next command in the queue asks.
-  // Restarts are PES's own actions (the kind stays -1 there), not a Kick start.
+  // PES's Kick action starts on the tick its Kick start (FUN_140724CC0, PesKickStart) answers a kind with a clip; until then the AI's
+  // order stays pending and the pair runs again next tick. Restarts are PES's own actions (the kind stays -1 there), not a Kick start.
+  // ponytail: GF's window gives the chooser no real answer yet (one 2-minute seed-7 match: 16,300 tries, 16,300 none, none of them
+  // refusable without ending every open-play kick: 16 kicks, all restarts; docs/ports/pes-port-KickTick.md section 3), so the kick
+  // starts on a none pick: kind none, no clip, the descriptor the touch-time call gave. Remove the stand-in (and let the none answer
+  // clear selectedAnimID) when the window holds what the none answers lack: the MA arrival list MA+0x2470C.., the anime player's
+  // pose slot (FUN_141AF7A90) and the Kick action object.
   std::optional<pes::PesKickPick> pesKick;
   if (selectedAnimID != -1 && match->PesLoop() && match->IsInPlay() && !match->IsInSetPiece() &&
       (command.desiredFunctionType == e_FunctionType_ShortPass ||
@@ -2990,8 +2994,8 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     pesKick = PesKickStart(match, CastPlayer(), match->GetPesKickErrorConstants(), command.desiredFunctionType,
                            IsHeader(anims->GetAnim(selectedAnimID)->GetVariable("touch_bodypart")), command.touchInfo);
     if (!pesKick) {
-      ++stats.refused;
-      selectedAnimID = -1;
+      ++stats.answeredNone;
+      pesKick = pes::PesKickPick{pes::kKickNoKind, kPesNoBand, kPesNoBucket, 0, false, 0};
     }
   }
 

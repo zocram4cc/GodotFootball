@@ -458,8 +458,8 @@ int main(int argc, char** argv) {
   std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
   std::printf("[idle] %lu episodes, stalls %lu\n", watch.IdleEpisodes(), watch.IdleStallEpisodes());
   const pes::KickMotionStats& kicks = match.PesKickMotionStats();
-  std::printf("[kickmotion] %u kicks, no clip %u, descriptor 1 %u, in-flight Q %u, Kick start tries %u refused %u\n", kicks.kicks,
-              kicks.noClip, kicks.descriptorOne, kicks.inFlight, kicks.tries, kicks.refused);
+  std::printf("[kickmotion] %u kicks, no clip %u, descriptor 1 %u, in-flight Q %u, Kick start tries %u none %u\n", kicks.kicks,
+              kicks.noClip, kicks.descriptorOne, kicks.inFlight, kicks.tries, kicks.answeredNone);
   if (parityLog) parity.Print(match, stdout);
   return 0;
 }
