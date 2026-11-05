@@ -99,20 +99,15 @@ add_executable(pes_restart_sequencer_test pes_restart_sequencer_test.cpp)
 target_link_libraries(pes_restart_sequencer_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_restart_sequencer_test)
 
-add_executable(pes_restart_delay_test pes_restart_delay_test.cpp pes_stall_test.cpp)
+add_executable(pes_restart_delay_test pes_restart_delay_test.cpp pes_stall_test.cpp pes_throwin_release_test.cpp
+  pes_holder_latch_test.cpp pes_press_approach_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # One process for the family: its seeded matches run once per process and are shared between its tests (pes_shared_match.hpp).
-# PesStall's tests are compiled in because they play the seed-7 match the restart tests play.
+# PesStall, PesThrowInRelease, PesHolderLatch and PesPressApproach are compiled in: they play matches the restart tests play.
 add_test(NAME pes_restart_delay_test COMMAND pes_restart_delay_test)
 set_tests_properties(pes_restart_delay_test PROPERTIES TIMEOUT 10800)
 
-add_executable(pes_throwin_release_test pes_throwin_release_test.cpp)
-target_link_libraries(pes_throwin_release_test PRIVATE gfsim pesfmt GTest::gtest_main)
-target_compile_definitions(pes_throwin_release_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-# One process: the carried-throw-in tests share one seed-3 match (pes_shared_match.hpp).
-add_test(NAME pes_throwin_release_test COMMAND pes_throwin_release_test)
-set_tests_properties(pes_throwin_release_test PROPERTIES TIMEOUT 5400)
 
 add_executable(pes_random_test pes_random_test.cpp)
 target_link_libraries(pes_random_test PRIVATE gfsim pesfmt GTest::gtest_main)
@@ -151,14 +146,6 @@ add_executable(pes_press_test pes_press_test.cpp)
 target_link_libraries(pes_press_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_press_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_press_test PROPERTIES TIMEOUT 1800)
-add_executable(pes_press_approach_test pes_press_approach_test.cpp)
-target_link_libraries(pes_press_approach_test PRIVATE gfsim pesfmt GTest::gtest_main)
-target_compile_definitions(pes_press_approach_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-gtest_discover_tests(pes_press_approach_test PROPERTIES TIMEOUT 1800)
-add_executable(pes_holder_latch_test pes_holder_latch_test.cpp)
-target_link_libraries(pes_holder_latch_test PRIVATE gfsim pesfmt GTest::gtest_main)
-target_compile_definitions(pes_holder_latch_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-gtest_discover_tests(pes_holder_latch_test PROPERTIES TIMEOUT 1800)
 
 add_executable(pes_receive_test pes_receive_test.cpp)
 target_link_libraries(pes_receive_test PRIVATE gfsim pesfmt GTest::gtest_main)

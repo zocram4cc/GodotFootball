@@ -598,6 +598,21 @@ class CarryContactProbe : public pestest::Probe {
   bool haveLooseBall_ = false;
 };
 
+// The search of ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases, observed. It places no ball: a seed whose match
+// reaches a throw-in is played again alone by the test, so the probe shares a run only while that run is unperturbed.
+class ThrowInArmSpeculation : public pestest::Probe {
+ public:
+  explicit ThrowInArmSpeculation(unsigned int seed)
+      : Probe("ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases", {true, MINUTES, seed}, kMaxSimTicks,
+              /*stallStops=*/true, /*judgeEnd=*/true) {}
+  bool throwInStarted = false;
+  void OnTick(Match& match) override {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (match.IsInSetPiece() && b.started && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInStarted = true;
+  }
+  bool Done(Match&) override { return throwInStarted; }
+};
+
 RestartTakerProbe restartTaker;
 WhistleProbe whistle;
 FirstEndLineProbe firstEndLine;
@@ -615,6 +630,8 @@ NotAwardedProbe notAwarded[] = {NotAwardedProbe(SEED), NotAwardedProbe(3u), NotA
                                 NotAwardedProbe(13u)};
 CarryReachesProbe carryReaches;
 CarryContactProbe carryContact;
+ThrowInArmSpeculation armSpeculation[] = {ThrowInArmSpeculation(SEED), ThrowInArmSpeculation(SEAMLESS_SEED),
+                                          ThrowInArmSpeculation(13u), ThrowInArmSpeculation(11u)};
 
 }  // namespace
 
@@ -1050,10 +1067,18 @@ TEST(PesRestartDelay, ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases
   constexpr unsigned long kJudgeWithinTicks = 2;
   // Seed 7's two minutes release no throw-in: its first is past tick 15000 (docs/ports/pes-port-StoppageFlow5.md §3). Seed 3's
   // first walker is at tick 2461 on the path-A census, so the test searches matches in turn until one arms a throw-in.
-  const unsigned int kThrowInSeeds[] = {SEED, SEAMLESS_SEED, 13u, 11u};
   bool armed = false, judged = false;
-  for (const unsigned int seed : kThrowInSeeds) {
+  for (ThrowInArmSpeculation& seen : armSpeculation) {
     if (armed) break;
+    pestest::Run(seen);
+    if (seen.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+    ASSERT_TRUE(seen.setupError.empty()) << seen.setupError;
+    if (!seen.throwInStarted) {
+      // No throw-in in this match: its run was never perturbed, so it is judged as the search always was.
+      pestest::Settle(seen);
+      continue;
+    }
+    // A throw-in in this match: the seed's match is played again alone, with the ball placed as the test always placed it.
     unsigned long tick = 0, placedAt = 0;
     RunMatchWithinTheBound(
         true, MINUTES,
@@ -1078,7 +1103,7 @@ TEST(PesRestartDelay, ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases
           judged = !match.IsInPlay();
           return true;
         },
-        seed);
+        seen.key.seed);
   }
   EXPECT_TRUE(armed) << "no throw-in was released to place the ball past its spot";
   EXPECT_TRUE(judged) << "a ball at rest " << kRestPastSpot_m

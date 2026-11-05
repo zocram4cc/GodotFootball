@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "pes_match_constants.hpp"
+#include "pes_shared_match.hpp"
 
 #include <cstdlib>
 #include <functional>
@@ -32,36 +33,29 @@ constexpr int kMinutes = 2;
 // The two-minute match with its stoppages, counted in the 54 Hz logic frames the sim ticks in, with headroom.
 constexpr unsigned long kMaxTicks = 6ul * 60ul * Match::kFramesPerSecond;
 
-// One PES-loop match on seed 7, `onTick` after each tick, until full time or `kMaxTicks`.
-void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesVfs vfs;
-  std::string err;
-  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-  auto rig = pesrig::BuildRig(vfs, &err);
-  ASSERT_TRUE(rig) << err;
-  blunted::Database db;
-  ASSERT_TRUE(db.LoadSqlScript(std::string(GF_SOURCE_DIR) + "/assets/fixtures/teams.sql"));
-  SetDB(&db);
-
-  auto setup = std::make_unique<MatchSetup>();
-  setup->homeTeamDbId = HOME_TEAM;
-  setup->awayTeamDbId = AWAY_TEAM;
-  setup->seed = kSeed;
-  setup->durationMinutes = kMinutes;
-  setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
-  setup->rig = &*rig;
-  ASSERT_TRUE(pestest::FillMissingPesConstants(setup.get())) << "install constants unavailable";
-
-  Properties config;
-  config.SetBool("pes_loop", true);
-  Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
-  for (unsigned long t = 0; !match.IsGameOver() && t < kMaxTicks; ++t) {
-    match.Process();
-    onTick(match);
-  }
-}
+// The seed-7 match, shared with the holder and restart tests (pes_shared_match.hpp). The callbacks only observe.
+struct PressApproachState {
+  unsigned long steered = 0, unnamed = 0;
+};
+PressApproachState pressApproach;
+pestest::CallbackProbe pressApproachProbe(
+    "ALoosePresserCommandNamesTheActionPressTarget", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false,
+    /*judgeEnd=*/false,
+    [](Match& match) {
+      const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                         match.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
+      if (!loose) return;
+      for (int t = 0; t < 2; ++t) {
+        Team* team = match.GetTeam(t);
+        Player* presser = team->GetController()->GetLoosePressMan();
+        if (!presser || presser->HasPossession() || team->PassGetReceiver() == presser) continue;
+        const std::optional<PlayerCommand>& command = presser->GetPesDecision().command;
+        if (!command || command->desiredFunctionType != e_FunctionType_Movement) continue;
+        ++pressApproach.steered;
+        if (!command->useDesiredTarget) ++pressApproach.unnamed;
+      }
+    },
+    nullptr, /*shared=*/true);
 
 }  // namespace
 
@@ -70,21 +64,11 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 // ahead (pesmovestep FillCommandWords), which overshoots a ball a few metres away. Scope: a presser who does not hold the ball
 // and is not the PASS_GET receiver (ActionPassGet's approach is another PES action, not this port's), with a movement decision.
 TEST(PesPressApproach, ALoosePresserCommandNamesTheActionPressTarget) {
-  unsigned long steered = 0, unnamed = 0;
-  RunPesLoopMatch([&](Match& match) {
-    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
-                       match.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
-    if (!loose) return;
-    for (int t = 0; t < 2; ++t) {
-      Team* team = match.GetTeam(t);
-      Player* presser = team->GetController()->GetLoosePressMan();
-      if (!presser || presser->HasPossession() || team->PassGetReceiver() == presser) continue;
-      const std::optional<PlayerCommand>& command = presser->GetPesDecision().command;
-      if (!command || command->desiredFunctionType != e_FunctionType_Movement) continue;
-      ++steered;
-      if (!command->useDesiredTarget) ++unnamed;
-    }
-  });
-  EXPECT_GT(steered, 0ul) << "no loose presser was steered in the match";
-  EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << steered << " loose-presser movement commands named no target";
+  pestest::Run(pressApproachProbe);
+  if (pressApproachProbe.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(pressApproachProbe.setupError.empty()) << pressApproachProbe.setupError;
+  pestest::Settle(pressApproachProbe);
+  EXPECT_GT(pressApproach.steered, 0ul) << "no loose presser was steered in the match";
+  EXPECT_EQ(pressApproach.unnamed, 0ul) << pressApproach.unnamed << " of " << pressApproach.steered
+                                        << " loose-presser movement commands named no target";
 }

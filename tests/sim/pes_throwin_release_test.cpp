@@ -60,16 +60,6 @@ void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
   *out = *setup->pesSetPieceTakerConstants;
 }
 
-// Runs a PES-loop match for two minutes of `seed`, calling `onTick` after every tick. Played alone, as the ceremony test
-// always played it; the carried-throw-in tests play the same matches through their probes below.
-void RunMatch(unsigned int seed, const std::function<void(Match&)>& onTick) {
-  pestest::CallbackProbe probe(::testing::UnitTest::GetInstance()->current_test_info()->name(), {true, kMinutes, seed},
-                               pestest::kNoTickCap, /*stallStops=*/false, /*judgeEnd=*/false, onTick, nullptr);
-  pestest::Run(probe);
-  ASSERT_FALSE(probe.skipped) << "PES21_ROOT not set";
-  ASSERT_TRUE(probe.setupError.empty()) << probe.setupError;
-  pestest::Settle(probe);
-}
 
 // AThrowInIsReleasedFromInsideTheLine: one searched seed's two-minute match, counting its carried releases over the whole match.
 class InsideLineProbe : public pestest::Probe {
@@ -175,6 +165,50 @@ class LiftProbe : public pestest::Probe {
   bool wasArrived_[2] = {true, true};
 };
 
+// ACeremonyThrowInIsReleasedFromTheHandOverTheSpot's probe: one seed's two-minute match, the hand's key at each ceremony release.
+class CeremonyHandProbe : public pestest::Probe {
+ public:
+  explicit CeremonyHandProbe(unsigned int seed)
+      : Probe("ACeremonyThrowInIsReleasedFromTheHandOverTheSpot", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
+  int ceremony = 0, mismatched = 0;
+  float worstHeight_m = 0.0f, worstReach_m = 0.0f;
+  void OnTick(Match& match) override {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking_) {
+      throwInTaking_ = true;
+      placed_ = match.GetTeam(b.teamID)->GetController()->IsPieceTakerHeld(b.taker);
+      rootEndingLastTick_ = b.taker->GetPosition();
+    }
+    if (throwInTaking_ && match.IsInSetPiece()) {
+      heldBall_ = match.GetBall()->Predict(0);
+      heldRoot_ = rootEndingLastTick_;
+      rootEndingLastTick_ = b.taker->GetPosition();
+      return;
+    }
+    if (!throwInTaking_) return;
+    throwInTaking_ = false;
+    if (!placed_) return;
+    ceremony++;
+    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+    ASSERT_GT(hits.size(), 1u);
+    const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), 1.0f, false, g);
+    const float dx = heldBall_.coords[0] - heldRoot_.coords[0], dy = heldBall_.coords[1] - heldRoot_.coords[1];
+    // Ball::ResetSituation seats the ball's centre one radius above the point it is given, so the held centre is the key's
+    // height plus that radius; a ball left on the ground is 1.7 m from it either way.
+    const float heightGap_m = std::fabs(heldBall_.coords[2] - key.y - kBallRadius_m);
+    const float reachGap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - std::hypot(key.x, key.z));
+    worstHeight_m = std::max(worstHeight_m, heightGap_m);
+    worstReach_m = std::max(worstReach_m, reachGap_m);
+    if (heightGap_m > kKeyTolerance_m || reachGap_m > kKeyTolerance_m) mismatched++;
+  }
+
+ private:
+  static constexpr int kThrowInKeyMotion = 0xcfa;  // the throw-in's SetKick and release clip (pes-re-throwin-choreography.md 4.1)
+  bool throwInTaking_ = false, placed_ = false;
+  Vector3 heldBall_, heldRoot_, rootEndingLastTick_;
+};
+
 // One probe per entry of kThrowInSeeds, in the order the tests search them. The list's repeated seed is a second probe on
 // the same match: the shared run feeds it the same ticks, as the old second run of that seed saw them.
 InsideLineProbe insideLine[] = {InsideLineProbe(kThrowInSeeds[0]), InsideLineProbe(kThrowInSeeds[1]),
@@ -183,6 +217,7 @@ CarriedHoldProbe carriedHold[] = {CarriedHoldProbe(kThrowInSeeds[0]), CarriedHol
                                   CarriedHoldProbe(kThrowInSeeds[2]), CarriedHoldProbe(kThrowInSeeds[3])};
 LiftProbe lift[] = {LiftProbe(kThrowInSeeds[0]), LiftProbe(kThrowInSeeds[1]), LiftProbe(kThrowInSeeds[2]),
                     LiftProbe(kThrowInSeeds[3])};
+CeremonyHandProbe ceremonyHand[] = {CeremonyHandProbe(kCeremonySeeds[0]), CeremonyHandProbe(kCeremonySeeds[1])};
 
 }  // namespace
 
@@ -236,43 +271,18 @@ TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
 // second record, the one SetKick reads for the stand point).
 TEST(PesThrowInRelease, ACeremonyThrowInIsReleasedFromTheHandOverTheSpot) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
-  constexpr int kThrowInKeyMotion = 0xcfa;
   int ceremony = 0, mismatched = 0;
   float worstHeight_m = 0.0f, worstReach_m = 0.0f;
-  for (const unsigned int seed : kCeremonySeeds) {
+  for (CeremonyHandProbe& p : ceremonyHand) {
     if (ceremony > 0) break;
-    bool throwInTaking = false, placed = false;
-    Vector3 heldBall, heldRoot, rootEndingLastTick;
-    RunMatch(seed, [&](Match& match) {
-      const RefereeBuffer& b = match.GetRefereeBuffer();
-      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking) {
-        throwInTaking = true;
-        placed = match.GetTeam(b.teamID)->GetController()->IsPieceTakerHeld(b.taker);
-        rootEndingLastTick = b.taker->GetPosition();
-      }
-      if (throwInTaking && match.IsInSetPiece()) {
-        heldBall = match.GetBall()->Predict(0);
-        heldRoot = rootEndingLastTick;
-        rootEndingLastTick = b.taker->GetPosition();
-        return;
-      }
-      if (!throwInTaking) return;
-      throwInTaking = false;
-      if (!placed) return;
-      ceremony++;
-      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
-      ASSERT_GT(hits.size(), 1u);
-      const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), 1.0f, false, g);
-      const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
-      // Ball::ResetSituation seats the ball's centre one radius above the point it is given, so the held centre is the key's
-      // height plus that radius; a ball left on the ground is 1.7 m from it either way.
-      const float heightGap_m = std::fabs(heldBall.coords[2] - key.y - kBallRadius_m);
-      const float reachGap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - std::hypot(key.x, key.z));
-      worstHeight_m = std::max(worstHeight_m, heightGap_m);
-      worstReach_m = std::max(worstReach_m, reachGap_m);
-      if (heightGap_m > kKeyTolerance_m || reachGap_m > kKeyTolerance_m) mismatched++;
-    });
+    pestest::Run(p);
+    ASSERT_FALSE(p.skipped) << "PES21_ROOT not set";
+    ASSERT_TRUE(p.setupError.empty()) << p.setupError;
+    pestest::Settle(p);
+    ceremony += p.ceremony;
+    mismatched += p.mismatched;
+    worstHeight_m = std::max(worstHeight_m, p.worstHeight_m);
+    worstReach_m = std::max(worstReach_m, p.worstReach_m);
   }
   EXPECT_GT(ceremony, 0) << "no ceremony throw-in was released in any searched two-minute match";
   EXPECT_EQ(mismatched, 0) << mismatched << " of " << ceremony << " ceremony releases were not at the key (worst height gap "

@@ -226,12 +226,13 @@ inline void Settle(const Probe& probe) {
   if (probe.judgeEnd && probe.stop.judged) JudgeWithinTheBound(probe.stop);
 }
 
-// A probe written as callbacks, run alone: the tests that play a match alone keep their callbacks as they were.
+// A probe written as callbacks. Run alone unless `shared`: the tests that play a match alone keep their callbacks as they were.
+// A shared callback probe only observes the match: nothing its callbacks change may reach the other probes on the run.
 class CallbackProbe : public Probe {
  public:
   CallbackProbe(const char* name, MatchKey key, unsigned long maxSimTicks, bool stallStops, bool judgeEnd,
-                std::function<void(Match&)> onTick, std::function<bool(Match&)> done)
-      : Probe(name, key, maxSimTicks, stallStops, judgeEnd, /*shared=*/false),
+                std::function<void(Match&)> onTick, std::function<bool(Match&)> done, bool shared = false)
+      : Probe(name, key, maxSimTicks, stallStops, judgeEnd, shared),
         onTick_(std::move(onTick)),
         done_(std::move(done)) {}
   void OnTick(Match& match) override {

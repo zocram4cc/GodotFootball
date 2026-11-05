@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "pes_match_constants.hpp"
+#include "pes_shared_match.hpp"
 
 #include <cstdlib>
 #include <functional>
@@ -32,36 +33,52 @@ constexpr unsigned int kSeed = 7;
 constexpr int kMinutes = 2;
 constexpr unsigned long kMaxTicks = 6ul * 60ul * Match::kFramesPerSecond;
 
-// One PES-loop match on seed 7, `onTick` after each tick, until full time or `kMaxTicks`.
-void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesVfs vfs;
-  std::string err;
-  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-  auto rig = pesrig::BuildRig(vfs, &err);
-  ASSERT_TRUE(rig) << err;
-  blunted::Database db;
-  ASSERT_TRUE(db.LoadSqlScript(std::string(GF_SOURCE_DIR) + "/assets/fixtures/teams.sql"));
-  SetDB(&db);
+// The seed-7 match the two holder tests play, shared with the restart tests (pes_shared_match.hpp). The callbacks only observe.
+struct HolderLatchState {
+  std::map<const Player*, bool> unheldLastTick;  // last toucher, ball live, no holder - at the previous post-tick
+  unsigned long liveTicks = 0, unheld = 0;
+};
+HolderLatchState holderLatch;
+pestest::CallbackProbe holderLatchProbe(
+    "ALastToucherWithLivePossessionBecomesTheHolder", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false,
+    /*judgeEnd=*/false,
+    [](Match& match) {
+      std::map<const Player*, bool> unheldNow;
+      const bool inPlay = match.IsInPlay() && !match.IsInSetPiece();
+      for (int t = 0; inPlay && t < 2; ++t) {
+        for (const std::unique_ptr<Player>& p : match.GetTeam(t)->GetAllPlayers()) {
+          if (!p->IsActive() || p->GetFormationEntry().role == e_PlayerRole_GK) continue;
+          if (match.GetLastTouchPlayer() != p.get() || !AI_HasPossession(match.GetBall(), p.get())) continue;
+          ++holderLatch.liveTicks;
+          if (!match.GetPesHolder()) {
+            unheldNow[p.get()] = true;
+            // No holder for two ticks running, not a one-tick gap.
+            if (holderLatch.unheldLastTick.count(p.get())) ++holderLatch.unheld;
+          }
+        }
+      }
+      holderLatch.unheldLastTick = std::move(unheldNow);
+    },
+    nullptr, /*shared=*/true);
 
-  auto setup = std::make_unique<MatchSetup>();
-  setup->homeTeamDbId = HOME_TEAM;
-  setup->awayTeamDbId = AWAY_TEAM;
-  setup->seed = kSeed;
-  setup->durationMinutes = kMinutes;
-  setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
-  setup->rig = &*rig;
-  ASSERT_TRUE(pestest::FillMissingPesConstants(setup.get())) << "install constants unavailable";
-
-  Properties config;
-  config.SetBool("pes_loop", true);
-  Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
-  for (unsigned long t = 0; !match.IsGameOver() && t < kMaxTicks; ++t) {
-    match.Process();
-    onTick(match);
-  }
-}
+struct HolderPersistState {
+  bool holderArmed = false;
+  unsigned long armedTicks = 0, cleared = 0;
+};
+HolderPersistState holderPersist;
+pestest::CallbackProbe holderPersistProbe(
+    "ASetHolderIsNeverClearedWhileTheBallIsInPlay", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false,
+    /*judgeEnd=*/false,
+    [](Match& match) {
+      if (!holderPersist.holderArmed) {
+        holderPersist.holderArmed = match.GetPesHolder() != nullptr;
+        return;
+      }
+      if (!match.IsInPlay() || match.IsInSetPiece()) return;
+      ++holderPersist.armedTicks;
+      if (!match.GetPesHolder()) ++holderPersist.cleared;
+    },
+    nullptr, /*shared=*/true);
 
 }  // namespace
 
@@ -79,27 +96,13 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 // only while it persists for two ticks running: the man live with no holder this tick and the tick before. In
 // play, not a set piece.
 TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
-  std::map<const Player*, bool> unheldLastTick;  // last toucher, ball live, no holder - at the previous post-tick
-  unsigned long liveTicks = 0, unheld = 0;
-  RunPesLoopMatch([&](Match& match) {
-    std::map<const Player*, bool> unheldNow;
-    const bool inPlay = match.IsInPlay() && !match.IsInSetPiece();
-    for (int t = 0; inPlay && t < 2; ++t) {
-      for (const std::unique_ptr<Player>& p : match.GetTeam(t)->GetAllPlayers()) {
-        if (!p->IsActive() || p->GetFormationEntry().role == e_PlayerRole_GK) continue;
-        if (match.GetLastTouchPlayer() != p.get() || !AI_HasPossession(match.GetBall(), p.get())) continue;
-        ++liveTicks;
-        if (!match.GetPesHolder()) {
-          unheldNow[p.get()] = true;
-          if (unheldLastTick.count(p.get())) ++unheld;  // no holder for two ticks running, not a one-tick gap
-        }
-      }
-    }
-    unheldLastTick = std::move(unheldNow);
-  });
-  EXPECT_GT(liveTicks, 0ul) << "no outfield last toucher had the ball live in the match";
-  EXPECT_EQ(unheld, 0ul) << unheld
-                         << " ticks had a live outfield last toucher with no holder for two ticks running";
+  pestest::Run(holderLatchProbe);
+  if (holderLatchProbe.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(holderLatchProbe.setupError.empty()) << holderLatchProbe.setupError;
+  pestest::Settle(holderLatchProbe);
+  EXPECT_GT(holderLatch.liveTicks, 0ul) << "no outfield last toucher had the ball live in the match";
+  EXPECT_EQ(holderLatch.unheld, 0ul) << holderLatch.unheld
+                                     << " ticks had a live outfield last toucher with no holder for two ticks running";
 }
 
 // The split from GF's retainer, at the bytes: W1 rewrites MA+0x2601C and only W2, the object reset
@@ -108,19 +111,12 @@ TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
 // clears the holder. A miss is an in-play tick with a set-then-null holder; the pre-first-arm window does not
 // count, and it is pinned separately by the arming expectation.
 TEST(PesHolderPersist, ASetHolderIsNeverClearedWhileTheBallIsInPlay) {
-  bool holderArmed = false;
-  unsigned long armedTicks = 0, cleared = 0;
-  RunPesLoopMatch([&](Match& match) {
-    if (!holderArmed) {
-      holderArmed = match.GetPesHolder() != nullptr;
-      return;
-    }
-    if (!match.IsInPlay() || match.IsInSetPiece()) return;
-    ++armedTicks;
-    if (!match.GetPesHolder()) ++cleared;
-  });
-  EXPECT_TRUE(holderArmed) << "no touch ever made a man the holder";
-  EXPECT_GT(armedTicks, 0ul) << "the holder armed too late to observe";
-  EXPECT_EQ(cleared, 0ul) << cleared
-                          << " in-play ticks cleared a set holder (PES clears only in W2's object reset)";
+  pestest::Run(holderPersistProbe);
+  if (holderPersistProbe.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(holderPersistProbe.setupError.empty()) << holderPersistProbe.setupError;
+  pestest::Settle(holderPersistProbe);
+  EXPECT_TRUE(holderPersist.holderArmed) << "no touch ever made a man the holder";
+  EXPECT_GT(holderPersist.armedTicks, 0ul) << "the holder armed too late to observe";
+  EXPECT_EQ(holderPersist.cleared, 0ul) << holderPersist.cleared
+                                        << " in-play ticks cleared a set holder (PES clears only in W2's object reset)";
 }
