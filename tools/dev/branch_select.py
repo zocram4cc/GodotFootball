@@ -22,7 +22,8 @@ Ceiling: closures are static-library granular, and a file read at run time throu
 by the fallbacks above.
 
 Usage: branch_select.py --build DIR [--repo DIR] (--base REV | --diff FILE) [--regex | --list]
-  --base REV: the diff is `git diff -U0 --no-renames REV` plus untracked files (the paths select_recorded.py uses).
+  --base REV: the diff is `git diff -U0 --no-renames REV` over tracked files. Untracked files are not branch changes: test runs
+    leave some (Godot's .uid files), and a committed branch carries its new files in the diff.
   --regex: print the ctest -R pattern for the selection; --list: one name per line; default: the reasons on stderr.
 """
 import argparse
@@ -205,11 +206,8 @@ def select(build, repo, diff_text):
 
 
 def git_diff(repo, base):
-    diff = subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-renames", "--ignore-submodules=all", base, "--"],
+    return subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-renames", "--ignore-submodules=all", base, "--"],
                           capture_output=True, text=True, check=True).stdout
-    untracked = subprocess.run(["git", "-C", repo, "ls-files", "--others", "--exclude-standard"],
-                               capture_output=True, text=True, check=True).stdout.split()
-    return diff + "".join(f"diff --git a/{p} b/{p}\n" for p in untracked)
 
 
 def ctest_regex(names):
