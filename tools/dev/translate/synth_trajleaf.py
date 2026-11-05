@@ -3,7 +3,7 @@
 against per-index thresholds; its only caller 0x1408495B0 is a proven function, but no capture of that caller survived the disk floor).
 
 0x140852C00 has no .pdata entry and reads nothing but its three scalars (ecx = the index, dl = the mirror flag, xmm2 = the float) and the
-image's constants, so every case is SYNTHETIC: synth_call.py keeps the memory of one real capture (any FULL state: only its stack is
+image's constants, so every case is SYNTHETIC: synth.py keeps the memory of one real capture (any FULL state: only its stack is
 used) and sets the call's registers. The cases are chosen from the decompile's thresholds (each index's constants read from the image, and
 the float's neighbours on both sides of each), so every arm of the switch and each side of every compare runs. snapdiff.py --bounded
 replays each state on PES's bytes (the harness) and on the translated body; the return value and every written byte must match.
@@ -95,10 +95,19 @@ def main():
     os.makedirs(a.work, exist_ok=True)
     snaps, dirs = [], []
     cs = cases(image)
-    for name, idx, flag, x in cs:
-        cdir = os.path.join(a.work, "case_" + name)
-        subprocess.check_call([sys.executable, os.path.join(HERE, "synth_call.py"), a.state, cdir, "--entry", VA,
-                               "--reg", "ecx=%#x" % idx, "--reg", "edx=%d" % flag, "--xmm", "2=%r" % x], stdout=subprocess.DEVNULL)
+    # One synth.py spec holds every case: a static state of the capture's memory called as VA (rv.entry_va), registers set.
+    spec = {"label": "trajleaf", "seed": 1, "as": VA,
+            "fields": [{"name": "idx", "at": "ecx", "type": "u32", "values": [0]},
+                       {"name": "flag", "at": "edx", "type": "u32", "values": [0]},
+                       {"name": "x", "at": "xmm2", "type": "f32", "values": [0.0]}],
+            "cases": [{"name": name, "idx": idx, "flag": flag, "x": x} for name, idx, flag, x in cs]}
+    spec_path = os.path.join(a.work, "spec.json")
+    with open(spec_path, "w") as f:
+        json.dump(spec, f)
+    states = os.path.join(a.work, "states")
+    subprocess.check_call([sys.executable, os.path.join(HERE, "synth.py"), a.state, states, "--spec", spec_path], stdout=subprocess.DEVNULL)
+    for name, _, _, _ in cs:
+        cdir = os.path.join(states, name)
         trace = os.path.join(a.work, "tr_" + name)
         subprocess.check_call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", cdir, "--hooks", hooks, "--out",
                                trace, "--spec-dir", SPEC_DIR], stdout=subprocess.DEVNULL)
@@ -116,7 +125,7 @@ def main():
                "failed": 0, "failure_class": None, "icount_max": 0, "nonreturn": 0,
                "note": ("proof snapdiff --bounded: every replayed call bit-exact, %d of %d. SYNTHETIC: %d call states whose registers "
                         "(the motion index, the mirror flag, the float) are chosen over the memory of one real capture "
-                        "(synth_call.py, synth_trajleaf.py); the thresholds each index compares against are read from the image."
+                        "(synth.py, synth_trajleaf.py); the thresholds each index compares against are read from the image."
                         % (raw["replayed"], raw["calls"], len(cs))),
                "proof": "snapdiff", "requested": 0, "synthetic": True, "synthetic_cases": len(cs),
                "snapdiff": {"calls": raw["calls"], "mismatches": len(raw["mismatches"]), "own_block": own, "replayed": raw["replayed"],

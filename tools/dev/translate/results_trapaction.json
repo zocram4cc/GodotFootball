@@ -448,6 +448,45 @@
    "stubs": [],
    "translated": true,
    "va": "0x140852C00"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapdribble.json",
+   "coverage": {
+    "0x1407A38E0": {
+     "reached": 10,
+     "total": 14,
+     "fraction": 0.7143
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 1 REAL captured call(s) and 1 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: act4_start_7A38E0 pid615595/seq7805 (the call from the trap end handler at 0x14079E6C5, mod-era launch). SYNTHETIC: synth_specs/trap_dribble_start.json case nohold (the holder word MA+0x2601C poked to another slot, so FUN_1406EC5F0 is false and the start returns to MOVE). The other six cases of that spec (the plan byte, the 0x12 action word with the P+0x3A94 switch) are excluded by snapdiff (the PES run reads a page the capture lacks), so those root blocks are unproven: own-block as recorded.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 10,
+     "total": 14,
+     "fraction": 0.7143
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407A38E0",
+   "synthetic": true,
+   "synthetic_cases": 1
   }
  ]
 }

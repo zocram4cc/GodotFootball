@@ -5,7 +5,7 @@
 kind word [rcx+0x6C] and dispatches to a different velocity rule per kind. The live captures reach only kinds 0 and 9; a GF trap
 reaches every kind its clip names, so the whole closure (29 functions, closure.py --spec-set trapaction --tag trapkind) is
 translated and proven here:
-  REAL     the entry states of 0x14084B4A0 inside three captured ticks (synth_walk.py --in-call --entry 0x14084B4A0: PES's own bytes run
+  REAL     the entry states of 0x14084B4A0 inside three captured ticks (synth.py, start: call, stop 0x14084B4A0: PES's own bytes run
            from the tick's entry to the call; nothing is chosen): pid1572516 seq398 and pid3439759 seq3244 (kind 0), pid1330921 seq5112
            (kind 9). All three run No-Mod gameplay.
   SYNTHETIC cases over those same states: bytes of the plan (rcx) are poked: the kind word and the flag bytes that pick a branch.
@@ -14,7 +14,7 @@ snapdiff.py (unbounded closure) replays every state on PES's bytes (the harness)
 and every written byte must match.
 
 Usage (harness Python): PES_EXE=<pes_full.bin> RV_HOOKS=<hooks cfg with the trap hooks> python3 synth_trapkind.py STATES_DIR WORK_DIR [--merge]
-  STATES_DIR holds the three entry states, named <pid>_<seq> (synth_walk.py output); WORK_DIR is scratch (one poked case at a time holds a
+  STATES_DIR holds the three entry states, named <pid>_<seq> (synth.py output); WORK_DIR is scratch (one poked case at a time holds a
   sparse copy of a state's memory; each is deleted at the end). Not part of the gate.
 """
 import argparse
@@ -27,7 +27,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import synth_call as sc  # noqa: E402
+import synth  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness", "specs", "trapaction")
@@ -140,22 +140,32 @@ def cases_a4():
 
 def regs_of(state):
     vals = struct.unpack("<49Q", open(os.path.join(state, "call.bin"), "rb").read())
-    return dict(zip(sc.GPR_ORDER, vals[:16]))
+    return dict(zip(synth.GPR_ORDER, vals[:16]))
 
 
-def pokes_of(state, plan):
-    """--poke arguments: an int key is the plan at rcx; "rsp+0x38" is a synth_call address; "r8+0x5C4" is a register plus offset."""
-    regs, out = regs_of(state), []
-    for off, hexbytes in plan.items():
-        if isinstance(off, int):
-            addr = "%#x+%#x" % (regs["rcx"], off)
-        elif off.split("+")[0] in regs and off.split("+")[0] != "rsp":
-            reg, rel = off.split("+", 1)
-            addr = "%#x+%s" % (regs[reg], rel)
-        else:
-            addr = off
-        out += ["--poke", "%s=%s" % (addr, hexbytes)]
-    return out
+def synth_state(src, out, spec, hooks=None):
+    """One state of the capture/state `src` written by synth.py to `out`: `spec` is a one-case synth.py spec (written beside it)."""
+    parent = out + ".synth"
+    spec = dict(spec, seed=1, cases=[{"name": "state"}])
+    spec_path = out + ".spec.json"
+    with open(spec_path, "w") as f:
+        json.dump(spec, f)
+    cmd = [sys.executable, os.path.join(HERE, "synth.py"), src, parent, "--spec", spec_path] + (["--hooks", hooks] if hooks else [])
+    subprocess.check_call(cmd, stdout=subprocess.DEVNULL)
+    shutil.move(os.path.join(parent, "state"), out)
+    shutil.rmtree(parent, ignore_errors=True)
+    shutil.rmtree(parent + ".env", ignore_errors=True)
+    os.remove(spec_path)
+
+
+def poke_fields(plan):
+    """synth.py fields of a plan: an int key is the plan's offset at rcx; "r8+0x5C4" and "rsp+0x38" are a register plus an offset
+    (one offset, so the field's address is the register plus it, never dereferenced)."""
+    fields = []
+    for n, (off, hexbytes) in enumerate(plan.items()):
+        at = "reg:rcx+%#x" % off if isinstance(off, int) else "reg:" + off
+        fields.append({"name": "poke%d" % n, "at": at, "type": "hex", "values": [hexbytes]})
+    return fields
 
 
 def build(states, work, base, name, plan):
@@ -163,22 +173,17 @@ def build(states, work, base, name, plan):
     cdir = os.path.join(work, "case_%s_%s" % (base, name))
     if ROOT == ACT4:
         # SYNTHETIC entry: the trap end transition's gates are poked (ee_plan, at the transition's entry) so PES's own bytes take
-        # the branch that calls 0x1406B4580 and run to the action virtual's entry (synth_walk.py --in-call); plan then pokes that entry.
+        # the branch that calls 0x1406B4580 and run to the action virtual's entry (synth.py, start: call); plan then pokes that entry.
         ee_plan, plan = plan
         mid = cdir + "_ee"
-        subprocess.check_call([sys.executable, os.path.join(HERE, "synth_call.py"), st, mid, "--entry", EE70, "--hook-name",
-                               "trap_%s" % EE70[-5:], *pokes_of(st, ee_plan)])
-        subprocess.check_call([sys.executable, os.path.join(HERE, "synth_walk.py"), mid, cdir + "_a4", "--in-call", "--entry", ROOT,
-                               "--hook-name", "trap_%s" % ROOT[-5:], "--hooks", os.environ["RV_HOOKS"]], stdout=subprocess.DEVNULL)
+        synth_state(st, mid, {"as": EE70, "hook": "trap_%s" % EE70[-5:], "fields": poke_fields(ee_plan)})
+        synth_state(mid, cdir + "_a4", {"stop": ROOT, "hook": "trap_%s" % ROOT[-5:]}, os.environ["RV_HOOKS"])
         shutil.rmtree(mid, ignore_errors=True)
-        shutil.rmtree(cdir + "_a4.trace", ignore_errors=True)
         st = cdir + "_a4"
     if ROOT == ACT4 and not plan:
         shutil.move(st, cdir)  # the walked state is the case itself
         return cdir
-    cmd = [sys.executable, os.path.join(HERE, "synth_call.py"), st, cdir, "--entry", ROOT, "--hook-name", "trap_%s" % ROOT[-5:],
-           *pokes_of(st, plan)]
-    subprocess.check_call(cmd)
+    synth_state(st, cdir, {"as": ROOT, "hook": "trap_%s" % ROOT[-5:], "fields": poke_fields(plan)})
     if ROOT == ACT4:
         shutil.rmtree(st, ignore_errors=True)
     return cdir
@@ -229,7 +234,7 @@ def main():
         if ROOT == ACT4:
             note = ("proof snapdiff (unbounded closure): every replayed call bit-exact, %d of %d. %d REAL captured call(s) "
                     "(trap_act4_7BA840) and %d SYNTHETIC cases: a real end-transition entry state (a captured trap tick) whose gate "
-                    "byte is poked so PES's own bytes run to the planner's entry (synth_walk.py --in-call), plus pokes of the planner's "
+                    "byte is poked so PES's own bytes run to the planner's entry (synth.py, start: call), plus pokes of the planner's "
                     "inputs (the Trap stage, the action type, the request's float, P+0x3B18; synth_trapkind.py --root 0x1407BA840). "
                     "The synthetic inputs are chosen, not observed." % (raw["replayed"], raw["calls"], len(a.capture), synthetic))
         elif ROOT == "0x1406B4580":
@@ -238,7 +243,7 @@ def main():
                     "table's vt+0x68 (0x1407BA840) through the dispatch table." % (raw["replayed"], raw["calls"]))
         else:
             note = ("proof snapdiff (unbounded closure): every replayed call bit-exact, %d of %d. %d REAL entry states of "
-                    "the call inside captured ticks (synth_walk.py --in-call) and %d SYNTHETIC cases whose plan bytes (kind word, "
+                    "the call inside captured ticks (synth.py, start: call) and %d SYNTHETIC cases whose plan bytes (kind word, "
                     "flags, motion index) are poked (synth_trapkind.py); the synthetic inputs are chosen, not observed."
                     % (raw["replayed"], raw["calls"], len(REAL), synthetic))
         rec = {"aborted": 0, "capped": 0, "cases": 0, "coverage": {ROOT: own}, "dead_blocks": {}, "diffed": True, "failed": 0,
