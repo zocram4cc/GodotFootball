@@ -21,7 +21,7 @@ how many recorded functions were selected per set.
 | ledger check | yes | yes | yes |
 | smokes, seed 7 | one 2-minute run per path (switch-off, `--pes-loop`) with their `[determinism]` lines | the same | 5-minute prefilter, then 20-minute runs |
 | verdict | `GATE fast:` lands | `GATE branch:`: a branch may claim it; it never lands | `GATE full:` |
-| target wall time | ctest 8,798 s at 2,314 tests (merge lane, 05-11-26) | ~30 min for a branch that leaves the sim alone; a sim-moving branch also runs the seeded families (`pes_restart_delay_test` took 3,829 s) | hours: the core re-check (2,253 functions, `--jobs 2`) takes 2.0 h cold and 8 min warm (02-11-26; uncached baseline 2.97 h) |
+| target wall time | ctest 8,798 s at 2,314 tests (merge lane, 05-11-26) | ~30 min for a branch outside the sim's link closure. A sim-moving branch selects 1,554 of 2,337 tests on 05-11-26 (95% of fast's seconds) and runs about as long as fast (see "The branch tier") | hours: the core re-check (2,253 functions, `--jobs 2`) takes 2.0 h cold and 8 min warm (02-11-26; uncached baseline 2.97 h) |
 
 ### When each runs
 
@@ -65,7 +65,7 @@ an unrelated change selects nothing.
   and cores, 2 to 6 (`GATE_RIG_MEM_GB`, default 10, and `GATE_RIG_CORES`, default 4, stay free for the live rig; each job is
   budgeted `GATE_DIFF_JOB_MEM_GB`, default 2). `diff_core_recorded` has ctest COST 1000, so it starts first.
 - `GATE_SLOTS`: the candidate sim slots for the gate's two smokes (default: any two free ones). `GATE_SLOTS="3 2"` pins them. Every tier holds two at priority 0 (see "Sim slot queue"); the old pair polling is gone.
-- `GATE_BASE`: fast only, what "changed" is measured against.
+- `GATE_BASE`: fast and branch, what "changed" is measured against.
 - `GATE_SKIP_PREFILTER=1`, `GATE_PRE_MINUTES`: the full tier's 5-minute prefilter.
 - The PES diff suites run only with `GF_DIFF_PYTHON` and `PES_EXE` set (export both before `cmake -S . -B build` as well); a
   skipped diff test is then a red gate.
@@ -111,6 +111,19 @@ include, a subdirectory, a variable) runs every test.
 
 Ceiling: closures are static-library granular, not object granular, and a file a test reads through a path its command does not
 name is covered only by the fallbacks.
+
+The selection reaches ctest as a list of test numbers (`ctest -I`), not a name regex: a `-R` over the names matched nothing once
+it passed 985 of this build's 2,337 (05-11-26; the list overflowed ctest's regex engine, "Expression too big"). `branch_select.py
+--index` prints the argument; `branch_select_test` checks that ctest lists back exactly the selected names at full size.
+
+The gate's exclusion (`SimMatch.*`, `gfsim_run_test`) is applied by the selector (`--exclude`), and the branch run passes no `-E`:
+ctest numbers the `-I` list after `-E`, so the two together ran the wrong tests (05-11-26: 3 of 8 ran, reported GREEN). The verdict
+compares the count ctest runs with the count the selection names; any difference is RED.
+
+**Size.** A sim source (anything in `src/sim`, or in a library it links) selects every gfsim-linked binary: 1,554 of the 2,337
+tests (not counting the two excluded families), 95% of fast's per-test seconds in the 05-11-26 merge-lane log. Such a branch runs
+about as long as fast. The tier saves time for branches outside the sim's link closure. Object-level selection (which binaries
+pull the changed objects, from a link map) would narrow it; it is not built.
 
 ### Sim slot queue
 

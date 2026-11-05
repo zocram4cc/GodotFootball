@@ -7,11 +7,15 @@ build directory. Each check states the rule it relies on (branch_select.py's doc
   - a changed test source selects its own binary only;
   - a docs change selects only the always-on tests (the PII scan and the five recorded re-checks);
   - a changed assets file falls back to every test (sim data is read by any test through GF_SOURCE_DIR);
-  - a changed CMake line naming a test selects that test; a changed CMake line naming none falls back to every test.
+  - a changed CMake line naming a test selects that test; a changed CMake line naming none falls back to every test;
+  - the selection reaches ctest as a test-number index (-I) that ctest lists back exactly, at the full build's size (a name
+    regex over more than 985 of the build's names matched nothing).
 
 Run by ctest (branch_select_test): test_branch_select.py <build dir> <repo root> <scratch dir>."""
 import os
+import re
 import shutil
+import subprocess
 import sys
 import unittest
 
@@ -66,11 +70,12 @@ class BranchSelect(unittest.TestCase):
         self.assertBinary("pes_restart_delay_test", got, selected=False)
 
     def test_docs_select_only_the_always_on_tests(self):
+        # Exactly the always-on set. A repository-root argument (gfsim_run_test's) once pulled in the whole tree, which the
+        # earlier two-name spot check did not see.
         got = self.select(diff("docs/ports/README.md"))
-        self.assertIn("repo_pii_scan", got)
-        self.assertIn("diff_core_recorded", got)
-        self.assertBinary("pes_judge_test", got, selected=False)
-        self.assertBinary("pes_offside_test", got, selected=False)
+        always = {t["name"] for t in branch_select.ctest_tests(BUILD) if branch_select.ALWAYS.match(t["name"])}
+        self.assertEqual(set(got), always)
+        self.assertNotIn("gfsim_run_test", got)
 
     def test_assets_fall_back_to_every_test(self):
         got = self.select(diff("assets/fixtures/teams.sql"))
@@ -85,6 +90,32 @@ class BranchSelect(unittest.TestCase):
     def test_cmake_line_naming_no_test_falls_back_to_every_test(self):
         got = self.select(diff("tests/CMakeLists.txt", ["set(GF_SHARED_FLAG 1)"]))
         self.assertBinary("pes_judge_test", got, selected=True)
+
+    def assertRunsExactly(self, names):
+        """ctest -N -I lists exactly `names`: the gate's selection reaches ctest this way (a -R over 985+ names matched none)."""
+        arg = branch_select.ctest_index(BUILD, names)
+        out = subprocess.run(["ctest", "--test-dir", BUILD, "-N", "-I", arg],
+                             capture_output=True, text=True, check=True).stdout
+        self.assertNotIn("No tests were found", out)
+        self.assertEqual(set(re.findall(r"Test\s+#\d+: (\S+)", out)), set(names))
+
+    def test_every_built_test_runs_under_ctest_as_an_index(self):
+        everything = {t["name"] for t in branch_select.ctest_tests(BUILD)}
+        self.assertGreater(len(everything), 1000)
+        self.assertRunsExactly(everything)
+
+    def test_a_sim_selection_runs_under_ctest_as_an_index(self):
+        self.assertRunsExactly(set(self.select(diff("src/sim/simcontext.cpp"))))
+
+    def test_the_gates_exclusion_is_dropped_before_the_index(self):
+        # The gate's -E (the whole-match families) is applied by the selector: ctest numbers the -I list after -E, so the two
+        # together run the wrong tests. The sim selection holds the families; the index must not, and must list the rest.
+        exclude = r"^(SimMatch\.|gfsim_run_test$)"
+        full = branch_select.select(BUILD, REPO, diff("src/sim/simcontext.cpp"))
+        self.assertTrue([n for n in full if re.search(exclude, n)], "the sim selection should hold the families")
+        selected = branch_select.drop_excluded(full, exclude)
+        self.assertEqual([n for n in selected if re.search(exclude, n)], [])
+        self.assertRunsExactly(set(selected))
 
 
 if __name__ == "__main__":
