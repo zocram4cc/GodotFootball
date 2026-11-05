@@ -159,6 +159,10 @@ TARGETS = [
     ("kick_header_833CD0", 0x140833CD0, "KickCutover: kick request header builder (fills the order-record geometry)"),
     # --- PressAI3 block (PES starts a press via MATCH_UP writer -> coordinator -> eval; its proof is synthetic only). Append-only.
     ("press_matchup_536210", 0x140536210, "PressAI3: MATCH_UP writer (real calls for the synthetic-only proof)"),
+    # --- KickBranch block (real calls behind synthetic-only proofs; docs/ports/pes-port-KickBranch.md section 7). Append-only.
+    ("kick_root_141AFDF10", 0x141AFDF10, "KickBranch: root-motion reader (turning clips reach 0x1423BAEB0)"),
+    ("kick_widepass_140A510F0", 0x140A510F0, "KickBranch: request builder's wide-pass lane classifier"),
+    ("kick_shotgoal_140A641D0", 0x140A641D0, "KickBranch: chooser shot path inside the goal-area window"),
 ]
 
 
