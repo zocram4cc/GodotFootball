@@ -219,9 +219,9 @@ def ctest_numbers(build):
 
 
 def ctest_index(build, names):
-    """The -I argument that runs exactly `names` under ctest. A list of test numbers, not a name regex: a -R over 2,311
-    names overflows ctest's regex engine ("Expression too big") and runs nothing (05-11-26). Numbers, not names, keep the
-    argument far under the kernel's 128 KiB limit on one argument."""
+    """The -I argument that runs exactly `names` under ctest. A list of test numbers, not a name regex: a -R over more than
+    985 of the build's 2,337 names matched nothing (05-11-26: the regex engine overflowed, "Expression too big"). Numbers, not
+    names, keep the argument far under the kernel's 128 KiB limit on one argument."""
     if not names:
         raise ValueError("branch select: the selection is empty")
     numbers = ctest_numbers(build)

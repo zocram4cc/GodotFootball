@@ -57,7 +57,7 @@ else
   recorded_select=
 fi
 # branch: ctest runs only what the branch's diff can reach (tools/dev/branch_select.py; reasons in gate.branch.log). The
-# selection reaches ctest as a list of test numbers (-I): a name regex over 2,311 names overflows ctest's regex engine.
+# selection reaches ctest as a list of test numbers (-I): a name regex over more than 985 of the 2,337 names matched nothing.
 ctest_include=
 if [ "$tier" = branch ]; then
   if ! ctest_include=$(python3 "$repo/tools/dev/branch_select.py" --build "$build" --repo "$repo" --base "$base" --index 2> "$build/gate.branch.log"); then

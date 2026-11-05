@@ -8,8 +8,8 @@ build directory. Each check states the rule it relies on (branch_select.py's doc
   - a docs change selects only the always-on tests (the PII scan and the five recorded re-checks);
   - a changed assets file falls back to every test (sim data is read by any test through GF_SOURCE_DIR);
   - a changed CMake line naming a test selects that test; a changed CMake line naming none falls back to every test;
-  - the selection reaches ctest as a test-number index (-I) that ctest lists back exactly, at the full build's size (the
-    name regex it replaced overflowed ctest's regex engine at 2,311 names).
+  - the selection reaches ctest as a test-number index (-I) that ctest lists back exactly, at the full build's size (a name
+    regex over more than 985 of the build's names matched nothing).
 
 Run by ctest (branch_select_test): test_branch_select.py <build dir> <repo root> <scratch dir>."""
 import os
@@ -92,7 +92,7 @@ class BranchSelect(unittest.TestCase):
         self.assertBinary("pes_judge_test", got, selected=True)
 
     def assertRunsExactly(self, names):
-        """ctest -N -I lists exactly `names`: the gate's selection reaches ctest this way (-R overflowed at 2,311 names)."""
+        """ctest -N -I lists exactly `names`: the gate's selection reaches ctest this way (a -R over 985+ names matched none)."""
         arg = branch_select.ctest_index(BUILD, names)
         out = subprocess.run(["ctest", "--test-dir", BUILD, "-N", "-I", arg],
                              capture_output=True, text=True, check=True).stdout
