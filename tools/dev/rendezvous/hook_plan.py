@@ -203,6 +203,18 @@ TARGETS = [
     # --- TeamTick4 block (the arrival-list writer behind the pass target's default candidate). Append-only.
     ("ai_arrival_14045E0D0", 0x14045E0D0, "TeamTick4: writer of MA+0x24840/0x24908 arrival lists"),
     ("ti_unit_14211A340", 0x14211A340, "TeamTick4: carrier-unit vtable function the pass-target cutover reaches"),
+    # --- AnimeLayer block (PES's fox AnimControl engine phases and the SetMotion layer pusher). Append-only.
+    ("anime_phase3_1423A1AC0", 0x1423A1AC0, "AnimeLayer: phase 3 time advance + clip blend (writes L1+0x50)"),
+    ("anime_stage_1423A2260", 0x1423A2260, "AnimeLayer: stage plugins (rdx 1 = IK/modify, 2 = bone-space convert)"),
+    ("anime_phase4_1423A1900", 0x1423A1900, "AnimeLayer: phase 4 stage-0 sync plugins"),
+    ("anime_pusher_141AF61C0", 0x141AF61C0, "AnimeLayer: SetMotion layer-record pusher (rcx = BodyAnimControl)"),
+    # --- MoveStepCell block (the MOVESTEP request path and the Animetable cell lookup). Append-only.
+    ("stop_entry_1406D5D60", 0x1406D5D60, "MoveStepCell: MOVESTEP STOP entry"),
+    ("turnstop_sel_1406BA0D0", 0x1406BA0D0, "MoveStepCell: TurnStop selector (anime iface vt+0xE0)"),
+    ("abb30_any_1406ABB30", 0x1406ABB30, "MoveStepCell: Animetable cell lookup (~80 callers; empty-cell answers)"),
+    # --- TeamTick5 block (the carrier manager's unit 5). Append-only.
+    ("ti_mgr_14211E2D0", 0x14211E2D0, "TeamTick5: carrier manager running the 9 sub-units"),
+    ("ti_enter5_14211AB10", 0x14211AB10, "TeamTick5: carrier unit 5 can-enter"),
 ]
 
 
