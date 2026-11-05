@@ -177,7 +177,7 @@ TARGETS = [
     ("act4_callee_7A4D30", 0x1407A4D30, "RestingBall3: action-4 start callee"),
     ("act4_callee_7B68B0", 0x1407B68B0, "RestingBall3: action-4 start callee"),
     ("act4_callee_7B6D80", 0x1407B6D80, "RestingBall3: action-4 start callee"),
-    ("trajectory_852C00", 0x140852C00, "RestingBall3: trajectory function reached past the stale pass target"),
+    ("traj_caller_8495B0", 0x1408495B0, "RestingBall3: caller of the .pdata-less trajectory leaf 0x140852C00"),
 ]
 
 
