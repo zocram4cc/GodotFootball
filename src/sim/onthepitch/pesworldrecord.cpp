@@ -241,6 +241,9 @@ void PesWorld::RunTurnReference(int side, const PesDangerExternals& ext) {
 }
 
 void PesWorld::RunDribbleProposal(int side, uint32_t slot, const PesDangerExternals& ext) {
+  // ponytail: the side record's T+0x10, T+0x2C and T+0x30 (the last Cross carrier and the two frame counters the Cross unit's start 0x14211AB10
+  // gates on) stay 0 in the window. Live PES holds them (pid 2254416: T+0x10 = 18, T+0x2C/T+0x30 = 451/347 and rising per frame on one side);
+  // their writer is not decoded (docs/ports/pes-port-TeamTick5.md, open item 2), so GF's Cross start has no cool-down.
   RunTurnReference(side, ext);  // 0x14211D710: ticks the carrier manager, writes BP+0x3380
   uint8_t* bp = Carrier(side);
   const uint64_t bpVa = CarrierVa(side);
