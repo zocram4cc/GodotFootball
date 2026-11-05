@@ -356,3 +356,15 @@ set_tests_properties(auto_slim_test PROPERTIES TIMEOUT 60)
 add_test(NAME translate_layer_headers_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_layer_headers.py)
 set_tests_properties(translate_layer_headers_test PROPERTIES TIMEOUT 300)
+
+# GF_PES_SURVEY at pes_dispatch_missing: unset aborts as before; set lists every hit and exits nonzero, with or without
+# a recovery. Builds the generated dispatch TU and pes_survey.hpp with a probe. Needs a C++ compiler.
+add_test(NAME translate_pes_survey_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_pes_survey.py)
+set_tests_properties(translate_pes_survey_test PROPERTIES TIMEOUT 300)
+
+# untranslated_callees.py: the calls reached from a root, their call sites, and the hook plan's refusals. Plain python3
+# (capstone, for the window check).
+add_test(NAME translate_untranslated_callees_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_untranslated_callees.py)
+set_tests_properties(translate_untranslated_callees_test PROPERTIES TIMEOUT 120)

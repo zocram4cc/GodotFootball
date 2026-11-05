@@ -817,7 +817,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
         f.write(main_src)
     # support headers into the build tree: the committed runtime headers, plus the harness's diffparse.hpp
     for h in ("pes_state.hpp", "pes_cond.inl", "diffparse.hpp",
-              "pes_stubs.hpp", "pes_dispatch.hpp"):
+              "pes_stubs.hpp", "pes_dispatch.hpp", "pes_survey.hpp"):
         hp = os.path.join(gen, h)
         if not os.path.exists(hp):
             src = os.path.join(HERE if h == "diffparse.hpp" else TRANSLATED_DIR, h)
