@@ -172,6 +172,12 @@ TARGETS = [
     ("kick_commit_1406F9B70", 0x1406F9B70, "KickTick: command commit (pending cmd, order record at +0x5EC)"),
     ("kick_tick_140719F20", 0x140719F20, "KickTick: Kick action tick switch"),
     ("kick_ai_exec_1409316E0", 0x1409316E0, "KickTick: AI executor"),
+    # --- RestingBall3 block (the action-4 start virtual and its callees on the PES-wait trap path). Append-only.
+    ("act4_start_7A38E0", 0x1407A38E0, "RestingBall3: action-4 start virtual (vt 0x1425E2440+0x58)"),
+    ("act4_callee_7A4D30", 0x1407A4D30, "RestingBall3: action-4 start callee"),
+    ("act4_callee_7B68B0", 0x1407B68B0, "RestingBall3: action-4 start callee"),
+    ("act4_callee_7B6D80", 0x1407B6D80, "RestingBall3: action-4 start callee"),
+    ("trajectory_852C00", 0x140852C00, "RestingBall3: trajectory function reached past the stale pass target"),
 ]
 
 
