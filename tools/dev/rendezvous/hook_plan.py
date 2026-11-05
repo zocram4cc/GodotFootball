@@ -166,6 +166,18 @@ TARGETS = [
     # --- RestingBall2 block (trap end transition and the action-4 virtual it reaches; pes-port-RestingBall2.md). Append-only.
     ("trap_endtrans_6B4580", 0x1406B4580, "RestingBall2: trap end transition's action dispatch (call from 0x14079EE70)"),
     ("trap_act4_7BA840", 0x1407BA840, "RestingBall2: action-4 virtual reached at the trap end (untranslated)"),
+    # --- KickTick block (the Kick action's per-tick driver; pes-port-KickTick.md). Append-only.
+    ("kick_try_140724CC0", 0x140724CC0, "KickTick: Kick action start (try)"),
+    ("kick_gate_1407266B0", 0x1407266B0, "KickTick: Kick can-enter gate (rdx = P)"),
+    ("kick_commit_1406F9B70", 0x1406F9B70, "KickTick: command commit (pending cmd, order record at +0x5EC)"),
+    ("kick_tick_140719F20", 0x140719F20, "KickTick: Kick action tick switch"),
+    ("kick_ai_exec_1409316E0", 0x1409316E0, "KickTick: AI executor"),
+    # --- RestingBall3 block (the action-4 start virtual and its callees on the PES-wait trap path). Append-only.
+    ("act4_start_7A38E0", 0x1407A38E0, "RestingBall3: action-4 start virtual (vt 0x1425E2440+0x58)"),
+    ("act4_callee_7A4D30", 0x1407A4D30, "RestingBall3: action-4 start callee"),
+    ("act4_callee_7B68B0", 0x1407B68B0, "RestingBall3: action-4 start callee"),
+    ("act4_callee_7B6D80", 0x1407B6D80, "RestingBall3: action-4 start callee"),
+    ("traj_caller_8495B0", 0x1408495B0, "RestingBall3: caller of the .pdata-less trajectory leaf 0x140852C00"),
 ]
 
 
