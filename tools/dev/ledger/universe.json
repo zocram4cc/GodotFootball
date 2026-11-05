@@ -1228473,6 +1228473,64 @@
    "vtables": [],
    "walked": true
   },
+  "142132E20": {
+   "boundary": null,
+   "callees": {
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A4DDC0": "direct",
+    "140A4F720": "direct",
+    "140A714C0": "direct",
+    "140A8F7C0": "direct",
+    "141E532E0": "direct",
+    "141E5D4C0": "direct",
+    "1421334D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142132e20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "gkdribble"
+   ],
+   "scope": "in",
+   "size": 169,
+   "source": "pdata",
+   "subsystem": "gkdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1421334D0": {
+   "boundary": null,
+   "callees": {
+    "141E53540": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1421334d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "gkdribble"
+   ],
+   "scope": "in",
+   "size": 75,
+   "source": "pdata",
+   "subsystem": "gkdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1421349E0": {
    "boundary": null,
    "callees": {
@@ -1294969,6 +1295027,12 @@
     "members": 237,
     "roots": [
      "0x140472640"
+    ]
+   },
+   "gkdribble": {
+    "members": 27,
+    "roots": [
+     "0x142132E20"
     ]
    },
    "motion": {
