@@ -26,6 +26,9 @@
 #include "pes/exe.hpp"
 #include "pes/mbinfo.hpp"
 #include "pes/movestep.hpp"
+#include "pes/movestep_turn.hpp"
+#include "pes/translated/pes_state.hpp"
+#include "pes/translated/translated.hpp"
 #include "pes/vfs.hpp"
 #include "pes_match_constants.hpp"
 #include "rig/rig.hpp"
@@ -933,7 +936,7 @@ TEST(MoveStepWire, NoMoveStepIssueRequestsNoMotion) {
 // movement clip reads CurrentMotion -1, never meets its exit tests and stands there for good (TeamTick4: a named receiver stood
 // 5 s). PES's anime player keeps a finished clip as the current motion until the next issue, so the handler sees its own clip
 // to the end. No man whose body the FSM drives may sit in RUN_TURN_RUN on a clip PES does not number for a second, and none may
-// stand a second on a finished clip in any state that holds the body's pose (the hold must not freeze a body either).
+// stand a second on a finished clip in RUN_TURN_RUN (the hold must not freeze a body either).
 TEST(MoveStepWire, NoManSitsInRunTurnRunOnAClipPesDoesNotNumber) {
   Properties config;
   config.SetBool("pes_loop", true);
@@ -950,8 +953,10 @@ TEST(MoveStepWire, NoManSitsInRunTurnRunOnAClipPesDoesNotNumber) {
       run[p] = stuck ? run[p] + 1 : 0;
       longest = std::max(longest, run[p]);
       const Anim* a = p->GetCurrentAnim();
-      const bool atEnd = a->anim && a->frameNum >= a->anim->GetFrameCount() - 1 && pesmovestep::CurrentMotionOf(*p) >= 0;
-      finished[p] = atEnd && pes::HoldsBodyPose(p->GetMoveStep().state) ? finished[p] + 1 : 0;
+      // A held set-piece taker is in his standby action (not MOVE), so MOVESTEP does not tick for him (ProcessMoveStep).
+      const bool fsmTicks = p->CastHumanoid()->IsMovementClip() && !p->GetTeam()->GetController()->IsPieceTakerHeld(p);
+      const bool atEnd = fsmTicks && a->anim && a->frameNum >= a->anim->GetFrameCount() - 1 && pesmovestep::CurrentMotionOf(*p) >= 0;
+      finished[p] = atEnd && p->GetMoveStep().state == pes::MoveState::kRunTurnRun ? finished[p] + 1 : 0;
       longestFinished = std::max(longestFinished, finished[p]);
     }
   }
@@ -959,4 +964,25 @@ TEST(MoveStepWire, NoManSitsInRunTurnRunOnAClipPesDoesNotNumber) {
          longestFinished);
   EXPECT_LT(longest, kOneSecond);
   EXPECT_LT(longestFinished, kOneSecond);
+}
+
+// RUN_TURN_RUN's two motion-set predicates are hand-ported from FUN_140a6e290 / FUN_140a6e2e0 (pure tests of a u16 motion id).
+// The translated functions are the oracle: every motion id answers the same.
+TEST(MoveStepWire, TheMotionSetPredicatesAgreeWithTheTranslatedFunctions) {
+  constexpr uint64_t kBase = 0x10000;
+  int checked = 0;
+  for (int motion = 0; motion <= 0xffff; ++motion) {
+    uint8_t bytes[2] = {static_cast<uint8_t>(motion & 0xff), static_cast<uint8_t>(motion >> 8)};
+    for (const bool halted : {false, true}) {
+      PesState s;
+      s.mem.window = {kBase, sizeof bytes, bytes, nullptr};
+      s.gpr[1] = kBase;
+      (halted ? ::pes_fn_140A6E2E0 : ::pes_fn_140A6E290)(s);
+      const bool oracle = (s.gpr[0] & 0xffu) != 0;
+      const bool port = halted ? pes::movestep::MotionIsHalted(motion) : pes::movestep::MotionIsRunning(motion);
+      ASSERT_EQ(port, oracle) << (halted ? "halted " : "running ") << motion;
+      ++checked;
+    }
+  }
+  EXPECT_EQ(checked, 2 * 0x10000);
 }

@@ -675,6 +675,9 @@ void StampLiveWords(MoveHost& host, MoveReq& req, float savedSpeed) {
 }
 }  // namespace
 
+bool MotionIsRunning(int motion) { return IsRunningMotion(motion); }
+bool MotionIsHalted(int motion) { return IsHaltedMotion(motion); }
+
 void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const pes::RunTables& rt = host.RunTablesView();
   const int F = host.CurrentClipFrames();  // (P+0xab8 vt+0x38)()

@@ -66,18 +66,14 @@ enum class MoveState : uint8_t {
 };
 inline constexpr int kMoveStateCount = 24;
 
-// The FSM's pose hold: while the state is STOP or ACCELERATE the body keeps its pose. The clip's end does not switch the
-// body and the AI's movement command selects no clip (humanoid.cpp). ponytail: the hold set is STOP and ACCELERATE; the
-// IDLE family is not held, since its exit to GOTO_RUN is not decoded.
+// The FSM's pose hold: while the state is STOP, ACCELERATE or RUN_TURN_RUN the body keeps its pose. The clip's end does not
+// switch the body and the AI's movement command selects no clip (humanoid.cpp): PES's anime player keeps a finished clip as the
+// current motion until the next issue, and these handlers read that clip to exit. ponytail: the hold set is the states whose
+// exit is decoded and checked (RUN_TURN_RUN: FUN_1406C14C0 from its instruction stream); the other turn states keep the old
+// hand-off because their ports do not exit reliably yet (widening the hold to them froze a man for 2,500 ticks); the IDLE
+// family is not held, since its exit to GOTO_RUN is not decoded.
 inline bool HoldsBodyPose(MoveState s) {
-  switch (s) {
-    case MoveState::kStop: case MoveState::kAccelerate: case MoveState::kDecelerate: case MoveState::kTurnStop:
-    case MoveState::kRunTurnRun: case MoveState::kRunTurnRunSlipdown: case MoveState::kRunTurnStep:
-    case MoveState::kStepTurnRun: case MoveState::kStepTurnStep: case MoveState::kStepToRun: case MoveState::kRunToStep:
-      return true;
-    default:
-      return false;
-  }
+  return s == MoveState::kStop || s == MoveState::kAccelerate || s == MoveState::kRunTurnRun;
 }
 
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.

@@ -150,6 +150,10 @@ struct MoveTurnConstants {
 };
 std::optional<MoveTurnConstants> LoadMoveTurnConstants(const PeImage& exe, std::string* error);
 
+// FUN_140a6e290 / FUN_140a6e2e0: the running and halted motion sets (pure tests of the motion id).
+bool MotionIsRunning(int motion);
+bool MotionIsHalted(int motion);
+
 // 12: RUN_TURN_RUN (FUN_1406c14c0).
 void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k);
 // 18: RUN_TURN_RUN_SLIPDOWN (FUN_1406c2f80).
