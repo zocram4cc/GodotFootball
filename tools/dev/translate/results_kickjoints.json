@@ -80,8 +80,8 @@
    "closure_file": "closure_kickjoints.json",
    "coverage": {
     "0x140724CC0": {
-     "fraction": 0.5094,
-     "reached": 54,
+     "fraction": 0.8774,
+     "reached": 93,
      "total": 106
     }
    },
@@ -91,18 +91,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: 11 REAL kick_try_140724CC0 calls: live2/pid781084 seq10012 seq11429 seq11842 seq7722 (own-block 0.5094), seq8519 seq9869 seq9894, and live2/pid615595 seq2892 seq5297 seq5324 seq5353. No real call starts a kick (the chooser answers none or the gate refuses), so the success tail (P+0x2752.. stores, FUN_14071DD80, FUN_140717840, FUN_1406E2C30 and the shot registry branch) is not proven; those calls abort loudly.",
+   "note": "proof snapdiff --bounded: 11 REAL kick_try_140724CC0 calls (live2/pid781084 seq10012 seq11429 seq11842 seq7722, seq8519 seq9869 seq9894; live2/pid615595 seq2892 seq5297 seq5324 seq5353; own-block 0.5094): seq10012 STARTS a kick (al = 1, P+0x2752..0x2756 written, the success tail through FUN_14071DD80 / FUN_140717840 entered; the 10 others refuse at the gate or answer none), and 4 SYNTHETIC states from seq10012 (synth.py: curA_0001 sets P+0xAC9 so the cmd-action branch FUN_1406E2C30 runs; shotA_0001/0006/0010 set the order's action word to 10 and the target so the shot's registry branch FUN_141B55730/830/850 runs; own-block 0.8774 over the 4). The closure is the union of the bounded members lists; every other call aborts loudly.",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 11,
+    "calls": 15,
     "mismatches": 0,
     "own_block": {
-     "fraction": 0.5094,
-     "reached": 54,
+     "fraction": 0.8774,
+     "reached": 93,
      "total": 106
     },
-    "replayed": 11,
+    "replayed": 15,
     "source": "tools/dev/translate/results_kickjoints.json"
    },
    "stubs": [],
@@ -324,6 +324,42 @@
    "stubs": [],
    "translated": true,
    "va": "0x14079DBB0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x1406B0540": {
+     "fraction": 1.0,
+     "reached": 44,
+     "total": 44
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 8 SYNTHETIC states (synth.py static, as 0x1406B0540, over the real full capture live2/pid781084/seq10012: rcx = the motion table manager [0x1436F23C0], rdx an out buffer, r8d motion 100/1200/2500/3077/3500/4400, r9d index 0/1/2, [rsp+0x28] the flag 0/1); own-block 1.0. The player update's FUN_1406E7F20 (the P+0xB06 writer) calls it; the seed-7 survey reached it 9,225 times in 2 minutes.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 8,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 44,
+     "total": 44
+    },
+    "replayed": 8,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B0540"
   }
  ]
 }
