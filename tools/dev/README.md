@@ -87,47 +87,6 @@ regenerates). A hit gives exactly what the uncached step gives; whatever cannot 
 - A layer header edit misses the objects of the TUs that include it and hits the corpus. To reset, delete
   `<build>/<set>-check/cache`. The driver ends with `driver: cache corpus hit=N miss=M object compiled=N hit=N`.
 
-## Untranslated callees: survey, lister, hooks
-
-Three tools find what translated code reaches without a translation, before a cutover. Rule: **survey first, then translate
-the whole list in one batch** (one `gen_translated.py` regeneration, one gate). Never translate one callee per smoke.
-
-### 1. Survey mode (`GF_PES_SURVEY=<file>`, runtime)
-
-- Off by default. An untranslated target aborts (`PES_DISPATCH_UNTRANSLATED`) after its recovery, if any, as before.
-- Set: every hit is counted and the run goes on. The recovery (`pes_dispatch_missing_handler`, GF's pre-cutover path for
-  that call) runs first when one is installed; it may not return. A call with no recovery has no effect.
-- A survey run never passes as a smoke: it exits **79** (`kPesSurveyExitCode`), with or without hits.
-- The list is rewritten at each new target and at exit, one line per target: `target hits first_frame caller_offset`.
-  `first_frame` is the logic frame of the first hit. `caller_offset` is the return address into the calling function minus
-  the executable's load bias: `nm -C -n build/apps/gfsim_run` names the function that holds it (a translated `pes_fn_<VA>`
-  or GF code).
-- A skipped call changes what runs after it, so later hits are a lower bound for that run. Survey several seeds.
-- Header `src/pes/translated/pes_survey.hpp`; the hook is in the generated `pes_dispatch_gen.cpp`. Test:
-  `translate_pes_survey_test`.
-
-### 2. Static lister (`translate/untranslated_callees.py`)
-
-    tools/dev/translate/untranslated_callees.py [--layer DIR] VA...
-
-- Walks the calls from each root through the layer (`pes_fn_<VA>(s)` calls) and lists every `OUT-OF-SET CALL` marker it
-  reaches, with its call sites as `callerVA:line` in the layer file.
-- Default layer: `src/pes/translated`. For a branch's layer, extract it (`git archive <branch> src/pes/translated`) and pass
-  `--layer`. Exit 2 when a root is not translated in that layer.
-- A marker whose callee is also in the layer still aborts at its call site: the caller's build did not link the callee. The
-  lister says so.
-- Test: `translate_untranslated_callees_test`.
-
-### 3. Hook generator (`--hooks`)
-
-    PES_EXE=<flat image> tools/dev/translate/untranslated_callees.py --hooks [--first N] [--every N] [--prefix NAME] VA...
-
-- Prints `hook_plan.py` TARGETS rows (`("callee_<VA>", 0x<VA>, "note"),`) and `hooks.cfg` lines
-  (`hook NAME VA LEN FIRST EVERY BYTES`). Defaults: FIRST 1, EVERY 20, the rule for a new hook.
-- The prologue check is hook_plan's: the target must be a `.pdata` function entry, and `rv_hooks.displaced_window` must
-  cover 14 bytes with whole, branch-free, rip-free instructions. A refusal prints `# REFUSE 0x<VA>: reason`; the exit status
-  is 1 when any target is refused.
-- Main arms the hooks: paste the rows into TARGETS and the lines into `hooks.cfg`. Agents never edit `hooks.cfg`.
 
 ### The branch tier
 
@@ -203,3 +162,45 @@ Retired scripts and their spec form:
   field per poke; `stop` for the walk to a callee). `synth_specs/` holds committed specs (`trap_dribble_start.json`). Not folded in
   yet: `synth_press_order.py` (PressAI) and `synth_chooser.py` (KickMotion) keep their own case generators until those branches
   land. Their list-entry writes need a repeat field.
+
+## Untranslated callees: survey, lister, hooks
+
+Three tools find what translated code reaches without a translation, before a cutover. Rule: **survey first, then translate
+the whole list in one batch** (one `gen_translated.py` regeneration, one gate). Never translate one callee per smoke.
+
+### 1. Survey mode (`GF_PES_SURVEY=<file>`, runtime)
+
+- Off by default. An untranslated target aborts (`PES_DISPATCH_UNTRANSLATED`) after its recovery, if any, as before.
+- Set: every hit is counted and the run goes on. The recovery (`pes_dispatch_missing_handler`, GF's pre-cutover path for
+  that call) runs first when one is installed; it may not return. A call with no recovery has no effect.
+- A survey run never passes as a smoke: it exits **79** (`kPesSurveyExitCode`), with or without hits.
+- The list is rewritten at each new target and at exit, one line per target: `target hits first_frame caller_offset`.
+  `first_frame` is the logic frame of the first hit. `caller_offset` is the return address into the calling function minus
+  the executable's load bias: `nm -C -n build/apps/gfsim_run` names the function that holds it (a translated `pes_fn_<VA>`
+  or GF code).
+- A skipped call changes what runs after it, so later hits are a lower bound for that run. Survey several seeds.
+- Header `src/pes/translated/pes_survey.hpp`; the hook is in the generated `pes_dispatch_gen.cpp`. Test:
+  `translate_pes_survey_test`.
+
+### 2. Static lister (`translate/untranslated_callees.py`)
+
+    tools/dev/translate/untranslated_callees.py [--layer DIR] VA...
+
+- Walks the calls from each root through the layer (`pes_fn_<VA>(s)` calls) and lists every `OUT-OF-SET CALL` marker it
+  reaches, with its call sites as `callerVA:line` in the layer file.
+- Default layer: `src/pes/translated`. For a branch's layer, extract it (`git archive <branch> src/pes/translated`) and pass
+  `--layer`. Exit 2 when a root is not translated in that layer.
+- A marker whose callee is also in the layer still aborts at its call site: the caller's build did not link the callee. The
+  lister says so.
+- Test: `translate_untranslated_callees_test`.
+
+### 3. Hook generator (`--hooks`)
+
+    PES_EXE=<flat image> tools/dev/translate/untranslated_callees.py --hooks [--first N] [--every N] [--prefix NAME] VA...
+
+- Prints `hook_plan.py` TARGETS rows (`("callee_<VA>", 0x<VA>, "note"),`) and `hooks.cfg` lines
+  (`hook NAME VA LEN FIRST EVERY BYTES`). Defaults: FIRST 1, EVERY 20, the rule for a new hook.
+- The prologue check is hook_plan's: the target must be a `.pdata` function entry, and `rv_hooks.displaced_window` must
+  cover 14 bytes with whole, branch-free, rip-free instructions. A refusal prints `# REFUSE 0x<VA>: reason`; the exit status
+  is 1 when any target is refused.
+- Main arms the hooks: paste the rows into TARGETS and the lines into `hooks.cfg`. Agents never edit `hooks.cfg`.

@@ -200,6 +200,8 @@ TARGETS = [
     ("rb5_140861170", 0x140861170, "RestingBall5: contact-search callee, static-reachable"),
     # --- KickJoints2 block (the Kick start's success tail). Append-only.
     ("kick_dd80_14071DD80", 0x14071DD80, "KickJoints2: success-only call after the Kick start's cell (2 callers)"),
+    # --- TeamTick4 block (the arrival-list writer behind the pass target's default candidate). Append-only.
+    ("ai_arrival_14045E0D0", 0x14045E0D0, "TeamTick4: writer of MA+0x24840/0x24908 arrival lists"),
 ]
 
 
