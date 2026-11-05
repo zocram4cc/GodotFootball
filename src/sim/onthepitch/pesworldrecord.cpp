@@ -459,6 +459,21 @@ void PesWorld::RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext) {
   ReturnSegments(st, ext, lent);
 }
 
+bool PesWorld::RunKickGate(int slot, PesTrapExternals& ext) {
+  PesState st = NewCall(Bytes());
+  const std::size_t lent = LendExternals(st, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  st.wr(entry, 0, 8);
+  st.gpr[4] = entry;
+  // rcx: the Kick object (the table's pointer for the pass id: ids 8, 9 and 10 name one object); the gate reads only P.
+  st.gpr[1] = LoadU64(P(slot), kPActionTableOffset + kActionTablePointersOffset + sizeof(uint64_t) * kKickPassActionId);
+  st.gpr[2] = PVa(slot);  // rdx: P
+  st.mem.wlog = ext.writeLog;
+  ::pes_fn_1407266B0(st);
+  ReturnSegments(st, ext, lent);
+  return (st.gpr[0] & 0xFF) != 0;
+}
+
 std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float seconds, PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
   const std::size_t lent = LendExternals(s, ext);

@@ -156,6 +156,7 @@ inline constexpr std::size_t kPSegmentOffset = 0x2471, kPMirrorOffset = 0x2472; 
 // its constructors' output (gen_actiontable.py).
 inline constexpr std::size_t kPActionTableOffset = 0xC40, kActionTableBytes = 0x1818;
 inline constexpr std::size_t kActionTablePointersOffset = 0x1528, kActionTableSlots = 0x5E;
+inline constexpr std::size_t kKickPassActionId = 9;  // the Kick action's ids are 8, 9 and 10 (lofted pass, ground pass, shot); one object
 
 // The caller's frame object F (*r8 of the tick): its +0x870 is the ball record; the other fields the captured ticks read are
 // named in docs/ports/pes-port-TrapTick.md 3.

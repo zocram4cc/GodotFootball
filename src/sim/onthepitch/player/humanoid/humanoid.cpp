@@ -99,8 +99,7 @@ pes::KickWorld PesKickWorld(Match* match, Player* player, const pes::SituationCo
 // order, the chooser FUN_1408364D0 on its request, the clip table row FUN_14071E6F0 and the Animetable cell FUN_14071E570 for the
 // chosen kind (the alternate kind at descriptor +0x28 when the kind is none), and it returns 1 only when the cell exists
 // (FUN_1406ABDD0): P+0x2752.. and the action start follow. Null = it returns 0 and PES starts no Kick this tick.
-// ponytail: the Kick object's own fields are not ported (RunKickRequest names them), nor its can-start gate (vtable slot 2,
-// FUN_1407266B0: the pitch margin and carried-ball tests): the gate answers yes. The order is GF's decision at the tick it selects
+// ponytail: the Kick object's own fields are not ported (RunKickRequest names them). The order is GF's decision at the tick it selects
 // the animation (the commanded direction and power, the commanded receiver; a shot's aim is extended to the goal line it faces): the
 // AI order writer (FUN_14210E790 -> the BP command, cmd+0x5EC record) is OPEN (docs/ports/pes-port-KickHeader.md section 4). Remove
 // with the Kick action object.
@@ -128,6 +127,8 @@ std::optional<pes::PesKickPick> PesKickStart(Match* match, Player* player, const
   const float launchHeading_deg = pes::PesHeadingDeg(launch.coords[0], -launch.coords[1]);
   const int slot = match->PesSlotOf(player);
   pes::PesWorld& world = match->PesWorldOf();
+  // The can-enter gate comes first (FUN_140724CC0 0x140724CD7, the Kick object's vtable slot 2): a refusal is the same none answer.
+  if (!world.RunKickGate(slot, match->PesTrapExternalsOf())) return std::nullopt;
   const pes::PesKickRequest built = world.RunKickRequest(
       slot, pes::KickOrderFor(request, target, receiver, launchHeading_deg, touch.desiredPower, launch.GetLength()),
       match->PesTrapExternalsOf());

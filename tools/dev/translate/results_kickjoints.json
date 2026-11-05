@@ -72,6 +72,258 @@
    "stubs": [],
    "translated": true,
    "va": "0x141EB49B0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x140724CC0": {
+     "fraction": 0.5094,
+     "reached": 54,
+     "total": 106
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 11 REAL kick_try_140724CC0 calls: live2/pid781084 seq10012 seq11429 seq11842 seq7722 (own-block 0.5094), seq8519 seq9869 seq9894, and live2/pid615595 seq2892 seq5297 seq5324 seq5353. No real call starts a kick (the chooser answers none or the gate refuses), so the success tail (P+0x2752.. stores, FUN_14071DD80, FUN_140717840, FUN_1406E2C30 and the shot registry branch) is not proven; those calls abort loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.5094,
+     "reached": 54,
+     "total": 106
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140724CC0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x1406E7A60": {
+     "fraction": 0.9091,
+     "reached": 10,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 SYNTHETIC entries (synth_call.py, rcx = P or the manager, over the real full captures live2/pid781084/seq7723, pid130478/seq7653, pid615595/seq1858, seq6042). The player update's kick-approach block calls it.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.9091,
+     "reached": 10,
+     "total": 11
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E7A60"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x140808D10": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 SYNTHETIC entries (synth_call.py, rcx = P or the manager, over the real full captures live2/pid781084/seq7723, pid130478/seq7653, pid615595/seq1858, seq6042).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140808D10"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x1406EA340": {
+     "fraction": 0.8462,
+     "reached": 33,
+     "total": 39
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 SYNTHETIC entries (synth_call.py, rcx = P or the manager, over the real full captures live2/pid781084/seq7723, pid130478/seq7653, pid615595/seq1858, seq6042), called as the player update calls it (rdx = 0, xmm1 = xmm2 = 0, xmm3 = the float at 0x14259858C).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.8462,
+     "reached": 33,
+     "total": 39
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406EA340"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x1406AFA60": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 16 SYNTHETIC entries (4 states x motions 100 1200 2500 3500; rcx = the motion table manager, xmm2 = 1.0, r9d = 0).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 16,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "replayed": 16,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406AFA60"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x1406AFB10": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 16 SYNTHETIC entries (4 states x motions 100 1200 2500 3500; rcx = the motion table manager, xmm2 = 1.0, r9d = 0).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 16,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "replayed": 16,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406AFB10"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x14079DBB0": {
+     "fraction": 0.7857,
+     "reached": 22,
+     "total": 28
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 SYNTHETIC entries (synth_call.py: rcx = the Trap action object, rdx = P+0xAC8, r8 = P) over the real full captures live2/pid781084/seq7723, pid130478/seq7653, pid615595/seq1858, seq6042. The Trap action's vtable slot 0x90, which the player update calls for a man whose action is Trap.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.7857,
+     "reached": 22,
+     "total": 28
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14079DBB0"
   }
  ]
 }

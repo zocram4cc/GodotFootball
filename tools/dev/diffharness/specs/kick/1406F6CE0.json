@@ -48,6 +48,11 @@
    "offset": "0x10",
    "enc": "f32"
   },
+  "A0_20": {
+   "region": "A0",
+   "offset": "0x20",
+   "enc": "f32"
+  },
   "A0_AB8": {
    "region": "A0",
    "offset": "0xAB8",
@@ -448,6 +453,11 @@
    "offset": "0x27B1",
    "enc": "u8"
   },
+  "A0_27E7": {
+   "region": "A0",
+   "offset": "0x27E7",
+   "enc": "u8"
+  },
   "A0_2808": {
    "region": "A0",
    "offset": "0x2808",
@@ -562,6 +572,12 @@
    "domain": "generic f32 -50..50 (no doc range)"
   },
   "A0_10": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_20": {
    "kind": "f32",
    "lo": -50.0,
    "hi": 50.0,
@@ -1042,6 +1058,12 @@
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "A0_27B1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_27E7": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -1539,6 +1561,14 @@
  "count": 64,
  "precheck": {
   "indirect_calls": [
+   "indirect-call@1406E7A77",
+   "indirect-call@1406E7A91",
+   "indirect-call@1406E7AAC",
+   "indirect-call@1406EA3B0",
+   "indirect-call@1406EA3BC",
+   "indirect-call@1406EA41A",
+   "indirect-call@1406EA47E",
+   "indirect-call@1406EA4A8",
    "indirect-call@1406F6D16",
    "indirect-call@1406F6D31",
    "indirect-call@1406F6D4C",
@@ -1647,7 +1677,7 @@
    "indirect-call@1406F7FE7"
   ],
   "tailjumps": [],
-  "unresolved_mem": 82,
+  "unresolved_mem": 98,
   "live_data_reads": [
    "IMG"
   ],
@@ -1656,12 +1686,16 @@
    "IMG"
   ],
   "stack_args": {},
-  "calls": [],
+  "calls": [
+   "1406AFA60",
+   "1406AFB10",
+   "1406E7A60",
+   "1406EA340",
+   "140808D10"
+  ],
   "flags": [
    "callee-outside-set@1406AF620",
    "callee-outside-set@1406AF8E0",
-   "callee-outside-set@1406AFA60",
-   "callee-outside-set@1406AFB10",
    "callee-outside-set@1406AFBC0",
    "callee-outside-set@1406AFBF0",
    "callee-outside-set@1406AFCF0",
@@ -1673,24 +1707,23 @@
    "callee-outside-set@1406B11E0",
    "callee-outside-set@1406BA7A0",
    "callee-outside-set@1406D9010",
-   "callee-outside-set@1406E7A60",
    "callee-outside-set@1406E7F20",
-   "callee-outside-set@1406EA340",
    "callee-outside-set@1406EADA0",
    "callee-outside-set@140808CF0",
-   "callee-outside-set@140808D10",
    "callee-outside-set@140809050",
    "callee-outside-set@140A3E190",
    "callee-outside-set@140A48910",
    "callee-outside-set@140A489D0",
    "callee-outside-set@140A489F0",
    "callee-outside-set@140A48A10",
+   "callee-outside-set@140A48A30",
    "callee-outside-set@140A606E0",
    "callee-outside-set@140A627E0",
    "callee-outside-set@140A62E40",
    "callee-outside-set@140A638C0",
    "callee-outside-set@140A6C460",
    "callee-outside-set@140A6D400",
+   "callee-outside-set@140A6E090",
    "callee-outside-set@140A6E0D0",
    "callee-outside-set@140A6E110",
    "callee-outside-set@140A6E150",
@@ -1708,6 +1741,14 @@
    "callee-outside-set@141EB3320",
    "callee-outside-set@141EB51A0",
    "callee-outside-set@141EB51F0",
+   "indirect-call@1406E7A77",
+   "indirect-call@1406E7A91",
+   "indirect-call@1406E7AAC",
+   "indirect-call@1406EA3B0",
+   "indirect-call@1406EA3BC",
+   "indirect-call@1406EA41A",
+   "indirect-call@1406EA47E",
+   "indirect-call@1406EA4A8",
    "indirect-call@1406F6D16",
    "indirect-call@1406F6D31",
    "indirect-call@1406F6D4C",
@@ -1814,6 +1855,22 @@
    "indirect-call@1406F7F9D",
    "indirect-call@1406F7FB6",
    "indirect-call@1406F7FE7",
+   "unresolved-mem@1406AFA79",
+   "unresolved-mem@1406AFA88",
+   "unresolved-mem@1406AFA8B",
+   "unresolved-mem@1406AFA97",
+   "unresolved-mem@1406AFB29",
+   "unresolved-mem@1406AFB38",
+   "unresolved-mem@1406AFB3B",
+   "unresolved-mem@1406AFB47",
+   "unresolved-mem@1406E7ABC",
+   "unresolved-mem@1406EA3B5",
+   "unresolved-mem@1406EA44B",
+   "unresolved-mem@1406EA456",
+   "unresolved-mem@1406EA48E",
+   "unresolved-mem@1406EA4A5",
+   "unresolved-mem@1406EA4C5",
+   "unresolved-mem@1406EA58D",
    "unresolved-mem@1406F6DB8",
    "unresolved-mem@1406F6DF3",
    "unresolved-mem@1406F6E0F",
