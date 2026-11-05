@@ -185,6 +185,21 @@ TARGETS = [
     ("team_pass_4FB780", 0x1404FB780, "TeamTick: MI+0x116C==2 stoppage arm"),
     # --- TeamTick2 block (keeper GKDribble carrier unit the pass-target cutover reaches). Append-only.
     ("tt_142132E20", 0x142132E20, "TeamTick2: keeper GKDribble carrier unit kind 0x13"),
+    # --- KickInputs block (the Kick window's missing inputs). Append-only.
+    ("ball_nearest_45B090", 0x14045B090, "KickInputs: writer of the MA+0x2470C ball list (0x140A79640 sort inside)"),
+    ("kick_cell_71E570", 0x14071E570, "KickInputs: Animetable cell lookup; from 0x140724F21 = a successful Kick start"),
+    # --- KickJoints block (the player's anime joint block the Kick gate reads). Append-only.
+    ("kick_joints_1406F6CE0", 0x1406F6CE0, "KickJoints: player per-tick update virtual (fills P+0xB1C, P+0xB38..0xBA0)"),
+    ("anime_bones_141EB49B0", 0x141EB49B0, "KickJoints: anime joint writer (rcx = P)"),
+    # --- TeamTick3 block (frames-since-event and the event-ring reader). Append-only.
+    ("tt_since_140A51320", 0x140A51320, "TeamTick3: frames since event"),
+    ("tt_ringval_140A3E840", 0x140A3E840, "TeamTick3: event-ring record reader"),
+    # --- RestingBall5 block (contact-search leaves the failing tests' matches reach). Append-only.
+    ("rb5_140862CE0", 0x140862CE0, "RestingBall5: contact-search leaf (throw-in + restart tests)"),
+    ("rb5_140862AE0", 0x140862AE0, "RestingBall5: contact-search leaf (goal-scene test)"),
+    ("rb5_140861170", 0x140861170, "RestingBall5: contact-search callee, static-reachable"),
+    # --- KickJoints2 block (the Kick start's success tail). Append-only.
+    ("kick_dd80_14071DD80", 0x14071DD80, "KickJoints2: success-only call after the Kick start's cell (2 callers)"),
 ]
 
 

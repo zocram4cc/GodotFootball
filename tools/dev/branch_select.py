@@ -21,10 +21,11 @@ Fallbacks, conservative:
 Ceiling: closures are static-library granular, and a file read at run time through a path no command names is covered only
 by the fallbacks above.
 
-Usage: branch_select.py --build DIR [--repo DIR] (--base REV | --diff FILE) [--regex | --list]
+Usage: branch_select.py --build DIR [--repo DIR] (--base REV | --diff FILE) [--index | --list]
   --base REV: the diff is `git diff -U0 --no-renames REV` over tracked files. Untracked files are not branch changes: test runs
     leave some (Godot's .uid files), and a committed branch carries its new files in the diff.
-  --regex: print the ctest -R pattern for the selection; --list: one name per line; default: the reasons on stderr.
+  --index: print the ctest -I argument that runs the selection (ctest's test numbers); --list: one name per line; default:
+    the reasons on stderr.
 """
 import argparse
 import functools
@@ -118,9 +119,9 @@ class Test:
                 self.names.add(os.path.basename(tok))
             elif under(tok, repo):
                 rel = os.path.relpath(tok, repo)
+                if rel in ("", os.curdir):  # the repository root (an argument of gfsim_run_test and branch_select_test):
+                    continue  # relpath gives "." for it; it adds no inputs, and its name (the checkout's directory) is no test's
                 self.names.add(os.path.basename(tok))
-                if rel == "":  # the repository root (gfsim_run_test's argument) adds nothing: its inputs are named elsewhere
-                    continue
                 if os.path.isdir(tok):
                     self.files |= files_under(repo, rel)
                     continue
@@ -210,10 +211,32 @@ def git_diff(repo, base):
                           capture_output=True, text=True, check=True).stdout
 
 
-def ctest_regex(names):
-    def escape(name):
-        return re.sub(r"([\^$.\[\]|()*+?{}\\])", r"\\\1", name)
-    return "^(" + "|".join(escape(n) for n in sorted(names)) + ")$"
+@functools.lru_cache(maxsize=None)
+def ctest_numbers(build):
+    """{ctest name: test number} as `ctest -N` numbers the built tests: the numbers -I takes."""
+    out = subprocess.run(["ctest", "--test-dir", build, "-N"], capture_output=True, text=True, check=True).stdout
+    return {m.group(2): int(m.group(1)) for m in re.finditer(r"Test\s+#(\d+): (\S+)", out)}
+
+
+def ctest_index(build, names):
+    """The -I argument that runs exactly `names` under ctest. A list of test numbers, not a name regex: a -R over more than
+    985 of the build's 2,337 names matched nothing (05-11-26: the regex engine overflowed, "Expression too big"). Numbers, not
+    names, keep the argument far under the kernel's 128 KiB limit on one argument."""
+    if not names:
+        raise ValueError("branch select: the selection is empty")
+    numbers = ctest_numbers(build)
+    missing = sorted(n for n in names if n not in numbers)
+    if missing:
+        raise ValueError(f"branch select: not in ctest's list (built?): {', '.join(missing[:5])}")
+    return "0,0,0," + ",".join(str(numbers[n]) for n in sorted(names, key=numbers.get))
+
+
+def drop_excluded(selected, exclude):
+    """The selection without the names `ctest -E exclude` would drop. The gate applies the exclusion here, not with -E:
+    ctest numbers the -I list after -E, so a -E beside -I renumbers the tests and runs the wrong ones (05-11-26)."""
+    if not exclude:
+        return selected
+    return {name: why for name, why in selected.items() if not re.search(exclude, name)}
 
 
 def main():
@@ -224,14 +247,15 @@ def main():
     source.add_argument("--base")
     source.add_argument("--diff")
     shape = ap.add_mutually_exclusive_group()
-    shape.add_argument("--regex", action="store_true")
+    shape.add_argument("--index", action="store_true")
     shape.add_argument("--list", action="store_true")
+    ap.add_argument("--exclude", default="", help="regex of test names the run leaves out (the gate's -E)")
     args = ap.parse_args()
     build, repo = os.path.abspath(args.build), os.path.abspath(args.repo)
     text = open(args.diff).read() if args.diff else git_diff(repo, args.base)
-    selected = select(build, repo, text)
-    if args.regex:
-        print(ctest_regex(selected))
+    selected = drop_excluded(select(build, repo, text), args.exclude)
+    if args.index:
+        print(ctest_index(build, selected))
     elif args.list:
         print("\n".join(sorted(selected)))
     else:

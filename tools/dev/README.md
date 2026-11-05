@@ -21,7 +21,7 @@ how many recorded functions were selected per set.
 | ledger check | yes | yes | yes |
 | smokes, seed 7 | one 2-minute run per path (switch-off, `--pes-loop`) with their `[determinism]` lines | the same | 5-minute prefilter, then 20-minute runs |
 | verdict | `GATE fast:` lands | `GATE branch:`: a branch may claim it; it never lands | `GATE full:` |
-| target wall time | ctest 8,798 s at 2,314 tests (merge lane, 05-11-26) | ~30 min for a branch that leaves the sim alone; a sim-moving branch also runs the seeded families (`pes_restart_delay_test` took 3,829 s) | hours: the core re-check (2,253 functions, `--jobs 2`) takes 2.0 h cold and 8 min warm (02-11-26; uncached baseline 2.97 h) |
+| target wall time | ctest 8,798 s at 2,314 tests (merge lane, 05-11-26) | ~30 min for a branch outside the sim's link closure. A sim-moving branch selects 1,554 of 2,337 tests on 05-11-26 (95% of fast's seconds) and runs about as long as fast (see "The branch tier") | hours: the core re-check (2,253 functions, `--jobs 2`) takes 2.0 h cold and 8 min warm (02-11-26; uncached baseline 2.97 h) |
 
 ### When each runs
 
@@ -65,7 +65,7 @@ an unrelated change selects nothing.
   and cores, 2 to 6 (`GATE_RIG_MEM_GB`, default 10, and `GATE_RIG_CORES`, default 4, stay free for the live rig; each job is
   budgeted `GATE_DIFF_JOB_MEM_GB`, default 2). `diff_core_recorded` has ctest COST 1000, so it starts first.
 - `GATE_SLOTS`: the candidate sim slots for the gate's two smokes (default: any two free ones). `GATE_SLOTS="3 2"` pins them. Every tier holds two at priority 0 (see "Sim slot queue"); the old pair polling is gone.
-- `GATE_BASE`: fast only, what "changed" is measured against.
+- `GATE_BASE`: fast and branch, what "changed" is measured against.
 - `GATE_SKIP_PREFILTER=1`, `GATE_PRE_MINUTES`: the full tier's 5-minute prefilter.
 - The PES diff suites run only with `GF_DIFF_PYTHON` and `PES_EXE` set (export both before `cmake -S . -B build` as well); a
   skipped diff test is then a red gate.
@@ -129,32 +129,6 @@ the whole list in one batch** (one `gen_translated.py` regeneration, one gate). 
   is 1 when any target is refused.
 - Main arms the hooks: paste the rows into TARGETS and the lines into `hooks.cfg`. Agents never edit `hooks.cfg`.
 
-## Synthetic states: `translate/synth.py`
-
-`synth.py SRC OUT --spec SPEC.json [--hooks CFG]` writes SYNTHETIC states of one full rendezvous capture (unpack it first with
-`rendezvous/capz.py unpack`) in the layout `frame_trace.py recorded` and `snapdiff.py --bounded` replay: one directory per case,
-each with `index.json` (its `synthetic` key says SYNTHETIC and records every chosen value and address), `call.bin` and `mem.bin`.
-The same spec and seed write the same bytes. The spec is documented in the module docstring. In short:
-
-- `fields`: `at` is a register (`rcx`, `edx`, `xmm3`), `reg:NAME+off+...`, `mem:VA+off+...` or `va:VA`; every offset but the last
-  dereferences. `type` is a scalar or `hex`; `values` or `range` draws the value; `plus` adds the drawn value to a word read first.
-- `cases` (explicit values per field) or `count` (draws); `seed` is required.
-- `entry`, `stop`, `reach` and `start` make the spec emulated: PES's bytes run from the capture (the harness Python with unicorn,
-  `--hooks` required). The values are written at the first arrival at `entry`, the state is captured at `stop`, and `reach` keeps
-  only the cases whose run enters that VA afterwards. `start: return` runs the capture's call to its return first.
-- `as` writes a static state as a call of another function (rv.entry_va) over the capture's memory, with no run.
-
-Retired scripts and their spec form:
-
-- `synth_call.py STATE OUT --entry VA --reg R=V --poke A=HEX`: `as` = VA, one `fields` entry per register (`type` `u32` for
-  `edx`, `r8d`) and one `hex` field per poke (`synth_members.py` builds these).
-- `synth_walk.py SRC OUT --entry VA [--hook-name N] [--patch-clear]`: `start: return`, `entry` = `stop` = VA, `hook` = N;
-  `--patch-clear` is the field `reg:rcx+0x3EC0` (u32, value 5). `--in-call` is the same spec with the default `start: call`.
-- `hdrsyn.py`, `chsyn.py`, `rootsyn2.py` (KickMotion scratch): emulated specs with `entry` = the builder, chooser or reader and
-  `reach` = the branch VA the draws must open, or `stop` = `entry` with the arguments as fields.
-- Not folded in yet: `synth_trapkind.py` and `synth_press_order.py` (RestingBall and PressAI branches) and `synth_chooser.py`
-  (KickMotion) keep their own case generators until those branches land. Their list-entry writes need a repeat field.
-
 ### The branch tier
 
 `GATE_TIER=branch` runs the build, both smokes, the recorded re-checks and the ledger, and ctest only for the tests the branch's
@@ -180,6 +154,19 @@ include, a subdirectory, a variable) runs every test.
 Ceiling: closures are static-library granular, not object granular, and a file a test reads through a path its command does not
 name is covered only by the fallbacks.
 
+The selection reaches ctest as a list of test numbers (`ctest -I`), not a name regex: a `-R` over the names matched nothing once
+it passed 985 of this build's 2,337 (05-11-26; the list overflowed ctest's regex engine, "Expression too big"). `branch_select.py
+--index` prints the argument; `branch_select_test` checks that ctest lists back exactly the selected names at full size.
+
+The gate's exclusion (`SimMatch.*`, `gfsim_run_test`) is applied by the selector (`--exclude`), and the branch run passes no `-E`:
+ctest numbers the `-I` list after `-E`, so the two together ran the wrong tests (05-11-26: 3 of 8 ran, reported GREEN). The verdict
+compares the count ctest runs with the count the selection names; any difference is RED.
+
+**Size.** A sim source (anything in `src/sim`, or in a library it links) selects every gfsim-linked binary: 1,554 of the 2,337
+tests (not counting the two excluded families), 95% of fast's per-test seconds in the 05-11-26 merge-lane log. Such a branch runs
+about as long as fast. The tier saves time for branches outside the sim's link closure. Object-level selection (which binaries
+pull the changed objects, from a link map) would narrow it; it is not built.
+
 ### Sim slot queue
 
 `tools/dev/simslot.sh <command>` holds sim slots: at most `GF_SIM_SLOTS` (default 6) sims run machine-wide, and a slot is taken
@@ -188,3 +175,29 @@ named by priority and arrival. Only the lowest ticket probes the slots, so a lat
 same priority, and a gate (`GF_SIM_PRIORITY=0`) runs before queued agents (default 5). `GF_SIM_HOLD` takes several slots for one
 command (gate.sh holds two); `GF_SIM_PIN` names the candidates. Slots are the same flock files as before (slot 0 is the lock file
 itself), so a script that flocks them directly still counts. It bypasses the queue, so a queued head can wait behind it for a slot.
+
+## Synthetic states: `translate/synth.py`
+
+`synth.py SRC OUT --spec SPEC.json [--hooks CFG]` writes SYNTHETIC states of one full rendezvous capture (unpack it first with
+`rendezvous/capz.py unpack`) in the layout `frame_trace.py recorded` and `snapdiff.py --bounded` replay: one directory per case,
+each with `index.json` (its `synthetic` key says SYNTHETIC and records every chosen value and address), `call.bin` and `mem.bin`.
+The same spec and seed write the same bytes. The spec is documented in the module docstring. In short:
+
+- `fields`: `at` is a register (`rcx`, `edx`, `xmm3`), `reg:NAME+off+...`, `mem:VA+off+...` or `va:VA`; every offset but the last
+  dereferences. `type` is a scalar or `hex`; `values` or `range` draws the value; `plus` adds the drawn value to a word read first.
+- `cases` (explicit values per field) or `count` (draws); `seed` is required.
+- `entry`, `stop`, `reach` and `start` make the spec emulated: PES's bytes run from the capture (the harness Python with unicorn,
+  `--hooks` required). The values are written at the first arrival at `entry`, the state is captured at `stop`, and `reach` keeps
+  only the cases whose run enters that VA afterwards. `start: return` runs the capture's call to its return first.
+- `as` writes a static state as a call of another function (rv.entry_va) over the capture's memory, with no run.
+
+Retired scripts and their spec form:
+
+- `synth_call.py STATE OUT --entry VA --reg R=V --poke A=HEX`: `as` = VA, one `fields` entry per register (`type` `u32` for
+  `edx`, `r8d`) and one `hex` field per poke (`synth_members.py` builds these).
+- `synth_walk.py SRC OUT --entry VA [--hook-name N] [--patch-clear]`: `start: return`, `entry` = `stop` = VA, `hook` = N;
+  `--patch-clear` is the field `reg:rcx+0x3EC0` (u32, value 5). `--in-call` is the same spec with the default `start: call`.
+- `hdrsyn.py`, `chsyn.py`, `rootsyn2.py` (KickMotion scratch): emulated specs with `entry` = the builder, chooser or reader and
+  `reach` = the branch VA the draws must open, or `stop` = `entry` with the arguments as fields.
+- Not folded in yet: `synth_trapkind.py` and `synth_press_order.py` (RestingBall and PressAI branches) and `synth_chooser.py`
+  (KickMotion) keep their own case generators until those branches land. Their list-entry writes need a repeat field.
