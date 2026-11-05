@@ -203,7 +203,7 @@ def select(build, repo, diff_text):
 
 
 def git_diff(repo, base):
-    diff = subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-renames", base, "--"],
+    diff = subprocess.run(["git", "-C", repo, "diff", "-U0", "--no-renames", "--ignore-submodules=all", base, "--"],
                           capture_output=True, text=True, check=True).stdout
     untracked = subprocess.run(["git", "-C", repo, "ls-files", "--others", "--exclude-standard"],
                                capture_output=True, text=True, check=True).stdout.split()
