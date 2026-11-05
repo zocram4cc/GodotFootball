@@ -6,25 +6,27 @@ Developer scripts. The landing gate is `gate.sh`; sim runs hold a slot via `sims
 
 ```
 PES21_ROOT=<install> GF_DIFF_PYTHON=<harness python> PES_EXE=<unpacked image> GF_IMPURE_BANKS=<bank dir> \
-  [GATE_TIER=fast|full] [GATE_BASE=<rev>] [GATE_JOBS=<n>] [GATE_SLOTS="1 0"] tools/dev/gate.sh [build-dir]
+  [GATE_TIER=fast|branch|full] [GATE_BASE=<rev>] [GATE_JOBS=<n>] [GATE_SLOTS="3 2"] tools/dev/gate.sh [build-dir]
 ```
 
 The last line is `GATE <tier>: GREEN` or `GATE <tier>: RED <failing tests>`. The summary also prints the tier and, for fast,
 how many recorded functions were selected per set.
 
-| | **fast** (default) | **full** |
-|---|---|---|
-| build | yes | yes |
-| ctest | everything except `SimMatch.*` and `gfsim_run_test` (whole-match tests; the smokes cover a match) | everything |
-| `diff_*_recorded` (pilot, cutscene, presentation, core, impure) | **incremental**: only the recorded functions the change can reach | every recorded function |
-| translated-layer drift (`gen_translated.py --check`, ctest `diff_translated_drift`) | yes | yes |
-| ledger check | yes | yes |
-| smokes, seed 7 | one 2-minute run per path (switch-off, `--pes-loop`) with their `[determinism]` lines | 5-minute prefilter, then 20-minute runs |
-| target wall time | ~30 min | hours: the core re-check (2,253 functions, `--jobs 2`) takes 2.0 h cold and 8 min warm (02-11-26; uncached baseline 2.97 h) |
+| | **fast** (default) | **branch** | **full** |
+|---|---|---|---|
+| build | yes | yes | yes |
+| ctest | everything except `SimMatch.*` and `gfsim_run_test` (whole-match tests; the smokes cover a match) | only the tests the branch reaches (see "The branch tier"); same two exclusions | everything |
+| `diff_*_recorded` (pilot, cutscene, presentation, core, impure) | **incremental**: only the recorded functions the change can reach | the same incremental selection | every recorded function |
+| translated-layer drift (`gen_translated.py --check`, ctest `diff_translated_drift`) | yes | when the translated layer, the translator or the specs changed | yes |
+| ledger check | yes | yes | yes |
+| smokes, seed 7 | one 2-minute run per path (switch-off, `--pes-loop`) with their `[determinism]` lines | the same | 5-minute prefilter, then 20-minute runs |
+| verdict | `GATE fast:` lands | `GATE branch:`: a branch may claim it; it never lands | `GATE full:` |
+| target wall time | ctest 8,798 s at 2,314 tests (merge lane, 05-11-26) | ~30 min for a branch that leaves the sim alone; a sim-moving branch also runs the seeded families (`pes_restart_delay_test` took 3,829 s) | hours: the core re-check (2,253 functions, `--jobs 2`) takes 2.0 h cold and 8 min warm (02-11-26; uncached baseline 2.97 h) |
 
 ### When each runs
 
 - **fast lands batches.** Main runs it on the merged tree before every landing.
+- **branch** runs on each branch before it is claimed. Its verdict is `GATE branch:`; only fast lands.
 - **full runs nightly, or every third batch**, whichever comes first. Record the full run (date, base, result line) in the
   batch notes (`tasks/DD-MM-YY.md`).
 - **A red full blocks the next landing** until it is fixed or the failing function is shown to be an environmental flake
@@ -62,8 +64,7 @@ an unrelated change selects nothing.
 - `GF_DIFF_JOBS`: the driver's `--jobs` in each `diff_*_recorded` check (VAs checked at once). Default: sized from free memory
   and cores, 2 to 6 (`GATE_RIG_MEM_GB`, default 10, and `GATE_RIG_CORES`, default 4, stay free for the live rig; each job is
   budgeted `GATE_DIFF_JOB_MEM_GB`, default 2). `diff_core_recorded` has ctest COST 1000, so it starts first.
-- `GATE_SLOTS`: sim slots held, in the order acquired (default `"1 0"`, Main's gate). Both tiers hold two (one per smoke). A branch
-  gate that must leave 0-1 to Main: `GATE_SLOTS="3 2"` (needs `GF_SIM_SLOTS=4`).
+- `GATE_SLOTS`: the candidate sim slots for the gate's two smokes (default: any two free ones). `GATE_SLOTS="3 2"` pins them. Every tier holds two at priority 0 (see "Sim slot queue"); the old pair polling is gone.
 - `GATE_BASE`: fast only, what "changed" is measured against.
 - `GATE_SKIP_PREFILTER=1`, `GATE_PRE_MINUTES`: the full tier's 5-minute prefilter.
 - The PES diff suites run only with `GF_DIFF_PYTHON` and `PES_EXE` set (export both before `cmake -S . -B build` as well); a
@@ -85,3 +86,37 @@ regenerates). A hit gives exactly what the uncached step gives; whatever cannot 
   `gen_translated.py`, the layer) hits; a change to anything `run.py` reads misses. Failed runs are never kept.
 - A layer header edit misses the objects of the TUs that include it and hits the corpus. To reset, delete
   `<build>/<set>-check/cache`. The driver ends with `driver: cache corpus hit=N miss=M object compiled=N hit=N`.
+
+### The branch tier
+
+`GATE_TIER=branch` runs the build, both smokes, the recorded re-checks and the ledger, and ctest only for the tests the branch's
+diff can reach (`tools/dev/branch_select.py`; the reasons go to `<build>/gate.branch.log`). A test runs when one of its inputs
+changed since the merge base:
+
+- its binary's build closure (`ninja -t inputs`): sources, headers and every static library object it links. A change to an
+  object of a linked archive selects every binary linking it. So any sim source selects every gfsim binary, the seeded match
+  families among them (their matches run the same sim code); a pesfmt-only binary is not selected by a sim source;
+- the build outputs its command names (`gfsim_run` for `gfsim_run_test`) and the repository files it names. For a script or
+  data file, every file under its directory, recursively, except the roots `tools/`, `tests/`, `src/`, `apps/`, `godot/`,
+  `assets/`, `extern/`, which contribute only the file;
+- `res://` paths name `godot/`, and a godot test (`tools/godot.sh`) adds the extension's closure;
+- EXTRA inputs the command does not name: the translated layer for `diff_translated_drift`, `tools/dev/parity.py` for `parity_metrics_test`.
+
+Always on: `repo_pii_scan` and the five `diff_*_recorded` tests (their `GF_RECORDED_SELECT` decides what they re-check). A
+fixture's setup test runs with the test that needs it.
+
+Fallbacks, conservative: a change under `assets/` runs every test (tests read sim data through `GF_SOURCE_DIR`). A changed CMake
+line that names a test selects that test (its ctest name, binary or script); a changed CMake line that names none (a flag, an
+include, a subdirectory, a variable) runs every test.
+
+Ceiling: closures are static-library granular, not object granular, and a file a test reads through a path its command does not
+name is covered only by the fallbacks.
+
+### Sim slot queue
+
+`tools/dev/simslot.sh <command>` holds sim slots: at most `GF_SIM_SLOTS` (default 6) sims run machine-wide, and a slot is taken
+only while `MemAvailable` is at least `GF_SIM_MIN_AVAILABLE_MIB` (default 5800). Waiters queue in `<lock>.queue`, one ticket each,
+named by priority and arrival. Only the lowest ticket probes the slots, so a later ticket never overtakes an earlier one of the
+same priority, and a gate (`GF_SIM_PRIORITY=0`) runs before queued agents (default 5). `GF_SIM_HOLD` takes several slots for one
+command (gate.sh holds two); `GF_SIM_PIN` names the candidates. Slots are the same flock files as before (slot 0 is the lock file
+itself), so a script that flocks them directly still counts. It bypasses the queue, so a queued head can wait behind it for a slot.

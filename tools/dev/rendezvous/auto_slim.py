@@ -20,6 +20,8 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import capz  # noqa: E402  (UNPACKED_MARKER)
 FULL_BYTES = 200 << 20  # a slim capture keeps a few thousand pages (~30-40 MB); a full one is ~3.8 GB
 
 
@@ -36,6 +38,8 @@ def hook_of(d):
 
 
 def candidates(live2, launches, keep, min_age, refused):
+    """Full captures to slim: older than min_age, not refused before, hook not kept, and never packed (a capture with
+    capz's unpacked marker was kept or cited, and an agent is reading it)."""
     folders = sorted(glob.glob(os.path.join(live2, "pid*")), key=os.path.getmtime)[-launches:]
     now = time.time()
     out = []
@@ -43,10 +47,24 @@ def candidates(live2, launches, keep, min_age, refused):
         for d in sorted(glob.glob(os.path.join(f, "seq*"))):
             if d in refused or now - os.path.getmtime(d) < min_age or not full(d):
                 continue
+            if os.path.exists(os.path.join(d, capz.UNPACKED_MARKER)):
+                continue
             h = hook_of(d)
             if h and h not in keep:
                 out.append(d)
     return out
+
+
+def read_keep_files(paths):
+    """Hook names listed in the keep files (one per line, # comments), re-read every pass so a hook an agent starts
+    replaying is kept from the next pass on (wanted.txt, the protected list)."""
+    hooks = set()
+    for p in paths:
+        try:
+            hooks |= {l.strip() for l in open(p) if l.strip() and not l.startswith("#")}
+        except FileNotFoundError:
+            pass
+    return hooks
 
 
 def stale_full(live2, launches, pack_after, pin=frozenset()):
@@ -63,6 +81,8 @@ def main():
     ap.add_argument("--live2", required=True)
     ap.add_argument("--hooks", required=True, help="the hooks.cfg the captures were taken with")
     ap.add_argument("--keep", default="", help="comma-separated hooks never slimmed")
+    ap.add_argument("--keep-file", action="append", default=[],
+                    help="file of hooks never slimmed, one per line, re-read every pass (repeatable)")
     ap.add_argument("--min-age", type=float, default=900.0)
     ap.add_argument("--interval", type=float, default=600.0)
     ap.add_argument("--launches", type=int, default=2, help="how many newest launch folders to scan")
@@ -73,7 +93,7 @@ def main():
     refused_path = os.path.join(a.live2, "auto_slim_refused.txt")
     while True:
         refused = set(open(refused_path).read().split()) if os.path.exists(refused_path) else set()
-        todo = candidates(a.live2, a.launches, keep, a.min_age, refused)
+        todo = candidates(a.live2, a.launches, keep | read_keep_files(a.keep_file), a.min_age, refused)
         if todo:
             print(time.strftime("%H:%M:%S"), "slimming", len(todo), flush=True)
             subprocess.run([sys.executable, os.path.join(HERE, "slim.py"), "--min-age", "0", "--hooks", a.hooks] + todo)
