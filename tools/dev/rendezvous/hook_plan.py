@@ -183,6 +183,8 @@ TARGETS = [
     ("team_pass_4FB380", 0x1404FB380, "TeamTick: pass-target decision tree"),
     ("team_pass_F0E50", 0x1404F0E50, "TeamTick: holder tree the decision ends in"),
     ("team_pass_4FB780", 0x1404FB780, "TeamTick: MI+0x116C==2 stoppage arm"),
+    # --- TeamTick2 block (keeper GKDribble carrier unit the pass-target cutover reaches). Append-only.
+    ("tt_142132E20", 0x142132E20, "TeamTick2: keeper GKDribble carrier unit kind 0x13"),
 ]
 
 

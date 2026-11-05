@@ -13,6 +13,7 @@ only holes must be its index holes (full_snapshot.SnapMem reads any other hole a
 
 DIR may be a capture dir (seqN) or a launch dir (pidN: every seqN under it).
 """
+import fcntl
 import glob
 import os
 import subprocess
@@ -72,12 +73,23 @@ def status(d):
     return "full" if os.path.exists(raw) and allocated(raw) >= SLIM_BYTES else "slim"
 
 
+# Held around every pack / unpack of one capture dir: auto_slim, Main and agents all run capz, and two packers on one dir
+# shared the .part file and one crashed (05-11-26, pid281026/seq24384). The second waits, then finds nothing to do.
+LOCK_NAME = ".capz.lock"
+
+
+def locked(op, d):
+    with open(os.path.join(d, LOCK_NAME), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return op(d)
+
+
 def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ("pack", "unpack", "status"):
         sys.exit(__doc__)
     op = {"pack": pack, "unpack": unpack, "status": status}[sys.argv[1]]
     for d in captures(sys.argv[2:]):
-        print(d, op(d), flush=True)
+        print(d, op(d) if op is status else locked(op, d), flush=True)
 
 
 if __name__ == "__main__":

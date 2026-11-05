@@ -64,6 +64,21 @@ class Capz(unittest.TestCase):
         b = capture(self.root, "seq11", sparse_size=PAGE)
         self.assertEqual(list(capz.captures([self.root])), sorted([a, b]))
 
+    def test_two_concurrent_packers_do_not_collide(self):
+        # auto_slim and a manual pack hit one capture at once and shared its .part file (05-11-26, seq24384).
+        import threading
+        data = os.urandom(32 * PAGE) + bytes(96 * PAGE)
+        d = capture(self.root, "seq20", data=data)
+        results = []
+        threads = [threading.Thread(target=lambda: results.append(capz.locked(capz.pack, d))) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(sorted(results), ["packed", "skip"])
+        self.assertEqual(capz.locked(capz.unpack, d), "unpacked")
+        self.assertEqual(open(os.path.join(d, "mem.bin"), "rb").read(), data)
+
 
 if __name__ == "__main__":
     unittest.main()
