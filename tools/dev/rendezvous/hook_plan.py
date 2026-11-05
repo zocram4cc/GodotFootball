@@ -188,6 +188,12 @@ TARGETS = [
     # --- KickInputs block (the Kick window's missing inputs). Append-only.
     ("ball_nearest_45B090", 0x14045B090, "KickInputs: writer of the MA+0x2470C ball list (0x140A79640 sort inside)"),
     ("kick_cell_71E570", 0x14071E570, "KickInputs: Animetable cell lookup; from 0x140724F21 = a successful Kick start"),
+    # --- KickJoints block (the player's anime joint block the Kick gate reads). Append-only.
+    ("kick_joints_1406F6CE0", 0x1406F6CE0, "KickJoints: player per-tick update virtual (fills P+0xB1C, P+0xB38..0xBA0)"),
+    ("anime_bones_141EB49B0", 0x141EB49B0, "KickJoints: anime joint writer (rcx = P)"),
+    # --- TeamTick3 block (frames-since-event and the event-ring reader). Append-only.
+    ("tt_since_140A51320", 0x140A51320, "TeamTick3: frames since event"),
+    ("tt_ringval_140A3E840", 0x140A3E840, "TeamTick3: event-ring record reader"),
 ]
 
 
