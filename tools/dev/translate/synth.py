@@ -380,6 +380,14 @@ def capture(u, xc, index):
             "flags": u.reg_read(xc.UC_X86_REG_EFLAGS), "mxcsr": u.reg_read(xc.UC_X86_REG_MXCSR)}
 
 
+def trace_env(ft, out):
+    """The environment a snapdiff trace runs in (import and stub models), with no impure spec recorded: the emulated
+    replays run as the trace runs did (run_recorded installs the models and stubs only for a trace)."""
+    import stubs as stub_table
+    return {"out": out, "impure": {}, "stubs": ft.stubs_for_run(stub_table.load())}
+
+
+
 def emulate_case(src, index, orig, budget, plan, fields, vals):
     """One run of the capture with the case's values written at plan["entry"]; the state is captured at plan["stop"] after
     that. Returns (state, record, reason): state None and a reason when the case is dropped."""
@@ -401,9 +409,9 @@ def emulate_case(src, index, orig, budget, plan, fields, vals):
             u.emu_stop()
 
     if plan["start"] == "call":
-        ft.run_recorded(src, orig=orig, budget=budget, on_code=on_code)
+        _, err = ft.run_recorded(src, orig=orig, budget=budget, trace=trace_env(ft, plan["env"]), on_code=on_code)
     else:
-        uc, err = ft.run_recorded(src, orig=orig, budget=budget)
+        uc, err = ft.run_recorded(src, orig=orig, budget=budget, trace=trace_env(ft, plan["env"]))
         if err:
             raise SystemExit("synth: the capture's own call did not return: %s" % err)
         ret = plan["ret"]
@@ -411,8 +419,12 @@ def emulate_case(src, index, orig, budget, plan, fields, vals):
         uc.hook_add(UC_HOOK_CODE, on_code)
         uc.emu_start(ret, 0, count=budget)
     if st["state"] is None:
+        if err:
+            sys.stderr.write("synth: the run stopped before the stop VA: %s\n" % err)
         return None, None, "stop not reached"
     if plan["reach"] is not None and not st["reached"]:
+        if err:
+            sys.stderr.write("synth: the run stopped before the reach VA: %s\n" % err)
         return None, None, "reach not entered"
     return st["state"], st["record"], None
 
@@ -471,7 +483,8 @@ def main():
     if "as" in spec and not static:
         raise SystemExit("synth: as retargets a static state; an emulated state takes its entry from stop")
     state_entry = num(spec["as"], "u64") if "as" in spec else stop
-    plan = {"entry": entry, "stop": stop, "reach": reach, "start": start, "ret": base_vals[RET_SLOT]}
+    plan = {"entry": entry, "stop": stop, "reach": reach, "start": start, "ret": base_vals[RET_SLOT],
+            "env": a.out.rstrip("/") + ".env"}
     label = spec.get("label") or os.path.basename(a.out.rstrip("/"))
     cases = spec.get("cases") or [{} for _ in range(spec.get("count", 1))]
     rng = random.Random(spec["seed"])
@@ -482,6 +495,7 @@ def main():
         orig = load_frame_trace().hook_bytes(a.hooks)
         patch_imports()
     os.makedirs(a.out, exist_ok=True)
+    os.makedirs(plan["env"], exist_ok=True)
     written, dropped = [], {}
     for i, case in enumerate(cases):
         name = case.get("name") or "%s_%04d" % (label, i)
@@ -505,6 +519,7 @@ def main():
                 "record": record, "mode": "static" if static else start}
         write_state(a.out, name, src, index, state, meta)
         written.append(name)
+    shutil.rmtree(plan["env"], ignore_errors=True)
     print(json.dumps({"out": a.out, "written": written, "dropped": dropped}, sort_keys=True))
 
 
