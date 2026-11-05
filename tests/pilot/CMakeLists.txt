@@ -64,6 +64,13 @@ SEL=(); [ -n \"$GF_RECORDED_SELECT\" ] && SEL=(--select \"$GF_RECORDED_SELECT\")
 \"\${BANK[@]}\" \"\${SEL[@]}\"")
 set_tests_properties(diff_impure_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 3600)
 
+# diff_bank_miss_recorded: a bank-corpus record whose corpus misses re-records from the capture bank (GF_IMPURE_BANKS) and
+# still diffs bit-exact, then hits on a warm rerun (tools/dev/translate/test_bank_miss.py, checked against an empty cache).
+# Needs PES_EXE, GF_DIFF_PYTHON and GF_IMPURE_BANKS; the gate counts a skipped diff test as red when PES_EXE is set.
+add_test(NAME diff_bank_miss_recorded
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_bank_miss.py' '${CMAKE_BINARY_DIR}/bank-miss'")
+set_tests_properties(diff_bank_miss_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
+
 # Image check: the user's dump must be the image the pilot specs were authored
 # against. verify_image.py hashes the stable sections (image_hashes.json) and
 # fails naming any section that differs. Skips (77) without PES_EXE, and the

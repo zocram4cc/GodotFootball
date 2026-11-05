@@ -277,8 +277,8 @@ void GenerateAutoAnims(const std::vector<Animation*>& templates,
 
             // NodeAnimation *nodeAnimT1 = nodeAnimsT1.at(n);
             // NodeAnimation *nodeAnimT2 = nodeAnimsT2.at(n);
-            std::map<int, KeyFrame>& animationT1 = nodeAnimsT1.at(n)->animation;
-            std::map<int, KeyFrame>& animationT2 = nodeAnimsT2.at(n)->animation;
+            KeyFrameList& animationT1 = nodeAnimsT1.at(n)->animation;
+            KeyFrameList& animationT2 = nodeAnimsT2.at(n)->animation;
 
             Vector3 cumulativePosition;
             int prevFrame = 0;
@@ -291,7 +291,7 @@ void GenerateAutoAnims(const std::vector<Animation*>& templates,
 
             std::list<int> keyFrames;  // frames at which one of the two anims has a keyframe
             // first, add all keyframes, even if duplicate
-            std::map<int, KeyFrame>::const_iterator animKeyIter = animationT1.begin();
+            KeyFrameList::const_iterator animKeyIter = animationT1.begin();
             while (animKeyIter != animationT1.end()) {
               keyFrames.push_back(animKeyIter->first);
               animKeyIter++;

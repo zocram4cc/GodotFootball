@@ -6,6 +6,8 @@
 #include "animation.hpp"
 
 #include <stdio.h>
+#include <algorithm>
+#include <utility>
 
 #include "animationextensions/footballanimationextension.hpp"
 #include "base/utils.hpp"
@@ -13,6 +15,17 @@
 std::string emptyString = "";
 
 namespace blunted {
+namespace {
+
+// The first key at or after frame: std::map::lower_bound over a KeyFrameList.
+template <typename Keys>
+auto FirstKeyFrom(Keys& keys, int frame) {
+  return std::lower_bound(keys.begin(), keys.end(), frame, [](const auto& key, int f) {
+    return key.first < f;
+  });
+}
+
+}  // namespace
 
 namespace {
 
@@ -143,7 +156,9 @@ bool Animation::GetKeyFrame(const std::string& nodeName, int frame, Quaternion& 
     if (nodeAnimations.at(i)->nodeName == nodeName) {
       GetInterpolatedValues(nodeAnimations.at(i)->animation, frame, orientation, position,
                             getOrientation, getPosition);
-      return nodeAnimations.at(i)->animation.find(frame) != nodeAnimations.at(i)->animation.end();
+      const KeyFrameList& keys = nodeAnimations.at(i)->animation;
+      const auto key = FirstKeyFrom(keys, frame);
+      return key != keys.end() && key->first == frame;
     }
   }
   return false;
@@ -178,10 +193,9 @@ void Animation::SetKeyFrame(const std::string& nodeName, int frame,
     nodeAnimations.push_back(nodeAnimation);
   }
 
-  // find frame, with one tree descent instead of two: lower_bound lands on the
-  // key if it exists and on the insertion point if it does not.
-  std::map<int, KeyFrame>& animation = nodeAnimation->animation;
-  auto animIter = animation.lower_bound(frame);
+  // find frame: one binary search lands on the key, or on the insertion point if there is none.
+  KeyFrameList& animation = nodeAnimation->animation;
+  auto animIter = FirstKeyFrom(animation, frame);
   if (animIter != animation.end() && animIter->first == frame) {
     // change
     animIter->second.orientation = orientation;
@@ -191,7 +205,9 @@ void Animation::SetKeyFrame(const std::string& nodeName, int frame,
     KeyFrame keyFrame;
     keyFrame.orientation = orientation;
     keyFrame.position = position;
-    animation.emplace_hint(animIter, frame, keyFrame);
+    // ponytail: a sorted insert shifts the keys after it, O(n) per out-of-order key. Clip loads append in
+    // frame order, which is O(1); add a side buffer if loads ever go out of order.
+    animation.emplace(animIter, frame, keyFrame);
   }
 
   DirtyCache();
@@ -204,20 +220,20 @@ void Animation::DeleteKeyFrame(const std::string& nodeName, int frame) {
     NodeAnimation* nodeAnimation = nodeAnimations.at(i);
     if (nodeAnimation->nodeName == nodeName) {
       // find frame
-      const std::map<int, KeyFrame>::iterator animIter = nodeAnimation->animation.find(frame);
-      if (animIter != nodeAnimation->animation.end()) {
-        nodeAnimation->animation.erase(animIter);
+      KeyFrameList& keys = nodeAnimation->animation;
+      const auto animIter = FirstKeyFrom(keys, frame);
+      if (animIter != keys.end() && animIter->first == frame) {
+        keys.erase(animIter);
         break;
       }
-      if (animIter == nodeAnimation->animation.end())
-        printf("ERROR! keyframe does not exist\n");
+      printf("ERROR! keyframe does not exist\n");
     }
   }
 
   DirtyCache();
 }
 
-void Animation::GetInterpolatedValues(const std::map<int, KeyFrame>& animation, int frame,
+void Animation::GetInterpolatedValues(const KeyFrameList& animation, int frame,
                                       Quaternion& orientation, Vector3& position,
                                       bool getOrientation, bool getPosition) const {
   std::vector<WeighedKey> weighedKeys;
@@ -234,7 +250,7 @@ void Animation::GetInterpolatedValues(const std::map<int, KeyFrame>& animation, 
     // (mean 121 of them), and this runs twice per node per Apply - 21 nodes on
     // 25 bodies every put, and once per frame of every clip at load, which is
     // quadratic in the clip's length.
-    std::map<int, KeyFrame>::const_iterator after = animation.lower_bound(frame);
+    auto after = FirstKeyFrom(animation, frame);
     if (after == animation.end()) {
       // nothing at or past this frame: the last key is all there is
       if (animation.empty()) return;
@@ -242,7 +258,7 @@ void Animation::GetInterpolatedValues(const std::map<int, KeyFrame>& animation, 
     }
     WeighedKey key;
     if (after->first > frame && after != animation.begin()) {
-      std::map<int, KeyFrame>::const_iterator before = std::prev(after);
+      const auto before = std::prev(after);
       key.keyFrame = before->second;
       key.frame = before->first;
       weighedKeys.push_back(key);
@@ -293,7 +309,7 @@ void Animation::GetInterpolatedValues(const std::map<int, KeyFrame>& animation, 
     // remember, weighed keys are in reverse order here!
 
     // get last 2 keyframes
-    std::map<int, KeyFrame>::const_iterator animIter = animation.end();
+    auto animIter = animation.end();
     while (animIter != animation.begin()) {
       animIter--;
 
@@ -335,7 +351,7 @@ void Animation::GetInterpolatedValues(const std::map<int, KeyFrame>& animation, 
     // extrapolate before animation
     // for now, just return first key
 
-    std::map<int, KeyFrame>::const_iterator animIter = animation.begin();
+    const auto animIter = animation.begin();
     if (getOrientation)
       orientation = animIter->second.orientation;
     if (getPosition)
@@ -351,7 +367,7 @@ void Animation::ConvertToStartFacingForwardIfIdle() {
     return;
 
   // rotate player pos
-  std::map<int, KeyFrame>& player = nodeAnimations.at(0)->animation;
+  KeyFrameList& player = nodeAnimations.at(0)->animation;
   auto animIter = player.begin();
   while (animIter != player.end()) {
     // animIter->second.position.Print();
@@ -360,7 +376,7 @@ void Animation::ConvertToStartFacingForwardIfIdle() {
   }
 
   // rotate body dir
-  std::map<int, KeyFrame>& body = nodeAnimations.at(1)->animation;
+  KeyFrameList& body = nodeAnimations.at(1)->animation;
   animIter = body.begin();
   while (animIter != body.end()) {
     // animIter->second.position.Print();
@@ -862,7 +878,8 @@ void Animation::Shift(int fromFrame, int offset) {  // todo: offset does not yet
     for (int i = 0; i < animSize; i++) {
       NodeAnimation* nodeAnimation = nodeAnimations.at(i);
       auto animIter = nodeAnimation->animation.begin();
-      std::map<int, KeyFrame> newAnimation;
+      // Shifting keeps frames sorted and unique, so the rebuilt block is filled by appending.
+      KeyFrameList newAnimation;
       while (animIter != nodeAnimation->animation.end()) {
         // printf("%i, ", animIter->first);
         KeyFrame keyFrame = animIter->second;
@@ -871,10 +888,10 @@ void Animation::Shift(int fromFrame, int offset) {  // todo: offset does not yet
           frameNum++;  // shift
           somethingShifted = true;
         }
-        newAnimation.insert(std::pair<int, KeyFrame>(frameNum, keyFrame));
+        newAnimation.emplace_back(frameNum, keyFrame);
         animIter++;
       }
-      nodeAnimation->animation = newAnimation;
+      nodeAnimation->animation = std::move(newAnimation);
     }
 
     if (somethingShifted) {
@@ -889,7 +906,7 @@ void Animation::Shift(int fromFrame, int offset) {  // todo: offset does not yet
     for (int i = 0; i < animSize; i++) {
       NodeAnimation* nodeAnimation = nodeAnimations.at(i);
       auto animIter = nodeAnimation->animation.begin();
-      std::map<int, KeyFrame> newAnimation;
+      KeyFrameList newAnimation;
       while (animIter != nodeAnimation->animation.end()) {
         // printf("%i, ", animIter->first);
         KeyFrame keyFrame = animIter->second;
@@ -899,11 +916,11 @@ void Animation::Shift(int fromFrame, int offset) {  // todo: offset does not yet
             frameNum--;  // shift
             somethingShifted = true;
           }
-          newAnimation.insert(std::pair<int, KeyFrame>(frameNum, keyFrame));
+          newAnimation.emplace_back(frameNum, keyFrame);
         }
         animIter++;
       }
-      nodeAnimation->animation = newAnimation;
+      nodeAnimation->animation = std::move(newAnimation);
     }
 
     if (somethingShifted) {
@@ -1291,6 +1308,10 @@ void Animation::LoadLines(const std::string& clipName, std::vector<std::string>&
 
   LoadData(tokenizedFile);
 
+  // Keys were appended one by one, so a node's block may hold up to twice its keys. A loaded clip
+  // lives for the whole match, so trim each block now.
+  for (NodeAnimation* node : nodeAnimations) node->animation.shrink_to_fit();
+
   // cache extension data
   std::vector<std::vector<std::string>> tokenizedLines;
 
@@ -1382,7 +1403,7 @@ void Animation::Save(const std::string& filename) {
   for (int i = 0; i < (signed int)nodeAnimations.size(); i++) {
     std::string line;
     line = nodeAnimations.at(i)->nodeName + ",";
-    std::map<int, KeyFrame>::iterator animIter = nodeAnimations.at(i)->animation.begin();
+    KeyFrameList::iterator animIter = nodeAnimations.at(i)->animation.begin();
     while (animIter != nodeAnimations.at(i)->animation.end()) {
       line.append(int_to_str(animIter->first) + ",");  // frame number
       if (nodeAnimations.at(i)->nodeName != "player") {
@@ -1437,9 +1458,7 @@ void Animation::Mirror() {
       for (unsigned int j = 0; j < nodeAnimations.size(); j++) {
         if (nodeAnimations.at(j)->nodeName == needle) {
           // swap
-          std::map<int, KeyFrame> tmp = nodeAnimations.at(i)->animation;
-          nodeAnimations.at(i)->animation = nodeAnimations.at(j)->animation;
-          nodeAnimations.at(j)->animation = tmp;
+          std::swap(nodeAnimations.at(i)->animation, nodeAnimations.at(j)->animation);
           break;
         }
       }
@@ -1447,7 +1466,7 @@ void Animation::Mirror() {
   }
 
   for (unsigned int i = 0; i < nodeAnimations.size(); i++) {
-    std::map<int, KeyFrame>::iterator keyIter = nodeAnimations.at(i)->animation.begin();
+    KeyFrameList::iterator keyIter = nodeAnimations.at(i)->animation.begin();
     while (keyIter != nodeAnimations.at(i)->animation.end()) {
       if (i == 0) {
         keyIter->second.position.coords[0] = -keyIter->second.position.coords[0];
@@ -1716,7 +1735,7 @@ void Animation::Hax() {
   for (int i = 0; i < (signed int)nodeAnimations.size(); i++) {
     std::string line = nodeAnimations.at(i)->nodeName;
     if (line != "body") {
-      std::map<int, KeyFrame>::iterator animIter = nodeAnimations.at(i)->animation.begin();
+      KeyFrameList::iterator animIter = nodeAnimations.at(i)->animation.begin();
       while (animIter != nodeAnimations.at(i)->animation.end()) {
         radian rotXa, rotYa, rotZa;
         animIter->second.orientation.GetAngles(rotXa, rotYa, rotZa);

@@ -236,5 +236,77 @@ class SharedAcrossCheckouts(unittest.TestCase):
         self.assertFalse(bc.entry_is_valid(doc))
 
 
+
+class SharedSlotPerHarnessVariant(unittest.TestCase):
+    """Worktrees whose harness files differ (here dep.py) share one corpus key. Each record is valid only for the harness
+    state it was made in, and every state keeps its record: a second state's miss must not evict the first's, or the
+    lanes overwrite each other and every warm re-check misses (04-11-26: BC's 2253 corpus misses)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        d = self.dir = self.tmp.name
+        self.dep = os.path.join(d, "dep.py")
+        self.corpus = os.path.join(d, "records")
+        self.root = os.path.join(self.corpus, "KEY")
+        self.gen = os.path.join(d, "gen")
+        self.restored = os.path.join(d, "restored")
+        os.makedirs(self.gen)
+        os.makedirs(self.restored)
+        write(os.path.join(self.gen, "corp_T.jsonl"), "row\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def store(self, state, root=None):
+        write(self.dep, state)
+        record = {"files": [self.dep], "decode": []}
+        bc.corpus_store(root or self.root, "out " + state.strip(), ["corp_T.jsonl"], self.gen, record)
+
+    def hit(self, root=None):
+        doc = bc.corpus_lookup(root or self.root, self.restored)
+        return None if doc is None else doc["out"]
+
+    def test_a_record_is_a_hit_in_its_own_harness_state_and_restores_its_outputs(self):
+        self.store("A\n")
+        self.assertEqual(self.hit(), "out A")
+        with open(os.path.join(self.restored, "corp_T.jsonl")) as f:
+            self.assertEqual(f.read(), "row\n")
+
+    def test_a_second_harness_state_keeps_the_first_records_hit(self):
+        self.store("A\n")
+        self.store("B\n")
+        self.assertEqual(self.hit(), "out B")
+        write(self.dep, "A\n")
+        self.assertEqual(self.hit(), "out A")
+
+    def test_an_unrecorded_harness_state_misses(self):
+        self.store("A\n")
+        write(self.dep, "C\n")
+        self.assertIsNone(self.hit())
+
+    def test_every_state_stays_warm_until_the_corpus_is_trimmed(self):
+        for i in range(4):
+            self.store("S%d\n" % i)
+        write(self.dep, "S0\n")
+        self.assertEqual(self.hit(), "out S0")
+
+    def test_trim_evicts_the_least_recently_used_record_across_keys(self):
+        other = os.path.join(self.corpus, "OTHER")
+        write(self.dep, "T0\n")
+        bc.corpus_store(other, "out T0", ["corp_T.jsonl"], self.gen, {"files": [self.dep], "decode": []})
+        for state in ("S0\n", "S1\n", "S2\n"):
+            self.store(state)
+        write(self.dep, "S0\n")
+        self.assertEqual(self.hit(), "out S0")  # S0 is now the most recently used
+        size = sum(os.path.getsize(os.path.join(d, f)) for d, _, files in os.walk(self.corpus) for f in files)
+        bc.corpus_trim(self.corpus, cap=size // 2)  # four equal records: keep two
+        self.assertIsNone(bc.corpus_lookup(other, self.restored))
+        self.assertEqual(self.hit(), "out S0")
+        write(self.dep, "S2\n")
+        self.assertEqual(self.hit(), "out S2")
+        write(self.dep, "S1\n")
+        self.assertIsNone(self.hit())
+
+
 if __name__ == "__main__":
     unittest.main()
