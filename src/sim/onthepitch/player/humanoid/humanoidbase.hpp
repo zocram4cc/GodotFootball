@@ -15,6 +15,7 @@
 #include "../../pesclips.hpp"
 #include "base/math/vector3.hpp"
 #include "scene/scene3d/node.hpp"
+#include "../../peskickmotion.hpp"
 
 using namespace blunted;
 
@@ -91,6 +92,9 @@ struct Anim {
   Vector3 positionOffset;
 
   PlayerCommand originatingCommand;
+  // The Kick start's answer this pass or shot was started on (PES-loop matches; pes::PesKickPick): the contact frame's error draw
+  // reads it, as PES's Q reads the kind PES stored in the kicker's P when the Kick action started.
+  std::optional<pes::PesKickPick> pesKick;
 
   std::vector<Vector3> positions;
 };

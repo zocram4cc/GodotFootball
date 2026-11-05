@@ -99,11 +99,11 @@ add_executable(pes_restart_sequencer_test pes_restart_sequencer_test.cpp)
 target_link_libraries(pes_restart_sequencer_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_restart_sequencer_test)
 
-add_executable(pes_restart_delay_test pes_restart_delay_test.cpp pes_stall_test.cpp)
+add_executable(pes_restart_delay_test pes_restart_delay_test.cpp pes_stall_test.cpp pes_kick_start_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # One process for the family: its seeded matches run once per process and are shared between its tests (pes_shared_match.hpp).
-# PesStall's tests are compiled in because they play the seed-7 match the restart tests play.
+# PesStall's and PesKickStart's tests are compiled in because they play the seed-7 match the restart tests play.
 add_test(NAME pes_restart_delay_test COMMAND pes_restart_delay_test)
 set_tests_properties(pes_restart_delay_test PROPERTIES TIMEOUT 10800)
 
