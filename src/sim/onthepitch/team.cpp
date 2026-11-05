@@ -401,10 +401,15 @@ Player* Team::GetPassTarget() const {
 // against the captured owner. ponytail: the action word's writer FUN_140A6CA10 is not ported (pesmovestep.cpp:113): only PASS_GET is
 // staged, and F0E50's other class and need reads (the slot records +0x1430, the anime class byte, the roster) are GF's stand-ins of the
 // run world; the oracle test (tests/pes_teampass_oracle_test.cpp) proves the chain on PES's own records, not on these.
-// ponytail: the arrival-order list MA+0x24908 (the holder tree's default candidate and its rank scan) is each side's men by GF's
-// time-to-ball, nearest first, in frames; PES's writer 0x14045E0D0 (the gated second NearestEntry builder, untranslated: its inputs
-// are the run world's MA lists, which GF's window does not carry) will replace it. Without it the window held zeros, so slot 0 was
-// the nearest man of both sides and the tree named it for both (side 1's target was a side-0 man on 1688 of its probed ticks, seed 7).
+// The arrival-order lists MA+0x24840 / MA+0x24908 (the holder tree's default candidate and its rank scan) are PES's own writer 0x14045E0D0
+// (translated, 12/12 real calls bit-exact) run on the side's AI object in the window (PesWorld::RunArrivalList), over the men's records
+// staged here and by the team tick.
+// ponytail: PES runs the writer from the AI tick 0x140457070 only when the frames since the newest event are 1 or 3 or the ball list ran
+// (gate at 0x14045756A..0x140457602); GF has no AI tick object, so it runs every team tick. Replace with the gate once 0x14045B090 and
+// 0x140A512E0 are driven from the tick. The record fields the writer reads that GF does not carry (counter A SR+0x1430, SR+0x12BC, the roles
+// SR+0x1A/+0x1C, MA+0x247D4's bearings, MA+0x253C4's masks, T+0xB8B4, B+0x18) are zero.
+// ponytail: counter B (SR+0x1438), the base of a resting ball's arrival time, is the AI record writer FUN_14092ED30's estimate in frames
+// (21..500 captured, pes-re-player-record.md 2.1); GF's time to the ball stands in until that writer runs.
 void Team::RunPesPassTarget() {
   pes::PesWorld& world = match->PesWorldOf();
   uint8_t* mi = world.MatchInfo();
@@ -420,16 +425,11 @@ void Team::RunPesPassTarget() {
       if (onPitch)
         pes::StoreU32(world.ManRecord(slot), pes::kManActionOffset,
                       squad[place].get() == receiver ? pes::kActionPassGet : pes::kManActionIdle);
+      if (onPitch)
+        pes::StoreU32(world.SlotRecord(slot), pes::kSlotCounterBOffset,
+                      static_cast<uint32_t>(static_cast<float>(squad[place]->GetTimeNeededToGetToBall_ms()) * pes::kPesTickHz / 1000.0f));
     }
-    std::vector<std::pair<int, int>> arrival;  // (time to ball ms, place), the on-pitch men
-    for (int place = 0; place < static_cast<int>(squad.size()) && place < pes::kSlotsPerSide; ++place)
-      if (squad[place]->IsActive()) arrival.emplace_back(squad[place]->GetTimeNeededToGetToBall_ms(), place);
-    std::stable_sort(arrival.begin(), arrival.end(),
-                     [](const std::pair<int, int>& a, const std::pair<int, int>& b) { return a.first < b.first; });
-    for (int rank = 0; rank < static_cast<int>(arrival.size()); ++rank)
-      for (int ma = 0; ma < pes::kSideCount; ++ma)
-        world.SetMaArrivalEntry(ma, t, rank, static_cast<uint32_t>(t * pes::kSlotsPerSide + arrival[rank].second),
-                                static_cast<float>(arrival[rank].first) * pes::kPesTickHz / 1000.0f);
+    world.SetMaBallOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
     world.SideRecord(t)[pes::kSideLatchOffset] = side->IsPesPossession() ? 1 : 0;
     world.SetMaOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
   }
@@ -439,6 +439,8 @@ void Team::RunPesPassTarget() {
   // to see a ball that has stopped. ponytail: the prediction samples 1..249 (FUN_140A6CF70) stay zero until the ball port writes them.
   const Vector3 ballMove = match->GetBall()->GetMovement();
   world.SetBallVelocity(ballMove.coords[0], ballMove.coords[2], ballMove.coords[1]);
+  world.SetMaBall(id, ball.coords[0], ball.coords[2], ball.coords[1]);
+  world.RunArrivalList(id);
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   world.RunPassTarget(id, static_cast<uint32_t>(pes::PlayStateFor(match->IsInPlay(), buffer.active,
                                                                   buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started)));

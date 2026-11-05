@@ -444,6 +444,38 @@ bool PesWorld::RunPassTarget(int side, uint32_t playState, std::vector<std::pair
   return (s.gpr[0] & 0xFF) != 0;
 }
 
+void PesWorld::BindAi(int side) {
+  uint8_t* ai = Ai(side);
+  StoreU64(ai, kAiContextPtrOffset, AiVa(side) + kAiArrayOffset);
+  StoreU64(ai, kAiMaPtrOffset, MaVa(side));
+  uint8_t* array = ai + kAiArrayOffset;
+  const auto entry = [array](std::size_t index, uint64_t va) { StoreU64(array, sizeof(uint64_t) * index, va); };
+  entry(kAiArrayMatchInfo, MatchInfoVa());
+  entry(kAiArraySetup, AiVa(side) + kAiSetupOffset);
+  entry(kAiArrayPitch, PitchVa());
+  entry(kAiArrayBall, BallVa());
+  entry(kAiArrayRoster, RosterVa());
+  entry(kAiArrayEvents, EventsVa());
+  for (int slot = 0; slot < kSideCount * kSlotsPerSide; ++slot) {
+    entry(kAiArrayMen + slot, ManVa(slot));
+    entry(kAiArraySlots + slot, SlotVa(slot));
+    entry(kAiArrayAnime + slot, AnimeVa(slot));
+  }
+  for (int team = 0; team < kSideCount; ++team) {
+    entry(kAiArrayInfo + team, TeamInfoVa(team));
+    entry(kAiArraySides + team, SideVa(team));
+  }
+  entry(kAiArrayChaser, AiVa(side) + kAiChaserOffset);
+}
+
+void PesWorld::RunArrivalList(int side, std::vector<std::pair<uint64_t, uint8_t>>* writeLog) {
+  PesState s = NewCall(Bytes());
+  AttachImageTables(s);  // the fps cells and the angle tables the list's time terms read
+  s.mem.wlog = writeLog;
+  s.gpr[1] = AiVa(side);  // rcx: the AI object
+  ::pes_fn_14045E0D0(s);
+}
+
 void PesWorld::BindSanction() {
   PesSanctionImage& z = image_->sanction;
   for (int side = 0; side < kSideCount; ++side) {

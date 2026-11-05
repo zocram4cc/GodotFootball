@@ -400,7 +400,7 @@ inline constexpr std::size_t kMaListTeamStride = 0x58;
 inline constexpr int kMaListEntries = 11;
 // The arrival-order list the selector's holder tree reads (0x1404F0E50: `MA+0x24908 + (side * 11 + rank) * 8`, the first entry's id is
 // its default candidate): per team 11 (slot id u32, frames f32) entries, nearest to the ball first (captured, seq732/seq850). PES's
-// writer is 0x14045E0D0, the gated second NearestEntry builder (docs/re/pes-re-lane-inputs.md), untranslated.
+// writer is 0x14045E0D0 (docs/re/pes-re-lane-inputs.md), translated: PesWorld::RunArrivalList.
 inline constexpr std::size_t kMaArrivalListOffset = 0x24908;
 inline constexpr std::size_t kMaBallOffset = 0x2482C;       // f32 x, +4 height, +8 z
 inline constexpr std::size_t kMaCarrierIdOffset = 0x2483C;  // u32
@@ -429,6 +429,30 @@ struct PesRosterBlock {
 };
 struct PesSkipRecord {
   std::array<uint8_t, kSkipBytes> bytes{};
+};
+
+// The side's AI object, the `this` of the AI tick's callees (the arrival-list writer 0x14045E0D0, the ball-list writer 0x14045B090):
+// +8 names the context array, +0x508 the side's AI record MA. The array's entries are pointers to records the window already holds
+// (0x14045E0D0's reads, CONFIRMED on live2/pid1887719 seq556: entry 0 MI, 1 the setup record, 2 the pitch, 4 the ball B, 5 the roster block,
+// 7 the event store E, 8 + slot the man records P, 0x1E + slot the slot records, 0x34 + slot the anime records, 0x4A + side the team-info
+// records, 0x4C + side the team records T, 0x4E the chaser object 0x140A52310 reads).
+inline constexpr std::size_t kAiContextPtrOffset = 0x8;
+inline constexpr std::size_t kAiMaPtrOffset = 0x508;
+inline constexpr std::size_t kAiArrayOffset = 0x520;
+inline constexpr std::size_t kAiArrayMatchInfo = 0, kAiArraySetup = 1, kAiArrayPitch = 2, kAiArrayBall = 4, kAiArrayRoster = 5,
+                             kAiArrayEvents = 7, kAiArrayMen = 8, kAiArraySlots = 0x1E, kAiArrayAnime = 0x34, kAiArrayInfo = 0x4A,
+                             kAiArraySides = 0x4C, kAiArrayChaser = 0x4E;
+inline constexpr std::size_t kAiArrayEntries = 0x4F;
+// ponytail: the setup record (entry 1: its bytes +0x6E + side are a per-side flag the arrival-list writer tests before it reads MA+0x253C4's
+// masks, which the window leaves zero, so the flag changes nothing yet) and the chaser object (entry 0x4E, read by 0x140A52310) are
+// zero here: their writers are OPEN.
+inline constexpr std::size_t kAiSetupOffset = kAiArrayOffset + kAiArrayEntries * sizeof(uint64_t);
+inline constexpr std::size_t kAiSetupBytes = 0x80;
+inline constexpr std::size_t kAiChaserOffset = kAiSetupOffset + kAiSetupBytes;
+inline constexpr std::size_t kAiChaserBytes = 0x100;
+inline constexpr std::size_t kAiBytes = kAiChaserOffset + kAiChaserBytes;
+struct PesAiRecord {
+  std::array<uint8_t, kAiBytes> bytes{};
 };
 
 // A side's carrier block BP (the unit set's per-carrier object, PES offsets; docs: pes-port-MatchInfo4.md 7.1). The danger
@@ -678,6 +702,7 @@ struct PesWorldImage {
   std::array<PesBrainRecord, kSideCount> brain{};      // each side's team brain Y (the pass-target selector's rcx)
   PesRosterBlock roster{};                             // G+0x180's roster block
   PesSkipRecord skip{};                                // G+0x3B0's skip object
+  std::array<PesAiRecord, kSideCount> ai{};            // each side's AI object and context array (the arrival-list writer's rcx)
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -704,6 +729,8 @@ inline constexpr std::size_t kSkipOffset = kRosterOffset + sizeof(PesRosterBlock
 static_assert(offsetof(PesWorldImage, brain) == kBrainOffset);
 static_assert(offsetof(PesWorldImage, roster) == kRosterOffset);
 static_assert(offsetof(PesWorldImage, skip) == kSkipOffset);
+inline constexpr std::size_t kAiOffset = kSkipOffset + sizeof(PesSkipRecord);
+static_assert(offsetof(PesWorldImage, ai) == kAiOffset);
 // The ball record's active byte (FUN_140A57940 answers it): PES's ball constructor sets it (0x140A572B4: mov byte [rbx+0x2928], 1) and
 // only the FixDemo scene state machine clears it (0x141FD00BD through the setter 0x140A57990); GF never hides the ball record.
 inline constexpr std::size_t kBallActiveOffset = 0x2928;
@@ -748,6 +775,7 @@ class PesWorld {
       StoreU64(Ctx(side), kCtxEventsOffset, EventsVa());
     }
     BindSanction();
+    for (int side = 0; side < kSideCount; ++side) BindAi(side);
   }
   PesWorld(const PesWorld&) = delete;
   ~PesWorld();
@@ -780,6 +808,8 @@ class PesWorld {
   uint8_t* Skip() { return image_->skip.bytes.data(); }
   uint8_t* Roster() { return image_->roster.bytes.data(); }
   static constexpr uint64_t SkipVa() { return kWorldWindowVa + kSkipOffset; }
+  static constexpr uint64_t AiVa(int side) { return kWorldWindowVa + kAiOffset + static_cast<uint64_t>(side) * kAiBytes; }
+  uint8_t* Ai(int side) { return image_->ai[side].bytes.data(); }
   uint8_t* Brain(int side) { return image_->brain[side].bytes.data(); }
   // The team record's pass target T+0x78 (a slot id, kNoPassTarget when none): written by PES's selector, RunPassTarget.
   uint32_t PassTarget(int side) { return LoadU32(SideRecord(side), kSidePassTargetOffset); }
@@ -789,6 +819,9 @@ class PesWorld {
   // `playState` is MI+0x116C (the window's period record holds it only under the PES loop; the caller's PlayStateFor stands in, restored
   // after the call, as RunEntryAim does). `writeLog` (tests) collects every byte the chain stores, by window VA.
   bool RunPassTarget(int side, uint32_t playState, std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr);
+  // The arrival-list writer 0x14045E0D0 for one side's AI object: rewrites MA(side)+0x24840 and +0x24908 (per team 11 {slot id, frames}, nearest
+  // first) from the window's records. The caller stages what it reads (MI on-pitch bytes and frame, the men's positions, the ball record).
+  void RunArrivalList(int side, std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr);
   static constexpr uint64_t MaVa(int side) { return kWorldWindowVa + kMaOffset + static_cast<uint64_t>(side) * kMaBytes; }
   static constexpr uint64_t EventsVa() { return kWorldWindowVa + kEventsOffset; }
   uint8_t* Ctx(int side) { return image_->ctx[side].bytes.data(); }
@@ -930,6 +963,8 @@ class PesWorld {
     StoreF32(Ma(side), kMaBallOffset + 8, z);
   }
   void SetMaCarrier(int side, uint32_t id) { StoreU32(Ma(side), kMaCarrierIdOffset, id); }
+  // The ball copy's owner word at MA+0x24838 (u32, a slot id when < 0x16): the arrival-list writer 0x14045E0D0 and the AI tick read it.
+  void SetMaBallOwner(int side, uint32_t id) { StoreU32(Ma(side), kMaBallOffset + 0xC, id); }
   // The ball owner's slot id in MA (0xFF none).
   void SetMaOwner(int side, uint32_t id) { StoreU32(Ma(side), kMaOwnerOffset, id); }
   // Entry `rank` of team `team`'s list in MA list block `list` (0 or 1): the slot id, then the value.
@@ -938,13 +973,6 @@ class PesWorld {
                      static_cast<std::size_t>(team) * kMaListTeamStride + static_cast<std::size_t>(rank) * 8;
     StoreU32(entry, 0, id);
     StoreF32(entry, 4, value);
-  }
-  // Entry `rank` of team `team`'s arrival list (MA+0x24908): the slot id, then the frames to the ball.
-  void SetMaArrivalEntry(int side, int team, int rank, uint32_t id, float frames) {
-    uint8_t* entry = Ma(side) + kMaArrivalListOffset + static_cast<std::size_t>(team) * kMaListTeamStride +
-                     static_cast<std::size_t>(rank) * 8;
-    StoreU32(entry, 0, id);
-    StoreF32(entry, 4, frames);
   }
   // The clock's period record, in the match-info block: PesClock writes it in place.
   PeriodRecord& Period() { return image_->match.period; }
@@ -1127,6 +1155,8 @@ class PesWorld {
  private:
   // Points G's field info, the side-B team info, A1 and its blocks at the sanction image (the ctor).
   void BindSanction();
+  // The side's AI object's context array: pointers to the window's records (kAi* above). Bound once, at construction.
+  void BindAi(int side);
   PesTableEntry& Entry(WorldTable table, int index) {
     switch (table) {
       case WorldTable::kSideA: return image_->tables.sideA.at(index);

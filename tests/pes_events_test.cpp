@@ -1188,4 +1188,54 @@ TEST(PesFramesSince, CountsFromTheNewestEventWhenNoOneHoldsTheBall) {
   EXPECT_EQ(static_cast<int32_t>(s.gpr[0]), kFramesLater);
 }
 
+// The arrival-list writer 0x14045E0D0 on GF's window: the holder tree's default candidate is the first entry of its own side's list, so each
+// side's list must hold that side's own men, nearest the ball first, with the frames to the ball not decreasing down the list. The men
+// stand on one line from the ball, in the reverse of their squad order (place 10 nearest), so the squad index cannot pass for the order.
+TEST(PesArrivalList, ListsEachSidesOwnMenNearestTheBallFirst) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (root == nullptr) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string error;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &error);
+  ASSERT_TRUE(exe) << error;
+  auto tables = pes::LoadPesImageTables(*exe, &error);
+  ASSERT_TRUE(tables) << error;
+
+  constexpr float kSpacing_m = 3.0f, kSideOffset_m = 1.5f, kFramesPerMetre = 5.0f;  // arbitrary: only the order of the frames matters
+  auto world = std::make_unique<pes::PesWorld>();
+  world->BindImageTables(*tables);
+  for (int side = 0; side < pes::kSideCount; ++side) {
+    for (int place = 0; place < pes::kSlotsPerSide; ++place) {
+      const int slot = side * pes::kSlotsPerSide + place;
+      world->BindSlot(slot);
+      world->MatchInfo()[pes::kMiOnPitchOffset + slot] = 1;
+      pes::StoreF32(world->ManRecord(slot), pes::kManPosXOffset,
+                    kSpacing_m * static_cast<float>(pes::kSlotsPerSide - place) + kSideOffset_m * static_cast<float>(side));
+      pes::StoreF32(world->ManRecord(slot), pes::kManPosZOffset, 0.0f);
+      // SR+0x1438, the AI time-to-ball estimate in frames (the resting ball's arrival base): the nearer the man, the fewer frames.
+      pes::StoreU32(world->SlotRecord(slot), pes::kSlotCounterBOffset,
+                    static_cast<uint32_t>(kFramesPerMetre * kSpacing_m * static_cast<float>(pes::kSlotsPerSide - place)));
+    }
+    world->SetMaBall(side, 0.0f, 0.0f, 0.0f);
+    world->SetMaBallOwner(side, pes::kMiNoSlot);
+    world->SetMaOwner(side, pes::kMiNoSlot);
+  }
+  world->SetBallSample(0, 0.0f, 0.0f, 0.0f);
+  world->AdvanceMatchFrame();
+
+  world->RunArrivalList(0);
+
+  const uint8_t* list = world->Ma(0) + pes::kMaArrivalListOffset;
+  for (int team = 0; team < pes::kSideCount; ++team) {
+    float previous = -1.0f;
+    for (int rank = 0; rank < pes::kSlotsPerSide; ++rank) {
+      const uint8_t* entry = list + team * pes::kMaListTeamStride + rank * 8;
+      EXPECT_EQ(pes::LoadU32(entry, 0), static_cast<uint32_t>(team * pes::kSlotsPerSide + (pes::kSlotsPerSide - 1 - rank)))
+          << "team " << team << " rank " << rank;
+      const float frames = pes::LoadF32(entry, 4);
+      EXPECT_GE(frames, previous) << "team " << team << " rank " << rank;
+      previous = frames;
+    }
+  }
+}
+
 }  // namespace
