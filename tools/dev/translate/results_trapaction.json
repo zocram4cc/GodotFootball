@@ -302,44 +302,6 @@
    "capped": 0,
    "cases": 0,
    "coverage": {
-    "0x1407BA840": {
-     "reached": 68,
-     "total": 82,
-     "fraction": 0.8293
-    }
-   },
-   "dead_blocks": {},
-   "diffed": true,
-   "failed": 0,
-   "failure_class": null,
-   "icount_max": 0,
-   "nonreturn": 0,
-   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 19 of 19. EVERY case is SYNTHETIC (19): no capture has called the planner yet, so each is a real end-transition entry state (a captured trap tick) whose gate byte is poked so PES's own bytes run to the planner's entry (synth_walk.py --in-call), plus pokes of the planner's inputs (the Trap stage, the action type, the request's float, P+0x3B18; synth_trapkind.py --root 0x1407BA840). The inputs are chosen, not observed; replace with trap_act4_7BA840 captures when they land.",
-   "proof": "snapdiff",
-   "requested": 0,
-   "synthetic": true,
-   "synthetic_cases": 19,
-   "snapdiff": {
-    "calls": 19,
-    "mismatches": 0,
-    "own_block": {
-     "reached": 68,
-     "total": 82,
-     "fraction": 0.8293
-    },
-    "replayed": 19,
-    "source": "tools/dev/translate/results_trapaction.json"
-   },
-   "stubs": [],
-   "translated": true,
-   "va": "0x1407BA840",
-   "closure_file": "closure_trapact4.json"
-  },
-  {
-   "aborted": 0,
-   "capped": 0,
-   "cases": 0,
-   "coverage": {
     "0x14079EE70": {
      "reached": 43,
      "total": 80,
@@ -372,6 +334,82 @@
    "translated": true,
    "va": "0x14079EE70",
    "closure_file": "closure_trapendxfer.json"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1407BA840": {
+     "reached": 70,
+     "total": 82,
+     "fraction": 0.8537
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 20 of 20. 1 REAL captured call(s) (trap_act4_7BA840) and 19 SYNTHETIC cases: a real end-transition entry state (a captured trap tick) whose gate byte is poked so PES's own bytes run to the planner's entry (synth_walk.py --in-call), plus pokes of the planner's inputs (the Trap stage, the action type, the request's float, P+0x3B18; synth_trapkind.py --root 0x1407BA840). The synthetic inputs are chosen, not observed.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "synthetic": true,
+   "synthetic_cases": 19,
+   "snapdiff": {
+    "calls": 20,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 70,
+     "total": 82,
+     "fraction": 0.8537
+    },
+    "replayed": 20,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407BA840",
+   "closure_file": "closure_trapact4.json"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1406B4580": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 4 of 4: REAL captured calls (trap_endtrans_6B4580, the call at 0x14079F17D of the trap end transition); the closure reaches the action table's vt+0x68 (0x1407BA840) through the dispatch table.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "synthetic": true,
+   "synthetic_cases": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B4580",
+   "closure_file": "closure_trapb4580.json"
   }
  ]
 }
