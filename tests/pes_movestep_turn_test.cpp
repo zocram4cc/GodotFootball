@@ -19,6 +19,10 @@
 #include "clip_ticks_fake.hpp"
 #include "pes/movestep_turn.hpp"
 
+namespace pes::movestep {
+extern int runEntries;  // counted by the group B stub below
+}  // namespace pes::movestep
+
 namespace {
 
 using pes::MoveHost;
@@ -353,6 +357,7 @@ TEST(RunTurnRun, WritesTheTurnedHeadingInsideTheReorientWindow) {
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 80.0f);
   req.SetF(pes::moveword::kTurnedRow, 70.0f);  // the candidate, 10 degrees below the heading
+  host.record = TurnRecordWithFrames();  // the window ends at min(end, fixed frames) (CMOVG at 0x1406c16b9)
   host.currentMotion = 0x1000;
   host.currentClipFrames = 1;  // inside (-930, 342]
   RunTurnRun(host, req, SyntheticTurn());
@@ -375,7 +380,10 @@ pes::MotionRecord DecodedRotRecord(uint32_t endField) {
                              /*pivot*/ 1};
   std::string err;
   auto m = pes::ParseMbinfo(bins, caps, &err);
-  return m ? m->Motion(0x1000) : pes::MotionRecord{};
+  if (!m) return pes::MotionRecord{};
+  pes::MotionRecord rec = m->Motion(0x1000);
+  rec.blend = {1000};  // the fixed frames bound the window: min(end, fixed) is the record's own end
+  return rec;
 }
 
 // The reorient window is the record's own (start to end, frames): the clip at frame 5 is past a
@@ -403,15 +411,18 @@ TEST(RunTurnRun, SelectsTheClassAndSpeedFromTheDisplacementSpeed) {
   MoveReq req;
   FillRequest(&req);
   host.currentMotion = 0x1000;
-  host.currentClipFrames = 50;  // past every window: the ladder and the damping tail
-  host.record = pes::MotionRecord{};  // the zero word: start -930 frames, end 2
+  host.currentClipFrames = 50;  // past the clip's end (min(end, fixed) = 0 on this record): the ladder, the damping tail, the exit
   host.displacement[0] = 0.0f;
   host.displacement[1] = 0.0f;
   host.displacement[2] = 0.0f;  // a stationary player: the speed is 0
+  pes::movestep::runEntries = 0;
   RunTurnRun(host, req, SyntheticTurn());
-  // PES's ladder with a zero speed writes class 0 and the 5.0 speed word (0x40a00000).
+  // A finished clip with the command's class (word 9) below the live class asks for the run (FUN_1406d2030 through vt+0): the
+  // ground speed is under the 5 km/h rung, so the rate is 0.15, its class comes from the rate table (0), and the class's rate
+  // is the 0.3 immediate (0x3e99999a).
+  EXPECT_EQ(pes::movestep::runEntries, 1);
   EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 5.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.3f);
 }
 
 // The rate tail: a fast clip re-selects the rate from the interface speed and clamps it.
@@ -516,7 +527,13 @@ int turnStopEntries = 0;  // counts the hand-offs to TURN_STOP (group C's EnterT
 void EnterTurnStop(MoveHost&, MoveReq&) { ++turnStopEntries; }  // group C's own; the stub keeps group D linking
 // Group C's FUN_1406b70d0 gate (movestep_step.cpp): the group-D tests take its "no", as the port did before group C landed.
 bool StepLetsRunTurn(MoveHost&, MoveReq&) { return false; }
+// Group B's run entry (FUN_1406d2030), which RUN_TURN_RUN's exit calls: the tests count the hand-offs.
+int runEntries = 0;
+void EnterRun(MoveHost&, MoveReq&, int, bool) { ++runEntries; }
 }  // namespace movestep
+// Group B's two table pickers (movestep_run.cpp), which the exit reads: the tests use distinct answers per input.
+float BandRateFor(int band, int kind, const RunTables&) { return 0.1f * static_cast<float>(band + 1) + 0.01f * static_cast<float>(kind); }
+int ClassForRateFor(float rate, const RunTables&) { return rate < 0.25f ? 0 : (rate < 0.45f ? 1 : 2); }
 }  // namespace pes
 
 namespace {
@@ -1284,6 +1301,7 @@ TEST(RunTurnRun, WritesTheTurnedRowWhenTheClipIsInsideTheWindow) {
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, 70.0f);
   req.SetF(pes::moveword::kTurnedRow, 20.0f);  // 50 degrees short of the heading
+  host.record = TurnRecordWithFrames();
   host.currentMotion = 0x1000;
   // The window is (-930, 342]; a clip frame of 3 sits inside it with room for the span.
   host.currentClipFrames = 3;
@@ -1308,14 +1326,15 @@ TEST(RunTurnRun, TakesTheReplayPathWhenTheDrawIsInsideTheNinetyGate) {
   req.SetF(pes::moveword::kTurnedRow, 60.0f);
   req.SetF(pes::moveword::kFacingError, 0.0f);
   host.currentMotion = 0x1000;
-  host.currentClipFrames = 2000;  // past every window: the ladder and the damping tail
+  host.currentClipFrames = 2000;  // past the clip's end: the ladder, the damping tail, the exit
   host.displacement[0] = 0.0f;    // a stationary player: speed 0
   host.displacement[1] = 0.0f;
   host.displacement[2] = 0.0f;
+  pes::movestep::runEntries = 0;
   RunTurnRun(host, req, SyntheticTurn());
-  // The replay path writes the class/speed pair from the drawn speed (class 0 / 5.0).
+  // The look draw (50 degrees) is inside the 90 gate, so the replay flag is off and the finished clip takes the exit to the run.
+  EXPECT_EQ(pes::movestep::runEntries, 1);
   EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 5.0f);
 }
 
 // FUN_1406c14c0's rate ladder: the precise arm writes the 0.6 rate and the threshold, so

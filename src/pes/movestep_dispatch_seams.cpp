@@ -46,14 +46,11 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req) {
   return false;
 }
 
-// FUN_1406b8340's tail: the P+0xbec copy and the playback store. The slip state takes req[0xec]
-// unconditionally; every other state takes req[0x3b] only when req[0x3a] asks for it.
+// FUN_1406b8340's tail: the P+0xbec copy and the playback store. The root-facing write (req[0x3a] set, angle req[0x3b]) is what
+// the slip tail of RUN_TURN_RUN_SLIPDOWN writes too: PES's byte offsets 0xe8 / 0xec are those words in every state.
 void ApplyTail(MoveStepRecord& rec, MoveHost& host, MoveReq& req, MoveState stateAtEntry) {
-  if (stateAtEntry == MoveState::kRunTurnRunSlipdown) {
-    host.SetRecordF0bec(req.F(moveword::kSlipAngle));
-  } else if (req.Flag(moveword::kRootFacing)) {
-    host.SetRecordF0bec(req.F(moveword::kRootFacingAngle));
-  }
+  (void)stateAtEntry;
+  if (req.Flag(moveword::kRootFacing)) host.SetRecordF0bec(req.F(moveword::kRootFacingAngle));
   rec.playbackSpeed = req.F(moveword::kPlayback);
 }
 

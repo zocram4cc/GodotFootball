@@ -41,14 +41,14 @@ inline constexpr int kReorientFlag = 0x3c;   // req[0x3c] byte: a reorient is du
 inline constexpr int kTurnFrames = 0x3e;     // req[0x3e]: the lock's or the echo's tick count (PES 0x3e)
 inline constexpr int kMirrorFlag = 0x3f;     // req[0x3f] byte: the mirror re-select flag, and the lock's direction (PES 0x3f)
 inline constexpr int kAngle3d = 0x3d;        // req[0x3d]: a float, the lock heading or the echo's angle (PES 0x3d)
-inline constexpr int kClampWord = 0x6c;      // req[0x6c]: cleared by the slip tail
-inline constexpr int kSlipCandidate = 0x60;  // req[0x60]: the slip row candidate
-inline constexpr int kSlipRowOut = 0xf4;     // req[0xf4]: the re-selected row
-inline constexpr int kSlipNewRow = 0xf0;     // req[0xf0] byte: a re-selection is due
-inline constexpr int kSlipRowFrames = 0xf8;  // req[0xf8]: the re-selected row's frames
-inline constexpr int kSlipMirrorOut = 0xfc;  // req[0xfc] byte: the row's mirror bit
-inline constexpr int kSlipRate = 0x128;       // req[0x128]: the parametric rate
-inline constexpr int kSlipSpeed = 0x74;       // req[0x74]: the speed word
+inline constexpr int kClampWord = 0x1b;      // req[0x1b] (byte offset 0x6c): cleared by the exits to the run
+inline constexpr int kSlipCandidate = 0x18;  // req[0x18] (byte offset 0x60): the slip row candidate, the turned heading
+inline constexpr int kSlipRowOut = 0x3d;     // req[0x3d] (byte offset 0xf4): the re-selected row
+inline constexpr int kSlipNewRow = 0x3c;     // req[0x3c] byte (byte offset 0xf0): a re-selection is due
+inline constexpr int kSlipRowFrames = 0x3e;  // req[0x3e] (byte offset 0xf8): the re-selected row's frames
+inline constexpr int kSlipMirrorOut = 0x3f;  // req[0x3f] byte (byte offset 0xfc): the row's mirror bit
+inline constexpr int kSlipRate = 0x4a;       // req[0x4a] (byte offset 0x128): the parametric rate
+inline constexpr int kSlipSpeed = 0x1d;      // req[0x1d] (byte offset 0x74): the speed word
 }  // namespace moveword
 
 namespace movestep {
