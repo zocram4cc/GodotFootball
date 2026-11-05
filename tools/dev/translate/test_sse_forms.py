@@ -40,6 +40,7 @@ CODE = bytes.fromhex(
     "f2440f5dc9"    # minsd    xmm9, xmm1
     "0fc8"          # bswap eax
     "480fc9"        # bswap rcx
+    "66450f5bda"    # cvtps2dq xmm11, xmm10
     "c3")
 HINT = bytes.fromhex("0f1808c3")  # prefetcht0 [rax] ; ret
 X87 = bytes.fromhex("d9eec3")     # fldz ; ret
@@ -95,6 +96,7 @@ int main() {
   put(s, 6, 0x0003000200010000ULL, 0x0007000600050004ULL);
   put(s, 8, 0x4000000000000000ULL, 0);                         // 2.0
   put(s, 9, 0x4000000000000000ULL, 0);                         // 2.0
+  put(s, 10, 0x4060000040200000ULL, 0x4F32D05EC0200000ULL);    // 2.5, 3.5, -2.5, 3e9 (above int32)
   // xmm1: low double 3.0 (the maxsd/minsd source); its dwords are the PMULLD/PUNPCK sources
   put(s, 1, 0x4008000000000000ULL, 0x0000000900000003ULL);
   s.gpr[0] = 0x1122334455667788ULL;
@@ -102,6 +104,7 @@ int main() {
   pes_fn_FN(s);
   for (int i : {3, 4, 5, 6, 7, 8, 9}) std::printf("%016llx %016llx\n", (unsigned long long)s.xmm[i][1], (unsigned long long)s.xmm[i][0]);
   std::printf("%016llx %016llx\n", (unsigned long long)s.gpr[0], (unsigned long long)s.gpr[1]);
+  std::printf("%016llx %016llx\n", (unsigned long long)s.xmm[11][1], (unsigned long long)s.xmm[11][0]);
 }
 """
 
@@ -152,6 +155,9 @@ class SseForms(unittest.TestCase):
         rax, rcx = [int(v, 16) for v in out[7].split()]
         self.assertEqual(rax, 0x88776655)
         self.assertEqual(rcx, 0x8877665544332211)
+        # CVTPS2DQ: each float rounds to nearest-even (2.5 -> 2, 3.5 -> 4, -2.5 -> -2: truncation would give 3 for 3.5), and a
+        # value outside int32 gives the integer indefinite 0x80000000
+        self.assertEqual(lanes(int(out[8].replace(" ", ""), 16)), [2, 4, 0xFFFFFFFE, 0x80000000])
 
     def test_an_instruction_without_semantics_is_a_trap_not_a_no_op(self):
         text = translate(X87)

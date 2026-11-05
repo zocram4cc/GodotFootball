@@ -1903,6 +1903,17 @@ class Emitter:
             return ["{ uint64_t _q = (uint64_t)(%s); double _lo = (double)(int32_t)(uint32_t)_q, _hi = (double)(int32_t)(uint32_t)(_q >> 32);"
                     % self.sd_src(src),
                     "  memcpy(&s.xmm[%d][0], &_lo, 8); memcpy(&s.xmm[%d][1], &_hi, 8); }" % (x, x)]
+        if m == "CVTPS2DQ":
+            # Four floats to four signed dwords, rounded in the current mode (MXCSR default: nearest-even; PesState::cvt_i32).
+            if s.startswith("xmm") and "[" not in s:
+                y = int(s[3:])
+                lanes = ["PesState::cvt_i32((double)PesState::f32((uint32_t)(s.xmm[%d][%d] >> %d)))" % (y, i // 2, (i % 2) * 32)
+                         for i in range(4)]
+            else:
+                e = self.mem_val(src[src.find("["):], 128, None)
+                lanes = ["PesState::cvt_i32((double)PesState::lane_f32(%s, %d))" % (e, i) for i in range(4)]
+            return ["{ uint32_t _l0 = (uint32_t)%s, _l1 = (uint32_t)%s, _l2 = (uint32_t)%s, _l3 = (uint32_t)%s;" % tuple(lanes),
+                    "  s.xmm[%d][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[%d][1] = ((uint64_t)_l3 << 32) | _l2; }" % (x, x)]
         return ["/*UNHANDLED-VEC %s %s*/(void)0;" % (m, ops)]
 
     # ---- branches ----
