@@ -30,6 +30,12 @@ def diff(path, added=()):
     return "\n".join(lines) + "\n"
 
 
+def cases_of(binary):
+    """Every ctest entry that runs the binary (a gtest binary is one entry per case)."""
+    return {t["name"] for t in branch_select.ctest_tests(BUILD)
+            if t["command"] and os.path.basename(t["command"][0]) == binary}
+
+
 class BranchSelect(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -39,38 +45,46 @@ class BranchSelect(unittest.TestCase):
     def select(self, text):
         return set(branch_select.select(BUILD, REPO, text))
 
+    def assertBinary(self, binary, got, selected):
+        cases = cases_of(binary)
+        self.assertTrue(cases, f"no ctest entry runs {binary}")
+        if selected:
+            self.assertTrue(cases <= got, f"{binary} should be selected")
+        else:
+            self.assertFalse(cases & got, f"{binary} should not be selected")
+
     def test_sim_source_selects_every_gfsim_binary_and_no_pesfmt_only_binary(self):
         got = self.select(diff("src/sim/simcontext.cpp"))
-        self.assertIn("pes_judge_test", got)
-        self.assertIn("pes_restart_delay_test", got)  # a seeded family: its matches run this sim
-        self.assertNotIn("pes_fdc_test", got)  # links pesfmt only
+        self.assertBinary("pes_judge_test", got, selected=True)
+        self.assertBinary("pes_restart_delay_test", got, selected=True)  # a seeded family: its matches run this sim
+        self.assertBinary("pes_fdc_test", got, selected=False)  # links pesfmt only
 
     def test_test_source_selects_its_own_binary_only(self):
         got = self.select(diff("tests/sim/pes_offside_test.cpp"))
-        self.assertIn("pes_offside_test", got)
-        self.assertNotIn("pes_judge_test", got)
-        self.assertNotIn("pes_restart_delay_test", got)
+        self.assertBinary("pes_offside_test", got, selected=True)
+        self.assertBinary("pes_judge_test", got, selected=False)
+        self.assertBinary("pes_restart_delay_test", got, selected=False)
 
     def test_docs_select_only_the_always_on_tests(self):
         got = self.select(diff("docs/ports/README.md"))
         self.assertIn("repo_pii_scan", got)
         self.assertIn("diff_core_recorded", got)
-        self.assertNotIn("pes_judge_test", got)
-        self.assertNotIn("pes_offside_test", got)
+        self.assertBinary("pes_judge_test", got, selected=False)
+        self.assertBinary("pes_offside_test", got, selected=False)
 
     def test_assets_fall_back_to_every_test(self):
         got = self.select(diff("assets/fixtures/teams.sql"))
-        self.assertIn("pes_fdc_test", got)
-        self.assertIn("pes_judge_test", got)
+        self.assertBinary("pes_fdc_test", got, selected=True)
+        self.assertBinary("pes_judge_test", got, selected=True)
 
     def test_cmake_line_naming_a_test_selects_that_test(self):
         got = self.select(diff("tests/CMakeLists.txt", ["set_tests_properties(pes_fdc_test PROPERTIES TIMEOUT 999)"]))
-        self.assertIn("pes_fdc_test", got)
-        self.assertNotIn("pes_judge_test", got)
+        self.assertBinary("pes_fdc_test", got, selected=True)
+        self.assertBinary("pes_judge_test", got, selected=False)
 
     def test_cmake_line_naming_no_test_falls_back_to_every_test(self):
         got = self.select(diff("tests/CMakeLists.txt", ["set(GF_SHARED_FLAG 1)"]))
-        self.assertIn("pes_judge_test", got)
+        self.assertBinary("pes_judge_test", got, selected=True)
 
 
 if __name__ == "__main__":

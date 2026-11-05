@@ -78,6 +78,16 @@ def closure(build, repo, target):
     return frozenset(inputs)
 
 
+def as_list(value):
+    """A ctest property as a list: CMake lists come back as JSON arrays, a single value as a string."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    return [v for v in str(value).split(";") if v]
+
+
+@functools.lru_cache(maxsize=None)
 def ctest_tests(build):
     data = json.loads(subprocess.run(["ctest", "--test-dir", build, "--show-only=json-v1"],
                                      capture_output=True, text=True, check=True).stdout)
@@ -85,7 +95,8 @@ def ctest_tests(build):
     for t in data["tests"]:
         props = {p["name"]: p["value"] for p in t.get("properties", [])}
         tests.append({"name": t["name"], "command": t.get("command", []),
-                      "setup": props.get("FIXTURES_SETUP"), "requires": props.get("FIXTURES_REQUIRED", "")})
+                      "setup": as_list(props.get("FIXTURES_SETUP")),
+                      "requires": as_list(props.get("FIXTURES_REQUIRED"))})
     return tests
 
 
@@ -182,10 +193,10 @@ def select(build, repo, diff_text):
             why.append("changed: " + ", ".join(hits[:3]) + (" ..." if len(hits) > 3 else ""))
         if why:
             selected[t.name] = why
-    setup_of = {t.setup: t.name for t in tests if t.setup}
+    setup_of = {s: t.name for t in tests for s in t.setup}
     for t in tests:
         if t.name in selected:
-            for fixture in filter(None, t.requires.split(";")):
+            for fixture in t.requires:
                 if fixture in setup_of:
                     selected.setdefault(setup_of[fixture], ["fixture of " + t.name])
     return selected
