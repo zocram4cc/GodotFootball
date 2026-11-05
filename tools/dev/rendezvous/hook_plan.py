@@ -166,6 +166,12 @@ TARGETS = [
     # --- RestingBall2 block (trap end transition and the action-4 virtual it reaches; pes-port-RestingBall2.md). Append-only.
     ("trap_endtrans_6B4580", 0x1406B4580, "RestingBall2: trap end transition's action dispatch (call from 0x14079EE70)"),
     ("trap_act4_7BA840", 0x1407BA840, "RestingBall2: action-4 virtual reached at the trap end (untranslated)"),
+    # --- KickTick block (the Kick action's per-tick driver; pes-port-KickTick.md). Append-only.
+    ("kick_try_140724CC0", 0x140724CC0, "KickTick: Kick action start (try)"),
+    ("kick_gate_1407266B0", 0x1407266B0, "KickTick: Kick can-enter gate (rdx = P)"),
+    ("kick_commit_1406F9B70", 0x1406F9B70, "KickTick: command commit (pending cmd, order record at +0x5EC)"),
+    ("kick_tick_140719F20", 0x140719F20, "KickTick: Kick action tick switch"),
+    ("kick_ai_exec_1409316E0", 0x1409316E0, "KickTick: AI executor"),
 ]
 
 
