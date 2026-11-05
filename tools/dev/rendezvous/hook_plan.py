@@ -163,6 +163,9 @@ TARGETS = [
     ("kick_root_141AFDF10", 0x141AFDF10, "KickBranch: root-motion reader (turning clips reach 0x1423BAEB0)"),
     ("kick_widepass_140A510F0", 0x140A510F0, "KickBranch: request builder's wide-pass lane classifier"),
     ("kick_shotgoal_140A641D0", 0x140A641D0, "KickBranch: chooser shot path inside the goal-area window"),
+    # --- RestingBall2 block (trap end transition and the action-4 virtual it reaches; pes-port-RestingBall2.md). Append-only.
+    ("trap_endtrans_6B4580", 0x1406B4580, "RestingBall2: trap end transition's action dispatch (call from 0x14079EE70)"),
+    ("trap_act4_7BA840", 0x1407BA840, "RestingBall2: action-4 virtual reached at the trap end (untranslated)"),
 ]
 
 
