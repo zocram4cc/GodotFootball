@@ -69,7 +69,16 @@ inline constexpr int kMoveStateCount = 24;
 // The FSM's pose hold: while the state is STOP or ACCELERATE the body keeps its pose. The clip's end does not switch the
 // body and the AI's movement command selects no clip (humanoid.cpp). ponytail: the hold set is STOP and ACCELERATE; the
 // IDLE family is not held, since its exit to GOTO_RUN is not decoded.
-inline bool HoldsBodyPose(MoveState s) { return s == MoveState::kStop || s == MoveState::kAccelerate; }
+inline bool HoldsBodyPose(MoveState s) {
+  switch (s) {
+    case MoveState::kStop: case MoveState::kAccelerate: case MoveState::kDecelerate: case MoveState::kTurnStop:
+    case MoveState::kRunTurnRun: case MoveState::kRunTurnRunSlipdown: case MoveState::kRunTurnStep:
+    case MoveState::kStepTurnRun: case MoveState::kStepTurnStep: case MoveState::kStepToRun: case MoveState::kRunToStep:
+      return true;
+    default:
+      return false;
+  }
+}
 
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.
 struct MoveStepRecord {

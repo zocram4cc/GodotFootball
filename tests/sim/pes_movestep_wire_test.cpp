@@ -902,3 +902,61 @@ TEST(MoveStepWire, AJogMoveWiresTheMoveIdAndDerivesThePreciseWord) {
   EXPECT_EQ(req.U(pes::moveword::kKind), 0u) << "an outfield move is the mid kind";
   EXPECT_EQ(req.U(pes::moveword::kPrecise), 1u) << "the set clause: MOVE at a jog with the anime state set";
 }
+
+// The STOP entry's run-stop arm asks the anime interface's vt+0xE0 selector (FUN_1406BA0D0) for its motion: the row is
+// DAT_1425ddb50[kind + class * 8] and the column DAT_1425dd988[bucket]. The port asked the Animetable for the raw bucket as the
+// column on the stop-row table, so every odd bucket found no cell: the request carried motion -1 and PES's tail never issues
+// that (FUN_1406B8340 tail: `-1 < iVar9`). Seed 7 pes-loop, the first 1500 ticks.
+TEST(MoveStepWire, NoMoveStepIssueRequestsNoMotion) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  match->StartPlay();
+  int issues = 0, noMotion = 0;
+  for (int t = 0; t < 1500; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<uint32_t> serial;
+    for (Player* p : ps) serial.push_back(p->GetIssuedClip().serial);
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      if (ps[i]->GetIssuedClip().serial == serial[i]) continue;
+      ++issues;
+      if (ps[i]->GetIssuedClip().request.motion < 0) ++noMotion;
+    }
+  }
+  printf("[movestep-nomotion] issues %d, issues with no motion %d\n", issues, noMotion);
+  EXPECT_GT(issues, 0);
+  EXPECT_EQ(noMotion, 0) << "every issue names a motion";
+}
+
+// The FSM drives a body whose clip PES numbers: a state that reads the clip (RUN_TURN_RUN is one) on a body playing the AI's own
+// movement clip reads CurrentMotion -1, never meets its exit tests and stands there for good (TeamTick4: a named receiver stood
+// 5 s). PES's anime player keeps a finished clip as the current motion until the next issue, so the handler sees its own clip
+// to the end. No man whose body the FSM drives may sit in RUN_TURN_RUN on a clip PES does not number for a second, and none may
+// stand a second on a finished clip in any state that holds the body's pose (the hold must not freeze a body either).
+TEST(MoveStepWire, NoManSitsInRunTurnRunOnAClipPesDoesNotNumber) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  match->StartPlay();
+  constexpr int kOneSecond = Match::kFramesPerSecond;
+  std::map<const Player*, int> run, finished;
+  int longest = 0, longestFinished = 0;
+  for (int t = 0; t < 3000; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const bool drivenOnOwnClip = p->GetCurrentFunctionType() == e_FunctionType_Movement;
+      const bool stuck = p->GetMoveStep().state == pes::MoveState::kRunTurnRun && drivenOnOwnClip;
+      run[p] = stuck ? run[p] + 1 : 0;
+      longest = std::max(longest, run[p]);
+      const Anim* a = p->GetCurrentAnim();
+      const bool atEnd = a->anim && a->frameNum >= a->anim->GetFrameCount() - 1 && pesmovestep::CurrentMotionOf(*p) >= 0;
+      finished[p] = atEnd && pes::HoldsBodyPose(p->GetMoveStep().state) ? finished[p] + 1 : 0;
+      longestFinished = std::max(longestFinished, finished[p]);
+    }
+  }
+  printf("[movestep-rtr] longest stretch in RUN_TURN_RUN on the AI's own clip %d ticks, on a finished PES clip %d ticks\n", longest,
+         longestFinished);
+  EXPECT_LT(longest, kOneSecond);
+  EXPECT_LT(longestFinished, kOneSecond);
+}

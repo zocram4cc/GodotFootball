@@ -592,11 +592,12 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   float playback = pes::TurnPlayback(host.PhysiqueG(), p, host.PlaybackConstantsView());
   if (!(k.dist1m5 < playback || playback < k.ramp85)) playback = k.one;
   req.SetF(moveword::kPlayback, playback);
-  // The stop row (FUN_1406b9d80) with the bucket and the kind (8 maps to 2). Its band is the class word req[0x1f] clamped to
-  // 0..2: FUN_1406d5d60 passes param_2[0x1f] to the picker, not the band word req[0x51].
+  // The turn-stop selector: FUN_1406d5d60 calls the +0xac0 interface's vt+0xE0 (0x1425E35B0 + 0xE0 = FUN_1406BA0D0), which reads
+  // the row from DAT_1425ddb50[kind + class * 8] and the column from DAT_1425dd988[bucket], then FUN_1406ABB30 / FUN_1406ABD60.
+  // The kind maps 8 to 2 and the class is the class word req[0x1f] clamped to 0..2 (not the band word req[0x51]).
   const int rowBand = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
-  const int row = StopRowFor(rowKind, rowBand, /*action=*/0, t);  // FUN_1406d5d60's param_6 is the immediate 0
-  const MoveCell cell = host.Cell(row, bucket, false);
+  const int row = TurnStopRowFor(rowKind, rowBand, t);
+  const MoveCell cell = host.Cell(row, t.bucketColumn[bucket], false);
   host.Issue(MotionRequest{cell.motionNo, cell.mirror, 0, k.blend2, playback, 0.0f, -1, 0.0f, 0.0f, 0});
   req.SetU(moveword::kMotion, static_cast<uint32_t>(cell.motionNo));
   req.SetByte(moveword::kMirror, cell.mirror ? 1 : 0);

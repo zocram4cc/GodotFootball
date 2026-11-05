@@ -312,10 +312,13 @@ class MoveHostAdapter final : public pes::MoveHost {
   float RecordF0bec() const override { return player_.GetMoveStep().yawLock; }
   void SetRecordF0bec(float value) override { player_.GetMoveStep().yawLock = value; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return c_.buckets; }
-  // FUN_141eb50b0: index 0 and 1 are the displacement; index >= 2 is the history ring, which GF does not keep.
+  // FUN_141eb50b0: index 0 and 1 are the displacement of the last tick, in metres per PES tick (every reader multiplies it by the
+  // tick rate to get km/h: FUN_1406bb570 line `ticks * 60 * 60 / 1000 * |displacement|`). GF's movement is metres per second
+  // (a 10 ms anim frame's step x 100), so it is divided by the PES tick rate. Index >= 2 is the history ring, which GF does not
+  // keep.
   // ponytail: PES's ring at P+0x2fc is written per tick by a writer not decoded yet; until then every sample is the position.
   void PositionAt(int index, float out[3]) const override {
-    const Vector3 v = index < 2 ? player_.GetMovement() : player_.GetPosition();
+    const Vector3 v = index < 2 ? player_.GetMovement() / TicksPerSecond() : player_.GetPosition();
     pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   void OwnPosition(float out[3]) const override {
