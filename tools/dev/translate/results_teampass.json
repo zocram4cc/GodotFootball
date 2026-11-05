@@ -143,6 +143,42 @@
    "translated": true,
    "va": "0x140A51320",
    "closure_file": "closure_teampass.json"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14045E0D0": {
+     "reached": 265,
+     "total": 841,
+     "fraction": 0.3151
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 12 of 12, all REAL captured calls of the root (rendezvous hook ai_arrival_14045E0D0; no synthetic case; own-block coverage is the best batch's). proof_teampass.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 12,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 265,
+     "total": 841,
+     "fraction": 0.3151
+    },
+    "replayed": 12,
+    "source": "tools/dev/translate/results_teampass.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14045E0D0",
+   "closure_file": "closure_teampass.json"
   }
  ]
 }
