@@ -1,13 +1,14 @@
-// pes_survey.hpp: survey mode at the untranslated-dispatch site (pes_dispatch_missing), GF_PES_SURVEY=<file>.
+// pes_survey.hpp: survey mode at the untranslated-dispatch site, GF_PES_SURVEY=<file>.
 //
-// Unset (the default) nothing here changes behaviour: a missing target runs the caller's recovery, if any, then aborts.
-// Set, every hit on an untranslated target is counted, and the list is rewritten when a target first appears and at
-// exit, one line per target: `target hits first_frame caller_offset`. first_frame is the sim's logic frame at the first
-// hit (pes_survey_set_frame). caller_offset is the return address into the function that made the call, relative to the
-// executable's load base: `nm -C -n <exe>` names the translated function (pes_fn_<VA>) at or below it.
-// The run continues only through the caller's recovery (pes_dispatch_missing_handler, which must not return: the GF
-// path that stands in for the translated call). With none, the survey ends at that target. Either way the process
-// exits with kPesSurveyExitCode, so a survey run never passes as a smoke.
+// Unset (the default) nothing here changes behaviour: a target the table lacks runs the caller's recovery
+// (pes_dispatch_missing_handler), if any, then aborts (PES_DISPATCH_UNTRANSLATED).
+// Set, every such hit is counted and the run goes on. The recovery runs first when one is installed: it is GF's own
+// pre-cutover path for that call, and it may not return (the FixDemo rig longjmps; a GF cutover throws). When it returns,
+// or none is installed, the call has no effect. The list is written at each new target and at exit, one line per target:
+// `target hits first_frame caller_offset`. first_frame is the logic frame (pes_survey_set_frame) at the first hit;
+// caller_offset is the return address into the calling function, relative to the executable's load bias: `nm -n` of the
+// same executable names the function. The process exits with kPesSurveyExitCode, so a survey run never passes as a smoke.
+// ponytail: a skipped call changes what runs after it, so later hits are a lower bound for that run: survey several seeds.
 // ponytail: no locking; the sim's tick runs on one thread.
 #pragma once
 #include <cstdint>
@@ -15,6 +16,8 @@
 #include <cstdlib>
 #include <link.h>
 #include <map>
+
+#include "pes_dispatch.hpp"
 
 // Distinct from abort (134), timeout (124) and the ctest skip (77).
 inline constexpr int kPesSurveyExitCode = 79;
@@ -49,9 +52,12 @@ inline void WriteList(const State& s) {
   std::fclose(f);
 }
 
+// The call a survey makes in place of an untranslated indirect target: nothing.
+inline void NoOpCall(PesState&) {}
+
 inline State& Get() {
   // Built once and never destroyed: the exit writer reads it during exit, after static destructors would have run.
-  static State& s = [] () -> State& {
+  static State& s = []() -> State& {
     State* st = new State();
     const char* path = std::getenv("GF_PES_SURVEY");
     if (path != nullptr && *path != '\0') {
@@ -83,7 +89,7 @@ inline bool pes_survey_armed() { return pes_survey_detail::Get().path != nullptr
 // The sim's logic frame. A hit's first_frame is the frame set last.
 inline void pes_survey_set_frame(uint64_t frame) { pes_survey_detail::Get().frame = frame; }
 
-// Counts one hit on `target`. `caller` is the return address into the function that called pes_dispatch_missing.
+// Counts one hit on `target`. `caller` is the return address into the function that reached the missing target.
 inline void pes_survey_note(uint64_t target, const void* caller) {
   pes_survey_detail::State& s = pes_survey_detail::Get();
   if (s.path == nullptr) return;
@@ -97,9 +103,11 @@ inline void pes_survey_note(uint64_t target, const void* caller) {
   if (fresh) pes_survey_detail::WriteList(s);
 }
 
-// Writes the list and exits with kPesSurveyExitCode. Never returns.
-[[noreturn]] inline void pes_survey_end() {
-  pes_survey_detail::WriteList(pes_survey_detail::Get());
-  std::fflush(nullptr);
-  std::_Exit(kPesSurveyExitCode);
+// An indirect call's lookup for a target the table lacks. Unarmed: no entry, so the caller aborts as before. Armed: the
+// hit is counted, the recovery runs, and the call becomes a no-op.
+inline PesDispatch pes_survey_absent(uint64_t target, const void* caller) {
+  if (!pes_survey_armed()) return {nullptr};
+  pes_survey_note(target, caller);
+  if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(target);
+  return {&pes_survey_detail::NoOpCall};
 }

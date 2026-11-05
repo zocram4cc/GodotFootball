@@ -143,8 +143,8 @@ def main(argv=None):
           % (" ".join("0x%X" % r for r in args.roots), len(walked), len(gaps)))
     for target in sorted(gaps):
         sites = " ".join("0x%X:%d" % site for site in sorted(gaps[target]))
-        stale = "  (IN LAYER: stale marker, regenerate)" if target in index else ""
-        print("0x%X  call sites: %s%s" % (target, sites, stale))
+        note = "  (in the layer, yet this call site still aborts: its build did not link the callee)" if target in index else ""
+        print("0x%X  call sites: %s%s" % (target, sites, note))
     if not args.hooks:
         return 0
     if not args.image:
