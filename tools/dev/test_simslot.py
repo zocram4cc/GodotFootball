@@ -3,6 +3,7 @@
 
   - waiters run in (priority, arrival) order: a priority-0 gate overtakes two earlier priority-5 agents;
   - no more commands run at once than GF_SIM_SLOTS, and the slots are all used;
+  - a head that holds part of its set gives it back when a gate overtakes it, so the gate cannot deadlock on it;
   - no command starts while MemAvailable is below GF_SIM_MIN_AVAILABLE_MIB, and a killed waiter leaves no ticket;
   - a plain `flock` holder of slot 0 (an old script) is respected.
 
@@ -42,6 +43,10 @@ class SimSlotQueue(unittest.TestCase):
         queue = self.lock + ".queue"
         return len(os.listdir(queue)) if os.path.isdir(queue) else 0
 
+    def log_words(self):
+        with open(self.log) as f:
+            return f.read().split()
+
     def slot_held(self, path):
         fd = os.open(path, os.O_RDWR | os.O_CREAT)
         try:
@@ -68,7 +73,7 @@ class SimSlotQueue(unittest.TestCase):
             self.wait_for(lambda n=len(waiters): self.queued() == n, f"{name} is queued")
         for p in [holder, *waiters]:
             self.assertEqual(p.wait(timeout=60), 0)
-        self.assertEqual(open(self.log).read().split(), ["B", "A", "C"])
+        self.assertEqual(self.log_words(), ["B", "A", "C"])
 
     def test_never_more_than_the_slot_count(self):
         procs = []
@@ -77,13 +82,24 @@ class SimSlotQueue(unittest.TestCase):
             procs.append(self.run_slotted(["bash", "-c", cmd], self.env(2, 5)))
         for p in procs:
             self.assertEqual(p.wait(timeout=120), 0)
-        events = open(self.log).read().split()
+        events = self.log_words()
         self.assertEqual(len(events), 12)
         running = peak = 0
         for event in events:
             running += 1 if event.startswith("start") else -1
             peak = max(peak, running)
         self.assertEqual(peak, 2)
+
+    def test_a_head_that_loses_its_place_gives_back_its_partial_hold(self):
+        holder = self.run_slotted(["sleep", "2"], self.env(2, 5, GF_SIM_PIN="1"))
+        self.wait_for(lambda: self.slot_held(self.lock + ".1"), "the holder takes slot 1")
+        w = self.run_slotted(["bash", "-c", f'echo W >> "{self.log}"'], self.env(2, 5, GF_SIM_HOLD="2"))
+        self.wait_for(lambda: self.slot_held(self.lock), "W takes the free slot 0 and waits for slot 1")
+        g = self.run_slotted(["bash", "-c", f'echo G >> "{self.log}"; sleep 0.5'], self.env(2, 0, GF_SIM_HOLD="2"))
+        self.assertEqual(g.wait(timeout=60), 0)
+        self.assertEqual(w.wait(timeout=60), 0)
+        self.assertEqual(holder.wait(timeout=30), 0)
+        self.assertEqual(self.log_words(), ["G", "W"])
 
     def test_waits_while_memory_is_short_and_cleans_up(self):
         env = self.env(2, 5, GF_SIM_MIN_AVAILABLE_MIB=str(10**9))
@@ -103,7 +119,7 @@ class SimSlotQueue(unittest.TestCase):
         p = self.run_slotted(["bash", "-c", f'date +%s%N >> "{self.log}"'], self.env(1, 5))
         self.assertEqual(p.wait(timeout=60), 0)
         self.assertEqual(holder.wait(timeout=30), 0)
-        ran_at = int(open(self.log).read().split()[0]) / 1e9
+        ran_at = int(self.log_words()[0]) / 1e9
         self.assertGreaterEqual(ran_at, started + 1.5 - 0.05)
 
 
