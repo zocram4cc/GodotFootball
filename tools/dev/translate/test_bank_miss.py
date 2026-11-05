@@ -86,11 +86,11 @@ def main(argv):
 
     rc, text = check(os.path.join(out, "refused"), cache, select)
     if rc != 2 or "give --seed-bank" not in text:
-        failures.append("1. no --seed-bank: want rc 2 and the guard, got rc %d:\n%s" % (rc, text))
+        failures.append("1. no --seed-bank: want rc 2 and the guard, got rc %d, output:\n%s" % (rc, text))
 
     rc, first = check(os.path.join(out, "first"), cache, select, bank)
     if rc != 0 or tally(first, "miss") != n or tally(first, "hit"):
-        failures.append("2. first run: want rc 0 and %d corpus misses, got rc %d:\n%s" % (n, rc, first))
+        failures.append("2. first run: want rc 0 and %d corpus misses, got rc %d, output:\n%s" % (n, rc, first))
     elif "all %d recorded-diffed functions still diff bit-exact" % n not in first:
         failures.append("2. first run: not every one of %d functions diffs bit-exact:\n%s" % (n, first))
     inputs = recorded_inputs(cache)
@@ -102,7 +102,7 @@ def main(argv):
 
     rc, second = check(os.path.join(out, "second"), cache, select, bank)
     if rc != 0 or tally(second, "hit") != n or tally(second, "miss"):
-        failures.append("3. warm rerun: want rc 0 and %d corpus hits, got rc %d:\n%s" % (n, rc, second))
+        failures.append("3. warm rerun: want rc 0 and %d corpus hits, got rc %d, output:\n%s" % (n, rc, second))
     elif "all %d recorded-diffed functions still diff bit-exact" % n not in second:
         failures.append("3. warm rerun: not every one of %d functions diffs bit-exact:\n%s" % (n, second))
 
