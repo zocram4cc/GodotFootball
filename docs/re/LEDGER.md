@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 8017286eee881958 -->
+<!-- LEDGER-STAMP 440296427c2b22e8 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,13 +13,13 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 18672 | 19481 | 38153 |
+| total | 18673 | 19481 | 38154 |
 | ported | 413 | 0 | 413 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
 | stand-in | 102 | 0 | 102 |
 | decoded | 1218 | 0 | 1218 |
-| leaf accessor | 1926 | 0 | 1926 |
+| leaf accessor | 1927 | 0 | 1927 |
 | engine | 1242 | 0 | 1242 |
 | undecoded | 13553 | 0 | 13553 |
 | inert | 1 | 0 | 1 |
@@ -147,7 +147,7 @@ Rows per subsystem and status:
 | ball | 368 | 38 | 1 | 2 | 14 | 75 | 58 | 4 | 176 | 0 |
 | AI | 1362 | 90 | 128 | 56 | 48 | 383 | 112 | 12 | 533 | 0 |
 | referee | 101 | 12 | 2 | 1 | 2 | 34 | 29 | 0 | 21 | 0 |
-| restart | 671 | 36 | 7 | 1 | 13 | 122 | 147 | 4 | 341 | 0 |
+| restart | 672 | 36 | 7 | 1 | 13 | 122 | 148 | 4 | 341 | 0 |
 | animation | 837 | 75 | 1 | 1 | 8 | 44 | 58 | 49 | 601 | 0 |
 | camera | 568 | 9 | 3 | 1 | 2 | 13 | 71 | 26 | 443 | 0 |
 | replay | 740 | 0 | 0 | 0 | 0 | 8 | 88 | 91 | 553 | 0 |
@@ -169,7 +169,7 @@ Rows per subsystem and status:
 | trapendother | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 |
 | trapendxfer | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | trapkind | 13 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 12 | 0 |
-| total | 18672 | 413 | 154 | 63 | 102 | 1218 | 1926 | 1242 | 13553 | 1 |
+| total | 18673 | 413 | 154 | 63 | 102 | 1218 | 1927 | 1242 | 13553 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -180,7 +180,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | ball | 368 | 193 | 53 | 34 | 368 | 0 | 0 |
 | AI | 1362 | 810 | 266 | 165 | 1362 | 0 | 0 |
 | referee | 101 | 65 | 16 | 11 | 96 | 0 | 0 |
-| restart | 671 | 323 | 56 | 32 | 649 | 0 | 0 |
+| restart | 672 | 324 | 56 | 32 | 649 | 0 | 0 |
 | animation | 837 | 259 | 84 | 22 | 837 | 0 | 0 |
 | camera | 568 | 149 | 14 | 12 | 72 | 496 | 0 |
 | replay | 740 | 182 | 0 | 0 | 4 | 736 | 0 |
@@ -202,7 +202,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | trapendother | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapendxfer | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapkind | 13 | 5 | 0 | 0 | 0 | 0 | 0 |
-| total | 18672 | 5838 | 669 | 381 | 9941 | 8139 | 289 |
+| total | 18673 | 5839 | 669 | 381 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -410,7 +410,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 1926 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 1927 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 466 | 465 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -7269,7 +7269,7 @@ Not found (owner's list):
 | 0x143F52820 | FUN_143f52820 | undecoded | - | - | - | 1 | 0 | - | doc | 14050B490>14050B0E0>143F52820 |
 | 0x143F559F0 | FUN_143f559f0 | undecoded | - | - | - | 1 | 0 | - | doc | 14050C3E0>14050EEE0>143F559F0 |
 
-## restart (671)
+## restart (672)
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -7653,6 +7653,7 @@ Not found (owner's list):
 | 0x14084F140 | FUN_14084f140 | undecoded | - | - | - | 0 | 15 | y | closure |  |
 | 0x14084F980 | FUN_14084f980 | undecoded | - | - | - | 0 | 1 | - | closure |  |
 | 0x140850E50 | FUN_140850e50 | undecoded | - | - | - | 1 | 111 | - | closure |  |
+| 0x140852C00 | FUN_140852c00 | leaf accessor | - | - | - | 0 | 72 | y | closure |  |
 | 0x1408549A0 | FUN_1408549a0 | leaf accessor | - | - | - | 0 | 2 | y | closure |  |
 | 0x1408571C0 | FUN_1408571c0 | undecoded | - | - | - | 0 | 14 | - | closure |  |
 | 0x140857930 | FUN_140857930 | undecoded | - | - | - | 1 | 102 | - | closure |  |

@@ -410,6 +410,44 @@
    "translated": true,
    "va": "0x1406B4580",
    "closure_file": "closure_trapb4580.json"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140852C00": {
+     "reached": 35,
+     "total": 35,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 264 of 264. SYNTHETIC: 264 call states whose registers (the motion index, the mirror flag, the float) are chosen over the memory of one real capture (synth_call.py, synth_trajleaf.py); the thresholds each index compares against are read from the image.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "synthetic": true,
+   "synthetic_cases": 264,
+   "snapdiff": {
+    "calls": 264,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 35,
+     "total": 35,
+     "fraction": 1.0
+    },
+    "replayed": 264,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140852C00"
   }
  ]
 }

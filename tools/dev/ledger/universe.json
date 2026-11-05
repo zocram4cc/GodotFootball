@@ -234408,6 +234408,29 @@
    "vtables": [],
    "walked": true
   },
+  "140852C00": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_140852c00",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "restart"
+   ],
+   "scope": "in",
+   "size": 72,
+   "source": "pdata",
+   "subsystem": "restart",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140853900": {
    "boundary": null,
    "callees": {},
@@ -1296304,6 +1296327,12 @@
     "members": 272,
     "roots": [
      "0x141F7BFE0"
+    ]
+   },
+   "trajleaf": {
+    "members": 1,
+    "roots": [
+     "0x140852C00"
     ]
    },
    "trapact4": {
