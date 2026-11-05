@@ -554,7 +554,7 @@ def _read_json(path):
 
 
 def corpus_run(va, args, spec_path, gen, tag, key_args, out_args):
-    """run.py for one VA: (rc, stdout, stderr). A success is kept in cache/corpus under a key of its inputs (the image, the
+    """run.py for one VA: (rc, stdout, stderr). A success is kept in the corpus under a key of its inputs (the image, the
     spec, this VA's seed and bank, run.py, the interpreter, the flags) plus the record of what it read. A hit is reused only
     while that record still holds (buildcache.entry_is_valid); a failure is never kept and runs again. out_args are the
     output paths, which stay out of the key."""
@@ -569,11 +569,9 @@ def corpus_run(va, args, spec_path, gen, tag, key_args, out_args):
     # Absolute path arguments (spec, image, seed and bank dirs) leave the key: their contents are already inputs by digest,
     # and their paths name the worktree, which would keep a shared cache from hitting across checkouts.
     portable_args = ["<path>" if os.path.isabs(a) else a for a in key_args]
-    entry = os.path.join(cache_root(args), "corpus", buildcache.corpus_key(portable_args, inputs))
-    doc = _read_json(os.path.join(entry, "run.json"))
-    if doc is not None and buildcache.entry_is_valid(doc["deps"]):
-        for name in doc["files"]:
-            shutil.copyfile(os.path.join(entry, name), os.path.join(gen, name))
+    root = os.path.join(cache_root(args), buildcache.CORPUS_DIR, buildcache.corpus_key(portable_args, inputs))
+    doc = buildcache.corpus_lookup(root, gen)
+    if doc is not None:
         tally("corpus hit")
         return 0, doc["out"], ""
     tally("corpus miss")
@@ -582,17 +580,7 @@ def corpus_run(va, args, spec_path, gen, tag, key_args, out_args):
                       timeout=args.timeout)
     if rc == 0:
         names = [n % tag for n in CORPUS_OUTS if os.path.exists(os.path.join(gen, n % tag))]
-        os.makedirs(os.path.dirname(entry), exist_ok=True)
-        tmp = tempfile.mkdtemp(dir=os.path.dirname(entry))
-        for name in names:
-            shutil.copyfile(os.path.join(gen, name), os.path.join(tmp, name))
-        with open(os.path.join(tmp, "run.json"), "w") as f:  # written last: its presence commits the entry
-            json.dump({"out": out, "files": names, "deps": buildcache.entry_doc(_read_json(deps))}, f)
-        shutil.rmtree(entry, ignore_errors=True)
-        try:
-            os.replace(tmp, entry)
-        except OSError:  # another run committed this key first (shared cache): its entry is the same, keep it
-            shutil.rmtree(tmp, ignore_errors=True)
+        buildcache.corpus_store(root, out, names, gen, _read_json(deps))
     return rc, out, err
 
 
@@ -1105,6 +1093,7 @@ def main():
         want = {v.lower().replace("0x", "") for v in args.only}
         specs = [f for f in specs if f[:-5].lower() in want]
     os.makedirs(args.out_dir, exist_ok=True)
+    buildcache.corpus_trim(os.path.join(cache_root(args), buildcache.CORPUS_DIR))  # once per run: the corpus stays under its cap
     # A run generates everything afresh: callee TUs and support headers are reused within a run when they exist, so a
     # gen dir left by an older translator would link stale code (the gate's build dir persists between gates).
     shutil.rmtree(os.path.join(args.out_dir, "gen"), ignore_errors=True)

@@ -1,19 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "pes_match_constants.hpp"
-
-#include <cstdlib>
-#include <memory>
-#include <optional>
-#include <string>
-
-#include "data/matchdata.hpp"
 #include "onthepitch/match.hpp"
-#include "onthepitch/matchsetup.hpp"
-#include "pes/exe.hpp"
-#include "pes/vfs.hpp"
-#include "rig/rig.hpp"
-#include "simcontext.hpp"
+#include "pes_match_constants.hpp"
+#include "pes_shared_match.hpp"
 
 #ifndef GF_SOURCE_DIR
 #define GF_SOURCE_DIR "."
@@ -25,101 +14,61 @@
 // released it. Both are counted over one whole PES match (pes_loop on), tick by tick.
 namespace {
 
-constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
 constexpr unsigned int kSeed = 7;
 constexpr int kMinutes = 2;
+// The cap sim_match_test.cpp uses.
+constexpr unsigned long kMaxTicks = 30ul * 60ul * 100ul;
 
-struct Reality {
-  blunted::Database* db = nullptr;
-  std::unique_ptr<blunted::Database> dbHolder;
-  std::unique_ptr<pes::PesVfs> vfs;
-  std::optional<pesrig::Rig> rig;
-  std::unique_ptr<MatchSetup> setup;
-  std::unique_ptr<Match> match;
-  MatchData* data = nullptr;
-
-  bool Ready() {
-    const char* root = std::getenv("PES21_ROOT");
-    if (!root) return false;
-    std::string err;
-    vfs = std::make_unique<pes::PesVfs>();
-    if (!vfs->Mount(root, &err)) return false;
-    rig = pesrig::BuildRig(*vfs, &err);
-    if (!rig) return false;
-    dbHolder = std::make_unique<blunted::Database>();
-    if (!dbHolder->LoadSqlScript(std::string(GF_SOURCE_DIR) + "/assets/fixtures/teams.sql")) return false;
-    db = dbHolder.get();
-    SetDB(db);
-    return true;
-  }
-
-  void Start(unsigned int seed, int minutes) {
-    setup = std::make_unique<MatchSetup>();
-    setup->homeTeamDbId = HOME_TEAM;
-    setup->awayTeamDbId = AWAY_TEAM;
-    setup->seed = seed;
-    setup->durationMinutes = minutes;
-    setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
-    setup->rig = &*rig;
-    pestest::FillMissingPesConstants(setup.get());
-    data = new MatchData(HOME_TEAM, AWAY_TEAM);
-    Properties config;
-    config.SetBool("pes_loop", true);  // the PES tick order; without it the match runs GF's
-    match = std::make_unique<Match>(data, *setup, config);
-  }
-};
-
-// One whole PES match, with each breaker firing filed by the state of play on its tick.
-struct BreakerCensus {
-  bool ready = false;
-  bool finished = false;
+// One whole PES match, with each breaker firing filed by the state of play on its tick. The match is the seed-7 match the
+// restart-delay tests play, so the two families share one run (pes_shared_match.hpp).
+class BreakerCensusProbe : public pestest::Probe {
+ public:
+  BreakerCensusProbe()
+      : Probe("PesStall", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
   long armedFirings = 0;    // the referee had a restart armed (its buffer is active)
   long liveFirings = 0;     // play is live, nothing is armed: a man on a ball that nobody plays
   long unarmedFirings = 0;  // play is off and nothing is armed
+  void OnStart(Match& match) override { lastCount_ = match.GetStalemateCount(); }
+  void OnTick(Match& match) override {
+    const unsigned long count = match.GetStalemateCount();
+    const bool fired = count != lastCount_;
+    lastCount_ = count;
+    if (!fired) return;
+    if (match.GetRefereeBuffer().active)
+      armedFirings++;
+    else if (match.IsInPlay() && !match.IsInSetPiece())
+      liveFirings++;
+    else
+      unarmedFirings++;
+  }
+
+ private:
+  unsigned long lastCount_ = 0;
 };
 
-const BreakerCensus& RunSeedSevenPesMatch() {
-  static const BreakerCensus census = [] {
-    BreakerCensus c;
-    Reality r;
-    if (!r.Ready()) return c;
-    c.ready = true;
-    r.Start(kSeed, kMinutes);
-    const int kMaxTicks = 30 * 60 * 100;  // the cap sim_match_test.cpp uses
-    for (int ticks = 0; !r.match->IsGameOver() && ticks < kMaxTicks; ++ticks) {
-      const unsigned long before = r.match->GetStalemateCount();
-      r.match->Process();
-      if (r.match->GetStalemateCount() == before) continue;
-      if (r.match->GetRefereeBuffer().active)
-        c.armedFirings++;
-      else if (r.match->IsInPlay() && !r.match->IsInSetPiece())
-        c.liveFirings++;
-      else
-        c.unarmedFirings++;
-    }
-    c.finished = r.match->IsGameOver();
-    return c;
-  }();
-  return census;
-}
+BreakerCensusProbe census;
+
+}  // namespace
 
 // The referee arms a restart and releases it when the taker is ready. While it is armed the referee owns the
 // ball; a breaker that forces a man over it is counting a hold PES does not stall on.
 TEST(PesStall, TheBreakerNeverForcesABallUnderAnArmedRestart) {
-  const BreakerCensus& c = RunSeedSevenPesMatch();
-  if (!c.ready) GTEST_SKIP() << "PES21_ROOT not set";
-  ASSERT_TRUE(c.finished) << "the match did not reach full time";
-  EXPECT_EQ(c.armedFirings, 0) << "the breaker forced a man over a restart the referee had armed, "
-                                  "for " << c.armedFirings << " ticks";
+  pestest::Run(census);
+  if (census.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(census.setupError.empty()) << census.setupError;
+  pestest::Settle(census);
+  ASSERT_TRUE(census.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(census.armedFirings, 0) << "the breaker forced a man over a restart the referee had armed, "
+                                       "for " << census.armedFirings << " ticks";
 }
 
 // A live ball that lies still for five seconds is a man who holds it and does nothing with it. PES's holder keeps
 // the ball until he releases it, so the breaker must not have to take it from him.
 TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
-  const BreakerCensus& c = RunSeedSevenPesMatch();
-  if (!c.ready) GTEST_SKIP() << "PES21_ROOT not set";
-  ASSERT_TRUE(c.finished) << "the match did not reach full time";
-  EXPECT_EQ(c.liveFirings, 0) << "the breaker forced a live ball for " << c.liveFirings << " ticks";
+  pestest::Run(census);
+  if (census.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(census.setupError.empty()) << census.setupError;
+  pestest::Settle(census);
+  ASSERT_TRUE(census.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(census.liveFirings, 0) << "the breaker forced a live ball for " << census.liveFirings << " ticks";
 }
-
-}  // namespace

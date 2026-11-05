@@ -26,6 +26,7 @@ import runpy
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -148,6 +149,101 @@ def tu_object_key(tu_path, compiler, flags, include_dir):
 def corpus_key(run_args, inputs):
     """An entry's key: run.py's flags (paths are inputs, by digest, in inputs) and the digests of its inputs."""
     return sha(json.dumps({"v": 2, "args": list(run_args), "inputs": inputs}, sort_keys=True))
+
+
+# The corpus records: one directory per key (corpus_key), holding one record per harness state: the run.py files, stubs and
+# translator tables that record validates against. Checkouts whose harness files differ share a key, so a record is never
+# overwritten by another state's. corpus_trim keeps the whole directory under CORPUS_CAP_BYTES.
+CORPUS_DIR = "records"
+CORPUS_CAP_BYTES = 10 * 2 ** 30  # ponytail: one trim walk per driver process, at start; a run's own records may exceed the cap until the next.
+
+
+def _read_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except OSError:
+        return None
+
+
+def _touch(path):
+    now = time.time_ns()
+    os.utime(path, ns=(now, now))
+
+
+def _records(root):
+    """The record directories under root (a record holds run.json), most recently used first."""
+    try:
+        names = os.listdir(root)
+    except OSError:
+        return []
+    found = []
+    for name in names:
+        try:
+            found.append((os.stat(os.path.join(root, name, "run.json")).st_mtime_ns, os.path.join(root, name)))
+        except OSError:  # not a record, or evicted since it was listed
+            continue
+    return [d for _, d in sorted(found, reverse=True)]
+
+
+def corpus_lookup(root, gen):
+    """The first record under root that still holds in this checkout, most recently used first: its outputs are copied into
+    gen, it is touched as recently used, and its document (run.py's stdout as "out") is returned. None when none holds."""
+    for record in _records(root):
+        doc = _read_json(os.path.join(record, "run.json"))
+        if doc is None or not entry_is_valid(doc["deps"]):
+            continue
+        try:
+            for name in doc["files"]:
+                shutil.copyfile(os.path.join(record, name), os.path.join(gen, name))
+        except OSError:  # evicted by another run since it was listed: a miss
+            continue
+        _touch(os.path.join(record, "run.json"))
+        return doc
+    return None
+
+
+def corpus_store(root, out, names, gen, record):
+    """Commit a successful run under root as the record of its harness state: its outputs (copied from gen) and its
+    validation document, stored under the digest of that document. run.json is written last, so its presence commits the
+    record. The same state recorded again replaces its own record."""
+    os.makedirs(root, exist_ok=True)
+    deps = entry_doc(record)
+    tmp = tempfile.mkdtemp(dir=root)
+    for name in names:
+        shutil.copyfile(os.path.join(gen, name), os.path.join(tmp, name))
+    with open(os.path.join(tmp, "run.json"), "w") as f:
+        json.dump({"out": out, "files": names, "deps": deps}, f)
+    _touch(os.path.join(tmp, "run.json"))
+    dest = os.path.join(root, sha(json.dumps(deps, sort_keys=True)))
+    shutil.rmtree(dest, ignore_errors=True)
+    try:
+        os.replace(tmp, dest)
+    except OSError:  # another run committed this state first (shared cache): its record is the same, keep it
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def corpus_trim(corpus, cap=CORPUS_CAP_BYTES):
+    """Evict the least recently used records, across every key, until the corpus holds at most cap bytes."""
+    try:
+        keys = os.listdir(corpus)
+    except OSError:
+        return
+    found = []  # (last use, bytes, directory)
+    for key in keys:
+        for record in _records(os.path.join(corpus, key)):
+            try:
+                size = sum(os.path.getsize(os.path.join(record, n)) for n in os.listdir(record))
+                last = os.stat(os.path.join(record, "run.json")).st_mtime_ns
+            except OSError:  # evicted by another run meanwhile
+                continue
+            found.append((last, size, record))
+    total = sum(size for _, size, _ in found)
+    for _, size, record in sorted(found):
+        if total <= cap:
+            break
+        shutil.rmtree(record, ignore_errors=True)
+        total -= size
 
 
 def decode_digest(image_path, va):
