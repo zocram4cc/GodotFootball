@@ -182,6 +182,9 @@ public:
   // A touch of the ball, queued for the next event stage. `actionKind` is PES's action kind
   // (team.cpp maps the GF touch function onto it).
   void QueuePesTouch(Player* player, uint32_t actionKind);
+  // PES's ball record word +0x27E4 (G+0x40): the man the last pass was aimed at, written by the kick; the kind 1..3 touch events carry it as
+  // their second key (FUN_140A18940 cases 1-3, payload+0x38), where the pass-target selector 0x1404F0E50 reads it. Null: none.
+  void SetPesKickTarget(Player* target) { pesKickTarget = target; }
   // The player a store key names: his side's squad at the key's slot. Null for an invalid key.
   Player* GetPesActorPlayer(const pes::ActorKey& key);
   // The player a PES slot id names (side * 11 + squad place, as PesSlotOf makes it): null for 0xFF and any id past the 22 men.
@@ -674,6 +677,7 @@ protected:
     int frame = 0;
   };
   std::vector<PendingPesTouch> pesPendingTouches;
+  Player* pesKickTarget = nullptr;  // the ball record's +0x27E4 (SetPesKickTarget)
   // The detectors' own stored words (their "+8" words), kept between ticks.
   struct PesDetectorState {
     int phase = 0;

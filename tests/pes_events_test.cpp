@@ -878,6 +878,22 @@ TEST(PesEventDetectors, BallEventCarriesTheActionKindAndDeduplicates) {
   EXPECT_EQ(out.U32(0x18), 0u);  // payload+4: the actor key's team word
   EXPECT_EQ(out.U32(0x1c), 2u);  // payload+8: and its slot
 
+  // A kind 1..3 touch names the man the pass was aimed at as its second key (payload+0x38; FUN_140a18940 cases 1-3, read by the
+  // pass-target selector 0x1404F0E50): the key of ball+0x27E4, else an invalid key. A shot (kind 5) leaves the words alone.
+  pes::BallEventInput kick = in;
+  kick.actionKind = 1;
+  kick.kickTarget = 14;  // side 1, squad place 3
+  kick.kickTargetSlot = 3;
+  pes::EventRecord kickOut;
+  ASSERT_TRUE(pes::DetectBallEvent(kick, &kickOut));
+  EXPECT_EQ(kickOut.U32(0x4c), 1u);
+  EXPECT_EQ(kickOut.U32(0x50), 3u);
+  kick.kickTarget = -1;  // the ball record names nobody
+  pes::EventRecord noTarget;
+  ASSERT_TRUE(pes::DetectBallEvent(kick, &noTarget));
+  const pes::ActorKey none{noTarget.U32(0x4c), noTarget.U32(0x50)};
+  EXPECT_FALSE(none.Valid());
+  EXPECT_EQ(out.U32(0x4c), 0u);  // the shot above wrote no second key
   // Routing that record makes it the newest event; the same record again is
   // dropped by the dedup, as PES's 0x140a17b30 does.
   store.Route(*table, out);
