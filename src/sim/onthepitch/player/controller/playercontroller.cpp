@@ -394,6 +394,12 @@ bool PlayerController::_ReceiveCandidate() {
     const RefereeBuffer& buffer = match->GetRefereeBuffer();
     if (buffer.active && buffer.taker && match->PesActorKeyOf(buffer.taker) == me) return false;
     if (pes::RefusedAsDesignatedOwner(match->GetPesDesignatedOwner(), me)) return false;
+    // Gate 3's carrier clause (FUN_1409fa400, 0x1409FA4AD): the carrier (MA+0x2601C) touches again only from stagger, dodge or the
+    // keeper's drop, so a holder in his trap, dribble or move is not handed the receive again.
+    // ponytail: the drop's claim flag MA+0x251FA[side] is read as clear; its writer is not found (pes-re-foundation-areas.md K-4).
+    constexpr bool kKeeperClaimFlag = false;
+    const uint8_t actionType = match->PesWorldOf().P(match->PesSlotOf(CastPlayer()))[pes::kPByteAC9Offset];
+    if (match->GetPesHolder() == CastPlayer() && !pes::CarrierMayTouch(actionType, kKeeperClaimFlag)) return false;
   } else if (hasPossession) {
     return false;
   }

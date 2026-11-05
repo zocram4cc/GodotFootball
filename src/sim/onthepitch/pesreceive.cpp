@@ -292,6 +292,9 @@ constexpr uint32_t kRing0NoTouchKind = 0xE;  // d_a.c:1262 skips this kind
 constexpr uint32_t kRing0TaggedTag = 6;    // payload+0x1C == 6 (d_a.c:1263)
 constexpr int kKickBranchAiStage = 5;      // FUN_1409fbb40: the AI stage that admits the kick branch
 constexpr uint8_t kKickBranchAction = 0x4A;  // FUN_1409fbb40: anime action 0x4A, bit 7 masked
+constexpr uint8_t kCarrierDropBallAction = 0x44;  // 0x1409FA4B2 CMP CL,0x44: ANIME_KP_DROP_BALL (name table 0x1434A5470, string 0x142652A38)
+constexpr uint8_t kCarrierStaggerAction = 0x10;   // 0x1409FA4C8 CMP CL,0x10: ANIME_STAGGER (string 0x142652508)
+constexpr uint8_t kCarrierDodgeAction = 0x15;     // 0x1409FA4CD CMP CL,0x15: ANIME_DODGE (string 0x142652560)
 }  // namespace
 
 ActorKey DesignatedOwnerScan(const std::array<Ring0Entry, kRing0ScanCount>& ring, bool period9,
@@ -313,6 +316,12 @@ ActorKey DesignatedOwnerScan(const std::array<Ring0Entry, kRing0ScanCount>& ring
 
 bool RefusedAsDesignatedOwner(const ActorKey& designatedOwner, const ActorKey& me) {
   return designatedOwner.Valid() && designatedOwner == me;
+}
+
+bool CarrierMayTouch(uint8_t actionType, bool keeperClaimFlag) {
+  // 0x1409FA4B2..0x1409FA4D0: 0x44 passes only with the claim flag clear (the flag test falls through to the 0x10 / 0x15 compares).
+  if (actionType == kCarrierDropBallAction && !keeperClaimFlag) return true;
+  return actionType == kCarrierStaggerAction || actionType == kCarrierDodgeAction;
 }
 
 bool KickBranchActionGate(bool hasAction, uint8_t actionByte, int aiStage) {

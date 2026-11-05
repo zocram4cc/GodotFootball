@@ -66,6 +66,7 @@ class TrapRestartProbe : public pestest::Probe {
       : Probe("PesStallTrap", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
   long trapClips = 0;        // trap clips that started (a tick on which a man's trap clip began)
   long restartedTraps = 0;   // those that began over a trap clip of his that had not reached its contact frame
+  long holderTraps = 0;      // those that began while he was PES's holder (MA+0x2601C == him)
   void OnTick(Match& match) override {
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
@@ -78,6 +79,7 @@ class TrapRestartProbe : public pestest::Probe {
         if (began) {
           trapClips++;
           if (seen.onTrap && seen.frame < seen.touchFrame) restartedTraps++;
+          if (match.GetPesHolder() == player.get()) holderTraps++;
         }
         seen = {onTrap, clip->frameNum, clip->touchFrame};
       }
@@ -127,6 +129,20 @@ TEST(PesStall, ATrapClipIsNeverRestartedBeforeItsContactFrame) {
   ASSERT_GT(trapCensus.trapClips, 0) << "no trap clip was played";
   EXPECT_EQ(trapCensus.restartedTraps, 0) << trapCensus.restartedTraps << " of " << trapCensus.trapClips
                                           << " trap clips restarted before their contact frame";
+}
+
+// PES's reaction entry 3 refuses the carrier (MA+0x2601C) unless he is in stagger, dodge or the keeper's drop (FUN_1409fa400 at
+// 0x1409FA4AD..0x1409FA4D0), so a man who holds the ball is never handed a new trap: after his trap ends the action tick starts his
+// dribble (0x1407A38E0) and he plays on. GF re-issued the trap for a holder every two or three ticks while the ball lay still.
+TEST(PesStall, AHolderIsNeverHandedANewTrap) {
+  pestest::Run(trapCensus);
+  if (trapCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(trapCensus.setupError.empty()) << trapCensus.setupError;
+  pestest::Settle(trapCensus);
+  ASSERT_TRUE(trapCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(trapCensus.trapClips, 0) << "no trap clip was played";
+  EXPECT_EQ(trapCensus.holderTraps, 0) << trapCensus.holderTraps << " of " << trapCensus.trapClips
+                                       << " trap clips began for the man who already held the ball";
 }
 
 // The referee arms a restart and releases it when the taker is ready. While it is armed the referee owns the

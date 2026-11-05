@@ -480,6 +480,31 @@ TEST(PesReceiveOwner, WithNoDesignatedOwnerNobodyIsRefused) {
   EXPECT_FALSE(pes::RefusedAsDesignatedOwner(pes::NoActorKey(), Man(0, 5)));
 }
 
+// Gate 3's carrier clause (FUN_1409fa400): the carrier (MA+0x2601C == me) is refused the receive from every action but the three the
+// compare ladder at 0x1409FA4B2..0x1409FA4D0 names. The action ids are the image's own names (table 0x1434A5470).
+namespace {
+constexpr uint8_t kActionMove = 2, kActionStepMove = 3, kActionDribble = 4, kActionTrap = 7;  // ANIME_MOVE .. ANIME_TRAP
+constexpr uint8_t kActionStagger = 0x10, kActionDodge = 0x15, kActionKeeperDropBall = 0x44;
+}  // namespace
+
+TEST(PesReceiveCarrier, ACarrierInHisTrapDribbleOrMoveIsRefusedTheReceive) {
+  for (const uint8_t action : {kActionTrap, kActionDribble, kActionMove, kActionStepMove})
+    EXPECT_FALSE(pes::CarrierMayTouch(action, false)) << "action " << int(action);
+}
+
+TEST(PesReceiveCarrier, ACarrierStaggeringOrDodgingMayTouchAgain) {
+  EXPECT_TRUE(pes::CarrierMayTouch(kActionStagger, false));
+  EXPECT_TRUE(pes::CarrierMayTouch(kActionDodge, false));
+  // the claim flag only gates the keeper's drop
+  EXPECT_TRUE(pes::CarrierMayTouch(kActionStagger, true));
+  EXPECT_TRUE(pes::CarrierMayTouch(kActionDodge, true));
+}
+
+TEST(PesReceiveCarrier, TheKeepersDropBallTouchesOnlyWithTheClaimFlagClear) {
+  EXPECT_TRUE(pes::CarrierMayTouch(kActionKeeperDropBall, false));
+  EXPECT_FALSE(pes::CarrierMayTouch(kActionKeeperDropBall, true));
+}
+
 // --- Kick branch 0x5D (reaction entry 3, d_a.c:610-662): FUN_1409fbb40 action gate, FUN_1409fbba0 ball gate ---
 
 TEST(PesReceiveKickBranch, NoActionAdmitsNothingEvenInStageFive) {
