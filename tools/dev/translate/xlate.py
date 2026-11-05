@@ -2240,7 +2240,8 @@ def prepass(lines, img):
                 if mp and mp["absolute"] is not None:
                     baseva = mp["absolute"]
             break
-        for j in range(i - 1, max(-1, i - 20), -1):
+        # 48: a second switch under the same bounds check sits past 20 instructions (FUN_141B16140's second JMP rcx).
+        for j in range(i - 1, max(-1, i - 48), -1):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "JA" and ops2 and is_imm(ops2[0]):
                 default = imm_val(ops2[0])

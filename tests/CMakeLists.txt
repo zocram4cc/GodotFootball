@@ -325,6 +325,13 @@ add_test(NAME translate_switch_tables_test
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_tables.py'")
 set_tests_properties(translate_switch_tables_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
+# A JMP-reg switch whose bounds check is more than 20 instructions above it still resolves (FUN_141B16140's second switch under
+# the anime IK stage): synthetic image, compiled and run. Needs g++. Skips (77) without GF_DIFF_PYTHON.
+add_test(NAME translate_switch_far_guard_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_far_guard.py'")
+set_tests_properties(translate_switch_far_guard_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
 # The lint behind gen_translated: every live read of a read-only image address is found (reaching definitions) and every
 # declared or constant one is baked. Synthetic image, compiled and run with no image view. Needs g++. Skips (77) without
 # GF_DIFF_PYTHON.

@@ -1,0 +1,42 @@
+{
+ "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). SYNTHETIC entries only: BodyAnimControl::Exec phases over the four real anime_bones_141EB49B0 captures (live2/pid952648); no real call of the engine's phase functions exists yet (hooks anime_phase3_1423A1AC0 / anime_stage_1423A2260 / anime_phase4_1423A1900 / anime_pusher_141AF61C0 requested).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141AF4650": {
+     "fraction": 0.8065,
+     "reached": 25,
+     "total": 31
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 49 SYNTHETIC calls (13 phases x 4 kickers, 3 ph9 excluded), 0 mismatches, own-block 25/31.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 49,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.8065,
+     "reached": 25,
+     "total": 31
+    },
+    "replayed": 49,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141AF4650",
+   "bounded": true
+  }
+ ]
+}

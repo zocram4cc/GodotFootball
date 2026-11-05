@@ -70600,6 +70600,29 @@
    ],
    "walked": true
   },
+  "1403EFE40": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1403efe40",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 24,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1403EFEB0": {
    "boundary": null,
    "callees": {
@@ -70781,6 +70804,29 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "1403F00B0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1403f00b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 6,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "1403F0170": {
    "boundary": null,
@@ -761794,6 +761840,54 @@
    "vtables": [],
    "walked": true
   },
+  "1415BF920": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415bf920",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 683,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1415C30E0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1415c30e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 225,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1415C34A0": {
    "boundary": null,
    "callees": {},
@@ -761844,6 +761938,58 @@
    "vtables": [],
    "walked": true
   },
+  "1415C34C0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415c34c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 920,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1415C43A0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415BF920": "direct",
+    "1415C0390": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415c43a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 809,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1415C50E0": {
    "boundary": null,
    "callees": {
@@ -761868,6 +762014,31 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1415C5840": {
+   "boundary": null,
+   "callees": {
+    "1415C30E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415c5840",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 44,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -761946,6 +762117,35 @@
    "vtables": [],
    "walked": true
   },
+  "1415CC2D0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415BF920": "direct",
+    "1415C6580": "direct",
+    "1415C92D0": "direct",
+    "1415CA190": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415cc2d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 812,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1415CD0F0": {
    "boundary": null,
    "callees": {
@@ -761970,6 +762170,31 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1415CE3F0": {
+   "boundary": null,
+   "callees": {
+    "1415C30E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415ce3f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 57,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -823282,6 +823507,29 @@
    ],
    "walked": true
   },
+  "141AFD1D0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141afd1d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 44,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141AFD2A0": {
    "boundary": {
     "rule": "rtti",
@@ -823365,6 +823613,31 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "141AFD400": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141afd400",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 668,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "141AFDF10": {
    "boundary": null,
@@ -831746,6 +832019,57 @@
    "vtables": [],
    "walked": true
   },
+  "141B11170": {
+   "boundary": null,
+   "callees": {
+    "141B0F790": "direct",
+    "141B11420": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b11170",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 18,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B111B0": {
+   "boundary": null,
+   "callees": {
+    "1423984A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b111b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 14,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141B111E0": {
    "boundary": null,
    "callees": {
@@ -831822,6 +832146,80 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141B11420": {
+   "boundary": null,
+   "callees": {
+    "1423989F0": "direct",
+    "1423A2A90": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b11420",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 66,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B11DA0": {
+   "boundary": null,
+   "callees": {
+    "1423984A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b11da0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 25,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B11DF0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141b11df0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 59,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -832002,6 +832400,32 @@
    "vtables": [],
    "walked": false
   },
+  "141B12680": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141B12DF0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b12680",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 401,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141B12D80": {
    "boundary": {
     "rule": "rtti",
@@ -832030,6 +832454,325 @@
    "vtables": [],
    "walked": false
   },
+  "141B12DF0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141b12df0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 162,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B15FC0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141B16140": "direct",
+    "1423983D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b15fc0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 75,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B16140": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A1798": "direct",
+    "141B15720": "direct",
+    "141B174A0": "direct",
+    "141B24D70": "direct",
+    "141B250E0": "direct",
+    "141B25140": "direct",
+    "141B26680": "direct",
+    "141B28D00": "direct",
+    "141B2A320": "direct",
+    "1423989F0": "direct",
+    "142399D10": "direct",
+    "14239B700": "direct",
+    "14239BB40": "direct",
+    "1423A7470": "direct",
+    "1423A74B0": "direct",
+    "1423C3460": "direct",
+    "1423C36C0": "direct",
+    "1423C3D20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141B166C9",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "141B166E5",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "141B16734",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "141B16750",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "141B16781",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "141B1679D",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "141B1688E",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "141B168AA",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "141B1690A",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "141B16974",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "141B16EAB",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141b16140",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 1020,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B173F0": {
+   "boundary": null,
+   "callees": {
+    "1423C32B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b173f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 31,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B17450": {
+   "boundary": null,
+   "callees": {
+    "1423C32B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b17450",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 24,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B17910": {
+   "boundary": null,
+   "callees": {
+    "141AFD1D0": "direct",
+    "141B17960": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b17910",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 18,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B17960": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A178C": "direct",
+    "1415A1792": "direct",
+    "1415CE4E0": "direct",
+    "141B18660": "direct",
+    "14239BA70": "direct",
+    "14239BB40": "direct",
+    "14239BB60": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b17960",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 759,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B18660": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141b18660",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 18,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B18690": {
+   "boundary": null,
+   "callees": {
+    "1423984A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b18690",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 27,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B186F0": {
+   "boundary": null,
+   "callees": {
+    "1423984A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b186f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 19,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141B18940": {
    "boundary": null,
    "callees": {},
@@ -832052,6 +832795,610 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141B19A80": {
+   "boundary": null,
+   "callees": {
+    "1423984A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b19a80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 27,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B20860": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141b20860",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 49,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B229B0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A1780": "direct",
+    "1415A1798": "direct",
+    "141B20790": "direct",
+    "141B20AE0": "direct",
+    "141B24920": "direct",
+    "141B24BD0": "direct",
+    "1423CA4F0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b229b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 1889,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B24920": {
+   "boundary": null,
+   "callees": {
+    "1403EFE40": "direct",
+    "1403EFF50": "direct",
+    "1403F00B0": "direct",
+    "14159F3E0": "direct",
+    "141B24D70": "direct",
+    "1423A7470": "direct",
+    "1423A74B0": "direct",
+    "1423A7500": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141B24999",
+     "text": "call qword ptr [r10 + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141b24920",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 110,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B24C70": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "14239BA70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b24c70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 70,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B24D70": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "14239BA70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b24d70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 78,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B250E0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b250e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 18,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B25140": {
+   "boundary": null,
+   "callees": {
+    "141B20860": "direct",
+    "1423C36C0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b25140",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 41,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B27F20": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A1780": "direct",
+    "1415C50E0": "direct",
+    "141B24920": "direct",
+    "141B24C70": "direct",
+    "141B250E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b27f20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 720,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B28CD0": {
+   "boundary": null,
+   "callees": {
+    "141B27F20": "tail",
+    "141B28AB0": "tail",
+    "141B28D60": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b28cd0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 11,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B29030": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415C50E0": "direct",
+    "141B24D70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b29030",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 82,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B29210": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415C50E0": "direct",
+    "141B24D70": "direct",
+    "1423A7470": "direct",
+    "1423A74B0": "direct",
+    "1423A7500": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b29210",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 156,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B29550": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415C50E0": "direct",
+    "141B24C70": "direct",
+    "141B24D70": "direct",
+    "141B250E0": "direct",
+    "141B2A690": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b29550",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 756,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2A310": {
+   "boundary": null,
+   "callees": {
+    "141B29550": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2a310",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2A320": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141b2a320",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 18,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2A690": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141B18660": "direct",
+    "141B250E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2a690",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 370,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2AE20": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A1798": "direct",
+    "1415C50E0": "direct",
+    "141B18660": "direct",
+    "141B229B0": "direct",
+    "141B24C70": "direct",
+    "141B250E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2ae20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 812,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2BC20": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141B229B0": "direct",
+    "141B250E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2bc20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 245,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2C020": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141B229B0": "direct",
+    "141B250E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2c020",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 245,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2C5A0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141B2AE20": "direct",
+    "141B2BC20": "direct",
+    "141B2C020": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2c5a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 259,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2C9F0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415C50E0": "direct",
+    "141B24D70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2c9f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 103,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B2F060": {
+   "boundary": null,
+   "callees": {
+    "141007D20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b2f060",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 29,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1278355,6 +1279702,29 @@
    "vtables": [],
    "walked": true
   },
+  "1423983D0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423983d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 20,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423984A0": {
    "boundary": {
     "rule": "rtti",
@@ -1278799,6 +1280169,52 @@
    "vtables": [],
    "walked": true
   },
+  "1423989F0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423989f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 20,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "142398A40": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_142398a40",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 12,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "142398F00": {
    "boundary": null,
    "callees": {
@@ -1278884,6 +1280300,188 @@
    "vtables": [],
    "walked": true
   },
+  "142399A10": {
+   "boundary": null,
+   "callees": {
+    "1415C34C0": "direct",
+    "1415CA5E0": "direct",
+    "1423A8540": "direct",
+    "1423A9350": "direct",
+    "1423AAF90": "direct",
+    "1423ADB30": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142399a10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 203,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "142399D10": {
+   "boundary": null,
+   "callees": {
+    "1415A1708": "tail",
+    "1415C34C0": "tail",
+    "1415CA5E0": "direct",
+    "1423A9350": "tail",
+    "1423AAF90": "tail",
+    "1423ADB30": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142399d10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 144,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14239A870": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "14239B440": "direct",
+    "14239BD80": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239a870",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 770,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14239B440": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415C43A0": "direct",
+    "1415CC2D0": "direct",
+    "141794410": "direct",
+    "1423AB2F0": "direct",
+    "1423ABB80": "direct",
+    "1423AC530": "direct",
+    "1423AE0A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239b440",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 197,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14239B700": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415C43A0": "direct",
+    "1415CC2D0": "direct",
+    "141794410": "direct",
+    "1423AB2F0": "direct",
+    "1423ABB80": "direct",
+    "1423AC530": "direct",
+    "1423AE0A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239b700",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 240,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14239BA70": {
+   "boundary": null,
+   "callees": {
+    "1415C43A0": "tail",
+    "1415CC2D0": "tail",
+    "141794410": "tail",
+    "1423AB2F0": "tail",
+    "1423ABB80": "tail",
+    "1423AC530": "tail",
+    "1423AE0A0": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239ba70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 48,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14239BB40": {
    "boundary": null,
    "callees": {
@@ -1278908,6 +1280506,35 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "14239BB60": {
+   "boundary": null,
+   "callees": {
+    "1415C4F70": "tail",
+    "1415CCE70": "tail",
+    "141794410": "tail",
+    "1423AB590": "tail",
+    "1423ABD10": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239bb60",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 49,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1278975,6 +1280602,46 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 1,
+   "vtables": [],
+   "walked": true
+  },
+  "14239C240": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415C43A0": "direct",
+    "1415C5840": "direct",
+    "1415C58F0": "direct",
+    "1415CC2D0": "direct",
+    "1415CE3F0": "direct",
+    "1415CE4E0": "direct",
+    "141794410": "direct",
+    "1423AAD80": "direct",
+    "1423AB2F0": "direct",
+    "1423AB970": "direct",
+    "1423ABB80": "direct",
+    "1423ABE10": "direct",
+    "1423AC530": "direct",
+    "1423AD3B0": "direct",
+    "1423AE0A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239c240",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 684,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1279054,6 +1280721,29 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "14239D3D0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_14239d3d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 48,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1279157,6 +1280847,60 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "14239E290": {
+   "boundary": null,
+   "callees": {
+    "14239D310": "direct",
+    "14239D3D0": "direct",
+    "1423A53A0": "direct",
+    "1423A53E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239e290",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 40,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14239E330": {
+   "boundary": null,
+   "callees": {
+    "1423A53E0": "direct",
+    "1423B13E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239e330",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 27,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1279339,6 +1281083,33 @@
    "vtables": [],
    "walked": true
   },
+  "14239EC20": {
+   "boundary": null,
+   "callees": {
+    "14239C240": "direct",
+    "14239CC00": "direct",
+    "14239D5E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239ec20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 75,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14239ED50": {
    "boundary": null,
    "callees": {
@@ -1279474,6 +1281245,44 @@
    "vtables": [],
    "walked": true
   },
+  "14239F210": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "142399F40": "direct",
+    "14239A570": "direct",
+    "14239BB40": "direct",
+    "14239E120": "direct",
+    "14239E290": "direct",
+    "14239E330": "direct",
+    "14239F150": "direct",
+    "14239F170": "direct",
+    "1423B1D50": "direct",
+    "1423B1D60": "direct",
+    "1423B1D80": "direct",
+    "1423B1E50": "direct",
+    "1423B2000": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239f210",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 446,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14239F970": {
    "boundary": null,
    "callees": {
@@ -1279565,6 +1281374,29 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A0AE0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423a0ae0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 125,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1279855,6 +1281687,203 @@
    "vtables": [],
    "walked": false
   },
+  "1423A17D0": {
+   "boundary": null,
+   "callees": {
+    "1423A2260": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a17d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A17E0": {
+   "boundary": null,
+   "callees": {
+    "1403EFE40": "direct",
+    "1403EFF50": "direct",
+    "14239BB40": "direct",
+    "1423B36A0": "direct",
+    "1423B3E40": "direct",
+    "1423B5EC0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1423A1868",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1423A188B",
+     "text": "call qword ptr [rax + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1423a17e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 72,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A1900": {
+   "boundary": null,
+   "callees": {
+    "1423A1960": "direct",
+    "1423A2260": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a1900",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A1960": {
+   "boundary": null,
+   "callees": {
+    "1423A0AA0": "direct",
+    "1423A25E0": "direct",
+    "1423A2650": "direct",
+    "1423B2860": "direct",
+    "1423B40A0": "direct",
+    "1423B8B40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a1960",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 95,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A1AC0": {
+   "boundary": null,
+   "callees": {
+    "1423A17E0": "tail",
+    "1423A22E0": "direct",
+    "1423A27C0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a1ac0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 35,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A1B50": {
+   "boundary": null,
+   "callees": {
+    "1423A2260": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a1b50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A1B60": {
+   "boundary": null,
+   "callees": {
+    "1423A2260": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a1b60",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423A1B70": {
    "boundary": null,
    "callees": {
@@ -1280124,6 +1282153,38 @@
    "vtables": [],
    "walked": false
   },
+  "1423A2260": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1423A22A4",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1423A22B4",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1423a2260",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 37,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423A2460": {
    "boundary": null,
    "callees": {
@@ -1280242,6 +1282303,45 @@
    "vtables": [],
    "walked": true
   },
+  "1423A2650": {
+   "boundary": null,
+   "callees": {
+    "1403EFE40": "direct",
+    "1403EFF50": "direct",
+    "14239F1F0": "direct",
+    "1423AFC60": "direct",
+    "1423B0E40": "direct",
+    "1423B0EC0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1423A26BE",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1423A26E1",
+     "text": "call qword ptr [rax + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1423a2650",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 66,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423A2770": {
    "boundary": null,
    "callees": {
@@ -1280265,6 +1282365,112 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A27C0": {
+   "boundary": null,
+   "callees": {
+    "1423A3160": "direct",
+    "1423B3590": "direct",
+    "1423B56A0": "direct",
+    "1423B5B30": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a27c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 49,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A2890": {
+   "boundary": null,
+   "callees": {
+    "1423A33B0": "tail",
+    "1423B4450": "direct",
+    "1423B4A60": "direct",
+    "1423B8780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a2890",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 32,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A2910": {
+   "boundary": null,
+   "callees": {
+    "1423A2650": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a2910",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A2920": {
+   "boundary": null,
+   "callees": {
+    "1423A2890": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a2920",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1280504,6 +1282710,31 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A33B0": {
+   "boundary": null,
+   "callees": {
+    "1423AF150": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a33b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 40,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1280935,6 +1283166,57 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A53A0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423a53a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A53E0": {
+   "boundary": null,
+   "callees": {
+    "1423A5600": "tail",
+    "1423A5750": "direct",
+    "1423A5920": "tail",
+    "1423BB870": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423a53e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 153,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1281792,6 +1284074,52 @@
    "vtables": [],
    "walked": true
   },
+  "1423A75E0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423a75e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 6,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423A7620": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423a7620",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423A8530": {
    "boundary": null,
    "callees": {},
@@ -1281814,6 +1284142,104 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423AAD80": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423aad80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 139,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423AAF90": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423aaf90",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 208,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423AB2F0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423ab2f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 161,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423AB590": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423ab590",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 103,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1281869,6 +1284295,56 @@
    "vtables": [],
    "walked": true
   },
+  "1423ABE10": {
+   "boundary": null,
+   "callees": {
+    "1415C30E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423abe10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 13,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423AC530": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423ac530",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 188,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423AC830": {
    "boundary": null,
    "callees": {
@@ -1281893,6 +1284369,31 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423AD3B0": {
+   "boundary": null,
+   "callees": {
+    "1415C30E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423ad3b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 34,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1282301,6 +1284802,57 @@
    "vtables": [],
    "walked": true
   },
+  "1423B1BA0": {
+   "boundary": null,
+   "callees": {
+    "1423BEA80": "direct",
+    "1423BF050": "direct",
+    "1423C0710": "direct",
+    "1423C12D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b1ba0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 75,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B1D10": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423b1d10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 11,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423B1D50": {
    "boundary": null,
    "callees": {},
@@ -1282326,6 +1284878,29 @@
    "vtables": [],
    "walked": true
   },
+  "1423B1D60": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423b1d60",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 4,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423B1D70": {
    "boundary": null,
    "callees": {},
@@ -1282348,6 +1284923,93 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B1D80": {
+   "boundary": null,
+   "callees": {
+    "141794410": "direct",
+    "142398A40": "direct",
+    "14239BB40": "direct",
+    "1423A75E0": "direct",
+    "1423A7620": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b1d80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 56,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B1E50": {
+   "boundary": null,
+   "callees": {
+    "14239BB40": "direct",
+    "14239EC20": "direct",
+    "1423B1BA0": "direct",
+    "1423B1D10": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b1e50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 78,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B2000": {
+   "boundary": null,
+   "callees": {
+    "14239BB40": "direct",
+    "14239C0D0": "direct",
+    "1423B1BA0": "direct",
+    "1423B2270": "direct",
+    "1423B2340": "direct",
+    "1423B2510": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b2000",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 155,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1282551,6 +1285213,52 @@
    "vtables": [],
    "walked": true
   },
+  "1423B3590": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423b3590",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 83,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B36A0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423b36a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 9,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423B36D0": {
    "boundary": null,
    "callees": {
@@ -1282580,6 +1285288,36 @@
    "vtables": [],
    "walked": true
   },
+  "1423B3B70": {
+   "boundary": null,
+   "callees": {
+    "1423989F0": "direct",
+    "142398BE0": "direct",
+    "142399A10": "direct",
+    "142399D10": "direct",
+    "14239A380": "direct",
+    "1423A0AE0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b3b70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 168,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423B3DF0": {
    "boundary": null,
    "callees": {},
@@ -1282602,6 +1285340,58 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B3E40": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "14239F210": "direct",
+    "1423B3B70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b3e40",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 140,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B4450": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b4450",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 374,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1282657,6 +1285447,36 @@
    "vtables": [],
    "walked": true
   },
+  "1423B5B30": {
+   "boundary": null,
+   "callees": {
+    "1423A0A00": "direct",
+    "1423AEA90": "direct",
+    "1423AEAE0": "direct",
+    "1423AF110": "direct",
+    "1423B3950": "direct",
+    "1423B3960": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b5b30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 93,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423B5CC0": {
    "boundary": null,
    "callees": {
@@ -1282688,6 +1285508,32 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B5EC0": {
+   "boundary": null,
+   "callees": {
+    "142398A40": "direct",
+    "14239BB40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b5ec0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 55,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1283670,6 +1286516,32 @@
    ],
    "walked": false
   },
+  "1423BEA80": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "14239A870": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423bea80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 89,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423BEE80": {
    "boundary": {
     "rule": "rtti",
@@ -1284119,6 +1286991,79 @@
    "vtables": [],
    "walked": true
   },
+  "1423C32B0": {
+   "boundary": null,
+   "callees": {
+    "1423984A0": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423c32b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 14,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423C3460": {
+   "boundary": null,
+   "callees": {
+    "14239BB40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423c3460",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 18,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423C36C0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423c36c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 21,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423C3DB0": {
    "boundary": null,
    "callees": {
@@ -1284312,6 +1287257,112 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "1423C9970": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A178C": "direct",
+    "1423CBAE0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423c9970",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 711,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423CA4F0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1423C9970": "direct",
+    "1423CA790": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423ca4f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 170,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423CA790": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A178C": "direct",
+    "1415A1792": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423ca790",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 1022,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1423CBAE0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423cbae0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animation"
+   ],
+   "scope": "in",
+   "size": 59,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "1423CC110": {
    "boundary": null,
@@ -1302870,6 +1305921,12 @@
     "members": 1,
     "roots": [
      "0x1404F8C70"
+    ]
+   },
+   "animelayer": {
+    "members": 144,
+    "roots": [
+     "0x141AF4650"
     ]
    },
    "cardlevel": {
