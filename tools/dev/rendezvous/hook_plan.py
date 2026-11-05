@@ -198,6 +198,8 @@ TARGETS = [
     ("rb5_140862CE0", 0x140862CE0, "RestingBall5: contact-search leaf (throw-in + restart tests)"),
     ("rb5_140862AE0", 0x140862AE0, "RestingBall5: contact-search leaf (goal-scene test)"),
     ("rb5_140861170", 0x140861170, "RestingBall5: contact-search callee, static-reachable"),
+    # --- KickJoints2 block (the Kick start's success tail). Append-only.
+    ("kick_dd80_14071DD80", 0x14071DD80, "KickJoints2: success-only call after the Kick start's cell (2 callers)"),
 ]
 
 
