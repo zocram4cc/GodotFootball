@@ -8,7 +8,11 @@
 #include <string>
 
 #include "data/matchdata.hpp"
+#include "onthepitch/gameplaytuning.hpp"
 #include "onthepitch/match.hpp"
+#include "onthepitch/player/humanoid/humanoid.hpp"
+#include "onthepitch/player/player.hpp"
+#include "onthepitch/team.hpp"
 #include "onthepitch/matchsetup.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
@@ -76,31 +80,56 @@ struct BreakerCensus {
   long armedFirings = 0;    // the referee had a restart armed (its buffer is active)
   long liveFirings = 0;     // play is live, nothing is armed: a man on a ball that nobody plays
   long unarmedFirings = 0;  // play is off and nothing is armed
+  long restingEpisodes = 0;  // ticks of the longest run: the designated man holds the ball by distance, no retainer, ball at rest
+  long restingLongest = 0;
 };
 
+BreakerCensus RunPesMatch(unsigned int seed) {
+  BreakerCensus c;
+  Reality r;
+  if (!r.Ready()) return c;
+  c.ready = true;
+  r.Start(seed, kMinutes);
+  const int kMaxTicks = 30 * 60 * 100;  // the cap sim_match_test.cpp uses
+  long run = 0;
+  for (int ticks = 0; !r.match->IsGameOver() && ticks < kMaxTicks; ++ticks) {
+    const unsigned long before = r.match->GetStalemateCount();
+    r.match->Process();
+    Match& m = *r.match;
+    Player* des = m.GetDesignatedPossessionPlayer();
+    const bool resting = m.IsInPlay() && !m.IsInSetPiece() && des && des->HasPossession() && !m.GetBallRetainer() &&
+                         m.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
+    run = resting ? run + 1 : 0;
+    if (run > c.restingLongest) c.restingLongest = run;
+    if (run == 1) c.restingEpisodes++;
+    if (std::getenv("RESTING_TRACE") && resting && run % 50 == 1)
+      printf("[rest] seed %u f=%lu run=%ld man=%s ball=(%.2f,%.2f) man=(%.2f,%.2f) clip=%s\n", seed, m.GetSimFrame(), run,
+             des->GetPlayerData()->GetLastName().c_str(), m.GetBall()->Predict(0).coords[0],
+             m.GetBall()->Predict(0).coords[1], des->GetPosition().coords[0], des->GetPosition().coords[1],
+             des->CastHumanoid()->GetCurrentAnim()->anim ? des->CastHumanoid()->GetCurrentAnim()->anim->GetName().c_str() : "-");
+    if (m.GetStalemateCount() == before) continue;
+    if (m.GetRefereeBuffer().active)
+      c.armedFirings++;
+    else if (m.IsInPlay() && !m.IsInSetPiece())
+      c.liveFirings++;
+    else
+      c.unarmedFirings++;
+  }
+  c.finished = r.match->IsGameOver();
+  return c;
+}
+
 const BreakerCensus& RunSeedSevenPesMatch() {
-  static const BreakerCensus census = [] {
-    BreakerCensus c;
-    Reality r;
-    if (!r.Ready()) return c;
-    c.ready = true;
-    r.Start(kSeed, kMinutes);
-    const int kMaxTicks = 30 * 60 * 100;  // the cap sim_match_test.cpp uses
-    for (int ticks = 0; !r.match->IsGameOver() && ticks < kMaxTicks; ++ticks) {
-      const unsigned long before = r.match->GetStalemateCount();
-      r.match->Process();
-      if (r.match->GetStalemateCount() == before) continue;
-      if (r.match->GetRefereeBuffer().active)
-        c.armedFirings++;
-      else if (r.match->IsInPlay() && !r.match->IsInSetPiece())
-        c.liveFirings++;
-      else
-        c.unarmedFirings++;
-    }
-    c.finished = r.match->IsGameOver();
-    return c;
-  }();
+  static const BreakerCensus census = RunPesMatch(kSeed);
   return census;
+}
+
+TEST(PesStall, ProbeResting) {
+  for (unsigned int seed : {7u, 3u, 11u}) {
+    const BreakerCensus c = RunPesMatch(seed);
+    printf("[probe] seed %u episodes %ld longest %ld firings live %ld armed %ld unarmed %ld\n", seed, c.restingEpisodes,
+           c.restingLongest, c.liveFirings, c.armedFirings, c.unarmedFirings);
+  }
 }
 
 // The referee arms a restart and releases it when the taker is ready. While it is armed the referee owns the
