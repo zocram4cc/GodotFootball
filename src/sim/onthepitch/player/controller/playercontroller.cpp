@@ -506,6 +506,14 @@ bool PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
     // A man already in the Trap action is driven by its tick: the reaction holds his entry and queues nothing, and the chain does
     // not run again over his committed plan.
     if (world.P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap) return true;
+    // The same hold while his trap clip has its contact frame ahead. GF's action tick ends the TRAP action two ticks after its
+    // start: the playing motion is listed in P's motion table only for the dodge, tackle and locomotion families
+    // (CurrentMotionOf), so PES's end handler (0x14079E5C0) does not wait on a trap clip, and listing the trap family sends the
+    // tick into phases no capture reached (PES_DISPATCH_UNTRANSLATED 0x140856370). The reaction then started the trap again, which
+    // restarted the clip from its first frame every third tick: the man stood on a resting ball without ever touching it.
+    // PES holds the man in TRAP while the clip plays; the clip holding the entry stands in for that action state.
+    // ponytail: remove with the translated later trap phases (0x140856370 and the phases after 2), which keep AC8 on TRAP.
+    if (CastPlayer()->CastHumanoid()->OnPesTrap() && CastPlayer()->GetFrameNum() < CastPlayer()->GetTouchFrame()) return true;
     // ponytail: the dispatcher's kind-4 chain (0x14079B3D0) is not translated, so a planned touch cannot run as kind 4: it is
     // given the refusal status the retry rule acts on (3, in its set {3, 7, 8}) and takes PES's own retry as kind 0. The chain
     // that refuses or commits as kind 4 removes this.
