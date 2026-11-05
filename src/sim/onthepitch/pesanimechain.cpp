@@ -210,9 +210,12 @@ std::optional<PesAnimeChain> BuildAnimeChain(const PeImage& exe, const PesVfs& v
   Store<uint64_t>(seg, kKeyTableOffset + kKeyEntriesOffset, va(keys));
 
   // The layer chain down to the pose slot table: one layer, weight 1, whose slot table covers every track a clip evaluates.
-  // ponytail: the pose slots hold zero. PES's anime player keeps the player's current pose in them (the update FUN_141AF7A90 writes
-  // them each tick, SetMotion FUN_141AF61C0 builds the table); GF runs no anime player. The reader evaluates its clip into one slot
-  // and puts the slot's bytes back, so only the pose's own values would differ. Remove when the player's layer objects are ported.
+  // The pose slots hold zero, and that is not an input the reader lacks: PES's own reader FUN_141AFDF10 saves the slot, evaluates the
+  // clip into it, copies the result out and puts the slot's bytes back (FUN_1423A3FD0), and its answer does not depend on what the
+  // slot held. Ablation on PES's bytes over a captured kicker's chain (the real pose in 27 slots, 513 non-zero dwords): 19 motions
+  // (five of them turning ones with a non-identity vector) at 1/3 s, slots as captured / all zero / all 0.37: the same 16 bytes in
+  // all 57 runs (docs/ports/pes-port-KickInputs.md section 2). FUN_141AF7A90 is not the pose writer (it stores one float, L2+0x44);
+  // the pose itself (and the joint heights P+0xB90.. FUN_141EB51A0 reads from it) belongs to the anime engine, which GF does not run.
   const std::size_t tracks = static_cast<std::size_t>(maxTrack + 1);
   const std::size_t tableBytes = kSlotOffsetTable + kSlotOffsetStride * tracks;
   const std::size_t slotsAt = (tableBytes + 15) & ~std::size_t(15);

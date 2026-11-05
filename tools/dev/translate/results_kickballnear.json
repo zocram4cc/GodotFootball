@@ -1,0 +1,41 @@
+{
+ "note": "kickballnear results. diffed = bit-exact vs the unicorn harness over the 12 REAL ball_nearest_45B090 calls (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickballnear.json",
+   "coverage": {
+    "0x14045B090": {
+     "fraction": 0.7955,
+     "reached": 35,
+     "total": 44
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every REAL ball_nearest_45B090 call replayed bit-exact, 12 of 12 (pes-port-KickInputs.md), three runs under the four-capture rule: live2/pid781084 seq2430 seq2455 seq2481 seq2506 (4), seq2514 seq2520 seq2527 seq2534 (4), seq2541 seq2656 seq2898 seq3468 (4). The traces come from frame_trace.py recorded with specs/kick/14045B090.json. The closure is the union of the three bounded members lists; every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 12,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.7955,
+     "reached": 35,
+     "total": 44
+    },
+    "replayed": 12,
+    "source": "tools/dev/translate/results_kickballnear.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14045B090"
+  }
+ ]
+}

@@ -439,6 +439,31 @@ std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float se
   return out;
 }
 
+void PesWorld::BindAi(int side) {
+  uint8_t* ai = Ai(side);
+  StoreU64(ai, kAiContextPtrOffset, AiVa(side) + kAiArrayOffset);
+  StoreU64(ai, kAiMaPtrOffset, MaVa(side));
+  uint8_t* array = ai + kAiArrayOffset;
+  StoreU64(array, sizeof(uint64_t) * kAiArrayMatchInfo, MatchInfoVa());
+  StoreU64(array, sizeof(uint64_t) * kAiArrayPitch, PitchVa());
+  StoreU64(array, sizeof(uint64_t) * kAiArrayBall, BallVa());
+  for (int slot = 0; slot < kBallListMen; ++slot) StoreU64(array, sizeof(uint64_t) * (kAiArrayMen + slot), ManVa(slot));
+}
+
+void PesWorld::RunBallNearest(int side, const std::array<bool, 22>& onPitch, PesTrapExternals& ext) {
+  uint8_t* mi = MatchInfo();
+  for (int slot = 0; slot < kBallListMen; ++slot) mi[kMiOnPitchOffset + slot] = onPitch[static_cast<std::size_t>(slot)] ? 1 : 0;
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kBallListFrameBytes;  // the return address slot; the writer takes no stack arguments
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = AiVa(side);  // rcx: the AI object
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_14045B090(s);
+  ReturnSegments(s, ext, lent);
+}
+
 uint8_t PesWorld::RunAbilityByte(int slot, uint32_t id) {
   uint8_t* p = P(slot);
   p[kPByte2458Offset] = static_cast<uint8_t>(slot);

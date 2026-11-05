@@ -164,6 +164,8 @@ public:
   void TickScoreRows();
   // The side's AI record MA in the world window: the lane lists, the ball copy and the holder (TickScoreRows calls it).
   void WriteMaRecord();
+  // The ball list MA+0x2470C (FUN_14045B090 through FUN_140457070's slice gate, pesballlist.hpp); `forced` is that function's flag.
+  void TickBallList(bool forced);
   pes::ScoreRowWriter scoreRows_;
   // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a `0x1404F76B1`):
   // rebuild markTableState from the run world each team tick on the PES path.

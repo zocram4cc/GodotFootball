@@ -371,6 +371,20 @@ struct PesCtxRecord {
   std::array<uint8_t, kCtxBytes> bytes{};
 };
 
+// The side's AI object (the `this` of FUN_140457070 / FUN_14045B090: +8 names the context array, +0x10 the ball-list slice counter,
+// +0x11 the latch, +0x508 the AI record MA) and the context array it names (docs/ports/pes-port-KickInputs.md section 1): entry 0 is
+// MI, entry 2 the pitch record F, entry 4 the ball record B, entries 8 + slot the men's records (0x140A3E... reads +0x55C/+0x564).
+// CONFIRMED by the 14045B090 captures (aip.py). One record per side: the object, then the array.
+inline constexpr std::size_t kAiContextPtrOffset = 0x8;
+inline constexpr std::size_t kAiSliceCounterOffset = 0x10;
+inline constexpr std::size_t kAiMaPtrOffset = 0x508;
+inline constexpr std::size_t kAiArrayOffset = 0x520;
+inline constexpr std::size_t kAiArrayMatchInfo = 0, kAiArrayPitch = 2, kAiArrayBall = 4, kAiArrayMen = 8;
+inline constexpr std::size_t kAiBytes = kAiArrayOffset + 0x100;
+struct PesAiRecord {
+  std::array<uint8_t, kAiBytes> bytes{};
+};
+
 // MA, a side's AI record (docs/re/pes-re-score-rows.md, pes-re-defensive-shape.md): the score rows' blocks (pesscorerows.hpp),
 // the ball copy at +0x2482C (x, height, z) and the carrier id u32 at +0x2483C. Its bytes run to the last field the angle
 // reads (+0x24850), rounded up. Each sorted block is 200 bytes: two teams' 11 entries of (slot id u32, value f32) at
@@ -379,6 +393,11 @@ inline constexpr std::size_t kMaLaneListAOffset = 0x229B4;  // list[0] (0x140A71
 inline constexpr std::size_t kMaLaneListBOffset = 0x22B9C;  // list[1] (argument == 1)
 inline constexpr std::size_t kMaListTeamStride = 0x58;
 inline constexpr int kMaListEntries = 11;
+// The ball list (writer FUN_14045B090, docs/ports/pes-port-KickInputs.md section 1): per team 11 {u32 slot, f32 squared distance to the
+// ball} at +0x2470C + team * kMaListTeamStride, ascending; the counts (u8 per team) at +0x247BC; the rank of each slot (u8 per slot,
+// 0x0A when absent) at +0x247BE; the bearing from the ball to each man (f32 degrees per slot) at +0x247D4.
+inline constexpr std::size_t kMaBallListOffset = 0x2470C, kMaBallListCountOffset = 0x247BC, kMaBallListRankOffset = 0x247BE;
+inline constexpr std::size_t kMaBallListBearingOffset = 0x247D4;
 inline constexpr std::size_t kMaBallOffset = 0x2482C;       // f32 x, +4 height, +8 z
 inline constexpr std::size_t kMaCarrierIdOffset = 0x2483C;  // u32
 // The ball owner's slot id (u32, 0xFF none): 0x140A627E0(ctx, 0) answers it to the carrier walk, which compares its side with BP+0x24.
@@ -510,7 +529,8 @@ inline constexpr std::size_t kBallOffset = kTeamInfosOffset + static_cast<std::s
 inline constexpr std::size_t kPitchOffset = kBallOffset + kBallRecordBytes;
 inline constexpr std::size_t kFrameRandomOffset = kPitchOffset + kPitchRecordBytes;
 inline constexpr std::size_t kCtxOffset = kFrameRandomOffset + kFrameRandomBytes;
-inline constexpr std::size_t kMaOffset = kCtxOffset + static_cast<std::size_t>(kSideCount) * kCtxBytes;
+inline constexpr std::size_t kAiOffset = kCtxOffset + static_cast<std::size_t>(kSideCount) * kCtxBytes;
+inline constexpr std::size_t kMaOffset = kAiOffset + static_cast<std::size_t>(kSideCount) * kAiBytes;
 inline constexpr std::size_t kEventsOffset = kMaOffset + static_cast<std::size_t>(kSideCount) * kMaBytes;
 inline constexpr std::size_t kCarrierOffset = kEventsOffset + sizeof(EventStoreImage);
 inline constexpr std::size_t kTrapOffset = kCarrierOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesCarrierBlock);
@@ -625,6 +645,7 @@ struct PesWorldImage {
   PesPitchRecord pitch{};
   PesFrameRandomRecord frameRandom{};
   std::array<PesCtxRecord, kSideCount> ctx{};  // each side's AI context (ctx+0x18 -> MA, ctx+0xE0 -> E)
+  std::array<PesAiRecord, kSideCount> ai{};    // each side's AI object and context array (MA's owner, FUN_14045B090's this)
   std::array<PesMaRecord, kSideCount> ma{};    // each side's AI record
   EventStoreImage events{};                    // E: the event store, PES's offsets (pesevents.hpp)
   std::array<PesCarrierBlock, kSideCount> carrier{};  // each side's carrier block BP, its Clear unit object and answer
@@ -643,6 +664,7 @@ static_assert(offsetof(PesWorldImage, ball) == kBallOffset);
 static_assert(offsetof(PesWorldImage, pitch) == kPitchOffset);
 static_assert(offsetof(PesWorldImage, frameRandom) == kFrameRandomOffset);
 static_assert(offsetof(PesWorldImage, ctx) == kCtxOffset);
+static_assert(offsetof(PesWorldImage, ai) == kAiOffset);
 static_assert(offsetof(PesWorldImage, ma) == kMaOffset);
 static_assert(offsetof(PesWorldImage, events) == kEventsOffset);
 static_assert(offsetof(PesWorldImage, carrier) == kCarrierOffset);
@@ -691,6 +713,7 @@ class PesWorld {
     for (int side = 0; side < kSideCount; ++side) {
       StoreU64(Ctx(side), kCtxMaOffset, MaVa(side));
       StoreU64(Ctx(side), kCtxEventsOffset, EventsVa());
+      BindAi(side);
     }
     BindSanction();
   }
@@ -720,10 +743,23 @@ class PesWorld {
   static constexpr uint64_t FrameRandomVa() { return kWorldWindowVa + kFrameRandomOffset; }
   // The side's AI context, its AI record MA, and the event store E (kEventNewestOffset etc. are offsets into E).
   static constexpr uint64_t CtxVa(int side) { return kWorldWindowVa + kCtxOffset + static_cast<uint64_t>(side) * kCtxBytes; }
+  static constexpr uint64_t AiVa(int side) { return kWorldWindowVa + kAiOffset + static_cast<uint64_t>(side) * kAiBytes; }
   static constexpr uint64_t MaVa(int side) { return kWorldWindowVa + kMaOffset + static_cast<uint64_t>(side) * kMaBytes; }
   static constexpr uint64_t EventsVa() { return kWorldWindowVa + kEventsOffset; }
   uint8_t* Ctx(int side) { return image_->ctx[side].bytes.data(); }
+  uint8_t* Ai(int side) { return image_->ai[side].bytes.data(); }
   uint8_t* Ma(int side) { return image_->ma[side].bytes.data(); }
+  // The side's AI object: +8 the context array, +0x508 MA, the array's MI, pitch, ball and men entries (kAi* above).
+  void BindAi(int side);
+  // PES's ball-list writer FUN_14045B090 (translated, set kick) on the window for `side`'s AI object, as FUN_140457070 calls it at
+  // 0x140457568: MA+0x2470C (each team's men on the pitch by squared distance to the ball: {slot, d2} x 11 per team, counts at
+  // +0x247BC, ranks at +0x247BE, bearings at +0x247D4) and the goal-geometry words MA+0x228DC..0x228E8. `onPitch[slot]` is MI+0x1748
+  // (the flag the writer tests; the match's own state).
+  void RunBallNearest(int side, const std::array<bool, 22>& onPitch, PesTrapExternals& ext);
+  // MI+0x1748[slot]: the byte per man the ball-list writer tests (the decompile of FUN_14045B090: `*(slot + 0x1748 + MI) != 0`).
+  static constexpr std::size_t kMiOnPitchOffset = 0x1748;
+  static constexpr int kBallListMen = 22;
+  static constexpr std::size_t kBallListFrameBytes = 0x40;
   EventStoreImage& EventImage() { return image_->events; }
   // E as the store's own view: every event the match routes lands in the window.
   EventStore Events() { return EventStore(image_->events); }

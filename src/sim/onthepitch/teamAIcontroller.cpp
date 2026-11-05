@@ -29,6 +29,7 @@
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
 #include "pes/movestep.hpp"
+#include "pesballlist.hpp"
 #include "pesmovestep.hpp"
 #include "pestrapactor.hpp"
 #include "pessetpieceteam.hpp"
@@ -192,8 +193,40 @@ void TeamAIController::TickScoreRows() {
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
   scoreRows_.Bind(world.Ma(team->GetID()));  // the rows are views over this side's MA record: the window is the store
-  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(), pesPath, world);
+  const bool forced = !match->IsInPlay() || !scoreRows_.Latched();
+  scoreRows_.Tick(players, k, match->GetSimFrame(), forced, pesPath, world);
+  TickBallList(forced);
   WriteMaRecord();
+}
+
+// FUN_140457070's ball-list block (0x140457568 calls FUN_14045B090): nothing while the writer is unlatched; forced (the flag the
+// score rows take: the stoppage states MI+0x11B0 in {8, 0xB, 0xE, 0x12}, which GF has no word for; ScoreRowWriter's ponytail) it
+// runs at once; otherwise it runs when the slice counter passes the limit of pesballlist.hpp (the in-play state 0x14..0x16).
+// The writer's man flags are the match's on-pitch men (MI+0x1748), the ball its record 0 and speed the window's.
+void TeamAIController::TickBallList(bool forced) {
+  if (!match->PesLoop() || !scoreRows_.Latched()) return;
+  pes::PesWorld& world = match->PesWorldOf();
+  const int side = team->GetID();
+  int8_t* counter = reinterpret_cast<int8_t*>(world.Ai(side) + pes::kAiSliceCounterOffset);
+  if (!forced) {
+    float v[3];
+    world.BallVelocity(v);
+    const pes::PesTrapExternals& ext = match->PesTrapExternalsOf();
+    float negKmh;  // DAT_14259D65C: the install's km/h factor (-3.6), read from the exe's image
+    std::memcpy(&negKmh, ext.image + (pes::kBallListSpeedFactorVa - ext.imageBase), sizeof negKmh);
+    const int speed = static_cast<int>(std::sqrt(v[1] * v[1] + v[0] * v[0] + v[2] * v[2]) * negKmh);
+    const int limit = pes::BallListSliceLimit(pes::BallListFreshEvent(reinterpret_cast<const uint8_t*>(&world.EventImage())), speed);
+    *counter = static_cast<int8_t>(*counter + 1);
+    if (*counter <= limit) return;
+  }
+  std::array<bool, 22> onPitch{};
+  for (Team* t : {team, match->GetTeam(1 - side)}) {
+    std::vector<Player*> squad;
+    t->GetActivePlayers(squad);
+    for (Player* p : squad) onPitch[static_cast<std::size_t>(match->PesSlotOf(p))] = true;
+  }
+  world.RunBallNearest(side, onPitch, match->PesTrapExternalsOf());
+  *counter = 0;
 }
 
 void TeamAIController::WriteMaRecord() {
