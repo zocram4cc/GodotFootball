@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include "pes_state.hpp"
 #include "pes_dispatch.hpp"
+#include "pes_survey.hpp"
 void pes_fn_140001480(PesState& s);
 void pes_fn_140001750(PesState& s);
 void pes_fn_140001990(PesState& s);
@@ -10561,7 +10562,9 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
 }
 void (*pes_dispatch_missing_handler)(uint64_t) = nullptr;
 [[noreturn]] void pes_dispatch_missing(uint64_t t) {
+  if (pes_survey_armed()) pes_survey_note(t, __builtin_return_address(0));
   if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(t);
+  if (pes_survey_armed()) pes_survey_end();
   std::fprintf(stderr, "PES_DISPATCH_UNTRANSLATED: %#llx\n",
                (unsigned long long)t);
   std::abort();

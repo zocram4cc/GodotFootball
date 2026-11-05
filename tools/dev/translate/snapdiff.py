@@ -167,7 +167,8 @@ def build_binary(va, spec, args, pilot, reached, executed=None, native=False):
     if err:
         return None, err
     # The committed runtime headers, always refreshed (a stale copy in the build tree would link old code).
-    heads = ("pes_state.hpp", "pes_cond.inl", "pes_stubs.hpp", "pes_dispatch.hpp") + (("pes_native.hpp",) if native else ())
+    heads = ("pes_state.hpp", "pes_cond.inl", "pes_stubs.hpp", "pes_dispatch.hpp",
+             "pes_survey.hpp") + (("pes_native.hpp",) if native else ())
     for h in heads:
         with open(os.path.join(drv.TRANSLATED_DIR, h), "rb") as fi, open(os.path.join(gen, h), "wb") as fo:
             fo.write(fi.read())

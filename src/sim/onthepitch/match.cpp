@@ -18,6 +18,7 @@
 #include "base/log.hpp"
 #include "matchduration.hpp"
 #include "matchreport.hpp"
+#include "pes_survey.hpp"
 #include "pesclips.hpp"
 #include "pesteamtick.hpp"
 #include "pespossession.hpp"
@@ -1051,6 +1052,8 @@ void Match::Process() {
   if (pesLoop || (IsInPlay() && !IsInSetPiece())) AdvanceMatchFrames(1);
   // MI+0x1198, the logic-frame counter, counts one per tick (PES 0x140A128E4: inc dword [MI+0x1198]).
   pesWorld->AdvanceMatchFrame();
+  // GF_PES_SURVEY's first_frame (pes_survey.hpp): a store the sim never reads.
+  pes_survey_set_frame(GetSimFrame());
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;
