@@ -78,7 +78,7 @@ bool PesWorld::RunDangerBuilder(int side, const PesDangerExternals& ext) {
   if (!heap_) heap_ = std::make_unique<PesHeap>();
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  AttachImageTables(s);
   for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
   // The call frame of 0x142110D30's call: the return address, then (past the 0x20 shadow) the fifth argument (the carrier
   // team's record, unused by the builder) and the sixth (BP+0x18, the refresh flags).
@@ -154,7 +154,7 @@ void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternal
   const auto call = [&](void (*fn)(::PesState&), uint64_t rcx, uint64_t r8) {
     PesState s = NewCall(Bytes());
     heap_->Attach(s);
-    for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    AttachImageTables(s);
     for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
     const uint64_t entry = kStackVa + kStackBytes - kDangerFrameBytes;
     s.wr(entry, 0, 8);
@@ -190,7 +190,7 @@ uint32_t PesWorld::RunWalk(int side, const PesDangerExternals& ext) {
   if (!heap_) heap_ = std::make_unique<PesHeap>();
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  AttachImageTables(s);
   for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
   const uint64_t entry = kStackVa + kStackBytes - kDangerFrameBytes;
   s.wr(entry, 0, 8);
@@ -206,7 +206,7 @@ void PesWorld::RunCarrierConstruct(int side, const PesDangerExternals& ext) {
   if (!heap_) heap_ = std::make_unique<PesHeap>();
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  AttachImageTables(s);
   for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
   const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
   s.wr(entry, 0, 8);
@@ -223,7 +223,7 @@ void PesWorld::RunTurnReference(int side, const PesDangerExternals& ext) {
   const uint64_t bp = CarrierVa(side);
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  AttachImageTables(s);
   for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
   const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
   s.wr(entry, 0, 8);
@@ -253,7 +253,7 @@ void PesWorld::RunDribbleProposal(int side, uint32_t slot, const PesDangerExtern
                         uint64_t arg6 = 0, uint64_t arg7 = 0, uint64_t arg8 = 0) {
     PesState s = NewCall(Bytes());
     heap_->Attach(s);
-    for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    AttachImageTables(s);
     for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
     s.wr(entry, 0, 8);
     s.wr(entry + kTurnArg5Offset, arg5, 8);
@@ -351,7 +351,7 @@ uint8_t PesWorld::RunAbilityByte(int slot, uint32_t id) {
   p[kPByte2458Offset] = static_cast<uint8_t>(slot);
   StoreU64(p, kPInterfaceVtable0Offset, kPInterfaceVtableVa);
   PesState s = NewCall(Bytes());
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  AttachImageTables(s);
   s.gpr[1] = PVa(slot);  // rcx: P
   s.gpr[2] = id;         // edx: the ability id
   ::pes_fn_1406E6660(s);
@@ -367,7 +367,7 @@ bool PesWorld::RunEntryAim(int slot, int side, uint32_t playState) {
   const uint32_t saved = period.playState;
   period.playState = playState;
   PesState s = NewCall(Bytes());
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  AttachImageTables(s);
   s.gpr[1] = PVa(slot);  // rcx: P
   ::pes_fn_1406BA7D0(s);
   period.playState = saved;
@@ -424,9 +424,9 @@ bool PesWorld::Involved(int official) {
   return (s.gpr[0] & 0xFF) != 0;  // al
 }
 
-// PES's frame-rate cells (image globals the selector's chain reads: 0x141E532E0 returns the u32 at 0x14351AE50, 0x141E532D0 the f32 at
-// 0x14351AE54; both read 54 in every capture): a segment beside G's, holding GF's tick rate.
-constexpr uint64_t kFrameRateCellVa = 0x14351AE50;
+void PesWorld::AttachImageTables(::PesState& s) const {
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+}
 
 bool PesWorld::RunPassTarget(int side, uint32_t playState, std::vector<std::pair<uint64_t, uint8_t>>* writeLog) {
   uint8_t* brain = Brain(side);
@@ -435,13 +435,10 @@ bool PesWorld::RunPassTarget(int side, uint32_t playState, std::vector<std::pair
   const uint32_t saved = period.playState;
   period.playState = playState;
   PesState s = NewCall(Bytes());
-  PesMem::Seg cells{kFrameRateCellVa, std::vector<uint8_t>(2 * sizeof(uint32_t))};
-  const uint32_t whole = static_cast<uint32_t>(kPesTickHz);
-  std::memcpy(cells.bytes.data(), &whole, sizeof whole);
-  std::memcpy(cells.bytes.data() + sizeof whole, &kPesTickHz, sizeof kPesTickHz);
-  s.mem.segs.push_back(std::move(cells));
+  AttachImageTables(s);  // the none record the event queries return on an empty ring (kind 0x37), and the 54 Hz cells
   s.mem.wlog = writeLog;
   s.gpr[1] = BrainVa(side);  // rcx: Y
+  if (getenv("TTP")) { PesState q = NewCall(Bytes()); AttachImageTables(q); q.gpr[1] = LoadU64(brain, 0x6D48); ::pes_fn_140A51320(q); const EventStore ev = Events(); const EventRecord* nr = ev.NewestOrRing0(0); fprintf(stderr, "TTP side=%d play=%u frame=%u esi=%d newestKind=%u newestFrame=%d ring1n=%d T78=%u\n", side, playState, MatchFrame(), (int)(q.gpr[0] & 0xFFFFFFFF), nr ? nr->ActionKind() : 0u, nr ? nr->ActionFrame() : -1, ev.RingRecord(1, 0) ? 1 : 0, PassTarget(side)); }
   ::pes_fn_1404FB2A0(s);
   StoreU64(brain, kBrainTeamOffset, 0);
   period.playState = saved;

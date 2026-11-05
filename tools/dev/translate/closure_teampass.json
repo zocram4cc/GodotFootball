@@ -2,9 +2,9 @@
  "note": "the functions the proof builds of the team pass-target chain compiled (direct callees and the indirect targets the replays reached): proof_teampass.py. VAs only.",
  "root": [
   "0x1404F0E50",
-  "0x1404FB2A0",
   "0x1404FB380",
-  "0x1404FB780"
+  "0x1404FB780",
+  "0x140A51320"
  ],
  "members": [
   "0x14042D470",
@@ -40,7 +40,6 @@
   "0x140A48A10",
   "0x140A48A30",
   "0x140A4D660",
-  "0x140A51320",
   "0x140A55D40",
   "0x140A57450",
   "0x140A57710",

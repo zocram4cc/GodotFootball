@@ -401,6 +401,10 @@ Player* Team::GetPassTarget() const {
 // against the captured owner. ponytail: the action word's writer FUN_140A6CA10 is not ported (pesmovestep.cpp:113): only PASS_GET is
 // staged, and F0E50's other class and need reads (the slot records +0x1430, the anime class byte, the roster) are GF's stand-ins of the
 // run world; the oracle test (tests/pes_teampass_oracle_test.cpp) proves the chain on PES's own records, not on these.
+// ponytail: the arrival-order list MA+0x24908 (the holder tree's default candidate and its rank scan) is each side's men by GF's
+// time-to-ball, nearest first, in frames; PES's writer 0x14045E0D0 (the gated second NearestEntry builder, untranslated: its inputs
+// are the run world's MA lists, which GF's window does not carry) will replace it. Without it the window held zeros, so slot 0 was
+// the nearest man of both sides and the tree named it for both (side 1's target was a side-0 man on 1688 of its probed ticks, seed 7).
 void Team::RunPesPassTarget() {
   pes::PesWorld& world = match->PesWorldOf();
   uint8_t* mi = world.MatchInfo();
@@ -417,6 +421,15 @@ void Team::RunPesPassTarget() {
         pes::StoreU32(world.ManRecord(slot), pes::kManActionOffset,
                       squad[place].get() == receiver ? pes::kActionPassGet : pes::kManActionIdle);
     }
+    std::vector<std::pair<int, int>> arrival;  // (time to ball ms, place), the on-pitch men
+    for (int place = 0; place < static_cast<int>(squad.size()) && place < pes::kSlotsPerSide; ++place)
+      if (squad[place]->IsActive()) arrival.emplace_back(squad[place]->GetTimeNeededToGetToBall_ms(), place);
+    std::stable_sort(arrival.begin(), arrival.end(),
+                     [](const std::pair<int, int>& a, const std::pair<int, int>& b) { return a.first < b.first; });
+    for (int rank = 0; rank < static_cast<int>(arrival.size()); ++rank)
+      for (int ma = 0; ma < pes::kSideCount; ++ma)
+        world.SetMaArrivalEntry(ma, t, rank, static_cast<uint32_t>(t * pes::kSlotsPerSide + arrival[rank].second),
+                                static_cast<float>(arrival[rank].first) * pes::kPesTickHz / 1000.0f);
     world.SideRecord(t)[pes::kSideLatchOffset] = side->IsPesPossession() ? 1 : 0;
     world.SetMaOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
   }
@@ -429,9 +442,11 @@ void Team::RunPesPassTarget() {
 
 Player* Team::PassGetReceiver() {
   // PES's movement selector state 2 (FUN_140931c60): only the team's own pass
-  // target goes to the ball as the receiver.
+  // target goes to the ball as the receiver. The man tests `his slot id ==
+  // [own side's record + 0x78]` (FUN_140931c60 decompile: `iVar1 == *(int *)(lVar7 + 0x78)`, lVar7 = FUN_140a48a30(G, his side)), so
+  // a T+0x78 that names the other side's man matches no man of this team.
   Player* const passTarget = GetPassTarget();
-  if (!passTarget || !passTarget->IsActive()) return nullptr;
+  if (!passTarget || !passTarget->IsActive() || passTarget->GetTeamID() != id) return nullptr;
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
   const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
   const pes::BallEventKind newestKind = pes::ReceiveEventKindOf(newest.kind);

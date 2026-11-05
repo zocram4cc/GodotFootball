@@ -10,6 +10,9 @@
 #include <vector>
 
 #include "onthepitch/pesevents.hpp"
+#include "onthepitch/pesworldrecord.hpp"
+#include "pes_state.hpp"
+#include "translated.hpp"
 
 namespace {
 // The store is a view over an image (the world window's event region in the match); a test owns one on the heap (1.5 MB).
@@ -1145,6 +1148,44 @@ TEST(PesEventStore, EventAtReadsTheNthNewestRingZeroEvent) {
   EXPECT_EQ(previous.frame, 10);
   EXPECT_EQ(previous.actor, (pes::ActorKey{0, 3}));
   EXPECT_FALSE(pes::EventAt(store, 2).present);
+}
+
+// FUN_140A51320 on GF's window (0x140A51380..0x140A51390): with no man holding the ball (ring 1 empty: its none-record key is {2, 0xff},
+// so 0x140A62EA0 answers 0xFF) the frames since the newest event are MI+0x1198 minus the newest kind-7 event's frame. The none record
+// 0x1436F3A40 (kind 0x37, built at start-up by 0x140A3CDD0) is install data: a window call that lacks it reads zeros, takes the
+// holder arm and answers the empty ring's word, 0, for every call (TeamTick3: pass targets never named).
+TEST(PesFramesSince, CountsFromTheNewestEventWhenNoOneHoldsTheBall) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (root == nullptr) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string error;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &error);
+  ASSERT_TRUE(exe) << error;
+  auto tables = pes::LoadPesImageTables(*exe, &error);
+  ASSERT_TRUE(tables) << error;
+  auto ringTable = pes::LoadEventRingTable(*exe, &error);
+  ASSERT_TRUE(ringTable) << error;
+
+  constexpr int kEventFrame = 7, kFramesLater = 4;
+  auto world = std::make_unique<pes::PesWorld>();
+  world->BindImageTables(*tables);
+  pes::EventStore store = world->Events();
+  pes::EventRecord kick;
+  kick.Write(7, kEventFrame, kEventFrame, 0.f, 0);
+  kick.SetActionKind(1);
+  kick.SetActionFrame(kEventFrame);
+  kick.SetU32(0x18, 0);
+  kick.SetU32(0x1c, 3);
+  store.Route(*ringTable, kick);
+  for (int i = 0; i < kEventFrame + kFramesLater; ++i) world->AdvanceMatchFrame();
+
+  PesState s;
+  world->BindCall(s);
+  world->AttachImageTables(s);
+  s.gpr[1] = pes::PesWorld::CtxVa(0);  // rcx = X, the side's AI context (+0xE0 = E)
+  s.gpr[4] -= 8;
+  s.wr(s.gpr[4], 0, 8);  // the return address slot
+  pes_fn_140A51320(s);
+  EXPECT_EQ(static_cast<int32_t>(s.gpr[0]), kFramesLater);
 }
 
 }  // namespace

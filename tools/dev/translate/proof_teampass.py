@@ -83,11 +83,20 @@ def replay(root, caps, work, image, hooks, batch):
     return total, members
 
 
-def record(root, raw):
+def hook_name(hooks, root):
+    """The rendezvous hook config's name for a root's entry VA (`hook NAME VA ...`)."""
+    for line in open(hooks):
+        p = line.split()
+        if len(p) >= 3 and p[0] == "hook" and int(p[2], 16) == int(root, 16):
+            return p[1]
+    raise SystemExit("no hook of %s in %s" % (root, hooks))
+
+
+def record(root, raw, hooks):
     own = raw["own_block"]
     note = ("proof snapdiff (unbounded closure): every replayed call bit-exact, %d of %d, all REAL captured calls of the root "
-            "(rendezvous hook team_pass_%s; no synthetic case; own-block coverage is the best batch's). proof_teampass.py."
-            % (raw["replayed"], raw["calls"], root[-5:]))
+            "(rendezvous hook %s; no synthetic case; own-block coverage is the best batch's). proof_teampass.py."
+            % (raw["replayed"], raw["calls"], hook_name(hooks, root)))
     return {"aborted": 0, "capped": 0, "cases": 0, "coverage": {root: own}, "dead_blocks": {}, "diffed": True, "failed": 0,
             "failure_class": None, "icount_max": 0, "nonreturn": 0, "note": note, "proof": "snapdiff", "requested": 0,
             "snapdiff": {"calls": raw["calls"], "mismatches": len(raw["mismatches"]), "own_block": own, "replayed": raw["replayed"],
@@ -118,7 +127,7 @@ def main():
             raw and len(raw["mismatches"]), raw and raw["own_block"]))
         if a.merge and raw is not None and raw["proven"]:
             members_all |= members
-            doc["results"] = [r for r in doc["results"] if r["va"].upper() != root.upper()] + [record(root, raw)]
+            doc["results"] = [r for r in doc["results"] if r["va"].upper() != root.upper()] + [record(root, raw, hooks)]
     if a.merge:
         json.dump(doc, open(RESULTS, "w"), indent=1)
         open(RESULTS, "a").write("\n")

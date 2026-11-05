@@ -69,23 +69,56 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 
 }  // namespace
 
+// What one PES-loop match did with the pass target (T+0x78) and the receiver derived from it, collected once for the tests below.
+struct PassStats {
+  double worstStale_s = 0.0;           // the longest a set target survived with the ball at rest in play
+  unsigned long targetTicks = 0;       // ticks with a target named (either side)
+  unsigned long receiverTicks = 0;     // ticks with a PassGetReceiver() (either side)
+  unsigned long foreignReceiverTicks = 0;  // ticks a side's receiver was not on that side
+  bool ran = false;
+};
+
+class PesPassTarget : public ::testing::Test {
+ protected:
+  static void SetUpTestSuite() {
+    double restingSinceTargetSet_s = 0.0;
+    stats_.ran = false;
+    RunPesLoopMatch([&](Match& match) {
+      stats_.ran = true;
+      const bool targetSet = match.GetTeam(0)->GetPassTarget() != nullptr || match.GetTeam(1)->GetPassTarget() != nullptr;
+      stats_.targetTicks += targetSet ? 1 : 0;
+      const bool resting = match.IsInPlay() && match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms;
+      if (targetSet && resting)
+        restingSinceTargetSet_s += static_cast<double>(Match::kTick_ms) / 1000.0;
+      else
+        restingSinceTargetSet_s = 0.0;
+      stats_.worstStale_s = std::max(stats_.worstStale_s, restingSinceTargetSet_s);
+      for (int side = 0; side < 2; ++side) {
+        const Player* receiver = match.GetTeam(side)->PassGetReceiver();
+        stats_.receiverTicks += receiver != nullptr ? 1 : 0;
+        stats_.foreignReceiverTicks += receiver != nullptr && receiver->GetTeamID() != side ? 1 : 0;
+      }
+    });
+  }
+  static PassStats stats_;
+};
+PassStats PesPassTarget::stats_;
+
 // The pass target is PES's own team record T+0x78, rewritten by the selector chain every team tick (VA 0x1404FB2A0 -> 0x1404FB380;
 // docs/ports/pes-port-TeamTick.md). GF used to clear its copy only at ResetSituation, so a pass that died on the grass kept its receiver
 // (a keeper 35 m away for 8 s on seed 7, docs/ports/pes-port-RestingBall3.md). On the PES path a set target must (a) exist while a pass is
 // in flight, and (b) be gone within PES's own live bound once the ball has come to rest in play.
-TEST(PesPassTarget, IsSetInFlightAndNeverStaleWhileTheBallRests) {
-  double restingSinceTargetSet_s = 0.0, worstStale_s = 0.0;
-  unsigned long targetTicks = 0;
-  RunPesLoopMatch([&](Match& match) {
-    const bool targetSet = match.GetTeam(0)->GetPassTarget() != nullptr || match.GetTeam(1)->GetPassTarget() != nullptr;
-    targetTicks += targetSet ? 1 : 0;
-    const bool resting = match.IsInPlay() && match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms;
-    if (targetSet && resting)
-      restingSinceTargetSet_s += static_cast<double>(Match::kTick_ms) / 1000.0;
-    else
-      restingSinceTargetSet_s = 0.0;
-    worstStale_s = std::max(worstStale_s, restingSinceTargetSet_s);
-  });
-  EXPECT_GT(targetTicks, 0ul) << "the selector chain never named a pass target in the match";
-  EXPECT_LE(worstStale_s, kPesPassTargetMaxLive_s) << "a pass target stayed set for " << worstStale_s << " s with the ball at rest";
+TEST_F(PesPassTarget, IsSetInFlightAndNeverStaleWhileTheBallRests) {
+  if (!stats_.ran) GTEST_SKIP() << "no match ran";
+  EXPECT_GT(stats_.targetTicks, 0ul) << "the selector chain never named a pass target in the match";
+  EXPECT_LE(stats_.worstStale_s, kPesPassTargetMaxLive_s) << "a pass target stayed set for " << stats_.worstStale_s << " s with the ball at rest";
+}
+
+// The kick no longer writes a receiver on the PES path, so the receiver is read from T+0x78 (Team::PassGetReceiver): a pass in flight
+// has one, and it is always a man of the side whose record names him (FUN_140931c60 compares the man's slot id with his own side's
+// T+0x78, so another side's man is never a receiver and never the team's designated man).
+TEST_F(PesPassTarget, EveryPassInFlightHasItsOwnSidesReceiver) {
+  if (!stats_.ran) GTEST_SKIP() << "no match ran";
+  EXPECT_GT(stats_.receiverTicks, 0ul) << "PassGetReceiver() was null for every pass of the match";
+  EXPECT_EQ(stats_.foreignReceiverTicks, 0ul) << "a side's receiver was a man of the other side";
 }

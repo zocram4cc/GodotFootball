@@ -398,6 +398,10 @@ inline constexpr std::size_t kMaLaneListAOffset = 0x229B4;  // list[0] (0x140A71
 inline constexpr std::size_t kMaLaneListBOffset = 0x22B9C;  // list[1] (argument == 1)
 inline constexpr std::size_t kMaListTeamStride = 0x58;
 inline constexpr int kMaListEntries = 11;
+// The arrival-order list the selector's holder tree reads (0x1404F0E50: `MA+0x24908 + (side * 11 + rank) * 8`, the first entry's id is
+// its default candidate): per team 11 (slot id u32, frames f32) entries, nearest to the ball first (captured, seq732/seq850). PES's
+// writer is 0x14045E0D0, the gated second NearestEntry builder (docs/re/pes-re-lane-inputs.md), untranslated.
+inline constexpr std::size_t kMaArrivalListOffset = 0x24908;
 inline constexpr std::size_t kMaBallOffset = 0x2482C;       // f32 x, +4 height, +8 z
 inline constexpr std::size_t kMaCarrierIdOffset = 0x2483C;  // u32
 // The ball owner's slot id (u32, 0xFF none): 0x140A627E0(ctx, 0) answers it to the carrier walk, which compares its side with BP+0x24.
@@ -857,6 +861,9 @@ class PesWorld {
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
   void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }
+  // Gives a window call the bound image tables (the event store's none record 0x1436F3A40 and the frame-rate cells among them); every
+  // call that reads an event query or the fps cells needs them.
+  void AttachImageTables(::PesState& s) const;
   // Runs the Clear unit 0x142109EB0 on the window for `carrierSlot` of `side`: the answer type (5 when the danger byte is
   // set, else 0: the unit stores nothing) and the corridor angle it stored (degrees, 0.0 when none).
   struct ClearAnswer {
@@ -931,6 +938,13 @@ class PesWorld {
                      static_cast<std::size_t>(team) * kMaListTeamStride + static_cast<std::size_t>(rank) * 8;
     StoreU32(entry, 0, id);
     StoreF32(entry, 4, value);
+  }
+  // Entry `rank` of team `team`'s arrival list (MA+0x24908): the slot id, then the frames to the ball.
+  void SetMaArrivalEntry(int side, int team, int rank, uint32_t id, float frames) {
+    uint8_t* entry = Ma(side) + kMaArrivalListOffset + static_cast<std::size_t>(team) * kMaListTeamStride +
+                     static_cast<std::size_t>(rank) * 8;
+    StoreU32(entry, 0, id);
+    StoreF32(entry, 4, frames);
   }
   // The clock's period record, in the match-info block: PesClock writes it in place.
   PeriodRecord& Period() { return image_->match.period; }

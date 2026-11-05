@@ -119,6 +119,7 @@ TEST_F(TeamPassOracle, EveryCapturedSelectorCallOnGfsWindowLeavesPesPassTarget) 
     SetOverlay(o);
     pes::PesWorld world;
     BindWorld(world);
+    world.BindImageTables(InstallTables());  // the fps cells and the event store's none record, which RunPassTarget no longer carries
     const uint64_t g = Read(o, kImageG, 8);
     const uint64_t y = o.regs.at("rcx");
     const int own = static_cast<int>(Read(o, y + pes::kBrainSideOffset, 4));
