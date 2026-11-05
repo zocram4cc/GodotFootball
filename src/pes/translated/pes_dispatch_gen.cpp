@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include "pes_state.hpp"
 #include "pes_dispatch.hpp"
+#include "pes_survey.hpp"
 void pes_fn_140001480(PesState& s);
 void pes_fn_140001750(PesState& s);
 void pes_fn_140001990(PesState& s);
@@ -10602,12 +10603,14 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x141B34DB0ULL: return {pes_native_heap_trim};
     case 0x2500000068ULL: return {pes_native_registry_insert};
     case 0x2500000070ULL: return {pes_native_registry_find};
-    default: return {0};
+    default: return pes_survey_absent(t, __builtin_return_address(0));
   }
 }
 void (*pes_dispatch_missing_handler)(uint64_t) = nullptr;
-[[noreturn]] void pes_dispatch_missing(uint64_t t) {
+void pes_dispatch_missing(uint64_t t) {
+  if (pes_survey_armed()) pes_survey_note(t, __builtin_return_address(0));
   if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(t);
+  if (pes_survey_armed()) return;
   std::fprintf(stderr, "PES_DISPATCH_UNTRANSLATED: %#llx\n",
                (unsigned long long)t);
   std::abort();
