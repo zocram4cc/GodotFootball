@@ -3,7 +3,7 @@
 
 Each is a one- or two-store method on the unit object (rcx): `*(u32*)(rcx+8) = 2` (BF10), `*(u8*)(rcx+8) = 0` (BF20),
 `*(u32*)(rcx+0xC) = 2` (BF30), `*(u32*)(rcx+0xC) = 0xFF; *(u16*)(rcx+8) = 0` (BF40), `*(u32*)(rcx+8) = 0xFF` (BF50). The dribble
-proposal calls one when its active unit's slot 0x18 returns true (pes_fn_14211E2D0); no capture holds such a call. synth_call.py
+proposal calls one when its active unit's slot 0x18 returns true (pes_fn_14211E2D0); no capture holds such a call. synth.py
 keeps one real state's memory and points rcx at the state's stack scratch, filled with 0x00, 0xAA or 0xFF, so every store shows
 against a different background; the harness runs PES's bytes, the translated body runs over the same pages, and snapdiff.py
 --bounded compares every written byte. The object is CHOSEN, not observed: every case is SYNTHETIC (`synthetic_cases` in the record).
