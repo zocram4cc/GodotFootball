@@ -2,6 +2,7 @@
 
 #include <map>
 
+#include "base/log.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/player/humanoid/humanoid.hpp"
 #include "onthepitch/player/player.hpp"
@@ -94,6 +95,27 @@ class TrapRestartProbe : public pestest::Probe {
 
 TrapRestartProbe trapCensus;
 
+// The body's last-resort fallback (humanoid.cpp: "NO APPLICABLE ANIM FOUND", then ResetPosition) means the AI handed a man whose clip
+// ended no command at all. It is never meant to happen in a match. The goal kick's strike (the keeper's root is carried onto the contact
+// by the referee's strike, pesgoalkick.hpp) used to leave the keeper's queue empty from the release to the contact tick, so any
+// keeper whose clip ended in that window hit the fallback.
+class FallbackProbe : public pestest::Probe {
+ public:
+  FallbackProbe()
+      : Probe("PesStallFallback", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
+  long fallbacks = 0;
+  void OnStart(Match&) override {
+    connection_ = blunted::BindLog([this](blunted::e_LogType, std::string, std::string, std::string message) {
+      if (message.find("NO APPLICABLE ANIM FOUND") != std::string::npos) fallbacks++;
+    });
+  }
+
+ private:
+  boost::signals2::scoped_connection connection_;
+};
+
+FallbackProbe fallbackCensus;
+
 }  // namespace
 
 TEST(PesStall, ATrapClipIsNeverRestartedBeforeItsContactFrame) {
@@ -128,4 +150,13 @@ TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
   pestest::Settle(census);
   ASSERT_TRUE(census.stop.gameOver) << "the match did not reach full time";
   EXPECT_EQ(census.liveFirings, 0) << "the breaker forced a live ball for " << census.liveFirings << " ticks";
+}
+
+TEST(PesStall, ANoManIsEverHandedNoCommandAtAClipEnd) {
+  pestest::Run(fallbackCensus);
+  if (fallbackCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(fallbackCensus.setupError.empty()) << fallbackCensus.setupError;
+  pestest::Settle(fallbackCensus);
+  ASSERT_TRUE(fallbackCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(fallbackCensus.fallbacks, 0) << fallbackCensus.fallbacks << " clip ends found no applicable anim";
 }
