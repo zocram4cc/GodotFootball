@@ -33,6 +33,12 @@ def captures(paths):
             yield from sorted(glob.glob(os.path.join(p, "seq*")))
 
 
+# Left in a capture dir by unpack, removed by pack: a capture that was ever packed must stay FULL (it was kept or cited),
+# so auto_slim never slims one an agent has unpacked (05-11-26: two unpacked real trap states were slimmed mid-proof and
+# could no longer be replayed).
+UNPACKED_MARKER = ".unpacked"
+
+
 def pack(d):
     raw, zst = os.path.join(d, "mem.bin"), os.path.join(d, "mem.bin.zst")
     if not os.path.exists(raw) or allocated(raw) < SLIM_BYTES:
@@ -42,6 +48,8 @@ def pack(d):
     subprocess.run(["zstd", "-q", "-t", tmp], check=True)
     os.replace(tmp, zst)
     os.remove(raw)
+    if os.path.exists(os.path.join(d, UNPACKED_MARKER)):
+        os.remove(os.path.join(d, UNPACKED_MARKER))
     return "packed"
 
 
@@ -52,6 +60,7 @@ def unpack(d):
     tmp = raw + ".part"
     subprocess.run(["zstd", "-q", "-f", "-d", "--no-sparse", zst, "-o", tmp], check=True)
     os.replace(tmp, raw)
+    open(os.path.join(d, UNPACKED_MARKER), "w").close()
     os.remove(zst)
     return "unpacked"
 
