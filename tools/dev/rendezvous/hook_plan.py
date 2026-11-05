@@ -178,6 +178,11 @@ TARGETS = [
     ("act4_callee_7B68B0", 0x1407B68B0, "RestingBall3: action-4 start callee"),
     ("act4_callee_7B6D80", 0x1407B6D80, "RestingBall3: action-4 start callee"),
     ("traj_caller_8495B0", 0x1408495B0, "RestingBall3: caller of the .pdata-less trajectory leaf 0x140852C00"),
+    # --- TeamTick block (PES's team-tick pass-target rewrite; pes-port-TeamTick.md). Append-only.
+    ("team_pass_4FB2A0", 0x1404FB2A0, "TeamTick: team tick pass-target rewrite (rcx = brain Y)"),
+    ("team_pass_4FB380", 0x1404FB380, "TeamTick: pass-target decision tree"),
+    ("team_pass_F0E50", 0x1404F0E50, "TeamTick: holder tree the decision ends in"),
+    ("team_pass_4FB780", 0x1404FB780, "TeamTick: MI+0x116C==2 stoppage arm"),
 ]
 
 
