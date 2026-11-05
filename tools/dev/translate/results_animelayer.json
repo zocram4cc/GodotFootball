@@ -1,5 +1,5 @@
 {
- "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). SYNTHETIC entries only: BodyAnimControl::Exec phases over the four real anime_bones_141EB49B0 captures (live2/pid952648); no real call of the engine's phase functions exists yet (hooks anime_phase3_1423A1AC0 / anime_stage_1423A2260 / anime_phase4_1423A1900 / anime_pusher_141AF61C0 requested).",
+ "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). 0x1423A1AC0: 4 REAL calls of hook anime_phase3_1423A1AC0 (live2/pid2254416). 0x141AF4650: SYNTHETIC entries over the four real anime_bones_141EB49B0 captures (live2/pid952648); no real call of the driver itself exists (the real caller of the phase-3 handler is 0x141AFF2E1, not 0x141AF4650).",
  "results": [
   {
    "aborted": 0,
@@ -36,6 +36,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x141AF4650",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x1423A1AC0": {
+     "fraction": 0.7143,
+     "reached": 5,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 REAL calls (anime_phase3_1423A1AC0, live2/pid2254416 seq17147 17160 17174 17234; the time advance and clip blend that write the joint positions), 0 mismatches, own-block 5/7.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 5,
+     "total": 7,
+     "fraction": 0.7143
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1423A1AC0",
    "bounded": true
   }
  ]
