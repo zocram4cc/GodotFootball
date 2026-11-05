@@ -302,10 +302,10 @@
    "capped": 0,
    "cases": 0,
    "coverage": {
-    "0x14079EE70": {
-     "reached": 30,
-     "total": 80,
-     "fraction": 0.375
+    "0x1407BA840": {
+     "reached": 68,
+     "total": 82,
+     "fraction": 0.8293
     }
    },
    "dead_blocks": {},
@@ -314,20 +314,58 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 30 of 30. 3 REAL entry states of the call inside captured ticks (synth_walk.py --in-call) and 27 SYNTHETIC cases whose plan bytes (kind word, flags, motion index) are poked (synth_trapkind.py); the synthetic inputs are chosen, not observed.",
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 19 of 19. EVERY case is SYNTHETIC (19): no capture has called the planner yet, so each is a real end-transition entry state (a captured trap tick) whose gate byte is poked so PES's own bytes run to the planner's entry (synth_walk.py --in-call), plus pokes of the planner's inputs (the Trap stage, the action type, the request's float, P+0x3B18; synth_trapkind.py --root 0x1407BA840). The inputs are chosen, not observed; replace with trap_act4_7BA840 captures when they land.",
    "proof": "snapdiff",
    "requested": 0,
    "synthetic": true,
-   "synthetic_cases": 27,
+   "synthetic_cases": 19,
    "snapdiff": {
-    "calls": 30,
+    "calls": 19,
     "mismatches": 0,
     "own_block": {
-     "reached": 30,
-     "total": 80,
-     "fraction": 0.375
+     "reached": 68,
+     "total": 82,
+     "fraction": 0.8293
     },
-    "replayed": 30,
+    "replayed": 19,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407BA840",
+   "closure_file": "closure_trapact4.json"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14079EE70": {
+     "reached": 43,
+     "total": 80,
+     "fraction": 0.5375
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 22 of 22. 1 REAL entry states of the call inside captured ticks (synth_walk.py --in-call) and 21 SYNTHETIC cases whose plan bytes (kind word, flags, motion index) are poked (synth_trapkind.py); the synthetic inputs are chosen, not observed.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "synthetic": true,
+   "synthetic_cases": 21,
+   "snapdiff": {
+    "calls": 22,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 43,
+     "total": 80,
+     "fraction": 0.5375
+    },
+    "replayed": 22,
     "source": "tools/dev/translate/results_trapaction.json"
    },
    "stubs": [],
