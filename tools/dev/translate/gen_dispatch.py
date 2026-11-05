@@ -42,6 +42,7 @@ def text(vas, native=None):
         "#include <cstdlib>",
         '#include "pes_state.hpp"',
         '#include "pes_dispatch.hpp"',
+        '#include "pes_survey.hpp"',
     ]
     for v in vas:
         L.append("void pes_fn_%s(PesState& s);" % v[2:])
@@ -53,12 +54,14 @@ def text(vas, native=None):
         L.append("    case 0x%sULL: return {pes_fn_%s};" % (v[2:], v[2:]))
     for v in sorted(native):
         L.append("    case 0x%sULL: return {pes_native_%s};" % (v[2:], native[v]))
-    L.append("    default: return {0};")
+    L.append("    default: return pes_survey_absent(t, __builtin_return_address(0));")
     L.append("  }")
     L.append("}")
     L.append("void (*pes_dispatch_missing_handler)(uint64_t) = nullptr;")
-    L.append("[[noreturn]] void pes_dispatch_missing(uint64_t t) {")
+    L.append("void pes_dispatch_missing(uint64_t t) {")
+    L.append("  if (pes_survey_armed()) pes_survey_note(t, __builtin_return_address(0));")
     L.append("  if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(t);")
+    L.append("  if (pes_survey_armed()) return;")
     L.append('  std::fprintf(stderr, "PES_DISPATCH_UNTRANSLATED: %#llx\\n",')
     L.append("               (unsigned long long)t);")
     L.append("  std::abort();")

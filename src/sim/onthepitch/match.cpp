@@ -18,6 +18,7 @@
 #include "base/log.hpp"
 #include "matchduration.hpp"
 #include "matchreport.hpp"
+#include "pes_survey.hpp"
 #include "pesclips.hpp"
 #include "pesteamtick.hpp"
 #include "pespossession.hpp"
@@ -348,22 +349,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   anims = std::make_shared<AnimCollection>(*rig);
   anims->Load(setup.animationDir);
   anims->AddPesClips(*setup.pesClips, *pesMbinfo);
-
-  // cache animation positions
-
-  const std::vector<Animation*>& animationsTmp = anims->GetAnimations();
-  for (unsigned int i = 0; i < animationsTmp.size(); i++) {
-    std::vector<Vector3> positions;
-    Animation* someAnim = animationsTmp.at(i);
-    Quaternion dud;
-    Vector3 position;
-    for (int frame = 0; frame < someAnim->GetFrameCount(); frame++) {
-      someAnim->GetKeyFrame("player", frame, dud, position, false, true);
-      position.coords[2] = 0.0f;
-      positions.push_back(position);
-    }
-    animPositionCache.insert(std::pair<Animation*, std::vector<Vector3>>(someAnim, positions));
-  }
 
   // teams
 
@@ -1056,6 +1041,8 @@ void Match::Process() {
   if (pesLoop || (IsInPlay() && !IsInSetPiece())) AdvanceMatchFrames(1);
   // MI+0x1198, the logic-frame counter, counts one per tick (PES 0x140A128E4: inc dword [MI+0x1198]).
   pesWorld->AdvanceMatchFrame();
+  // GF_PES_SURVEY's first_frame (pes_survey.hpp): a store the sim never reads.
+  pes_survey_set_frame(GetSimFrame());
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;
