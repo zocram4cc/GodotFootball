@@ -107,6 +107,16 @@ class BranchSelect(unittest.TestCase):
     def test_a_sim_selection_runs_under_ctest_as_an_index(self):
         self.assertRunsExactly(set(self.select(diff("src/sim/simcontext.cpp"))))
 
+    def test_the_gates_exclusion_is_dropped_before_the_index(self):
+        # The gate's -E (the whole-match families) is applied by the selector: ctest numbers the -I list after -E, so the two
+        # together run the wrong tests. The sim selection holds the families; the index must not, and must list the rest.
+        exclude = r"^(SimMatch\.|gfsim_run_test$)"
+        full = branch_select.select(BUILD, REPO, diff("src/sim/simcontext.cpp"))
+        self.assertTrue([n for n in full if re.search(exclude, n)], "the sim selection should hold the families")
+        selected = branch_select.drop_excluded(full, exclude)
+        self.assertEqual([n for n in selected if re.search(exclude, n)], [])
+        self.assertRunsExactly(set(selected))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

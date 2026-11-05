@@ -231,6 +231,14 @@ def ctest_index(build, names):
     return "0,0,0," + ",".join(str(numbers[n]) for n in sorted(names, key=numbers.get))
 
 
+def drop_excluded(selected, exclude):
+    """The selection without the names `ctest -E exclude` would drop. The gate applies the exclusion here, not with -E:
+    ctest numbers the -I list after -E, so a -E beside -I renumbers the tests and runs the wrong ones (05-11-26)."""
+    if not exclude:
+        return selected
+    return {name: why for name, why in selected.items() if not re.search(exclude, name)}
+
+
 def main():
     ap = argparse.ArgumentParser(description="The ctest tests a GATE_TIER=branch run executes.")
     ap.add_argument("--build", required=True)
@@ -241,10 +249,11 @@ def main():
     shape = ap.add_mutually_exclusive_group()
     shape.add_argument("--index", action="store_true")
     shape.add_argument("--list", action="store_true")
+    ap.add_argument("--exclude", default="", help="regex of test names the run leaves out (the gate's -E)")
     args = ap.parse_args()
     build, repo = os.path.abspath(args.build), os.path.abspath(args.repo)
     text = open(args.diff).read() if args.diff else git_diff(repo, args.base)
-    selected = select(build, repo, text)
+    selected = drop_excluded(select(build, repo, text), args.exclude)
     if args.index:
         print(ctest_index(build, selected))
     elif args.list:

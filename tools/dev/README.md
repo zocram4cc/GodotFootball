@@ -116,6 +116,10 @@ The selection reaches ctest as a list of test numbers (`ctest -I`), not a name r
 it passed 985 of this build's 2,337 (05-11-26; the list overflowed ctest's regex engine, "Expression too big"). `branch_select.py
 --index` prints the argument; `branch_select_test` checks that ctest lists back exactly the selected names at full size.
 
+The gate's exclusion (`SimMatch.*`, `gfsim_run_test`) is applied by the selector (`--exclude`), and the branch run passes no `-E`:
+ctest numbers the `-I` list after `-E`, so the two together ran the wrong tests (05-11-26: 3 of 8 ran, reported GREEN). The verdict
+compares the count ctest runs with the count the selection names; any difference is RED.
+
 **Size.** A sim source (anything in `src/sim`, or in a library it links) selects every gfsim-linked binary: 1,554 of the 2,337
 tests (not counting the two excluded families), 95% of fast's per-test seconds in the 05-11-26 merge-lane log. Such a branch runs
 about as long as fast. The tier saves time for branches outside the sim's link closure. Object-level selection (which binaries
