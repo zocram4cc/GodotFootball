@@ -11,8 +11,8 @@
 #   GATE_JOBS (default: free cores, nproc minus the 1-minute load average, at least 2) sets ctest -j. The full suite's floor is
 #     its longest test, so more jobs only help while cores are free. Logs go under <build-dir>/gate.*.
 #   GATE_SLOTS: the two sim slots held for the run (tools/dev/simslot.sh: slot 0 is the lock file itself, slot n is
-#     "$lock.n"). The tests and the two smokes run under them. Unset (the default): whichever pair (1 0) or (3 2) is
-#     free first, waiting until one is. Set (e.g. "3 2"): exactly that pair, blocking.
+#     "$lock.n"). The tests and the two smokes run under them. Unset (the default): whichever pair (1 0), (3 2) or, with
+#     memory to spare, (5 4) is free first, waiting until one is. Set (e.g. "3 2"): exactly that pair, blocking.
 #   GATE_BASE=<rev> (fast only) is what "changed" is measured against.
 #   GF_IMPURE_BANKS (the capture bank) is required with GF_DIFF_PYTHON: impure records whose corpus is the bank refuse to run
 #   without it (diff_impure_recorded).
@@ -38,7 +38,7 @@ export GF_DIFF_JOBS=$diff_jobs
 echo "GATE diff jobs: $diff_jobs (cores $(nproc), load $(cut -d' ' -f1 /proc/loadavg))"
 lock=${GF_SIM_LOCK:-$(dirname "$repo")/gf-sim.lock}  # worktrees and the main checkout share a parent
 slotfile() { if [ "$1" -eq 0 ]; then echo "$lock"; else echo "$lock.$1"; fi; }
-# GATE_SLOTS set: hold exactly that pair (blocking). Unset: hold whichever pair (1 0) or (3 2) is free first, so
+# GATE_SLOTS set: hold exactly that pair (blocking). Unset: hold whichever pair (1 0), (3 2) or (5 4) is free first, so
 # concurrent gates do not queue on one pair while the other sits idle (03-11-26: three gates queued up to 112 min on 3/2).
 slots_any=${GATE_SLOTS:+0}; slots_any=${slots_any:-1}
 read -ra slots <<< "${GATE_SLOTS:-any}"
@@ -105,9 +105,14 @@ if [ "$slots_any" = 1 ]; then
   # whole pair may never be free at a poll instant (04-11-26: a gate starved >3 h). A blocking flock waits in line like
   # any other holder. Lock order 1 then 0 matches the GATE_SLOTS path, so the two cannot deadlock.
   GATE_PAIR_POLL_S=600
+  # A third pair runs a third concurrent gate: up to four more sims (two smokes, ctest -j2), 2.3 GiB each after FlatKeys
+  # (docs/ports/pes-merge-BF.md), so it is taken only with this much memory available.
+  GATE_THIRD_PAIR_MIN_AVAILABLE_MIB=12000
   poll_until=$((SECONDS + GATE_PAIR_POLL_S))
   while :; do
-    for pair in "1 0" "3 2"; do
+    avail_mib=$(awk '/^MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo)
+    for pair in "1 0" "3 2" "5 4"; do
+      [ "$pair" = "5 4" ] && [ "$avail_mib" -lt "$GATE_THIRD_PAIR_MIN_AVAILABLE_MIB" ] && continue
       read -r a b <<< "$pair"
       exec 8>"$(slotfile "$a")" 9>"$(slotfile "$b")"
       if flock -n 8 && flock -n 9; then slots=($a $b); break 2; fi

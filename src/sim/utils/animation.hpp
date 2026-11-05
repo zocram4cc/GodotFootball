@@ -23,6 +23,10 @@ struct KeyFrame {
   Vector3 position;
 };
 
+// One node's keys: (frame, key) pairs sorted by frame, one per frame. A flat vector, not a
+// std::map: 32 B per key instead of a ~80 B tree node.
+using KeyFrameList = std::vector<std::pair<int, KeyFrame>>;
+
 struct WeighedKey {
   KeyFrame keyFrame;
   float influence;  // [0..1]
@@ -31,7 +35,7 @@ struct WeighedKey {
 
 struct NodeAnimation {
   std::string nodeName;
-  std::map<int, KeyFrame> animation;  // frame, angles
+  KeyFrameList animation;  // (frame, key), sorted by frame, one key per frame
 };
 
 enum e_Foot { e_Foot_Left, e_Foot_Right };
@@ -75,7 +79,7 @@ public:
   void SetKeyFrame(const std::string& nodeName, int frame, const Quaternion& orientation,
                    const Vector3& position = Vector3(0, 0, 0));
   void DeleteKeyFrame(const std::string& nodeName, int frame);
-  void GetInterpolatedValues(const std::map<int, KeyFrame>& animation, int frame,
+  void GetInterpolatedValues(const KeyFrameList& animation, int frame,
                              Quaternion& orientation, Vector3& position, bool getOrientation = true,
                              bool getPosition = true) const;
   void ConvertToStartFacingForwardIfIdle();
