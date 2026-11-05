@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "pes/editsave.hpp"
+#include "onthepitch/pesanimechain.hpp"
 #include "pesclock.hpp"
 #include "pesevents.hpp"
 #include "pestrapworld.hpp"
@@ -890,6 +891,14 @@ class PesWorld {
   // A+0xF0 -> B, A+0x88 the layer controller, A+0x180 the motion -> clip key table, B+0xC8 -> A. The objects are the loader data's
   // (PesTrapExternals, BuildAnimeChain), shared by every slot.
   void BindAnimeChain(int slot);
+  // The player's joint block, PES's order in the player's tick: RunAnimeJoints puts `pose` (the anime skeleton's pose in the player's
+  // frame) into the chain's joint arrays and the placement object, and runs FUN_141EB49B0 (P+0x538.. the joint positions, P+0x700..
+  // the rotations); RunPlayerUpdate runs FUN_1406F6CE0 (the player update: P+0xB1C and the joint block P+0xB38..0xBA0, the per-tick
+  // flags). Both on `slot`'s P; they require BindAnimeChain and WriteActorP this tick.
+  void RunAnimeJoints(int slot, const PesJointPose& pose, PesTrapExternals& ext);
+  void RunPlayerUpdate(int slot, PesTrapExternals& ext);
+  // A P-only translated function (rcx = P) on the window with the externals lent.
+  void RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext);
   // PES's root-motion reader FUN_141AFDF10 (translated, set kickroot) on `slot`'s chain, as the kick geometry test FUN_140829E80 calls
   // it at 0x14082B02F: the displacement the clip of `motion` has made by `seconds` into it (x, y, z, w; the mover track's position in
   // PES axes), evaluated through the player's pose slot.

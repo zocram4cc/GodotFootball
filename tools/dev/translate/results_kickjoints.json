@@ -1,0 +1,77 @@
+{
+ "note": "kickjoints results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). REAL entries: calls of the kick_joints_1406F6CE0 / anime_bones_141EB49B0 hooks (live2/pid952648). SYNTHETIC entries: the call is PES's own bytes at the root's entry with rcx = the kicker's P, over a real kick_gate capture's memory (synth_call.py).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x1406F6CE0": {
+     "fraction": 0.6951,
+     "reached": 285,
+     "total": 410
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 3 REAL calls (kick_joints_1406F6CE0, live2/pid952648 seq3157 seq3161 seq3167; own-block 190/410) and 4 SYNTHETIC entries (synth_call.py, rcx = P) over the real full captures live2/pid781084/seq7723, pid130478/seq7653, pid615595/seq1858 and seq6042 (kick_gate hooks, rdx = the kicker's P; own-block 285/410). The closure is the bounded members list of the synthetic run (75; the real run's 44 are a subset); every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 7,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.6951,
+     "reached": 285,
+     "total": 410
+    },
+    "replayed": 7,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406F6CE0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickjoints.json",
+   "coverage": {
+    "0x141EB49B0": {
+     "fraction": 1.0,
+     "reached": 45,
+     "total": 45
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 REAL calls (anime_bones_141EB49B0, live2/pid952648 seq3154 seq3160 seq3164 seq3170) and 4 SYNTHETIC entries (synth_call.py, rcx = P) over live2/pid781084/seq7723, pid130478/seq7653, pid615595/seq1858, seq6042. Own-block coverage 45/45 on both.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 8,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 45,
+     "total": 45
+    },
+    "replayed": 8,
+    "source": "tools/dev/translate/results_kickjoints.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB49B0"
+  }
+ ]
+}

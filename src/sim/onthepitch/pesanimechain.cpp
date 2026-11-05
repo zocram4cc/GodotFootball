@@ -15,7 +15,7 @@ namespace {
 
 // Layout of the fixed head (offsets from kAnimeChainVa; each object's size is what its readers touch).
 constexpr std::size_t kLayerOffset = 0x0;                          // FUN_141AF2C20 reads *(*(A+0x88) + 0x10)
-constexpr std::size_t kLayer2Offset = 0x40;                        // its +0xF8 / +0x100: the two slot containers
+constexpr std::size_t kLayer2Offset = 0xB00;                      // its +0xF8 / +0x100: the two slot containers (clear of L1+0x50, the joint positions)
 constexpr std::size_t kContainer0Offset = 0x160, kContainer1Offset = 0x1C0;
 constexpr std::size_t kPoseSetOffset = 0x300;                      // the container entry's object (FUN_141AF2C20's *plVar5)
 constexpr std::size_t kDatabaseOffset = 0x500;
@@ -123,6 +123,11 @@ int MaxSlotTrack(const uint8_t* clip, const uint8_t* end) {
 }
 
 }  // namespace
+
+void InitAnimeJointPose(std::vector<uint8_t>& seg) {
+  // L1+0x50: the model-space joint positions FUN_141AFC6A0 reads (A+0x20, the rotations, is bound per player by BindAnimeChain).
+  Store<uint64_t>(seg, kLayerOffset + kL1PoseOffset, kAnimePosArrayVa);
+}
 
 std::optional<PesAnimeChain> BuildAnimeChain(const PeImage& exe, const PesVfs& vfs, std::string* error) {
   const auto names = MotionNames(exe, vfs, error);
@@ -237,6 +242,7 @@ std::optional<PesAnimeChain> BuildAnimeChain(const PeImage& exe, const PesVfs& v
   Store<uint64_t>(seg, kLayer2Offset + kL2Container0Offset, va(kContainer0Offset));
   Store<uint64_t>(seg, kLayer2Offset + kL2Container1Offset, va(kContainer1Offset));
   Store<uint64_t>(seg, kLayerOffset + kL1ChildOffset, va(kLayer2Offset));
+  InitAnimeJointPose(seg);
 
   out.globals = {{kClipDatabaseGlobalVa, va(kDatabaseOffset)}};
   out.keyTableEntriesVa = va(keys);

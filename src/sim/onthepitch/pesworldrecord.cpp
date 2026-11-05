@@ -2,6 +2,7 @@
 // record an entry names, and fall back to entry 0 past the table's count, as PES does. GF's readers of the two tables
 // run them on the world window.
 
+#include <cmath>
 #include <cstdint>
 
 #include "onthepitch/pesworldrecord.hpp"
@@ -413,6 +414,49 @@ void PesWorld::BindAnimeChain(int slot) {
   StoreU64(PhysiqueA(slot), kAnimeLayerOffset, kAnimeLayerVa);
   StoreU64(PhysiqueA(slot), kAnimeKeyTableOffset, kAnimeKeyTableVa);
   StoreU64(PhysiqueB(slot), kPhysiqueAnimeOffset, a);
+  StoreU64(PhysiqueA(slot), kAQuatOffset, kAnimeQuatArrayVa);
+  P(slot)[kPAnimeReadyOffset] = 1;
+}
+
+void PesWorld::RunAnimeJoints(int slot, const PesJointPose& pose, PesTrapExternals& ext) {
+  // The placement object A+0x188 (O2): the world matrix FUN_141EB49B0 turns the model-space joints with: the heading's rotation about
+  // y in rows +0xA0 / +0xC0 (row-vector convention: x' = x cos + z sin), +0xB0 the up axis, the position row +0xD0 (WriteActorP's), and
+  // the joint count at +0xF8. CONFIRMED against live matrices (heading P+0x20 = 94.66: row0 (-0.0812, 0, -0.9967), row2 (0.9967, 0,
+  // -0.0812)).
+  uint8_t* o2 = O2(slot);
+  const float heading = LoadF32(P(slot), kPHeadingOffset) * kDegToRad, c = std::cos(heading), s = std::sin(heading);
+  const float rows[3][3] = {{c, 0.0f, -s}, {0.0f, 1.0f, 0.0f}, {s, 0.0f, c}};
+  for (std::size_t r = 0; r < 3; ++r)
+    for (std::size_t k = 0; k < 3; ++k) StoreF32(o2, kPlacementRowOffset + r * kPlacementRowStride + 4 * k, rows[r][k]);
+  StoreU32(o2, kPlacementJointCountOffset, kAnimeJointCount);
+  // The joint arrays the chain's readers take (L1+0x50, A+0x20): shared, written for this player just before his writers run.
+  for (PesTrapSegment& seg : ext.segments) {
+    if (seg.va != kAnimeChainVa) continue;
+    for (std::size_t j = 0; j < kAnimeJointCount; ++j) {
+      std::memcpy(seg.bytes.data() + kAnimePosArrayOffset + j * kJointEntryBytes, pose.position[j].data(), kJointEntryBytes);
+      std::memcpy(seg.bytes.data() + kAnimeQuatArrayOffset + j * kJointEntryBytes, pose.rotation[j].data(), kJointEntryBytes);
+    }
+  }
+  // The anime player's joint writer (FUN_141EB49B0): P+0x538.. the joint positions, P+0x700.. the rotations, and the position history.
+  RunOnP(slot, ::pes_fn_141EB49B0, ext);
+}
+
+void PesWorld::RunPlayerUpdate(int slot, PesTrapExternals& ext) {
+  // The player update (FUN_1406F6CE0, the P vtable's update): the joint block P+0xB1C / P+0xB38..0xBA0 from FUN_141EB51A0, and the
+  // per-tick flags.
+  RunOnP(slot, ::pes_fn_1406F6CE0, ext);
+}
+
+void PesWorld::RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext) {
+  PesState st = NewCall(Bytes());
+  const std::size_t lent = LendExternals(st, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  st.wr(entry, 0, 8);
+  st.gpr[4] = entry;
+  st.gpr[1] = PVa(slot);  // rcx: P
+  st.mem.wlog = ext.writeLog;
+  fn(st);
+  ReturnSegments(st, ext, lent);
 }
 
 std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float seconds, PesTrapExternals& ext) {

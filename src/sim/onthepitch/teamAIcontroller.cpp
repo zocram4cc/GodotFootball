@@ -31,6 +31,7 @@
 #include "pes/movestep.hpp"
 #include "pesballlist.hpp"
 #include "pesmovestep.hpp"
+#include "player/humanoid/pesplayernode.hpp"
 #include "pestrapactor.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
@@ -3592,6 +3593,14 @@ void WritePesTrapActors(Match& match) {
       // (WriteSlotStamina's ponytail).
       pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
                             static_cast<uint32_t>(match.GetActualTime_ms()));
+      // The anime player's joint block, PES's order in the player's tick (FUN_141EB49B0 then FUN_1406F6CE0): the pose GF's skeleton
+      // holds from last tick's put, in the anime player's layout (the joint heights P+0xB90.., the Kick gate's and the chooser's input).
+      float headingDeg;
+      std::memcpy(&headingDeg, match.PesWorldOf().P(slot) + pes::kPHeadingOffset, sizeof headingDeg);
+      pes::PesJointPose pose;
+      BuildJointPose(p->GetNodeMap(), match.GetRig(), headingDeg, pose);
+      match.PesWorldOf().RunAnimeJoints(slot, pose, match.PesTrapExternalsOf());
+      match.PesWorldOf().RunPlayerUpdate(slot, match.PesTrapExternalsOf());
     }
   }
 }

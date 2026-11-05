@@ -129,6 +129,7 @@ inline constexpr std::size_t kPhysiqueObjectBytes = 0x200;  // 0x100 for the cha
 inline constexpr std::size_t kPhysiqueNextOffset = 0xF0;  // object A +0xF0: the VA of object B
 inline constexpr std::size_t kPhysiqueGOffset = 0xC0;     // object B +0xC0: G (f32)
 inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clamped G FUN_141EB5810 stores beside the chain's copy
+inline constexpr std::size_t kPAnimeReadyOffset = 0xA04;   // P+0xA04: 1 once the anime player is built (FUN_141EB5250 0x141EB548B); FUN_141EB51A0 and FUN_141EB49B0 read it
 
 // The anime layer's objects the action tick (FUN_140797CD0) reaches from P, in PES's layout (docs/ports/pes-port-TrapTick.md 2;
 // bytes the 14 captured ticks read or write, names INF): A (P+0xA08 target) holds two children, O1 at +0x118 and O2 at +0x188;
