@@ -84,7 +84,7 @@ DRIVER = r"""
 #include <cstdio>
 #include <cstdlib>
 PesDispatch pes_dispatch_lookup(uint64_t) { return {nullptr}; }
-[[noreturn]] void pes_dispatch_missing(uint64_t) { std::abort(); }
+void pes_dispatch_missing(uint64_t) { std::abort(); }
 void pes_fn_FN(PesState& s);
 static void put(PesState& s, int i, unsigned long long lo, unsigned long long hi) { s.xmm[i][0] = lo; s.xmm[i][1] = hi; }
 int main() {
