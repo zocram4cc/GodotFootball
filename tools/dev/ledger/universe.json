@@ -211671,6 +211671,52 @@
    "vtables": [],
    "walked": true
   },
+  "1406B3910": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406b3910",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1406B3920": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1406b3920",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 24,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406B3C50": {
    "boundary": null,
    "callees": {},
@@ -218952,6 +218998,31 @@
    "vtables": [],
    "walked": true
   },
+  "1406DEB80": {
+   "boundary": null,
+   "callees": {
+    "141E5CA20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406deb80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 8,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406E0020": {
    "boundary": null,
    "callees": {},
@@ -219651,6 +219722,40 @@
    "vtables": [],
    "walked": true
   },
+  "1406E6800": {
+   "boundary": null,
+   "callees": {
+    "1406EA340": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406E6843",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1406E6857",
+     "text": "call qword ptr [rdx + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406e6800",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 45,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406E68C0": {
    "boundary": null,
    "callees": {
@@ -220113,6 +220218,41 @@
    "vtables": [],
    "walked": true
   },
+  "1406E7AF0": {
+   "boundary": null,
+   "callees": {
+    "1406EA340": "direct",
+    "1415A1780": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406E7B37",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1406E7B4B",
+     "text": "call qword ptr [rdx + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406e7af0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 49,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406E7BC0": {
    "boundary": null,
    "callees": {},
@@ -220131,6 +220271,41 @@
    "size": 24,
    "source": "pdata",
    "subsystem": "trapchain",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1406E7C30": {
+   "boundary": null,
+   "callees": {
+    "140A489F0": "direct",
+    "14124DAD0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406E7C53",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1406E7CB1",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406e7c30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 40,
+   "source": "pdata",
+   "subsystem": "trapdribble",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -220616,6 +220791,69 @@
    "vtables": [],
    "walked": true
   },
+  "1406EA5A0": {
+   "boundary": null,
+   "callees": {
+    "143FB5E20": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406ea5a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1406EA7B0": {
+   "boundary": null,
+   "callees": {
+    "140A62D90": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406EA7C7",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1406EA7D2",
+     "text": "call qword ptr [rdx + 8]"
+    },
+    {
+     "site": "1406EA7E0",
+     "text": "call qword ptr [rdx + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406ea7b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 28,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406EA810": {
    "boundary": null,
    "callees": {},
@@ -220634,6 +220872,31 @@
    "size": 2,
    "source": "pdata",
    "subsystem": "motion",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1406EA820": {
+   "boundary": null,
+   "callees": {
+    "1406EA340": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406ea820",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 8,
+   "source": "pdata",
+   "subsystem": "trapdribble",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -224210,6 +224473,35 @@
    "vtables": [],
    "walked": true
   },
+  "1406FB170": {
+   "boundary": null,
+   "callees": {
+    "1406B0180": "direct",
+    "1406B0250": "direct",
+    "1406B0540": "direct",
+    "1406B0ED0": "direct",
+    "1406FAE20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406fb170",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 92,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406FB2D0": {
    "boundary": null,
    "callees": {},
@@ -224443,6 +224735,54 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1406FB8A0": {
+   "boundary": null,
+   "callees": {
+    "1406B0180": "direct",
+    "1406B0ED0": "direct",
+    "1406E6CB0": "direct",
+    "140A8F8F0": "direct",
+    "140A91B80": "direct",
+    "140A91CA0": "direct",
+    "140A923A0": "direct",
+    "14159F3E0": "direct",
+    "1415A1780": "direct",
+    "1415A178C": "direct",
+    "1415A1792": "direct",
+    "141AF3AF0": "direct",
+    "141EB5170": "direct",
+    "141EB51A0": "direct",
+    "141EB5F00": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406FB90D",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1406FB929",
+     "text": "call qword ptr [rdx + 0x30]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406fb8a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 300,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -229015,6 +229355,29 @@
    "vtables": [],
    "walked": false
   },
+  "1407733E0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1407733e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 9,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407824A0": {
    "boundary": null,
    "callees": {
@@ -230725,6 +231088,29 @@
    "vtables": [],
    "walked": true
   },
+  "1407A3850": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1407a3850",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 42,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407A38E0": {
    "boundary": null,
    "callees": {
@@ -230747,6 +231133,197 @@
    ],
    "scope": "in",
    "size": 72,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407A3A30": {
+   "boundary": null,
+   "callees": {
+    "14042D470": "direct",
+    "140439E50": "direct",
+    "14043A0A0": "direct",
+    "14046F230": "direct",
+    "1404BCAD0": "direct",
+    "1406AF620": "direct",
+    "1406AF8E0": "direct",
+    "1406AFBC0": "direct",
+    "1406B03D0": "direct",
+    "1406B0ED0": "direct",
+    "1406B1C70": "direct",
+    "1406B1D00": "direct",
+    "1406E6660": "direct",
+    "1406E8320": "direct",
+    "1406EA340": "direct",
+    "1406EEBB0": "direct",
+    "140A3E190": "direct",
+    "140A48A10": "direct",
+    "140A57650": "direct",
+    "140A62EA0": "direct",
+    "140A6CF70": "direct",
+    "140A92D40": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct",
+    "141E5CA20": "direct",
+    "141EB3320": "direct",
+    "141EB50B0": "direct",
+    "141EB56D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407A3AAE",
+     "text": "call qword ptr [r10 + 0x18]"
+    },
+    {
+     "site": "1407A3ABB",
+     "text": "call qword ptr [r9 + 0x38]"
+    },
+    {
+     "site": "1407A3AE6",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407A3AF2",
+     "text": "call qword ptr [rdx + 0x30]"
+    },
+    {
+     "site": "1407A3B13",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407A3B37",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407A3B53",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407A3BA9",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407A3BCB",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407A3BF3",
+     "text": "call qword ptr [rax + 0x28]"
+    },
+    {
+     "site": "1407A3C49",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A3E09",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407A3E1F",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407A3E70",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407A3E86",
+     "text": "call qword ptr [rdx + 8]"
+    },
+    {
+     "site": "1407A3F2C",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407A410D",
+     "text": "call qword ptr [rax + 0x28]"
+    },
+    {
+     "site": "1407A411B",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A4129",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A4137",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A4241",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A426D",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A4299",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407a3a30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 555,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407A43A0": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "14043A0A0": "direct",
+    "1404BCAD0": "direct",
+    "140591A10": "direct",
+    "1406E69F0": "direct",
+    "140A57720": "direct",
+    "140A57800": "direct",
+    "140A6CF70": "direct",
+    "140A8F8F0": "direct",
+    "1415A1780": "direct",
+    "141AF32E0": "direct",
+    "141AF5100": "direct",
+    "141E532D0": "direct",
+    "141EB3320": "direct",
+    "141EB36E0": "direct",
+    "141EB3AE0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407A4448",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407a43a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 520,
    "source": "pdata",
    "subsystem": "trapdribble",
    "tables": 0,
@@ -230848,6 +231425,431 @@
    ],
    "scope": "in",
    "size": 608,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407A68D0": {
+   "boundary": null,
+   "callees": {
+    "140591A10": "direct",
+    "1406E66D0": "direct",
+    "1406E69F0": "direct",
+    "1406E7AF0": "direct",
+    "1406E7C30": "direct",
+    "1406E8320": "direct",
+    "1407A3A30": "direct",
+    "1407A43A0": "direct",
+    "1407A7E40": "direct",
+    "1407C18B0": "direct",
+    "140A57650": "direct",
+    "140A57800": "direct",
+    "140A6CF70": "direct",
+    "140A8F8F0": "direct",
+    "1415A1780": "direct",
+    "141AF32E0": "direct",
+    "141AF5100": "direct",
+    "141E532D0": "direct",
+    "141E5CA20": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407A6ACB",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A6AEF",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A6B01",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A6B95",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407A6BE5",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A6DBB",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A6DD8",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A6E78",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A6E9D",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407A6EB0",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407a68d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 375,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407A7E40": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "140581CE0": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406DEB80": "direct",
+    "1406E2C30": "direct",
+    "1406E6660": "direct",
+    "1406E8320": "direct",
+    "1406E8390": "direct",
+    "1406EB100": "direct",
+    "1407A68D0": "direct",
+    "1407B3470": "direct",
+    "1407B4A60": "direct",
+    "1407B6080": "direct",
+    "1407B6470": "direct",
+    "1407B71D0": "direct",
+    "1407B96A0": "direct",
+    "1407BEC50": "direct",
+    "1407C2AE0": "direct",
+    "1407C44A0": "direct",
+    "140A57650": "direct",
+    "140A6CF70": "direct",
+    "140A92C80": "direct",
+    "14159F3E0": "direct",
+    "141E532D0": "direct",
+    "141E5CA20": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407A7F28",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A7F3B",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A7F49",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A7F57",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A81A5",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A8532",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A8551",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A855F",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A856D",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A8708",
+     "text": "call qword ptr [rax + 0x28]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407a7e40",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 557,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407A8F60": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "1404BCAD0": "direct",
+    "140581CE0": "direct",
+    "140591A10": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406B0ED0": "direct",
+    "1406B1F00": "direct",
+    "1406DE990": "direct",
+    "1406E6660": "direct",
+    "1406E7AF0": "direct",
+    "1406E8320": "direct",
+    "1406E8390": "direct",
+    "1406EA820": "direct",
+    "1406EB100": "direct",
+    "1406EBF90": "direct",
+    "1406F0F70": "direct",
+    "1407733E0": "direct",
+    "1407AD150": "direct",
+    "1407B2D60": "direct",
+    "1407B3470": "direct",
+    "1407B4A60": "direct",
+    "1407B4C50": "direct",
+    "1407B5FF0": "direct",
+    "1407B6080": "direct",
+    "1407B6470": "direct",
+    "1407B71D0": "direct",
+    "1407B7AA0": "direct",
+    "1407B9030": "direct",
+    "1407B96A0": "direct",
+    "1407BEC50": "direct",
+    "1407C18B0": "direct",
+    "1407C2AE0": "direct",
+    "140A3E190": "direct",
+    "140A48910": "direct",
+    "140A48A10": "direct",
+    "140A6CF70": "direct",
+    "140A928C0": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct",
+    "141E5CA20": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407A93DF",
+     "text": "call qword ptr [rdx + 8]"
+    },
+    {
+     "site": "1407A93EA",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407A9431",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407A96C8",
+     "text": "call qword ptr [rax + 0x38]"
+    },
+    {
+     "site": "1407A984F",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407A9868",
+     "text": "call qword ptr [rdx + 8]"
+    },
+    {
+     "site": "1407A9873",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407A9C5D",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A9D50",
+     "text": "call qword ptr [r8 + 0x10]"
+    },
+    {
+     "site": "1407A9DBC",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A9DCA",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A9DD8",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407A9E0D",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407a8f60",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 883,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407ABBF0": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "14043A020": "direct",
+    "14043A0A0": "direct",
+    "1405AEF10": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406B3910": "direct",
+    "1406B3920": "direct",
+    "1406DE990": "direct",
+    "1406E4230": "direct",
+    "1406E6660": "direct",
+    "1406E7380": "direct",
+    "1406E7AF0": "direct",
+    "1406E8320": "direct",
+    "1406E85B0": "direct",
+    "1406EA340": "direct",
+    "1406EA7B0": "direct",
+    "1406EB100": "direct",
+    "1406EBF30": "direct",
+    "1406EBF90": "direct",
+    "1406F0F70": "direct",
+    "1407A3A30": "direct",
+    "1407A8F60": "direct",
+    "1407B4A60": "direct",
+    "1407B6080": "direct",
+    "1407B73D0": "direct",
+    "1407BEC50": "direct",
+    "1407C18B0": "direct",
+    "1407C2AE0": "direct",
+    "1407C3690": "direct",
+    "140A48A30": "direct",
+    "140A57450": "direct",
+    "140A57650": "direct",
+    "140A641D0": "direct",
+    "140A6CF70": "direct",
+    "140A71260": "direct",
+    "1415A1780": "direct",
+    "141AF4120": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407ABDA4",
+     "text": "call qword ptr [rax + 0x38]"
+    },
+    {
+     "site": "1407AC4C5",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407AC60C",
+     "text": "call qword ptr [r8 + 0x10]"
+    },
+    {
+     "site": "1407AC6B5",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407AC6F7",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407AC703",
+     "text": "call qword ptr [rdx + 8]"
+    },
+    {
+     "site": "1407AC71D",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407AC73A",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407AC7B4",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407AC82F",
+     "text": "call qword ptr [r8 + 0x10]"
+    },
+    {
+     "site": "1407AC8A2",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407AC945",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407AC950",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407ACA4C",
+     "text": "call qword ptr [r8 + 0x10]"
+    },
+    {
+     "site": "1407ACAE9",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407abbf0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 860,
    "source": "pdata",
    "subsystem": "trapdribble",
    "tables": 0,
@@ -231000,6 +232002,158 @@
    ],
    "scope": "in",
    "size": 873,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407ADFC4": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1407adfc4",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 12,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407ADFD0": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406E8320": "direct",
+    "1406E8390": "direct",
+    "1406E8CC0": "direct",
+    "1406EB100": "direct",
+    "1407B3CB0": "direct",
+    "1407B4810": "direct",
+    "1407B4C50": "direct",
+    "1407B5200": "direct",
+    "1407B6080": "direct",
+    "1407B7AA0": "direct",
+    "1407B96A0": "direct",
+    "1407BB560": "direct",
+    "1407BF3F0": "direct",
+    "140A6CF70": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1407adfd0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 1488,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407B2D60": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "140581B70": "direct",
+    "140581CE0": "direct",
+    "140591A10": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406B3C50": "direct",
+    "1406B4580": "direct",
+    "1406D9010": "direct",
+    "1406DE990": "direct",
+    "1406DEB80": "direct",
+    "1406E7AF0": "direct",
+    "1406E8320": "direct",
+    "1406EB100": "direct",
+    "1406EEBB0": "direct",
+    "1406F0F70": "direct",
+    "1407733E0": "direct",
+    "1407A3490": "direct",
+    "1407BEC50": "direct",
+    "1407C18B0": "direct",
+    "1407C44A0": "direct",
+    "140A6CF70": "direct",
+    "140A92C80": "direct",
+    "14159F3E0": "direct",
+    "1415A1780": "direct",
+    "141794410": "direct",
+    "141E532D0": "direct",
+    "141E5CA20": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B304A",
+     "text": "call qword ptr [rax + 0x28]"
+    },
+    {
+     "site": "1407B306B",
+     "text": "call qword ptr [r9 + 0x58]"
+    },
+    {
+     "site": "1407B3242",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407B3343",
+     "text": "call qword ptr [r8 + 0x10]"
+    },
+    {
+     "site": "1407B33A5",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407B33B3",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407B33ED",
+     "text": "call qword ptr [rdx + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b2d60",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 385,
    "source": "pdata",
    "subsystem": "trapdribble",
    "tables": 0,
@@ -231202,6 +232356,31 @@
    "vtables": [],
    "walked": true
   },
+  "1407B3F30": {
+   "boundary": null,
+   "callees": {
+    "1406E8390": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1407b3f30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 23,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407B4710": {
    "boundary": null,
    "callees": {
@@ -231356,6 +232535,78 @@
    "vtables": [],
    "walked": true
   },
+  "1407B5200": {
+   "boundary": null,
+   "callees": {
+    "140439F90": "direct",
+    "14043A0A0": "direct",
+    "1404C8E00": "direct",
+    "140581CE0": "direct",
+    "1406E6BF0": "direct",
+    "1406EA340": "direct",
+    "1407B4810": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A57650": "direct",
+    "140A6C6D0": "direct",
+    "140A6CF70": "direct",
+    "140A92C80": "direct",
+    "140A92D40": "direct",
+    "14159F3E0": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct",
+    "141E532E0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B5572",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B5584",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B559F",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B55C0",
+     "text": "call qword ptr [r8 + 8]"
+    },
+    {
+     "site": "1407B55E6",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B5612",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407B58C8",
+     "text": "call qword ptr [rdx]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b5200",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 494,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407B5AE0": {
    "boundary": null,
    "callees": {
@@ -231451,6 +232702,41 @@
    "vtables": [],
    "walked": true
   },
+  "1407B6140": {
+   "boundary": null,
+   "callees": {
+    "140581CE0": "direct",
+    "1406E6660": "direct",
+    "1406E7C30": "direct",
+    "140A92C80": "direct",
+    "141E532D0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B6260",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b6140",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 173,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407B6470": {
    "boundary": null,
    "callees": {
@@ -231525,6 +232811,51 @@
    "vtables": [],
    "walked": true
   },
+  "1407B6B50": {
+   "boundary": null,
+   "callees": {
+    "1407A7E40": "direct",
+    "1407BEC50": "direct",
+    "1407C18B0": "direct",
+    "1407C1F40": "direct",
+    "140A57450": "direct",
+    "140A57720": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B6C23",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407B6C31",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407B6D2B",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b6b50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 131,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407B6D80": {
    "boundary": null,
    "callees": {
@@ -231572,6 +232903,55 @@
    "vtables": [],
    "walked": true
   },
+  "1407B6FD0": {
+   "boundary": null,
+   "callees": {
+    "1406E8320": "direct",
+    "1406EA820": "direct",
+    "140A48A10": "direct",
+    "1415A1780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B704F",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B705A",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B70A1",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B714D",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1407B717C",
+     "text": "call qword ptr [rax + 0x30]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b6fd0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 111,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407B71D0": {
    "boundary": null,
    "callees": {
@@ -231599,6 +232979,238 @@
    ],
    "scope": "in",
    "size": 109,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407B73D0": {
+   "boundary": null,
+   "callees": {
+    "14043A0A0": "direct",
+    "140481B00": "direct",
+    "140A48910": "direct",
+    "140A48A10": "direct",
+    "140A6C6D0": "direct",
+    "140A6CF70": "direct",
+    "140A6E090": "direct",
+    "140A92D40": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B745A",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B7466",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B74DD",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B752E",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B7558",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B759F",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B75BA",
+     "text": "call qword ptr [r8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b73d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 196,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407B7AA0": {
+   "boundary": null,
+   "callees": {
+    "14043A0A0": "direct",
+    "1404583B0": "direct",
+    "140481B00": "direct",
+    "1406E6660": "direct",
+    "140A48910": "direct",
+    "140A48A10": "direct",
+    "140A57450": "direct",
+    "140A57650": "direct",
+    "140A57710": "direct",
+    "140A6C6D0": "direct",
+    "140A6CF70": "direct",
+    "140A6E090": "direct",
+    "140A6E4B0": "direct",
+    "140A6E580": "direct",
+    "140A92D40": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B7B0E",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B7D2A",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B7D36",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B7D76",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B7DCA",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B7DF4",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B7E44",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B7E5F",
+     "text": "call qword ptr [r8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b7aa0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 326,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407B8240": {
+   "boundary": null,
+   "callees": {
+    "140477130": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A71260": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B8283",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B828E",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B82BA",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B82C6",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B82E0",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B82FD",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b8240",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 126,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407B9030": {
+   "boundary": null,
+   "callees": {
+    "14043A0A0": "direct",
+    "1406E8320": "direct",
+    "1406EA820": "direct",
+    "140A48A10": "direct",
+    "140A92D40": "direct",
+    "1415A1780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B90CD",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407B90D8",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407B9123",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b9030",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 124,
    "source": "pdata",
    "subsystem": "trapdribble",
    "tables": 0,
@@ -231848,6 +233460,38 @@
    "vtables": [],
    "walked": true
   },
+  "1407BA780": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "1406E4230": "direct",
+    "140A57800": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407BA7ED",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407ba780",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 44,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407BA840": {
    "boundary": null,
    "callees": {
@@ -232027,6 +233671,815 @@
    ],
    "scope": "in",
    "size": 94,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407BB560": {
+   "boundary": null,
+   "callees": {
+    "140581CE0": "direct",
+    "1406E8320": "direct",
+    "1406EB100": "direct",
+    "1407B4810": "direct",
+    "1407B5200": "direct",
+    "1407B5AE0": "direct",
+    "1407B6470": "direct",
+    "1407B6FD0": "direct",
+    "1407B9030": "direct",
+    "140A6CF70": "direct",
+    "140A92C80": "direct",
+    "141E532D0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407BB651",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407BB8FD",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407bb560",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 227,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407BEC50": {
+   "boundary": null,
+   "callees": {
+    "1404BCAD0": "direct",
+    "1406AF620": "direct",
+    "1406AF8E0": "direct",
+    "1406AFBC0": "direct",
+    "1406B0250": "direct",
+    "1406B03D0": "direct",
+    "1406B0ED0": "direct",
+    "1406E7380": "direct",
+    "1406E7C30": "direct",
+    "1406E7CE0": "direct",
+    "1406EA340": "direct",
+    "1406F14E0": "direct",
+    "1406FA7C0": "direct",
+    "1407B6140": "direct",
+    "140A57650": "direct",
+    "140A6CF70": "direct",
+    "1415A1780": "direct",
+    "141AF32E0": "direct",
+    "141E532D0": "direct",
+    "141EB51A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407BECD4",
+     "text": "call qword ptr [r9 + 0x18]"
+    },
+    {
+     "site": "1407BECE1",
+     "text": "call qword ptr [rdx + 0x38]"
+    },
+    {
+     "site": "1407BED11",
+     "text": "call qword ptr [rdx + 0x40]"
+    },
+    {
+     "site": "1407BED8A",
+     "text": "call qword ptr [rdx + 0x30]"
+    },
+    {
+     "site": "1407BEDCE",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1407BEE24",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1407BEE35",
+     "text": "call qword ptr [rax + 0x78]"
+    },
+    {
+     "site": "1407BEE7C",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407BEE92",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407BF063",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407BF071",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407BF0B8",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407BF0CC",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407BF0D9",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "1407BF1B4",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407bec50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 444,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407BF3F0": {
+   "boundary": null,
+   "callees": {
+    "1404309C0": "direct",
+    "1404BCAD0": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406B0250": "direct",
+    "1406B03D0": "direct",
+    "1406B0ED0": "direct",
+    "1406EA5A0": "direct",
+    "1406EB100": "direct",
+    "1407B3CB0": "direct",
+    "1407BB560": "direct",
+    "1407C2AE0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407BF630",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407BF700",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407BF70D",
+     "text": "call qword ptr [rdx + 0x30]"
+    },
+    {
+     "site": "1407BF737",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407BF767",
+     "text": "call qword ptr [rdx + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407bf3f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 266,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407C00F0": {
+   "boundary": null,
+   "callees": {
+    "140439F90": "direct",
+    "14043A0A0": "direct",
+    "1404BCAD0": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406B0250": "direct",
+    "1406B02B0": "direct",
+    "1406B03D0": "direct",
+    "1406B0ED0": "direct",
+    "1406DEB80": "direct",
+    "1406E6660": "direct",
+    "1406E8320": "direct",
+    "1406EA340": "direct",
+    "1406EAD40": "direct",
+    "1406EB100": "direct",
+    "1407B3F30": "direct",
+    "1407B4A60": "direct",
+    "1407B6080": "direct",
+    "1407B6470": "direct",
+    "1407B96A0": "direct",
+    "1407C2AE0": "direct",
+    "1407C44A0": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A6CF70": "direct",
+    "140A92D40": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct",
+    "141E5CA20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407C043B",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407C0454",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407C0460",
+     "text": "call qword ptr [rdx + 8]"
+    },
+    {
+     "site": "1407C047A",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407C0581",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C0705",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C071D",
+     "text": "call qword ptr [rdx + 0x38]"
+    },
+    {
+     "site": "1407C094D",
+     "text": "call qword ptr [rax + 0x40]"
+    },
+    {
+     "site": "1407C0984",
+     "text": "call qword ptr [rdx + 0x30]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407c00f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 619,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407C0BE0": {
+   "boundary": null,
+   "callees": {
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406B02B0": "direct",
+    "1406B0ED0": "direct",
+    "1406E6640": "direct",
+    "1406E6660": "direct",
+    "1406E8320": "direct",
+    "1406E8390": "direct",
+    "1406EA840": "direct",
+    "1406EB100": "direct",
+    "1407B4A60": "direct",
+    "1407B6080": "direct",
+    "1407B6470": "direct",
+    "1407B96A0": "direct",
+    "1407C2AE0": "direct",
+    "140A6CF70": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407C0ED8",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C0EF5",
+     "text": "call qword ptr [rdx + 0x30]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407c0be0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 379,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407C18B0": {
+   "boundary": null,
+   "callees": {
+    "1404BCAD0": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406F0F70": "direct",
+    "141EB51A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407C1906",
+     "text": "call qword ptr [r8 + 0x18]"
+    },
+    {
+     "site": "1407C1933",
+     "text": "call qword ptr [r8 + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407c18b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 118,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407C1F40": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "1404583B0": "direct",
+    "1404BCAD0": "direct",
+    "140581CE0": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406ABDD0": "direct",
+    "1406DE990": "direct",
+    "1406E6660": "direct",
+    "1406E7AF0": "direct",
+    "1406E7C30": "direct",
+    "1406EB100": "direct",
+    "1406EC200": "direct",
+    "1406F0F70": "direct",
+    "140A489F0": "direct",
+    "140A581C0": "direct",
+    "140A6CF70": "direct",
+    "140A8F7C0": "direct",
+    "140A92C80": "direct",
+    "1415A1780": "direct",
+    "141AF32E0": "direct",
+    "141E532D0": "direct",
+    "141EB50B0": "direct",
+    "141EB51A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407C23A5",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C23C0",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C25AB",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C25C2",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C2679",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C2694",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C277E",
+     "text": "call qword ptr [rdx + 0x78]"
+    },
+    {
+     "site": "1407C291F",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "1407C2962",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1407C2988",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C2996",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C29A1",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407C29CF",
+     "text": "call qword ptr [rax + 0x50]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407c1f40",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 630,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407C2AE0": {
+   "boundary": null,
+   "callees": {
+    "140481B00": "direct",
+    "1404BCAD0": "direct",
+    "14058F0F0": "direct",
+    "1405BB170": "direct",
+    "1406AF620": "direct",
+    "1406B00D0": "direct",
+    "1406B03D0": "direct",
+    "1406B0A60": "direct",
+    "1406B0DD0": "direct",
+    "1406B0ED0": "direct",
+    "1406B1F00": "direct",
+    "1406E2CD0": "direct",
+    "1406E8390": "direct",
+    "1406E8480": "direct",
+    "1406EBC10": "direct",
+    "1406EBD00": "direct",
+    "1406EC200": "direct",
+    "1406F0F70": "direct",
+    "1406FA7C0": "direct",
+    "1406FB170": "direct",
+    "1406FB580": "direct",
+    "1406FB8A0": "direct",
+    "14081E1E0": "direct",
+    "140A8F8F0": "direct",
+    "141E532D0": "direct",
+    "141EB19F0": "direct",
+    "141EB35A0": "direct",
+    "141EB3900": "direct",
+    "141EB39A0": "direct",
+    "141EB3AE0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407C2BC8",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "1407C2CFD",
+     "text": "call qword ptr [rax + 0x40]"
+    },
+    {
+     "site": "1407C2E32",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C2E5E",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C2FF7",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C309D",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1407C311B",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C32FF",
+     "text": "call qword ptr [rax + 0x40]"
+    },
+    {
+     "site": "1407C330C",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C3330",
+     "text": "call qword ptr [rdx + 0x40]"
+    },
+    {
+     "site": "1407C333D",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C33E6",
+     "text": "call qword ptr [rax + 0x40]"
+    },
+    {
+     "site": "1407C33F3",
+     "text": "call qword ptr [rdx + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407c2ae0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 663,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407C3690": {
+   "boundary": null,
+   "callees": {
+    "1404BCAD0": "direct",
+    "14058F0F0": "direct",
+    "1405BB170": "direct",
+    "1406AF620": "direct",
+    "1406B00D0": "direct",
+    "1406B03D0": "direct",
+    "1406B0A60": "direct",
+    "1406B0DD0": "direct",
+    "1406B0ED0": "direct",
+    "1406B1F00": "direct",
+    "1406E2CD0": "direct",
+    "1406E6660": "direct",
+    "1406E8390": "direct",
+    "1406E8480": "direct",
+    "1406E85B0": "direct",
+    "1406EBC10": "direct",
+    "1406EBD00": "direct",
+    "1406EC200": "direct",
+    "1406F0F70": "direct",
+    "1406FA7C0": "direct",
+    "1406FB170": "direct",
+    "1406FB580": "direct",
+    "1406FB8A0": "direct",
+    "14081E1E0": "direct",
+    "140A6CF70": "direct",
+    "140A8F8F0": "direct",
+    "141E532D0": "direct",
+    "141EB19F0": "direct",
+    "141EB35A0": "direct",
+    "141EB3900": "direct",
+    "141EB39A0": "direct",
+    "141EB3AE0": "direct",
+    "141EB50B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407C3758",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "1407C38C1",
+     "text": "call qword ptr [rax + 0x40]"
+    },
+    {
+     "site": "1407C3A24",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1407C3AB8",
+     "text": "call qword ptr [rax + 0x30]"
+    },
+    {
+     "site": "1407C3B2B",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C3B99",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407C3BC5",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C3BDF",
+     "text": "call qword ptr [rdx + 0x30]"
+    },
+    {
+     "site": "1407C3C77",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "1407C3F67",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C4160",
+     "text": "call qword ptr [rax + 0x40]"
+    },
+    {
+     "site": "1407C416D",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C4191",
+     "text": "call qword ptr [rdx + 0x40]"
+    },
+    {
+     "site": "1407C419E",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407C4239",
+     "text": "call qword ptr [rax + 0x40]"
+    },
+    {
+     "site": "1407C4246",
+     "text": "call qword ptr [rdx + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407c3690",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 811,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407C44A0": {
+   "boundary": null,
+   "callees": {
+    "140439EF0": "direct",
+    "14043A0A0": "direct",
+    "140477130": "direct",
+    "140481B00": "direct",
+    "140581B70": "direct",
+    "1406B3C50": "direct",
+    "1406B4580": "direct",
+    "1406D9010": "direct",
+    "1406DEB80": "direct",
+    "1406EEBB0": "direct",
+    "1407F9ED0": "direct",
+    "1407FADB0": "direct",
+    "1407FD550": "direct",
+    "1407FD580": "direct",
+    "1407FD5E0": "direct",
+    "1408D4A60": "direct",
+    "140A489F0": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A71260": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407C44D5",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407C4644",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407C4657",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C4671",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407C468E",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C46D5",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C46E0",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407C4718",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407C4723",
+     "text": "call qword ptr [rdx]"
+    },
+    {
+     "site": "1407C487C",
+     "text": "call qword ptr [r9 + 0x58]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407c44a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 255,
    "source": "pdata",
    "subsystem": "trapdribble",
    "tables": 0,
@@ -232321,6 +234774,128 @@
    "vtables": [],
    "walked": true
   },
+  "1407F9ED0": {
+   "boundary": null,
+   "callees": {
+    "140A48A30": "direct",
+    "140A71260": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407F9EFD",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407F9F09",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407F9F23",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407F9F40",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407f9ed0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 63,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407F9FC0": {
+   "boundary": null,
+   "callees": {
+    "1406E8320": "direct",
+    "14159F3E0": "direct",
+    "141E5CA20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1407f9fc0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 70,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407FADB0": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "140A489F0": "direct",
+    "140A62780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407FADDD",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407FADE8",
+     "text": "call qword ptr [r9]"
+    },
+    {
+     "site": "1407FAE42",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407FAE4E",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407FAE8D",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407FAEAE",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407fadb0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 94,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407FAF00": {
    "boundary": null,
    "callees": {
@@ -232348,6 +234923,86 @@
    "source": "bridge",
    "subsystem": "out: online",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1407FD550": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1407fd550",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 13,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407FD580": {
+   "boundary": null,
+   "callees": {
+    "140A489F0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407FD597",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407FD5A2",
+     "text": "call qword ptr [rdx]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407fd580",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 28,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407FD5E0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1407fd5e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 18,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -233996,6 +236651,32 @@
    "source": "bridge",
    "subsystem": "restart",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "14081E1E0": {
+   "boundary": null,
+   "callees": {
+    "1406E2C30": "direct",
+    "14159F3E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14081e1e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 25,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -337806,6 +340487,33 @@
    "source": "bridge",
    "subsystem": "gameplay",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "140A641D0": {
+   "boundary": null,
+   "callees": {
+    "140A3AF90": "direct",
+    "140A489D0": "direct",
+    "141B59E20": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a641d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 27,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1086100,6 +1088808,29 @@
    "vtables": [],
    "walked": true
   },
+  "141EB19F0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141eb19f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 7,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EB1A10": {
    "boundary": null,
    "callees": {},
@@ -1086500,6 +1089231,34 @@
    "source": "bridge",
    "subsystem": "restart",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141EB36E0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141EB3720",
+     "text": "call qword ptr [rax + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141eb36e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 53,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1289997,6 +1292756,33 @@
    "vtables": [],
    "walked": false
   },
+  "143FB5E20": {
+   "boundary": null,
+   "callees": {
+    "1406AFF90": "direct",
+    "1406B0250": "direct",
+    "1406B0ED0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_143fb5e20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapdribble"
+   ],
+   "scope": "in",
+   "size": 95,
+   "source": "pdata",
+   "subsystem": "trapdribble",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "144035D30": {
    "boundary": null,
    "callees": {
@@ -1300745,7 +1303531,7 @@
     ]
    },
    "trapdribble": {
-    "members": 337,
+    "members": 661,
     "roots": [
      "0x1407A38E0"
     ]
