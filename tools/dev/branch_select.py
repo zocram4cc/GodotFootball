@@ -119,9 +119,9 @@ class Test:
                 self.names.add(os.path.basename(tok))
             elif under(tok, repo):
                 rel = os.path.relpath(tok, repo)
+                if rel in ("", os.curdir):  # the repository root (an argument of gfsim_run_test and branch_select_test):
+                    continue  # relpath gives "." for it; it adds no inputs, and its name (the checkout's directory) is no test's
                 self.names.add(os.path.basename(tok))
-                if rel == "":  # the repository root (gfsim_run_test's argument) adds nothing: its inputs are named elsewhere
-                    continue
                 if os.path.isdir(tok):
                     self.files |= files_under(repo, rel)
                     continue

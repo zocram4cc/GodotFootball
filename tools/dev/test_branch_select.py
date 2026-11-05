@@ -70,11 +70,12 @@ class BranchSelect(unittest.TestCase):
         self.assertBinary("pes_restart_delay_test", got, selected=False)
 
     def test_docs_select_only_the_always_on_tests(self):
+        # Exactly the always-on set. A repository-root argument (gfsim_run_test's) once pulled in the whole tree, which the
+        # earlier two-name spot check did not see.
         got = self.select(diff("docs/ports/README.md"))
-        self.assertIn("repo_pii_scan", got)
-        self.assertIn("diff_core_recorded", got)
-        self.assertBinary("pes_judge_test", got, selected=False)
-        self.assertBinary("pes_offside_test", got, selected=False)
+        always = {t["name"] for t in branch_select.ctest_tests(BUILD) if branch_select.ALWAYS.match(t["name"])}
+        self.assertEqual(set(got), always)
+        self.assertNotIn("gfsim_run_test", got)
 
     def test_assets_fall_back_to_every_test(self):
         got = self.select(diff("assets/fixtures/teams.sql"))
