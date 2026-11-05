@@ -56,11 +56,14 @@ else
   ctest_exclude=
   recorded_select=
 fi
-# branch: ctest runs only what the branch's diff can reach (tools/dev/branch_select.py; reasons in gate.branch.log).
+# branch: ctest runs only what the branch's diff can reach (tools/dev/branch_select.py; reasons in gate.branch.log). The
+# selection reaches ctest as a list of test numbers (-I): a name regex over 2,311 names overflows ctest's regex engine.
 ctest_include=
 if [ "$tier" = branch ]; then
-  ctest_include=$(python3 "$repo/tools/dev/branch_select.py" --build "$build" --repo "$repo" --base "$base" --regex 2> "$build/gate.branch.log")
-  tail -1 "$build/gate.branch.log"
+  if ! ctest_include=$(python3 "$repo/tools/dev/branch_select.py" --build "$build" --repo "$repo" --base "$base" --index 2> "$build/gate.branch.log"); then
+    echo "GATE branch: RED (branch selection failed: $(tail -1 "$build/gate.branch.log"))"; exit 1
+  fi
+  echo "branch select: $(tail -1 "$build/gate.branch.log")"
 fi
 
 smoke() {  # $1 = log suffix, rest = extra gfsim_run flags
@@ -100,19 +103,19 @@ export GF_DIFF_CACHE=${GF_DIFF_CACHE:-$HOME/.cache/gf-diff-cache}
 inner="$(declare -f smoke)"'
   echo "GATE sim slots held: ${GF_SIM_HELD:-none}"
   smoke off & smoke pesloop --pes-loop &
-  nice -n 19 ctest --test-dir "$build" -j "$jobs" --timeout 2400 ${ctest_exclude:+-E "$ctest_exclude"} ${ctest_include:+-R "$ctest_include"} > "$build/gate.ctest.log" 2>&1
+  nice -n 19 ctest --test-dir "$build" -j "$jobs" --timeout 2400 ${ctest_exclude:+-E "$ctest_exclude"} ${ctest_include:+-I "$ctest_include"} > "$build/gate.ctest.log" 2>&1
   echo "ctest rc=$?"
   wait'
 "$repo/tools/dev/simslot.sh" bash -c "$inner"
 
 for tag in off pesloop; do
-  echo "== smoke $tag ($smoke_minutes min)"; grep -hE "\[determinism\]|\[restarts\]|\[ticks\]" "$build/gate.smoke-$tag.log" | tail -3
+  echo "== smoke $tag ($smoke_minutes min)"; grep -hE "\[determinism\]|\[restarts\]|\[ticks\]" "$build/gate.smoke-$tag.log" | tail -3 || true
 done
-echo "== ctest"; grep -E "tests passed|Total Test time" "$build/gate.ctest.log"
+echo "== ctest"; grep -E "tests passed|Total Test time" "$build/gate.ctest.log" || echo "(ctest printed no summary: see $build/gate.ctest.log)"
 failed=$(sed -n '/The following tests FAILED/,$p' "$build/gate.ctest.log" | grep -E "^\s+[0-9]+ - " || true)
 [ -z "$failed" ] || echo "$failed"
 if [ "$tier" != full ]; then
-  echo "== recorded re-check, selected per set (base ${base:0:12})"; grep -E "recorded selected" "$build/gate.select.log"
+  echo "== recorded re-check, selected per set (base ${base:0:12})"; grep -E "recorded selected" "$build/gate.select.log" || true
 fi
 if [ "$tier" = branch ]; then echo "== branch selection: $(tail -1 "$build/gate.branch.log")"; fi
 # Ledger: regenerate from evidence; fail on regression, off-path ports, or a hand edit (stamp mismatch).
@@ -139,4 +142,9 @@ else
   echo "gate: GF_DIFF_PYTHON or PES_EXE unset, so the PES diff suites did not run"
 fi
 if [ "$green" = 1 ]; then echo "GATE $tier: GREEN"
-else echo "GATE $tier: RED $(sed -E 's/^\s+[0-9]+ - ([^ ]+).*/\1/' <<< "$failed" | tr '\n' ' ')"; exit 1; fi
+else
+  why=$(sed -E 's/^\s+[0-9]+ - ([^ ]+).*/\1/' <<< "$failed" | tr '\n' ' ')
+  [ -n "$why" ] || why="(ctest listed no failed test: see $build/gate.ctest.log) "
+  for tag in off pesloop; do grep -q "sim ticks to full time" "$build/gate.smoke-$tag.log" || why="$why(smoke-$tag did not reach full time) "; done
+  echo "GATE $tier: RED $why"; exit 1
+fi
