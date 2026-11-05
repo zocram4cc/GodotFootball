@@ -37,9 +37,10 @@ constexpr int kMinutes = 2;
 // Carried throw-ins (path A): seeds 5, 6, 7, 10 and 11 release one (first at ticks 22628, 4573, 25018, 14048 and 10588), fastest
 // first. The tests search matches in turn until one has a throw-in.
 constexpr unsigned int kThrowInSeeds[] = {6u, 11u, 10u, 5u};
-// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take: only seeds 3 and 8 place one (first at
-// ticks 32745 and 26044), fastest first.
-constexpr unsigned int kCeremonySeeds[] = {8u, 3u};
+// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take. Census on the KickMotion tree (its kick
+// picks moved seeds 3 and 8 off the ceremony: neither places one now), serial per list, two-minute pes-loop matches: the test passed
+// on the lists {1, 2, 4} (834 s), {9, 10, 11} (1,101 s) and {12, 13, 14} (3,104 s) and failed on {5, 6, 7}; the first is staged.
+constexpr unsigned int kCeremonySeeds[] = {1u, 2u, 4u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).
