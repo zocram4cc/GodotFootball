@@ -11,6 +11,7 @@
 #include "scene/scene3d/node.hpp"
 #include "utils/xmlloader.hpp"
 #include "utils/movementhistory.hpp"
+#include <functional>
 
 namespace blunted {
 
@@ -93,6 +94,13 @@ public:
              bool updateSpatial = true);
   void Shift(int fromFrame, int offset);
 
+  // Keys can be released once a clip is prepared and are rebuilt by `reload` on the first key read. `reload` fills the
+  // released nodes' key lists exactly as the load did (PES clips rebuild from their motion's text).
+  using KeyReloader = std::function<void(const std::vector<NodeAnimation*>& nodes)>;
+  void SetKeyReloader(KeyReloader reload);
+  // Caches every derived value from the keys, then drops the keys.
+  void ReleaseKeys();
+
   // returns end position - start position
   Vector3 GetTranslation() const;
   Vector3 GetIncomingMovement() const;
@@ -139,6 +147,10 @@ public:
 
 protected:
   std::vector<NodeAnimation*> nodeAnimations;
+  // Keys released by ReleaseKeys come back through keyReloader before the first key read (EnsureKeys).
+  KeyReloader keyReloader;
+  mutable bool keysReleased = false;
+  void EnsureKeys() const;
   int frameCount;
   std::string name;
 

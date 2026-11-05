@@ -3,6 +3,7 @@
 // player line; one install test converts every imported clip and loads it.
 #include <gtest/gtest.h>
 
+#include <malloc.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -363,4 +364,163 @@ TEST(PesTouchInstall, TheTrapClipTouchesAtItsHitFrame) {
   ASSERT_FALSE(hits.empty());
   EXPECT_EQ(hits[0].frame, 7);  // the install's first contact frame for clip 1351 (the first-touch note's 18 is another clip)
   EXPECT_EQ(pes::PesTouchAnimFrame(hits[0].frame), 23);  // 7 gani frames = 0.233 s = 23.3 engine frames, rounded
+}
+
+// A PES clip's keys are rebuilt the first time a read needs them (Animation::ReleaseKeys). AddPesClips keeps only the
+// metadata and derived values of each clip, so the heap a clip costs before it is played is far below its keys.
+namespace {
+
+size_t HeapInUse() {
+  const struct mallinfo2 m = mallinfo2();
+  return m.uordblks + m.hblkhd;
+}
+
+// Every stride-th clip, so a small set still spans the families.
+pes::PesClipSet EveryNthClip(const pes::PesClipSet& all, size_t count) {
+  pes::PesClipSet subset;
+  const size_t stride = std::max<size_t>(1, all.clips.size() / count);
+  for (size_t i = 0; i < all.clips.size() && subset.clips.size() < count; i += stride)
+    subset.clips.push_back(all.clips[i]);
+  return subset;
+}
+
+// A key read: the way a match reads keys, and so the way a released clip gets them back.
+void ReadKeys(Animation& anim) {
+  Quaternion q;
+  Vector3 p;
+  anim.GetKeyFrame("player", 0, q, p, true, true);
+}
+
+// Every key of a clip, node by node, as stored: names, key counts, frames, then orientation and position values.
+struct KeyDump {
+  std::vector<std::string> nodes;
+  std::vector<size_t> keysPerNode;
+  std::vector<int> frames;
+  std::vector<float> values;
+};
+
+KeyDump Dump(Animation& anim) {
+  KeyDump d;
+  for (NodeAnimation* node : anim.GetNodeAnimations()) {
+    d.nodes.push_back(node->nodeName);
+    d.keysPerNode.push_back(node->animation.size());
+    for (const auto& [frame, key] : node->animation) {
+      d.frames.push_back(frame);
+      for (int e = 0; e < 4; ++e) d.values.push_back(key.orientation.elements[e]);
+      for (int c = 0; c < 3; ++c) d.values.push_back(key.position.coords[c]);
+    }
+  }
+  return d;
+}
+
+void ExpectSameKeys(Animation& got, Animation& want, const std::string& what) {
+  const KeyDump g = Dump(got), w = Dump(want);
+  EXPECT_EQ(g.nodes, w.nodes) << what;
+  EXPECT_EQ(g.keysPerNode, w.keysPerNode) << what;
+  EXPECT_EQ(g.frames, w.frames) << what;
+  EXPECT_EQ(g.values, w.values) << what;
+}
+
+}  // namespace
+
+TEST(PesClipsInstall, ReleasedClipsHoldLessHeapThanTheirKeys) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig.has_value()) << err;
+  auto all = pes::LoadPesClips(*exe, vfs, &err);
+  ASSERT_TRUE(all.has_value()) << err;
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
+  const pes::PesClipSet clips = EveryNthClip(*all, 200);
+  ASSERT_GE(clips.clips.size(), 100u);
+
+  const size_t before = HeapInUse();
+  AnimCollection anims(*rig);
+  anims.AddPesClips(clips, *mbinfo);
+  const size_t addBytesPerClip = (HeapInUse() - before) / clips.clips.size();
+
+  // Play a few clips' keys back in: what a match pays for a clip it plays.
+  constexpr size_t kPlayed = 32;
+  const auto& made = anims.GetAnimations();
+  ASSERT_EQ(made.size(), 2 * clips.clips.size());
+  const size_t playedBefore = HeapInUse();
+  for (size_t k = 0; k < kPlayed; ++k) ReadKeys(*made.at(2 * (k * clips.clips.size() / kPlayed)));
+  const size_t playedBytesPerClip = (HeapInUse() - playedBefore) / kPlayed;
+
+  // Two anims per clip (as authored and mirrored): the metadata of a clip costs less than the keys of its two sides.
+  EXPECT_LT(addBytesPerClip, 2 * playedBytesPerClip)
+      << "AddPesClips holds " << addBytesPerClip << " B per clip (both sides); reading one side's keys costs "
+      << playedBytesPerClip << " B";
+}
+
+TEST(PesClipsInstall, RebuiltKeysEqualAFreshLoadOfTheMotion) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig.has_value()) << err;
+  auto all = pes::LoadPesClips(*exe, vfs, &err);
+  ASSERT_TRUE(all.has_value()) << err;
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
+  const pes::PesClipSet clips = EveryNthClip(*all, 24);
+
+  AnimCollection anims(*rig);
+  anims.AddPesClips(clips, *mbinfo);
+  const auto& made = anims.GetAnimations();
+  ASSERT_EQ(made.size(), 2 * clips.clips.size());
+  for (size_t i = 0; i < clips.clips.size(); ++i) {
+    for (int side = 0; side < 2; ++side) {  // 0: as authored, 1: mirrored
+      Animation* got = made[2 * i + side];
+      ReadKeys(*got);
+      Animation fresh;
+      fresh.LoadText(clips.clips[i].name, pes::PesClipAnimText(clips.clips[i], *rig));
+      if (side == 1) fresh.Mirror();
+      ExpectSameKeys(*got, fresh, clips.clips[i].name + (side == 1 ? " (mirror)" : ""));
+    }
+  }
+}
+
+TEST(PesClipsInstall, RebuiltKeysDoNotDependOnAccessOrder) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig.has_value()) << err;
+  auto all = pes::LoadPesClips(*exe, vfs, &err);
+  ASSERT_TRUE(all.has_value()) << err;
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
+  const pes::PesClipSet clips = EveryNthClip(*all, 12);
+
+  AnimCollection forward(*rig), backward(*rig);
+  forward.AddPesClips(clips, *mbinfo);
+  backward.AddPesClips(clips, *mbinfo);
+  const auto& f = forward.GetAnimations();
+  const auto& b = backward.GetAnimations();
+  ASSERT_EQ(f.size(), b.size());
+  for (size_t i = 0; i < f.size(); ++i) ReadKeys(*f[i]);
+  for (size_t i = b.size(); i-- > 0;) ReadKeys(*b[i]);
+  for (size_t i = 0; i < f.size(); ++i) {
+    const std::string what = f[i]->GetName();
+    ExpectSameKeys(*f[i], *b[i], what);
+    EXPECT_EQ(f[i]->GetOutgoingVelocity(), b[i]->GetOutgoingVelocity()) << what;
+    EXPECT_EQ(f[i]->GetOutgoingAngle(), b[i]->GetOutgoingAngle()) << what;
+    EXPECT_EQ(f[i]->GetVariable("touchframe"), b[i]->GetVariable("touchframe")) << what;
+    EXPECT_EQ(f[i]->GetVariable("quadrant_id"), b[i]->GetVariable("quadrant_id")) << what;
+  }
 }

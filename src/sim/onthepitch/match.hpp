@@ -508,12 +508,19 @@ public:
   float GetMatchDifficulty() const { return matchDifficulty; }
 
   std::vector<Vector3>& GetAnimPositionCache(Animation* anim) {
-    // The cache is built from the animation collection, so a clip that never
-    // joined it has no entry.
+    // The player line of a clip, one position per frame, built on first use: a released PES clip (Animation::ReleaseKeys)
+    // gets its keys back only when a match needs its positions.
     auto cached = animPositionCache.find(anim);
     if (cached != animPositionCache.end()) return cached->second;
-    static std::vector<Vector3> empty;
-    return empty;
+    std::vector<Vector3> positions;
+    Quaternion dud;
+    Vector3 position;
+    for (int frame = 0; frame < anim->GetFrameCount(); frame++) {
+      anim->GetKeyFrame("player", frame, dud, position, false, true);
+      position.coords[2] = 0.0f;
+      positions.push_back(position);
+    }
+    return animPositionCache.emplace(anim, std::move(positions)).first->second;
   }
 
   // The ball's position and velocity entering this tick, taken before

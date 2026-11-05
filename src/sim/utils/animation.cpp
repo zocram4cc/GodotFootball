@@ -73,6 +73,7 @@ Animation::Animation() {
 }
 
 Animation::Animation(const Animation& src) {
+  src.EnsureKeys();
   int animSize = src.nodeAnimations.size();
   for (int i = 0; i < animSize; i++) {
     nodeAnimations.push_back(new NodeAnimation(*src.nodeAnimations.at(i)));
@@ -145,12 +146,42 @@ void Animation::DirtyCache() {
   cache_outgoingBodyDirection_dirty = true;
 }
 
+void Animation::SetKeyReloader(KeyReloader reload) {
+  keyReloader = std::move(reload);
+}
+
+void Animation::ReleaseKeys() {
+  assert(keyReloader && "ReleaseKeys needs a reloader to rebuild the keys");
+  // Every derived value is cached from the keys first, so a released clip answers from the caches alone.
+  GetTranslation();
+  GetIncomingMovement();
+  GetIncomingVelocity();
+  GetOutgoingDirection();
+  GetOutgoingMovement();
+  GetRangedOutgoingMovement();
+  GetOutgoingVelocity();
+  GetOutgoingAngle();
+  GetIncomingBodyAngle();
+  GetOutgoingBodyAngle();
+  GetIncomingBodyDirection();
+  GetOutgoingBodyDirection();
+  for (NodeAnimation* node : nodeAnimations) KeyFrameList().swap(node->animation);
+  keysReleased = true;
+}
+
+void Animation::EnsureKeys() const {
+  if (!keysReleased) return;
+  keysReleased = false;
+  keyReloader(nodeAnimations);
+}
+
 int Animation::GetFrameCount() const {
   return frameCount;
 }
 
 bool Animation::GetKeyFrame(const std::string& nodeName, int frame, Quaternion& orientation,
                             Vector3& position, bool getOrientation, bool getPosition) const {
+  EnsureKeys();
   int animSize = nodeAnimations.size();
   for (int i = 0; i < animSize; i++) {
     if (nodeAnimations.at(i)->nodeName == nodeName) {
@@ -166,6 +197,7 @@ bool Animation::GetKeyFrame(const std::string& nodeName, int frame, Quaternion& 
 
 void Animation::SetKeyFrame(const std::string& nodeName, int frame,
                             const Quaternion& orientation, const Vector3& position) {
+  EnsureKeys();
   if (frame >= frameCount)
     frameCount = frame + 1;
 
@@ -215,6 +247,7 @@ void Animation::SetKeyFrame(const std::string& nodeName, int frame,
 
 void Animation::DeleteKeyFrame(const std::string& nodeName, int frame) {
   // iterate nodes
+  EnsureKeys();
   int animSize = nodeAnimations.size();
   for (int i = 0; i < animSize; i++) {
     NodeAnimation* nodeAnimation = nodeAnimations.at(i);
@@ -360,6 +393,7 @@ void Animation::GetInterpolatedValues(const KeyFrameList& animation, int frame,
 }
 
 void Animation::ConvertToStartFacingForwardIfIdle() {
+  EnsureKeys();
   radian incomingBodyAngle = GetIncomingBodyAngle();
 
   // only applies to anims starting out idle
@@ -417,6 +451,7 @@ void Animation::ConvertToStartFacingForwardIfIdle() {
 }
 
 void Animation::Invert() {
+  EnsureKeys();
   NodeAnimation* nodeAnimation = nullptr;
 
   // simple keyframe-to-keyframe version
@@ -455,6 +490,7 @@ void Animation::Apply(const std::map<const std::string, boost::intrusive_ptr<Nod
   // int futureFrameOffset = 1;
 
   // Animation-level (not node-level): resolve once per Apply, not once per node.
+  EnsureKeys();
   const bool hasOutgoingSpecialState = GetVariable("outgoing_special_state").compare("") != 0;
    unsigned int animSize = nodeAnimations.size();
   for (unsigned int i = 0; i < animSize; i++) {
@@ -872,6 +908,7 @@ void Animation::Apply(const std::map<const std::string, boost::intrusive_ptr<Nod
 }
 
 void Animation::Shift(int fromFrame, int offset) {  // todo: offset does not yet work
+  EnsureKeys();
   if (offset == 1) {
     bool somethingShifted = false;
     int animSize = nodeAnimations.size();
@@ -939,6 +976,7 @@ void Animation::Shift(int fromFrame, int offset) {  // todo: offset does not yet
 
 Vector3 Animation::GetTranslation() const {
   if (cache_translation_dirty) {
+    EnsureKeys();
     cache_translation = ((--nodeAnimations.at(0)->animation.end())->second.position -
                          nodeAnimations.at(0)->animation.begin()->second.position);
     cache_translation.coords[2] = 0;
@@ -950,6 +988,7 @@ Vector3 Animation::GetTranslation() const {
 Vector3 Animation::GetIncomingMovement() const {
   // todo: check if correct with idle incoming velo + weird incoming body rot
   if (cache_incomingMovement_dirty) {
+    EnsureKeys();
     if (nodeAnimations.at(0)->animation.size() > 1) {
       cache_incomingMovement = ((++nodeAnimations.at(0)->animation.begin())->second.position -
                                 nodeAnimations.at(0)->animation.begin()->second.position) /
@@ -967,6 +1006,7 @@ Vector3 Animation::GetIncomingMovement() const {
 
 float Animation::GetIncomingVelocity() const {
   if (cache_incomingVelocity_dirty) {
+    EnsureKeys();
     if (nodeAnimations.at(0)->animation.size() > 1) {
       Vector3 result = ((++nodeAnimations.at(0)->animation.begin())->second.position -
                         nodeAnimations.at(0)->animation.begin()->second.position) /
@@ -993,6 +1033,7 @@ float Animation::GetIncomingVelocity() const {
 
 Vector3 Animation::GetOutgoingMovement() const {
   if (cache_outgoingMovement_dirty) {
+    EnsureKeys();
     if (nodeAnimations.at(0)->animation.size() > 1) {
       cache_outgoingMovement = ((--nodeAnimations.at(0)->animation.end())->second.position -
                                 (--(--nodeAnimations.at(0)->animation.end()))->second.position) /
@@ -1011,6 +1052,7 @@ Vector3 Animation::GetOutgoingMovement() const {
 
 Vector3 Animation::GetRangedOutgoingMovement() const {
   if (cache_rangedOutgoingMovement_dirty || cache_outgoingVelocity_dirty || cache_angle_dirty) {
+    EnsureKeys();
     if (nodeAnimations.at(0)->animation.size() > 1) {
       cache_rangedOutgoingMovement =
           Vector3(0, -GetOutgoingVelocity(), 0).GetRotated2D(GetOutgoingAngle());
@@ -1049,6 +1091,7 @@ Vector3 Animation::GetOutgoingBodyDirection() const {
 
 float Animation::GetOutgoingVelocity() const {
   if (cache_outgoingVelocity_dirty) {
+    EnsureKeys();
     if (nodeAnimations.at(0)->animation.size() > 1) {
       Vector3 result = ((--nodeAnimations.at(0)->animation.end())->second.position -
                         (--(--nodeAnimations.at(0)->animation.end()))->second.position) /
@@ -1075,6 +1118,7 @@ float Animation::GetOutgoingVelocity() const {
 
 radian Animation::GetOutgoingAngle() const {
   if (cache_angle_dirty || cache_outgoingVelocity_dirty) {
+    EnsureKeys();
     if (GetOutgoingVelocity() >= 1.8) {
       // if (nodeAnimations.at(0)->animation.size() > 1) {
 
@@ -1128,6 +1172,7 @@ radian Animation::GetOutgoingAngle() const {
 
 radian Animation::GetIncomingBodyAngle() const {
   if (cache_incomingBodyAngle_dirty) {
+    EnsureKeys();
     if (nodeAnimations.at(1)->animation.size() > 0) {
       // body rotation
       radian x, y, z;
@@ -1157,6 +1202,7 @@ radian Animation::GetIncomingBodyAngle() const {
 
 radian Animation::GetOutgoingBodyAngle() const {
   if (cache_outgoingBodyAngle_dirty || cache_angle_dirty || cache_outgoingVelocity_dirty) {
+    EnsureKeys();
     if (GetOutgoingVelocity() >= 1.8) {
       if (nodeAnimations.at(1)->animation.size() > 0) {
         // body rotation
@@ -1399,6 +1445,7 @@ void Animation::LoadLines(const std::string& clipName, std::vector<std::string>&
 }
 
 void Animation::Save(const std::string& filename) {
+  EnsureKeys();
   std::vector<std::string> fileData;
   for (int i = 0; i < (signed int)nodeAnimations.size(); i++) {
     std::string line;
@@ -1446,6 +1493,7 @@ void Animation::Save(const std::string& filename) {
 }
 
 void Animation::Mirror() {
+  EnsureKeys();
   name.append("_mirror");
   (currentFoot == e_Foot_Right) ? currentFoot = e_Foot_Left : currentFoot = e_Foot_Right;
 
