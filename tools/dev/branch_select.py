@@ -118,6 +118,8 @@ class Test:
             elif under(tok, repo):
                 rel = os.path.relpath(tok, repo)
                 self.names.add(os.path.basename(tok))
+                if rel == "":  # the repository root (gfsim_run_test's argument) adds nothing: its inputs are named elsewhere
+                    continue
                 if os.path.isdir(tok):
                     self.files |= files_under(repo, rel)
                     continue
