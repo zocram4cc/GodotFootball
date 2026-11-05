@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""test_branch_select.py: the GATE_TIER=branch selector (tools/dev/branch_select.py) on sample diffs, against the real
+build directory. Each check states the rule it relies on (branch_select.py's docstring):
+
+  - a source file in a test binary's build closure selects that binary, so every test of a gfsim binary (a seeded family
+    among them) runs for a sim source, and a pesfmt-only binary does not;
+  - a changed test source selects its own binary only;
+  - a docs change selects only the always-on tests (the PII scan and the five recorded re-checks);
+  - a changed assets file falls back to every test (sim data is read by any test through GF_SOURCE_DIR);
+  - a changed CMake line naming a test selects that test; a changed CMake line naming none falls back to every test.
+
+Run by ctest (branch_select_test): test_branch_select.py <build dir> <repo root> <scratch dir>."""
+import os
+import shutil
+import sys
+import unittest
+
+BUILD, REPO, SCRATCH = (os.path.abspath(a) for a in sys.argv[1:4])
+sys.argv = sys.argv[:1]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import branch_select  # noqa: E402
+
+
+def diff(path, added=()):
+    """A unified diff (-U0 shape) that changes one file: its header plus the added lines."""
+    lines = [f"diff --git a/{path} b/{path}", f"--- a/{path}", f"+++ b/{path}"]
+    if added:
+        lines.append(f"@@ -0,0 +1,{len(added)} @@")
+        lines += ["+" + a for a in added]
+    return "\n".join(lines) + "\n"
+
+
+class BranchSelect(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        shutil.rmtree(SCRATCH, ignore_errors=True)
+        os.makedirs(SCRATCH)
+
+    def select(self, text):
+        return set(branch_select.select(BUILD, REPO, text))
+
+    def test_sim_source_selects_every_gfsim_binary_and_no_pesfmt_only_binary(self):
+        got = self.select(diff("src/sim/simcontext.cpp"))
+        self.assertIn("pes_judge_test", got)
+        self.assertIn("pes_restart_delay_test", got)  # a seeded family: its matches run this sim
+        self.assertNotIn("pes_fdc_test", got)  # links pesfmt only
+
+    def test_test_source_selects_its_own_binary_only(self):
+        got = self.select(diff("tests/sim/pes_offside_test.cpp"))
+        self.assertIn("pes_offside_test", got)
+        self.assertNotIn("pes_judge_test", got)
+        self.assertNotIn("pes_restart_delay_test", got)
+
+    def test_docs_select_only_the_always_on_tests(self):
+        got = self.select(diff("docs/ports/README.md"))
+        self.assertIn("repo_pii_scan", got)
+        self.assertIn("diff_core_recorded", got)
+        self.assertNotIn("pes_judge_test", got)
+        self.assertNotIn("pes_offside_test", got)
+
+    def test_assets_fall_back_to_every_test(self):
+        got = self.select(diff("assets/fixtures/teams.sql"))
+        self.assertIn("pes_fdc_test", got)
+        self.assertIn("pes_judge_test", got)
+
+    def test_cmake_line_naming_a_test_selects_that_test(self):
+        got = self.select(diff("tests/CMakeLists.txt", ["set_tests_properties(pes_fdc_test PROPERTIES TIMEOUT 999)"]))
+        self.assertIn("pes_fdc_test", got)
+        self.assertNotIn("pes_judge_test", got)
+
+    def test_cmake_line_naming_no_test_falls_back_to_every_test(self):
+        got = self.select(diff("tests/CMakeLists.txt", ["set(GF_SHARED_FLAG 1)"]))
+        self.assertIn("pes_judge_test", got)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
