@@ -85,3 +85,29 @@ regenerates). A hit gives exactly what the uncached step gives; whatever cannot 
   `gen_translated.py`, the layer) hits; a change to anything `run.py` reads misses. Failed runs are never kept.
 - A layer header edit misses the objects of the TUs that include it and hits the corpus. To reset, delete
   `<build>/<set>-check/cache`. The driver ends with `driver: cache corpus hit=N miss=M object compiled=N hit=N`.
+
+## Synthetic states: `translate/synth.py`
+
+`synth.py SRC OUT --spec SPEC.json [--hooks CFG]` writes SYNTHETIC states of one full rendezvous capture (unpack it first with
+`rendezvous/capz.py unpack`) in the layout `frame_trace.py recorded` and `snapdiff.py --bounded` replay: one directory per case,
+each with `index.json` (its `synthetic` key says SYNTHETIC and records every chosen value and address), `call.bin` and `mem.bin`.
+The same spec and seed write the same bytes. The spec is documented in the module docstring. In short:
+
+- `fields`: `at` is a register (`rcx`, `edx`, `xmm3`), `reg:NAME+off+...`, `mem:VA+off+...` or `va:VA`; every offset but the last
+  dereferences. `type` is a scalar or `hex`; `values` or `range` draws the value; `plus` adds the drawn value to a word read first.
+- `cases` (explicit values per field) or `count` (draws); `seed` is required.
+- `entry`, `stop`, `reach` and `start` make the spec emulated: PES's bytes run from the capture (the harness Python with unicorn,
+  `--hooks` required). The values are written at the first arrival at `entry`, the state is captured at `stop`, and `reach` keeps
+  only the cases whose run enters that VA afterwards. `start: return` runs the capture's call to its return first.
+- `as` writes a static state as a call of another function (rv.entry_va) over the capture's memory, with no run.
+
+Retired scripts and their spec form:
+
+- `synth_call.py STATE OUT --entry VA --reg R=V --poke A=HEX`: `as` = VA, one `fields` entry per register (`type` `u32` for
+  `edx`, `r8d`) and one `hex` field per poke (`synth_members.py` builds these).
+- `synth_walk.py SRC OUT --entry VA [--hook-name N] [--patch-clear]`: `start: return`, `entry` = `stop` = VA, `hook` = N;
+  `--patch-clear` is the field `reg:rcx+0x3EC0` (u32, value 5). `--in-call` is the same spec with the default `start: call`.
+- `hdrsyn.py`, `chsyn.py`, `rootsyn2.py` (KickMotion scratch): emulated specs with `entry` = the builder, chooser or reader and
+  `reach` = the branch VA the draws must open, or `stop` = `entry` with the arguments as fields.
+- Not folded in yet: `synth_trapkind.py` and `synth_press_order.py` (RestingBall and PressAI branches) and `synth_chooser.py`
+  (KickMotion) keep their own case generators until those branches land. Their list-entry writes need a repeat field.

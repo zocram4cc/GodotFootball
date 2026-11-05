@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """walk_gates.py: why a carrier-walk (0x14210F110) call does or does not reach the Clear block 0x14210F4F2.
 
-Replays each recorded walk call (a carrier_walk_210F110 capture, or a state synth_walk.py wrote) on PES's own bytes and prints,
+Replays each recorded walk call (a carrier_walk_210F110 capture, or a state synth.py wrote) on PES's own bytes and prints,
 per capture: whether the Clear block ran, the returned kind, and the inputs of the kind-1 (type 5) gates the walk evaluates
 before the block (decompile 0x14210F110; addresses are the instructions the hooks read):
   0x14210F455  pressure record P = 0x14069A3E0(BP+0x2210, 0xFF): P+0x30 and P+0x34 (P+0x30 != 0 and P+0x34 > 1 goes straight to the block)
@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import frame_trace as ft  # noqa: E402
 import stubs as stub_table  # noqa: E402
-import synth_walk as sw  # noqa: E402
+import synth as sy  # noqa: E402
 import unicorn.x86_const as xc  # noqa: E402
 
 CLEAR_BLOCK = 0x14210F4F2
@@ -33,7 +33,7 @@ CLEAR_BLOCK = 0x14210F4F2
 def main():
     if len(sys.argv) < 4:
         sys.exit(__doc__)
-    sw.patch_imports()
+    sy.patch_imports()
     orig = ft.hook_bytes(sys.argv[1])
     for d in sys.argv[3:]:
         info = {}

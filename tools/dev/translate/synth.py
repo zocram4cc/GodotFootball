@@ -15,9 +15,10 @@ record), mem.bin. The spec (JSON, see SPEC_KEYS) names the fields to perturb and
   "reach": "0x140A510F0"          keep a case only if this VA is entered after the perturbation (a filter, e.g. "the wide-pass gate
                                   opened"); cases that never reach "stop" or "reach" are dropped and counted
   "start": "call" | "return"      in-call: run the capture's own call from its entry (default); "return": run the call to its return
-                                  and continue in the caller until "entry" (the forward run of synth_walk)
+                                  and continue in the caller until "entry" (a state the caller reaches after the call)
   "hook": "carrier_walk_210F110"  rv.hook of the written state (default: the capture's, or synthetic_<stop> when stop moves)
   "budget": 20000000              instructions per emulated run
+  "as": "0x14212FE70"             a static spec writes the states as calls of this function (rv.entry_va), over the capture's memory
 
 A field's "at" is an address or a register:
   "reg:rsp+0x28"                 rsp + 0x28
@@ -46,18 +47,20 @@ import subprocess
 import sys
 
 GPR_ORDER = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
+REG32 = {"e" + g[1:]: g for g in GPR_ORDER[:8]}  # 32-bit names of the 64-bit registers: a write zero-extends
+REG32.update({"r%dd" % n: "r%d" % n for n in range(8, 16)})
 CALL_REC = struct.Struct("<49Q")  # frame_trace's call record: 16 GPRs, 16 XMM (lo, hi), the return address at [rsp]
 XMM_SLOT = 16                     # the call record's slot of xmm0's low qword
 RET_SLOT = 48
 U64 = (1 << 64) - 1
 XMM_BYTES = 16
 GPR_BYTES = 8
-RET_SENTINEL = 0xDEAD0000         # the emulated run continues past the recorded call's return address (synth_walk)
-DEFAULT_BUDGET = 20_000_000       # instructions per emulated run (synth_walk's default)
+RET_SENTINEL = 0xDEAD0000         # the forward run continues past the recorded call's return address
+DEFAULT_BUDGET = 20_000_000       # instructions per emulated run (the carrier-walk runs' budget)
 SCALAR = {"u8": "<B", "u16": "<H", "u32": "<I", "i32": "<i", "u64": "<Q", "f32": "<f", "f64": "<d"}
 FLOAT_TYPES = ("f32", "f64")
 TYPES = tuple(SCALAR) + ("hex",)
-SPEC_KEYS = {"label", "seed", "count", "cases", "fields", "entry", "stop", "reach", "start", "hook", "budget"}
+SPEC_KEYS = {"label", "seed", "count", "cases", "fields", "entry", "stop", "reach", "start", "hook", "budget", "as"}
 FIELD_KEYS = {"name", "at", "type", "values", "range", "plus"}
 PLUS_KEYS = {"at", "type"}
 CASE_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
@@ -78,7 +81,7 @@ ZERO1 = ("_crt_atexit", "atexit", "_onexit", "__stdio_common_vsprintf_s")  # a f
 
 
 def is_reg(at):
-    return at in GPR_ORDER or XMM_RE.fullmatch(at) is not None
+    return at in GPR_ORDER or at in REG32 or XMM_RE.fullmatch(at) is not None
 
 
 def num(v, typ):
@@ -138,6 +141,20 @@ def resolve(view, expr):
     return v & U64
 
 
+def read_mem(f, index, va, n):
+    """n bytes at va from the open capture mem.bin f (spans refuses an address outside the capture's mappings)."""
+    buf = bytearray(n)
+    for pos, rel, k in spans(index, va, n):
+        f.seek(pos)
+        buf[rel:rel + k] = f.read(k)
+    return bytes(buf)
+
+
+def read_capture(src, index, va, n):
+    with open(os.path.join(src, "mem.bin"), "rb") as f:
+        return read_mem(f, index, va, n)
+
+
 class StaticView:
     """The capture as it stands: reads come from its mem.bin and call record; writes are kept for the state, never applied to
     the source."""
@@ -147,11 +164,7 @@ class StaticView:
         self.f = open(os.path.join(src, "mem.bin"), "rb")
 
     def read(self, va, n):
-        buf = bytearray(n)
-        for pos, rel, k in spans(self.index, va, n):
-            self.f.seek(pos)
-            buf[rel:rel + k] = self.f.read(k)
-        return bytes(buf)
+        return read_mem(self.f, self.index, va, n)
 
     def u64(self, va):
         return decode("u64", self.read(va, 8))
@@ -164,6 +177,7 @@ class StaticView:
         self.writes.append((va, data))
 
     def set_reg(self, name, data):
+        name = REG32.get(name, name)
         if name in GPR_ORDER:
             self.vals[GPR_ORDER.index(name)] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")
             return
@@ -194,6 +208,7 @@ class EmuView:
         self.u.mem_write(va, data)
 
     def set_reg(self, name, data):
+        name = REG32.get(name, name)
         if name in GPR_ORDER:
             self.u.reg_write(getattr(self.xc, "UC_X86_REG_" + name.upper()), int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little"))
         else:
@@ -421,7 +436,7 @@ def write_state(out, name, src, index, state, meta):
         f.write(state["call"])
     idx = json.loads(json.dumps(index))
     idx["label"] = name
-    idx["rv"].update(entry_va=meta["stop"], flags=state["flags"], mxcsr=state["mxcsr"])
+    idx["rv"].update(entry_va=meta["state_entry"], flags=state["flags"], mxcsr=state["mxcsr"])
     idx["rv"]["hook"] = meta["hook"]
     idx["synthetic"] = dict(label="SYNTHETIC", source=os.path.basename(src.rstrip("/")), seed=meta["seed"], case=name,
                             mode=meta["mode"], entry="%#x" % meta["entry"], stop="%#x" % meta["stop"],
@@ -453,6 +468,9 @@ def main():
     reach = num(spec["reach"], "u64") if "reach" in spec else None
     start = spec.get("start", "call")
     static = entry == source_entry and stop == entry and reach is None and start == "call"
+    if "as" in spec and not static:
+        raise SystemExit("synth: as retargets a static state; an emulated state takes its entry from stop")
+    state_entry = num(spec["as"], "u64") if "as" in spec else stop
     plan = {"entry": entry, "stop": stop, "reach": reach, "start": start, "ret": base_vals[RET_SLOT]}
     label = spec.get("label") or os.path.basename(a.out.rstrip("/"))
     cases = spec.get("cases") or [{} for _ in range(spec.get("count", 1))]
@@ -482,9 +500,9 @@ def main():
         if state is None:
             dropped[reason] = dropped.get(reason, 0) + 1
             continue
-        hook = spec.get("hook") or (rv["hook"] if stop == source_entry else "synthetic_%X" % stop)
-        meta = {"stop": stop, "entry": entry, "reach": reach, "seed": spec["seed"], "hook": hook, "record": record,
-                "mode": "static" if static else start}
+        hook = spec.get("hook") or (rv["hook"] if state_entry == source_entry else "synthetic_%X" % state_entry)
+        meta = {"state_entry": state_entry, "stop": stop, "entry": entry, "reach": reach, "seed": spec["seed"], "hook": hook,
+                "record": record, "mode": "static" if static else start}
         write_state(a.out, name, src, index, state, meta)
         written.append(name)
     print(json.dumps({"out": a.out, "written": written, "dropped": dropped}, sort_keys=True))

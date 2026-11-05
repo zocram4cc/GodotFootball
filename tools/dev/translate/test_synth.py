@@ -143,6 +143,19 @@ def main():
                 fail("%s index.json changed beyond label and synthetic" % n)
         print("ok: perturbed fields differ; nothing else in mem.bin, call.bin or index.json differs")
 
+        retarget = {"label": "rt", "seed": 1, "as": "0x140002000", "cases": [{"name": "rt", "edx": 5}],
+                    "fields": [{"name": "edx", "at": "edx", "type": "u32"}]}
+        r = run_synth(src, os.path.join(work, "rt"), retarget, 1)
+        if r.returncode != 0:
+            fail("synth.py refused the retarget spec: %s" % r.stderr.strip()[-300:])
+        rt = os.path.join(work, "rt", "rt")
+        rt_idx = json.load(open(os.path.join(rt, "index.json")))
+        rt_vals = CALL.unpack(read(os.path.join(rt, "call.bin")))
+        if rt_idx["rv"]["entry_va"] != 0x140002000 or rt_vals[GPR.index("rdx")] != 5:
+            fail("retarget: entry %#x, rdx %#x; want 0x140002000 and 5" % (rt_idx["rv"]["entry_va"], rt_vals[GPR.index("rdx")]))
+        if read(os.path.join(rt, "mem.bin")) != src_mem:
+            fail("a retarget with no memory write changed mem.bin")
+        print("ok: as retargets the entry; a 32-bit register writes zero-extended")
         bad = dict(SPEC, bogus=1)
         bad_path = os.path.join(work, "bad.json")
         with open(bad_path, "w") as f:
