@@ -36,6 +36,7 @@ ROOT = "0x14084B4A0"
 CLOSURE_FILES = {
     "0x14084B4A0": ("closure_trapkind.json", "the translated closure of 0x14084B4A0 (the touch-kind velocity function): synth_trapkind.py"),
     "0x14079EE70": ("closure_trapendxfer.json", "the closure of 0x14079EE70 (the trap end transition): synth_trapkind.py --root 0x14079EE70"),
+    "0x1406B4580": ("closure_trapb4580.json", "the closure of 0x1406B4580 (the end transition's call that issues the action request): synth_trapkind.py --root 0x1406B4580"),
     "0x1407BA840": ("closure_trapact4.json", "the closure of 0x1407BA840 (the action-4 Trap request planner): synth_trapkind.py --root 0x1407BA840"),
 }
 EE70, ACT4 = "0x14079EE70", "0x1407BA840"
@@ -189,7 +190,8 @@ def main():
     ap.add_argument("work")
     ap.add_argument("--merge", action="store_true", help="write the record into results_trapaction.json")
     ap.add_argument("--reuse", action="store_true", help="skip the build and replay: read WORK/res.json of an earlier run")
-    ap.add_argument("--root", default="0x14084B4A0", choices=("0x14084B4A0", "0x14079EE70", "0x1407BA840"))
+    ap.add_argument("--root", default="0x14084B4A0", choices=("0x14084B4A0", "0x14079EE70", "0x1407BA840", "0x1406B4580"))
+    ap.add_argument("--capture", action="append", default=[], help="a REAL capture of a call of the root (unpacked): replayed as it is")
     a = ap.parse_args()
     global ROOT, REAL, CASES
     CASES = cases
@@ -197,11 +199,18 @@ def main():
         ROOT, REAL, CASES = a.root, REAL_EE70, cases_ee70
     elif a.root == ACT4:
         ROOT, REAL, CASES = a.root, REAL_A4, cases_a4
+    elif a.root == "0x1406B4580":
+        ROOT, REAL, CASES = a.root, (), (lambda: [])
     image, hooks = os.environ["PES_EXE"], os.environ["RV_HOOKS"]
     os.makedirs(a.work, exist_ok=True)
     snaps, dirs, synthetic = [], [], sum(bool(p) for _, _, p in CASES())
     res = os.path.join(a.work, "res.json")
     if not a.reuse:
+        for cap in a.capture:  # a real call of the root: nothing is built, the capture is replayed and left untouched
+            trace = os.path.join(a.work, "tr_" + os.path.basename(cap))
+            subprocess.check_call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", cap, "--hooks", hooks, "--out",
+                                   trace, "--spec-dir", SPEC_DIR], stdout=subprocess.DEVNULL)
+            snaps += ["--snapshot", "%s=%s" % (cap, trace)]
         for base, name, plan in CASES():
             cdir = build(a.states, a.work, base, name, plan)
             dirs.append(cdir)
@@ -218,12 +227,15 @@ def main():
     if a.merge and raw is not None and raw["proven"]:
         own = raw["own_block"]
         if ROOT == ACT4:
-            note = ("proof snapdiff (unbounded closure): every replayed call bit-exact, %d of %d. EVERY case is SYNTHETIC (%d): no capture "
-                    "has called the planner yet, so each is a real end-transition entry state (a captured trap tick) whose gate byte is "
-                    "poked so PES's own bytes run to the planner's entry (synth_walk.py --in-call), plus pokes of the planner's inputs "
-                    "(the Trap stage, the action type, the request's float, P+0x3B18; synth_trapkind.py --root 0x1407BA840). The "
-                    "inputs are chosen, not observed; replace with trap_act4_7BA840 captures when they land." % (
-                        raw["replayed"], raw["calls"], synthetic))
+            note = ("proof snapdiff (unbounded closure): every replayed call bit-exact, %d of %d. %d REAL captured call(s) "
+                    "(trap_act4_7BA840) and %d SYNTHETIC cases: a real end-transition entry state (a captured trap tick) whose gate "
+                    "byte is poked so PES's own bytes run to the planner's entry (synth_walk.py --in-call), plus pokes of the planner's "
+                    "inputs (the Trap stage, the action type, the request's float, P+0x3B18; synth_trapkind.py --root 0x1407BA840). "
+                    "The synthetic inputs are chosen, not observed." % (raw["replayed"], raw["calls"], len(a.capture), synthetic))
+        elif ROOT == "0x1406B4580":
+            note = ("proof snapdiff (unbounded closure): every replayed call bit-exact, %d of %d: REAL captured calls "
+                    "(trap_endtrans_6B4580, the call at 0x14079F17D of the trap end transition); the closure reaches the action "
+                    "table's vt+0x68 (0x1407BA840) through the dispatch table." % (raw["replayed"], raw["calls"]))
         else:
             note = ("proof snapdiff (unbounded closure): every replayed call bit-exact, %d of %d. %d REAL entry states of "
                     "the call inside captured ticks (synth_walk.py --in-call) and %d SYNTHETIC cases whose plan bytes (kind word, "
