@@ -1,0 +1,11 @@
+{
+  "label": "contactnoobj",
+  "seed": 1,
+  "as": "0x140862CE0",
+  "fields": [
+    {"name": "obj", "at": "reg:rcx+0x8", "type": "u64", "values": [0]}
+  ],
+  "cases": [
+    {"name": "noobj"}
+  ]
+}

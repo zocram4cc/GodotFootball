@@ -1,0 +1,16 @@
+{
+  "label": "contactxmm",
+  "seed": 1,
+  "as": "0x140862CE0",
+  "fields": [
+    {"name": "x", "at": "xmm2", "type": "f32", "values": [0.5]}
+  ],
+  "cases": [
+    {"name": "x0", "x": 0.0},
+    {"name": "xtiny", "x": 5e-05},
+    {"name": "xsmall", "x": 0.01},
+    {"name": "xneg", "x": -0.5},
+    {"name": "xbig", "x": 3.0},
+    {"name": "xhuge", "x": 1000000.0}
+  ]
+}
