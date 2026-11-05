@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "onthepitch/pesworldrecord.hpp"
+#include "onthepitch/pesball.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
 
@@ -421,6 +422,29 @@ bool PesWorld::Involved(int official) {
   s.gpr[1] = VaOf(frame);  // rcx = A0, the official's per-frame record
   ::pes_fn_140A3A690(s);
   return (s.gpr[0] & 0xFF) != 0;  // al
+}
+
+// PES's frame-rate cells (image globals the selector's chain reads: 0x141E532E0 returns the u32 at 0x14351AE50, 0x141E532D0 the f32 at
+// 0x14351AE54; both read 54 in every capture): a segment beside G's, holding GF's tick rate.
+constexpr uint64_t kFrameRateCellVa = 0x14351AE50;
+
+bool PesWorld::RunPassTarget(int side, uint32_t playState) {
+  uint8_t* brain = Brain(side);
+  StoreU64(brain, kBrainTeamOffset, SideVa(side));  // the tick's bind (step 0): Y+0x6D50 = T, cleared at its end (step 48)
+  PeriodRecord& period = Period();
+  const uint32_t saved = period.playState;
+  period.playState = playState;
+  PesState s = NewCall(Bytes());
+  PesMem::Seg cells{kFrameRateCellVa, std::vector<uint8_t>(2 * sizeof(uint32_t))};
+  const uint32_t whole = static_cast<uint32_t>(kPesTickHz);
+  std::memcpy(cells.bytes.data(), &whole, sizeof whole);
+  std::memcpy(cells.bytes.data() + sizeof whole, &kPesTickHz, sizeof kPesTickHz);
+  s.mem.segs.push_back(std::move(cells));
+  s.gpr[1] = BrainVa(side);  // rcx: Y
+  ::pes_fn_1404FB2A0(s);
+  StoreU64(brain, kBrainTeamOffset, 0);
+  period.playState = saved;
+  return (s.gpr[0] & 0xFF) != 0;
 }
 
 void PesWorld::BindSanction() {

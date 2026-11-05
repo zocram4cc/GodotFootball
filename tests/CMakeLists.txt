@@ -86,6 +86,10 @@ add_executable(pes_walk_oracle_test pes_walk_oracle_test.cpp)
 target_link_libraries(pes_walk_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_walk_oracle_test)
 
+add_executable(pes_teampass_oracle_test pes_teampass_oracle_test.cpp)
+target_link_libraries(pes_teampass_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_teampass_oracle_test)
+
 add_executable(pes_dribble_oracle_test pes_dribble_oracle_test.cpp)
 target_link_libraries(pes_dribble_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_dribble_oracle_test)
