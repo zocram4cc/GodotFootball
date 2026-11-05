@@ -185,6 +185,9 @@ TARGETS = [
     ("team_pass_4FB780", 0x1404FB780, "TeamTick: MI+0x116C==2 stoppage arm"),
     # --- TeamTick2 block (keeper GKDribble carrier unit the pass-target cutover reaches). Append-only.
     ("tt_142132E20", 0x142132E20, "TeamTick2: keeper GKDribble carrier unit kind 0x13"),
+    # --- KickInputs block (the Kick window's missing inputs). Append-only.
+    ("ball_nearest_45B090", 0x14045B090, "KickInputs: writer of the MA+0x2470C ball list (0x140A79640 sort inside)"),
+    ("kick_cell_71E570", 0x14071E570, "KickInputs: Animetable cell lookup; from 0x140724F21 = a successful Kick start"),
 ]
 
 
