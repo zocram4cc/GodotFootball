@@ -1,0 +1,7 @@
+0x1406E9F10	stand-in	restart	seed
+0x1406E9F90	stand-in	restart	seed
+0x141AF3180	stand-in	animation	callee
+0x140A489F0	stand-in	AI	callee
+0x140A581C0	stand-in	gameplay	callee
+0x14124DAD0	stand-in	AI	callee
+0x140A58550	stand-in	AI	callee

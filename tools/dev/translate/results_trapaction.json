@@ -565,6 +565,84 @@
    "va": "0x140862AE0",
    "synthetic": true,
    "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapvirt_f10.json",
+   "coverage": {
+    "0x1406E9F10": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 16 of 16: 0 REAL captured call(s) and 16 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC: this=P+0xAC0 of seq7805's trap man, pokes per synth_specs/trap_virt_f10.json",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 16,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    },
+    "replayed": 16,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E9F10",
+   "synthetic": true,
+   "synthetic_cases": 16
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapvirt_f90.json",
+   "coverage": {
+    "0x1406E9F90": {
+     "reached": 19,
+     "total": 20,
+     "fraction": 0.95
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 13 of 13: 0 REAL captured call(s) and 13 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC: this=P+0xAC0 of seq7805's trap man, pokes per synth_specs/trap_virt_f90.json",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 13,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 19,
+     "total": 20,
+     "fraction": 0.95
+    },
+    "replayed": 13,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E9F90",
+   "synthetic": true,
+   "synthetic_cases": 13
   }
  ]
 }
