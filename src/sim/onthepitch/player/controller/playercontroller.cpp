@@ -85,7 +85,6 @@ void PlayerController::AddDefensiveComponent(Vector3& desiredPosition, float bia
       CastPlayer()->GetFormationEntry().role != e_PlayerRole_GK) {
     if (opponentID != -1) {
       Player* opp = match->GetTeam(abs(team->GetID() - 1))->GetPlayer(opponentID);
-      if (!opp) { fprintf(stderr, "NULLOPP me=%d team=%d oppId=%d forced=%d frame=%d inplay=%d\n", CastPlayer()->GetID(), team->GetID(), opponentID, forcedOppID, match->GetPesFrame(), (int)match->IsInPlay()); for (auto& p : match->GetTeam(abs(team->GetID() - 1))->GetAllPlayers()) fprintf(stderr, " id=%d active=%d\n", p->GetID(), (int)p->IsActive()); abort(); }
 
       // PES 2021's mark spot (docs/re/pes-re-defensive-shape.md 14.3): the
       // goal-side point 6 - 4*ramp(depth) metres from the opponent, 2 m further

@@ -435,6 +435,10 @@ void Team::RunPesPassTarget() {
   }
   const Vector3 ball = match->GetBall()->Predict(0);
   world.SetBallSample(0, ball.coords[0], ball.coords[2], ball.coords[1]);
+  // B+0x2948: the ball's velocity (m/s, PES's axes: x along the pitch, y the height, z across), which the holder tree reads (FUN_140A57720)
+  // to see a ball that has stopped. ponytail: the prediction samples 1..249 (FUN_140A6CF70) stay zero until the ball port writes them.
+  const Vector3 ballMove = match->GetBall()->GetMovement();
+  world.SetBallVelocity(ballMove.coords[0], ballMove.coords[2], ballMove.coords[1]);
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   world.RunPassTarget(id, static_cast<uint32_t>(pes::PlayStateFor(match->IsInPlay(), buffer.active,
                                                                   buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started)));

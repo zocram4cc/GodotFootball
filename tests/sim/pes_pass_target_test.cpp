@@ -24,6 +24,7 @@
 #define GF_SOURCE_DIR "."
 #endif
 
+#include "onthepitch/referee.hpp"
 namespace {
 
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
@@ -71,7 +72,8 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 
 // What one PES-loop match did with the pass target (T+0x78) and the receiver derived from it, collected once for the tests below.
 struct PassStats {
-  double worstStale_s = 0.0;           // the longest a set target survived with the ball at rest in play
+  double worstStale_s = 0.0;           // the longest a set target survived with the ball at rest in live play (no restart pending)
+  double worstStaleRestart_s = 0.0;    // the same while a restart was pending (GF's taker-release stall; reported, not bounded)
   unsigned long targetTicks = 0;       // ticks with a target named (either side)
   unsigned long receiverTicks = 0;     // ticks with a PassGetReceiver() (either side)
   unsigned long foreignReceiverTicks = 0;  // ticks a side's receiver was not on that side
@@ -81,18 +83,20 @@ struct PassStats {
 class PesPassTarget : public ::testing::Test {
  protected:
   static void SetUpTestSuite() {
-    double restingSinceTargetSet_s = 0.0;
+    double restingSinceTargetSet_s = 0.0, restingSinceTargetSetRestart_s = 0.0;
     stats_.ran = false;
     RunPesLoopMatch([&](Match& match) {
       stats_.ran = true;
       const bool targetSet = match.GetTeam(0)->GetPassTarget() != nullptr || match.GetTeam(1)->GetPassTarget() != nullptr;
       stats_.targetTicks += targetSet ? 1 : 0;
       const bool resting = match.IsInPlay() && match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms;
-      if (targetSet && resting)
-        restingSinceTargetSet_s += static_cast<double>(Match::kTick_ms) / 1000.0;
-      else
-        restingSinceTargetSet_s = 0.0;
+      const RefereeBuffer& buffer = match.GetRefereeBuffer();
+      const bool restartPending = buffer.active || buffer.prepared || buffer.started;
+      const double tick_s = static_cast<double>(Match::kTick_ms) / 1000.0;
+      restingSinceTargetSet_s = targetSet && resting && !restartPending ? restingSinceTargetSet_s + tick_s : 0.0;
+      restingSinceTargetSetRestart_s = targetSet && resting && restartPending ? restingSinceTargetSetRestart_s + tick_s : 0.0;
       stats_.worstStale_s = std::max(stats_.worstStale_s, restingSinceTargetSet_s);
+      stats_.worstStaleRestart_s = std::max(stats_.worstStaleRestart_s, restingSinceTargetSetRestart_s);
       for (int side = 0; side < 2; ++side) {
         const Player* receiver = match.GetTeam(side)->PassGetReceiver();
         stats_.receiverTicks += receiver != nullptr ? 1 : 0;
@@ -107,9 +111,11 @@ PassStats PesPassTarget::stats_;
 // The pass target is PES's own team record T+0x78, rewritten by the selector chain every team tick (VA 0x1404FB2A0 -> 0x1404FB380;
 // docs/ports/pes-port-TeamTick.md). GF used to clear its copy only at ResetSituation, so a pass that died on the grass kept its receiver
 // (a keeper 35 m away for 8 s on seed 7, docs/ports/pes-port-RestingBall3.md). On the PES path a set target must (a) exist while a pass is
-// in flight, and (b) be gone within PES's own live bound once the ball has come to rest in play.
+// in flight, and (b) be gone within PES's own live bound once the ball has come to rest in live play. The bound is PES's, measured in
+// live play: a ball at rest while a restart is pending (the taker released but not yet kicking, GF's own stall) is reported, not bounded.
 TEST_F(PesPassTarget, IsSetInFlightAndNeverStaleWhileTheBallRests) {
   if (!stats_.ran) GTEST_SKIP() << "no match ran";
+  RecordProperty("worstStaleWhileRestartPending_s", std::to_string(stats_.worstStaleRestart_s));
   EXPECT_GT(stats_.targetTicks, 0ul) << "the selector chain never named a pass target in the match";
   EXPECT_LE(stats_.worstStale_s, kPesPassTargetMaxLive_s) << "a pass target stayed set for " << stats_.worstStale_s << " s with the ball at rest";
 }

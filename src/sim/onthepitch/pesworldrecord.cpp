@@ -438,7 +438,6 @@ bool PesWorld::RunPassTarget(int side, uint32_t playState, std::vector<std::pair
   AttachImageTables(s);  // the none record the event queries return on an empty ring (kind 0x37), and the 54 Hz cells
   s.mem.wlog = writeLog;
   s.gpr[1] = BrainVa(side);  // rcx: Y
-  if (getenv("TTP")) { PesState q = NewCall(Bytes()); AttachImageTables(q); q.gpr[1] = LoadU64(brain, 0x6D48); ::pes_fn_140A51320(q); const EventStore ev = Events(); const EventRecord* nr = ev.NewestOrRing0(0); fprintf(stderr, "TTP side=%d play=%u frame=%u esi=%d newestKind=%u newestFrame=%d ring1n=%d T78=%u\n", side, playState, MatchFrame(), (int)(q.gpr[0] & 0xFFFFFFFF), nr ? nr->ActionKind() : 0u, nr ? nr->ActionFrame() : -1, ev.RingRecord(1, 0) ? 1 : 0, PassTarget(side)); }
   ::pes_fn_1404FB2A0(s);
   StoreU64(brain, kBrainTeamOffset, 0);
   period.playState = saved;
