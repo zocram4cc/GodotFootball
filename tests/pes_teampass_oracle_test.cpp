@@ -25,6 +25,7 @@ namespace {
 using namespace pes_oracle;
 using pes::LoadU32;
 
+using pes::StoreU32;
 constexpr uint64_t kBrainRegister = 0;  // the captured selector's rcx is the brain Y
 
 // The window's record for a manifest kind and index, or null (G is the window's own; the entries of G's side table that name the side
@@ -86,6 +87,16 @@ uint32_t PesWord(const Oracle& o, uint64_t va) {
   return word;
 }
 
+// Whether PES's own run stored to any byte of the u32 at `va`.
+bool PesWrote(const Oracle& o, uint64_t va) {
+  const std::string w = Field(o.row, "w");
+  for (size_t at = 0; at + 18 <= w.size(); at += 18) {
+    const uint64_t addr = std::strtoull(w.substr(at, 16).c_str(), nullptr, 16);
+    if (addr >= va && addr < va + 4) return true;
+  }
+  return false;
+}
+
 class TeamPassOracle : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -127,7 +138,12 @@ TEST_F(TeamPassOracle, EveryCapturedSelectorCallOnGfsWindowLeavesPesPassTarget) 
     const uint32_t before = static_cast<uint32_t>(Read(o, team + pes::kSidePassTargetOffset, 4));
     const uint32_t want = PesWord(o, team + pes::kSidePassTargetOffset);
     const uint32_t phase = world.Period().playState;
-    const bool answer = world.RunPassTarget(own, phase);
+    std::vector<std::pair<uint64_t, uint8_t>> log;
+    const bool answer = world.RunPassTarget(own, phase, &log);
+    // Where PES's own run stores T+0x78 (even the same value back), GF's window run must store it too.
+    const uint64_t slotVa = pes::PesWorld::SideVa(own) + pes::kSidePassTargetOffset;
+    const bool gfWrote = std::any_of(log.begin(), log.end(), [&](const auto& w) { return w.first >= slotVa && w.first < slotVa + 4; });
+    EXPECT_EQ(gfWrote, PesWrote(o, team + pes::kSidePassTargetOffset)) << dir << ": the store to T+0x78";
     EXPECT_EQ(world.PassTarget(own), want) << dir << ": phase " << phase << ", before " << before;
     EXPECT_EQ(answer, (std::strtoull(Field(o.row, "rax").c_str(), nullptr, 16) & 0xFF) != 0) << dir << ": the answer byte";
     changed += want != before;

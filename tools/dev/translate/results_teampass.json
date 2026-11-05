@@ -1,0 +1,112 @@
+{
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1404F0E50": {
+     "reached": 285,
+     "total": 1000,
+     "fraction": 0.285
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 1 of 1, all REAL captured calls of the root (rendezvous hook team_pass_F0E50; no synthetic case). proof_teampass.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 285,
+     "total": 1000,
+     "fraction": 0.285
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_teampass.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1404F0E50",
+   "closure_file": "closure_teampass.json"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1404FB380": {
+     "reached": 47,
+     "total": 67,
+     "fraction": 0.7015
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 6 of 6, all REAL captured calls of the root (rendezvous hook team_pass_FB380; no synthetic case). proof_teampass.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 47,
+     "total": 67,
+     "fraction": 0.7015
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_teampass.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1404FB380",
+   "closure_file": "closure_teampass.json"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1404FB780": {
+     "reached": 5,
+     "total": 68,
+     "fraction": 0.0735
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (unbounded closure): every replayed call bit-exact, 4 of 4, all REAL captured calls of the root (rendezvous hook team_pass_FB780; no synthetic case). proof_teampass.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 5,
+     "total": 68,
+     "fraction": 0.0735
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_teampass.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1404FB780",
+   "closure_file": "closure_teampass.json"
+  }
+ ]
+}

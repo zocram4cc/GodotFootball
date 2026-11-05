@@ -846,10 +846,9 @@ void Humanoid::Process() {
           }
 
         }  // else: just stick to original
-
-        // PES's T+0x78: the kick writes the team's pass target; the receiver's
-        // run follows from it (Team::PassGetReceiver).
-        team->SetPassTarget(targetPlayer);
+        // GF mode's T+0x78: the kick writes the team's pass target; the receiver's run follows from it (Team::PassGetReceiver). On the
+        // PES path nothing in the kick writes it: PES's selector chain 0x1404FB2A0 computes it every team tick (Team::RunPesPassTarget).
+        if (!match->PesLoop()) team->SetPassTarget(targetPlayer);
 
         float zcurve = 0.0f;
         Vector3 touchVec = ballDirection * pes::kPassTouchSpeedPerPower_mps *

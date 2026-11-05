@@ -184,6 +184,14 @@ public:
   void QueuePesTouch(Player* player, uint32_t actionKind);
   // The player a store key names: his side's squad at the key's slot. Null for an invalid key.
   Player* GetPesActorPlayer(const pes::ActorKey& key);
+  // The player a PES slot id names (side * 11 + squad place, as PesSlotOf makes it): null for 0xFF and any id past the 22 men.
+  Player* GetPesSlotPlayer(uint32_t slot) {
+    if (slot >= 2 * static_cast<uint32_t>(pes::kSlotsPerSide)) return nullptr;
+    pes::ActorKey key;
+    key.team = slot / pes::kSlotsPerSide;
+    key.slot = slot % pes::kSlotsPerSide;
+    return GetPesActorPlayer(key);
+  }
   // The store key of a player: his side and his squad index.
   pes::ActorKey PesActorKeyOf(const Player* player);
   // The PES slot (side * 11 + squad place) of an on-pitch player: the table entries and block holding his records.

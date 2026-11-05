@@ -428,7 +428,7 @@ bool PesWorld::Involved(int official) {
 // 0x14351AE54; both read 54 in every capture): a segment beside G's, holding GF's tick rate.
 constexpr uint64_t kFrameRateCellVa = 0x14351AE50;
 
-bool PesWorld::RunPassTarget(int side, uint32_t playState) {
+bool PesWorld::RunPassTarget(int side, uint32_t playState, std::vector<std::pair<uint64_t, uint8_t>>* writeLog) {
   uint8_t* brain = Brain(side);
   StoreU64(brain, kBrainTeamOffset, SideVa(side));  // the tick's bind (step 0): Y+0x6D50 = T, cleared at its end (step 48)
   PeriodRecord& period = Period();
@@ -440,6 +440,7 @@ bool PesWorld::RunPassTarget(int side, uint32_t playState) {
   std::memcpy(cells.bytes.data(), &whole, sizeof whole);
   std::memcpy(cells.bytes.data() + sizeof whole, &kPesTickHz, sizeof kPesTickHz);
   s.mem.segs.push_back(std::move(cells));
+  s.mem.wlog = writeLog;
   s.gpr[1] = BrainVa(side);  // rcx: Y
   ::pes_fn_1404FB2A0(s);
   StoreU64(brain, kBrainTeamOffset, 0);

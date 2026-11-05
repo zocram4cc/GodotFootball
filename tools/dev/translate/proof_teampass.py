@@ -67,7 +67,8 @@ def main():
     hooks = a.hooks or os.path.join(os.environ["PES21_ROOT"], DEFAULT_HOOKS)
     os.makedirs(a.work, exist_ok=True)
     doc = json.load(open(RESULTS)) if os.path.exists(RESULTS) else {"results": []}
-    members_all = set()
+    closure_path = os.path.join(HERE, CLOSURE_FILE)
+    members_all = set(json.load(open(closure_path))["members"]) if os.path.exists(closure_path) else set()
     for spec in a.roots:
         root, caps = spec.split("=", 1)
         root = "0x%X" % int(root, 16)

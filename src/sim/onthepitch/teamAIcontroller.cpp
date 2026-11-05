@@ -2525,18 +2525,11 @@ void TeamAIController::PesSecondPresserTick() {
       holder = static_cast<int>(key.team) * pes::kPressSideMen + static_cast<int>(key.slot);
   }
   const bool holderValid = holder < pes::kPressTeamMen;
-  // The newest valid ring-0 touch: the T+0x78 stand-in for this side's last kick (the real writer is OPEN; the
-  // opponent-kick fallback T_opp+0x78 is absent).
-  pes::ActorKey touch{};
-  bool touchValid = false;
-  for (int n = 0; n < 8 && !touchValid; ++n) {
-    const pes::NewestEventView view = pes::EventAt(match->GetPesEvents(), n);
-    touchValid = view.present && view.actor.Valid() && view.actor.team < 2 && view.actor.slot < pes::kPressSideMen;
-    if (touchValid) touch = view.actor;
-  }
-  const bool kickValid = touchValid && static_cast<int>(touch.team) == side;
-  const int kickMan = kickValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
-                                : pes::kPressNoMan;
+  // T+0x78 of this side: the window's pass target, written by PES's selector chain 0x1404FB2A0 (Team::RunPesPassTarget; it replaces the
+  // newest-touch stand-in this read had). The press numbers the men side * 11 + slot, T+0x78's own numbering.
+  const uint32_t passTargetSlot = match->PesWorldOf().PassTarget(side);
+  const bool kickValid = passTargetSlot < 2 * static_cast<uint32_t>(pes::kPressSideMen);
+  const int kickMan = kickValid ? static_cast<int>(passTargetSlot) : pes::kPressNoMan;
 
   // The men by team index (side * 11 + slot), and this side's slot words.
   pes::PressEvalInput in;

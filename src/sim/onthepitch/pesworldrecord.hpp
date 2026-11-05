@@ -81,6 +81,9 @@ inline constexpr std::size_t kMatchInfoPeriodOffset = 0x1168;
 // the decode's). Offsides are the three words the involvement reads at play state 1.
 inline constexpr std::size_t kMiRestartArmedOffset = 0x11B2;    // u8: the restart-armed flag (116C == 3)
 inline constexpr std::size_t kMiWalkStateOffset = 0x1775;     // u8: the FSM byte the carrier walk vetoes passes and clears on (3, 9, 10)
+// MI+0x1748 + slot (0..21): the man's on-pitch byte (the selector's chain tests it before naming a man; captured 1 for each of the 22 men
+// on the pitch, pes-re-holder-tree.md section 2 "on-pitch [+0x1748]").
+inline constexpr std::size_t kMiOnPitchOffset = 0x1748;
 inline constexpr std::size_t kMiOffsideFlagOffset = 0x1544;    // u32: 0 none, 1 flagged
 inline constexpr std::size_t kMiOffsideAOffset = 0x1548;       // u32
 inline constexpr std::size_t kMiOffsideBOffset = 0x154C;       // u32: the offside category
@@ -214,6 +217,10 @@ inline constexpr std::size_t kManVelYOffset = 0x578;        // f32
 inline constexpr std::size_t kManVelZOffset = 0x57C;        // f32
 inline constexpr std::size_t kManActionOffset = 0x5D0;      // s32 action word
 inline constexpr std::size_t kManActionPrevOffset = 0x5D4;  // s32
+// The man record's AI action word values the selector's chain reads: 5 = PASS_GET (the mover's state for the team's pass target,
+// pes-re-receiving.md 2) and the idle word 1 that 14 of the 22 men carried in the captured in-play team tick (seq732).
+inline constexpr uint32_t kActionPassGet = 5;
+inline constexpr uint32_t kManActionIdle = 1;
 inline constexpr std::size_t kManTouchingOffset = 0x661;    // u8 bool
 inline constexpr std::size_t kManRepeatOffset = 0x6B8;      // s32 repeat count
 // The man record's bound: the slot record starts after it (pes-re-player-record.md 1.3).
@@ -776,8 +783,8 @@ class PesWorld {
   // pass-target selector 0x1404FB2A0 on the window (it reaches 0x1404FB380 and 0x1404F0E50 on the window's own records). Returns the
   // selector's answer byte (0x1404FB2A0's al: whether the id changed). The caller stages the records the chain reads first.
   // `playState` is MI+0x116C (the window's period record holds it only under the PES loop; the caller's PlayStateFor stands in, restored
-  // after the call, as RunEntryAim does).
-  bool RunPassTarget(int side, uint32_t playState);
+  // after the call, as RunEntryAim does). `writeLog` (tests) collects every byte the chain stores, by window VA.
+  bool RunPassTarget(int side, uint32_t playState, std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr);
   static constexpr uint64_t MaVa(int side) { return kWorldWindowVa + kMaOffset + static_cast<uint64_t>(side) * kMaBytes; }
   static constexpr uint64_t EventsVa() { return kWorldWindowVa + kEventsOffset; }
   uint8_t* Ctx(int side) { return image_->ctx[side].bytes.data(); }
