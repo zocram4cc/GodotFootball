@@ -459,19 +459,46 @@ void PesWorld::RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext) {
   ReturnSegments(st, ext, lent);
 }
 
-bool PesWorld::RunKickGate(int slot, PesTrapExternals& ext) {
-  PesState st = NewCall(Bytes());
-  const std::size_t lent = LendExternals(st, ext);
-  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
-  st.wr(entry, 0, 8);
-  st.gpr[4] = entry;
-  // rcx: the Kick object (the table's pointer for the pass id: ids 8, 9 and 10 name one object); the gate reads only P.
-  st.gpr[1] = LoadU64(P(slot), kPActionTableOffset + kActionTablePointersOffset + sizeof(uint64_t) * kKickPassActionId);
-  st.gpr[2] = PVa(slot);  // rdx: P
-  st.mem.wlog = ext.writeLog;
-  ::pes_fn_1407266B0(st);
-  ReturnSegments(st, ext, lent);
-  return (st.gpr[0] & 0xFF) != 0;
+PesKickStartResult PesWorld::RunKickStart(int slot, const PesKickOrder& order, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+
+  // FUN_140724CC0's arguments: rcx the Kick object (the action table's pointer for the pass ids 8, 9 and 10: one object), rdx P, r8
+  // the ball record (0x140725082 asks it for the predicted ball), r9 the info record whose +0xB8 is the cmd the builder takes and
+  // whose +0x70 / +0x75 bytes feed its request (0 in every captured call), and the output record at [rsp + 0x28].
+  // ponytail: the info record's cmd is GF's decision at the tick it selects the animation (the AI order writer FUN_14210E790 -> the
+  // BP command is OPEN: docs/ports/pes-port-KickHeader.md section 4); the order's other bytes are PesKickOrder's named defaults.
+  // Remove with that writer.
+  const uint64_t entry = kStackVa + kStackBytes - kKickFrameBytes;
+  const uint64_t infoVa = entry + kKickInfoFrameOffset, cmdVa = entry + kKickCmdFrameOffset, recordVa = entry + kKickRecordFrameOffset,
+                 outVa = entry + kKickOutFrameOffset;
+  s.wr(entry, 0, 8);
+  for (std::size_t i = 0; i < kKickInfoCmdOffset; ++i) s.wr(infoVa + i, 0, 1);
+  for (std::size_t i = 0; i < kKickOutBytes; ++i) s.wr(outVa + i, 0, 1);
+  s.wr(cmdVa, static_cast<uint32_t>(order.action), 4);
+  s.wr(cmdVa + kCmdRecordPtrOffset, recordVa, 8);
+  s.wr(cmdVa + kCmdKindOffset, static_cast<uint32_t>(order.kind), 4);
+  for (std::size_t i = 0; i < kKickOrderRecordBytes; ++i) s.wr(recordVa + i, order.record[i], 1);
+  s.wr(entry + kKickArg5Offset, outVa, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = LoadU64(P(slot), kPActionTableOffset + kActionTablePointersOffset + sizeof(uint64_t) * kKickPassActionId);
+  s.gpr[2] = PVa(slot);
+  s.gpr[8] = BallVa();
+  s.gpr[9] = infoVa;
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_140724CC0(s);
+  ReturnSegments(s, ext, lent);
+  PesKickStartResult r;
+  r.started = (s.gpr[0] & 0xFF) != 0;
+  if (r.started) {
+    const uint8_t* p = P(slot);
+    r.kind = static_cast<int>(LoadU32(p, kPKickKindOffset) & 0xFFFF);
+    r.band = p[kPKickBandOffset];
+    r.bucket = p[kPKickBucketOffset];
+    r.side = p[kPKickSideOffset];
+    r.motion = static_cast<int>(s.mem.rd(outVa + kKickOutMotionOffset, 4));
+  }
+  return r;
 }
 
 std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float seconds, PesTrapExternals& ext) {

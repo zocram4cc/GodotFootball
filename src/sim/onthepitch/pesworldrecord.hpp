@@ -899,10 +899,12 @@ class PesWorld {
   void RunPlayerUpdate(int slot, PesTrapExternals& ext);
   // A P-only translated function (rcx = P) on the window with the externals lent.
   void RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext);
-  // PES's Kick can-enter gate FUN_1407266B0 (the Kick object's vtable slot 2, translated, set kick; 11/11 real) on `slot`'s P, as the
-  // Kick start FUN_140724CC0 asks it first (0x140724CD7): the pitch margin, the ball-distance and kick-off tests, the ball-height
-  // band from the joint block (P+0xB90), and the current action's own refusal. Requires RunAnimeJoints / RunPlayerUpdate this tick.
-  bool RunKickGate(int slot, PesTrapExternals& ext);
+  // PES's Kick start FUN_140724CC0 (the Kick action's vtable slot 13; translated, set kick; 11 real kick_try calls, one of which starts a
+  // kick, and SYNTHETIC states for the branches no real call took) on `slot`'s P, as the AI order path calls it each tick until it
+  // answers: the Kick object (the action table's pointer for the pass ids), P, the ball record, the info record whose +0xB8 holds the
+  // order's cmd, and the output record. The can-enter gate, the request builder, the chooser, the clip row and the Animetable cell are
+  // PES's own inside it. Requires RunAnimeJoints / RunPlayerUpdate this tick (the gate reads the joint block).
+  PesKickStartResult RunKickStart(int slot, const PesKickOrder& order, PesTrapExternals& ext);
   // PES's root-motion reader FUN_141AFDF10 (translated, set kickroot) on `slot`'s chain, as the kick geometry test FUN_140829E80 calls
   // it at 0x14082B02F: the displacement the clip of `motion` has made by `seconds` into it (x, y, z, w; the mover track's position in
   // PES axes), evaluated through the player's pose slot.

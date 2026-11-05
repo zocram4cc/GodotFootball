@@ -81,7 +81,6 @@ int KickMotionDescriptor(const KickMotionConstants& k, const Mbinfo& mbinfo, int
 // GF keeps them with the animation it starts that tick, for the contact frame's error draw.
 struct PesKickPick {
   int kind = 0, band = 0, bucket = 0, side = 0;
-  bool flagA = false;
   int motion = 0;
 };
 

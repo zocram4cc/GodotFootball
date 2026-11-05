@@ -94,18 +94,15 @@ pes::KickWorld PesKickWorld(Match* match, Player* player, const pes::SituationCo
   return w;
 }
 
-// PES's Kick start (vtable slot 13 of the Kick action, FUN_140724CC0 0x140724DEF..0x1407253AC), tried every tick from the AI's
-// first ask (FUN_1409316E0 and the Kick's own tick FUN_14071A250, both through FUN_1406B4580): the request builder FUN_140833CD0 over the
-// order, the chooser FUN_1408364D0 on its request, the clip table row FUN_14071E6F0 and the Animetable cell FUN_14071E570 for the
-// chosen kind (the alternate kind at descriptor +0x28 when the kind is none), and it returns 1 only when the cell exists
-// (FUN_1406ABDD0): P+0x2752.. and the action start follow. Null = it returns 0 and PES starts no Kick this tick.
-// ponytail: the Kick object's own fields are not ported (RunKickRequest names them). The order is GF's decision at the tick it selects
-// the animation (the commanded direction and power, the commanded receiver; a shot's aim is extended to the goal line it faces): the
-// AI order writer (FUN_14210E790 -> the BP command, cmd+0x5EC record) is OPEN (docs/ports/pes-port-KickHeader.md section 4). Remove
-// with the Kick action object.
-std::optional<pes::PesKickPick> PesKickStart(Match* match, Player* player, const pes::KickErrorConstants& k, e_FunctionType type,
-                                             bool header, const TouchInfo& touch) {
-  const pes::SituationConstants& c = k.situation;
+// PES's Kick start (vtable slot 13 of the Kick action, FUN_140724CC0), tried every tick from the AI's first ask (FUN_1409316E0 and the
+// Kick's own tick FUN_14071A250, both through FUN_1406B4580), translated and run whole (PesWorld::RunKickStart): the can-enter gate
+// FUN_1407266B0, the request builder FUN_140833CD0 over the order, the chooser FUN_1408364D0, the clip table row FUN_14071E6F0 and the
+// Animetable cell FUN_14071E570 for the chosen kind (the alternate kind when the kind is none); it returns 1 only when the cell exists,
+// and then P+0x2752.. and the action start follow. Null = it returns 0 and PES starts no Kick this tick.
+// ponytail: the order is GF's decision at the tick it selects the animation (the commanded direction and power, the commanded
+// receiver; a shot's aim is extended to the goal line it faces): the AI order writer (FUN_14210E790 -> the BP command, cmd+0x5EC
+// record) is OPEN (docs/ports/pes-port-KickHeader.md section 4). Remove with that writer.
+std::optional<pes::PesKickPick> PesKickStart(Match* match, Player* player, e_FunctionType type, bool header, const TouchInfo& touch) {
   const int request = PesRequestOf(type, header);
   const Vector3 ballAt = match->GetBall()->TrackSample(0);
   const Vector3 dir = touch.desiredDirection.GetNormalized(Vector3(0));
@@ -127,22 +124,11 @@ std::optional<pes::PesKickPick> PesKickStart(Match* match, Player* player, const
   const float launchHeading_deg = pes::PesHeadingDeg(launch.coords[0], -launch.coords[1]);
   const int slot = match->PesSlotOf(player);
   pes::PesWorld& world = match->PesWorldOf();
-  // The can-enter gate comes first (FUN_140724CC0 0x140724CD7, the Kick object's vtable slot 2): a refusal is the same none answer.
-  if (!world.RunKickGate(slot, match->PesTrapExternalsOf())) return std::nullopt;
-  const pes::PesKickRequest built = world.RunKickRequest(
+  const pes::PesKickStartResult r = world.RunKickStart(
       slot, pes::KickOrderFor(request, target, receiver, launchHeading_deg, touch.desiredPower, launch.GetLength()),
       match->PesTrapExternalsOf());
-  const pes::PesKickDescriptor d = world.RunKickChooser(slot, built, match->PesTrapExternalsOf());
-  const int kind = d.ChosenKind();
-  if (kind == pes::kKickNoKind) return std::nullopt;
-  const pes::KickWorld w = PesKickWorld(match, player, c);
-  // ponytail: the kick motion's inputs the chooser's descriptor does not carry are not ported: request +8 (the scale FUN_140833CD0
-  // writes), FUN_1406EAD40's action bit (ap+0x2458 class record) is 0, MI+0x1554 == 1 is false (meaning not decoded), and the
-  // per-player motion swaps FUN_1406B3560/B3780 (table DAT_1436F2600) are not applied. Remove each as its PES writer lands.
-  const int row = pes::KickRow(match->GetPesKickMotionConstants(), c, request, kind, d.Band(), d.Side(), 0.0f, d.FlagA() != 0, false, &w);
-  const int motion = row == pes::kNoClipRow ? -1 : pes::KickMotion(match->GetPesAnimetable(), row, d.Bucket());
-  if (motion <= 0) return std::nullopt;
-  return pes::PesKickPick{kind, d.Band(), d.Bucket(), d.Side(), d.FlagA() != 0, motion};
+  if (!r.started) return std::nullopt;
+  return pes::PesKickPick{r.kind, r.band, r.bucket, r.side, r.motion};
 }
 
 // The kicker-record fields Q reads (docs/re/pes-re-kick-kinds.md 3), in PES units: z = -GF y, metres per PES tick.
@@ -2978,12 +2964,8 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   }
 
   // PES's Kick action starts on the tick its Kick start (FUN_140724CC0, PesKickStart) answers a kind with a clip; until then the AI's
-  // order stays pending and the pair runs again next tick. Restarts are PES's own actions (the kind stays -1 there), not a Kick start.
-  // ponytail: GF's window gives the chooser no real answer yet (one 2-minute seed-7 match: 16,300 tries, 16,300 none, none of them
-  // refusable without ending every open-play kick: 16 kicks, all restarts; docs/ports/pes-port-KickTick.md section 3), so the kick
-  // starts on a none pick: kind none, no clip, the descriptor the touch-time call gave. Remove the stand-in (and let the none answer
-  // clear selectedAnimID) when the window holds what the none answers lack: the MA arrival list MA+0x2470C.., the anime player's
-  // pose slot (FUN_141AF7A90) and the Kick action object.
+  // order stays pending and the pair runs again next tick: a none answer clears the selection. Restarts are PES's own actions (the
+  // kind stays -1 there), not a Kick start.
   std::optional<pes::PesKickPick> pesKick;
   if (selectedAnimID != -1 && match->PesLoop() && match->IsInPlay() && !match->IsInSetPiece() &&
       (command.desiredFunctionType == e_FunctionType_ShortPass ||
@@ -2992,11 +2974,11 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
        command.desiredFunctionType == e_FunctionType_Shot)) {
     pes::KickMotionStats& stats = match->PesKickMotionStats();
     ++stats.tries;
-    pesKick = PesKickStart(match, CastPlayer(), match->GetPesKickErrorConstants(), command.desiredFunctionType,
+    pesKick = PesKickStart(match, CastPlayer(), command.desiredFunctionType,
                            IsHeader(anims->GetAnim(selectedAnimID)->GetVariable("touch_bodypart")), command.touchInfo);
     if (!pesKick) {
       ++stats.answeredNone;
-      pesKick = pes::PesKickPick{pes::kKickNoKind, kPesNoBand, kPesNoBucket, 0, false, 0};
+      selectedAnimID = -1;
     }
   }
 

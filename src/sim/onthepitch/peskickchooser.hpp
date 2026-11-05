@@ -135,4 +135,22 @@ inline constexpr std::size_t kKickRecordFrameOffset = 0x420;  // the order recor
 inline constexpr std::size_t kKickArg8WordFrameOffset = 0x580;
 inline constexpr std::size_t kCmdRecordPtrOffset = 0x8, kCmdKindOffset = 0x1C;
 
+// The Kick start's own arguments (FUN_140724CC0): r9 is the info record whose +0xB8 is the cmd (it passes r9+0xB8 to the builder at
+// 0x140724DBC; cmd +0x1C is r9+0xD4, read at 0x140724D57), and the fifth argument, at the entry rsp + 0x28 (kKickArg5Offset), points
+// to the output record: +0 and +4 words, +0x24 a vector, +0x3C the Animetable motion the cell named, +0x50 a count. The record sits above the order in the
+// frame; the info record is the frame bytes below the cmd.
+inline constexpr std::size_t kKickInfoCmdOffset = 0xB8;
+inline constexpr std::size_t kKickInfoFrameOffset = kKickCmdFrameOffset - kKickInfoCmdOffset;
+inline constexpr std::size_t kKickOutFrameOffset = 0x5A0, kKickOutBytes = 0x58, kKickOutMotionOffset = 0x3C;
+// What the Kick start stores in the kicker's P on a start (0x140724F25..0x140724F4E): the kind (u16), band, bucket and side (bytes).
+inline constexpr std::size_t kPKickKindOffset = 0x2752, kPKickBandOffset = 0x2754, kPKickBucketOffset = 0x2755,
+                             kPKickSideOffset = 0x2756;
+
+// The Kick start's answer: started = it returned 1 (the cell exists: PES starts the Kick action); the kind, band, bucket and side it
+// stored in P and the Animetable motion it wrote to the output record.
+struct PesKickStartResult {
+  bool started = false;
+  int kind = kKickNoKind, band = 0, bucket = 0, side = 0, motion = 0;
+};
+
 }  // namespace pes
