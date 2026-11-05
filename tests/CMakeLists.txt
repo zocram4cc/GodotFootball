@@ -347,6 +347,12 @@ add_test(NAME translate_select_recorded_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_select_recorded.py)
 set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
 
+# synth.py: one spec on a small fixture writes byte-identical states twice, perturbs only its fields, retargets "as", and refuses
+# an unknown key. Plain python3 (the static path needs no harness Python).
+add_test(NAME translate_synth_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_synth.py)
+set_tests_properties(translate_synth_test PROPERTIES TIMEOUT 120)
+
 # capz.py (capture pack/unpack): a full capture round-trips byte-identical, a sparse slim one is never packed and unpacks
 # sparse. Plain python3 + zstd.
 add_test(NAME capz_test

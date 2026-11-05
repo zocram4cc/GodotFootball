@@ -2,14 +2,14 @@
 """synth_members.py: the per-function proofs of the dribble proposal chain's members that no captured or forward-emulated
 state calls (DribbleProposal3/4's eleven small ones; 0x14063D2F0 is called by real angle captures and is proven on those).
 
-Every case is SYNTHETIC: synth_call.py keeps the memory of one forward-emulated state (the kind step 0x14212FE70's entry state,
-synth_walk.py --entry 0x14212FE70 from a danger_builder_2119390 capture) and sets the registers (and a few poked bytes in
-scratch stack space) of a call of the member; the harness runs PES's bytes on it, the translated body runs over the same
-pages, and snapdiff.py --bounded compares the return value and every written byte. The records are merged into
+Every case is SYNTHETIC: synth.py writes the member's call ("as") over the memory of one forward-emulated state (the kind step
+0x14212FE70's entry state: a run from a danger_builder_2119390 capture, "start": "return", "entry" = "stop" = 0x14212FE70),
+with the registers (and a few poked bytes in scratch stack space) chosen; the harness runs PES's bytes on it, the translated body
+runs over the same pages, and snapdiff.py --bounded compares the return value and every written byte. The records are merged into
 results_dribble.json marked `synthetic`, with the case count.
 
 Usage: PES_EXE=<pes_full.bin> RV_HOOKS=<hooks.cfg> python3 synth_members.py STATE_DIR WORK_DIR [--only 0xVA ...] [--merge]
-  STATE_DIR  synth_walk.py --entry 0x14212FE70 output (keep it whole: it is PES's memory)
+  STATE_DIR  the synth.py state at the kind step's entry 0x14212FE70 (keep it whole: it is PES's memory)
   WORK_DIR   scratch: one small dir per case (mem.bin is a link, or a sparse copy where bytes are poked; deleted per case)
 Harness Python (unicorn). Not part of the gate: the proofs are committed as results_dribble.json records.
 """
@@ -23,7 +23,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import synth_call as sc  # noqa: E402
+import synth as sy  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness", "specs", "dribble")
@@ -46,10 +46,10 @@ class State:
         self.path = path
         self.index = json.load(open(os.path.join(path, "index.json")))
         self.vals = struct.unpack("<49Q", open(os.path.join(path, "call.bin"), "rb").read())
-        self.reg = dict(zip(sc.GPR_ORDER, self.vals[:16]))
+        self.reg = dict(zip(sy.GPR_ORDER, self.vals[:16]))
 
     def u64(self, va):
-        return struct.unpack("<Q", sc.read_state(self.path, self.index, va, 8))[0]
+        return struct.unpack("<Q", sy.read_capture(self.path, self.index, va, 8))[0]
 
 
 def cases(st):
@@ -102,20 +102,22 @@ def resolve(st, v):
 
 
 def build_case(st, work, va, case):
+    """One SYNTHETIC state: the walk state's memory, the member's entry (as), the case's registers and pokes (synth.py)."""
     label = "%s_%s" % (va[2:], case["name"])
-    cdir = os.path.join(work, "case_" + label)
-    regs = ["%s=%#x" % (r, resolve(st, v)) for r, v in case["regs"].items()]
-    pokes = []
-    for where, hexbytes in case.get("pokes", []):
+    name = "case_" + label
+    fields, values = [], {"name": name}
+    for r, v in case["regs"].items():
+        fields.append({"name": r, "at": r, "type": "u32" if r in sy.REG32 else "u64"})
+        values[r] = resolve(st, v)
+    for i, (where, hexbytes) in enumerate(case.get("pokes", [])):
         base, _, off = where.partition("+")
-        pokes.append("%#x%s=%s" % (resolve(st, base), "+" + off if off else "", hexbytes))
-    cmd = [sys.executable, os.path.join(HERE, "synth_call.py"), st.path, cdir, "--entry", va]
-    for r in regs:
-        cmd += ["--reg", r]
-    for p in pokes:
-        cmd += ["--poke", p]
-    subprocess.check_call(cmd)
-    return label, cdir
+        fields.append({"name": "poke%d" % i, "at": "va:%#x%s" % (resolve(st, base), "+" + off if off else ""), "type": "hex"})
+        values["poke%d" % i] = hexbytes
+    spec_path = os.path.join(work, name + ".spec.json")
+    with open(spec_path, "w") as f:
+        json.dump({"seed": 0, "as": va, "cases": [values], "fields": fields}, f)
+    subprocess.check_call([sys.executable, os.path.join(HERE, "synth.py"), st.path, work, "--spec", spec_path])
+    return label, os.path.join(work, name)
 
 
 def committed(va, res_path, note, synthetic_cases):
@@ -168,7 +170,7 @@ def main():
                          os.path.join(a.work, "build_" + va[2:]), "--spec-dir", SPEC_DIR, *snaps, "--only", va, "--hooks", hooks,
                          "--bounded", "--results", res])
         rec = committed(va, res, "SYNTHETIC: %d call state(s) whose registers%s are chosen over the memory of one forward-emulated "
-                        "state (synth_call.py, synth_members.py; the kind step 0x14212FE70's entry state, synth_walk.py --entry). "
+                        "state (synth.py, synth_members.py; the kind step 0x14212FE70's entry state). "
                         % (len(cs), " and a few poked scratch bytes" if any(c.get("pokes") for c in cs) else ""), len(cs))
         if rec is not None:
             records.append(rec)

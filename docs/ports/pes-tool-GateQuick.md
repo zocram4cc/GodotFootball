@@ -1,74 +1,74 @@
-# Tool report: two-stage gate (GATE_TIER=branch) and the sim-slot priority queue (GateQuick)
+# Tool report: branch tier (GATE_TIER=branch) and sim-slot priority queue (GateQuick, revision 2)
 
-Branch `GateQuick`, origin tip `ec72d49a` (confirmed by `git ls-remote origin GateQuick`), based on origin/main `784ffd5d`.
-Commits: `833841a6` (red tests), `99e9598a` (queue, gate queues its pair), `b958f17c` (branch selector), `9a51b28a`
-(submodule-free diff), `d797c1dd` (repository-root argument adds no inputs), `ec72d49a` (tracked changes only).
-The two gate runs below were on `d797c1dd`; `ec72d49a` differs only in `git_diff` (tracked files only) and one README sentence.
-`branch_select_test` and `simslot_queue_test` were rerun on `ec72d49a`: both green.
+Branch `GateQuick`, tip `5b137b34` (origin, confirmed by `git ls-remote`). Base: origin/main `784ffd5d`.
 
-## What changed
+Revision 1 reported `GATE branch: GREEN` on a tool-only sample. That result is superseded: its run executed 3 of the 8 tests it
+selected (section 1, item 3). The queue (`simslot.sh`) is unchanged since revision 1.
 
-1. **`tools/dev/simslot.sh`: priority FIFO queue.** Same slot files (`$lock` = slot 0, `$lock.N`), so jobs still on the old
-   script and plain `flock gf-sim.lock` holders still count. Waiters queue in `$lock.queue` as `<priority>-<arrival ns>-<pid>`.
-   Only the lowest live ticket probes the slots. A waiter that is not the head holds nothing, so a head that holds part of its
-   set cannot deadlock a gate. `GF_SIM_PRIORITY` (default 5; gates 0), `GF_SIM_HOLD` (default 1), `GF_SIM_PIN` (candidate
-   slots), `GF_SIM_HELD` exported to the command. Kept: 6-slot default and the `MemAvailable` check (`GF_SIM_MIN_AVAILABLE_MIB`,
-   5800), now applied to each slot admission. The poll is 0.5 s and runs only in the head's probe (was 1 s in every waiter).
-2. **`tools/dev/gate.sh`.** Pair logic removed (pair polling, 600-s fallback, 12,000 MiB third-pair rule). The gate holds two
-   slots from the queue at priority 0 (`GATE_SLOTS` now pins candidates). New `GATE_TIER=branch`: build, both 2-minute smokes,
-   the recorded re-checks (same `select_recorded.py`), the ledger, and ctest with `-R` on the branch selection, minus
-   `SimMatch.*` and `gfsim_run_test` as in fast. Verdict `GATE branch:`; only fast lands.
-3. **`tools/dev/branch_select.py`: the selection.** A test runs when one of its inputs changed since the merge base:
-   - its binary's build closure (`ninja -t inputs`: sources, headers, every static archive object it links). A sim source
-     therefore selects every gfsim binary, including the seeded families (their matches run the same sim). A pesfmt-only binary
-     is not selected by a sim source;
-   - build outputs its command names (`gfsim_run`), repository files it names, and for a script or data file its directory
-     recursively (roots `tools/ tests/ src/ apps/ godot/ assets/ extern/` contribute only the file); `res://` names `godot/`,
-     `tools/godot.sh` adds the extension's closure;
-   - EXTRA inputs the command does not name: `src/pes/translated` for `diff_translated_drift`, `tools/dev/parity.py` for
-     `parity_metrics_test`;
-   - always on: `repo_pii_scan` and the five `diff_*_recorded` tests; fixture setup tests run with their dependants.
-   - Conservative fallbacks: a change under `assets/` selects every test; a changed CMake line naming a test selects it; a
-     changed CMake line naming none (flag, include, subdirectory, variable), or a changed CMake file without lines, selects every test.
-   - Ceiling: closures are static-library granular.
-4. **Tests** (registered at the end of `tests/CMakeLists.txt`):
-   - `simslot_queue_test` (`tools/dev/test_simslot.py`, scratch lock in the build dir): (a) three tickets, A(5), B(0), C(5) in
-     arrival order run B, A, C; (b) six commands on two slots, never more than two at once and two are used; (c) a head that
-     loses its place gives back its partial hold (a priority-0 gate overtakes it and finishes); (d) memory below the threshold
-     blocks admission, and SIGTERM leaves no ticket; (e) a plain `flock` holder of slot 0 is respected.
-   - `branch_select_test` (`tools/dev/test_branch_select.py`, against this build's ninja graph): a sim source selects
-     `pes_judge_test` and the seeded `pes_restart_delay_test`, not `pes_fdc_test`; a test source selects its own binary only;
-     a docs change selects only the always-on tests; an assets change selects every test; a CMake line naming a test selects it;
-     a CMake line naming none selects every test.
-5. **`tools/dev/README.md`**: tier table (branch column), the branch-tier rules, the queue, and the changed knobs.
+## 1. What was wrong, and the fixes
 
-## Verification (run here)
+1. **The selection overflowed ctest's regex engine.** The branch tier passed the selection as a name regex (`ctest -R`). Over
+   985 of this build's 2,337 names it matched nothing (the full list gives `Total Tests: 0`, exit 0). RestingBall4's sim branch
+   failed with "Expression too big", and gate.sh then exited silently at its summary grep under `set -e`. Fixed: the selection
+   reaches ctest as a list of test numbers (`ctest -I 0,0,0,<n>,...`), and the summary and verdict no longer abort silently.
+2. **The repository root expanded to the whole tree.** `gfsim_run_test` and `branch_select_test` take the repository root as an
+   argument. `os.path.relpath(root, repo)` is `"."`, not `""`, so the guard missed it and every change selected both tests. That
+   inflated RestingBall4's sim-source count to 2,311. Fixed in `8037da6a`; the docs test now asserts the exact always-on set (red on
+   the old code, which also selected `gfsim_run_test` and `branch_select_test`).
+3. **`-E` beside `-I` ran the wrong tests (the false GREEN).** The gate passed its `-E` (`SimMatch.*`, `gfsim_run_test`). ctest
+   numbers the `-I` list after `-E`, so my unfiltered numbers pointed past the end of the list. The run executed 3 of 8 tests
+   (`repo_pii_scan`, `simslot_queue_test`, `branch_select_test`) and reported `100% tests passed`; the five recorded re-checks
+   never ran. Fixed in `5b137b34`: the selector applies the exclusion (`branch_select.py --exclude`); the branch run takes no `-E`;
+   the verdict compares the count from `ctest -N -I` with the count the run reports, and any difference is RED. The `-R` form
+   (revision 1) was not affected, because names select directly.
+4. I edited `gate.sh` while the branch run was executing it (bash reads a script by byte offset, so the run could not be trusted).
+   I cancelled that run (bg_647; no processes of mine were left) and restarted on the committed file.
 
-- Build `cmake --build` rc 0 (1,369 s, ccache-warm). `simslot_queue_test` 5/5 green (16.8 s); `branch_select_test` 6/6 green (19–31 s).
-- Red check: the queue tests on the pre-change `simslot.sh` (784ffd5d): 3 of 5 fail (priority order, partial-hold deadlock,
-  memory wait); the two others pass (slot count, old-flock interop), as they should.
-- Mutations, each on a scratch copy (the worktree was not touched; C++ not rebuilt, the mutants are shell and Python):
-  - M1 priority ignored: `test_priority_then_arrival` FAIL, `test_a_head_that_loses_its_place...` FAIL.
-  - M2 no partial-hold release: `test_a_head_that_loses_its_place...` ERROR (deadlock, timeout). This mutant left two orphaned
-    waiters holding scratch locks; I killed their two PIDs (180727, 180752).
-  - M3 binary closure dropped: `test_sim_source_selects...` FAIL, `test_test_source_selects...` FAIL.
-  - M4 CMake-line naming ignored: `test_cmake_line_naming_a_test...` FAIL.
-- Gates, both on `d797c1dd`, both with the gate env (`PES_EXE`, `GF_DIFF_PYTHON`, `PES21_ROOT`, `GF_IMPURE_BANKS`), queue at priority 0:
-  - `GATE branch: GREEN`: selection 9 tests, 8 ran (`gfsim_run_test` is in the selection and excluded by the same `-E` as fast);
-    ctest 100% of 8 in 24 s; recorded re-check 0 selected in all five sets. The same sample on an earlier tip took 18 min 39 s
-    of wall time (`bg_491`, same selection size).
-  - `GATE fast: GREEN`: ctest 100% of 2,323 (8,942 s); recorded 0 selected in all five sets; ledger current (38,116 rows);
-    gate held slots 3 and 5 through the queue.
-  - Smokes (seed 7, 2 min), both gates and both equal to main's baselines: switch-off `399e180f39459c2b` (27 stoppages, longest
-    23.2 s), `--pes-loop` `85c7d7c515cf92ae` (17 stoppages, longest 23.7 s).
+Commits, in order: `833841a6`, `99e9598a`, `b958f17c`, `9a51b28a`, `d797c1dd`, `ec72d49a` (revision 1), `360c496c` (-I),
+`8037da6a` (root guard), `b7725ae0` (figures), `5b137b34` (exclusion and count guard).
 
-## Open items and limits
+## 2. Sizing (measured)
 
-1. **A sim-moving branch does not get the 30-minute tier.** A sim source selects every gfsim binary, which includes the seeded
-   families. `pes_restart_delay_test` alone took 3,829 s in the last full fast log. Such branches pay about the fast tier's
-   ctest minus `SimMatch.*`. Narrowing needs object-level (link-map) selection, which is not built.
-2. The head polls every 0.5 s; there is no kernel wake-up. Old scripts bypass the queue and can win a free slot.
-3. Merge-lane sims must set `GF_SIM_PRIORITY=0` explicitly (default 5). Pinned `GATE_SLOTS` is now a candidate list, not an ordered pair.
-4. Godot tests leave untracked `godot/**/*.uid` files in worktrees. The selector counts tracked changes only. In worktrees,
-   `git status` fails on the godot-cpp symlink (the `status.submodule=none` workaround applies).
-5. The memory rule is per slot (5,800 MiB at each admission). The old third pair needed 12,000 MiB for the whole pair.
+- A sim source (`src/sim/simcontext.cpp`) selects 1,568 of the 2,337 build tests; 1,554 remain after the gate's exclusion.
+- In the 05-11-26 merge-lane fast log (`<workdrive>/gf-MergeLane/build/gate.ctest.log`), those 1,549 logged tests take 13,873 s of
+  the log's 14,639 s of per-test time (95%). A sim-moving branch's branch tier therefore runs about as long as fast.
+- The tier saves time only for branches outside the sim's link closure (for example `tools/`, `tests/`, docs).
+- Object-level selection (which binaries pull the changed objects, from a link map) would narrow the set. It is not built, and
+  its gain for core sim changes is unmeasured.
+
+## 3. Verification (run here)
+
+- `branch_select_test`: 9/9 (run directly and through ctest against the 2,337-test build; about 22 s).
+- `simslot_queue_test`: 5/5 (unchanged since revision 1).
+- Mutants of the new index and exclusion code. Each was a scratch copy edited with the edit tool, run against the real build,
+  then removed (the worktree was not touched):
+  - M5, index numbers off by one: 2 FAIL (both index tests).
+  - M6, names instead of numbers (the failure mode of the old `-I`-with-names form): 2 FAIL.
+  - M7, first selected test dropped from the index: 2 FAIL.
+  - M8, `drop_excluded` as a no-op: 1 FAIL (`test_the_gates_exclusion_is_dropped_before_the_index`).
+  - Revision 1's queue and selector mutants (M1 to M4) were applied with a one-line python replace to scratch copies, not with the
+    edit tool. They touched no repository file.
+- Guard logic: the guard's `sed` on the real partial-run log (`build/gate.ctest.log` of `b7725ae0`) yields `3`; against
+  `expected=8` the verdict is RED. This checks the extraction, not a full gate.
+- Branch gate on `5b137b34`: `GATE branch: GREEN` (8 of 8 selected ran, on 5b137b34)
+- Fast gate on `5b137b34` (owner rule, before reporting): not run on 5b137b34 (stopped by Main at ctest 1225/2323); fast GREEN 2323/2323 on d797c1dd
+
+## 4. Decisions for Main
+
+1. **Sim-moving branches get no speed-up from the branch tier** (section 2). Options: keep the conservative rule (what this
+   revision does), or build object-level selection from link maps. I recommend measuring link-map precision first.
+2. The branch tier's `-I` list is computed after the build, because `ctest -N` numbers only built tests. The gate builds first, so
+   this holds in `gate.sh`.
+3. A CMake change naming a test selects that test; a CMake change naming none selects every test (conservative).
+4. Queue (revision 1, unchanged): `simslot.sh` priority FIFO (`GF_SIM_PRIORITY`, default 5; gates 0), `GF_SIM_HOLD`, `GF_SIM_PIN`;
+   the head re-checks every 0.5 s; old scripts that flock the slots directly bypass the queue. Merge-lane sims must set
+   `GF_SIM_PRIORITY=0` explicitly.
+5. Godot tests leave untracked `godot/**/*.uid` files in a worktree. The selector counts tracked changes only.
+
+## 5. Open items
+
+1. Sim-moving branches cost as much as fast (section 2).
+2. The count guard compares totals. It does not check which tests ran; a `-I` list with a wrong number that still counts right
+   would pass. The unit tests cover the mapping; the gate does not re-derive names.
+3. `ctest -N` numbering is per build directory. A build-tree change between selection and run would shift it; the gate selects
+   after its build, so this does not occur in the gate.

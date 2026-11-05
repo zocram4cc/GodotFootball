@@ -1,0 +1,74 @@
+# PES port: KickInputs (branch KickMotion): the MA+0x2470C ball list translated, proven and running (12/12 real); the Kick can-enter gate FUN_1407266B0 translated (11/11 real); the pose slot is inert for the reader (PES-bytes ablation, 57 runs); the Kick object already exists in the window; "kicks with clips" NOT reached: the gate and the chooser need the anime skeleton's joint heights (P+0xB90), and the smoke is blocked on TeamTick's 0x142132E20 (05-11-26)
+
+Note for the archive: `docs/ports/pes-port-KickInputs.md` already exists (KickSoftMin's scatter report); archive this one under another name (suggest `pes-port-KickInputs3.md`).
+
+Branch `KickMotion` (worktree `gf-KickMotion`), pushed `8ddd00e9` (`git ls-remote origin KickMotion`). Main `ac724823` merged. Image `pes_full.bin`, base `0x140000000`. CONFIRMED = a tool run this session; INF = inference; OPEN = blocker named. Predecessors: `pes-port-KickTick.md`, `-KickBranch2`, `-KickBranch`, `-KickRoot`, `-KickWindow`, `-KickChooser`, `-KickHeader`.
+
+## 0. Status against the ticket
+
+| item | state |
+|---|---|
+| 1. MA+0x2470C writer | **DONE.** Writer = `FUN_14045B090` (the old "undecoded" came from a scan that stopped at data in `.text`; `pes-re-image-rows.md` 3.2 had it). Translated (set `kick`), snapdiff `--bounded`: **12/12 REAL calls bit-exact** (hook `ball_nearest_45B090`, `live2/pid781084` seq2430 2455 2481 2506 / 2514 2520 2527 2534 / 2541 2656 2898 3468; three runs under the four-capture rule), 9 members, own-block 35/44. Runs in the team tick (`TeamAIController::TickBallList`) behind FUN_140457070's slice gate. |
+| 2. pose slot / FUN_141AF7A90 | **DONE as a finding; no pose port.** FUN_141AF7A90 is not the pose writer (section 2). The slot is inert for the reader: ablation. The zero-slot `ponytail:` is replaced by that evidence. |
+| 3. Kick object + gate | Object: **already in the window** (section 3). Gate `FUN_1407266B0` translated, 11/11 REAL bit-exact. **Not run in GF**: its inputs `P+0xB90`/`P+0xB1C` come from the player update and the anime skeleton (section 3). |
+| 4. strike-tick proof of the glue | **NOT DONE.** No kick_try capture is a success (section 4); the `kick_cell_71E570` hook (success-only) was armed and had captured nothing when I stopped. |
+| 5. delete the none-pick stand-in; `[kickmotion]` with clips | **NOT DONE** (needs 3 and 4). The seed-7 pes-loop smoke now aborts at `PES_DISPATCH_UNTRANSLATED: 0x142132e20` (section 5), so there is no `[kickmotion]` line. |
+| 6. mutation checks | Done for the new tests (section 6). `pes_kick_start_test.cpp`'s own two tests (tries / none) were not mutated: they run the match, which aborts. |
+| gate | `GATE branch`: **not run** (blocked by item 5's abort; the match tests cannot finish). `gen_translated.py` regenerated twice (5,402 then 5,403 functions), `ledger.py --check` current. |
+
+## 1. The ball list MA+0x2470C (CONFIRMED)
+
+- Writer `FUN_14045B090(this)`, called at `0x140457568` from `FUN_140457070` (the AI object's big tick; callers `FUN_140458880` <- `FUN_1404582C0` <- `FUN_140426760`). `this+0x508` = MA, `this+8` = a context array: `[0]` MI, `[2]` pitch F, `[4]` ball B, `[8+slot]` the men's records (`+0x55C/+0x564` x/z). CONFIRMED on seq2430 (aip.py): the array holds MI `0x1c834608`, F, B and 22 man records; `this+0x10` = slice counter, `this+0x11` = latch; MI+0x11B0 was 0x16 live.
+- It resets the two lists to `{0xFF, 0}` x 11, counts 0, ranks 0x0A, bearings 0; then for every slot < 22 with `MI+0x1748[slot] != 0` appends `{slot, d2}` to its team's block (`d2 = (ballZ-manZ)^2 + (ballX-manX)^2`, float, z first) and `*(f32)(MA+0x247D4+4*slot)` = the bearing (degrees, 0 when the man is on the ball); also writes `MA+0x228DC..0x228E8` (goal geometry); then `FUN_140A79640(MA+0x2470C, 0)` sorts each team ascending (stable merge sort FUN_140A79440/79240, ties kept in slot order) and writes the ranks `MA+0x247BE[slot]`.
+- Gate (`FUN_140457070` 0x14045743x..): unlatched -> nothing; forced (`param_2`, states MI+0x11B0 in {8,0xB,0xE,0x12}) -> run; in play (0x14..0x16) -> `this+0x10` += 1 and run when it passes a limit: 4 while the newest ring-1 event has `{word0 < 2, word1 < 0x28}` (FUN_140A3E7D0 ring 1 newest, FUN_140A60530), else `4 - (int)(|ballv| * -3.6) / 15` taken as written (multiply by 0x77777777). `pesballlist.hpp` holds both (VA `0x14259D65C` = -3.6 is read from the image at run time).
+- GF: window grows `PesAiRecord` per side (`AiVa`, `BindAi`), `PesWorld::RunBallNearest(side, onPitch, ext)`, `TeamAIController::TickBallList(forced)` after the score rows (same flag and latch: `forced = !IsInPlay() || !Latched()`, ScoreRowWriter's existing ponytail for the MI+0x11B0 states GF has no word for). `onPitch` = the active men of both teams (MI+0x1748).
+- Tests: `pes_ball_list_test` 2/2 (the writer on a fresh window with 22 men and a ball: ids, squared distances (independent float recompute), ranks, counts; two men off the pitch listed nowhere and ranked 0x0A); `PesBallList` 2/2 (slice limit = 4 - km/h/15 for 0..200; the fresh-event test on a synthetic ring). The match test `PesKickStart.TheBallListIsWrittenAndHoldsThePesRules` is written but cannot run (section 5).
+
+## 2. The pose slot (CONFIRMED by decompile and PES-bytes ablation)
+
+- `FUN_141AF7A90(A, f)`: `if (*(A+0x88)) *(float*)(*(*(A+0x88)+0x10)+0x44) = f * DAT_1425A266C`. One float (L2+0x44). It writes no pose; KickRoot's comment (and KickTick's) that it "writes the pose slots each tick" was wrong. Callers: 17 sites in the `0x141EB..`/`0x1423E..`/`0x141F7..` anime families.
+- The pose lives in the double-buffered pose sets of L2 (`L2+0xF8/+0x100` containers -> pose sets -> layer `+0x98` slot tables, 0x60-byte slots), written by the anime engine (`FUN_141EB4650`/`FUN_141EB2950` families, skeleton evaluation). Not portable here.
+- It is not an input of the reader: `poseab.py` (scratch) ran PES's own `FUN_141AFDF10` over the real chain of a kicker (`live2/pid615629/seq15864`: 27 slots, 513 non-zero dwords) for 19 motions at 1/3 s (0..4300; five of them turning clips with a non-identity vector, e.g. motion 2000 `(0,-0.1612..,0,0.9873..)`) with the slots (a) as captured, (b) all zero, (c) all 0.37: **the same 16 bytes in all 57 runs** (SYNTHETIC modified calls: motion and time replaced at the first reader entry). FUN_1423A3FD0 saves the slot, evaluates into it, copies out, restores. So GF's zero slots equal PES's answer for these motions. The `ponytail:` in `pesanimechain.cpp` is replaced by this note.
+- Where the pose does matter: `FUN_1406F6CE0` (per-tick, from the player update) stores `P+0xB1C = anime interface vt+0x20(1)`, `P+0xB38..`, `P+0xB8C/B90/B94 = FUN_141EB51A0(P, out, 10)` (joint 10 of the skeleton: P+0xB90 is its height, 1.44..1.63 in the captures) and more joints (7, 3, 6, 0xE, 0x12, 8, 2, 5) at `P+0xB3C..0xBA0`. The Kick gate and the chooser read these (section 3). That is the real "pose" input; it needs the skeleton evaluation (OPEN).
+
+## 3. The Kick object and the gate (CONFIRMED)
+
+- The Kick object (vtable `0x1425E2358`, ctor `FUN_1406E0A90`: `+0x1C = 1`, `+0x20 = 0x1125`, `+0x38 = 0xFF00`, `+0x6C = 1.0f`, others 0) is **already built per player** by `ConstructActionTable` (generated from `FUN_1406DF630`+`FUN_1406D9040`): stores at table `+0x588`, `+0x5A0`, `+0x5A8`, `+0x5C0`, `+0x5F0`; the id -> object array (`+0x1528 + 8*id`) names it for ids 8, 9, 10 (`+0x1568/70/78`). The Kick object's fields the start writes (`+0x18`, `+0x40`, `+0x44` stamp, `+0x28`, `+0x70/+0x75`) are written by `FUN_140724CC0` itself; GF's glue still passes stand-in values (`RunKickRequest`'s ponytail) because GF does not run that function.
+- Vtable `0x1425E2358`: slot 2 (+0x10) = `FUN_1407266B0` (gate), 4 = `FUN_140719F20` (tick), 13 (+0x68) = `FUN_140724CC0` (start), 15 = `FUN_1407253D0`.
+- `FUN_1407266B0(Kick, P)` is a gate on P only (the Kick object is unused): the pitch margin (P+8/+0x10 against F[0], F[2], F[0xE] and the margin `_DAT_14258C264`) with the corner/line segment tests (`FUN_140A900E0`); out of the margin it asks `MI+0x116C == 3 && MI+0x1554 == 1` (kick-off) or the ball-distance test `((P+0xB1C*c + fps*|ballv|)*2/m + k)^2 < d^2`; then `FUN_1406E69F0(P, P+0xB90, 1) < 5` -> 0 (the ball-height band from `P+0xB90`, `FUN_140A6D380`); then a switch on the anime interface's current action (`+0x28`): 8/9/10 -> 0 or 1 by `+0x20`, 2..7/0xB/0x10..0x12/0x48/0x50/0x51/0x53 and 0x15 -> the current action object's vt+0x70 (`P+0xC40` table), 0x17/0x4A -> 1; `FUN_140A6E450(action)` then forces 0.
+- Translated (set `kick`, `results_kickgate.json`, `closure_kickgate.json`, 40 members incl. the action objects' virtuals `0x140782570`, `0x140789E60`, `0x14079F6E0`, `0x1407995D0`, `0x140724820`): **11/11 REAL bit-exact** (hook `kick_gate_1407266B0`: `live2/pid615595` seq16849 18318 1858 25561 / 2898 6042 6067 6349 / 9678 and `pid130478` seq3405 7653; 4+4+3; own-block 26/46). Of the ten traces whose return value I read, 8 answered 1 and 2 answered 0.
+- Not wired: GF's window holds no `P+0xB90` (joint-10 height), no `P+0xB1C` (anime interface vt+0x20), `P+0xB01`. With zeros the band test is `0 < 5` and the gate refuses every kick; PES's writers are `FUN_1406F6CE0`/`FUN_141EB51A0` (section 2). A GF-state stand-in for those joint heights would be a new invented input (rule 8: the missing input is named, the writer is decoded, the translation is blocked by the anime skeleton).
+
+## 4. What PES's start does on the real captured tries (CONFIRMED by replay of PES's bytes, `ks_replay.py`/`cellfind.py`)
+
+Of the 10 `kick_try_140724CC0` captures, 4 replay (pid615595 seq16854, 5324, 5353, 9682; the pid130478 ones refuse: "page not captured"): **none returns 1**. seq5324 and seq5353: the gate answers 0 (the builder and chooser never run). seq16854 and seq9682: gate 1, builder and chooser run, the clip row is `0xBE5` (3045, "no row": `FUN_14071E6F0` of kind 0x97/0x97), so `FUN_1406ABDD0` answers 0 and the start writes only the out word. seq9682 is a re-pick after a start (P+0x2752 = 57 already, `Kick+0x44 = 7948`, tick 7954). Zeroing the MA+0x24700..0x247E0 list changed nothing on any of them (as KickBranch2 found). So the MA list is not, by itself, what turns a none into a kind on these states; INF: the kind appears when the chooser's geometry (the root-motion tests over the kicker's skeleton and the ball) passes, which needs the pose-derived P fields of section 2.
+- The success states: hook `kick_cell_71E570` (`--when ret==0x140724F21`) is live in `pid781084` and had no capture. The plan for the glue proof: from such a capture build a SYNTHETIC entry state of `FUN_140724CC0` (Kick = rsi, P = rdi, cmd = r13, param_5 = r15, r8 = `[rbp-0x80]`, entry rsp = rbp + 0x288, callee-saved regs from the pushes at entry-8..-0x40), `synth_call.py --entry 0x140724CC0`, then `frame_trace.py recorded` + `snapdiff --bounded --only 0x140724CC0` (spec `specs/kick/140724CC0.json` by `closure.py --members-file` with the root only). Its shot branch (request 10) reaches a string-keyed handle lookup behind a lock (`FUN_141B55730`) that the bounded closure would have to include.
+
+## 5. Smoke (CONFIRMED)
+
+Seed 7, 2 min, `--pes-loop`, `simslot.sh`, tree at `6a7c7852`: **aborts after ~4.6 min with `PES_DISPATCH_UNTRANSLATED: 0x142132e20`** (the keeper dribble unit, TeamTick2's). With the ball list real, the translated carrier chain reads `MA+0x24710/0x247BE` (`pes-port-DribbleArms.md`: `e0+0x24710 + (rank+11*side)*8`) and enters the unit that stayed unreached while the list was empty. TeamTick2 reports `origin/TeamTick` `0e0ad2b8` has `0x142132E20` (+`0x1421334D0`) translated, 9/9 SYNTHETIC. I tried `git merge origin/TeamTick` and aborted: 6 conflicts, of which `pesworldrecord.hpp` is a real design clash (TeamTick's roster block / skip object / brain records at G+0x180/G+0x3B0 against KickHeader's roster table at G+0x400 that this branch carries), plus `universe.json`, `gen_translated.py` SETS, `tests/CMakeLists.txt`, `tools/dev/README.md`. **Landing order: TeamTick first, then this branch with one conflict resolution (roster) and one layer regeneration.** The smoke and the ablation of the move (switch the `TickBallList` call off: INF it returns the KickTick hash `a2f78ca1b76a66e4`) are open until then; the switch-off engine does not run the window and is unaffected.
+
+## 6. Mutation checks (each rebuilt, run, reverted)
+
+| mutation | result |
+|---|---|
+| `RunBallNearest`: on-pitch flag written as always 1 | `BallList.AManOffThePitch...` fails |
+| `BindAi`: every man entry names slot 0's record | `BallList.EachTeamIsSorted...` fails |
+| `BallListSliceLimit`: `t >> 3` -> `t >> 4` | `PesBallList.TheSliceLimitFalls...` fails |
+| `BallListSliceLimit`: drop `- (t >> 31)` | **survives: equivalent mutant** (the factor is negative, so `t = hi - x >= 0` and `t >> 31 == 0` for every real input; the term is the compiler's rounding fix-up) |
+| `BallListFreshEvent`: kind limit `<` -> `<=` | `PesBallList.AFreshEvent...` fails |
+| `BallListFreshEvent`: head wrap `+= 8` -> `= 0` | `PesBallList.AFreshEvent...` fails |
+| `pes_kick_start_test.cpp` tries/none tests | not mutated (match aborts) |
+
+## 7. Left (numbered)
+
+1. Land TeamTick (`0x142132E20`), merge it here (roster conflict), regenerate once, run the seed-7 smoke and the `TickBallList` ablation, and run `TheBallListIsWrittenAndHoldsThePesRules`.
+2. The anime skeleton's joint block for the player (`FUN_1406F6CE0`: `P+0xB1C`, `P+0xB38..0xBA0` from `FUN_141EB51A0/51F0`, the anime interface vt+0x20): without it the gate refuses and the chooser's geometry has no skeleton, so no kick gets a kind. This is the real remaining input; port the skeleton evaluation (or prove a GF pose source bit-exact against PES's joints on captured kickers).
+3. Translate `FUN_140724CC0` whole (builder/chooser/row/cell are already in the layer; new: `FUN_14071DD80`, `FUN_140717840`, `FUN_1406E2C30`, the shot registry branch) from SYNTHETIC success states (section 4), run it as the Kick start (the Kick object is already in the window), then delete `PesKickStart`'s hand glue, the none pick (`humanoid.cpp` ~2979-3000) and `RunKickRequest`'s Kick-object ponytail.
+4. Real success captures: ask Main to keep `kick_cell_71E570` (and the gate hook) armed until at least one lands.
+5. The smoke move and `GATE_TIER=branch` on the merged tree.
+6. Scratch: `gf-KickMotion-scratch/ki/` (scripts `scanall.py`, `scan2.py`, `ks_replay.py`, `cellfind.py`, `poseab.py`, `findai.py`, `aip.py`, `prove.sh`; traces `trg/`, `trp/`, `sd_*`). All captures I unpacked are packed again.
+
+## 8. Tests run
+
+`pes_ball_list_test` 2/2; `pes_restart_delay_test --gtest_filter=PesBallList.*` 2/2; `gen_translated.py` regenerated (5,403 functions) and `ledger.py --check` current. Not run: the full gate, `PesKickStart.*` (abort), `gen_translated.py --check` after the last edit (the regeneration was the last layer change).

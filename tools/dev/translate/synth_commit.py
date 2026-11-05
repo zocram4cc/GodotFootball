@@ -3,7 +3,7 @@
 captures, replayed together (one snapdiff run, so the own-block coverage is the union).
 
 No capture holds a commit of kind 1, 3 or 4, a level-4 record, a fouler outside side 1 or the `G+0x400` arm (the five arms
-blocks 7 of 27 had not reached). synth_call.py keeps the state's memory and sets the pending record's words (rdx+...) and
+blocks 7 of 27 had not reached). synth.py keeps the state's memory and sets the pending record's words (rdx+...) and
 the pointer G+0x400 (and the byte it names, in the state's own stack scratch); the harness runs PES's bytes, the translated
 body runs over the same pages, and snapdiff.py --bounded compares rax and every written byte. Every synthetic case is chosen,
 not observed: it is labelled `synthetic_cases` in the record and in docs/ports/pes-port-CardWhistle.md.
