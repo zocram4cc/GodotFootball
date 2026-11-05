@@ -202,6 +202,7 @@ TARGETS = [
     ("kick_dd80_14071DD80", 0x14071DD80, "KickJoints2: success-only call after the Kick start's cell (2 callers)"),
     # --- TeamTick4 block (the arrival-list writer behind the pass target's default candidate). Append-only.
     ("ai_arrival_14045E0D0", 0x14045E0D0, "TeamTick4: writer of MA+0x24840/0x24908 arrival lists"),
+    ("ti_unit_14211A340", 0x14211A340, "TeamTick4: carrier-unit vtable function the pass-target cutover reaches"),
 ]
 
 
