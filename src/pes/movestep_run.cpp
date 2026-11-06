@@ -585,8 +585,9 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   const int band = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
   const int bucket = AngleBucket(host.AngleBuckets(),
                                  PesAngleDiff(heading, DisplacementBearingDeg(host, k), k), 10, false);
-  req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(bucket));
-  req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
+  // FUN_1406d5d60 stores the bucket in req[0x20] only (decompile line 151: param_2[0x20] = bucket). Real PES calls (stop_replay.py,
+  // seq7084 / seq7145 / seq9209 of pid2392772) leave req[8] and req[0x25] as they were and pass req[0x20] to the selector.
+  req.SetU(moveword::kLiveBucket, static_cast<uint32_t>(bucket));
   // The turn playback (FUN_1406e9f10 of the mirror argument) with the capability clamp.
   const float p = host.MirrorChoice(false) ? k.one : k.half;
   float playback = pes::TurnPlayback(host.PhysiqueG(), p, host.PlaybackConstantsView());

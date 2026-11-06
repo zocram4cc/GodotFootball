@@ -62,7 +62,7 @@ def replay(snap, image, hooks):
     def u32_ptr(uc, va):
         return struct.unpack("<Q", bytes(uc.mem_read(va, 8)))[0]
 
-    uc, err = ft.run_recorded(snap, orig=ft.hook_bytes(hooks) if hooks else None, on_code=on_code)
+    uc, err = ft.run_recorded(snap, orig=ft.hook_bytes(hooks) if hooks else None, on_code=on_code, models=ft.load_import_models())
     rec["err"] = err
     if entry == STOP_ENTRY and "req" in state:
         req = state["req"]

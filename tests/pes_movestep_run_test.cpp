@@ -2625,6 +2625,8 @@ TEST(EnterStop, TheRunStopArmReadsTheTurnStopRowAtTheBucketsColumn) {
     pes::MoveReq req;
     req.SetU(pes::moveword::kKind, kKind);
     req.SetU(pes::moveword::kClassWord, kClass);
+    req.SetU(pes::moveword::kMoveBucket, 7);   // sentinels: the run-stop arm leaves req[8] and req[0x25] alone
+    req.SetU(pes::moveword::kPrevBucket, 6);
     req.SetF(pes::moveword::kFacing, 10.0f);
     req.SetF(pes::moveword::kFacingError, error);
     pes::movestep::EnterStop(h, req);
@@ -2632,6 +2634,10 @@ TEST(EnterStop, TheRunStopArmReadsTheTurnStopRowAtTheBucketsColumn) {
     EXPECT_NE(std::find(h.runTables.bucketColumn.begin(), h.runTables.bucketColumn.end(), h.lastCellColumn),
               h.runTables.bucketColumn.end())
         << "error " << error << " asked column " << h.lastCellColumn;
+    // The selector's bucket is the word the entry stored: req[0x20] (stop_replay.py: w20 after = the call's bucket argument).
+    EXPECT_EQ(h.lastCellColumn, h.runTables.bucketColumn[req.U(pes::moveword::kLiveBucket)]) << "error " << error;
+    EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 7u) << "error " << error;
+    EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 6u) << "error " << error;
     columns.insert(h.lastCellColumn);
   }
   EXPECT_GT(columns.size(), 2u) << "the sweep reaches several buckets";

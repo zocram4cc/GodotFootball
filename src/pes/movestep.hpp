@@ -154,6 +154,7 @@ inline constexpr int kLookDelta = 0x05;        // req[5]: wrap180 difference (OB
 inline constexpr int kTurn = 0x06;             // req[6]: target minus facing, the turn angle (OBS)
 inline constexpr int kFacingError = 0x07;      // req[7]: facing error to the look-at point (OBS)
 inline constexpr int kMoveBucket = 0x08;       // req[8]: 10-way angle bucket of the move (OBS)
+inline constexpr int kLiveBucket = 0x20;       // req[0x20] (byte 0x80): the bucket the live clip's row was selected at; FUN_1406d5d60's run-stop arm writes it and passes it to FUN_1406ba0d0 (real calls: stop_replay.py seq7084, seq7145, seq9209)
 inline constexpr int kCommandSpeedClass = 0x09;  // req[9]: cmd[0x17] mapped to 0..3, else -1 (OBS)
 inline constexpr int kDesiredSpeedKmh = 0x0a;  // req[0xa]: desired speed, km/h, cmd[0x172] (OBS)
 inline constexpr int kUseClassRate = 0x0b;     // req[0xb] byte: "use the class rate" flag, cmd+0x5c5 (OBS)
