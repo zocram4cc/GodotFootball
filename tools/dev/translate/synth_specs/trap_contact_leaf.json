@@ -1,0 +1,13 @@
+{
+  "label": "contactleaf",
+  "seed": 1,
+  "entry": "0x14085E3C0",
+  "stop": "0x140862CE0",
+  "fields": [
+    {"name": "motion", "at": "reg:r8+0x1C", "type": "u32", "values": [2558]}
+  ],
+  "cases": [
+    {"name": "m9fe", "motion": 2558},
+    {"name": "ma6a", "motion": 2666}
+  ]
+}
