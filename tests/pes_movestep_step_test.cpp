@@ -548,6 +548,49 @@ TEST(StepToRun, TheRootFacingTurnsByTheHeadingLeftOverTheRemainingDwellClampedTo
   }
 }
 
+// 0x1406c6f80 decompile lines 23-25: the blended turn so far is req[0x17] / (54 * req[0x1b]) degrees, and the root facing is the
+// heading error plus it (the blend, decompile lines 96-103).
+TEST(StepToRun, TheBlendedTurnIsTheStampOverTheFrameRateTimesTheFirstDwellLimit) {
+  FakeHost host;
+  MoveReq req;
+  req.SetF(pes::moveword::kDwellLimit, 2.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.0f);
+  req.SetF(pes::moveword::kRecordStampA, 10.8f);  // 10.8 / (54 * 2) = 0.1 degrees
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kRecordStampB, 10.0f);  // nothing left to turn: the drift clamp stays out of it
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kClassWord, 2);
+  StepToRun(host, req);
+  ASSERT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 0.1f, 1e-4f);
+}
+
+// 0x1406c6f80 decompile lines 44-46 and 85-100: the stop gate's small-error arm reads the band from the last tick's ground speed
+// (km/h = 54 * 60 * 60 / 1000 * metres per tick): under 5 band 0, under 13.5 band 1 (11 km/h), else band 2 (16 km/h).
+TEST(StepToRun, TheStopGatesSmallErrorArmReadsTheBandFromTheGroundSpeed) {
+  struct Case { float kmh; uint32_t band; float word; };
+  for (const Case c : {Case{3.0f, 0u, 5.0f}, Case{10.0f, 1u, 11.0f}, Case{15.0f, 2u, 16.0f}}) {
+    FakeHost host;
+    MoveReq req;
+    req.SetF(pes::moveword::kDwellLimit, 1.0f);
+    req.SetF(pes::moveword::kRecordStampB, 110.0f);  // both stop gates fire: 100 degrees left and a 60 degree facing turn
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kFacing, 70.0f);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2);
+    // The displacement points along the facing (70 degrees), so the arm that reads the ground speed runs.
+    constexpr float kSin70 = 0.93969262f, kCos70 = 0.34202014f;
+    host.displacement[0] = kSin70 * MetresPerTick(c.kmh);
+    host.displacement[1] = 0.0f;
+    host.displacement[2] = kCos70 * MetresPerTick(c.kmh);
+    requested = MoveState::kInit;
+    StepToRun(host, req);
+    EXPECT_EQ(req.U(pes::moveword::kClassWord), c.band) << c.kmh << " km/h";
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeed), c.word) << c.kmh << " km/h";
+  }
+}
+
 // -------------------------------------------------------------------------------------
 // RUN_TO_STEP, FUN_1406c1070.
 // -------------------------------------------------------------------------------------
