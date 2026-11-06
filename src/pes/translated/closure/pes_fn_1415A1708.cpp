@@ -14,9 +14,6 @@ static constexpr double k_c14252FD40_d = 6.0841816916812e-310; // 6.084181691681
 // image constant @ 0x14252FD80 (8 bytes)
 static constexpr uint64_t k_c14252FD80_q = 0x00006FFFFA666BE0ULL;
 static constexpr double k_c14252FD80_d = 6.0841816900591e-310; // 6.0841816900591e-310
-// image constant @ 0x14252FDA8 (8 bytes)
-static constexpr uint64_t k_c14252FDA8_q = 0x00006FFFFA661DC0ULL;
-static constexpr double k_c14252FDA8_d = 6.08418168907095e-310; // 6.08418168907095e-310
 // image constant @ 0x14252FDB0 (8 bytes)
 static constexpr uint64_t k_c14252FDB0_q = 0x00006FFFFA661BB0ULL;
 static constexpr double k_c14252FDB0_d = 6.08418168904487e-310; // 6.08418168904487e-310
@@ -170,9 +167,6 @@ static constexpr double k_c142530328_d = 6.0841853195918e-310; // 6.084185319591
 // image constant @ 0x142530338 (8 bytes)
 static constexpr uint64_t k_c142530338_q = 0x00006FFFFECCBD20ULL;
 static constexpr double k_c142530338_d = 6.08418533697184e-310; // 6.08418533697184e-310
-// image constant @ 0x142530348 (8 bytes)
-static constexpr uint64_t k_c142530348_q = 0x00006FFFFEC76830ULL;
-static constexpr double k_c142530348_d = 6.084185319708e-310; // 6.084185319708e-310
 // image constant @ 0x142530360 (8 bytes)
 static constexpr uint64_t k_c142530360_q = 0x00006FFFFECC9010ULL;
 static constexpr double k_c142530360_d = 6.0841853364019e-310; // 6.0841853364019e-310
@@ -236,9 +230,6 @@ static constexpr double k_c142530650_d = 6.0841853201064e-310; // 6.084185320106
 // image constant @ 0x142530658 (8 bytes)
 static constexpr uint64_t k_c142530658_q = 0x00006FFFFEC77C20ULL;
 static constexpr double k_c142530658_d = 6.08418531996017e-310; // 6.08418531996017e-310
-// image constant @ 0x142530660 (8 bytes)
-static constexpr uint64_t k_c142530660_q = 0x00006FFFFEC77E00ULL;
-static constexpr double k_c142530660_d = 6.0841853199839e-310; // 6.0841853199839e-310
 // image constant @ 0x1425306E8 (8 bytes)
 static constexpr uint64_t k_c1425306E8_q = 0x00006FFFFEC76770ULL;
 static constexpr double k_c1425306E8_d = 6.0841853196985e-310; // 6.0841853196985e-310

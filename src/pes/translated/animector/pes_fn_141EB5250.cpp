@@ -15,6 +15,7 @@ static constexpr unsigned __int128 k_c142B679B0 = ((unsigned __int128)0x0000000A
 
 void pes_fn_141EB5250(PesState& s);
 void pes_fn_14023D200(PesState& s);
+void pes_fn_1403FB5B0(PesState& s);
 void pes_fn_140402370(PesState& s);
 void pes_fn_14081D980(PesState& s);
 void pes_fn_141AEF380(PesState& s);
@@ -117,7 +118,7 @@ void pes_fn_141EB5250(PesState& s) {
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)((2ULL)), 4);
   s.gpr[2] = (uint64_t)(s.rd(((s.gpr[5]) + (0ULL - 0x21ULL)), 8));
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x30ULL)));
-  /*OUT-OF-SET CALL 0x1403FB5B0*/ pes_dispatch_missing(0x1403FB5B0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403FB5B0(s); s.gpr[4] += 8; }
   L_141EB5304:;
   s.wr(((s.gpr[5]) + (0ULL - 0x9ULL)), (uint64_t)((15ULL)), 8);
   s.wr(((s.gpr[5]) + (0ULL - 0x11ULL)), (uint64_t)(s.gpr[7]), 8);

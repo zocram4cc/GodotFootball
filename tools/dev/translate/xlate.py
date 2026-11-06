@@ -514,6 +514,18 @@ def import_model_lines(op, jump):
     if e["do"] == "vsprintf_s":
         # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
         return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "strcpy_s":
+        # ucrtbase strcpy_s(rcx = dst, rdx = size, r8 = src), the code_hex model register for register: dst or size zero is EINVAL (0x16),
+        # no write; src zero writes dst[0] = 0 then EINVAL; else the copy walks r9 from dst with r8 = src - dst, rdx counting the bytes
+        # left (the NUL ends it first: rax 0); no room left is dst[0] = 0 and ERANGE (0x22).
+        return ["{ " + push_ret + " uint64_t _d = s.gpr[1];"
+                " if (_d == 0 || s.gpr[2] == 0) s.gpr[0] = 0x16ULL;"
+                " else if (s.gpr[8] == 0) { s.wr(_d, 0, 1); s.gpr[0] = 0x16ULL; }"
+                " else { s.gpr[9] = _d; s.gpr[8] -= _d;"
+                "   for (;;) { uint64_t _a = s.rd(s.gpr[8] + s.gpr[9], 1); s.wr(s.gpr[9], _a, 1); s.gpr[9] += 1;"
+                "     if (_a == 0) { s.gpr[0] = 0; break; }"
+                "     s.gpr[2] -= 1; if (s.gpr[2] == 0) { s.wr(_d, 0, 1); s.gpr[0] = 0x22ULL; break; } } }"
+                "%s }" % pop_ret]
     if e["do"] == "memcmp":
         # Win64 memcmp(rcx = a, rdx = b, r8 = n): pes_model_memcmp (pes_stubs.hpp) mirrors the import_stubs.json code_hex
         # register for register where a caller can see it (the scratch registers it leaves are spilled by callers).

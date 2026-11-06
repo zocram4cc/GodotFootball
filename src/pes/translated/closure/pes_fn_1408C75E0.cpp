@@ -8,9 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x142530660 (8 bytes)
-static constexpr uint64_t k_c142530660_q = 0x00006FFFFEC77E00ULL;
-static constexpr double k_c142530660_d = 6.0841853199839e-310; // 6.0841853199839e-310
 
 void pes_fn_1408C75E0(PesState& s);
 void pes_fn_1408CB080(PesState& s);
@@ -93,10 +90,7 @@ void pes_fn_1408C75E0(PesState& s) {
   s.wr(((s.gpr[3]) + (0x94ULL)), (uint64_t)(((uint64_t)(uint16_t)s.gpr[7])), 2);
   s.wr(((s.gpr[3]) + (0x96ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[7])), 4);
   s.wr(((s.gpr[3]) + (0x9AULL)), (uint64_t)(((uint64_t)(uint16_t)s.gpr[7])), 2);
-  { uint64_t _t = (uint64_t)(k_c142530660_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); uint64_t _d = s.gpr[1]; if (_d == 0 || s.gpr[2] == 0) s.gpr[0] = 0x16ULL; else if (s.gpr[8] == 0) { s.wr(_d, 0, 1); s.gpr[0] = 0x16ULL; } else { s.gpr[9] = _d; s.gpr[8] -= _d;   for (;;) { uint64_t _a = s.rd(s.gpr[8] + s.gpr[9], 1); s.wr(s.gpr[9], _a, 1); s.gpr[9] += 1;     if (_a == 0) { s.gpr[0] = 0; break; }     s.gpr[2] -= 1; if (s.gpr[2] == 0) { s.wr(_d, 0, 1); s.gpr[0] = 0x22ULL; break; } } } s.gpr[4] += 8; }
   s.gpr[1] = (uint64_t)(((s.gpr[3]) + (0x8ULL)));
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1408CB080(s); s.gpr[4] += 8; }
   s.wr(((s.gpr[3]) + (0xDCULL)), (uint64_t)(s.gpr[7]), 8);
