@@ -286,13 +286,14 @@ void RunToStep(MoveHost& host, MoveReq& req) {
     }
     req.SetF(moveword::kRootFacingAngle, drift);
     req.SetByte(moveword::kRootFacing, 1);
-    if (req.F(moveword::kDwellLimit2) * k.s0p6 <= req.F(moveword::kDwellElapsed2) &&
+    // 0x1406c1070 (decompile lines 131-147): the second dwell past 0.7 of its limit (DAT_14257a194) and a heading error past 31.64 deg^2.
+    if (req.F(moveword::kDwellLimit2) * k.s0p7 <= req.F(moveword::kDwellElapsed2) &&
         k.deg31p64 < headingError * headingError) {
-      // The drift is clamped to what the clock can cover, and FUN_140470d60 keeps the
-      // shortest-way side of the wrapped heading.
+      // The drift is clamped to what the clock can cover (22.5 / 54 degrees): fVar5 = fVar6 (the limit) above it, -limit below
+      // -limit, the error itself between; FUN_140470d60 keeps the shortest-way side of the wrapped heading.
       const float limit = k.deg22p5 / fps;
-      float delta = headingError;
-      if (limit < delta) {
+      float delta = limit;
+      if (headingError <= limit) {
         delta = -limit;
         if (-limit <= headingError) delta = headingError;
       }
@@ -418,10 +419,12 @@ void StepToRun(MoveHost& host, MoveReq& req) {
     const float span = fps * (req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellElapsed2));
     float error = remaining;
     if (span != 0.0f) error = remaining / span;
-    float delta = draw - std::fabs(blended);
-    if (error <= delta) {
-      delta = -delta;
-      if (-delta <= error) delta = error;
+    // The same clamp: the bound above it, minus the bound below it, the error itself between (decompile lines 108-120).
+    const float bound = draw - std::fabs(blended);
+    float delta = bound;
+    if (error <= bound) {
+      delta = -bound;
+      if (-bound <= error) delta = error;
     }
     // FUN_140470d60 keeps the shortest-way side, so on the wrapped path the result is the
     // folded sum; the handler adds the delta to req[0x18] either way.

@@ -519,6 +519,35 @@ TEST(StepToRun, AsksForRunLoopOnceTheSecondDwellRunsOut) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kMoveBucket), 0.0f);
 }
 
+// 0x1406c70..: FUN_1406c6f80's drift clamp (decompile lines 105-131): the heading left to turn, divided over the dwell that remains
+// (54 * seconds), is clamped to +-(270 / 54 - |blended turn|) degrees a tick; inside the bound it IS the turn. The port flipped the
+// clamp's branches (inside the bound it wrote the NEGATED bound), turning the man the wrong way every tick of the blend.
+TEST(StepToRun, TheRootFacingTurnsByTheHeadingLeftOverTheRemainingDwellClampedToTheClocksReach) {
+  struct Case { float remaining; float expected; };
+  // dwell left = 0.5 s = 27 ticks; reach = 270 / 54 = 5 degrees.
+  for (const Case c : {Case{20.0f, 20.0f / 27.0f}, Case{-20.0f, -20.0f / 27.0f}, Case{170.0f, 5.0f}, Case{-170.0f, -5.0f}}) {
+    FakeHost host;
+    MoveReq req;
+    req.SetF(pes::moveword::kDwellLimit, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+    req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+    req.SetF(pes::moveword::kRecordStampA, 0.0f);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kRecordStampB, 10.0f - c.remaining);  // remaining = wrap180(heading - req[0x18])
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2);
+    req.SetU(pes::moveword::kClassWord, 2);
+    StepToRun(host, req);
+    // drift = wrap180(heading - facing) + the blended turn (0) = 0; the facing written is that plus the clamped turn.
+    ASSERT_TRUE(req.Flag(pes::moveword::kRootFacing)) << c.remaining;
+    float written = req.F(pes::moveword::kRootFacingAngle);
+    if (written > 180.0f) written -= 360.0f;
+    EXPECT_NEAR(written, c.expected, 1e-3f) << "remaining " << c.remaining;
+    EXPECT_NEAR(req.F(pes::moveword::kRecordStampB) - (10.0f - c.remaining), c.expected, 1e-3f) << "remaining " << c.remaining;
+  }
+}
+
 // -------------------------------------------------------------------------------------
 // RUN_TO_STEP, FUN_1406c1070.
 // -------------------------------------------------------------------------------------
@@ -745,6 +774,30 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
   RunToStep(host, req);
   EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+}
+
+// 0x1406c1070's drift clamp (decompile lines 131-147): once the second dwell is past 0.7 of its limit (DAT_14257a194; the port had
+// 0.6) the root facing turns toward the heading by at most 22.5 / 54 degrees a tick. The port's clamp never bounded anything (it
+// tested `limit < delta` and wrote the heading error either way), so the root facing snapped to the heading.
+TEST(RunToStep, TheRootFacingTurnsTowardTheHeadingByAtMostTheClocksReachOnceTheDwellIsPastSevenTenths) {
+  struct Case { float headingError; float elapsed2; float expected; };
+  const float reach = 22.5f / 54.0f;
+  for (const Case c : {Case{20.0f, 0.75f, reach}, Case{-20.0f, 0.75f, -reach}, Case{20.0f, 0.65f, 0.0f}}) {
+    FakeHost host;
+    MoveReq req;
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed2, c.elapsed2);
+    req.SetF(pes::moveword::kRecordStampA, 0.0f);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kRecordStampB, 10.0f - c.headingError);  // headingError = wrap180(heading - req[0x18])
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kBodyDirection, 10.0f);
+    RunToStep(host, req);
+    ASSERT_TRUE(req.Flag(pes::moveword::kRootFacing)) << c.headingError;
+    EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 10.0f + c.expected, 1e-3f)
+        << "heading error " << c.headingError << " at " << c.elapsed2;
+  }
 }
 
 // -------------------------------------------------------------------------------------
