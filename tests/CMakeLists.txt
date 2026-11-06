@@ -373,6 +373,7 @@ set_tests_properties(simslot_queue_test PROPERTIES TIMEOUT 300)
 add_test(NAME branch_select_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/test_branch_select.py ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/branch_select_scratch)
 set_tests_properties(branch_select_test PROPERTIES TIMEOUT 900)
+
 # GF_PES_SURVEY at pes_dispatch_missing: unset aborts as before; set lists every hit and exits nonzero, with or without
 # a recovery. Builds the generated dispatch TU and pes_survey.hpp with a probe. Needs a C++ compiler.
 add_test(NAME translate_pes_survey_test
@@ -384,4 +385,3 @@ set_tests_properties(translate_pes_survey_test PROPERTIES TIMEOUT 300)
 add_test(NAME translate_untranslated_callees_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_untranslated_callees.py)
 set_tests_properties(translate_untranslated_callees_test PROPERTIES TIMEOUT 120)
-
