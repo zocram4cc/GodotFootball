@@ -142,6 +142,46 @@
       ]
     },
     {
+      "module": "ucrtbase.dll",
+      "export": "_beginthreadex",
+      "do": "return",
+      "value": "0x2000",
+      "why": [
+        "The same export through the image's import slot 0x142530308 (import_slots.json names it ucrtbase.dll): GF's end-to-end load (pes_fox_world_test, GF_PES_SURVEY) reached it through the request managers' thread start.",
+        "Model assumption as for msvcrt.dll!_beginthreadex: no thread is started, a nonzero handle comes back."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "CreateEventW",
+      "do": "return",
+      "value": "0x1004",
+      "why": [
+        "HANDLE CreateEventW(attrs, manualReset, initial, name): reached by GF's end-to-end load (GF_PES_SURVEY, slot 0x14252F270) through the request managers' constructors. The handle is stored and only handed back to SetEvent / WaitForSingleObject models.",
+        "Model assumption: kernel objects are opaque numbers to the translated code; GF runs no second thread to signal them."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "ResumeThread",
+      "do": "return",
+      "value": 1,
+      "why": [
+        "DWORD ResumeThread(HANDLE) (slot 0x14252F378): the request managers resume their worker after creating it suspended. Returns the previous suspend count, 1.",
+        "Model assumption: there is no worker thread (GF serves the lists itself)."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "SetThreadPriority",
+      "do": "return",
+      "value": 1,
+      "why": [
+        "BOOL SetThreadPriority(HANDLE, int) (slot 0x14252F380): the request managers' worker setup. Returns TRUE.",
+        "Model assumption: there is no worker thread."
+      ]
+    },
+    {
       "module": "kernel32.dll",
       "export": "SetEvent",
       "do": "return",

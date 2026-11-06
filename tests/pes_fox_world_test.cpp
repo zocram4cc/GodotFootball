@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "onthepitch/pesfoxworld.hpp"
+#include "pes/translated/translated.hpp"
 #include "pes_stubs.hpp"
 #include "pes/vfs.hpp"
 
@@ -116,6 +117,29 @@ TEST_F(FoxSeam, ReadStopsAtTheSmallerOfTheLoadSizeAndTheBufferSize) {
 TEST_F(FoxSeam, ReadOfAMissingFileEndsInTheErrorStatus) {
   const uint64_t buffer = world_->Alloc(64);
   EXPECT_EQ(Load("common/anime/FoxAnim/Body/no_such_file.mtar", buffer, 64, 64), kStatusError);
+}
+
+// The whole chain, PES's own: the job maker FUN_141EA7190 and the job FUN_141EA7640 (translated) open a handle on a body skeleton, the
+// handle's reader FUN_1414A9280 reads it through the six CRI Fs services (the install's VFS), and the job parses it into the ResManager.
+// The per-type adder (FUN_141B01660..) answers the resource's key, which the job keeps at +0x40 (16 bytes: key, valid byte at +8).
+constexpr char kSkeletonJobPath[] = "cpk_dat/common/anime/FoxAnim/Body/CharacterAssets/body_skel.frig";
+constexpr uint64_t kResManagerVa = 0x1437CEAA0, kNoKey = 0xB8A0BF169F98;
+constexpr uint64_t kJobStateOffset = 8, kJobKeyOffset = 0x40, kJobDone = 2;
+
+// DISABLED: the run reaches one untranslated target, 0x1415A1F7C (a CRT/CRI error-report helper, reached once from the boot or the job:
+// GF_PES_SURVEY=file lists it); translate it (closure.py root 0x1415A1F7C), regenerate, then enable. Every other call of the chain
+// (boot constructors, job maker, job, reader and decode stages with the CRI services) is translated.
+TEST_F(FoxSeam, DISABLED_TheTranslatedJobLoadsAnInstallFileIntoTheResManager) {
+  world_->Boot();
+  ASSERT_NE(world_->Read64(kResManagerVa), 0u) << "the boot built no ResManager";
+  const uint64_t job = world_->StartJob(kSkeletonJobPath);
+  ASSERT_NE(job, 0u) << "the extension names no loader";
+  std::string error;
+  ASSERT_TRUE(world_->Finish(job, &error)) << error;
+  EXPECT_EQ(world_->FileServes(), 1u);
+  EXPECT_EQ(world_->Read8(job + kJobStateOffset), kJobDone);
+  EXPECT_NE(world_->Read64(job + kJobKeyOffset), kNoKey);
+  EXPECT_NE(world_->Read8(job + kJobKeyOffset + 8), 0);
 }
 
 }  // namespace

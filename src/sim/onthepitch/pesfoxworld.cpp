@@ -1,5 +1,7 @@
 #include "onthepitch/pesfoxworld.hpp"
 
+#include "pes/translated/translated.hpp"
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -118,6 +120,61 @@ int64_t PesFoxWorld::Read(const char* path, uint64_t offset, uint8_t* dst, uint6
   std::memcpy(dst, bytes->data() + offset, got);
   ++serves_;
   return static_cast<int64_t>(got);
+}
+
+uint8_t PesFoxWorld::Read8(uint64_t va) { return static_cast<uint8_t>(NewCall().rd(va, 1)); }
+
+namespace {
+
+// The singletons the dump holds from the running game (each names a heap object that does not exist in GF's world). Writers: the file
+// manager 0x14149A6A3, the managers 0x1414B0530 / 0x1414B0C40, the file system object 0x1414A2738, the pump's list heads 0x1402223DC /
+// 0x1402223AC, the ResManager 0x141AE77B0 (flag at 0x141AE78F0) and its singleton cell DAT_1437CEAA0 (FUN_141B02800).
+constexpr uint64_t kFileManagerVa = 0x143704E40, kRequestManagerAVa = 0x143705DC8, kRequestManagerBVa = 0x143705DD0,
+                   kFileSystemVa = 0x143704F18, kPumpListAVa = 0x1437F48A8, kPumpCountAVa = 0x1437F48B0, kPumpListBVa = 0x1437F48B8,
+                   kPumpCountBVa = 0x1437F48C0, kResManagerVa = 0x1437CEAA0, kAnimeInitFlagVa = 0x1437CEA18;
+constexpr uint64_t kFileManagerBytes = 0x2E0;  // FUN_14149AB60: FUN_1403FB410(pool, 0x2E0)
+// The first call of the game's boot (live2/pid2740946 seq001): FUN_141AE77B0(0, 1, 0, 0, 0).
+constexpr uint64_t kBootArgs[4] = {0, 1, 0, 0};
+// FUN_141EA7190's flags (FUN_141EA8430 passes 0x20009 for a queued name).
+constexpr uint64_t kJobFlags = 0x20009;
+constexpr uint64_t kJobHandleOffset = 0x38, kHandleStateOffset = 8;
+constexpr uint8_t kHandleQueuedRead = 2, kHandleQueuedDecode = 5;
+constexpr int kFinishSteps = 16;
+
+}  // namespace
+
+void PesFoxWorld::Boot() {
+  for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
+                      kPumpCountBVa, kResManagerVa})
+    Write64(va, 0);
+  {
+    PesState s = NewCall();
+    s.wr(kAnimeInitFlagVa, 0, 1);
+  }
+  const uint64_t manager = Alloc(kFileManagerBytes);
+  Call(::pes_fn_14149A620, {manager});
+  Call(::pes_fn_1414A3550, {});
+  Call(::pes_fn_1414B08A0, {});
+  Call(::pes_fn_1414B0E90, {});
+  Call(::pes_fn_1402223C0, {});
+  Call(::pes_fn_140222390, {});
+  Call(::pes_fn_141AE77B0, {kBootArgs[0], kBootArgs[1], kBootArgs[2], kBootArgs[3]});
+}
+
+uint64_t PesFoxWorld::StartJob(const std::string& path) { return Call(::pes_fn_141EA7190, {NewCString(path), kJobFlags}); }
+
+bool PesFoxWorld::Finish(uint64_t job, std::string* error) {
+  for (int step = 0; step < kFinishSteps; ++step) {
+    const uint64_t handle = Read64(job + kJobHandleOffset);
+    if (handle != 0) {
+      const uint8_t state = Read8(handle + kHandleStateOffset);
+      if (state == kHandleQueuedRead) Call(::pes_fn_1414A9280, {handle});
+      else if (state == kHandleQueuedDecode) Call(::pes_fn_1414A8F10, {handle});
+    }
+    if ((Call(::pes_fn_141EA7640, {job}) & 0xFF) != 0) return true;
+  }
+  if (error) *error = "fox world: the job did not finish in " + std::to_string(kFinishSteps) + " steps";
+  return false;
 }
 
 }  // namespace pes

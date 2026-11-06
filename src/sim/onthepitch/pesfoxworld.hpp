@@ -43,6 +43,23 @@ class PesFoxWorld final : public PesFileSource {
   uint64_t Alloc(uint64_t bytes);
   int64_t Read(const char* path, uint64_t offset, uint8_t* dst, uint64_t n) override;
 
+  // The load layer's first frame: PES builds its singletons at game start; the image GF maps is a dump of the running game, so they hold
+  // that game's heap pointers. Boot clears them and builds the same objects in GF's heap with PES's own constructors:
+  //   the file manager FUN_14149A620 (FUN_14149AB60's alloc 0x2E0 + ctor), the file system object FUN_1414A3550, the two request managers
+  //   FUN_1414B08A0 / FUN_1414B0E90, the job pump's lists (static initialisers FUN_1402223C0 / FUN_140222390) and the anime engine init
+  //   FUN_141AE77B0 (the ResManager FUN_141B02800 and the type loaders), called as the game's boot does (seq001: rcx 0, rdx 1, r8 0, r9 0).
+  // ponytail: FUN_14149AB60 also initialises the CRI library (FUN_14149ABE0) and starts its worker threads (FUN_1414B11A0, FUN_1414B1D90);
+  // GF has no CRI library (the six CRI Fs calls under the reader are GF's file seam) and serves the request lists itself (ServeFile), so
+  // those three calls are left out. Remove with a GF that runs PES's worker threads.
+  void Boot();
+  // The job maker FUN_141EA7190 on `path` (a CRI path, "cpk_dat/common/anime/..."): PES's job object, 0 when its extension names no loader.
+  // The job's first FUN_141EA7640 call (inside) opens the file handle and queues the request.
+  uint64_t StartJob(const std::string& path);
+  // The worker threads' part: the handle's reader FUN_1414A9280 (state 2, the CRI Fs calls answered from the VFS) and, when the reader
+  // queued it, the decode stage FUN_1414A8F10 (state 5), then FUN_141EA7640 until the job answers done. Returns false (error set) when the
+  // handle never reaches state 8 within a bounded number of steps.
+  bool Finish(uint64_t job, std::string* error);
+  uint8_t Read8(uint64_t va);
   uint64_t FileServes() const { return serves_; }
 
  private:
