@@ -85,7 +85,7 @@ def u32(uc, va):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--hooks", default="/mnt/Extra4/PES21/rendezvous/hooks.cfg")
+    ap.add_argument("--hooks", default=os.environ.get("RV_HOOKS_CFG"), help="rv.dll hooks.cfg (displaced hook bytes); or RV_HOOKS_CFG")
     ap.add_argument("--image", default=os.environ.get("PES_EXE"))
     ap.add_argument("snaps", nargs="+")
     a = ap.parse_args()
