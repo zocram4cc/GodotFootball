@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 namespace {
 
@@ -203,3 +204,80 @@ void pes_native_registry_find(PesState& s) {
 
 // PES's insert adds a node; GF's registry is fixed, so a lookup that missed and tried to create is a bug upstream.
 void pes_native_registry_insert(PesState& s) { Die("registry insert of a name this registry does not hold; key", s.rd(s.gpr[2], 8)); }
+
+namespace {
+
+PesFileSource* g_fileSource = nullptr;
+
+// The CRI Fs operation object (0x1415A6CA8 makes it): the fields the reader's calls touch. +0x1C is the loader status
+// (0x1415A70B4 reads it: 2 = complete, 3 = error; the reader tests 2), +0x141 a flag 0x1415A70B4 tests, +0x148 / +0x150 the
+// completion callback and its argument (0x1415A734C stores them).
+constexpr uint64_t kOpBytes = 0x160, kOpStatusOff = 0x1C, kOpCallbackOff = 0x148, kOpArgOff = 0x150;
+constexpr uint32_t kStatusComplete = 2, kStatusError = 3;
+constexpr uint64_t kCriOk = 0, kCriErrorInvalid = 0xFFFFFFFE;  // 0x1415A2FD0 / 0x1415A71B8 answer these (0xFFFFFFFE: the invalid-argument error)
+
+PesFileSource& Source() {
+  if (!g_fileSource) Die("file service call with no file source set; rcx", 0);
+  return *g_fileSource;
+}
+
+std::string CString(const PesState& s, uint64_t va) {
+  std::string out;
+  for (uint64_t c = s.rd(va, 1); c != 0 && out.size() < 4096; c = s.rd(va + out.size(), 1)) out.push_back(static_cast<char>(c));
+  return out;
+}
+
+}  // namespace
+
+void pes_service_set_file_source(PesFileSource* source) { g_fileSource = source; }
+
+// FUN_1415A2FD0(fs, path, int64* size): the file's size at *size, -1 for a missing file; 0 on success (the reader tests the size).
+void pes_service_fs_stat(PesState& s) {
+  const int64_t size = Source().Size(CString(s, s.gpr[2]).c_str());
+  s.wr(s.gpr[8], static_cast<uint64_t>(size), 8);
+  s.gpr[0] = size >= 0 ? kCriOk : kCriErrorInvalid;
+}
+
+// FUN_1415A6CA8(op**): a zeroed operation object, its pointer at *rcx.
+void pes_service_fs_op_create(PesState& s) {
+  const uint64_t op = HeapOf(s).Alloc(kOpBytes, PesHeap::kMinAlign);
+  if (!op) Die("operation object: the arena is full; bytes", kOpBytes);
+  s.wr(s.gpr[1], op, 8);
+}
+
+// FUN_1415A734C(op, callback, arg): stored; the completion callback is never invoked here (it only releases the reader's semaphore,
+// which the WaitForSingleObject model satisfies).
+void pes_service_fs_op_callback(PesState& s) {
+  s.wr(s.gpr[1] + kOpCallbackOff, s.gpr[2], 8);
+  s.wr(s.gpr[1] + kOpArgOff, s.gpr[8], 8);
+  s.gpr[0] = kCriOk;
+}
+
+// FUN_1415A71B8(op, fs, path, offset, loadSize, buffer, bufferSize): reads min(loadSize, bufferSize) bytes from `offset`, synchronously,
+// into the buffer and completes the operation. The stack arguments are the caller's: a service runs in place of the call, so [rsp + 0x20]
+// is the fifth argument.
+void pes_service_fs_op_read(PesState& s) {
+  const uint64_t op = s.gpr[1], offset = s.gpr[9], loadSize = s.rd(s.gpr[4] + 0x20, 8), buffer = s.rd(s.gpr[4] + 0x28, 8),
+                 bufferSize = s.rd(s.gpr[4] + 0x30, 8), n = loadSize < bufferSize ? loadSize : bufferSize;
+  uint8_t* dst = s.mem.service_at(buffer, static_cast<unsigned>(n < 0xFFFFFFFFu ? n : 0));
+  std::vector<uint8_t> staging;
+  if (!dst) {  // the buffer is not in a host window (a snapshot-backed call): stage it
+    staging.resize(n);
+    dst = staging.data();
+  }
+  const int64_t got = Source().Read(CString(s, s.gpr[8]).c_str(), offset, dst, n);
+  if (dst == staging.data())
+    for (uint64_t i = 0; got > 0 && i < static_cast<uint64_t>(got); ++i) s.wr(buffer + i, staging[i], 1);
+  s.wr(op + kOpStatusOff, got == static_cast<int64_t>(n) ? kStatusComplete : kStatusError, 4);
+  s.gpr[0] = got == static_cast<int64_t>(n) ? kCriOk : kCriErrorInvalid;
+}
+
+// FUN_1415A70B4(op, int* status): the loader status at *status (0x1415A70B4 maps a finished status with its flag at +0x141 set to 0,
+// a flag this operation never sets); 0 on success.
+void pes_service_fs_op_status(PesState& s) {
+  s.wr(s.gpr[2], s.rd(s.gpr[1] + kOpStatusOff, 4), 4);
+  s.gpr[0] = kCriOk;
+}
+
+// FUN_1415A6CBC(op): the operation object is released.
+void pes_service_fs_op_destroy(PesState& s) { HeapOf(s).Free(s.gpr[1]); }

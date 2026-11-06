@@ -1,5 +1,5 @@
 {
- "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). REAL: 0x1423A1AC0 (4 calls, hook anime_phase3_1423A1AC0), 0x141AF61C0 (4, anime_pusher), 0x1423A1900 (4, anime_phase4), 0x1423A2260 (4, stage 0 nested in the phase-4 calls). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3), 0x141EC86D0. SYNTHETIC: 0x141AF4650 (BodyAnimControl::Exec phases over the four real anime_bones_141EB49B0 captures, live2/pid952648).",
+ "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). REAL: 0x1423A1AC0 (4 calls, hook anime_phase3_1423A1AC0), 0x141AF61C0 (4, anime_pusher), 0x1423A1900 (4, anime_phase4), 0x1423A2260 (4, stage 0 nested in the phase-4 calls). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3), 0x141EC86D0. SYNTHETIC: 0x141AF4650 (BodyAnimControl::Exec phases over the four real anime_bones_141EB49B0 captures, live2/pid952648). REAL (AnimeLayer4, live2/pid3147592 + pid3125670 fox captures): 0x141EA7640 (5 calls), 0x141EA7190 (4), 0x141EA8430 (6), 0x1414A89E0 (3), 0x141AE77B0 (1).",
  "results": [
   {
    "aborted": 0,
@@ -369,6 +369,191 @@
    "stubs": [],
    "translated": true,
    "va": "0x141EC86D0",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141EA7640": {
+     "reached": 48,
+     "total": 87,
+     "fraction": 0.5517
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 5 REAL calls of the fox file-load job FUN_141EA7640 (hook anime_fox_141EA7640, live2/pid3147592): seq002 and seq004 (the open path: FUN_1414A89E0, the handle's constructor, the request queue), seq006 and seq008 (the open path again) and seq484 (calls=9281, the MATCH-LOAD call: the handle is done, the parse, the per-type adder, the handle's delete). Imports modelled: RtlDeleteCriticalSection, CloseHandle, CreateSemaphoreW, InitializeCriticalSectionAndSpinCount, WaitForSingleObject (INFINITE satisfied), SetEvent, ReleaseSemaphore.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 48,
+     "total": 87,
+     "fraction": 0.5517
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EA7640",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141EA7190": {
+     "reached": 73,
+     "total": 97,
+     "fraction": 0.7526
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 REAL calls of the job maker FUN_141EA7190 (hook anime_fox_141EA7190, live2/pid3147592 seq001 seq003 seq005 and seq485 (calls=381, the match-load call)): the extension tests (.mtar/.frig/.ask/.geom/...), the 0x50-byte job object (FUN_141EA6F70) and its first FUN_141EA7640 call.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 73,
+     "total": 97,
+     "fraction": 0.7526
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EA7190",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141EA8430": {
+     "reached": 10,
+     "total": 47,
+     "fraction": 0.2128
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 6 REAL calls of the fox job pump FUN_141EA8430 (hook anime_fox_141EA8430, live2/pid3125670 seq004 seq279 seq008 seq006 seq007 seq009). Every captured call found the pending list empty (own-block 0.2128: only the entry, the lock and the empty-list exit); the pump's job-walking path is covered only through the proofs of FUN_141EA7190 / FUN_141EA7640 it calls. OPEN: a real call with a non-empty pending list (hook predicate q(q(0x1437f48a8))!=0x1437f48a8).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 10,
+     "total": 47,
+     "fraction": 0.2128
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EA8430",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141AE77B0": {
+     "reached": 18,
+     "total": 35,
+     "fraction": 0.5143
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 1 REAL call of the anime engine init FUN_141AE77B0 (hook anime_init_141AE77B0, live2/pid2740946 seq001, call 1, the boot): the type-loader registrations (FUN_141B0BA70..FUN_141B0CD20), the ResManager (FUN_141B02800), the per-system step FUN_141AE87F0 twice. Imports modelled: __intrinsic_setjmp (returns 0), __chkstk (nop), _beginthreadex (a nonzero handle, no thread). The second captured call (seq1049) stops at a steam_api64.dll fetch and is excluded.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 18,
+     "total": 35,
+     "fraction": 0.5143
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141AE77B0",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x1414A89E0": {
+     "reached": 5,
+     "total": 6,
+     "fraction": 0.8333
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 3 REAL calls of the file open FUN_1414A89E0 (hook anime_fox_1414A89E0, live2/pid3125670 seq001 seq003 seq508): the handle allocation (FUN_1403FB410, 0x98 bytes) and its constructor FUN_1414A8790. Callers at 0x1414B3B7A and 0x14125F652.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 5,
+     "total": 6,
+     "fraction": 0.8333
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1414A89E0",
    "bounded": true
   }
  ]

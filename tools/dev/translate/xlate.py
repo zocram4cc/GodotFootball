@@ -480,6 +480,13 @@ def import_model_lines(op, jump):
     if e["do"] == "return":
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
         return ["{ " + push_ret + " s.gpr[0] = %dULL;%s }" % (value, pop_ret)]
+    if e["do"] == "wait":
+        # WaitForSingleObject(rcx = handle, edx = ms), the code_hex model: INFINITE (edx == 0xFFFFFFFF) is satisfied (eax = 0), any other
+        # timeout expires (eax = 0x102). Only rax changes.
+        return ["{ " + push_ret + " s.gpr[0] = ((uint32_t)s.gpr[2] == 0xFFFFFFFFu) ? 0ULL : 0x102ULL;%s }" % pop_ret]
+    if e["do"] == "nop":
+        # An export that returns with every register the caller reads unchanged (__chkstk: the probe only commits stack pages).
+        return ["{ " + push_ret + pop_ret + " }"]
     if e["do"] == "memcpy":
         # Win64 memcpy(rcx=dst, rdx=src, r8=n): push rdi, push rsi, rep movsb (byte writes, forward), rax=dst,
         # rcx=0; the pops restore rsi and rdi (16 bytes of stack), then the ret (8 more) for a call.
@@ -2378,6 +2385,9 @@ def stub_lines(do):
     if do == "abort":
         # Tamper trap: reaching it aborts, exactly as the harness errors.
         return ["abort();"]
+    if do.startswith("service_"):
+        # A GF service (stubs.py SERVICE_DOS): GF's implementation answers the call over the same registers and stack.
+        return ["pes_service_%s(s);" % do[len("service_"):]]
     raise ValueError("stub_lines: no model for %r" % (do,))
 
 

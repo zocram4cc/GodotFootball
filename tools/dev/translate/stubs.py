@@ -42,10 +42,16 @@ DO_BY_KIND = {
     "run-real": {None: None},
     "run-real-closure": {None: None},
     "unmodellable": {None: "unmodellable"},
+    "gf-service": {op: "service_" + op for op in ("fs_stat", "fs_op_create", "fs_op_callback", "fs_op_read", "fs_op_status",
+                                                  "fs_op_destroy")},
 }
+# GF services (kind "gf-service"): a direct call to the PES function runs GF's pes_service_<op> (pes_native.cpp) over the same registers and
+# stack, in place of the call. Not a model of a PES effect: GF is the other side of a seam (the file layer's reads). The harness runs PES's
+# own bytes for the callee, so a snapshot replay that reaches one stops; no proof does.
+SERVICE_DOS = frozenset(do for do in DO_BY_KIND["gf-service"].values())
 KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0",
             "cosf_xmm0", "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0",
-            "unmodellable", None}
+            "unmodellable", None} | SERVICE_DOS
 
 
 def load(path=DEFAULT):
@@ -71,7 +77,7 @@ def load(path=DEFAULT):
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
 MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0", "cosf_xmm0",
-                       "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0", "noop", "abort"})
+                       "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0", "noop", "abort"}) | SERVICE_DOS
 
 
 def models(table):

@@ -3890,6 +3890,72 @@
     "op": "__guard_check_icall",
     "effect": "none on the success path (validates the indirect-call target, returns)"
    }
+  },
+  {
+   "va": "1415A2FD0",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs stat(fs, path, int64* size): the file handle reader FUN_1414A9280 calls it at 0x1414A9325 (rcx = FUN_1414A3530's object, rdx = the path FUN_1414A22E0 formed, r8 = the size cell) and tests the size ([rbp+7] > 0).",
+    "GF's seam: the install's VFS answers (pes_service_fs_stat). PES's own stat opens the CPK through the CRI library and the OS, none of which GF runs."
+   ],
+   "model": {"op": "fs_stat", "effect": "*size = the VFS file's size, -1 for a missing file; rax 0 on success"}
+  },
+  {
+   "va": "1415A6CA8",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader create(op**): FUN_1414A9280 at 0x1414A9376 (rcx = &local, the operation object's pointer comes back in it).",
+    "GF's seam (pes_service_fs_op_create): a zeroed object in GF's heap."
+   ],
+   "model": {"op": "fs_op_create", "effect": "*rcx = a new operation object"}
+  },
+  {
+   "va": "1415A734C",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader set-callback(op, callback, arg): FUN_1414A9280 at 0x1414A938A passes the completion callback 0x1414A8F00 and the semaphore cell. PES's body stores them at +0x148 / +0x150 and returns 0 (decompile of 0x1415A734C).",
+    "GF's seam (pes_service_fs_op_callback): stored the same way; never invoked, because the reader's wait on the semaphore is satisfied by the WaitForSingleObject model."
+   ],
+   "model": {"op": "fs_op_callback", "effect": "op+0x148 = callback, op+0x150 = arg; rax 0"}
+  },
+  {
+   "va": "1415A71B8",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader load(op, fs, path, offset, loadSize, buffer, bufferSize): FUN_1414A9280 at 0x1414A93BE (r9 = 0, [rsp+0x20] = the file size, [rsp+0x28] = the handle's buffer [rbx+0x40], [rsp+0x30] = the file size).",
+    "GF's seam (pes_service_fs_op_read): the VFS file's bytes go into the buffer synchronously and the operation completes; PES's read is asynchronous on a CRI thread."
+   ],
+   "model": {"op": "fs_op_read", "effect": "buffer[0..min(loadSize, bufferSize)) = the file's bytes from offset; op status = 2 (complete) or 3"}
+  },
+  {
+   "va": "1415A70B4",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader status(op, int* status): FUN_1414A9280 at 0x1414A93D4 and tests the answer against 2 (complete) at 0x1414A93D9. PES's body reads op+0x1C (decompile of 0x1415A70B4).",
+    "GF's seam (pes_service_fs_op_status): the status pes_service_fs_op_read left."
+   ],
+   "model": {"op": "fs_op_status", "effect": "*status = op+0x1C; rax 0"}
+  },
+  {
+   "va": "1415A6CBC",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader destroy(op): FUN_1414A9280 at 0x1414A9413.",
+    "GF's seam (pes_service_fs_op_destroy): the operation object is released to GF's heap."
+   ],
+   "model": {"op": "fs_op_destroy", "effect": "the operation object is freed"}
   }
  ]
 }

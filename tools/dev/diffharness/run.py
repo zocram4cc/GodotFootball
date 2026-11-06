@@ -609,6 +609,12 @@ def install_hooks(mu, spec, RET_SENTINEL):
             uc._bad = "abort trap %s reached" % name
             uc.emu_stop()
             return
+        elif kind.startswith("service_"):
+            # GF service (stubs.json gf-service): GF's side of the file seam. The harness has no file layer to run, so a replay that reaches
+            # one is excluded, loudly (the translated side answers from GF's VFS, which the recorded call never read).
+            uc._bad = "GF service %s reached (stubs.json gf-service: no replay reads a file)" % name
+            uc.emu_stop()
+            return
         elif kind == "noop":
             # engine-noop (stubs.json): no effect on the success path; the
             # call is dropped, registers untouched, the return is popped below.

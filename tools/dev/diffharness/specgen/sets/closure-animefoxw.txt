@@ -1,0 +1,791 @@
+0x141EA8430	stand-in	gameplay	seed
+0x141EA7190	stand-in	gameplay	seed
+0x141EA7640	stand-in	gameplay	seed
+0x1414A89E0	stand-in	gameplay	seed
+0x14149A620	stand-in	animefox	seed
+0x1414A3550	stand-in	animefox	seed
+0x1414B08A0	stand-in	animefox	seed
+0x1414B0E90	stand-in	animefox	seed
+0x140222390	stand-in	animefox	seed
+0x1402223C0	stand-in	animefox	seed
+0x1414A9280	stand-in	animefox	seed
+0x1414A8F10	stand-in	animefox	seed
+0x1403DB2C0	stand-in	cutscene	callee
+0x1403DB410	stand-in	cutscene	callee
+0x1403FB5B0	stand-in	HUD	callee
+0x1403FF430	stand-in	restart	callee
+0x1403FF490	stand-in	restart	callee
+0x141B02840	stand-in	gameplay	callee
+0x141B034B0	stand-in	animation	callee
+0x141EA75D0	stand-in	gameplay	callee
+0x1403FB410	stand-in	gameplay	callee
+0x140402370	stand-in	HUD	callee
+0x141EA6F70	stand-in	gameplay	callee
+0x140228B20	stand-in	cutscene	callee
+0x14022CEE0	stand-in	pre-match	callee
+0x14022D100	stand-in	pre-match	callee
+0x14022D3C0	stand-in	pre-match	callee
+0x14022D410	stand-in	pre-match	callee
+0x14022D620	stand-in	pre-match	callee
+0x1402647D0	stand-in	pre-match	callee
+0x14028AEE0	stand-in	pre-match	callee
+0x141450A00	stand-in	in-match menu	callee
+0x1414A8B70	stand-in	cutscene	callee
+0x1414A8C70	stand-in	cutscene	callee
+0x1414A8CE0	stand-in	cutscene	callee
+0x1414A8D20	stand-in	gameplay	callee
+0x1414A9570	stand-in	in-match menu	callee
+0x1414A95A0	stand-in	cutscene	callee
+0x1414A9660	stand-in	in-match menu	callee
+0x1415B8CB0	stand-in	gameplay	callee
+0x1415B99F0	stand-in	gameplay	callee
+0x1415B9D60	stand-in	gameplay	callee
+0x1415BB350	stand-in	gameplay	callee
+0x1415BB900	stand-in	gameplay	callee
+0x14164C450	stand-in	gameplay	callee
+0x141651C30	stand-in	gameplay	callee
+0x141655D90	stand-in	gameplay	callee
+0x141902670	stand-in	gameplay	callee
+0x1419029A0	stand-in	gameplay	callee
+0x141902CE0	stand-in	gameplay	callee
+0x141902D50	stand-in	gameplay	callee
+0x141B01400	stand-in	gameplay	callee
+0x141B01660	stand-in	gameplay	callee
+0x141B018A0	stand-in	gameplay	callee
+0x141B01AE0	stand-in	gameplay	callee
+0x141B01D20	stand-in	gameplay	callee
+0x141B01F60	stand-in	gameplay	callee
+0x141B04200	stand-in	gameplay	callee
+0x141EA6E90	stand-in	gameplay	callee
+0x1414A8790	stand-in	in-match menu	callee
+0x1403FF3E0	stand-in	cutscene	callee
+0x14149AF60	stand-in	cutscene	callee
+0x14159EFF8	stand-in	AI	callee
+0x1414A26E0	stand-in	animefox	callee
+0x1414B0470	stand-in	animefox	callee
+0x141B379C0	stand-in	out: career	callee
+0x1414B0B80	stand-in	animefox	callee
+0x14159F6C0	stand-in	pre-match	callee
+0x141EA8DC0	stand-in	cutscene	callee
+0x141EA8E30	stand-in	cutscene	callee
+0x14149A470	stand-in	restart	callee
+0x14149AB50	stand-in	cutscene	callee
+0x1414A22E0	stand-in	pre-match	callee
+0x1414A3530	stand-in	pre-match	callee
+0x1414A3540	stand-in	pre-match	callee
+0x1414A9680	stand-in	cutscene	callee
+0x1414ABD10	stand-in	out: online	callee
+0x1414ABD30	stand-in	out: online	callee
+0x1414ABD80	stand-in	out: online	callee
+0x1414ABDC0	stand-in	out: online	callee
+0x1414B0850	stand-in	cutscene	callee
+0x1414B0DD0	stand-in	animefox	callee
+0x141963010	stand-in	pre-match	callee
+0x141963DC0	stand-in	pre-match	callee
+0x141B37D80	stand-in	crowd	callee
+0x141B38980	stand-in	in-match menu	callee
+0x1423D90E0	stand-in	cutscene	callee
+0x1414A8A50	stand-in	animefox	callee
+0x1414ABD70	stand-in	out: online	callee
+0x1414ABDB0	stand-in	out: online	callee
+0x1414B0E80	stand-in	cutscene	callee
+0x1403DB590	stand-in	cutscene	callee
+0x1415D1980	stand-in	cutscene	callee
+0x1403DB280	stand-in	cutscene	callee
+0x1403FB4F0	stand-in	HUD	callee
+0x141B02AD0	stand-in	gameplay	callee
+0x141B02CB0	stand-in	gameplay	callee
+0x141B02E90	stand-in	gameplay	callee
+0x141B03070	stand-in	gameplay	callee
+0x141B03250	stand-in	gameplay	callee
+0x1403FB710	stand-in	cutscene	callee
+0x1403FB730	stand-in	cutscene	callee
+0x1403FB860	stand-in	gameplay	callee
+0x140401EE0	stand-in	cutscene	callee
+0x140402240	stand-in	HUD	callee
+0x1415A1708	stand-in	restart	callee
+0x14028AD50	stand-in	pre-match	callee
+0x1403B8610	stand-in	pre-match	callee
+0x14022E4C0	stand-in	in-match menu	callee
+0x14037FDB0	stand-in	pre-match	callee
+0x1403B72E0	stand-in	pre-match	callee
+0x1403B7750	stand-in	pre-match	callee
+0x1403CFB40	stand-in	pre-match	callee
+0x1403CFEB0	stand-in	pre-match	callee
+0x1403B82A0	stand-in	pre-match	callee
+0x1403B8450	stand-in	pre-match	callee
+0x14159F850	stand-in	pre-match	callee
+0x14159F8B0	stand-in	pre-match	callee
+0x1403DB210	stand-in	pre-match	callee
+0x1403DB240	stand-in	gameplay	callee
+0x1403DB250	stand-in	gameplay	callee
+0x1403DB290	stand-in	gameplay	callee
+0x1402877B0	stand-in	pre-match	callee
+0x140288220	stand-in	pre-match	callee
+0x1402889A0	stand-in	pre-match	callee
+0x1403DC750	stand-in	pre-match	callee
+0x14149A760	stand-in	cutscene	callee
+0x1414A8920	stand-in	cutscene	callee
+0x14029D370	stand-in	cutscene	callee
+0x14030E300	stand-in	pre-match	callee
+0x1415B85A0	stand-in	gameplay	callee
+0x1415B8BD0	stand-in	gameplay	callee
+0x140289FA0	stand-in	pre-match	callee
+0x1402AF9E0	stand-in	gameplay	callee
+0x1415BB270	stand-in	gameplay	callee
+0x1415BB820	stand-in	gameplay	callee
+0x141651650	stand-in	gameplay	callee
+0x141651B90	stand-in	gameplay	callee
+0x14022C690	stand-in	animation	callee
+0x14164C020	stand-in	gameplay	callee
+0x141B03960	stand-in	gameplay	callee
+0x1415B9920	stand-in	gameplay	callee
+0x141B037F0	stand-in	gameplay	callee
+0x141B01010	stand-in	gameplay	callee
+0x141B03AD0	stand-in	gameplay	callee
+0x1419AAFB0	stand-in	gameplay	callee
+0x141B03C40	stand-in	gameplay	callee
+0x1419AB080	stand-in	gameplay	callee
+0x141B03DB0	stand-in	gameplay	callee
+0x141B04110	stand-in	gameplay	callee
+0x1414A36E0	stand-in	animefox	callee
+0x1414B3AC0	stand-in	animefox	callee
+0x1415A1720	stand-in	pre-match	callee
+0x1415A260C	stand-in	animefox	callee
+0x141B37520	stand-in	out: online	callee
+0x141B37D50	stand-in	replay	callee
+0x141B37A80	stand-in	out: career	callee
+0x141B37CC0	stand-in	replay	callee
+0x140403060	stand-in	HUD	callee
+0x1414B06C0	stand-in	cutscene	callee
+0x141B38A10	stand-in	cutscene	callee
+0x1403B1020	stand-in	out: online	callee
+0x1403B2860	stand-in	out: online	callee
+0x1403B29D0	stand-in	out: online	callee
+0x14022C770	stand-in	cutscene	callee
+0x1404024A0	stand-in	HUD	callee
+0x14028EA30	stand-in	pre-match	callee
+0x1403DC850	stand-in	pre-match	callee
+0x1403DC890	stand-in	pre-match	callee
+0x14022E280	stand-in	in-match menu	callee
+0x14022E390	stand-in	in-match menu	callee
+0x14038E6F0	stand-in	pre-match	callee
+0x1403B6F80	stand-in	pre-match	callee
+0x1403B7BF0	stand-in	pre-match	callee
+0x1403B7CE0	stand-in	pre-match	callee
+0x1403B7DD0	stand-in	pre-match	callee
+0x1403B8C10	stand-in	pre-match	callee
+0x1403B8FB0	stand-in	pre-match	callee
+0x1403B91B0	stand-in	pre-match	callee
+0x1403B9280	stand-in	pre-match	callee
+0x1403B9790	stand-in	pre-match	callee
+0x1403B9930	stand-in	pre-match	callee
+0x1403B9A00	stand-in	pre-match	callee
+0x1403B9C90	stand-in	pre-match	callee
+0x1403B9E10	stand-in	pre-match	callee
+0x1403CF740	stand-in	cutscene	callee
+0x1403CF760	stand-in	pre-match	callee
+0x1403CF980	stand-in	pre-match	callee
+0x1403CFE70	stand-in	pre-match	callee
+0x1403CFF60	stand-in	pre-match	callee
+0x1403D0220	stand-in	pre-match	callee
+0x1403E2080	stand-in	pre-match	callee
+0x140298B50	stand-in	pre-match	callee
+0x1403B8760	stand-in	pre-match	callee
+0x1403B84D0	stand-in	pre-match	callee
+0x1403DF7C0	stand-in	pre-match	callee
+0x1403F3920	stand-in	pre-match	callee
+0x14149A5A0	stand-in	cutscene	callee
+0x1414B0DE0	stand-in	cutscene	callee
+0x1402A51C0	stand-in	cutscene	callee
+0x1403434D0	stand-in	cutscene	callee
+0x1403435D0	stand-in	cutscene	callee
+0x140266240	stand-in	cutscene	callee
+0x14027BF20	stand-in	gameplay	callee
+0x140287580	stand-in	gameplay	callee
+0x1402B0000	stand-in	gameplay	callee
+0x1403CF7E0	stand-in	gameplay	callee
+0x1403DB2B0	stand-in	cutscene	callee
+0x1403CF770	stand-in	cutscene	callee
+0x14037FA00	stand-in	animefox	callee
+0x14037FA10	stand-in	animefox	callee
+0x1415D0D30	stand-in	animefox	callee
+0x1415A1A68	stand-in	audio	callee
+0x1415A1AD4	stand-in	audio	callee
+0x1415A204C	stand-in	audio	callee
+0x1415A20A4	stand-in	audio	callee
+0x1415A43E0	stand-in	animefox	callee
+0x1415A54E8	stand-in	animefox	callee
+0x141B39400	stand-in	out: online	callee
+0x1403FB5E0	stand-in	camera	callee
+0x141B37910	stand-in	out: career	callee
+0x141B37970	stand-in	out: career	callee
+0x141B393F0	stand-in	out: career	callee
+0x140402F40	stand-in	HUD	callee
+0x141B37E50	stand-in	cutscene	callee
+0x1403B2C50	stand-in	out: online	callee
+0x1403B5F60	stand-in	out: online	callee
+0x1403B6250	stand-in	out: online	callee
+0x1403B6590	stand-in	out: online	callee
+0x1403B6AA0	stand-in	out: online	callee
+0x1403B28D0	stand-in	out: online	callee
+0x140AA3E50	stand-in	pre-match	callee
+0x141FFEB00	stand-in	pre-match	callee
+0x1403F3AF0	stand-in	pre-match	callee
+0x1403F3B30	stand-in	pre-match	callee
+0x14037FD90	stand-in	pre-match	callee
+0x14038DF60	stand-in	pre-match	callee
+0x1403B0050	stand-in	pre-match	callee
+0x1403E2120	stand-in	pre-match	callee
+0x1415DDDE0	stand-in	pre-match	callee
+0x1403B9050	stand-in	pre-match	callee
+0x1403B9AD0	stand-in	pre-match	callee
+0x1403B9D30	stand-in	pre-match	callee
+0x1403BAA20	stand-in	pre-match	callee
+0x1403CFEE0	stand-in	cutscene	callee
+0x1403D5180	stand-in	pre-match	callee
+0x1403B8DB0	stand-in	pre-match	callee
+0x14037E7F0	stand-in	pre-match	callee
+0x1403BA430	stand-in	pre-match	callee
+0x1403C55F0	stand-in	pre-match	callee
+0x1403B8D00	stand-in	pre-match	callee
+0x1403C5920	stand-in	pre-match	callee
+0x1403C5A80	stand-in	pre-match	callee
+0x1403C5B30	stand-in	pre-match	callee
+0x140228C00	stand-in	pre-match	callee
+0x14037E660	stand-in	pre-match	callee
+0x14037F2B0	stand-in	pre-match	callee
+0x14037F390	stand-in	pre-match	callee
+0x14037F460	stand-in	pre-match	callee
+0x1403B93D0	stand-in	pre-match	callee
+0x1403B9D50	stand-in	pre-match	callee
+0x1403BA6B0	stand-in	pre-match	callee
+0x1403CF910	stand-in	cutscene	callee
+0x1415D0440	stand-in	pre-match	callee
+0x1415D0460	stand-in	pre-match	callee
+0x14037FDA0	stand-in	cutscene	callee
+0x1403D5170	stand-in	pre-match	callee
+0x1402983D0	stand-in	pre-match	callee
+0x1403E1C40	stand-in	pre-match	callee
+0x1403E1F50	stand-in	pre-match	callee
+0x1403E8800	stand-in	pre-match	callee
+0x1403F2F60	stand-in	pre-match	callee
+0x1403F3E60	stand-in	pre-match	callee
+0x140343540	stand-in	cutscene	callee
+0x140265F90	stand-in	cutscene	callee
+0x1403D2180	stand-in	pre-match	callee
+0x1403D29E0	stand-in	pre-match	callee
+0x1402A14A0	stand-in	gameplay	callee
+0x14027A810	stand-in	cutscene	callee
+0x140289EC0	stand-in	gameplay	callee
+0x14028B000	stand-in	gameplay	callee
+0x14028ABA0	stand-in	gameplay	callee
+0x1402AFDB0	stand-in	gameplay	callee
+0x1402B0360	stand-in	gameplay	callee
+0x143DFA5A0	stand-in	animefox	callee
+0x144B535C0	stand-in	animefox	callee
+0x1415A4F70	stand-in	animefox	callee
+0x141B39420	stand-in	out: online	callee
+0x1403B2A30	stand-in	out: online	callee
+0x1403F7DC0	stand-in	pre-match	callee
+0x1403F7FE0	stand-in	pre-match	callee
+0x14038E6B0	stand-in	pre-match	callee
+0x14038F320	stand-in	pre-match	callee
+0x1403AAFC0	stand-in	pre-match	callee
+0x1403AD690	stand-in	pre-match	callee
+0x1403AD6F0	stand-in	pre-match	callee
+0x1403B0690	stand-in	pre-match	callee
+0x1403B0CE0	stand-in	pre-match	callee
+0x1403AFAF0	stand-in	pre-match	callee
+0x1403AFC20	stand-in	pre-match	callee
+0x1403B5380	stand-in	pre-match	callee
+0x1403B5810	stand-in	pre-match	callee
+0x1403E1DE0	stand-in	pre-match	callee
+0x1403E1DB0	stand-in	pre-match	callee
+0x1403C5380	stand-in	pre-match	callee
+0x1403C5BE0	stand-in	pre-match	callee
+0x1403C7860	stand-in	pre-match	callee
+0x1415A1726	stand-in	in-match menu	callee
+0x1415D18B0	stand-in	pre-match	callee
+0x1403CFD80	stand-in	pre-match	callee
+0x1403B8EA0	stand-in	pre-match	callee
+0x1403C7C90	stand-in	pre-match	callee
+0x14037F290	stand-in	pre-match	callee
+0x1403CFFE0	stand-in	pre-match	callee
+0x14037E9B0	stand-in	pre-match	callee
+0x1403B8E20	stand-in	pre-match	callee
+0x14037EBE0	stand-in	pre-match	callee
+0x14037ED10	stand-in	pre-match	callee
+0x14037E6E0	stand-in	pre-match	callee
+0x1403CF9F0	stand-in	pre-match	callee
+0x14037E8D0	stand-in	pre-match	callee
+0x14037EF90	stand-in	pre-match	callee
+0x14037EFB0	stand-in	pre-match	callee
+0x14037F0E0	stand-in	pre-match	callee
+0x1403C55D0	stand-in	pre-match	callee
+0x14037EFF0	stand-in	pre-match	callee
+0x14037F020	stand-in	pre-match	callee
+0x1415D18D0	stand-in	pre-match	callee
+0x140298060	stand-in	pre-match	callee
+0x140227920	stand-in	in-match menu	callee
+0x140227930	stand-in	cutscene	callee
+0x1403DB520	stand-in	cutscene	callee
+0x1403DB6E0	stand-in	pre-match	callee
+0x1403DBB40	stand-in	gameplay	callee
+0x1403DBC30	stand-in	pre-match	callee
+0x1403DBE10	stand-in	gameplay	callee
+0x1403DBE80	stand-in	pre-match	callee
+0x1403DC870	stand-in	pre-match	callee
+0x1403F2570	stand-in	pre-match	callee
+0x1403F25D0	stand-in	pre-match	callee
+0x1403F2680	stand-in	pre-match	callee
+0x1403F2900	stand-in	pre-match	callee
+0x1403F2DE0	stand-in	pre-match	callee
+0x1403F3360	stand-in	replay	callee
+0x1422D2800	stand-in	cutscene	callee
+0x140265D10	stand-in	cutscene	callee
+0x1403D28B0	stand-in	pre-match	callee
+0x1403D2BB0	stand-in	pre-match	callee
+0x1402A16D0	stand-in	gameplay	callee
+0x14023FE20	stand-in	cutscene	callee
+0x14022E210	stand-in	pre-match	callee
+0x140286D10	stand-in	gameplay	callee
+0x140287300	stand-in	gameplay	callee
+0x1419C0C50	stand-in	cutscene	callee
+0x14028A480	stand-in	gameplay	callee
+0x14022DFC0	stand-in	pre-match	callee
+0x140288160	stand-in	gameplay	callee
+0x1402AF940	stand-in	gameplay	callee
+0x1403B8C80	stand-in	pre-match	callee
+0x1403FB8A0	stand-in	in-match menu	callee
+0x140421F40	stand-in	in-match menu	callee
+0x1403B2B50	stand-in	out: online	callee
+0x14029C450	stand-in	pre-match	callee
+0x1403E8870	stand-in	pre-match	callee
+0x1403F7F40	stand-in	pre-match	callee
+0x14038E3E0	stand-in	pre-match	callee
+0x1403A8070	stand-in	pre-match	callee
+0x1403AB660	stand-in	pre-match	callee
+0x1403B0580	stand-in	pre-match	callee
+0x1403ADE90	stand-in	pre-match	callee
+0x1403AD3C0	stand-in	pre-match	callee
+0x1403AD440	stand-in	pre-match	callee
+0x1403AFC70	stand-in	pre-match	callee
+0x1403B4F40	stand-in	pre-match	callee
+0x1403E2230	stand-in	pre-match	callee
+0x1403D0140	stand-in	pre-match	callee
+0x14037EE50	stand-in	pre-match	callee
+0x1415D18E0	stand-in	pre-match	callee
+0x1403D1580	stand-in	pre-match	callee
+0x1403C7CB0	stand-in	pre-match	callee
+0x1403D0970	stand-in	cutscene	callee
+0x1403865C0	stand-in	pre-match	callee
+0x14037EA40	stand-in	pre-match	callee
+0x14037EC70	stand-in	pre-match	callee
+0x14037EDA0	stand-in	pre-match	callee
+0x1403D0070	stand-in	cutscene	callee
+0x1403D0940	stand-in	pre-match	callee
+0x1403D0260	stand-in	pre-match	callee
+0x1403D0280	stand-in	pre-match	callee
+0x1402913C0	stand-in	pre-match	callee
+0x1403FB240	stand-in	in-match menu	callee
+0x1403FB2E0	stand-in	cutscene	callee
+0x1403DB680	stand-in	cutscene	callee
+0x1403DB1F0	stand-in	pre-match	callee
+0x1403DB220	stand-in	pre-match	callee
+0x141F17660	stand-in	pre-match	callee
+0x1403DB8A0	stand-in	pre-match	callee
+0x1403F3B10	stand-in	pre-match	callee
+0x1403F3390	stand-in	pre-match	callee
+0x1403D2F60	stand-in	pre-match	callee
+0x1403D23F0	stand-in	pre-match	callee
+0x14026E8A0	stand-in	cutscene	callee
+0x1403CFF90	stand-in	pre-match	callee
+0x14028B150	stand-in	gameplay	callee
+0x140286D80	stand-in	gameplay	callee
+0x1402A4A00	stand-in	gameplay	callee
+0x1403B8090	stand-in	pre-match	callee
+0x1403D02D0	stand-in	pre-match	callee
+0x1403BB3B0	stand-in	gameplay	callee
+0x1403BB4B0	stand-in	gameplay	callee
+0x1403BB670	stand-in	gameplay	callee
+0x1402AFA70	stand-in	gameplay	callee
+0x1403B8A70	stand-in	pre-match	callee
+0x1403FB610	stand-in	in-match menu	callee
+0x14038E230	stand-in	pre-match	callee
+0x14038E2B0	stand-in	pre-match	callee
+0x14038EE80	stand-in	pre-match	callee
+0x14038F0E0	stand-in	pre-match	callee
+0x14038F230	stand-in	pre-match	callee
+0x1403AD820	stand-in	pre-match	callee
+0x1403AD8A0	stand-in	pre-match	callee
+0x1403ADA90	stand-in	pre-match	callee
+0x1403B00D0	stand-in	pre-match	callee
+0x1403B00E0	stand-in	pre-match	callee
+0x1403B0530	stand-in	pre-match	callee
+0x1403AB470	stand-in	pre-match	callee
+0x1403AD6E0	stand-in	pre-match	callee
+0x1403AB940	stand-in	pre-match	callee
+0x1403ABA40	stand-in	pre-match	callee
+0x1403AC900	stand-in	pre-match	callee
+0x1403ADBB0	stand-in	pre-match	callee
+0x1403AC280	stand-in	pre-match	callee
+0x1403AD520	stand-in	pre-match	callee
+0x1403AD720	stand-in	pre-match	callee
+0x1403AE220	stand-in	pre-match	callee
+0x1403AFA90	stand-in	pre-match	callee
+0x1403B4FA0	stand-in	pre-match	callee
+0x1403B5090	stand-in	pre-match	callee
+0x1403B5250	stand-in	pre-match	callee
+0x1403B52D0	stand-in	pre-match	callee
+0x1403B5870	stand-in	pre-match	callee
+0x1403B5AE0	stand-in	pre-match	callee
+0x1403A6F10	stand-in	pre-match	callee
+0x1403A6F80	stand-in	pre-match	callee
+0x1403E1B80	stand-in	pre-match	callee
+0x14037EEE0	stand-in	pre-match	callee
+0x1415D1830	stand-in	pre-match	callee
+0x1403D1090	stand-in	pre-match	callee
+0x1403D1440	stand-in	pre-match	callee
+0x140383B20	stand-in	pre-match	callee
+0x140383B80	stand-in	pre-match	callee
+0x140383C00	stand-in	cutscene	callee
+0x140383CE0	stand-in	pre-match	callee
+0x140383E80	stand-in	in-match menu	callee
+0x140383F40	stand-in	gameplay	callee
+0x1403841C0	stand-in	replay	callee
+0x1403C7AC0	stand-in	pre-match	callee
+0x1403C7E10	stand-in	pre-match	callee
+0x1403C7EB0	stand-in	pre-match	callee
+0x1403D18E0	stand-in	cutscene	callee
+0x141147540	stand-in	cutscene	callee
+0x140373FD0	stand-in	pre-match	callee
+0x1403D08B0	stand-in	pre-match	callee
+0x1403D0ED0	stand-in	cutscene	callee
+0x1403D0E40	stand-in	pre-match	callee
+0x1403D03F0	stand-in	pre-match	callee
+0x1403D1770	stand-in	cutscene	callee
+0x1403DB4B0	stand-in	pre-match	callee
+0x1403E9D40	stand-in	pre-match	callee
+0x1403E9A00	stand-in	pre-match	callee
+0x140846490	stand-in	pre-match	callee
+0x141794410	stand-in	in-match menu	callee
+0x1402A4980	stand-in	gameplay	callee
+0x1403B8170	stand-in	pre-match	callee
+0x14037C9D0	stand-in	pre-match	callee
+0x1403B8BA0	stand-in	pre-match	callee
+0x1403B9CB0	stand-in	pre-match	callee
+0x1403BB6C0	stand-in	pre-match	callee
+0x14037CA20	stand-in	pre-match	callee
+0x14037CB50	stand-in	gameplay	callee
+0x1403FB9F0	stand-in	in-match menu	callee
+0x14038E130	stand-in	pre-match	callee
+0x14038E7B0	stand-in	pre-match	callee
+0x1403AA3E0	stand-in	pre-match	callee
+0x1403AB2B0	stand-in	pre-match	callee
+0x1403AB600	stand-in	pre-match	callee
+0x1403AB610	stand-in	pre-match	callee
+0x1403AC690	stand-in	pre-match	callee
+0x1403AF990	stand-in	pre-match	callee
+0x1403AFA60	stand-in	pre-match	callee
+0x1403AFBA0	stand-in	pre-match	callee
+0x1403B0020	stand-in	pre-match	callee
+0x1403B07D0	stand-in	pre-match	callee
+0x1403B08E0	stand-in	pre-match	callee
+0x141863350	stand-in	in-match menu	callee
+0x14038F1C0	stand-in	pre-match	callee
+0x1403B0950	stand-in	pre-match	callee
+0x1403B0AE0	stand-in	pre-match	callee
+0x1403ADD10	stand-in	pre-match	callee
+0x1403AC320	stand-in	pre-match	callee
+0x1403AF8A0	stand-in	pre-match	callee
+0x1403AEC80	stand-in	pre-match	callee
+0x1403AED50	stand-in	pre-match	callee
+0x1403AFB30	stand-in	pre-match	callee
+0x1403AEE40	stand-in	pre-match	callee
+0x1403AB570	stand-in	pre-match	callee
+0x1403AB680	stand-in	pre-match	callee
+0x1403AB7C0	stand-in	pre-match	callee
+0x1403B0380	stand-in	pre-match	callee
+0x1403ABB40	stand-in	pre-match	callee
+0x1403AC9F0	stand-in	pre-match	callee
+0x1403ACBC0	stand-in	pre-match	callee
+0x1403ABDE0	stand-in	pre-match	callee
+0x1403AD090	stand-in	pre-match	callee
+0x1403AE6B0	stand-in	pre-match	callee
+0x1403AE830	stand-in	pre-match	callee
+0x1403A7290	stand-in	pre-match	callee
+0x1415D0D90	stand-in	pre-match	callee
+0x1415D12C0	stand-in	pre-match	callee
+0x1414131C0	stand-in	pre-match	callee
+0x1403843F0	stand-in	cutscene	callee
+0x140384AD0	stand-in	in-match menu	callee
+0x14159FA0C	stand-in	AI	callee
+0x1403838D0	stand-in	replay	callee
+0x140385620	stand-in	replay	callee
+0x14028BB10	stand-in	in-match menu	callee
+0x140385DF0	stand-in	cutscene	callee
+0x140387C60	stand-in	gameplay	callee
+0x140385A10	stand-in	pre-match	callee
+0x1403C8070	stand-in	pre-match	callee
+0x1403D20E0	stand-in	pre-match	callee
+0x1403D0FB0	stand-in	pre-match	callee
+0x1403DB3B0	stand-in	pre-match	callee
+0x1403E9D70	stand-in	pre-match	callee
+0x1403E9E40	stand-in	pre-match	callee
+0x1403B7140	stand-in	pre-match	callee
+0x1403B7860	stand-in	pre-match	callee
+0x1403D0030	stand-in	pre-match	callee
+0x14037F5A0	stand-in	pre-match	callee
+0x14037CB60	stand-in	pre-match	callee
+0x1403B95E0	stand-in	pre-match	callee
+0x1403B9CE0	stand-in	pre-match	callee
+0x1403BA940	stand-in	pre-match	callee
+0x1403BA9A0	stand-in	pre-match	callee
+0x140CA1A50	stand-in	in-match menu	callee
+0x1403FC3C0	stand-in	in-match menu	callee
+0x1417B2A20	stand-in	audio	callee
+0x1403AD990	stand-in	pre-match	callee
+0x1403A7010	stand-in	pre-match	callee
+0x143E0F3A0	stand-in	pre-match	callee
+0x1403AEF50	stand-in	pre-match	callee
+0x143E107E0	stand-in	pre-match	callee
+0x1403B5230	stand-in	pre-match	callee
+0x1403B5A30	stand-in	pre-match	callee
+0x143E111B0	stand-in	pre-match	callee
+0x143E114E0	stand-in	pre-match	callee
+0x1403B0200	stand-in	pre-match	callee
+0x1403AC720	stand-in	pre-match	callee
+0x1403ADDC0	stand-in	pre-match	callee
+0x1403AE320	stand-in	pre-match	callee
+0x1403AC460	stand-in	pre-match	callee
+0x1403AFE10	stand-in	pre-match	callee
+0x1403B4E00	stand-in	pre-match	callee
+0x1403AB740	stand-in	pre-match	callee
+0x1403AB8B0	stand-in	pre-match	callee
+0x1403844E0	stand-in	in-match menu	callee
+0x140384BC0	stand-in	in-match menu	callee
+0x1403837D0	stand-in	replay	callee
+0x140382D80	stand-in	replay	callee
+0x140383200	stand-in	replay	callee
+0x140383820	stand-in	replay	callee
+0x14028BC70	stand-in	in-match menu	callee
+0x1418480C0	stand-in	in-match menu	callee
+0x1403852C0	stand-in	gameplay	callee
+0x1403854D0	stand-in	gameplay	callee
+0x1403858B0	stand-in	gameplay	callee
+0x1403864A0	stand-in	gameplay	callee
+0x140387E10	stand-in	gameplay	callee
+0x140388A80	stand-in	gameplay	callee
+0x140388EA0	stand-in	gameplay	callee
+0x140383DB0	stand-in	pre-match	callee
+0x140396430	stand-in	pre-match	callee
+0x140397250	stand-in	pre-match	callee
+0x1403C7FD0	stand-in	pre-match	callee
+0x14116DE60	stand-in	pre-match	callee
+0x1403E9F00	stand-in	pre-match	callee
+0x14037F720	stand-in	pre-match	callee
+0x1403C5860	stand-in	pre-match	callee
+0x1403C6BC0	stand-in	pre-match	callee
+0x1403C6C00	stand-in	pre-match	callee
+0x1403FC4B0	stand-in	in-match menu	callee
+0x1403FC580	stand-in	in-match menu	callee
+0x1403FC680	stand-in	in-match menu	callee
+0x1403AF770	stand-in	pre-match	callee
+0x1403B4C40	stand-in	pre-match	callee
+0x1403B0300	stand-in	pre-match	callee
+0x1403B0430	stand-in	pre-match	callee
+0x1403B0D90	stand-in	pre-match	callee
+0x1403ABD20	stand-in	pre-match	callee
+0x1403AC5A0	stand-in	pre-match	callee
+0x1403AC600	stand-in	pre-match	callee
+0x1403B4CC0	stand-in	pre-match	callee
+0x1403B5A50	stand-in	pre-match	callee
+0x1403B4EB0	stand-in	pre-match	callee
+0x140382D20	stand-in	replay	callee
+0x140385820	stand-in	cutscene	callee
+0x140384440	stand-in	replay	callee
+0x140382F30	stand-in	replay	callee
+0x1403834F0	stand-in	replay	callee
+0x140384370	stand-in	replay	callee
+0x1403858C0	stand-in	gameplay	callee
+0x140386140	stand-in	gameplay	callee
+0x140386A70	stand-in	gameplay	callee
+0x140385F90	stand-in	gameplay	callee
+0x140383D00	stand-in	gameplay	callee
+0x140386B00	stand-in	gameplay	callee
+0x140386D70	stand-in	gameplay	callee
+0x140386FF0	stand-in	gameplay	callee
+0x140387EE0	stand-in	gameplay	callee
+0x140388300	stand-in	gameplay	callee
+0x140388170	stand-in	gameplay	callee
+0x140388710	stand-in	gameplay	callee
+0x140388760	stand-in	gameplay	callee
+0x14028B9C0	stand-in	in-match menu	callee
+0x140396520	stand-in	in-match menu	callee
+0x1403976E0	stand-in	pre-match	callee
+0x1403978A0	stand-in	pre-match	callee
+0x140397D40	stand-in	pre-match	callee
+0x1403C7950	stand-in	pre-match	callee
+0x14037F7E0	stand-in	pre-match	callee
+0x1403C68F0	stand-in	pre-match	callee
+0x14037F1C0	stand-in	pre-match	callee
+0x1403FC050	stand-in	in-match menu	callee
+0x1403FCC30	stand-in	in-match menu	callee
+0x1403FCD90	stand-in	in-match menu	callee
+0x1403FC080	stand-in	in-match menu	callee
+0x1403FF410	stand-in	crowd	callee
+0x1403B4D50	stand-in	pre-match	callee
+0x1403B0C70	stand-in	pre-match	callee
+0x1403B0F60	stand-in	pre-match	callee
+0x1403B4FC0	stand-in	pre-match	callee
+0x140382DE0	stand-in	replay	callee
+0x140385830	stand-in	gameplay	callee
+0x140385CD0	stand-in	gameplay	callee
+0x140385C80	stand-in	gameplay	callee
+0x142031C40	stand-in	in-match menu	callee
+0x142043A00	stand-in	camera	callee
+0x140383CC0	stand-in	gameplay	callee
+0x140385AB0	stand-in	in-match menu	callee
+0x140385B30	stand-in	gameplay	callee
+0x140386B60	stand-in	gameplay	callee
+0x140383A90	stand-in	gameplay	callee
+0x1403870F0	stand-in	gameplay	callee
+0x140383FE0	stand-in	replay	callee
+0x140388DD0	stand-in	gameplay	callee
+0x140383FC0	stand-in	gameplay	callee
+0x140388CB0	stand-in	gameplay	callee
+0x140386370	stand-in	gameplay	callee
+0x1403882B0	stand-in	gameplay	callee
+0x143E05000	stand-in	in-match menu	callee
+0x140385010	stand-in	pre-match	callee
+0x140385240	stand-in	pre-match	callee
+0x1403968A0	stand-in	pre-match	callee
+0x1403841D0	stand-in	in-match menu	callee
+0x1403846D0	stand-in	in-match menu	callee
+0x140384750	stand-in	in-match menu	callee
+0x140384840	stand-in	in-match menu	callee
+0x140384980	stand-in	in-match menu	callee
+0x1403850A0	stand-in	in-match menu	callee
+0x140385AA0	stand-in	in-match menu	callee
+0x140386710	stand-in	gameplay	callee
+0x1403966A0	stand-in	pre-match	callee
+0x140396970	stand-in	pre-match	callee
+0x140396A70	stand-in	in-match menu	callee
+0x140396E50	stand-in	in-match menu	callee
+0x140396FD0	stand-in	in-match menu	callee
+0x1403970A0	stand-in	in-match menu	callee
+0x140397150	stand-in	in-match menu	callee
+0x140397320	stand-in	pre-match	callee
+0x140398210	stand-in	pre-match	callee
+0x14037FBA0	stand-in	pre-match	callee
+0x14032A0C0	stand-in	pre-match	callee
+0x14037F060	stand-in	pre-match	callee
+0x1403BAD50	stand-in	pre-match	callee
+0x1403C03E0	stand-in	pre-match	callee
+0x1403C0E40	stand-in	pre-match	callee
+0x1403C5320	stand-in	pre-match	callee
+0x1403C5D30	stand-in	pre-match	callee
+0x1403C5DA0	stand-in	pre-match	callee
+0x1403C62D0	stand-in	pre-match	callee
+0x1403C65B0	stand-in	pre-match	callee
+0x1403C6DC0	stand-in	pre-match	callee
+0x140382E90	stand-in	replay	callee
+0x14029CAE0	stand-in	in-match menu	callee
+0x140387A50	stand-in	gameplay	callee
+0x140383B60	stand-in	gameplay	callee
+0x1403892D0	stand-in	gameplay	callee
+0x140334300	stand-in	in-match menu	callee
+0x140386810	stand-in	gameplay	callee
+0x140387390	stand-in	gameplay	callee
+0x140388D20	stand-in	in-match menu	callee
+0x140383FF0	stand-in	replay	callee
+0x140385D20	stand-in	gameplay	callee
+0x1403842A0	stand-in	in-match menu	callee
+0x140384550	stand-in	in-match menu	callee
+0x140385520	stand-in	in-match menu	callee
+0x1403965A0	stand-in	pre-match	callee
+0x140384600	stand-in	in-match menu	callee
+0x1403CF8B0	stand-in	AI	callee
+0x1403841F0	stand-in	in-match menu	callee
+0x140385960	stand-in	in-match menu	callee
+0x140396730	stand-in	pre-match	callee
+0x14037F160	stand-in	pre-match	callee
+0x14037FA20	stand-in	pre-match	callee
+0x1403D01E0	stand-in	pre-match	callee
+0x1403BED80	stand-in	pre-match	callee
+0x1403BAA60	stand-in	pre-match	callee
+0x1403BADB0	stand-in	pre-match	callee
+0x1403C0490	stand-in	pre-match	callee
+0x1403C0F00	stand-in	pre-match	callee
+0x1403BF9B0	stand-in	pre-match	callee
+0x1403C5D00	stand-in	pre-match	callee
+0x1403BF9D0	stand-in	pre-match	callee
+0x1403C5660	stand-in	pre-match	callee
+0x1403C7880	stand-in	pre-match	callee
+0x1403BB5A0	stand-in	pre-match	callee
+0x1403C4250	stand-in	pre-match	callee
+0x1403C4360	stand-in	pre-match	callee
+0x1403C59D0	stand-in	pre-match	callee
+0x1403CAB80	stand-in	pre-match	callee
+0x1403BAE00	stand-in	pre-match	callee
+0x1403C6C20	stand-in	pre-match	callee
+0x1403740F0	stand-in	gameplay	callee
+0x140389260	stand-in	gameplay	callee
+0x140387540	stand-in	gameplay	callee
+0x1403862F0	stand-in	in-match menu	callee
+0x140383740	stand-in	in-match menu	callee
+0x1403815F0	stand-in	AI	callee
+0x1403841E0	stand-in	in-match menu	callee
+0x1403D05B0	stand-in	pre-match	callee
+0x1403C1200	stand-in	pre-match	callee
+0x1403C1250	stand-in	pre-match	callee
+0x1403BAF80	stand-in	pre-match	callee
+0x1403B9190	stand-in	pre-match	callee
+0x1403B9CC0	stand-in	pre-match	callee
+0x1403B9DE0	stand-in	pre-match	callee
+0x1403BFE20	stand-in	pre-match	callee
+0x1403C07B0	stand-in	pre-match	callee
+0x1403C0990	stand-in	pre-match	callee
+0x1403BF730	stand-in	pre-match	callee
+0x14037CB00	stand-in	pre-match	callee
+0x1403CFFD0	stand-in	pre-match	callee
+0x14037EAE0	stand-in	pre-match	callee
+0x1403B9BA0	stand-in	pre-match	callee
+0x1403BAA50	stand-in	pre-match	callee
+0x1403C2AE0	stand-in	pre-match	callee
+0x1403C4370	stand-in	pre-match	callee
+0x1403C4500	stand-in	pre-match	callee
+0x1403CAAA0	stand-in	pre-match	callee
+0x1403D00D0	stand-in	pre-match	callee
+0x1403C0700	stand-in	pre-match	callee
+0x1403C1050	stand-in	pre-match	callee
+0x1403C6F10	stand-in	pre-match	callee
+0x1403F33F0	stand-in	pre-match	callee
+0x1403B9240	stand-in	pre-match	callee
+0x1403BA570	stand-in	pre-match	callee
+0x1403BA610	stand-in	pre-match	callee
+0x1403BAC60	stand-in	pre-match	callee
+0x1403C3710	stand-in	pre-match	callee
+0x1403C55B0	stand-in	pre-match	callee
+0x1403C5CE0	stand-in	pre-match	callee
+0x14037F670	stand-in	pre-match	callee
+0x14029C090	stand-in	in-match menu	callee
+0x14037EB70	stand-in	pre-match	callee
+0x1415CEC30	stand-in	pre-match	callee
+0x1415CE970	stand-in	pre-match	callee
+0x1403C29B0	stand-in	pre-match	callee
+0x1403CF690	stand-in	pre-match	callee
+0x1403C5510	stand-in	pre-match	callee
+0x1403C5FC0	stand-in	pre-match	callee
+0x14037E550	stand-in	pre-match	callee
+0x1403B8B00	stand-in	pre-match	callee
+0x1403C5620	stand-in	pre-match	callee
+0x1415CE9A0	stand-in	pre-match	callee
+0x14037F7D0	stand-in	pre-match	callee
+0x1415A2894	stand-in	pre-match	callee
+0x1403CAB60	stand-in	pre-match	callee
+0x1403CFD20	stand-in	pre-match	callee
+0x1403D0100	stand-in	pre-match	callee
+0x1403D12E0	stand-in	pre-match	callee
+0x1403D11B0	stand-in	pre-match	callee

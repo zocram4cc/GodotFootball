@@ -179,3 +179,12 @@ static inline void pes_model_memcmp(PesState& s) {
     if (by(a) != by(a + d)) { byte_diff(); return; }
   fin(0, a);
 }
+
+// GF services (stubs.json kind "gf-service"): a direct call to one of PES's file-system API functions (the CRI Fs layer under the file
+// handle's reader FUN_1414A9280) runs GF's implementation (pes_native.cpp) over the same registers and stack, in place of the call.
+void pes_service_fs_stat(PesState& s);
+void pes_service_fs_op_create(PesState& s);
+void pes_service_fs_op_callback(PesState& s);
+void pes_service_fs_op_read(PesState& s);
+void pes_service_fs_op_status(PesState& s);
+void pes_service_fs_op_destroy(PesState& s);

@@ -23,6 +23,46 @@
     },
     {
       "module": "ntdll.dll",
+      "export": "RtlDeleteCriticalSection",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "NTSTATUS RtlDeleteCriticalSection(PRTL_CRITICAL_SECTION): stopped at by FUN_141EA7640's replay (unmodelled import ntdll.dll!RtlDeleteCriticalSection at 0x6FFFFFBD5131 in live2/pid3147592/seq484), reached through the file handle's destructor (FUN_1414A95A0 -> vtable +0 with 1). The caller reads no result and the lock lives in a block the handle's delete frees.",
+        "Model assumption (as RtlEnterCriticalSection): the replay runs one thread and takes no lock; the bytes Wine clears in the section (LockCount, RecursionCount, OwningThread, DebugInfo) are not modelled: both sides of the comparison run this model, and no later read of a deleted section is on the path."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "CloseHandle",
+      "do": "return",
+      "value": 1,
+      "why": [
+        "BOOL CloseHandle(HANDLE): stopped at by FUN_141EA7640's replay (unmodelled import KERNEL32.dll!CloseHandle at 0x6FFFFF9ECEBD in live2/pid3147592/seq484), reached through the file handle's delete after the parse. Returns TRUE.",
+        "Model assumption: the replay runs one thread and the handle is a file the worker already read to the end (state 8); closing it changes no byte the replay compares (the kernel object is outside the process's pages). GF's file seam (a VFS-backed handle) answers the same call with the same TRUE."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "CreateSemaphoreW",
+      "do": "return",
+      "value": "0x1000",
+      "why": [
+        "HANDLE CreateSemaphoreW(attrs, initial, max, name): stopped at by FUN_141EA7640's replay (unmodelled import KERNEL32.dll!CreateSemaphoreW at 0x6FFFF9ED3CD in live2/pid3147592/seq002), reached through the file handle's constructor (FUN_1414A89E0 -> FUN_1414A8790 -> FUN_141B38980). The handle value is stored in the object and compared by nothing the file layer reads.",
+        "Model assumption: both sides of a comparison run this model, so the stored value is the same constant; a kernel handle is an opaque number to the translated code. GF's file seam has no kernel object either: the constant stands for it."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "InitializeCriticalSectionAndSpinCount",
+      "do": "return",
+      "value": 1,
+      "why": [
+        "BOOL InitializeCriticalSectionAndSpinCount(lpCS, dwSpinCount): stopped at by FUN_141EA7640's replay (unmodelled import KERNEL32.dll!InitializeCriticalSectionAndSpinCount at 0x6FFFFF9EF365 in live2/pid3147592/seq004), reached through the file handle's constructor (FUN_1414A8790 -> FUN_1403FF3E0). Returns TRUE.",
+        "Model assumption (as RtlEnterCriticalSection): one thread, no lock is ever contended. The bytes the real call writes into the section (DebugInfo, LockCount, SpinCount) are not modelled: both sides of a comparison run this model, and the translated lock calls (RtlEnter/LeaveCriticalSection) are models that read none of them."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
       "export": "RtlWakeAllConditionVariable",
       "do": "return",
       "value": 0,
@@ -62,12 +102,63 @@
     {
       "module": "kernel32.dll",
       "export": "WaitForSingleObject",
-      "do": "return",
-      "value": 258,
+      "do": "wait",
+      "code_hex": "83faff7406b802010000c331c0c3",
       "why": [
-        "Caller: the wait helper at 0x141B389D0 (CONFIRMED disassembly): WaitForSingleObject(handle, 0); if the result is 0 it returns 0 and the pump's drain loop at 0x141B3E146 runs again; any nonzero result exits the loop (0x18000001 for WAIT_TIMEOUT 0x102, 0x18000002 otherwise).",
-        "So a return of 0 (WAIT_OBJECT_0) would drain forever (2.5 M calls in the first pump frame, the reason for this value). 0x102 (WAIT_TIMEOUT, 258) ends the drain at once, so the pump dispatches the ring as it stands; pes-re-advance.md's emulated run reached the record loop with the same value.",
-        "Model assumption: no other thread signals the handle during the replay (the producers are not run). A wait is an OS boundary: named here, and each call is counted in the record under import_calls."
+        "Caller 1: the wait helper at 0x141B389D0 (CONFIRMED disassembly): WaitForSingleObject(handle, 0); if the result is 0 it returns 0 and the pump's drain loop at 0x141B3E146 runs again; any nonzero result exits the loop (0x18000001 for WAIT_TIMEOUT 0x102, 0x18000002 otherwise).",
+        "So a return of 0 (WAIT_OBJECT_0) there would drain forever (2.5 M calls in the first pump frame, the reason for the old constant 0x102). 0x102 (WAIT_TIMEOUT, 258) ends the drain at once, so the pump dispatches the ring as it stands; pes-re-advance.md's emulated run reached the record loop with the same value.",
+        "Caller 2: FUN_1423D90E0 (the file handle's busy-semaphore acquire at FUN_1414A9680 state 2, reached from FUN_1414A89E0): WaitForSingleObject(h, 0xFFFFFFFF), looping while the result is 0x102. The recorded calls (live2/pid3147592 seq002 and seq004, real file opens) returned, so an INFINITE wait returned WAIT_OBJECT_0 (the semaphore was created with a count of one and released at state 1 or 8); a 0x102 forever is a replay that never ends (the first run of that proof sat at 0x1423D9117 until the 50M-instruction budget).",
+        "Model: edx == 0xFFFFFFFF (INFINITE) returns 0, any other timeout returns 0x102 (cmp edx,-1; je; mov eax,0x102; ret; xor eax,eax; ret). Assumption: no other thread signals the handle during the replay (the producers are not run), and an infinite wait is always satisfiable. A wait is an OS boundary: named here, and each call is counted in the record under import_calls."
+      ]
+    },
+    {
+      "module": "vcruntime140.dll",
+      "export": "__intrinsic_setjmp",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "int __intrinsic_setjmp(jmp_buf, frame): stopped at by FUN_141AE77B0's replay (unmodelled import VCRUNTIME140.dll!__intrinsic_setjmp at 0x6FFFF92D02F1 in live2/pid2740946/seq001). Returns 0 (the direct return of a setjmp).",
+        "Model assumption: the jmp_buf is read only by a longjmp, which no replayed path reaches (a longjmp would be the model's wrong answer: the buffer is not filled); the register save the real call does is not modelled."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "__chkstk",
+      "do": "nop",
+      "code_hex": "c3",
+      "why": [
+        "void __chkstk(): the x64 stack probe the compiler emits before a frame over one page (rax = the frame size, the caller subtracts it afterwards): stopped at by FUN_141AE77B0's replay (unmodelled import ntdll.dll!__chkstk). It touches the stack pages below rsp to commit them and returns with rax and rsp unchanged.",
+        "Model: ret. Assumption: the stack pages below rsp are committed in the replay (the probe only commits them); the real call also clobbers r10/r11 and flags, which no caller reads."
+      ]
+    },
+    {
+      "module": "msvcrt.dll",
+      "export": "_beginthreadex",
+      "do": "return",
+      "value": "0x2000",
+      "why": [
+        "uintptr_t _beginthreadex(security, stack, start, arg, flags, thrdaddr): FUN_141AE77B0 starts the anime engine's worker threads.",
+        "Model assumption: the thread is never started (GF and the replay drive the work from the calling thread) and *thrdaddr is not written; the call returns a nonzero handle. The translated code only stores the handle."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "SetEvent",
+      "do": "return",
+      "value": 1,
+      "why": [
+        "BOOL SetEvent(HANDLE): stopped at by FUN_141EA7640's replay (unmodelled import KERNEL32.dll!SetEvent at 0x6FFFFF9F0955 in live2/pid3147592/seq002), reached through the file manager's request signal (FUN_1414A9680 state 2 -> FUN_1414B06C0 -> FUN_141B37E50). Returns TRUE.",
+        "Model assumption: no worker thread waits on the event in a replay (the producers are not run); the event's signal state lives in the kernel, outside the pages the replay compares."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "ReleaseSemaphore",
+      "do": "return",
+      "value": 1,
+      "why": [
+        "BOOL ReleaseSemaphore(HANDLE, lReleaseCount, lpPreviousCount): FUN_141B38A10 (the file handle's busy-semaphore release at FUN_1414A9680 states 1 and 8, reached from FUN_141EA7640 and the file handle's delete). Returns TRUE; the caller maps FALSE to 0x18000001 and nothing reads the result on these paths.",
+        "Model assumption: the semaphore's count lives in the kernel (outside the pages the replay compares); lpPreviousCount is passed 0 by the caller, so no byte is written."
       ]
     },
     {

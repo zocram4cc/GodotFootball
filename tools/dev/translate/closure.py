@@ -113,6 +113,8 @@ def crawl(roots, universe, pdata, tag, allowed=None):
         if key not in universe:
             row = pdata.decode_row(va, tag)
             if row is None:
+                if not pdata.is_boundary(va):
+                    continue  # a bridge row's "callee" that is a label inside a function's own extent (a cold chunk's jump target)
                 raise SystemExit("closure: %s is called but is not a .pdata function start, and has no universe row"
                                  % hexva(key))
             universe[key] = row

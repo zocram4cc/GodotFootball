@@ -24844,6 +24844,58 @@
    "vtables": [],
    "walked": true
   },
+  "140222390": {
+   "boundary": null,
+   "callees": {
+    "14159F6C0": "tail",
+    "141EA8DC0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140222390",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 9,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402223C0": {
+   "boundary": null,
+   "callees": {
+    "14159F6C0": "tail",
+    "141EA8E30": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402223c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 9,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140227920": {
    "boundary": null,
    "callees": {
@@ -48056,6 +48108,54 @@
    "source": "bridge",
    "subsystem": "pre-match",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "14037FA00": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_14037fa00",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14037FA10": {
+   "boundary": null,
+   "callees": {
+    "143DFA5A0": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14037fa10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -720830,6 +720930,33 @@
    "vtables": [],
    "walked": true
   },
+  "14149A620": {
+   "boundary": null,
+   "callees": {
+    "1403FF3E0": "direct",
+    "14149AF60": "direct",
+    "14159EFF8": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14149a620",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 39,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14149A760": {
    "boundary": null,
    "callees": {
@@ -722689,6 +722816,35 @@
    "vtables": [],
    "walked": true
   },
+  "1414A26E0": {
+   "boundary": null,
+   "callees": {
+    "1403FF3E0": "direct",
+    "1414A36E0": "direct",
+    "1414B3AC0": "direct",
+    "1415A1720": "direct",
+    "1415A260C": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414a26e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 34,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1414A3530": {
    "boundary": null,
    "callees": {},
@@ -722734,6 +722890,57 @@
    "source": "bridge",
    "subsystem": "pre-match",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1414A3550": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1414A26E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414a3550",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 15,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1414A36E0": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414a36e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 28,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -723937,6 +724144,33 @@
    "vtables": [],
    "walked": true
   },
+  "1414A8A50": {
+   "boundary": null,
+   "callees": {
+    "1403B1020": "direct",
+    "1403B2860": "direct",
+    "1403B29D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414a8a50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 37,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1414A8B70": {
    "boundary": null,
    "callees": {
@@ -724097,6 +724331,114 @@
    "source": "bridge",
    "subsystem": "pre-match",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1414A8F10": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "1403FF430": "direct",
+    "1403FF490": "direct",
+    "1414A22E0": "direct",
+    "1414A8A50": "direct",
+    "1414A9680": "direct",
+    "1414ABD10": "direct",
+    "1414ABD30": "direct",
+    "1414ABD70": "direct",
+    "1414ABD80": "direct",
+    "1414ABDB0": "direct",
+    "1414ABDC0": "direct",
+    "1414B0DD0": "direct",
+    "1414B0E80": "direct",
+    "14159F3E0": "direct",
+    "141963010": "direct",
+    "141963DC0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1414A91CB",
+     "text": "CALL qword ptr [0x14252f390]"
+    },
+    {
+     "site": "1414A920E",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1414a8f10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 216,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1414A9280": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "1403FF430": "direct",
+    "1403FF490": "direct",
+    "14149A470": "direct",
+    "14149AB50": "direct",
+    "1414A22E0": "direct",
+    "1414A3530": "direct",
+    "1414A3540": "direct",
+    "1414A9680": "direct",
+    "1414ABD10": "direct",
+    "1414ABD30": "direct",
+    "1414ABD80": "direct",
+    "1414ABDC0": "direct",
+    "1414B0850": "direct",
+    "1414B0DD0": "direct",
+    "14159F3E0": "direct",
+    "1415A2FD0": "direct",
+    "1415A6CA8": "direct",
+    "1415A6CBC": "direct",
+    "1415A70B4": "direct",
+    "1415A71B8": "direct",
+    "1415A734C": "direct",
+    "141963010": "direct",
+    "141963DC0": "direct",
+    "141B37D80": "direct",
+    "141B38980": "direct",
+    "1423D90E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1414A947F",
+     "text": "CALL qword ptr [0x14252f390]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1414a9280",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 197,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -726666,6 +727008,35 @@
    "vtables": [],
    "walked": true
   },
+  "1414B0470": {
+   "boundary": null,
+   "callees": {
+    "1403FF3E0": "direct",
+    "14149AF60": "direct",
+    "141B37520": "direct",
+    "141B37D50": "direct",
+    "141B38980": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414b0470",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 57,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1414B06C0": {
    "boundary": null,
    "callees": {
@@ -726726,6 +727097,36 @@
    "vtables": [],
    "walked": true
   },
+  "1414B08A0": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "140402370": "direct",
+    "1414B0470": "direct",
+    "14159F3E0": "direct",
+    "141B379C0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414b08a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 48,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1414B0990": {
    "boundary": null,
    "callees": {
@@ -726751,6 +727152,58 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1414B0B80": {
+   "boundary": null,
+   "callees": {
+    "1403FF3E0": "direct",
+    "14149AF60": "direct",
+    "141B37520": "direct",
+    "141B37D50": "direct",
+    "141B38980": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414b0b80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 57,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1414B0DD0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1414b0dd0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 3,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -726808,6 +727261,36 @@
    "vtables": [],
    "walked": true
   },
+  "1414B0E90": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "140402370": "direct",
+    "1414B0B80": "direct",
+    "14159F3E0": "direct",
+    "141B379C0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414b0e90",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 48,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1414B1E40": {
    "boundary": null,
    "callees": {},
@@ -726830,6 +727313,36 @@
    "source": "bridge",
    "subsystem": "gameplay",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1414B3AC0": {
+   "boundary": null,
+   "callees": {
+    "14037FA00": "direct",
+    "14037FA10": "direct",
+    "1403FB410": "direct",
+    "1414A3530": "direct",
+    "1414A3540": "direct",
+    "1415D0D30": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1414b3ac0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 23,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -760296,6 +760809,36 @@
    "vtables": [],
    "walked": false
   },
+  "1415A260C": {
+   "boundary": null,
+   "callees": {
+    "1415A1A68": "direct",
+    "1415A1AD4": "direct",
+    "1415A204C": "direct",
+    "1415A20A4": "direct",
+    "1415A43E0": "direct",
+    "1415A54E8": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415a260c",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 66,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1415A2894": {
    "boundary": {
     "rule": "crt",
@@ -760376,6 +760919,80 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "1415A43E0": {
+   "boundary": null,
+   "callees": {
+    "1415A1A68": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415a43e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 11,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1415A4F70": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1415a4f70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1415A54E8": {
+   "boundary": null,
+   "callees": {
+    "1415A1A68": "direct",
+    "1415A4F70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415a54e8",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 154,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "1415A9FB0": {
    "boundary": {
@@ -762443,6 +763060,31 @@
    "source": "bridge",
    "subsystem": "pre-match",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1415D0D30": {
+   "boundary": null,
+   "callees": {
+    "144B535C0": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1415d0d30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1294346,6 +1294988,29 @@
    "vtables": [],
    "walked": false
   },
+  "143DFA5A0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_143dfa5a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "143E05000": {
    "boundary": null,
    "callees": {},
@@ -1303857,6 +1304522,29 @@
    "vtables": [],
    "walked": false
   },
+  "144B535C0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_144b535c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animefox"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "animefox",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14EA97130": {
    "boundary": null,
    "callees": {},
@@ -1306664,6 +1307352,32 @@
     "members": 1,
     "roots": [
      "0x141EB5250"
+    ]
+   },
+   "animefox": {
+    "members": 4,
+    "roots": [
+     "0x141EA7640",
+     "0x141EA7190",
+     "0x141EA8430",
+     "0x1414A89E0"
+    ]
+   },
+   "animefoxw": {
+    "members": 791,
+    "roots": [
+     "0x141EA8430",
+     "0x141EA7190",
+     "0x141EA7640",
+     "0x1414A89E0",
+     "0x14149A620",
+     "0x1414A3550",
+     "0x1414B08A0",
+     "0x1414B0E90",
+     "0x140222390",
+     "0x1402223C0",
+     "0x1414A9280",
+     "0x1414A8F10"
     ]
    },
    "animeinit": {

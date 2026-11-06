@@ -156,5 +156,33 @@ class VirtualMemoryModels(unittest.TestCase):
         self.assertEqual(self.call("VirtualFree", (ARENA + BLOCK, 0, 0x1000)), (None, None))
 
 
+class WaitModel(unittest.TestCase):
+    """KERNEL32 WaitForSingleObject: an INFINITE wait is satisfied, any finite timeout expires (the pump's helper polls with 0)."""
+
+    @staticmethod
+    def wait(ms):
+        model = ft.load_import_models()[("kernel32.dll", "WaitForSingleObject")]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, model)
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.reg_write(UC_X86_REG_RCX, 0xA78)
+        mu.reg_write(UC_X86_REG_RDX, ms)
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.emu_start(CODE, RET, count=100)
+        return mu.reg_read(UC_X86_REG_RAX)
+
+    def test_infinite_wait_is_satisfied(self):
+        self.assertEqual(self.wait(0xFFFFFFFF), 0)
+
+    def test_zero_timeout_expires(self):
+        self.assertEqual(self.wait(0), 0x102)
+
+    def test_finite_timeout_expires(self):
+        self.assertEqual(self.wait(1000), 0x102)
+
+
 if __name__ == "__main__":
     unittest.main()
