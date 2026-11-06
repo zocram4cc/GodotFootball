@@ -220,6 +220,9 @@ class MoveReq {
   // A PES byte flag: the low byte of the word.
   bool Flag(int word) const { return (words_[word] & 0xffu) != 0; }
   void SetByte(int word, uint8_t v) { words_[word] = (words_[word] & ~0xffu) | v; }
+  // The byte at request byte offset `off` (`*(char*)((longlong)param_2 + off)` in a decompile, which is NOT word off): byte
+  // off & 3 of word off / 4, little-endian.
+  bool FlagAtByte(int off) const { return ((words_[off >> 2] >> ((off & 3) * 8)) & 0xffu) != 0; }
 
  private:
   std::array<uint32_t, kMoveReqWords> words_{};
