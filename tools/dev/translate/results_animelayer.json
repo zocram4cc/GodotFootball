@@ -1,5 +1,5 @@
 {
- "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). 0x1423A1AC0: 4 REAL calls of hook anime_phase3_1423A1AC0 (live2/pid2254416). 0x141AF4650: SYNTHETIC entries over the four real anime_bones_141EB49B0 captures (live2/pid952648); no real call of the driver itself exists (the real caller of the phase-3 handler is 0x141AFF2E1, not 0x141AF4650).",
+ "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). REAL: 0x1423A1AC0 (4 calls, hook anime_phase3_1423A1AC0), 0x141AF61C0 (4, anime_pusher), 0x1423A1900 (4, anime_phase4), 0x1423A2260 (4, stage 0 nested in the phase-4 calls). SYNTHETIC: 0x141AF4650 (BodyAnimControl::Exec phases over the four real anime_bones_141EB49B0 captures, live2/pid952648) and 0x141EB5250 (the player's anime construction run a second time on a real ctor-time state, 2 cases).",
  "results": [
   {
    "aborted": 0,
@@ -184,6 +184,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x1423A2260",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141EB5250": {
+     "fraction": 0.9032,
+     "reached": 28,
+     "total": 31
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded, 2 SYNTHETIC calls (two separate bounded replays of one call each, 0 mismatches each, 402 and 413 reached targets): FUN_141EB5250(P, \"body\", collision object, callback) run a second time on the real player's P in the ctor-time states live2/pid2336073 seq6436 and live2/pid2392772 seq858 (synth.py `as`, return address moved by the `ret` field; the registry's \"body\" resource, the heap and the loaded fox entity graph are the real capture's). No REAL entry capture of the constructor exists yet (hook anime_ctor_141EB5250 requested). Own-block 0.9032 on each case.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 28,
+     "total": 31,
+     "fraction": 0.9032
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB5250",
    "bounded": true
   }
  ]

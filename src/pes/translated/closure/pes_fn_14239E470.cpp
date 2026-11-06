@@ -10,11 +10,14 @@
 
 
 void pes_fn_14239E470(PesState& s);
+void pes_fn_14029D3E0(PesState& s);
 void pes_fn_14036EDE0(PesState& s);
 void pes_fn_1415B93C0(PesState& s);
 void pes_fn_14239E6C0(PesState& s);
 void pes_fn_14239E8B0(PesState& s);
+void pes_fn_1423A3E40(PesState& s);
 void pes_fn_1423A5BB0(PesState& s);
+void pes_fn_1423B1050(PesState& s);
 void pes_fn_1423B1150(PesState& s);
 void pes_fn_1423B1190(PesState& s);
 
@@ -511,7 +514,7 @@ void pes_fn_14239E470(PesState& s) {
         } else {
           s.gpr[1] = (uint64_t)(s.rd(((s.gpr[0]) + (0x60ULL)), 8));
         }
-        /*OUT-OF-SET CALL 0x1423A3E40*/ pes_dispatch_missing(0x1423A3E40);
+        { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423A3E40(s); s.gpr[4] += 8; }
         s.gpr[6] = (uint64_t)(s.gpr[0]);
         { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
           s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
@@ -526,7 +529,7 @@ void pes_fn_14239E470(PesState& s) {
           s.gpr[8] = (uint64_t)((((int64_t)(((uint64_t)(s.rd(((s.gpr[0]) + (0x4ULL)), 4)) << 32))) >> 32));
           s.gpr[2] = (uint64_t)(s.gpr[0]);
           s.gpr[1] = (uint64_t)(s.gpr[5]);
-          /*OUT-OF-SET CALL 0x1423B1050*/ pes_dispatch_missing(0x1423B1050);
+          { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423B1050(s); s.gpr[4] += 8; }
           { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) & (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
             s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
             s.cf = false; s.of = false; }
@@ -678,7 +681,7 @@ void pes_fn_14239E470(PesState& s) {
             s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
           } else {
             s.gpr[1] = (uint64_t)(s.gpr[6]);
-            /*OUT-OF-SET CALL 0x14029D3E0*/ pes_dispatch_missing(0x14029D3E0);
+            { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14029D3E0(s); s.gpr[4] += 8; }
             { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) ^ (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
               s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
               s.cf = false; s.of = false;

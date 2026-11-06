@@ -1090406,6 +1090406,46 @@
    "vtables": [],
    "walked": true
   },
+  "141EB5250": {
+   "boundary": null,
+   "callees": {
+    "14023D200": "direct",
+    "1403FB5B0": "direct",
+    "140402370": "direct",
+    "14081D980": "direct",
+    "14159F3E0": "direct",
+    "141AEF380": "direct",
+    "141AF61C0": "direct",
+    "141AF7A90": "direct",
+    "141AFB090": "direct",
+    "141AFE2A0": "direct",
+    "141B12580": "direct",
+    "141B130B0": "direct",
+    "141E532D0": "direct",
+    "141EBC930": "direct",
+    "141EC8BD0": "direct",
+    "141EC8C40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141eb5250",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animector"
+   ],
+   "scope": "in",
+   "size": 153,
+   "source": "pdata",
+   "subsystem": "animector",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EB54D0": {
    "boundary": null,
    "callees": {},
@@ -1305921,6 +1305961,12 @@
     "members": 1,
     "roots": [
      "0x1404F8C70"
+    ]
+   },
+   "animector": {
+    "members": 1,
+    "roots": [
+     "0x141EB5250"
     ]
    },
    "animelayer": {

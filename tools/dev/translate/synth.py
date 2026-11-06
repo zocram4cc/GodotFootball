@@ -81,7 +81,7 @@ ZERO1 = ("_crt_atexit", "atexit", "_onexit", "__stdio_common_vsprintf_s")  # a f
 
 
 def is_reg(at):
-    return at in GPR_ORDER or at in REG32 or XMM_RE.fullmatch(at) is not None
+    return at in GPR_ORDER or at in REG32 or at == "ret" or XMM_RE.fullmatch(at) is not None
 
 
 def num(v, typ):
@@ -180,6 +180,9 @@ class StaticView:
         name = REG32.get(name, name)
         if name in GPR_ORDER:
             self.vals[GPR_ORDER.index(name)] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")
+            return
+        if name == "ret":  # the call record's return address: a static spec may move it out of the called function's own body
+            self.vals[RET_SLOT] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")
             return
         n = int(name[3:])
         raw = data.ljust(XMM_BYTES, b"\0")
@@ -436,7 +439,9 @@ def write_state(out, name, src, index, state, meta):
     src_mem = os.path.join(src, "mem.bin")
     dst_mem = os.path.join(d, "mem.bin")
     if state["writes"]:
-        subprocess.check_call(["cp", "--sparse=always", src_mem, dst_mem])  # sparse: a hole is a page the capture never had
+        # --sparse=auto: a hole stays a hole (a page the capture never had), a captured all-zero page stays data (the allocator
+        # touches fresh zero pages; --sparse=always turned them into holes and SnapMem refused the case: "page not captured").
+        subprocess.check_call(["cp", "--sparse=auto", src_mem, dst_mem])
         with open(dst_mem, "r+b") as f:
             for va, data in state["writes"]:
                 for pos, rel, k in spans(index, va, len(data)):

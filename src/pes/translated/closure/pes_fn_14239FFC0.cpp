@@ -13,6 +13,7 @@ static constexpr uint32_t k_c14256AE1C_w = 0x3F800000U;
 static constexpr float k_c14256AE1C_f = 1.0f; // 1.0;
 
 void pes_fn_14239FFC0(PesState& s);
+void pes_fn_14022D620(PesState& s);
 void pes_fn_1415A1720(PesState& s);
 void pes_fn_1415BA670(PesState& s);
 void pes_fn_1415BB730(PesState& s);
@@ -135,7 +136,7 @@ void pes_fn_14239FFC0(PesState& s) {
   }
   goto L_1423A00DA;
   L_1423A00D5:;
-  /*OUT-OF-SET CALL 0x14022D620*/ pes_dispatch_missing(0x14022D620);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14022D620(s); s.gpr[4] += 8; }
   L_1423A00DA:;
   { uint64_t _r = ((uint64_t)(s.rd(((s.gpr[12]) + (0x8ULL)), 1)) & (uint64_t)((4ULL))) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
