@@ -1,0 +1,14 @@
+{
+  "label": "dribblesw",
+  "seed": 1,
+  "as": "0x1407A38E0",
+  "fields": [
+    {"name": "sw", "at": "reg:rdx+0x3A94", "type": "u32", "values": [151]}
+  ],
+  "cases": [
+    {"name": "sw0", "sw": 0},
+    {"name": "sw1", "sw": 1},
+    {"name": "sw85", "sw": 133},
+    {"name": "sw92", "sw": 146}
+  ]
+}

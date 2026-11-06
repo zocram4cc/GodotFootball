@@ -342,8 +342,21 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
       if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick && match->PesLoop()) {
         // PES's goal kick (pesgoalkick.hpp): the ladder's order, released by the referee. The strike owns the keeper's root
-        // until its contact tick, so no kick command goes out before it.
-        if (!team->GetController()->GoalKickInContact()) return;
+        // until its contact tick, so no kick command goes out before it. His body still needs a clip when the one it plays ends
+        // (an empty queue there is Humanoid::Process's "NO APPLICABLE ANIM" fallback, which resets his position).
+        // ponytail: PES plays the strike clip (sub_140775780) over the warp; GF has no strike clip, so he stands facing the ball
+        // until the contact tick.
+        if (!team->GetController()->GoalKickInContact()) {
+          PlayerCommand stand;
+          stand.desiredFunctionType = e_FunctionType_Movement;
+          stand.useDesiredMovement = true;
+          stand.desiredDirection = player->GetDirectionVec();
+          stand.desiredVelocityFloat = idleVelocity;
+          stand.useDesiredLookAt = true;
+          stand.desiredLookAt = match->GetBall()->Predict(0).Get2D();
+          commandQueue.push_back(stand);
+          return;
+        }
         pesGoalKick = true;
         actionCommand.desiredFunctionType = e_FunctionType_HighPass;
         if (Player* receiver = team->GetController()->GoalKickReceiver()) {
