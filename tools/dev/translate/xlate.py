@@ -448,6 +448,12 @@ def _import_tables():
     return _IMPORT_TABLES
 
 
+def _os_arena():
+    """import_stubs.json's os_arena as ints: {"base", "bytes", "block"}, the VirtualAlloc model's arena."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return {k: int(v, 16) for k, v in json.load(open(os.path.join(here, "import_stubs.json")))["os_arena"].items() if k != "note"}
+
+
 def absolute_slot(op):
     """The slot VA of an absolute memory operand (qword ptr [0x...]), or None."""
     m = IMPORT_SLOT_OP.match(op.strip().lower())
@@ -600,6 +606,45 @@ def import_model_lines(op, jump):
         return ["{ " + push_ret + " uint64_t _b = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _b, 8);"
                 " s.gpr[1] = 0x7FF0000000000000ULL;"
                 " s.gpr[0] = ((_b & 0x7FFFFFFFFFFFFFFFULL) - s.gpr[1]) >> 63;%s }" % pop_ret]
+    if e["do"] == "strstr":
+        # VCRUNTIME140 strstr(rcx = hay, rdx = needle): the code_hex model register for register. r8 = needle; r9 / r10 are the
+        # inner cursors of the last attempt; rcx ends at the match (or the hay's NUL); rax = the match or 0.
+        return ["{ " + push_ret + " uint64_t _hay = s.gpr[1], _nd = s.gpr[2], _r9 = 0, _r10 = 0; bool _found = false;"
+                " s.gpr[8] = _nd;"
+                " for (;;) { _r9 = _hay; _r10 = _nd;"
+                "   for (;;) { uint8_t _a = (uint8_t)s.rd(_r10, 1); if (_a == 0) { _found = true; break; }"
+                "     if (_a != (uint8_t)s.rd(_r9, 1)) break; ++_r9; ++_r10; }"
+                "   if (_found || (uint8_t)s.rd(_hay, 1) == 0) break; ++_hay; }"
+                " s.gpr[1] = _hay; s.gpr[9] = _r9; s.gpr[10] = _r10; s.gpr[0] = _found ? _hay : 0ULL;%s }" % pop_ret]
+    if e["do"] == "strchr":
+        # VCRUNTIME140 strchr(rcx = s, dl = c): the code_hex model register for register. rcx ends at the match or at the NUL,
+        # rax = that address, or 0 when the NUL is reached without a match (the terminating NUL is a match for c = 0).
+        return ["{ " + push_ret + " uint64_t _p = s.gpr[1]; uint8_t _c = (uint8_t)s.gpr[2]; uint64_t _r = 0;"
+                " for (;; ++_p) { uint8_t _a = (uint8_t)s.rd(_p, 1); if (_a == _c) { _r = _p; break; } if (_a == 0) break; }"
+                " s.gpr[1] = _p; s.gpr[0] = _r;%s }" % pop_ret]
+    if e["do"] == "strrchr":
+        # VCRUNTIME140 strrchr(rcx = s, dl = c): the code_hex model register for register. rax = the last byte equal to c (the
+        # terminating NUL included), else 0; rcx ends at the NUL.
+        return ["{ " + push_ret + " uint64_t _p = s.gpr[1]; uint8_t _c = (uint8_t)s.gpr[2]; uint64_t _r = 0;"
+                " for (;; ++_p) { uint8_t _a = (uint8_t)s.rd(_p, 1); if (_a == _c) _r = _p; if (_a == 0) break; }"
+                " s.gpr[1] = _p; s.gpr[0] = _r;%s }" % pop_ret]
+    if e["do"] == "virtualalloc":
+        # KERNEL32 VirtualAlloc(rcx = addr, rdx = size, r8d = type), the code_hex model register for register. MEM_RESET (0x80000):
+        # rax = addr, nothing else. MEM_COMMIT|MEM_RESERVE (0x3000) with addr 0: r10 = the arena cell, rax = the block (the cell,
+        # or the arena's second 4 MiB block when it is 0), r9 = the cell's new value = block + the size rounded up to 4 MiB, which
+        # is stored in the cell. Any other form is the model's int3: a trap here.
+        base = _os_arena()["base"]
+        return ["{ " + push_ret + " uint32_t _t = (uint32_t)s.gpr[8];"
+                " if (_t == 0x80000u) s.gpr[0] = s.gpr[1];"
+                " else { if (_t != 0x3000u || s.gpr[1] != 0) __builtin_trap();"
+                " s.gpr[10] = %dULL; uint64_t _b = s.rd(s.gpr[10], 8); if (_b == 0) _b = %dULL;"
+                " s.gpr[0] = _b; s.gpr[9] = ((s.gpr[2] + 0x3FFFFFULL) & 0xFFFFFFFFFFC00000ULL) + _b; s.wr(s.gpr[10], s.gpr[9], 8); }"
+                "%s }" % (base, base + 0x400000, pop_ret)]
+    if e["do"] == "virtualfree":
+        # KERNEL32 VirtualFree(rcx = addr, rdx = size, r8d = type), the code_hex model: MEM_RELEASE (0x8000) or MEM_DECOMMIT (0x4000)
+        # returns TRUE (eax = 1, rax's upper half zero), no byte written; any other type is the model's int3, a trap here.
+        return ["{ " + push_ret + " uint32_t _t = (uint32_t)s.gpr[8]; if (_t != 0x8000u && _t != 0x4000u) __builtin_trap();"
+                " s.gpr[0] = 1ULL;%s }" % pop_ret]
     if e["do"] == "fdtest":
         # ucrtbase _fdtest(rcx=float*): the code_hex model register for register. exp = the word at +2 & 0x7F80 (left in rdx);
         # all-ones exponent: 1 for an infinity (mantissa zero), else 2; else a zero is 0; else the exponent negated in dx

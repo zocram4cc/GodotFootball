@@ -1,5 +1,6 @@
 {
   "contract": "OS import models for frame_trace.py --snapshot and xlate.py. A snapshot run maps a loaded OS module's export entries on first call: an export listed here runs its model (its code is written at the entry); any other export is int3 and stops the run with its name. do values: return (mov rax, imm64; ret: the export returns value and has no other effect); memcpy (Win64 memcpy(dst, src, n): returns dst, copies n bytes forward); qpc (QueryPerformanceCounter: stores value at *rcx, returns TRUE); tls_get / tls_set (TlsGetValue / TlsSetValue on the thread's own TEB slots); tebread (returns the DWORD at gs:[offset], zero-extended: GetLastError). Keyed by module file name and export name. Each entry carries the evidence for its model; a wrong model is a divergence, not a default.",
+  "os_arena": {"base": "0x3000000000", "bytes": "0x100000000", "block": "0x400000", "note": "the VA range of the VirtualAlloc model's OS arena: a replay maps it as lazily zeroed pages (frame_trace.LazyMap, the diff main's mmap window); the cell [base] is the bump pointer"},
   "imports": [
     {
       "module": "ntdll.dll",
@@ -18,6 +19,25 @@
       "value": 0,
       "why": [
         "Pair of RtlEnterCriticalSection; no waiters are modelled (see above)."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlWakeAllConditionVariable",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "VOID RtlWakeAllConditionVariable(PRTL_CONDITION_VARIABLE): stopped at by FUN_141EC86D0's replay (unmodelled import ntdll.dll!RtlWakeAllConditionVariable at 0x6FFFFFBEF0E1 in live2/pid2740946/seq004). Returns nothing the caller reads.",
+        "Model assumption (as RtlEnterCriticalSection): the replay runs one thread; no waiter exists to wake, so the call changes no byte the replay compares."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlWakeConditionVariable",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "VOID RtlWakeConditionVariable(PRTL_CONDITION_VARIABLE): the single-waiter sibling of RtlWakeAllConditionVariable (the same import block, slot named by import_slots.json); modelled the same way: no waiter in a one-thread replay."
       ]
     },
     {
@@ -251,6 +271,56 @@
       "why": [
         "int _finite(double x): rax = 1 for a finite x, else 0. The DLL's own code, all 0x2A bytes of the export (ucrtbase 0x6FFFFEC86E30 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301D0 holds it there). 0x14088C010 calls it through the slot beside _isnan.",
         "Effects the translator's mirror (xlate.import_model_lines, do = finite) reproduces: the home slot [rsp+8] = bits of x, rcx = 0x7FF0000000000000, rax = (|bits| - rcx) >> 63."
+      ]
+    },
+    {
+      "module": "VCRUNTIME140.dll",
+      "export": "strstr",
+      "do": "strstr",
+      "code_hex": "4989d04989c94d89c2418a0284c07417413a01750849ffc149ffc2ebec803900740948ffc1ebdc4889c8c331c0c3",
+      "why": [
+        "char *strstr(const char *hay, const char *needle): rcx, rdx; returns the first match in rax, or 0; an empty needle matches at hay. Stopped at by the FoxAni registry insert FUN_141EC86D0 (unmodelled import VCRUNTIME140.dll!strstr at 0x6FFFF92C1DC1 in the replay of live2/pid2740946/seq004, call 0x141EC86D0 -> FUN_141205650 -> the slot).",
+        "Hand model (scalar byte scan), not the DLL's vectorised code: r8 = needle, then for each hay position rcx: r9/r10 walk hay and needle while the needle byte is non-zero and equal; the needle's NUL is a match at rcx; a hay NUL with no match ends it. Clobbers r8, r9, r10 and the flags (all volatile). The translator's mirror (xlate.import_model_lines, do = strstr) leaves rcx, r8, r9, r10 and rax as the model does; the DLL's block reads past the string's NUL are not modelled."
+      ]
+    },
+    {
+      "module": "VCRUNTIME140.dll",
+      "export": "strchr",
+      "do": "strchr",
+      "code_hex": "8a0138d0740984c0740948ffc1ebf14889c8c331c0c3",
+      "why": [
+        "char *strchr(const char *s, int c): rcx, dl = the low byte of c; returns the first byte equal to dl, the terminating NUL included (c = 0 finds it), or 0. Stopped at by FUN_141EC86D0's replay (unmodelled import VCRUNTIME140.dll!strchr at 0x6FFFF92C1C11 in live2/pid2740946/seq004), after strstr.",
+        "Hand model (scalar scan): al = [rcx]; equal to dl is a match at rcx; a NUL that is not dl is the end (rax = 0). Leaves rcx at the match or the NUL, al the last byte read, flags from the last compare; the translator's mirror (do = strchr) reproduces rcx and rax (al's byte is rax's low byte only when no match, where rax is 0)."
+      ]
+    },
+    {
+      "module": "VCRUNTIME140.dll",
+      "export": "strrchr",
+      "do": "strrchr",
+      "code_hex": "31c0381175034889c8803900740548ffc1ebefc3",
+      "why": [
+        "char *strrchr(const char *s, int c): rcx, dl = the low byte of c; returns the last byte equal to dl, the terminating NUL included, or 0. Imported beside strchr (slot 0x14252FD58 per import_slots.json); modelled with it for the FoxAni path walk.",
+        "Hand model (scalar scan): rax = 0; for each byte from rcx: equal to dl sets rax = rcx; a NUL ends the scan (rcx at the NUL). The translator's mirror (do = strrchr) leaves rcx at the NUL and rax the last match."
+      ]
+    },
+    {
+      "module": "KERNEL32.dll",
+      "export": "VirtualAlloc",
+      "do": "virtualalloc",
+      "code_hex": "4181f800000800743f4181f800300000753a4885c9753549ba0000000030000000498b024885c0750a48b800004000300000004c8d8affff3f004981e10000c0ff4901c14d890ac34889c8c3cc",
+      "why": [
+        "LPVOID VirtualAlloc(LPVOID addr, SIZE_T size, DWORD type, DWORD protect). Stopped at by FUN_141EC86D0's replay (unmodelled import KERNEL32.dll!VirtualAlloc at 0x6FFFFF9F1105 in live2/pid2740946/seq004): PES's jemalloc grows its heap during the FoxAni load.",
+        "Callers (Ghidra decompile): FUN_1403B4E00 / FUN_1403B4EB0 / FUN_1403FC050 call `(*DAT_14252F6D8)(0, size, 0x3000, 4)` (MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE, no fixed address: a fresh zeroed block); FUN_1403B4FA0 (the heap trim path) calls it with MEM_RESET (0x80000) on a committed range. Modelled: type 0x80000 returns addr and changes no byte; type 0x3000 with addr 0 returns the next block of the model's OS arena (os_arena below): the cell [base] holds the bump pointer (0 = first block, base + 0x400000), the size rounds up to 0x400000 and the cell advances; the arena reads as zeros until written. Any other form (a fixed address, another type) is the model's int3, a trap in the mirror (do = virtualalloc).",
+        "ponytail: Windows returns blocks at 64 KiB granularity; this model rounds every block to 4 MiB so every address is aligned to jemalloc's chunk size, and FUN_1403B4E00 takes its aligned fast path (`(addr & (align - 1)) == 0`) without the VirtualFree + fixed-address retry (FUN_1403B4EB0 / FUN_1403B4FC0). A request for an alignment above 4 MiB takes the retry and traps at the fixed-address VirtualAlloc: that is the model's limit, reported loud. Clobbers r9, r10 and the flags (all volatile)."
+      ]
+    },
+    {
+      "module": "KERNEL32.dll",
+      "export": "VirtualFree",
+      "do": "virtualfree",
+      "code_hex": "4181f80080000074094181f8004000007506b801000000c3cc",
+      "why": [
+        "BOOL VirtualFree(LPVOID addr, SIZE_T size, DWORD type): FUN_1403B4E00 releases an unaligned block with `(*DAT_14252F6D0)(addr, 0, 0x8000)` (MEM_RELEASE) and the trim path decommits (0x4000). Modelled as TRUE with no byte changed (the arena's pages stay zero-readable; no replay reads a released range back). Any other type is the model's int3, a trap in the mirror (do = virtualfree). Clobbers the flags."
       ]
     }
   ]
