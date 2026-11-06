@@ -100,6 +100,7 @@ struct MoveTurnConstants {
   float p8;             // 0.8   (DAT_142572348): the clip-length window
   float ten;            // 10.0  (DAT_142588210)
   float zero;           // 0.0   (DAT_1425c4890)
+  float rateStep;       // 0.05  (DAT_1425a8a28): RUN_TURN_STEP's per-tick rate step
 
   // Angles.
   float halfTurn;       // 180.0 (DAT_142598580)

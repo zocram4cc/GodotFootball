@@ -110,6 +110,7 @@ MoveTurnConstants SyntheticTurn() {
   k.blend03 = 0.3f;
   k.thirty = 30.0f;
   k.zero = 0.0f;
+  k.rateStep = 0.05f;
   k.p8 = 0.8f;
   k.startHalf = 0.6f;
   k.relax07 = 0.7f;
@@ -522,7 +523,8 @@ bool StayDecision(MoveHost&, MoveReq&) { return false; }
 bool OutOfPlayPreempt(MoveHost&, MoveReq&) { return false; }
 bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) {}
-void EnterStop(MoveHost&, MoveReq&) {}
+int stopEntries = 0;  // counts the hand-offs to the STOP entry (FUN_1406d5d60), stubbed here
+void EnterStop(MoveHost&, MoveReq&) { ++stopEntries; }
 int turnStopEntries = 0;  // counts the hand-offs to TURN_STOP (group C's EnterTurnStop, stubbed here)
 void EnterTurnStop(MoveHost&, MoveReq&) { ++turnStopEntries; }  // group C's own; the stub keeps group D linking
 // Group C's FUN_1406b70d0 gate (movestep_step.cpp): the group-D tests take its "no", as the port did before group C landed.
@@ -615,6 +617,185 @@ TEST(RunTurnRunSlipdown, TheTailEntersTheRunAndWritesClassOne) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipSpeed), 11.0f);
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// RUN_TURN_STEP, FUN_1406c3470, re-read against its instruction stream (0x1406c3470..0x1406c4c0b). Each test names the site the
+// old port got wrong.
+// ---------------------------------------------------------------------------------------------
+
+// 0x1406c36d4..0x1406c3721: a row with no offset starts at 0 and ends after the tenth of a second, and the end is MIN(end, fixed
+// frames) (CMOVG). The facing write (0x1406c4220) runs once the clip passes that end. The old port took the dwell as the start
+// and the max as the end, so the write waited for the whole clip.
+TEST(RunTurnStep, ARowWithNoOffsetEndsAfterATenthOfASecondAndWritesTheFacing) {
+  FakeHost host;
+  host.record = TurnRecordWithFrames();  // the fixed frames are 1615 ticks; offset 0
+  host.record.cancel = {5};              // band 0: 9 ticks, the frame the facing write waits for on a row with no offset
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 20;  // past the 9-tick tenth of a second and band 0, far inside the 1615 fixed frames
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 1);  // keeps the ladder out of the way
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  // Live bucket 0: the heading shifts by half a turn; the facing steps by (blend * 90 + 90) / ticks towards it.
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 10.0f + 180.0f / 54.0f, 1e-3f);
+}
+
+// 0x1406c3859..0x1406c3970: the reorient window turns the row heading (req[0x17]) towards req[1] LESS the live bucket's table
+// angle (req[0x20] indexes DAT_1425dd660), by DAT_14259d618 (22.5), adds the table angle back into req[0x18], and measures the
+// facing against the turned heading (FUN_14043a0a0(req[2], rowAngle)).
+TEST(RunTurnStep, TheReorientWindowTurnsTheRowHeadingAgainstTheLiveBucketsTableAngle) {
+  FakeHost host;
+  host.record = TurnRecordWithOffset();  // ticks: start 45, end 47, fixed 47; offset +120
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 45;  // the window (45, 46]: its first frame
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kHeading, 150.0f);
+  req.SetF(pes::moveword::kFacing, 20.0f);
+  req.SetF(0x17, 10.0f);  // the row heading
+  req.SetU(0x20, 3);      // the live bucket: table angle 45 * 3
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kReorientFlag) & 0xffu, 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 15.0f);  // 10 stepped towards 150 - 135 = 15
+  EXPECT_FLOAT_EQ(req.F(0x18), 150.0f);                    // 15 + 135
+  EXPECT_EQ(req.U(pes::moveword::kTurnFrames), 2u);
+}
+
+// 0x1406c39d8..0x1406c3b3d: inside the first tenth of a second a settled, fast command enters the run (vt+0 = FUN_1406d2030),
+// with a rate that follows the displacement speed, the class of that rate and a speed-word FLOAT (the old port stored a
+// truncated integer and made no entry).
+TEST(RunTurnStep, TheLoopBranchEntersTheRunWithTheRateOfTheDisplacementSpeed) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2;
+  host.rateCeiling = 1.0f;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0);
+  req.SetU(pes::moveword::kKind, 5);
+  const int before = pes::movestep::runEntries;
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::runEntries, before + 1);
+  const MoveTurnConstants k = SyntheticTurn();
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), host.rateCeiling * k.playbackFloor);  // the 194 km/h displacement is over 22
+  EXPECT_EQ(req.U(pes::moveword::kPrevKind), 5u);
+}
+
+// 0x1406c3cb0..0x1406c3ceb: an unset command class with a near body and a fast player writes class 3 and the speed word 28
+// and hands the tick to FUN_1406d2590 (the TURN_STOP entry). The old port called the STOP entry FUN_1406d5d60 there.
+TEST(RunTurnStep, AnUnsetCommandClassWithAFastPlayerHandsTheTickToTheTurnStopEntry) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2000;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, static_cast<uint32_t>(-1));
+  const int turnStops = pes::movestep::turnStopEntries, stops = pes::movestep::stopEntries;
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::turnStopEntries, turnStops + 1);
+  EXPECT_EQ(pes::movestep::stopEntries, stops);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 3u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 28.0f);
+}
+
+// 0x1406c3f1e..0x1406c3f3a: the look-at gate: a speed under 13.5 (and over 8) writes class 1 and the speed word 11.0 (the
+// immediate 0x41300000; the old port wrote the 8.0 band threshold) and enters STOP.
+TEST(RunTurnStep, ALookAtBehindTheManWritesTheElevenKmhSpeedWordAndEntersStop) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2000;
+  host.displacement[2] = 10.0f * 1000.0f / (54.0f * 3600.0f);  // 10 km/h
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetF(pes::moveword::kFacingError, 100.0f);
+  req.SetF(pes::moveword::kDistToTarget, 0.1f);
+  const int stops = pes::movestep::stopEntries;
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::stopEntries, stops + 1);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 11.0f);
+}
+
+// 0x1406c3c3a: the ladder is skipped (not the handler) while the interface plays the scripted state 0x4a; the exit gate still
+// issues the step row. The old port returned at once.
+TEST(RunTurnStep, TheScriptedStateSkipsTheLadderButTheExitGateStillIssuesTheStepRow) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2000;
+  host.animeState = 0x4a;
+  host.cellMotion = 0x600;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(host.issues, 1);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepLoop));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// 0x1406c48d0..0x1406c4964: the step row's echo ids are 0x53a -> 0x53b (50 %, at columns 0x11 and 0), 0x542 -> 0x543 (20 %) and
+// 0x52e -> 0x530 (the old port compared against 0x546 / 0x54e and the column 0x520).
+TEST(RunTurnStep, TheStepRowEchoIdsAreTheOnesTheInstructionStreamCompares) {
+  struct Case { uint32_t row, expectRow; bool percent; };
+  for (const Case c : {Case{0x53a, 0x53b, true}, Case{0x53a, 0x53a, false}, Case{0x542, 0x543, true}, Case{0x52e, 0x530, false}}) {
+    FakeHost host;
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    host.animeState = 0x4a;
+    host.cellMotion = 0x600;
+    host.percentAnswer = c.percent;
+    MoveTurnConstants k = SyntheticTurn();
+    // A heading whose live bucket maps to column 0 or 0x11.
+    int bucket = -1;
+    float heading = 0.0f;
+    for (float h = 0.0f; h < 360.0f && bucket < 0; h += 5.0f) {
+      const int b = pes::movestep::AngleBucket(host.AngleBuckets(), h, 10, false);
+      if (k.bucketColumn[b] == 0 || k.bucketColumn[b] == 0x11) { bucket = b; heading = h; }
+    }
+    ASSERT_GE(bucket, 0);
+    for (auto& r : k.stepRow) r = static_cast<int32_t>(c.row);
+    MoveReq req;
+    FillRequest(&req);
+    req.SetF(pes::moveword::kHeading, heading);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1);
+    RunTurnStep(host, req, k);
+    EXPECT_EQ(static_cast<uint32_t>(host.lastRow), c.expectRow) << "row " << std::hex << c.row << " percent " << c.percent;
+  }
+}
+
+// 0x1406c4a13..0x1406c4afd: for kind 3 at a side bucket (2 or 7), when both history steps run forward by more than 0.2 m the
+// exit gate's clip request carries the 0.3 blend (the decompile's arguments hid it); the ladder's copy has no such term.
+TEST(RunTurnStep, TheExitGateWidensTheBlendForAForwardKindThreeStep) {
+  for (const float forward : {1.0f, 0.0f}) {
+    FakeHost host;
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    host.animeState = 0x4a;
+    host.cellMotion = 0x600;
+    host.displacement[2] = forward;  // the history samples the fake returns for every index
+    float heading = 0.0f;
+    int bucket = -1;
+    for (float h = 0.0f; h < 360.0f && bucket < 0; h += 5.0f) {
+      const int b = pes::movestep::AngleBucket(host.AngleBuckets(), h, 10, false);
+      if (b == 2 || b == 7) { bucket = b; heading = h; }
+    }
+    ASSERT_GE(bucket, 0);
+    MoveReq req;
+    FillRequest(&req);
+    req.SetF(pes::moveword::kHeading, heading);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1);
+    req.SetU(pes::moveword::kKind, 3);
+    RunTurnStep(host, req, SyntheticTurn());
+    ASSERT_EQ(host.issues, 1);
+    const MoveTurnConstants k = SyntheticTurn();
+    EXPECT_FLOAT_EQ(host.issued.duration, forward > 0.5f ? k.blend03 : k.clipBlend) << "forward " << forward;
+  }
+}
 // ---------------------------------------------------------------------------------------------
 // RUN_TURN_STEP, FUN_1406c3470.
 // ---------------------------------------------------------------------------------------------
