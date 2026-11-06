@@ -986,3 +986,21 @@ TEST(MoveStepWire, TheMotionSetPredicatesAgreeWithTheTranslatedFunctions) {
   }
   EXPECT_EQ(checked, 2 * 0x10000);
 }
+
+// STEP_TURN_RUN's fading-clip predicate is hand-ported from FUN_140a6e4f0 (a pure test of the u16 motion id); the translated
+// function is the oracle over every motion id.
+TEST(MoveStepWire, TheFadingMotionSetAgreesWithTheTranslatedFunction) {
+  constexpr uint64_t kBase = 0x10000;
+  int members = 0;
+  for (int motion = 0; motion <= 0xffff; ++motion) {
+    uint8_t bytes[2] = {static_cast<uint8_t>(motion & 0xff), static_cast<uint8_t>(motion >> 8)};
+    PesState s;
+    s.mem.window = {kBase, sizeof bytes, bytes, nullptr};
+    s.gpr[1] = kBase;
+    ::pes_fn_140A6E4F0(s);
+    const bool oracle = (s.gpr[0] & 0xffu) != 0;
+    ASSERT_EQ(pes::movestep::MotionIsFading(motion), oracle) << motion;
+    members += oracle ? 1 : 0;
+  }
+  EXPECT_GT(members, 0);
+}
