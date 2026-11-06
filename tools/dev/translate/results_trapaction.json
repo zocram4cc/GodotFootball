@@ -643,6 +643,84 @@
    "va": "0x1406E9F90",
    "synthetic": true,
    "synthetic_cases": 13
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapfinish_f560.json",
+   "coverage": {
+    "0x14079F560": {
+     "reached": 12,
+     "total": 13,
+     "fraction": 0.9231
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 0 REAL captured call(s) and 2 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC: the end handler's re-trap arm; inputs (ball sample height of index 18, plan byte F+0x5C3) poked over the real tick capture pid1572516/seq398.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 12,
+     "total": 13,
+     "fraction": 0.9231
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14079F560",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapfinish_e0b0.json",
+   "coverage": {
+    "0x14079E0B0": {
+     "reached": 36,
+     "total": 59,
+     "fraction": 0.6102
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 0 REAL captured call(s) and 2 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC: the phase-3 handler's re-plan arm; ball velocity, samples 1-2 and the man's heading poked over the real tick capture pid1572516/seq398.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 36,
+     "total": 59,
+     "fraction": 0.6102
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14079E0B0",
+   "synthetic": true,
+   "synthetic_cases": 2
   }
  ]
 }

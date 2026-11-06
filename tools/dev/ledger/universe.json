@@ -230872,6 +230872,49 @@
    "vtables": [],
    "walked": true
   },
+  "14079E0B0": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "14043A0A0": "direct",
+    "14046F230": "direct",
+    "1404BCAD0": "direct",
+    "1406E6660": "direct",
+    "1406EA340": "direct",
+    "140A48A10": "direct",
+    "140A57720": "direct",
+    "140A6CF70": "direct",
+    "140A92D40": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct",
+    "141EB50B0": "direct",
+    "141EB56D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "14079E1B7",
+     "text": "call qword ptr [rdx]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_14079e0b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapfinish"
+   ],
+   "scope": "in",
+   "size": 242,
+   "source": "pdata",
+   "subsystem": "trapfinish",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14079EE70": {
    "boundary": null,
    "callees": {
@@ -230931,6 +230974,40 @@
    "size": 301,
    "source": "pdata",
    "subsystem": "trapendxfer",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14079F560": {
+   "boundary": null,
+   "callees": {
+    "140581B70": "direct",
+    "1406B3C50": "direct",
+    "1406E69F0": "direct",
+    "1406E8320": "direct",
+    "140A6CF70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "14079F63E",
+     "text": "call qword ptr [rax + 0x68]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_14079f560",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapfinish"
+   ],
+   "scope": "in",
+   "size": 58,
+   "source": "pdata",
+   "subsystem": "trapfinish",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1303684,6 +1303761,13 @@
     "members": 51,
     "roots": [
      "0x14079EE70"
+    ]
+   },
+   "trapfinish": {
+    "members": 31,
+    "roots": [
+     "0x14079F560",
+     "0x14079E0B0"
     ]
    },
    "trapkind": {
