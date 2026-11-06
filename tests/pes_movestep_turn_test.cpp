@@ -531,7 +531,13 @@ void EnterTurnStop(MoveHost&, MoveReq&) { ++turnStopEntries; }  // group C's own
 bool StepLetsRunTurn(MoveHost&, MoveReq&) { return false; }
 // Group B's run entry (FUN_1406d2030), which RUN_TURN_RUN's exit calls: the tests count the hand-offs.
 int runEntries = 0;
-void EnterRun(MoveHost&, MoveReq&, int, bool) { ++runEntries; }
+int lastRunFoot = -1;          // the foot argument of the last run entry
+bool lastRunRateHeld = true;   // its rate-held argument
+void EnterRun(MoveHost&, MoveReq&, int foot, bool rateHeld) {
+  ++runEntries;
+  lastRunFoot = foot;
+  lastRunRateHeld = rateHeld;
+}
 }  // namespace movestep
 // Group B's two table pickers (movestep_run.cpp), which the exit reads: the tests use distinct answers per input.
 float BandRateFor(int band, int kind, const RunTables&) { return 0.1f * static_cast<float>(band + 1) + 0.01f * static_cast<float>(kind); }
@@ -617,9 +623,12 @@ TEST(RunTurnRunSlipdown, TheTailEntersTheRunAndWritesClassOne) {
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;
   host.record = pes::MotionRecord{};
+  host.footBand = 2;  // the foot the interface reports ((P+0xab8 vt+0x78)()); the run entry takes it as its foot argument
   const int before = pes::movestep::runEntries;
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   EXPECT_EQ(pes::movestep::runEntries, before + 1);
+  EXPECT_EQ(pes::movestep::lastRunFoot, 2);
+  EXPECT_FALSE(pes::movestep::lastRunRateHeld);
   EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipSpeed), 11.0f);
 }
@@ -707,6 +716,27 @@ TEST(RunTurnStep, AnUnsetCommandClassWithAFastPlayerHandsTheTickToTheTurnStopEnt
   EXPECT_EQ(pes::movestep::stopEntries, stops);
   EXPECT_EQ(req.U(pes::moveword::kClassWord), 3u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 28.0f);
+}
+
+// 0x1406c3c42..0x1406c4220 (the unset-class ladder; the port's own address range): a man that is facing the body direction and moves at 8 km/h or more
+// hands the tick to the TURN_STOP entry with the class and speed word of his displacement speed: class 1 and the immediate
+// 11.0 under 14.75 km/h, class 2 and 16.0 under 19 km/h, class 3 and 28.0 above (STOP's row picker reads both words).
+TEST(RunTurnStep, TheUnsetClassLadderWritesTheClassAndSpeedWordOfTheDisplacementSpeed) {
+  struct Case { float kmh; uint32_t cls; float word; };
+  for (const Case c : {Case{10.0f, 1u, 11.0f}, Case{17.0f, 2u, 16.0f}, Case{25.0f, 3u, 28.0f}}) {
+    FakeHost host;
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    host.displacement[2] = c.kmh * 1000.0f / (54.0f * 3600.0f);  // 54 Hz ticks
+    MoveReq req;
+    FillRequest(&req);
+    req.SetU(pes::moveword::kCommandSpeedClass, static_cast<uint32_t>(-1));
+    const int turnStops = pes::movestep::turnStopEntries;
+    RunTurnStep(host, req, SyntheticTurn());
+    EXPECT_EQ(pes::movestep::turnStopEntries, turnStops + 1) << c.kmh << " km/h";
+    EXPECT_EQ(req.U(pes::moveword::kClassWord), c.cls) << c.kmh << " km/h";
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), c.word) << c.kmh << " km/h";
+  }
 }
 
 // 0x1406c3f1e..0x1406c3f3a: the look-at gate: a speed under 13.5 (and over 8) writes class 1 and the speed word 11.0 (the
@@ -1608,6 +1638,31 @@ TEST(RunTurnRun, WritesTheZeroSixRateOnThePreciseArmOfTheLadder) {
   const float rate = req.F(pes::moveword::kRate);
   EXPECT_GE(rate, 0.0f);
   EXPECT_LE(rate, host.rateCeiling);
+}
+
+// 0x1406c26ac (the damp block): once the clip is past its end the root facing damps toward the heading by at most the tick's
+// reach (the 180-degree limit of a class below three over the tick rate), from either side, and reaches a heading nearer
+// than the reach. The reach is clamped on BOTH sides: a clamp that only bounds the positive side turns the man the wrong way.
+TEST(RunTurnRun, TheDampedRootFacingMovesTowardTheHeadingByAtMostTheTicksReachFromBothSides) {
+  const MoveTurnConstants k = SyntheticTurn();
+  const float reach = k.halfTurn / 54.0f;  // limit / ticks (FakeHost's tick rate is 54 Hz)
+  struct Case { float heading; float expected; };
+  for (const Case c : {Case{30.0f, reach}, Case{-30.0f, -reach}, Case{2.0f, 2.0f}, Case{-2.0f, -2.0f}}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    req.SetF(pes::moveword::kFacing, 0.0f);  // FakeHost::FacingDeg() is 0
+    req.SetF(pes::moveword::kHeading, c.heading);
+    req.SetF(pes::moveword::kTurnedRow, c.heading);
+    req.SetF(pes::moveword::kLookHeading, c.heading);
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    RunTurnRun(host, req, k);
+    ASSERT_TRUE(req.Flag(pes::moveword::kRootFacing)) << "heading " << c.heading;
+    float yaw = req.F(pes::moveword::kRootFacingAngle);
+    if (yaw > k.halfTurn) yaw -= k.fullTurn;  // the port folds into [0, 360)
+    EXPECT_NEAR(yaw, c.expected, 1e-3f) << "heading " << c.heading;
+  }
 }
 
 // FUN_1406c2f80's sub-record test: the tail clears the class words and rewrites the rate only
