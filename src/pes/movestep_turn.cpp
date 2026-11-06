@@ -2499,15 +2499,14 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) 
 // ---------------------------------------------------------------------------------------------
 void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const int clipFrame = host.CurrentClipFrames();  // (P+0xab8 vt+0x38)()
-  float clipLength = host.RecordF2468();           // P+0x2468
-  if (clipLength < k.gFloor) clipLength = k.one;
+  const float clipLength = host.RecordF2468();     // P+0x2468: no floor in this handler (0x1406c7400 has no DAT_1425ab120 read)
   const float scale = k.one;
   const int motion = host.CurrentMotion();  // (P+0xab8 vt+0x18)()
   const int rowStart = RecordStartFrames(host, motion, scale);  // FUN_1406b1f00
   const int rowEnd = RecordEndFrames(host, motion, scale);      // FUN_1406b1d00
   const float rowOffset = RecordOffsetDeg(host, motion, req.Flag(moveword::kMirror), k);
   const int rowFixed = RecordFixedFrames(host, motion, scale);  // FUN_1406af620
-  // FUN_1406af8e0's sub-record walk: the last band, then 0, then 1.
+  // FUN_1406af8e0's sub-record walk: the last band (read, unused), then band 0 and band 1 (the fixed frames when absent).
   const pes::MotionRecord& motionRec = host.Motion(motion);
   const int bands = motionRec.CancelCount();  // FUN_1406afbc0(..., 5)
   float lastFrames = static_cast<float>(rowFixed);
@@ -2519,9 +2518,11 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     if (1 < bands)
       secondFrames = static_cast<float>(host.ClipTicks(pes::ClipReader::kCancel, motion, scale, 1));
   }
+  (void)lastFrames;
   const float half = k.half;
   req.SetF(moveword::kRate, 0.3f);  // param_2[0x4a] = 0x3e99999a
-  // 0x1406c7630: the row offset of zero swaps the dwell for the clock's own window.
+  // 0x1406c7630..0x1406c7660: a row with no offset starts at 0 and ends after the tenth of a second; the end never passes the
+  // FIXED frames (local_res20 = FUN_1406af620; the old port clamped to the last band).
   int rowStartLive = rowStart;
   int rowEndLive = rowEnd;
   if (rowOffset == 0.0f) {
@@ -2529,123 +2530,103 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     rowStartLive = 0;
     rowEndLive = static_cast<int>(ticks * k.ten / k.fps + half);
   }
-  if (static_cast<int>(lastFrames) < rowEndLive) rowEndLive = static_cast<int>(lastFrames);
+  if (rowFixed < rowEndLive) rowEndLive = rowFixed;
 
   const float turn675 = k.angle675;
   const float narrow225 = k.angle225m;
   const float turn7875 = k.turn7875;
   const float angle45 = k.angle45;
-  // 2. The reorient window (0x1406c770e..0x1406c7800) and the yaw lock's write.
+  // 2. The reorient window (0x1406c7667..0x1406c77cb), read from the instruction stream: the row is req[0x18]; the inner precise
+  // gate measures FUN_14043a0a0(req[1], req[3]) and the outer one FUN_14043a0a0(req[0x18], req[1]); the step towards req[1] is
+  // clamped to DAT_14259d618 (22.5); the ratio's numerator is FUN_14043a0a0(req[2], row), signed, and its sign feeds the mirror
+  // test; req[0x3d] and req[0x18] both take the row (no table term) and FUN_1406cbb00(P, row) locks the yaw.
   if (!FacingAdjusterBusy(host) && rowStartLive <= clipFrame && clipFrame <= (rowStartLive + rowEndLive) / 2) {
-    // PES's row angle is param_2[0x18] (the turned heading), not the bucket word.
-    float row = req.F(moveword::kTurnedRow);  // param_2[0x18]
-    const uint32_t frames =
-        static_cast<uint32_t>(static_cast<float>(rowEndLive - clipFrame) / clipLength + half);
-    // PES at 0x1406C7695: the precise gate's inner test is
-    // wrap180(kLookHeading - kBodyDirection), and at 0x1406C76CF the window's own gate is
-    // wrap180(kBodyDirection - kTurnedRow).
-    const float bodyDelta =
-        std::fabs(Wrap180Diff(req.F(moveword::kBodyDirection), req.F(moveword::kLookHeading), k));
-    const float facingDelta =
-        std::fabs(Wrap180Diff(req.F(moveword::kTurnedRow), req.F(moveword::kBodyDirection), k));
-    if ((req.U(moveword::kPrecise) != 1 || bodyDelta < angle45) && facingDelta < turn7875) {
-      row = StepHeadingToPoint(row, req.F(moveword::kHeading), turn675, k);
+    float row = req.F(kTurnedHeadingWord);
+    const uint32_t frames = static_cast<uint32_t>(static_cast<float>(rowEndLive - clipFrame) / clipLength + half);
+    const float heading = req.F(moveword::kHeading);
+    if ((req.U(moveword::kPrecise) != 1 || std::fabs(Wrap180Diff(heading, req.F(moveword::kLookHeading), k)) < angle45) &&
+        std::fabs(Wrap180Diff(row, heading, k)) < turn7875) {
+      row = StepHeadingToPoint(row, heading, narrow225, k);
     }
-    // PES at 0x1406C7835: the ratio's numerator is wrap180(kLookHeading - kFacing).
-    const float ratio =
-        std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kLookHeading), k)) /
-        static_cast<float>(frames);
-    if (ratio < angle45) {
-      const float bucketRow = static_cast<float>(req.U(moveword::kMoveBucket));
-      const float turned = row + k.bucketAngle[static_cast<int>(bucketRow) & 9];
-      req.SetF(moveword::kAngle3d, turned);  // param_2[0x3d] = uVar23
+    const float facingDiff = Wrap180Diff(req.F(moveword::kFacing), row, k);
+    if (std::fabs(facingDiff) / static_cast<float>(frames) < angle45) {
+      req.SetF(moveword::kAngle3d, row);        // param_2[0x3d]
       req.SetByte(moveword::kReorientFlag, 1);  // param_2 + 0x3c = 1
-      req.SetU(moveword::kTurnFrames, frames);   // param_2[0x3e] = uVar18
-      req.SetByte(moveword::kMirrorFlag, 0);     // param_2 + 0x3f = 0
-      req.SetF(moveword::kRowAngle, static_cast<float>(row));  // param_2[0x18] = uVar23
+      req.SetU(moveword::kTurnFrames, frames);  // param_2[0x3e]
+      req.SetByte(moveword::kMirrorFlag, 0);    // param_2 + 0x3f = 0
+      req.SetF(kTurnedHeadingWord, row);        // param_2[0x18]
       if (turn675 < std::fabs(rowOffset)) {
         const float signOffset = rowOffset < 0.0f ? k.negOne : scale;
-        const float signDelta = facingDelta < 0.0f ? k.negOne : scale;
-        if (signOffset != signDelta) {
+        const float signDiff = facingDiff < 0.0f ? k.negOne : scale;
+        if (signOffset != signDiff) {
           uint8_t flag = static_cast<uint8_t>(req.U(moveword::kMirrorFlag) & 0xffu);
-          if (k.angle3325 < std::fabs(facingDelta)) flag = 1;  // DAT_1425ddf9c
+          if (k.angle3325 < std::fabs(facingDiff)) flag = 1;  // DAT_1425ddf9c
           req.SetByte(moveword::kMirrorFlag, flag);
         }
       }
-      host.SetRecordF0bec(host.RecordF0bec());  // FUN_1406cbb00's own write, kept for the port
+      host.SetRecordF0bec(FoldUnit(row, k));  // 0x1406c77cb: FUN_1406cbb00(P, row)
     }
   }
 
-  // 3. The run-family branch (0x1406c7800..0x1406c7b00).
+  // 3. The run-family branch (0x1406c77d0..0x1406c7b00): precise commands inside the first tenth of a second whose facing is
+  // close to the look-at but far from the row re-select the step row at the previous bucket (words 0x20, not 8).
   const float ticks = static_cast<float>(host.TicksPerSecond());
-  const bool runBranch =
-      static_cast<int>(req.U(moveword::kCommandId)) != 0x11 &&
+  if (static_cast<int>(req.U(moveword::kCommandId)) != 0x11 &&
       clipFrame < static_cast<int>(ticks * k.turnTicks / k.fps + half) &&
-      0 <= static_cast<int>(req.U(moveword::kCommandSpeedClass)) &&
-      req.U(moveword::kPrecise) == 1;
-  if (runBranch) {
-    // PES's three reads here: 0x1406C76CF is wrap180(kBodyDirection - kTurnedRow), 0x1406C770A
-    // is wrap180(kTurnedRow - kFacing) and 0x1406C7835 is wrap180(kLookHeading - kFacing).
-    const float loose =
-        std::fabs(Wrap180Diff(req.F(moveword::kTurnedRow), req.F(moveword::kBodyDirection), k));
-    const float tight =
-        std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kTurnedRow), k));
-    const float lookDelta =
-        std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kLookHeading), k));
-    if ((loose < tight || loose < narrow225) &&
-        (k.angle3375 < lookDelta || turn7875 < tight)) {
+      0 <= static_cast<int>(req.U(moveword::kCommandSpeedClass)) && req.U(moveword::kPrecise) == 1) {
+    const float facingToLook = std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kLookHeading), k));   // fVar21
+    const float rowToLook = std::fabs(Wrap180Diff(req.F(kTurnedHeadingWord), req.F(moveword::kLookHeading), k));     // fVar22
+    if ((facingToLook < rowToLook || facingToLook < narrow225) &&
+        (k.angle3375 < std::fabs(Wrap180Diff(req.F(kTurnedHeadingWord), req.F(moveword::kHeading), k)) || turn7875 < rowToLook)) {
       AdjustAngleApply(host);
-      const float bandHigh = k.speedB;
-      const float bandLow = k.five;
       req.SetByte(moveword::kReorientFlag, 0);  // param_2 + 0x3c = 0
-      const int bucket = static_cast<int>(req.U(moveword::kPrevBucket));  // param_2[0x25]
-      float band = bandLow;
+      const uint32_t bucket = req.U(moveword::kPrevBucket);  // uVar23 = param_2[0x25]
+      float lowBand = k.five, highBand = k.speedB;
       if (turn675 < std::fabs(req.F(moveword::kTurn))) {
-        band = k.speedA;
-        band = k.speed135;
+        lowBand = k.speedA;
+        highBand = k.speed135;
       }
-      const float dispHeading = DispSpeedKmh(host, k);
-      if (band <= dispHeading) {
-        if (bandHigh <= dispHeading) {
+      const float disp = DispSpeedKmh(host, k);
+      if (lowBand <= disp) {
+        if (highBand <= disp) {
           req.SetU(moveword::kClassWord, 2);
-          req.SetF(moveword::kSpeedWord, k.speedD);  // 0x41800000
+          req.SetF(moveword::kSpeedWord, kSpeedWord16);
         } else {
           req.SetU(moveword::kClassWord, 1);
-          req.SetF(moveword::kSpeedWord, k.speedA);  // 0x41300000
+          req.SetF(moveword::kSpeedWord, kSpeedWord11);
         }
       } else {
         req.SetU(moveword::kClassWord, 0);
-        req.SetF(moveword::kSpeedWord, k.five);  // 0x40a00000
+        req.SetF(moveword::kSpeedWord, kSpeedWord5);
       }
-      int cls = static_cast<int>(req.U(moveword::kClassWord) & 0xffu);
+      int cls = static_cast<int>(req.U(moveword::kClassWord));
       cls = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
-      const float speedWord = req.F(moveword::kSpeedWord);
-      float speed = k.speedD;
-      if (band <= speedWord && k.five <= speedWord) {
-        speed = k.speedD < speedWord ? k.speedD : speedWord;
-      } else {
+      const float word = req.F(moveword::kSpeedWord);
+      float speed = k.speedD;  // DAT_14259be10: a word over 16 stays 16
+      if (word <= k.speedD) {
         speed = k.five;
+        if (k.five <= word) speed = word;
       }
-      const int kind = static_cast<int>(req.U(moveword::kKind));
-      const int kindSel = kind < 2 ? 2 : (kind == 4 ? 5 : kind);
-      const int column = static_cast<int>(static_cast<uint32_t>(k.bucketColumn[bucket]));
-      int row = static_cast<int>(static_cast<uint32_t>(k.stepRow[kindSel + cls * 8]));
-      if (RowIs(static_cast<uint32_t>(row), 0x54eu)) row = 0x54f;  // 1.85812e-42 -> 1.86092e-42
-      const RowPick pick = PickRow(host, row, column);
+      const uint32_t kind = req.U(moveword::kKind);
+      const uint32_t kindSel = kind < 2 ? 2u : (kind == 4 ? 5u : kind);
+      const int column = k.bucketColumn[bucket];
+      uint32_t row = static_cast<uint32_t>(k.stepRow[kindSel + static_cast<uint32_t>(cls) * 8u]);
+      if (row == kRowEchoStep) row = kRowEchoStepAlt;  // 0x52e -> 0x530
+      const RowPick pick = PickRow(host, static_cast<int>(row), column);
       req.SetByte(moveword::kFootFlag, k.bucketLeft[bucket]);
       req.SetF(moveword::kSpeedWord, speed);
       req.SetF(moveword::kPrevSpeedWord, speed);
       req.SetU(moveword::kClassWord, static_cast<uint32_t>(cls));
       req.SetU(moveword::kPrevClassWord, static_cast<uint32_t>(cls));
-      req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
-      req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(bucket));
-      req.SetF(moveword::kPlayback, PlaybackAt(host, k));
+      req.SetU(moveword::kPrevBucket, bucket);
+      req.SetU(kLiveBucket, bucket);
+      const float playback = PlaybackAt(host, k);
+      req.SetF(moveword::kPlayback, playback);
       const float start = host.MotionStartTime(static_cast<uint16_t>(pick.motion));
-      IssueClip(host, pick.motion, pick.mirror, k.westBlend,
-                req.F(moveword::kPlayback), start);
+      IssueClip(host, pick.motion, pick.mirror, k.westBlend, playback, start);
       req.SetU(moveword::kDwellElapsed, 0);  // param_2[0x1a]
       req.SetU(moveword::kDwellLimit, 0);    // param_2[0x1b]
-      req.SetU(moveword::kPrevKind, static_cast<uint32_t>(kindSel));  // param_2[0x1e]
+      req.SetU(moveword::kPrevKind, kindSel);  // param_2[0x1e]
       RequestState(req, MoveState::kStepLoop);  // req[0x39] = 4
       return;
     }

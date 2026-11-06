@@ -909,41 +909,36 @@ TEST(RunTurnStep, HandsTheTickToStepTurnRunWhenTheEntryWritesTheRequest) {
 // STEP_TURN_RUN, FUN_1406c7400.
 // ---------------------------------------------------------------------------------------------
 
-// PES at 0x1406C7695: the reorient window's precise gate reads
-// FUN_14043a0a0(req[0x04], req[0x03]) = wrap180(kLookHeading - kBodyDirection), and at
-// 0x1406C76CF: FUN_14043a0a0(req[0x18], req[0x04]) = wrap180(kBodyDirection - kTurnedRow).
-// The port read the facing against the body direction and the heading against the facing, so
-// both of the window's gates read the wrong angles.
-TEST(StepTurnRun, TheReorientWindowReadsTheLookHeadingAgainstTheBodyDirection) {
-  FakeHost host;
-  MoveReq req;
-  FillRequest(&req);
-  host.currentMotion = 0x1000;
-  host.record = TurnRecordWithFrames();
-  host.currentClipFrames = 2;  // inside the reorient window, with frames left
-  req.SetU(pes::moveword::kCommandSpeedClass, 3);
-  req.SetU(pes::moveword::kClassWord, 2);
-  req.SetU(pes::moveword::kPrecise, 1u);
-  // The look heading is 60 degrees from the body direction, so PES's precise gate
-  // (wrap180(lookHeading - bodyDirection) < 45) fails and the row is not stepped. The facing
-  // is level with the body direction, so the port's old operand (facing against the body
-  // direction) was 0 and the gate passed.
-  req.SetF(pes::moveword::kFacing, 10.0f);
-  // The request's heading is 30 degrees from the row, so stepping the row towards the
-  // heading would move it to 40.
-  req.SetF(pes::moveword::kHeading, 40.0f);
-  req.SetF(pes::moveword::kLookHeading, 70.0f);
-  req.SetF(pes::moveword::kBodyDirection, 10.0f);
-  req.SetF(pes::moveword::kTurnedRow, 10.0f);
-  req.SetF(pes::moveword::kRowAngle, 10.0f);
-  req.SetU(pes::moveword::kMoveBucket, 0);
-  host.displacement[0] = 3.0f;
-  host.displacement[1] = 0.0f;
-  host.displacement[2] = 4.0f;
-  StepTurnRun(host, req, SyntheticTurn());
-  // The precise gate failed, so the row was NOT stepped towards the heading: the window's
-  // write (req[0x3d]) is the request's own turned heading (10), not the stepped 40.
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 10.0f);
+// PES at 0x1406c7689..0x1406c7695: the reorient window's precise gate reads FUN_14043a0a0(req[1] (byte +4), req[3] (byte +0xc)) =
+// the look heading against the HEADING (the old port read byte offset 4 as word 4, the body direction). The row steps towards the
+// heading by DAT_14259d618 (22.5) when the gate passes (0x1406c76e9: XMM2 = XMM15).
+TEST(StepTurnRun, TheReorientWindowsPreciseGateMeasuresTheLookHeadingAgainstTheHeading) {
+  struct Case { float look; float expectRow; };
+  // Heading 40, row 10: look 60 is 20 degrees from the heading (the gate passes: the row steps by 22.5 to 32.5); look 100 is 60
+  // degrees from it (the gate fails: the row stays at 10). The body direction is 10 in both, so the old operand (look against
+  // body) read 50 and 90 and never passed.
+  for (const Case c : {Case{60.0f, 32.5f}, Case{100.0f, 10.0f}}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    host.currentMotion = 0x1000;
+    host.record = TurnRecordWithFrames();
+    host.currentClipFrames = 2;  // inside the reorient window, with frames left
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kClassWord, 2);
+    req.SetU(pes::moveword::kPrecise, 1u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 40.0f);
+    req.SetF(pes::moveword::kLookHeading, c.look);
+    req.SetF(pes::moveword::kBodyDirection, 10.0f);
+    req.SetF(0x18, 10.0f);  // the row
+    host.displacement[0] = 3.0f;
+    host.displacement[1] = 0.0f;
+    host.displacement[2] = 4.0f;
+    StepTurnRun(host, req, SyntheticTurn());
+    EXPECT_NEAR(req.F(pes::moveword::kAngle3d), c.expectRow, 1e-4f) << "look " << c.look;
+    EXPECT_NEAR(req.F(0x18), c.expectRow, 1e-4f) << "look " << c.look;  // req[0x3d] and req[0x18] both take the row
+  }
 }
 
 // The same window with the look heading level with the body direction: PES's gate passes and
