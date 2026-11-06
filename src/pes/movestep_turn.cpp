@@ -1156,17 +1156,19 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
   const float quarter = k.angle90;  // fVar14 = DAT_14259be5c (90)
   const float negOne = k.negOne;    // fVar16 = DAT_142588218
 
-  // 1. The re-select window (0x1406c30a7..0x1406c31f4). The two FUN_14043a0a0 calls' arguments
-  // come from the instruction stream: 0x1406c2fd0 passes (candidate, req[1]) and 0x1406c3130
-  // passes (req[1], candidate), i.e. the heading minus the candidate both times.
+  // 1. The re-select window (0x1406c30a7..0x1406c31fa), read from the instruction stream. The first FUN_14043a0a0 (0x1406c3100)
+  // takes (candidate, req[1]) and, under 90 degrees, FUN_140a92950 steps the candidate towards req[1] by DAT_1425cc680 (11.25,
+  // 0x1406c311a), not the 67.5 the old port used. The second FUN_14043a0a0 (0x1406c3138) takes (req[2] = the facing, candidate):
+  // its SIGNED result is the sign test's operand (XMM4) and its magnitude the per-frame gate and the mirror gate.
   if (!FacingAdjusterBusy(host) && rowStart <= clipFrame && clipFrame < (rowStart + rowEnd * 2) / 3) {
     float candidate = req.F(moveword::kSlipCandidate);  // param_2 + 0x60
     const int frames = static_cast<int>((rowEnd - clipFrame) / clipLength + k.half);
     const float loose = std::fabs(Wrap180Diff(candidate, req.F(moveword::kHeading), k));
     if (loose < quarter) {
-      candidate = StepHeadingToPoint(candidate, req.F(moveword::kHeading), k.angle675, k);
+      candidate = StepHeadingToPoint(candidate, req.F(moveword::kHeading), k.angle1125b, k);
     }
-    const float tight = std::fabs(Wrap180Diff(candidate, req.F(moveword::kHeading), k));
+    const float facingDiff = Wrap180Diff(req.F(moveword::kFacing), candidate, k);
+    const float tight = std::fabs(facingDiff);
     if (tight / static_cast<float>(frames) < k.angle45) {  // DAT_14259be30
       req.SetF(moveword::kSlipRowOut, candidate);  // param_2 + 0xf4
       req.SetByte(moveword::kSlipNewRow, 1);       // param_2 + 0xf0
@@ -1175,14 +1177,14 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
       req.SetF(moveword::kSlipCandidate, candidate);  // param_2 + 0x60
       if (quarter < std::fabs(rowOffset)) {
         const float signOffset = rowOffset < 0.0f ? negOne : scale;
-        const float signTight = tight < 0.0f ? negOne : scale;
+        const float signTight = facingDiff < 0.0f ? negOne : scale;
         if (signOffset != signTight) {
           uint8_t m = static_cast<uint8_t>(req.U(moveword::kSlipMirrorOut) & 0xffu);
-          if (k.angle225m < std::fabs(tight)) m = 1;  // DAT_14259d618
+          if (k.angle225m < tight) m = 1;  // DAT_14259d618
           req.SetByte(moveword::kSlipMirrorOut, m);
         }
       }
-      // FUN_1406cbb00 (the yaw lock) is the dispatcher's own, so the handler stops here.
+      host.SetRecordF0bec(FoldUnit(candidate, k));  // 0x1406c31fa: FUN_1406cbb00(P, candidate), the yaw lock
     }
   }
 
@@ -1203,9 +1205,9 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
       if (static_cast<int>(req.U(moveword::kClassWord)) < 3) limit = k.halfTurn;  // PES byte 0x7c = word 0x1f (CONFIRMED: FUN_1406c2f80 line 123; pes-re-a3helpers.md addendum item 4)
       const float ticks = static_cast<float>(host.TicksPerSecond());  // FUN_141e532d0
       float step = limit / ticks;
-      // 0x1406c32e2: COMISS XMM7,XMM8; JA skip. Otherwise the -0.0 sign flip and the maxss pair.
+      // 0x1406c32e2: COMISS XMM7,XMM8; JA skip; otherwise XMM8 = max(-step, delta) (the sign flip then MAXSS), a clamp to +-step.
       if (delta <= step) {
-        step = std::max(WrapHalf(step, k), delta);
+        step = std::max(-step, delta);
       }
       float damped = facing + step;
       if (0.0f <= damped) {
@@ -1233,10 +1235,9 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
     req.SetU(moveword::kClampWord, 0);  // param_2 + 0x6c
     req.SetU(moveword::kDwellLimit2, 0);  // param_2 + 0xb8 (byte offset): req[0x2e]
     req.SetByte(moveword::kStyle, 0);     // param_2 + 0x140 (byte offset): req[0x50]
-    // (P+0xac0 vt+0x00)(P+0xac0, req, foot, 0): the row replay through +0xac0's first slot; the
-    // adapter owns that slot, so the foot band travels on the host (MoveHost::FootBand), not the request.
-    (void)foot;
+    EnterRun(host, req, foot, false);     // 0x1406c3441: (P+0xac0 vt+0)(P+0xac0, req, foot, 0), FUN_1406d2030
     req.SetF(moveword::kSlipRate, 0.3f);    // param_2 + 0x128 = 0x3e99999a
+    req.SetU(moveword::kClassWord, 1);      // param_2 + 0x7c = 1
     req.SetF(moveword::kSlipSpeed, 11.0f);  // param_2 + 0x74 = 0x41300000
   }
 }

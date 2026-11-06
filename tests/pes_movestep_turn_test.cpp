@@ -539,6 +539,83 @@ int ClassForRateFor(float rate, const RunTables&) { return rate < 0.25f ? 0 : (r
 namespace {
 
 // ---------------------------------------------------------------------------------------------
+// RUN_TURN_RUN_SLIPDOWN, FUN_1406c2f80, read against its instruction stream (0x1406c2f80..0x1406c3467).
+// ---------------------------------------------------------------------------------------------
+
+// 0x1406c32e8..0x1406c32f0: XMM8 = max(-step, delta) after COMISS delta <= step: the damping step is the heading delta clamped
+// to +-limit/ticks, so a facing ahead of the heading is pulled back. (The old port took max(+step, delta): it always turned the
+// facing the positive way.)
+TEST(RunTurnRunSlipdown, TheDampedFacingMovesTowardTheHeadingFromBothSides) {
+  for (const float heading : {10.0f, 110.0f}) {
+    FakeHost host;
+    MoveReq req;
+    req.SetF(pes::moveword::kFacing, 60.0f);
+    req.SetF(pes::moveword::kHeading, heading);
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 1700;  // past the record's end: the damping runs
+    RunTurnRunSlipdown(host, req, SyntheticTurn());
+    const float damped = req.F(pes::moveword::kSlipAngle);
+    EXPECT_LT(std::fabs(damped - heading), std::fabs(60.0f - heading)) << "heading " << heading;
+  }
+}
+
+// 0x1406c311a: FUN_140a92950's clamp is DAT_1425cc680 (angle1125b), the candidate steps towards req[1] by at most that;
+// 0x1406c31fa: the yaw lock FUN_1406cbb00(P, candidate) then writes P+0xbec.
+TEST(RunTurnRunSlipdown, TheReselectedCandidateStepsByTheJostleBandAndLocksTheYaw) {
+  FakeHost host;
+  MoveReq req;
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 50.0f);       // 50 degrees from the candidate: inside the 90-degree gate
+  req.SetF(pes::moveword::kSlipCandidate, 0.0f);  // req[0x18]
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 500;  // inside (start, (start + 2 end) / 3] of the -930/1615 record
+  host.f0bec = -1.0f;
+  const MoveTurnConstants k = SyntheticTurn();
+  RunTurnRunSlipdown(host, req, k);
+  EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRowOut), k.angle1125b);
+  EXPECT_FLOAT_EQ(host.f0bec, k.angle1125b);
+}
+
+// 0x1406c3138..0x1406c31c7: the mirror test compares the row offset's sign with the sign of FUN_14043a0a0(req[2], candidate),
+// the SIGNED difference of the facing and the candidate (XMM4). The old port tested the magnitude's sign, which is never
+// negative, so a row with a positive offset never mirrored.
+TEST(RunTurnRunSlipdown, TheMirrorBitFollowsTheSignOfTheFacingToCandidateDifference) {
+  struct Case { float facing; uint32_t mirror; };
+  for (const Case c : {Case{80.0f, 1u}, Case{0.0f, 0u}}) {  // candidate 40: the difference is -40 or +40; the offset is +120
+    FakeHost host;
+    host.record = TurnRecordWithOffset();
+    MoveReq req;
+    req.SetF(pes::moveword::kFacing, c.facing);
+    req.SetF(pes::moveword::kHeading, 40.0f);
+    req.SetF(pes::moveword::kSlipCandidate, 40.0f);
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 45;  // the window (45, 46] of the short record: its first frame
+    RunTurnRunSlipdown(host, req, SyntheticTurn());
+    EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 1u) << "facing " << c.facing;
+    EXPECT_EQ(req.U(pes::moveword::kSlipMirrorOut) & 0xffu, c.mirror) << "facing " << c.facing;
+  }
+}
+
+// 0x1406c3441..0x1406c3456: the tail calls the run entry (FUN_1406d2030 through P+0xac0 vt+0), then stores the rate, the class
+// word 1 (byte 0x7c = word 0x1f) and the speed word. The old port made no call and left the class word alone.
+TEST(RunTurnRunSlipdown, TheTailEntersTheRunAndWritesClassOne) {
+  FakeHost host;
+  MoveReq req;
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetU(pes::moveword::kClassWord, 2);
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 0;
+  host.record = pes::MotionRecord{};
+  const int before = pes::movestep::runEntries;
+  RunTurnRunSlipdown(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::runEntries, before + 1);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipSpeed), 11.0f);
+}
+
+// ---------------------------------------------------------------------------------------------
 // RUN_TURN_STEP, FUN_1406c3470.
 // ---------------------------------------------------------------------------------------------
 
