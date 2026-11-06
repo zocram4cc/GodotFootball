@@ -158,8 +158,10 @@ Retired scripts and their spec form:
   `--patch-clear` is the field `reg:rcx+0x3EC0` (u32, value 5). `--in-call` is the same spec with the default `start: call`.
 - `hdrsyn.py`, `chsyn.py`, `rootsyn2.py` (KickMotion scratch): emulated specs with `entry` = the builder, chooser or reader and
   `reach` = the branch VA the draws must open, or `stop` = `entry` with the arguments as fields.
-- Not folded in yet: `synth_trapkind.py` and `synth_press_order.py` (RestingBall and PressAI branches) and `synth_chooser.py`
-  (KickMotion) keep their own case generators until those branches land. Their list-entry writes need a repeat field.
+- `synth_trapkind.py` and `synth_trajleaf.py` (RestingBall) write their states with `synth.py` (one-case specs of `as` + one `hex`
+  field per poke; `stop` for the walk to a callee). `synth_specs/` holds committed specs (`trap_dribble_start.json`). Not folded in
+  yet: `synth_press_order.py` (PressAI) and `synth_chooser.py` (KickMotion) keep their own case generators until those branches
+  land. Their list-entry writes need a repeat field.
 
 ## Untranslated callees: survey, lister, hooks
 

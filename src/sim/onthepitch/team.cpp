@@ -459,6 +459,12 @@ Player* Team::PassGetReceiver() {
   const bool passInFlight = newest.present && (newestKind == pes::BallEventKind::kPass ||
                                                newestKind == pes::BallEventKind::kHighPass);
   if (!passInFlight || newest.actor.team != static_cast<uint32_t>(id)) return nullptr;
+  // A ball that lies still is not a pass in flight: nobody is "receiving" it. PES rewrites T+0x78 every team tick (FUN_1404FB2A0 ->
+  // FUN_1404FB380, lane-leaves.md section 4) and its PASS_GET episodes last 0.02-2.94 s live (pes-re-receiving.md section 2); GF's
+  // passTarget is written at the kick and cleared only at ResetSituation, so a weak back pass that died 35 m short of the keeper kept
+  // him the team's designated man for 8+ s while the man beside the ball stood in a jockey clip (seed 7, t = 294.7 s).
+  // ponytail: the rest speed stands in for the writer's clear; the decoded tree (FUN_1404FB380) replaces it.
+  if (match->GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms) return nullptr;
   const Vector3 ballPos = match->GetBall()->Predict(0).Get2D();
 
   pes::PassGetInput in;

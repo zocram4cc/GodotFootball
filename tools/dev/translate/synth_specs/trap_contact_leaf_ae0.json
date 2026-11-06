@@ -1,0 +1,13 @@
+{
+  "label": "contactae0",
+  "seed": 1,
+  "entry": "0x14085E3C0",
+  "stop": "0x140862AE0",
+  "fields": [
+    {"name": "motion", "at": "reg:r8+0x1C", "type": "u32", "values": [2763]}
+  ],
+  "cases": [
+    {"name": "macb", "motion": 2763},
+    {"name": "mb6b", "motion": 2923}
+  ]
+}

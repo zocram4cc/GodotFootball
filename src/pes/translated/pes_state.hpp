@@ -278,6 +278,12 @@ struct PesState {
     if (!(d > -2147483649.0 && d < 2147483648.0)) return (int32_t)0x80000000u;
     return (int32_t)d;
   }
+  // CVTPS2DQ: rounds in the current mode (MXCSR default, nearest-even); NaN or out of range gives the integer indefinite value.
+  static int32_t cvt_i32(double d) {
+    const double r = __builtin_nearbyint(d);
+    if (!(r > -2147483649.0 && r < 2147483648.0)) return (int32_t)0x80000000u;
+    return (int32_t)r;
+  }
   static int64_t cvtt_i64(double d) {
     if (!(d >= -9223372036854775808.0 && d < 9223372036854775808.0)) return (int64_t)0x8000000000000000ull;
     return (int64_t)d;
