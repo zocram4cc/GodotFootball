@@ -758639,6 +758639,32 @@
    "vtables": [],
    "walked": false
   },
+  "14159F670": {
+   "boundary": null,
+   "callees": {
+    "1415A18F4": "direct",
+    "1415A18FA": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14159f670",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 23,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14159F6C0": {
    "boundary": {
     "rule": "library",
@@ -759977,6 +760003,46 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "1415A18FA": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1415A18FA",
+     "text": "JMP qword ptr [0x142530348]"
+    },
+    {
+     "site": "1415A1900",
+     "text": "JMP qword ptr [0x142530360]"
+    },
+    {
+     "site": "1415A1906",
+     "text": "JMP qword ptr [0x142530138]"
+    },
+    {
+     "site": "1415A190C",
+     "text": "JMP qword ptr [0x142530130]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1415a18fa",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 6,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
   },
   "1415A1A68": {
    "boundary": {
@@ -820263,6 +820329,33 @@
    "vtables": [],
    "walked": true
   },
+  "141AE84B0": {
+   "boundary": null,
+   "callees": {
+    "1403DB2C0": "direct",
+    "1403DB410": "direct",
+    "141AE9440": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ae84b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 28,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141AE8520": {
    "boundary": null,
    "callees": {
@@ -821035,6 +821128,34 @@
    ],
    "walked": true
   },
+  "141AED780": {
+   "boundary": null,
+   "callees": {
+    "1402647D0": "direct",
+    "1403CF7E0": "direct",
+    "14184D5C0": "direct",
+    "141AFCEC0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141aed780",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 61,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141AEDFF0": {
    "boundary": null,
    "callees": {
@@ -821523,6 +821644,35 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141AEF470": {
+   "boundary": null,
+   "callees": {
+    "14029D370": "direct",
+    "141AE82F0": "direct",
+    "141AE84B0": "direct",
+    "141AE8950": "direct",
+    "141AED780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141aef470",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 63,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -822712,6 +822862,32 @@
    "vtables": [],
    "walked": true
   },
+  "141AF4C70": {
+   "boundary": null,
+   "callees": {
+    "14022C690": "direct",
+    "14022C770": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141af4c70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 32,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141AF4D70": {
    "boundary": null,
    "callees": {
@@ -823527,6 +823703,31 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141AFCEC0": {
+   "boundary": null,
+   "callees": {
+    "14037FD90": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141afcec0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 21,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1095604,6 +1095805,217 @@
    "vtables": [],
    "walked": true
   },
+  "141EC79C0": {
+   "boundary": null,
+   "callees": {
+    "140402240": "direct",
+    "141EC80C0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec79c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 29,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC7A30": {
+   "boundary": null,
+   "callees": {
+    "141EC79C0": "direct",
+    "141EC91C0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec7a30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 22,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC7AD0": {
+   "boundary": null,
+   "callees": {
+    "141EC9230": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141EC7B03",
+     "text": "CALL qword ptr [0x14252fa28]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141ec7ad0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 191,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC7D80": {
+   "boundary": null,
+   "callees": {
+    "14029C090": "direct",
+    "1415A1726": "direct",
+    "141EC7AD0": "direct",
+    "141EC9230": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec7d80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 175,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC8050": {
+   "boundary": null,
+   "callees": {
+    "140402240": "direct",
+    "141EC8180": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec8050",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 30,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC80C0": {
+   "boundary": null,
+   "callees": {
+    "140402240": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec80c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 48,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC8180": {
+   "boundary": null,
+   "callees": {
+    "140402240": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec8180",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 48,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC83B0": {
+   "boundary": null,
+   "callees": {
+    "1403FB5B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec83b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 38,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EC8690": {
    "boundary": {
     "rule": "rtti",
@@ -1095806,6 +1096218,31 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC91C0": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ec91c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animereg"
+   ],
+   "scope": "in",
+   "size": 29,
+   "source": "pdata",
+   "subsystem": "animereg",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1306215,7 +1306652,7 @@
     ]
    },
    "animereg": {
-    "members": 1,
+    "members": 356,
     "roots": [
      "0x141EC86D0"
     ]

@@ -41,6 +41,16 @@
       ]
     },
     {
+      "module": "ucrtbase.dll",
+      "export": "_crt_atexit",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "int _crt_atexit(void (*fn)(void)): registers an exit handler (the compiler's atexit for a function-local static); returns 0 on success. Stopped at by FUN_141EC86D0's replay (unmodelled import ucrtbase.dll!_crt_atexit at 0x6FFFFECD6831 in live2/pid2740946/seq004).",
+        "Model: returns 0 and records nothing. The handler table is ucrtbase-internal state outside the game's diffed memory, and the handlers run at process exit, which no replay reaches (OPEN: a game read of that table is not modelled)."
+      ]
+    },
+    {
       "module": "msvcrt.dll",
       "export": "memcpy",
       "do": "memcpy",

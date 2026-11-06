@@ -77,6 +77,10 @@ class ClosurePdata(Pdata):
                         # the bridge's form for a call through an import slot (import_slots.py reads it): absolute, upper case
                         text = "CALL qword ptr [0x%x]" % (ins.address + ins.size + ops[0].mem.disp)
                     indirect.append({"site": "%X" % ins.address, "text": text[:80]})
+            elif ins.mnemonic == "jmp" and ops and ops[0].type == X86_OP_MEM and ops[0].mem.base == X86_REG_RIP:
+                # a tail jump through an import slot (`jmp [rip+x]`, e.g. 0x1415A18FA -> _crt_atexit): import_slots.py names the slot from
+                # this row, so the translator runs the export's model instead of looking an OS address up in the dispatch table
+                indirect.append({"site": "%X" % ins.address, "text": "JMP qword ptr [0x%x]" % (ins.address + ins.size + ops[0].mem.disp)})
             elif (ins.mnemonic.startswith("j") and ins.mnemonic not in ("jrcxz", "jecxz") and imm
                   and not any(b <= ops[0].imm < e for b, e in ranges) and self.is_boundary(ops[0].imm)):
                 # a JMP, or a Jcc (a conditional tail call: `jnz 0x1423D43D0` in 0x141EAE0F0) to another function start

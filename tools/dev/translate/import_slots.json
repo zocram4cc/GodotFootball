@@ -1385,6 +1385,16 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530130": {
+   "export": "_malloc_base",
+   "kind": "export",
+   "module": "ucrtbase.dll"
+  },
+  "0x142530138": {
+   "export": "_free_base",
+   "kind": "export",
+   "module": "ucrtbase.dll"
+  },
   "0x142530158": {
    "export": "_free_locale",
    "kind": "export",
@@ -1527,6 +1537,16 @@
   },
   "0x142530308": {
    "export": "_beginthreadex",
+   "kind": "export",
+   "module": "ucrtbase.dll"
+  },
+  "0x142530348": {
+   "export": "_crt_atexit",
+   "kind": "export",
+   "module": "ucrtbase.dll"
+  },
+  "0x142530360": {
+   "export": "terminate",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
@@ -1795,6 +1815,9 @@
    "kind": "image-code"
   },
   "0x142597568": {
+   "kind": "image-code"
+  },
+  "0x14259C9F0": {
    "kind": "image-code"
   },
   "0x14259CE00": {

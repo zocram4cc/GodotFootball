@@ -3859,6 +3859,22 @@
    }
   },
   {
+   "va": "14159F918",
+   "callers": [
+    "14159F8AB"
+   ],
+   "used_by_closure": true,
+   "kind": "engine-noop",
+   "why": [
+    "MSVC thread-safe static init: Ghidra names 14159F918 `_Init_thread_notify` (Library Function, VS2015 Release), called from `_Init_thread_footer` (14159F850) at 14159F8AB. It wakes the threads waiting on the init guard: with the condition-variable path (the cell 0x143706788 == 0) it tail-jumps (`jmp rax`, 14159F957) to the decoded WakeAllConditionVariable pointer with rcx = 0x143706780; otherwise it calls the pointer at 0x14252F408 and tail-jumps to 0x14252F400 with the event handle. Found by FUN_141EC86D0's replay: the translator leaves that JMP rax unresolved (a trap, SIGILL in the diff main), and the OS address it reaches is no dispatch target.",
+    "Only OS wake calls: the replay's import model for RtlWakeAllConditionVariable (import_stubs.json) returns without a write, so on the reference side the call changes no byte either; GF runs one thread, so no waiter exists. The call is dropped on both sides (engine-noop); rax is left as the caller had it (the result is void)."
+   ],
+   "model": {
+    "op": "_Init_thread_notify",
+    "effect": "none on the success path (wakes waiters of the thread-safe static init guard, none exist)"
+   }
+  },
+  {
    "va": "1415A01DC",
    "callers": [
     "14159FA0C",
