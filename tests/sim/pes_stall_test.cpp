@@ -127,6 +127,9 @@ class TrapContactProbe : public pestest::Probe {
   long restingGrants = 0;        // those with the ball at rest (under a metre per second) at the tick's start
   long touchesWithoutGrant = 0;  // a man in a trap clip touched the ball with no grant: a touch with no PES source
   long grantsWithoutTouch = 0;   // a grant that did not touch the ball
+  // Match::Process advances the clock at its end (match.cpp, `actualTime_ms += kTick_ms`), after the bodies stamped this tick's
+  // touches, so a touch made on the tick that just ran carries the clock as it stood when the tick began.
+  void OnStart(Match& match) override { tickStart_ms_ = match.GetActualTime_ms(); }
   void OnTick(Match& match) override {
     const float restingSpeed_mps = 1.0f;
     const float speed = match.GetBall()->GetMovement().GetLength();
@@ -137,7 +140,7 @@ class TrapContactProbe : public pestest::Probe {
         const unsigned taken = match.PesTouchesTaken(slot);
         const bool granted = taken != taken_[slot];
         taken_[slot] = taken;
-        const bool touched = player->GetLastTouchTime_ms() == match.GetActualTime_ms();
+        const bool touched = player->GetLastTouchTime_ms() == tickStart_ms_;
         if (granted) {
           grants++;
           if (previousSpeed_ < restingSpeed_mps) restingGrants++;
@@ -148,11 +151,13 @@ class TrapContactProbe : public pestest::Probe {
       }
     }
     previousSpeed_ = speed;
+    tickStart_ms_ = match.GetActualTime_ms();
   }
 
  private:
   std::map<int, unsigned> taken_;
   float previousSpeed_ = 0.0f;
+  unsigned long tickStart_ms_ = 0;
 };
 
 TrapContactProbe contactCensus;
