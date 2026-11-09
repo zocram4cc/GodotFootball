@@ -185,6 +185,8 @@ constexpr uint64_t kRegistryVa = 0x1437F4F78, kRegistrarFlagVa = 0x1437F4F82;
 // heap. Zero is the state before the first use. FUN_140302EA0's registry (the type table FUN_140303290 / FUN_141B0BA70 register into) is one,
 // FUN_1402A58E0's object registry (a std::map under a lock, DAT_1436D0260: FUN_1402A59B0 assigns through it) another.
 constexpr uint64_t kLazySingletonCells[] = {0x1436D8C50, 0x1436D0260};
+// FUN_14029E940's config block: it reads only the dword at +4 (the pool size, 0 = default).
+constexpr uint64_t kScriptConfigBytes = 0x10;
 // The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
 // cell, the slot offset in the thread's block, the frame's vtable and the arena's size.
 constexpr uint64_t kTebTlsPointerOffset = 0x58, kTlsIndexVa = 0x1437067A0, kTlsSlotOffset = 0x38, kScratchFrameVtable = 0x14258BCA8,
@@ -259,6 +261,10 @@ void PesFoxWorld::Boot() {
   Call(::pes_fn_1414B0E90, {});
   Call(::pes_fn_1402223C0, {});
   Call(::pes_fn_140222390, {});
+  // PES's scripting init (FUN_14029E940, called from the engine init FUN_1402902B0 before any system): the "Lua VM" pool and the script manager
+  // DAT_1436D0068 names, which FUN_141B0BA70 pushes a C function into. The dump's manager is the dead game's; the config block's pool size (+4) is
+  // zero, which the init reads as its default (0x300000).
+  Call(::pes_fn_14029E940, {Alloc(kScriptConfigBytes)});
   Call(::pes_fn_141AE77B0, {kBootArgs[0], kBootArgs[1], kBootArgs[2], kBootArgs[3]});
 }
 

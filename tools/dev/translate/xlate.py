@@ -951,6 +951,18 @@ class Emitter:
             return self.do_shift(m, ops)
         if m in ("ROR", "ROL"):
             return self.do_rotate(m, ops)
+        if m in ("SHLD", "SHRD"):
+            return self.do_double_shift(m, ops)
+        if m in ("RCL", "RCR"):
+            return self.do_rotate_carry(m, ops)
+        if m == "PUSHFQ":
+            # RFLAGS as the flags the translator tracks (CF, PF, ZF, SF, OF) plus the always-set bit 1 and IF (user mode); AF, DF, TF read 0.
+            return ["s.gpr[4] -= 8;",
+                    "s.wr(s.gpr[4], 0x202ULL | (s.cf ? 1ULL : 0ULL) | (s.pf ? 4ULL : 0ULL) | (s.zf ? 0x40ULL : 0ULL)"
+                    " | (s.sf ? 0x80ULL : 0ULL) | (s.of ? 0x800ULL : 0ULL), 8);"]
+        if m == "POPFQ":
+            return ["{ uint64_t _f = s.rd(s.gpr[4], 8); s.gpr[4] += 8; s.cf = (_f & 1) != 0; s.pf = (_f & 4) != 0;"
+                    " s.zf = (_f & 0x40) != 0; s.sf = (_f & 0x80) != 0; s.of = (_f & 0x800) != 0; }"]
         if m in ("XADD", "CMPXCHG"):
             return self.do_xadd(m, ops)
         if m in ("IMUL", "MUL"):
@@ -1273,6 +1285,57 @@ class Emitter:
         else:
             out.append("  " + reg_write(dst, "_r"))
         out.append("}")
+        return out
+
+    def do_double_shift(self, m, ops):
+        # SHLD/SHRD dst, src, count: the count is masked to 5 bits (6 for 64-bit operands); a zero count changes nothing. SHRD shifts dst right
+        # and fills from src's low bits (CF = the last bit out of dst); SHLD shifts left and fills from src's high bits. ZF/SF from the result;
+        # OF (count 1) = the sign changed. AF and PF are not tracked.
+        dst, src = ops[0], ops[1]
+        w = self.op_width(dst)
+        mm = {16: "0xFFFF", 32: "0xFFFFFFFF", 64: "0xFFFFFFFFFFFFFFFF"}[w]
+        a, b = self.val_of(dst, w), self.val_of(src, w)
+        c = self.val_of(ops[2], 8)
+        if m == "SHRD":
+            r, cf = "((_a >> _n) | (_b << (%d - _n))) & %sULL" % (w, mm), "((_a >> (_n - 1)) & 1) != 0"
+        else:
+            r, cf = "((_a << _n) | (_b >> (%d - _n))) & %sULL" % (w, mm), "((_a >> (%d - _n)) & 1) != 0" % w
+        out = ["{ uint64_t _a = (uint64_t)(%s) & %sULL, _b = (uint64_t)(%s) & %sULL, _n = (uint64_t)(%s) & %dULL;"
+               % (a, mm, b, mm, c, 63 if w == 64 else 31),
+               "  if (_n != 0 && _n <= %d) {" % w,
+               "    uint64_t _r = %s;" % r,
+               "    s.cf = %s; s.zf = (_r == 0); s.sf = ((_r >> %d) & 1) != 0;" % (cf, w - 1),
+               "    if (_n == 1) s.of = (((_r ^ _a) >> %d) & 1) != 0;" % (w - 1)]
+        out.append("    " + (self.mem_store(dst[dst.find("["):], "_r", w, None) if "[" in dst else reg_write(dst, "_r")))
+        out += ["  }", "}"]
+        return out
+
+    def do_rotate_carry(self, m, ops):
+        # RCL/RCR dst, count: a rotate through CF, so a (width + 1)-bit rotate by count mod (width + 1) (count masked to 5 bits, 6 for 64-bit).
+        # CF = the bit rotated out; for count 1, OF = RCL: new MSB xor new CF, RCR: the two top bits of the result xor.
+        dst = ops[0]
+        w = self.op_width(dst)
+        mm = {8: "0xFF", 16: "0xFFFF", 32: "0xFFFFFFFF", 64: "0xFFFFFFFFFFFFFFFF"}[w]
+        a = self.val_of(dst, w)
+        c = self.val_of(ops[1], 8) if len(ops) > 1 else "1ULL"
+        if m == "RCR":
+            rot = "((_v >> _k) | (_v << (%d - _k))) & _m" % (w + 1)
+            of = "(((_r >> %d) ^ (_r >> %d)) & 1) != 0" % (w - 1, w - 2)
+        else:
+            rot = "((_v << _k) | (_v >> (%d - _k))) & _m" % (w + 1)
+            of = "(((_r >> %d) & 1) ^ (_cf ? 1 : 0)) != 0" % (w - 1)
+        out = ["{ uint64_t _a = (uint64_t)(%s) & %sULL, _n = (uint64_t)(%s) & %dULL;"
+               % (a, mm, c, 63 if w == 64 else 31),
+               "  uint64_t _k = _n %% %d;" % (w + 1),
+               "  if (_k != 0) {",
+               "    unsigned __int128 _v = ((unsigned __int128)(s.cf ? 1 : 0) << %d) | _a;" % w,
+               "    unsigned __int128 _m = (((unsigned __int128)1) << %d) - 1;" % (w + 1),
+               "    _v = %s;" % rot,
+               "    uint64_t _r = (uint64_t)_v & %sULL; bool _cf = ((_v >> %d) & 1) != 0;" % (mm, w),
+               "    s.cf = _cf;",
+               "    if (_n == 1) s.of = %s;" % of]
+        out.append("    " + (self.mem_store(dst[dst.find("["):], "_r", w, None) if "[" in dst else reg_write(dst, "_r")))
+        out += ["  }", "}"]
         return out
 
     def do_xadd(self, m, ops):
@@ -2449,7 +2512,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
                  "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR", "BSWAP",
                  "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
-                 "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
+                 "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP", "SHLD", "SHRD", "RCL", "RCR", "PUSHFQ", "POPFQ"):
             out = em.emit_alu(m, ops)
         elif m in ("MOVSS", "MOVSD", "MOVD", "ADDSS", "SUBSS", "MULSS",
                    "DIVSS", "MAXSS", "MINSS", "COMISS", "UCOMISS",
