@@ -15,6 +15,7 @@
 #include "pes/movestep.hpp"
 #include "movestep_team_synthetic.hpp"
 #include "clip_ticks_fake.hpp"
+#include "pes/movestep_issue.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_turn.hpp"
 
@@ -145,9 +146,10 @@ class SyntheticHost : public pes::MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
-  int AbilityByte(int) const override { return abilityByte; }
+  int AbilityByte(int id) const override { return id == pes::kAbilityDa ? daByte : abilityByte; }
   bool EntryAimFlag() const override { return entryAim; }
-  int abilityByte = 50;   // FUN_1406e6660's answer
+  int abilityByte = 50;   // FUN_1406e6660's answer for Acceleration (0x2b)
+  int daByte = 50;        // and for DA (0x15), the match-up man's byte
   bool entryAim = false;  // FUN_1406ba7d0's answer
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return speedClass; }
@@ -317,6 +319,9 @@ pes::RunConstants SyntheticRun() {
   k.rec40 = 40.0f;            // 0x14259be2c
   k.rec59 = 59.0f;            // 0x1425cb2fc
   k.rec99 = 99.0f;            // 0x1425c48cc
+  k.condition10 = 10.0f;      // 0x142588210
+  k.stopPlaybackFloor = 0.9f;  // 0x14258c260
+  k.centi = 0.01f;            // 0x14256ae18
   k.frame50 = 50.0f;          // 0x14259be34
   k.frame95 = 95.0f;          // 0x1425c594c
   k.replay45 = 0.45f;         // 0x14256b140
@@ -1921,8 +1926,8 @@ TEST(EnterAccelerate, IssuesThePlaybackWordWithTheStartLadder) {
   req.SetU(pes::moveword::kMoveBucket, 3u);
   pes::probe::Reset();
   EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
-  EXPECT_GT(h.issued.playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
-  EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is the 0.15/0.75/0.5 ladder";
+  EXPECT_GT(pes::DueRequest(req, 0).playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
+  EXPECT_LE(pes::DueRequest(req, 0).startTime, 1.0f) << "the start time is the 0.15/0.75/0.5 ladder";
 }
 
 // EnterAccelerate's desired angle (FUN_1406ccd00 lines 150-154): with the body 150 degrees from the facing, the entry
@@ -2217,8 +2222,8 @@ TEST(EnterDecelerate, IssuesThePlaybackWordWithTheStartLadder) {
   req.SetU(pes::moveword::kMoveBucket, 3u);
   pes::probe::Reset();
   EXPECT_TRUE(pes::movestep::EnterDecelerate(h, req));
-  EXPECT_GT(h.issued.playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
-  EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is 0.2/0, never a km/h rung";
+  EXPECT_GT(pes::DueRequest(req, 0).playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
+  EXPECT_LE(pes::DueRequest(req, 0).startTime, 1.0f) << "the start time is 0.2/0, never a km/h rung";
 }
 
 // PES 57-61: a no-class tick (class word -1) with the precise word set, or outside the match phase 1, is TURN_STOP
@@ -2798,4 +2803,195 @@ TEST(RateToSpeed, IsTheThreeSegmentCurveWithTheGScaleOnTheLowTwoSegments) {
   EXPECT_NEAR(pes::RateToSpeedFor(0.45f, g, t, kFloor), g * 4.0f + (0.45f - 0.3f) / 0.3f * 2.0f * g, 1e-5f);
   EXPECT_NEAR(pes::RateToSpeedFor(0.8f, g, t, kFloor), g * 6.0f + (0.8f - 0.6f) / 0.4f * 3.0f, 1e-5f) << "the top segment has no g factor on the slope";
   EXPECT_NEAR(pes::RateToSpeedFor(0.01f, g, t, 0.1f), g * 2.0f, 1e-5f) << "a rate under the floor reads the floor";
+}
+
+// ---------------------------------------------------------------------------------------------
+// The playback p of the entries (StepAudit3). PES's entries compute req[0x35] as vt+0x50(vt+0x30(flag)) = TurnPlayback(G,
+// AbilityWeight(flag)) (FUN_1406e9f10 over FUN_1406e9f90): Acceleration (0x2b) normally, DA (0x15) for the match-up man, each less
+// (10 - condition) at a condition of 10 or below. The port had `MirrorChoice ? 1.0 : 0.5`. The host answers a byte whose weight is
+// far from both 0.5 and 1, so the stand-in cannot reproduce it.
+// ---------------------------------------------------------------------------------------------
+namespace {
+
+void SetPlaybackConstants(SyntheticHost& h) {
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.playback.gLow = 0.9166f;
+  h.playback.gHigh = 1.0833f;
+  h.playback.gSlope = -0.1667f;
+  h.playback.one = 1.0f;
+  h.playback.stepSlope = 0.15f;
+  h.playback.stepBase = 0.95f;
+  h.playback.turnP2 = 0.1f;
+  h.playback.turnT = 0.05f;
+  h.abilityByte = 52;  // weight (52 - 40) / 59
+  h.daByte = 91;       // weight (91 - 40) / 59: the match-up man's byte
+}
+
+// FUN_1406e9f90: clamp((byte - 40) / 59, 0, 1) for the byte the flag picks, less (10 - c) at a condition c <= 10.
+float ExpectedWeight(const SyntheticHost& h, int byte, int condition = 100) {
+  float b = static_cast<float>(byte);
+  if (condition <= 10) b -= 10.0f - static_cast<float>(condition);
+  if (b <= h.runConstants.rec40) return 0.0f;
+  if (b >= h.runConstants.rec99) return 1.0f;
+  return (b - h.runConstants.rec40) / h.runConstants.rec59;
+}
+
+float ExpectedPlayback(const SyntheticHost& h, float weight) { return pes::TurnPlayback(h.g, weight, h.playback); }
+
+pes::MoveReq AcceleratingRequest() {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  return req;
+}
+
+}  // namespace
+
+TEST(EnterAccelerate, ThePlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.currentMotion = 0x8bb;
+    h.currentClipFrames = 2;
+    h.positions[1][0] = 1.0f;
+    h.mirrorChoice = mirror;  // the old stand-in's input: it must not matter
+    pes::MoveReq req = AcceleratingRequest();
+    ASSERT_TRUE(pes::movestep::EnterAccelerate(h, req));
+    const float expected = ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte));
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), expected) << "mirror " << mirror;
+    EXPECT_FLOAT_EQ(pes::DueRequest(req, 0).playback, expected) << "the clip is issued at the entry's playback";
+  }
+}
+
+TEST(EnterAccelerate, TheMatchUpManTakesTheDaByteAndAConditionAtTenCutsTheByte) {
+  SyntheticHost h;
+  SetPlaybackConstants(h);
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;
+  h.team.matchUp[h.ActionIndex()] = true;
+  h.team.condition = 4;  // FUN_140a581c0 answers <= 10: the byte loses 10 - 4
+  pes::MoveReq req = AcceleratingRequest();
+  ASSERT_TRUE(pes::movestep::EnterAccelerate(h, req));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), ExpectedPlayback(h, ExpectedWeight(h, h.daByte, h.team.condition)));
+}
+
+TEST(EnterDecelerate, ThePlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.currentMotion = 0x8bb;
+    h.currentClipFrames = 2;
+    h.positions[1][0] = 1.0f;
+    h.mirrorChoice = mirror;
+    pes::MoveReq req = AcceleratingRequest();
+    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+    ASSERT_TRUE(pes::movestep::EnterDecelerate(h, req));
+    const float expected = ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte));
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), expected) << "mirror " << mirror;
+    EXPECT_FLOAT_EQ(pes::DueRequest(req, 0).playback, expected);
+  }
+}
+
+TEST(EnterStop, TheRunStopArmPlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.mirrorChoice = mirror;
+    h.abilityByte = 99;  // weight 1: TurnPlayback lands inside [0.9, 1.5] (0x1406d5fb3, 0x1406d5fbf) so it is kept
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kClassWord, 1u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kFacingError, 30.0f);
+    pes::movestep::EnterStop(h, req);
+    const float raw = ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte));
+    ASSERT_GE(raw, h.runConstants.stopPlaybackFloor);
+    ASSERT_LE(raw, h.runConstants.dist1m5);
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), raw) << "mirror " << mirror;
+  }
+}
+
+TEST(EnterStop, ThePlaybackOutsideTheBandResetsToOneAndTheClipIsIssuedAtIt) {
+  SyntheticHost h;
+  SetPlaybackConstants(h);
+  h.abilityByte = 40;  // weight 0
+  h.playback.stepBase = 0.2f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 30.0f);
+  ASSERT_LT(ExpectedPlayback(h, 0.0f), h.runConstants.stopPlaybackFloor);
+  pes::movestep::EnterStop(h, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), h.runConstants.one);
+  EXPECT_FLOAT_EQ(pes::DueRequest(req, 0).playback, h.runConstants.one);
+}
+
+TEST(EnterGotoRun, ThePlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.mirrorChoice = mirror;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 0u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+    req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
+    req.SetF(pes::moveword::kRate, 0.5f);
+    pes::movestep::EnterGotoRun(h, req, false);
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte)))
+        << "mirror " << mirror;
+  }
+}
+
+// The hit words (FUN_1406ce820's two vt+0xab8 calls after the issue): req[0x28] = the clip's hit seconds, req[0x27] = its hit
+// distance, the values WriteIssue stored (req[0x1b], req[0x34]) from the clip's own records, not MotionStartTime and G.
+TEST(EnterGotoRun, TheHitWordsAreTheClipsHitSecondsAndDistance) {
+  SyntheticHost h;
+  SetPlaybackConstants(h);
+  h.startTime = 0.77f;  // the old stand-in wrote this into req[0x28]
+  h.g = 1.25f;
+  h.record.blend = {30};
+  h.record.blendWords = {{0u, 30u << 10}};
+  h.record.blendRoot = {{300.0f, 400.0f}};  // x 3 m, z 4 m after the centimetre scale
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 0u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
+  req.SetF(pes::moveword::kRate, 0.5f);
+  pes::movestep::EnterGotoRun(h, req, false);
+  const float playback = req.F(pes::moveword::kPlayback);
+  const float seconds = (static_cast<float>(h.ClipTicks(pes::ClipReader::kBlend, 0, 1.0f, 0)) / h.TicksPerSecond()) / playback;
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kHitFrame), seconds);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kHitMotion), std::sqrt(4.0f * 4.0f + 3.0f * 3.0f) * h.g);
+}
+
+// FUN_1406e7730: the cancel record at min(index, count - 1) replaces the blend record's offset when the clip has any.
+TEST(ClipHitDistance, ACancelRecordReplacesTheBlendOffsetAndTheIndexClampsToTheLastRecord) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.record.blendRoot = {{300.0f, 400.0f}};
+  h.record.cancel = {10, 20};
+  h.record.cancelRoot = {{600.0f, 800.0f}, {30.0f, 40.0f}};
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 0), 10.0f * 2.0f) << "record 0: 6 m, 8 m";
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 1), 0.5f * 2.0f);
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 9), 0.5f * 2.0f) << "index 9 clamps to the last record (count - 1)";
+  h.record.cancel.clear();
+  h.record.cancelRoot.clear();
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 0), 5.0f * 2.0f) << "no cancel record: the blend record's offset";
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 0x1125, 2.0f, 0), 0.0f) << "a motion at or past the table has no hit record";
 }
