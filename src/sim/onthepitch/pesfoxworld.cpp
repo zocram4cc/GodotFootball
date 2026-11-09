@@ -182,8 +182,9 @@ constexpr int kFinishSteps = 16;
 // a null cell, and a made one allocates through PES's jemalloc, whose state is the dead game's: see the report, section 5 item 1).
 constexpr uint64_t kRegistryVa = 0x1437F4F78, kRegistrarFlagVa = 0x1437F4F82;
 // Singletons PES creates on the first use (`if (cell == 0) { cell = new ...}`): the dump holds the cell set, naming an object in the dead game's
-// heap. Zero is the state before the first use. FUN_140302EA0's registry (the type table FUN_140303290 / FUN_141B0BA70 register into) is one.
-constexpr uint64_t kLazySingletonCells[] = {0x1436D8C50};
+// heap. Zero is the state before the first use. FUN_140302EA0's registry (the type table FUN_140303290 / FUN_141B0BA70 register into) is one,
+// FUN_1402A58E0's object registry (a std::map under a lock, DAT_1436D0260: FUN_1402A59B0 assigns through it) another.
+constexpr uint64_t kLazySingletonCells[] = {0x1436D8C50, 0x1436D0260};
 // The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
 // cell, the slot offset in the thread's block, the frame's vtable and the arena's size.
 constexpr uint64_t kTebTlsPointerOffset = 0x58, kTlsIndexVa = 0x1437067A0, kTlsSlotOffset = 0x38, kScratchFrameVtable = 0x14258BCA8,
