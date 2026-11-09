@@ -91,12 +91,9 @@ public:
   e_MatchPhase GetMatchPhase() const { return matchPhase; }
 
   void StartPlay() { inPlay = true; }
-  // PES's ball is dead at the whistle: on the PES path the stop zeroes it in place (velocity and
-  // spin), so the stop never inherits a flight. The prepare teleport still moves it to the spot.
-  void StopPlay() {
-    inPlay = false;
-    if (pesLoop) ball->Stop();
-  }
+  // PES's whistle leaves the ball alone: the whistle 0x14050E770 writes the stoppage words and no ball state
+  // (docs/ports/pes-port-TeamTick7.md §3), so a ball in flight keeps flying until the prepare places it.
+  void StopPlay() { inPlay = false; }
   bool IsInPlay() const { return inPlay; }
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
