@@ -1303649,6 +1303649,18 @@
      "0x141EC8C40"
     ]
    },
+   "animeroot141EC9AF0": {
+    "members": 1,
+    "roots": [
+     "0x141EC9AF0"
+    ]
+   },
+   "animeroot141ECA500": {
+    "members": 1,
+    "roots": [
+     "0x141ECA500"
+    ]
+   },
    "cardlevel": {
     "members": 93,
     "roots": [

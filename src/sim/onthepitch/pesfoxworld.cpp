@@ -234,6 +234,7 @@ bool PesFoxWorld::PumpUntilIdle(std::string* error) {
 }
 
 bool PesFoxWorld::LoadBody(std::string* error) {
+  pes_service_set_file_source(this);  // one source per process: the world that loads is the one the reader asks
   const uint64_t owner = Alloc(kOwnerBytes);
   if (!owner) throw std::runtime_error("fox world: the arena is full");
   Call(::pes_fn_141EC9AF0, {owner});
@@ -269,6 +270,7 @@ uint64_t PesFoxWorld::HeapLiveBytes() const { return impl_->heap.LiveBytes(); }
 uint64_t PesFoxWorld::StartJob(const std::string& path) { return Call(::pes_fn_141EA7190, {NewCString(path), kJobFlags}); }
 
 bool PesFoxWorld::Finish(uint64_t job, std::string* error) {
+  pes_service_set_file_source(this);
   for (int step = 0; step < kFinishSteps; ++step) {
     const uint64_t handle = Read64(job + kJobHandleOffset);
     if (handle != 0) {
