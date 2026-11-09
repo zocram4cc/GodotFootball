@@ -285,8 +285,9 @@ class RowHost : public movestep_test::UnboundHost {
     return static_cast<int>(std::lround(F32(call.xmm0) * playback * 54.0f));
   }
   const pes::MotionRecord& Motion(int) const override { return empty_; }
-  void CountAnalyserEvent(int motion) override {
+  void CountAnalyserEvent(bool flag, int motion) override {
     const Call& call = Need(kAnalyser);
+    EXPECT_EQ(flag, (call.reg[1] & 0xff) != 0);
     EXPECT_EQ(motion, static_cast<uint16_t>(call.reg[2]));
     ++analystCalls;
   }

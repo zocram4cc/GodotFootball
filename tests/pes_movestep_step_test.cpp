@@ -233,6 +233,7 @@ class FakeHost : public MoveHost {
   void SetRecordF0bec(float value) override {}
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
 
+  void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
     const float* v = index < 2 ? displacement : position;  // the adapter's rule: index 0 and 1 are the displacement
     out[0] = v[0];

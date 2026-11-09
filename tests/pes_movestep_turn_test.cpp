@@ -236,6 +236,7 @@ class FakeHost : public MoveHost {
   void SetRecordF0bec(float value) override { f0bec = value; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
 
+  void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
     out[0] = displacement[0];
     out[1] = displacement[1];
@@ -271,6 +272,8 @@ class FakeHost : public MoveHost {
   bool ClipFlag() const override { return false; }
   int AbilityByte(int id) const override { return id == 0x29 ? abilityByte : 0; }
   bool EntryAimFlag() const override { return entryAim; }
+  void CountAnalyserEvent(bool flag, int motion) override { analyserCalls.push_back({flag, motion}); }
+  std::vector<std::pair<bool, int>> analyserCalls;  // FUN_1406cba60's (flag, issued motion), in order
   int abilityByte = 50;   // FUN_1406e6660's answer for id 0x29 (Balance)
   bool entryAim = false;  // FUN_1406ba7d0's answer
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
@@ -1266,6 +1269,31 @@ TEST(EnterRunTurnRun, SelectsTheRowAndAsksForTheRunTurnRunState) {
   // The entry issues the ladder's row with the vt+0x10 blend duration.
   EXPECT_EQ(host.issued.motion, 0x5be);
   EXPECT_NEAR(host.issued.duration, 1.0f / 6.0f, 1e-6f);
+}
+
+// 0x1406d7ed8 / 0x1406d851c: after a re-select the entry calls FUN_1406cba60(P, relax, motion), which counts the issued motion in
+// the analyser (FUN_1406e2c30) and writes nothing else. The port took it for the yaw writer and stored 180 degrees in P+0xbec
+// when the entry-aim flag was set (the yaw writer is FUN_1406cbb00, which this entry never calls).
+TEST(EnterRunTurnRun, AReselectCountsTheIssueInTheAnalyserAndLeavesTheYawLockAlone) {
+  for (const bool relax : {false, true}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    req.SetU(pes::moveword::kClassWord, 2);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kMoveBucket, 3);
+    req.SetU(pes::moveword::kKind, 2);
+    host.currentMotion = 0x1000;
+    host.cellMotion = 0x5c3;
+    req.SetU(0xf, 1u);  // the request's word 0xf byte: the row ladder's second arm
+    host.entryAim = relax;
+    host.f0bec = -1.0f;
+    EnterRunTurnRun(host, req, SyntheticTurn());
+    EXPECT_FLOAT_EQ(host.f0bec, -1.0f) << "relax " << relax;
+    ASSERT_EQ(host.analyserCalls.size(), 1u) << "relax " << relax;
+    EXPECT_EQ(host.analyserCalls[0].first, relax);
+    EXPECT_EQ(host.analyserCalls[0].second, 0x5c3);  // class 3 re-selects the 0x5c3 row (0x1406d6ab3)
+  }
 }
 
 // FUN_1406d6780's tail (0x1406D7811 CALL 0x140A58550, 0x1406D783F CMP DIL,0x14): a tank under 20 percent takes the tired row 0x5b6

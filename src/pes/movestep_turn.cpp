@@ -950,7 +950,7 @@ void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   }
   req.SetF(moveword::kRate, InterfaceSpeed(host) * k.playbackFloor);
   float sample[3] = {0.0f, 0.0f, 0.0f};
-  host.PositionAt(static_cast<int>(ticks * k.four / k.fps + k.half), sample);
+  host.RingSample(static_cast<int>(ticks * k.four / k.fps + k.half), sample);
   const float sampleKmh = TickMetresToKmh(host, k, Length3(sample[0], sample[1], sample[2]));
   if (k.speedD > sampleKmh || cmdClass < 3) {
     req.SetF(moveword::kRate, kRate06);
@@ -1733,9 +1733,8 @@ LAB_1406d6c22:
       req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
       req.SetByte(moveword::kReorientFlag, 0);
       AdjustAngleApply(host);
-      if (reselect) {
-        host.SetRecordF0bec(relax ? k.halfTurn : host.RecordF0bec());  // FUN_1406cba60
-      }
+      // 0x1406d7ed8: FUN_1406cba60(P, relax, the issued motion) counts the issue in the analyser (FUN_1406e2c30); it writes no yaw.
+      if (reselect) host.CountAnalyserEvent(relax, PickRow(host, motion, turnColumn(motion)).motion);
       return;
     }
     if (speedWord != 3) {
@@ -1834,9 +1833,9 @@ LAB_1406d6c22:
     req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
     req.SetByte(moveword::kReorientFlag, 0);
     AdjustAngleApply(host);
-    if (reselect) {
-      host.SetRecordF0bec(relax ? k.halfTurn : host.RecordF0bec());  // FUN_1406cba60
-    }
+    // 0x1406d851c: FUN_1406cba60(P, relax, the issued motion) counts the issue in the analyser (FUN_1406e2c30); it writes no yaw
+    // (the yaw writer is FUN_1406cbb00, which this entry does not call).
+    if (reselect) host.CountAnalyserEvent(relax, PickRow(host, motion, turnColumn(motion)).motion);
     return;
   }
   // The speedWord <= 1 tail (0x1406d7545): the 0x5b3 / 0x5b9 ladder and the run request.

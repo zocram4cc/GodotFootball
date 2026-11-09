@@ -1377,9 +1377,7 @@ void TurnStopLadder(MoveHost& host, MoveReq& req, float speedKmh, const RunConst
 // PES's blend-point exit (FUN_1406bb570 lines 666-717, then the band-3 clamp 718-745). The dwell words, style and foot flag
 // clear; the 4-tick speed runs the rate ladder when it is at most 16 km/h or a flag is set; the band and speed word come from
 // the interface (vt+0x68, vt+0x48); the run entry then requests the loop and writes the run's motion word; then the clamp.
-// ponytail: the 4-tick sample is PositionAt(4), the port's stand-in for FUN_141eb50b0(P, buf, 4). PES reads fixed,
-// event-updated contents at P+0x2fc (slot 0 is zero for player 7; the writer is unknown, docs/re/pes-re-ball-track.md), so
-// the GF position stands in until that writer is decoded.
+// The 4-tick sample is FUN_141eb50b0(P, buf, 4): ring slot 0 at P+0x2fc (RingSample).
 void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const MoveConstants& m, float hitSigned, float hit2,
                  int liveFrame, bool flagged) {
   req.SetF(moveword::kDwellLimit, 0.0f);
@@ -1387,7 +1385,7 @@ void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const Move
   req.SetByte(moveword::kStyle, 0);
   req.SetByte(moveword::kFootFlag, static_cast<uint8_t>(host.FootBand() - 1u < 2u));
   float sample[3] = {0.0f, 0.0f, 0.0f};
-  host.PositionAt(static_cast<int>(static_cast<float>(host.TicksPerSecond()) * k.speed4 / k.kmh60 + k.half), sample);
+  host.RingSample(static_cast<int>(static_cast<float>(host.TicksPerSecond()) * k.speed4 / k.kmh60 + k.half), sample);
   const float speed = static_cast<float>(host.TicksPerSecond()) * k.kmh60 * k.kmh60 / k.kmh1000 *
                       std::sqrt(sample[0] * sample[0] + sample[1] * sample[1] + sample[2] * sample[2]);
   if (flagged || speed <= k.kmh16) {

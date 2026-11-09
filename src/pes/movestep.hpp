@@ -717,10 +717,13 @@ class MoveHost {
   // The anime state (vt+0x28 of the +0xab8 interface). IsReplay() is AnimeState() == 0x4a.
   virtual int AnimeState() const = 0;
 
-  // FUN_141eb50b0(P, out, index), in PES's order (x, height, ground z). Index 0 and 1 are the last tick's displacement,
-  // pos - prev: P+8 - P+0x14, P+0xc - P+0x18, P+0x10 - P+0x1c. Index >= 2 is the history ring: sample k = min(index / 10,
-  // 5), with x and height at P+0x2fc + 12k and z at P+0x304 + 12k. GF keeps no ring, so the adapter answers the position.
+  // FUN_141eb50b0(P, out, index) for index 0 and 1, in PES's order (x, height, ground z): the last tick's displacement,
+  // pos - prev: P+8 - P+0x14, P+0xc - P+0x18, P+0x10 - P+0x1c. Callers also pass bone indices (3, 6, 10: FUN_141eb51a0's joints)
+  // and ball-sample indices (2); the adapter answers those with the position until each has its own read.
   virtual void PositionAt(int index, float out[3]) const = 0;
+  // FUN_141eb50b0(P, out, index) for the ring reads of index 2 or more: sample k = min(index / 10, 5), x and height at
+  // P+0x2fc + 12k, z at P+0x304 + 12k. The ring is the man's predicted displacement per tick over the next 10(k+1) ticks.
+  virtual void RingSample(int index, float out[3]) const = 0;
   // The player's own ground position in PES's order: P+8 (x), P+0xc (height), P+0x10 (ground z). PES reads these
   // directly; PositionAt(0) is the displacement, not the position.
   virtual void OwnPosition(float out[3]) const = 0;
@@ -766,8 +769,9 @@ class MoveHost {
   virtual float ClipHitDistance(int, float, int) const { MoveHostUnbound("ClipHitDistance"); }
   // FUN_140439e50(P+8, point): the heading in [0, 360) from the own position to `point` (PES order x, height, z).
   virtual float HeadingToPointDeg(const float[3]) const { MoveHostUnbound("HeadingToPointDeg"); }
-  // FUN_1406cba60 -> FUN_1406e2c30(P, row): the analyser's per-row counter (P+0x3AD8 record); no gameplay path reads it.
-  virtual void CountAnalyserEvent(int) { MoveHostUnbound("CountAnalyserEvent"); }
+  // FUN_1406cba60(P, flag, motion) -> FUN_1406e2c30(P, row): counts the issued motion in the analyser record (P+0x3AD8). INF: the
+  // trap chain's P+0x3AC0 analyser is the only reader found; it writes no yaw and no request word.
+  virtual void CountAnalyserEvent(bool, int) { MoveHostUnbound("CountAnalyserEvent"); }
 };
 
 // ---------------------------------------------------------------------------------------------

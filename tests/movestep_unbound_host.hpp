@@ -72,6 +72,7 @@ class UnboundHost : public pes::MoveHost {
   int CurrentClipFrames() const override { Unbound("CurrentClipFrames"); }
   int AnimeState() const override { Unbound("AnimeState"); }
   void PositionAt(int, float[3]) const override { Unbound("PositionAt"); }
+  void RingSample(int, float[3]) const override { Unbound("RingSample"); }
   void OwnPosition(float[3]) const override { Unbound("OwnPosition"); }
   int MatchPhase() const override { Unbound("MatchPhase"); }
   bool IsReplay() const override { Unbound("IsReplay"); }

@@ -314,13 +314,21 @@ class MoveHostAdapter final : public pes::MoveHost {
   float RecordF0bec() const override { return player_.GetMoveStep().yawLock; }
   void SetRecordF0bec(float value) override { player_.GetMoveStep().yawLock = value; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return c_.buckets; }
-  // FUN_141eb50b0: index 0 and 1 are the displacement of the last tick, in metres per PES tick (every reader multiplies it by the
+  // FUN_141eb50b0 index 0 and 1: the displacement of the last tick, in metres per PES tick (every reader multiplies it by the
   // tick rate to get km/h: FUN_1406bb570 line `ticks * 60 * 60 / 1000 * |displacement|`). GF's movement is metres per second
-  // (a 10 ms anim frame's step x 100), so it is divided by the PES tick rate. Index >= 2 is the history ring, which GF does not
-  // keep.
-  // ponytail: PES's ring at P+0x2fc is written per tick by a writer not decoded yet; until then every sample is the position.
+  // (a 10 ms anim frame's step x 100), so it is divided by the PES tick rate. Index 2 and up are the bone, ball and ring reads
+  // of other PES functions that the contract still routes here (movestep.hpp).
+  // ponytail: those reads answer the position until each has its own source (FUN_141eb51a0's joints, FUN_140a6cf70's ball).
   void PositionAt(int index, float out[3]) const override {
     const Vector3 v = index < 2 ? player_.GetMovement() / TicksPerSecond() : player_.GetPosition();
+    pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
+  }
+  // FUN_141eb50b0's ring: slot k holds the man's predicted displacement per tick over 10(k+1) ticks, slot 0 his present
+  // velocity (TrapOpen2 section 6, INF from two snapshots of one man).
+  // ponytail: the writer of P+0x2fc (the root-motion predictor of the anime layer; the FUN_1406e9800 family reads it) is not
+  // decoded; GF has no braking prediction, so every slot is the present velocity, as the trap actor's open input is.
+  void RingSample(int, float out[3]) const override {
+    const Vector3 v = player_.GetMovement() / TicksPerSecond();
     pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   void OwnPosition(float out[3]) const override {
@@ -459,7 +467,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     return pes::FoldFull(std::atan2(point[0] - own[0], point[2] - own[2]) * kDegPerRad, c_.run);
   }
   // ponytail: the analyser's counter row (FUN_1406e2c30, P+0x3AD8) has no GF record.
-  void CountAnalyserEvent(int) override {}
+  void CountAnalyserEvent(bool, int) override {}
   float RecordFacing(int slot) const override {
     (void)slot;
     return 0.0f;  // ponytail: the match's per-player record facings.

@@ -296,7 +296,7 @@ bool EnterGotoTurn(MoveHost& host, MoveReq& req) {
     }
     if (enter) {
       pick(kRowTurnC);
-      host.CountAnalyserEvent(cellMotion);  // FUN_1406cba60(P, trainer, motion)
+      host.CountAnalyserEvent(trainer, cellMotion);  // FUN_1406cba60(P, trainer, motion)
     }
   }
   // 0x1406d0e90 / 0x1406d0ea8: the lock arm reads the turn table, every other path the plain one, at the final bucket.
