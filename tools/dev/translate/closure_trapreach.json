@@ -1,0 +1,24 @@
+{
+ "note": "the functions the capture-bounded proof of 0x140799060 entered (prove_bounded.py). VAs only.",
+ "root": "0x140799060",
+ "members": [
+  "0x140591A10",
+  "0x1406B0180",
+  "0x1406B0540",
+  "0x1406B0ED0",
+  "0x1406E6A50",
+  "0x1406E6BD0",
+  "0x1406E6CE0",
+  "0x1406EA810",
+  "0x1406EC700",
+  "0x140798240",
+  "0x14085C1B0",
+  "0x14086D210",
+  "0x140A6CF70",
+  "0x140A92C80",
+  "0x140A93070",
+  "0x141EB51A0",
+  "0x141EB51F0",
+  "0x141EB54D0"
+ ]
+}

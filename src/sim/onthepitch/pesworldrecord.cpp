@@ -420,6 +420,82 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   return result;
 }
 
+// The scan's call frame: the output record sits above the entry rsp in the window's stack, zeroed as the anime driver zeroes it before
+// the scan; the callee frames grow below the entry.
+static constexpr std::size_t kScanFrameBytes = 0x600, kScanOutAboveEntry = 0x200;
+
+PesBodyScanOut PesWorld::RunBodyScan(int slot, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
+  const uint64_t out = entry + kScanOutAboveEntry;
+  s.wr(entry, 0, 8);
+  for (std::size_t i = 0; i < kScanOutBytes; i += sizeof(uint64_t)) s.wr(out + i, 0, sizeof(uint64_t));
+  s.gpr[4] = entry;
+  s.gpr[1] = PVa(slot);  // rcx: P
+  s.gpr[2] = out;        // rdx: the driver's output record
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_1406EDCE0(s);
+  ReturnSegments(s, ext, lent);
+  PesBodyScanOut result;
+  for (std::size_t i = 0; i < kScanOutBytes; ++i) result.bytes[i] = static_cast<uint8_t>(s.mem.rd(out + i, 1));
+  return result;
+}
+
+PesWorld::AdjusterStep PesWorld::RunTrapAdjuster(int slot) {
+  uint8_t* a = P(slot) + kPAdjusterOffset;
+  AdjusterStep step;
+  uint32_t state;
+  std::memcpy(&state, a + kAdjStateOffset, sizeof state);
+  if (state != kAdjRunning) return step;
+  int16_t count, delay, ticks;
+  std::memcpy(&count, a + kAdjCountOffset, sizeof count);
+  std::memcpy(&delay, a + kAdjDelayOffset, sizeof delay);
+  std::memcpy(&ticks, a + kAdjTicksOffset, sizeof ticks);
+  // FUN_141EB3AF0: a counter still under the hold only counts; past the last tick the adjuster finishes (its own zeroing, then
+  // vtable +0x10 = FUN_141EB1A20); otherwise vtable +0x18 = FUN_141EB1BF0 steps it.
+  if (count < delay) {
+    ++count;
+    std::memcpy(a + kAdjCountOffset, &count, sizeof count);
+    return step;
+  }
+  if (ticks < count) {
+    std::memset(a + kAdjFinishWordsFrom, 0, kAdjFinishWordsBytes);
+    std::memset(a + kAdjFinishDwordOffset, 0, sizeof(uint32_t));
+    a[kAdjFinishByteOffset] = 0;
+    std::memset(a + kAdjClearFrom, 0, kAdjClearBytes);
+    std::memset(a + kAdjClearDwordOffset, 0, sizeof(uint32_t));
+    a[kAdjModeOffset] = 0;
+    return step;
+  }
+  std::memset(a + kAdjStepOffset, 0, 3 * sizeof(float));  // the anime layer's own displacement term (FUN_141AF3CA0): not in GF's window
+  PesState s = NewCall(Bytes());
+  const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = PVa(slot) + kPAdjusterOffset;                    // rcx: A
+  s.gpr[2] = 0;                                               // rdx: the anime chain (read only by modes 2, 3 and 0)
+  s.gpr[8] = PVa(slot) + kPAdjusterOffset + kAdjStepOffset;   // r8: the frame's displacement
+  ::pes_fn_141EB1BF0(s);
+  step.moved = true;
+  std::memcpy(&step.x, a + kAdjStepOffset, sizeof(float));
+  std::memcpy(&step.z, a + kAdjStepOffset + 2 * sizeof(float), sizeof(float));
+  return step;
+}
+
+void PesWorld::WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask) {
+  uint8_t* p = P(slot);
+  constexpr std::size_t kPosBytes = 3 * sizeof(float), kRotBytes = 4 * sizeof(float);
+  for (std::size_t bone = 0; bone < kScanBoneCount; ++bone) {
+    if (!mask[bone]) continue;
+    std::memcpy(p + kPJointPrevPosOffset + bone * kPosBytes, p + kPJointPosOffset + bone * kPosBytes, kPosBytes);
+    std::memcpy(p + kPJointPrevRotOffset + bone * kRotBytes, p + kPJointRotOffset + bone * kRotBytes, kRotBytes);
+    std::memcpy(p + kPJointPosOffset + bone * kPosBytes, frames[bone].position.data(), kPosBytes);
+    std::memcpy(p + kPJointRotOffset + bone * kRotBytes, frames[bone].rotation.data(), kRotBytes);
+  }
+  p[kPJointReadyOffset] = 1;
+}
+
 void PesWorld::SetTickFrame(int slot, float bodyHeadingDeg) {
   uint8_t* frame = TickFrame();
   const TickPlan& plan = tickPlan_[slot];

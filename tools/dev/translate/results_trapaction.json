@@ -721,6 +721,119 @@
    "va": "0x14079E0B0",
    "synthetic": true,
    "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapscan.json",
+   "coverage": {
+    "0x1406EDCE0": {
+     "reached": 57,
+     "total": 126,
+     "fraction": 0.4524
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 1 REAL captured call(s) and 4 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. FUN_1406EDCE0 body contact scan: 1 REAL call (live2/pid3332804/seq040, No-Mod, 09-11-26) and 4 SYNTHETIC cases over a real trap-tick state (RestingBall3 ee_pid1010053_153, mod-era): reach hit, reach with another owner, hand sensor, forced flag; an earlier run proved reach miss, touched flag and foot sensor bit-exact too",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 57,
+     "total": 126,
+     "fraction": 0.4524
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406EDCE0",
+   "synthetic": true,
+   "synthetic_cases": 4
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapreach.json",
+   "coverage": {
+    "0x140799060": {
+     "reached": 33,
+     "total": 42,
+     "fraction": 0.7857
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reach test of the Trap action (vt slot 23): 6 real calls, joint branch, pass path (slot +8 called twice) in all",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 33,
+     "total": 42,
+     "fraction": 0.7857
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140799060"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadjust.json",
+   "coverage": {
+    "0x141EB1BF0": {
+     "reached": 11,
+     "total": 69,
+     "fraction": 0.1594
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3: 3 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. strike-mode (A+0x6D == 1) root advance of the Trap action's adjuster A=P+0x428; modes 2/3/0 are loud aborts",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 11,
+     "total": 69,
+     "fraction": 0.1594
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB1BF0"
   }
  ]
 }

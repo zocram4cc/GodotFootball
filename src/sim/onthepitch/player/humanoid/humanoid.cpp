@@ -638,7 +638,15 @@ void Humanoid::Process() {
   }
   // ---------------------- / EXPERIMENTAL ------------------------------------------------
 
-  if (currentAnim->touchFrame == currentAnim->frameNum) {
+  // A PES trap's touch is PES's body contact scan, not the clip's contact frame (docs/ports/pes-port-TrapContact.md): the trap tick
+  // sets the contact-pending bit on the contact frame, the scan's reach test (FUN_140799060) accepts or refuses it, and an accepted
+  // scan grants the touch (RunPesBodyScans). Neither GF's distance gate nor its height gate applies to it.
+  // ponytail: the ball's new velocity is still GF's trap vector (GetTrapVector); PES builds it in the scan's output record
+  // (+0x9C) and applies it in the ball's kick application FUN_140870A40, which is not translated.
+  const bool pesTrapClip = match->PesLoop() && OnPesTrap();
+  pes::PesBodyScanOut pesScan;
+  const bool pesTrapTouch = pesTrapClip && match->TakePesTouch(match->PesSlotOf(CastPlayer()), &pesScan);
+  if (pesTrapClip ? pesTrapTouch : currentAnim->touchFrame == currentAnim->frameNum) {
     Vector3 desiredBallPosition;
     std::static_pointer_cast<FootballAnimationExtension>(
         currentAnim->anim->GetExtension("football"))
@@ -686,9 +694,9 @@ void Humanoid::Process() {
     // incoming speed instead of dropping an otherwise-good touch outright.
     const float acceptGateScale =
         GameplayTuning::GetTrapAcceptGateScale(currentBallVec.GetLength());
-    if (fullBallDistance < touchableDistance * acceptGateScale &&
-        fabs(desiredBallHeight - match->GetBall()->Predict(0).coords[2]) <
-            1.0f * acceptGateScale) {
+    if ((pesTrapClip || fullBallDistance < touchableDistance * acceptGateScale) &&
+        (pesTrapClip ||
+         fabs(desiredBallHeight - match->GetBall()->Predict(0).coords[2]) < 1.0f * acceptGateScale)) {
       radian nextBodyAngle = startAngle + currentAnim->anim->GetOutgoingAngle() +
                              currentAnim->anim->GetOutgoingBodyAngle() +
                              currentAnim->rotationSmuggle.end;
