@@ -20,6 +20,7 @@
 //   FUN_1406ea750  the engine blend rate             the live engine rate (INF, AS 7)
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_step.hpp"
+#include "pes/movestep_turn_entry.hpp"
 
 #include <algorithm>
 #include <array>
@@ -411,20 +412,6 @@ std::optional<RunTables> LoadRunTables(const PeImage& exe, std::string* error) {
   return t;
 }
 
-// FUN_1406d01d0(ap, req): the turn-lock test, true when the request's words are already locked.
-// Its decompile (gf-MovestepRun-scratch/d_1406d01d0.c) reads the look bucket and the facing error
-// against the 45/112.5/135 gates and writes the same words back; the port keeps the decision.
-bool TurnLockEligible(MoveHost& host, MoveReq& req) {
-  // The class of -1 is normalised to 1 (the decompile's first block).
-  if (req.U(moveword::kCommandSpeedClass) == 0xffffffffu) {
-    req.SetU(moveword::kCommandSpeedClass, 1u);
-  }
-  if (req.U(moveword::kPrecise) != 0u) return false;
-  const int motion = host.CurrentMotion();
-  if (motion < 0x8ac || motion == 0x8af || motion > 0x8b1) return false;
-  return true;
-}
-
 namespace movestep {
 
 // ---------------------------------------------------------------------------------------------
@@ -794,10 +781,11 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   bool fast = !(lookBearing * lookBearing < k.kmh95sq) && req.U(moveword::kPrecise) == 1u;  // BL
   if ((motion == kStandTurnMotion || turnMotion) && frame < hit2) fast = false;
 
-  // 0x1406be475..0x1406be4ec: the turn-lock test (FUN_1406d01d0). The class gate's else arm only reads (vt+0x28).
+  // 0x1406be475..0x1406be4ec: FUN_1406d01d0 (EnterGotoTurn: it enters GOTO_RUN with the turn rows 0x56f..0x572 when it accepts). The
+  // class gate's else arm only reads (vt+0x28).
   if (req.U(moveword::kBandTarget) - 1u < 2u && static_cast<int>(req.U(moveword::kCommandSpeedClass)) > 2 &&
       req.U(moveword::kPrecise) == 0u && bearing < k.deg45 && host.AnimeState() != kReplayAnimeState &&
-      motion != kStandTurnMotion && !turnMotion && TurnLockEligible(host, req)) {
+      motion != kStandTurnMotion && !turnMotion && EnterGotoTurn(host, req)) {
     return;
   }
 
@@ -1507,9 +1495,7 @@ void TurnStopLadder(MoveHost& host, MoveReq& req, float speedKmh, const RunConst
 // PES's blend-point exit (FUN_1406bb570 lines 666-717, then the band-3 clamp 718-745). The dwell words, style and foot flag
 // clear; the 4-tick speed runs the rate ladder when it is at most 16 km/h or a flag is set; the band and speed word come from
 // the interface (vt+0x68, vt+0x48); the run entry then requests the loop and writes the run's motion word; then the clamp.
-// ponytail: the 4-tick sample is PositionAt(4), the port's stand-in for FUN_141eb50b0(P, buf, 4). PES reads fixed,
-// event-updated contents at P+0x2fc (slot 0 is zero for player 7; the writer is unknown, docs/re/pes-re-ball-track.md), so
-// the GF position stands in until that writer is decoded.
+// The 4-tick sample is FUN_141eb50b0(P, buf, 4): ring slot 0 at P+0x2fc (RingSample).
 void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const MoveConstants& m, float hitSigned, float hit2,
                  int liveFrame, bool flagged) {
   req.SetF(moveword::kDwellLimit, 0.0f);
@@ -1517,7 +1503,7 @@ void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const Move
   req.SetByte(moveword::kStyle, 0);
   req.SetByte(moveword::kFootFlag, static_cast<uint8_t>(host.FootBand() - 1u < 2u));
   float sample[3] = {0.0f, 0.0f, 0.0f};
-  host.PositionAt(static_cast<int>(static_cast<float>(host.TicksPerSecond()) * k.speed4 / k.kmh60 + k.half), sample);
+  host.RingSample(static_cast<int>(static_cast<float>(host.TicksPerSecond()) * k.speed4 / k.kmh60 + k.half), sample);
   const float speed = static_cast<float>(host.TicksPerSecond()) * k.kmh60 * k.kmh60 / k.kmh1000 *
                       std::sqrt(sample[0] * sample[0] + sample[1] * sample[1] + sample[2] * sample[2]);
   if (flagged || speed <= k.kmh16) {

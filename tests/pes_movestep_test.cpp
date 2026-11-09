@@ -339,6 +339,7 @@ class RateHost : public pes::MoveHost {
   float RecordF0bec() const override { return f0bec; }
   void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
+  void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
     for (int i = 0; i < 3; ++i) out[i] = index < 2 ? 0.0f : position[i];
   }

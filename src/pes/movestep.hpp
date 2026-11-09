@@ -607,6 +607,9 @@ inline constexpr int kAbilityDa = 0x15;
 inline constexpr int kReplayAnimeState = 0x4a;  // vt+0x28 == 0x4a: the replay action
 
 struct SpeedClassConstants;  // the sine table of FUN_140a92c80 (defined below, with TableSinDeg)
+struct TurnEntryTables;      // the foot-flag tables of FUN_1406d01d0, defined in movestep_turn_entry.hpp
+// A MoveHost read the host does not bind: reports the name and aborts.
+[[noreturn]] void MoveHostUnbound(const char* what);
 class MoveHost {
  public:
   virtual ~MoveHost() = default;
@@ -727,10 +730,13 @@ class MoveHost {
   // The anime state (vt+0x28 of the +0xab8 interface). IsReplay() is AnimeState() == 0x4a.
   virtual int AnimeState() const = 0;
 
-  // FUN_141eb50b0(P, out, index), in PES's order (x, height, ground z). Index 0 and 1 are the last tick's displacement,
-  // pos - prev: P+8 - P+0x14, P+0xc - P+0x18, P+0x10 - P+0x1c. Index >= 2 is the history ring: sample k = min(index / 10,
-  // 5), with x and height at P+0x2fc + 12k and z at P+0x304 + 12k. GF keeps no ring, so the adapter answers the position.
+  // FUN_141eb50b0(P, out, index) for index 0 and 1, in PES's order (x, height, ground z): the last tick's displacement,
+  // pos - prev: P+8 - P+0x14, P+0xc - P+0x18, P+0x10 - P+0x1c. Callers also pass bone indices (3, 6, 10: FUN_141eb51a0's joints)
+  // and ball-sample indices (2); the adapter answers those with the position until each has its own read.
   virtual void PositionAt(int index, float out[3]) const = 0;
+  // FUN_141eb50b0(P, out, index) for the ring reads of index 2 or more: sample k = min(index / 10, 5), x and height at
+  // P+0x2fc + 12k, z at P+0x304 + 12k. The ring is the man's predicted displacement per tick over the next 10(k+1) ticks.
+  virtual void RingSample(int index, float out[3]) const = 0;
   // The player's own ground position in PES's order: P+8 (x), P+0xc (height), P+0x10 (ground z). PES reads these
   // directly; PositionAt(0) is the displacement, not the position.
   virtual void OwnPosition(float out[3]) const = 0;
@@ -760,6 +766,25 @@ class MoveHost {
   virtual const TeamAi& Team() const = 0;
   // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
   virtual void Issue(const MotionRequest& request) = 0;
+
+  // The reads of the GOTO_RUN turn entry FUN_1406d01d0 (movestep_turn_entry.hpp). Each names the PES call it stands for;
+  // a host that does not bind one stops loudly (MoveHostUnbound), it never answers a made-up value.
+  virtual const TurnEntryTables& TurnEntryTablesView() const { MoveHostUnbound("TurnEntryTablesView"); }
+  // FUN_140a627e0(ctx, 0) = *(MA+0x2601c): the slot of the man holding the ball; 0x16 or more is nobody.
+  virtual int CarrierSlot() const { MoveHostUnbound("CarrierSlot"); }
+  // FUN_140a48910(G, slot)+1: the anime record's class byte of a slot (0x12 marks a keeper).
+  virtual int AnimeRecordClass(int) const { MoveHostUnbound("AnimeRecordClass"); }
+  // FUN_14044e020(MA+0x24840, slot): the ticks of the slot's record in the match's event table.
+  virtual int RecordTicks(int) const { MoveHostUnbound("RecordTicks"); }
+  // The match object at G+0x2c0: its byte +0x85 when its mode byte +0x12 is 1 or 2, else 0 (FUN_140a3f560).
+  virtual bool MatchObjectFlag2c0() const { MoveHostUnbound("MatchObjectFlag2c0"); }
+  // FUN_1406e7730 (+0xab8 vt+0x58): the distance the clip's hit record covers, at the physique scale g, for hit `index`.
+  virtual float ClipHitDistance(int, float, int) const { MoveHostUnbound("ClipHitDistance"); }
+  // FUN_140439e50(P+8, point): the heading in [0, 360) from the own position to `point` (PES order x, height, z).
+  virtual float HeadingToPointDeg(const float[3]) const { MoveHostUnbound("HeadingToPointDeg"); }
+  // FUN_1406cba60(P, flag, motion) -> FUN_1406e2c30(P, row): counts the issued motion in the analyser record (P+0x3AD8). INF: the
+  // trap chain's P+0x3AC0 analyser is the only reader found; it writes no yaw and no request word.
+  virtual void CountAnalyserEvent(bool, int) { MoveHostUnbound("CountAnalyserEvent"); }
 };
 
 // ---------------------------------------------------------------------------------------------

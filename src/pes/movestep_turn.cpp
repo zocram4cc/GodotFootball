@@ -17,6 +17,7 @@
 #include "pes/exe.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_step.hpp"
+#include "pes/movestep_turn_entry.hpp"
 
 namespace pes {
 namespace {
@@ -949,7 +950,7 @@ void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   }
   req.SetF(moveword::kRate, InterfaceSpeed(host) * k.playbackFloor);
   float sample[3] = {0.0f, 0.0f, 0.0f};
-  host.PositionAt(static_cast<int>(ticks * k.four / k.fps + k.half), sample);
+  host.RingSample(static_cast<int>(ticks * k.four / k.fps + k.half), sample);
   const float sampleKmh = TickMetresToKmh(host, k, Length3(sample[0], sample[1], sample[2]));
   if (k.speedD > sampleKmh || cmdClass < 3) {
     req.SetF(moveword::kRate, kRate06);
@@ -1732,9 +1733,8 @@ LAB_1406d6c22:
       req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
       req.SetByte(moveword::kReorientFlag, 0);
       AdjustAngleApply(host);
-      if (reselect) {
-        host.SetRecordF0bec(relax ? k.halfTurn : host.RecordF0bec());  // FUN_1406cba60
-      }
+      // 0x1406d7ed8: FUN_1406cba60(P, relax, the issued motion) counts the issue in the analyser (FUN_1406e2c30); it writes no yaw.
+      if (reselect) host.CountAnalyserEvent(relax, PickRow(host, motion, turnColumn(motion)).motion);
       return;
     }
     if (speedWord != 3) {
@@ -1833,9 +1833,9 @@ LAB_1406d6c22:
     req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
     req.SetByte(moveword::kReorientFlag, 0);
     AdjustAngleApply(host);
-    if (reselect) {
-      host.SetRecordF0bec(relax ? k.halfTurn : host.RecordF0bec());  // FUN_1406cba60
-    }
+    // 0x1406d851c: FUN_1406cba60(P, relax, the issued motion) counts the issue in the analyser (FUN_1406e2c30); it writes no yaw
+    // (the yaw writer is FUN_1406cbb00, which this entry does not call).
+    if (reselect) host.CountAnalyserEvent(relax, PickRow(host, motion, turnColumn(motion)).motion);
     return;
   }
   // The speedWord <= 1 tail (0x1406d7545): the 0x5b3 / 0x5b9 ladder and the run request.
@@ -2592,8 +2592,8 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   };
   // 0x1406c7bf3..0x1406c7c23: the early gate. [R14+0x3f] is a BYTE offset (the top byte of req[0xf]), not word 0x3f.
   if (static_cast<uint32_t>(savedClass) - 1u < 2u && 2 < cmdClass() && precise() == 0 && d1 < k.angle45 &&
-      host.AnimeState() != pes::kReplayAnimeState && !req.FlagAtByte(0x3f) && pes::TurnLockEligible(host, req)) {
-    return;  // FUN_1406d01d0 answered true; ponytail: TurnLockEligible is its stand-in (group B), see its note
+      host.AnimeState() != pes::kReplayAnimeState && !req.FlagAtByte(0x3f) && pes::EnterGotoTurn(host, req)) {
+    return;  // FUN_1406d01d0 entered GOTO_RUN (0x1406c7c1c)
   }
   const int sixTicks = static_cast<int>(ticks * k.turnTicks / k.fps + half);  // 0x1406c7c68..0x1406c7c86
   if (motion == 0xe96 && dispKmh < k.five && 1 < cmdClass()) {  // 0x1406c7c32..0x1406c7c4f
