@@ -61,6 +61,10 @@ for _r in REGSET:
     else:
         PARENT[_r] = _r
 
+# The packer's section of relocated and obfuscated code (.impdata: 0x143D14000 up to .reloc at 0x15B952000, the image's section table): its `ret`
+# may be a computed jump (emit_branch). A list so a test can name its synthetic function's range.
+COMPUTED_RET_RANGES = [(0x143D14000, 0x15B952000)]
+
 CCMAP = {
     "JZ": "z", "JE": "z", "JNZ": "nz", "JNE": "nz",
     "JC": "c", "JB": "c", "JNAE": "c", "JNC": "nc", "JAE": "nc",
@@ -2072,6 +2076,16 @@ class Emitter:
     def emit_branch(self, mnem, ops, addr, ctx):
         m = mnem.upper()
         if m == "RET":
+            if any(lo <= addr < hi for lo, hi in COMPUTED_RET_RANGES):
+                # The packer's obfuscated code (.impdata) uses `push target; ... ret` as a jump: the word at [rsp] is the target, not the caller's
+                # return slot (which holds 0 here, as every translated call pushes). A nonzero word is popped and entered through the dispatch table
+                # (an untranslated target is the loud abort naming its VA); the entered function returns to the slot below it, which is the
+                # caller's, so this function then returns too (a tail jump).
+                return ["{ uint64_t _t = s.rd(s.gpr[4], 8);",
+                        "  if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);",
+                        "    if (_d.fn == 0) pes_dispatch_missing(_t);",
+                        "    else _d.fn(s); } }",
+                        "return;"]
             return ["return;"]
         if m == "CALL":
             if not is_imm(ops[0].strip()):
