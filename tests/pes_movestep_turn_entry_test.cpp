@@ -314,6 +314,8 @@ class RowHost : public movestep_test::UnboundHost {
     bool IsQueuedCover(int) const override { std::abort(); }
     bool SideSlotMarked(int) const override { std::abort(); }
     bool SetPieceAnswer(int) const override { std::abort(); }
+    int BallOwnerSlot() const override { std::abort(); }
+    bool MaFlag25930() const override { std::abort(); }
   };
 
  private:
