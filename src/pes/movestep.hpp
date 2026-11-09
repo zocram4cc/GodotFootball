@@ -362,6 +362,11 @@ struct RunConstants {
   float decelSpan;    // 1.25  (0x1425ab128): the decelerating slope's span
   float decelSub;     // -3    (0x14259d654): the decelerating slope below 0.6 in sub-state 2
   float condition10;  // 10    (0x142588210): the condition byte's ceiling for the Acceleration reduction
+  // FUN_1406d1390 (the IDLE_TURN entry): its look-bucket flip arm's gates and the heading clamp.
+  float deg167p5;       // 167.5   (0x1425ddfc8): the turn clamp FUN_140a92950 gets, and the flipped look error's magnitude
+  float deg168p75;      // 168.75  (0x1425ddfcc): the facing error above which the flip arm looks at the ball
+  float negDeg167p5;    // -167.5  (0x1425ddff8): the flipped look error when the bucket becomes 4
+  float ballSampleTicks;  // 20    (0x14259be1c): the ball sample's look-ahead, in 1/60 s (the same word as reserveLow)
 };
 
 // FUN_14043a0a0 as PES has it: b minus a, both folded into [0, 360) and wrapped once past 180. Every PES call to that
@@ -389,6 +394,7 @@ struct RunTables {
   std::array<int32_t, 32> turnStopRow;    // FUN_1406ba0d0, kind + class*8, 0x1425ddb50
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
   std::array<int32_t, kRunStyleCount * 4> styleGroup;  // FUN_1406d2030's representative motion, DAT_1425ddcf0: style*4 + band/4
+  std::array<int32_t, 8> idleTurnRow;     // FUN_1406d1390, kind, 0x1425dda30
 };
 
 // FUN_1406b9e80's 11-knot piecewise-linear table at 0x1425de010: ten records
@@ -435,6 +441,7 @@ constexpr int kIdleRowKind25 = 0x5b1;    // FUN_1406b93a0's kind 2/5 answer
 constexpr int kIdleRowKind4 = 0x5b0;     // kind 4
 constexpr int kIdleRowKind7 = 0x5b2;     // kind 7
 constexpr int kIdleRowBall = 0x5a3;     // FUN_1406bf0c0/FUN_1406bf7f0's command-5 ball answer
+constexpr int kIdleTurnReplayRow = 0x54c;  // FUN_1406d1390's row for the replay action and kind 3 in a stoppage (0x1406D1666 MOV EBP,0x54c)
 
 // Group C's install tables (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP, the transitions), read by
 // LoadStepTables from the exe at the VAs in movestep.cpp.
@@ -578,6 +585,10 @@ class TeamAi {
   virtual bool IsQueuedCover(int slot) const = 0;      // T(side)+0x278+0x40*(slot mod 11) == 0x32
   virtual bool SideSlotMarked(int slot) const = 0;     // T(side)+0xb8c4[slot mod 11] != 0
   virtual bool SetPieceAnswer(int slot) const = 0;     // FUN_140a62d90(X, slot, 0) == 0x1c4b6
+  // FUN_140a627e0(X, 0): the ball owner's slot (MA+0x2601C); past 0x15 no man owns the ball (FUN_1406d1390's flip arm).
+  virtual int BallOwnerSlot() const = 0;
+  // MA+0x25930 != 0: the byte FUN_1406d1390's kind-3 arm reads beside MI+0x116C == 2.
+  virtual bool MaFlag25930() const = 0;
 };
 
 // The ability bytes the team-AI reads name (FUN_1406e6660's id) and the anime state of the replay action.

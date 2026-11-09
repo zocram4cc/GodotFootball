@@ -345,8 +345,11 @@ class RateHost : public pes::MoveHost {
   void OwnPosition(float out[3]) const override {
     for (int i = 0; i < 3; ++i) out[i] = position[i];
   }
-  bool IsReplay() const override { return false; }
-  void Issue(const pes::MotionRequest&) override {}
+  bool IsReplay() const override { return replay; }
+  void Issue(const pes::MotionRequest& request) override {
+    lastIssue = request;
+    ++issueCalls;
+  }
   const pes::StepScalars& StepConstants() const override { return step; }
   float BandSpeedKmh(int, float) const override { return 0.0f; }
   bool MirrorChoice(bool) const override { return false; }
@@ -430,6 +433,9 @@ class RateHost : public pes::MoveHost {
   int lastCellRow = -1;
   int lastCellColumn = -1;
   bool lastCellWalk = false;
+  bool replay = false;
+  pes::MotionRequest lastIssue;
+  int issueCalls = 0;
   int currentMotion = 0;
   int currentClipFrames = 0;
   int animeState = 0;
@@ -675,6 +681,137 @@ TEST(IdleTurn, TheTurnPerTickIsTheFacingAgainstTheStampNotTheClipTickSum) {
   pes::movestep::IdleTurn(host, req);
   EXPECT_EQ(req.U(pes::moveword::kTurnLockFlag) & 0xffu, 1u);
   EXPECT_EQ(int(req.U(pes::moveword::kTurnLockTicks)), end - start);
+}
+
+// FUN_1406d1390, the IDLE_TURN entry. The tables are synthetic (distinct values, so a row or a column read from the wrong table or index
+// differs): the install's own rows and columns are read by the install test (tables.idleTurnRow, LoadRunTables).
+namespace {
+RateHost TurnEntryHost() {
+  RateHost host = IdleHost();
+  host.run.deg1575 = 157.5f;
+  host.run.deg167p5 = 167.5f;
+  host.run.deg168p75 = 168.75f;
+  host.run.negDeg167p5 = -167.5f;
+  host.run.ballSampleTicks = 20.0f;
+  host.run.blend1667 = 1.0f / 6.0f;
+  host.style.radToDeg = 57.2957795f;
+  for (int kind = 0; kind < 8; ++kind) host.tables.idleTurnRow[kind] = 0x700 + 3 * kind;
+  for (int bucket = 0; bucket < 10; ++bucket) host.tables.bucketColumn[bucket] = 2 * bucket + 1;
+  return host;
+}
+
+pes::MoveReq TurnEntryReq(uint32_t kind, uint32_t lookBucket, float facing, float lookHeading, float facingError) {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, kind);
+  req.SetU(pes::moveword::kLookBucketAlt, lookBucket);
+  req.SetF(pes::moveword::kFacing, facing);
+  req.SetF(pes::moveword::kLookHeading, lookHeading);
+  req.SetF(pes::moveword::kFacingError, facingError);
+  return req;
+}
+}  // namespace
+
+TEST(EnterIdleTurn, IssuesTheTurnRowOfTheKindAtTheColumnOfTheLookBucketAndRequestsIdleTurn) {
+  RateHost host = TurnEntryHost();
+  pes::MoveReq req = TurnEntryReq(5, 6, 30.0f, 40.0f, 10.0f);
+  pes::movestep::EnterIdleTurn(host, req);
+  EXPECT_EQ(host.lastCellRow, host.tables.idleTurnRow[5]);
+  EXPECT_EQ(host.lastCellColumn, host.tables.bucketColumn[6]);
+  ASSERT_EQ(host.issueCalls, 1);
+  EXPECT_EQ(host.lastIssue.motion, 0x100 + host.tables.idleTurnRow[5]) << "the issue plays the cell the lookup answered";
+  EXPECT_FLOAT_EQ(host.lastIssue.duration, 1.0f / 6.0f);
+  EXPECT_FLOAT_EQ(host.lastIssue.playback, 1.0f);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdleTurn));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kLiveKind), 5u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed2), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 1.0f / 6.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRecordStampB), req.F(pes::moveword::kLookHeading)) << "req[0x18] is the look heading (req[3])";
+  EXPECT_EQ(req.U(pes::moveword::kTurnLockFlag) & 0xffu, 0u);
+}
+
+TEST(EnterIdleTurn, TheReplayActionAndAStoppedKindThreeTakeTheReplayRowEveryOtherCaseTheKindsRow) {
+  RateHost replay = TurnEntryHost();
+  replay.replay = true;
+  pes::MoveReq a = TurnEntryReq(2, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(replay, a);
+  EXPECT_EQ(replay.lastCellRow, pes::kIdleTurnReplayRow);
+
+  RateHost stopped = TurnEntryHost();
+  stopped.matchPhase = 2;
+  pes::MoveReq b = TurnEntryReq(3, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(stopped, b);
+  EXPECT_EQ(stopped.lastCellRow, pes::kIdleTurnReplayRow);
+
+  RateHost flagged = TurnEntryHost();
+  flagged.team.maFlag25930 = true;
+  pes::MoveReq c = TurnEntryReq(3, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(flagged, c);
+  EXPECT_EQ(flagged.lastCellRow, pes::kIdleTurnReplayRow);
+
+  RateHost live = TurnEntryHost();
+  pes::MoveReq d = TurnEntryReq(3, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(live, d);
+  EXPECT_EQ(live.lastCellRow, live.tables.idleTurnRow[3]);
+
+  RateHost stoppedOther = TurnEntryHost();
+  stoppedOther.matchPhase = 2;
+  pes::MoveReq e = TurnEntryReq(4, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(stoppedOther, e);
+  EXPECT_EQ(stoppedOther.lastCellRow, stoppedOther.tables.idleTurnRow[4]) << "only kind 3 takes the stoppage row";
+}
+
+TEST(EnterIdleTurn, TheLookHeadingStepsFromTheFacingByAtMost167p5Degrees) {
+  RateHost host = TurnEntryHost();
+  pes::MoveReq req = TurnEntryReq(0, 0, 0.0f, 190.0f, 0.0f);  // 170 degrees to the left of the facing
+  pes::movestep::EnterIdleTurn(host, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kLookHeading), 192.5f) << "167.5 of the 170 to turn";
+}
+
+// The flip arm: the look bucket 4 or 9, a facing error past 168.75 and the ball (or the look heading, with nobody owning the ball)
+// 22.5 to 157.5 degrees off to the side opposite the error: the turn goes the other way round.
+TEST(EnterIdleTurn, TheLookBucketFlipsWhenTheBallIsOnTheSideOppositeTheFacingErrorAndNobodyOwnsIt) {
+  RateHost host = TurnEntryHost();
+  host.ballSample[18][0] = -1.0f;  // the ball 1 m to the side the error leans towards (heading 270)
+  host.team.ballOwner = 0xFF;      // nobody owns it: the look heading (90) is the side that counts
+  pes::MoveReq req = TurnEntryReq(0, 4, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kLookBucketAlt), 9u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kFacingError), 167.5f);
+  EXPECT_EQ(host.lastCellColumn, host.tables.bucketColumn[9]) << "the issue reads the flipped bucket's column";
+
+  RateHost owned = TurnEntryHost();
+  owned.ballSample[18][0] = -1.0f;
+  owned.team.ballOwner = 3;  // a man owns it: the ball's own bearing counts, and it agrees with the error
+  pes::MoveReq kept = TurnEntryReq(0, 4, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(owned, kept);
+  EXPECT_EQ(kept.U(pes::moveword::kLookBucketAlt), 4u);
+  EXPECT_FLOAT_EQ(kept.F(pes::moveword::kFacingError), -175.0f);
+
+  RateHost flipBack = TurnEntryHost();
+  flipBack.team.ballOwner = 0xFF;
+  pes::MoveReq nine = TurnEntryReq(0, 9, 0.0f, 270.0f, 175.0f);  // bucket 9 flips to 4 with the error -167.5
+  pes::movestep::EnterIdleTurn(flipBack, nine);
+  EXPECT_EQ(nine.U(pes::moveword::kLookBucketAlt), 4u);
+  EXPECT_FLOAT_EQ(nine.F(pes::moveword::kFacingError), -167.5f);
+}
+
+TEST(EnterIdleTurn, TheFlipArmNeedsOpenPlayAndAFacingErrorPast168p75) {
+  RateHost stopped = TurnEntryHost();
+  stopped.matchPhase = 2;
+  pes::MoveReq a = TurnEntryReq(0, 4, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(stopped, a);
+  EXPECT_EQ(a.U(pes::moveword::kLookBucketAlt), 4u);
+
+  RateHost small = TurnEntryHost();
+  pes::MoveReq b = TurnEntryReq(0, 4, 0.0f, 90.0f, -168.0f);
+  pes::movestep::EnterIdleTurn(small, b);
+  EXPECT_EQ(b.U(pes::moveword::kLookBucketAlt), 4u);
+
+  RateHost otherBucket = TurnEntryHost();
+  pes::MoveReq c = TurnEntryReq(0, 6, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(otherBucket, c);
+  EXPECT_EQ(c.U(pes::moveword::kLookBucketAlt), 6u);
 }
 
 TEST(IdleOther, IssuesTheIdleClipAndTheRootFacingTailForCommand121) {

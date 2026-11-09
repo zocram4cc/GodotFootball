@@ -63,6 +63,10 @@ constexpr RunScalar RUN_SCALARS[] = {
     {0x14259be54, &RunConstants::deg84375},
     {0x1425ddfb0, &RunConstants::deg123p5},
     {0x1425ddfc4, &RunConstants::deg163p125},
+    {0x1425ddfc8, &RunConstants::deg167p5},
+    {0x1425ddfcc, &RunConstants::deg168p75},
+    {0x1425ddff8, &RunConstants::negDeg167p5},
+    {0x14259be1c, &RunConstants::ballSampleTicks},
     {0x1425ddf90, &RunConstants::kmh172},
     {0x1425ddf88, &RunConstants::kmh1475b},
     {0x1425a358c, &RunConstants::rate055},
@@ -156,6 +160,7 @@ constexpr uint64_t GOTO_ROW_VA = 0x1425dda50;        // FUN_1406b9bd0, kind*8+cl
 constexpr uint64_t TURNSTOP_ROW_VA = 0x1425ddb50;    // FUN_1406ba0d0, kind*8+class, 32 words
 constexpr uint64_t BUCKET_COLUMN_VA = 0x1425dd988;   // FUN_1406b9b20's column table, 10 words
 constexpr uint64_t STYLE_GROUP_VA = 0x1425ddcf0;     // FUN_1406d2030, style*4 + band/4: kRunStyleCount (17) styles x 4 members
+constexpr uint64_t IDLE_TURN_ROW_VA = 0x1425dda30;   // FUN_1406d1390, by kind, 8 words (the 32 words at GOTO_ROW_VA follow)
 
 // FUN_1406d5d60's three dwell immediates. They are instruction operands (movss off an immediate
 // stored on the stack), not .rdata floats, so they have no VA; the values are the ones the
@@ -368,7 +373,8 @@ std::optional<RunTables> LoadRunTables(const PeImage& exe, std::string* error) {
       !exe.ReadVa(GOTO_ROW_VA, sizeof t.gotoRow, reinterpret_cast<uint8_t*>(t.gotoRow.data())) ||
       !exe.ReadVa(TURNSTOP_ROW_VA, sizeof t.turnStopRow, reinterpret_cast<uint8_t*>(t.turnStopRow.data())) ||
       !exe.ReadVa(BUCKET_COLUMN_VA, sizeof t.bucketColumn, reinterpret_cast<uint8_t*>(t.bucketColumn.data())) ||
-      !exe.ReadVa(STYLE_GROUP_VA, sizeof t.styleGroup, reinterpret_cast<uint8_t*>(t.styleGroup.data()))) {
+      !exe.ReadVa(STYLE_GROUP_VA, sizeof t.styleGroup, reinterpret_cast<uint8_t*>(t.styleGroup.data())) ||
+      !exe.ReadVa(IDLE_TURN_ROW_VA, sizeof t.idleTurnRow, reinterpret_cast<uint8_t*>(t.idleTurnRow.data()))) {
     *error = "run tables: .rdata unreadable";
     return std::nullopt;
   }

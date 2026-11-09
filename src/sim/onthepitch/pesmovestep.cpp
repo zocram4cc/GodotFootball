@@ -60,7 +60,7 @@ int CommandSpeedClassOf(float velocityMps) {
 // so each answer is a stand-in, and each names the PES read it replaces.
 class AdapterTeam final : public pes::TeamAi {
  public:
-  AdapterTeam(Player& player, const MoveHostConstants& c) : player_(player), c_(c) {}
+  AdapterTeam(Player& player, Match& match, const MoveHostConstants& c) : player_(player), match_(match), c_(c) {}
 
   // The rank-0 opponent of the own record in the team's last run world (NearestList's NearestOpponents over
   // the RunWorld, pesoffball.hpp). Its slot is the run world's: team·11 + roster index.
@@ -128,11 +128,19 @@ class AdapterTeam final : public pes::TeamAi {
   bool IsQueuedCover(int) const override { return false; }
   bool SideSlotMarked(int) const override { return false; }
   bool SetPieceAnswer(int) const override { return false; }
+  // The ball owner of the player's own side: MA+0x2601C as Team::RunPesPassTarget stages it each tick (GF's ball retainer, that
+  // function's ponytail: W1's persisting holder replaces it). Slot 0xFF is no man.
+  int BallOwnerSlot() const override {
+    return static_cast<int>(pes::LoadU32(match_.PesWorldOf().Ma(player_.GetTeamID()), pes::kMaOwnerOffset));
+  }
+  // ponytail: MA+0x25930 has no GF source (its writer is not decoded), so it reads clear.
+  bool MaFlag25930() const override { return false; }
 
  private:
   static constexpr int kNoPlayer = 22;        // a slot of 22 or more is no player
   static constexpr int kFullCondition = 100;  // the condition byte's full value
   Player& player_;
+  Match& match_;
   const MoveHostConstants& c_;
   // The team controller this player belongs to: its last run world is the seam's ranking and roster.
   TeamAIController& Controller() const { return *player_.GetTeam()->GetController(); }
@@ -148,7 +156,7 @@ class AdapterTeam final : public pes::TeamAi {
 class MoveHostAdapter final : public pes::MoveHost {
  public:
   MoveHostAdapter(Player& player, Match& match, const MoveHostConstants& c)
-      : player_(player), match_(match), c_(c), team_(player, c) {}
+      : player_(player), match_(match), c_(c), team_(player, match, c) {}
 
   const pes::TeamAi& Team() const override { return team_; }
 

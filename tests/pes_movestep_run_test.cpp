@@ -374,6 +374,12 @@ TEST(RunConstantsInstall, LoadsTheExeConstantsWithTheirRelations) {
   EXPECT_LT(k->deg90, k->deg1125b);
   EXPECT_LT(k->deg1125b, k->deg135);
   EXPECT_LT(k->deg135, k->deg1575);
+  // FUN_1406d1390's flip arm: its clamp sits under the error gate, the flipped error is the clamp's negative, and the ball sample's
+  // look-ahead is the word the reserve window's low edge reads.
+  EXPECT_LT(k->deg1575, k->deg167p5);
+  EXPECT_LT(k->deg167p5, k->deg168p75);
+  EXPECT_FLOAT_EQ(k->negDeg167p5, -k->deg167p5);
+  EXPECT_FLOAT_EQ(k->ballSampleTicks, k->reserveLow);
   // The ordered speed ladder, the ordered rate ladder and the blends.
   EXPECT_LT(k->kmh5, k->kmh8);
   EXPECT_LT(k->kmh8, k->kmh11);
@@ -429,6 +435,7 @@ TEST(RunTablesInstall, LoadsTheInterfaceTablesWithTheirRelations) {
     EXPECT_GT(t->gotoRow[i], 0) << "goto row " << i;
     EXPECT_GT(t->turnStopRow[i], 0) << "turn-stop row " << i;
   }
+  for (int i = 0; i < 8; ++i) EXPECT_GT(t->idleTurnRow[i], 0) << "idle-turn row " << i;
   for (int i = 0; i < 16; ++i) EXPECT_GT(t->styleGroup[i], 0) << "style member " << i;
   // FUN_1406d2030's representative-motion table (DAT_1425ddcf0) is 17 styles x 4 members: the ladder returns styles
   // 0..15 and the jostle loop's override (FUN_1406c0170) style 0x10, so a shorter load leaves the jostle style reading
