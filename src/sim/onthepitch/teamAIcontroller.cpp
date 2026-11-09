@@ -3590,6 +3590,56 @@ void RunPesTrapTicks(Match& match) {
   }
 }
 
+namespace {
+// PES's axes (x, height, z) of a GF world point: GF's z is the height and its y is PES's z (the ball sample writer, ball.hpp).
+std::array<float, 3> PesPoint(const Vector3& v) { return {v.coords[0], v.coords[2], v.coords[1]}; }
+
+// The man's skeleton as PES's joint block holds it: each collision bone's world position and rotation in PES's axes.
+// ponytail: the pose is the one GF's humanoid last posed (the previous tick's put), FUN_141EB49B0's anime layer pose is not run
+// (AnimeLayer), and the node rotations are GF's W*Rs joint frames, which differ from PES's joint frames F_b by 1.5 degrees at the leg,
+// 5.8 at the foot and about 22 at the forearm and hand (docs/re/pes-re-collision.md 4). The anime layer's joint writer removes this.
+pes::BoneFrames BoneFramesOf(Player& player, const pesrig::Rig& rig) {
+  pes::BoneFrames frames;
+  const auto& nodes = player.GetNodeMap();
+  for (std::size_t bone = 0; bone < pes::kScanBoneCount; ++bone) {
+    const std::optional<int> joint = pesrig::ResolveBone(rig, pes::kScanBoneNames[bone], nullptr);
+    assert(joint.has_value());
+    const Node& node = *nodes.at(rig.bones[*joint].gfName);
+    frames[bone].position = PesPoint(node.GetDerivedPosition());
+    // The rotation's axis changes basis with the position: (x, y, z) -> (x, z, y), a reflection, so the rotation about the swapped axis
+    // turns the other way and the vector part is negated.
+    const Quaternion q = node.GetDerivedRotation();
+    frames[bone].rotation = {-q.elements[0], -q.elements[2], -q.elements[1], q.elements[3]};
+  }
+  return frames;
+}
+}  // namespace
+
+// Every man in the Trap action runs PES's body contact scan 0x1406EDCE0 on the window after his action tick: the tick sets the contact
+// pending bit on the clip's contact frame, the scan's reach test answers it, and a touch request in the output record is the man's
+// grant to touch the ball (Match::TakePesTouch, the humanoid's contact).
+void RunPesBodyScans(Match& match) {
+  pes::PesWorld& world = match.PesWorldOf();
+  match.ClearPesTouches();
+  // ponytail: the ball record's owner byte (+0x279C) has no GF writer (PES's are in the ball's state pull, 0x140871A5C): PES's holder
+  // (MA+0x2601C, RecomputePesHolder) stands in for it. Its writer removes this.
+  const Player* holder = match.GetPesHolder();
+  world.BallRecord()[pes::kBallOwnerOffset] =
+      holder != nullptr ? static_cast<uint8_t>(match.PesSlotOf(const_cast<Player*>(holder))) : pes::kBallNoOwner;
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      world.WriteJointBlock(slot, BoneFramesOf(*p, match.GetRig()), match.GetPesActorConstants().jointMask);
+      const pes::PesBodyScanOut out = world.RunBodyScan(slot, match.PesTrapExternalsOf());
+      if (out.TouchRequested()) match.GrantPesTouch(slot, out);
+    }
+  }
+}
+
 // The world as the run code reads it (pesoffball.hpp RunWorld), global ids
 // team·11 + slot over each team's active players in roster order.
 pes::offball::RunWorld TeamAIController::BuildRunWorld(

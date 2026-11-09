@@ -15,6 +15,7 @@
 
 #include "pes/exe.hpp"
 #include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesbodyscan.hpp"
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes/physique.hpp"
@@ -89,6 +90,7 @@ struct PesActorConstants {
   float heightDivisor = 0.0f;     // 0x142598580: P+0x3B18 = height_cm / 180 (0x1406EB231)
   uint64_t memberVtable[3] = {0, 0, 0};  // P+0x428, +0x498, +0x4D0: the member constructor 0x141EB42B0's three `lea rax,[vtable]` sites
   float memberRateNumerator = 0.0f;      // 0x14256AE1C: P+0x41C = this / tickRate (0x141EB4333)
+  std::array<bool, 19> jointMask{};      // DAT_14351E540: the bones the joint block holds (the body scan's input; pesbodyscan.hpp)
 };
 
 // Reads the constants from the install's exe, each behind the opcode of the instruction that names it. Empty with `*error` set

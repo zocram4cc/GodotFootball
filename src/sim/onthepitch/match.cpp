@@ -887,6 +887,7 @@ void Match::Process() {
     WritePesMovementRecords(*this);
     WritePesTrapActors(*this);
     RunPesTrapTicks(*this);
+    RunPesBodyScans(*this);
   }
 
   if (pesLoop) {

@@ -401,6 +401,41 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   return result;
 }
 
+// The scan's call frame: the output record sits above the entry rsp in the window's stack, zeroed as the anime driver zeroes it before
+// the scan; the callee frames grow below the entry.
+static constexpr std::size_t kScanFrameBytes = 0x600, kScanOutAboveEntry = 0x200;
+
+PesBodyScanOut PesWorld::RunBodyScan(int slot, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
+  const uint64_t out = entry + kScanOutAboveEntry;
+  s.wr(entry, 0, 8);
+  for (std::size_t i = 0; i < kScanOutBytes; i += sizeof(uint64_t)) s.wr(out + i, 0, sizeof(uint64_t));
+  s.gpr[4] = entry;
+  s.gpr[1] = PVa(slot);  // rcx: P
+  s.gpr[2] = out;        // rdx: the driver's output record
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_1406EDCE0(s);
+  ReturnSegments(s, ext, lent);
+  PesBodyScanOut result;
+  for (std::size_t i = 0; i < kScanOutBytes; ++i) result.bytes[i] = static_cast<uint8_t>(s.mem.rd(out + i, 1));
+  return result;
+}
+
+void PesWorld::WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask) {
+  uint8_t* p = P(slot);
+  constexpr std::size_t kPosBytes = 3 * sizeof(float), kRotBytes = 4 * sizeof(float);
+  for (std::size_t bone = 0; bone < kScanBoneCount; ++bone) {
+    if (!mask[bone]) continue;
+    std::memcpy(p + kPJointPrevPosOffset + bone * kPosBytes, p + kPJointPosOffset + bone * kPosBytes, kPosBytes);
+    std::memcpy(p + kPJointPrevRotOffset + bone * kRotBytes, p + kPJointRotOffset + bone * kRotBytes, kRotBytes);
+    std::memcpy(p + kPJointPosOffset + bone * kPosBytes, frames[bone].position.data(), kPosBytes);
+    std::memcpy(p + kPJointRotOffset + bone * kRotBytes, frames[bone].rotation.data(), kRotBytes);
+  }
+  p[kPJointReadyOffset] = 1;
+}
+
 void PesWorld::SetTickFrame(int slot, float bodyHeadingDeg) {
   uint8_t* frame = TickFrame();
   const TickPlan& plan = tickPlan_[slot];
