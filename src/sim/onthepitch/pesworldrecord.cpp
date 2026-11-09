@@ -603,6 +603,9 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   result.segment = p[kPSegmentOffset];
   result.phase = p[kPPhaseOffset];
   result.playback = LoadF32(p, kPPlaybackOffset);
+  result.startTime = LoadF32(p, kPStartTimeOffset);
+  result.blend = LoadF32(p, kPBlendOffset);
+  result.kind = p[kPKindOffset];
   return result;
 }
 

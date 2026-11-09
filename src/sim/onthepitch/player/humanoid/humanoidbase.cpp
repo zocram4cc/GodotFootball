@@ -473,7 +473,13 @@ bool HumanoidBase::OnPesTrap() const {
              static_cast<int>(pes::PesClipFamily::kTrap);
 }
 
-bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family) {
+bool HumanoidBase::PlayIssuedClip(const pes::MotionRequest& request, pes::PesClipFamily family) {
+  const int motion = request.motion;
+  const float playback = request.playback;
+  const bool mirror = request.mirror;
+  // PES's SetMotion pushes the layer record into the man's engine control each time it is called (FUN_1406E5FC0's flush), whatever the
+  // GF body does with the clip.
+  if (match->PesLoop()) match->PesAnimeIssue(static_cast<const Player*>(player), request);
   const bool onLocomotion = OnPesLocomotion();
   const bool onFamily = family == pes::PesClipFamily::kTrap ? OnPesTrap() : onLocomotion;
   // The body takes an issued clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES clip

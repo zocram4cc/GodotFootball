@@ -194,8 +194,15 @@ inline constexpr std::size_t kFrameWeightOffset = 0x5E4;
 inline constexpr float kTickWeightControl = 0.6f, kTickWeightDirectional = 1.0f;
 
 // What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment
-// index (P+0x2471), the playback rate (P+0x3758) and the phase byte (P+0x245C) the next tick switches on.
+// index (P+0x2471), the playback rate (P+0x3758) and the phase byte (P+0x245C) the next tick switches on, and SetMotion's other
+// stores (FUN_1406F0F70): the start time (P+0x3B54), the blend time (P+0x3B88) and the transition kind byte (P+0x3B84).
+inline constexpr std::size_t kPStartTimeOffset = 0x3B54, kPKindOffset = 0x3B84, kPBlendOffset = 0x3B88;
+// SetMotion's kind byte for its transition argument (0 -> 0, 1 -> 1, 2 -> 2, 3 -> 6), and back.
+inline constexpr int TransitionOfKind(uint8_t kind) { return kind == 6 ? 3 : kind; }
 struct PesTickResult {
+  float startTime = 0.0f;
+  float blend = 0.0f;
+  uint8_t kind = 0;
   uint16_t motion = 0;
   uint8_t mirror = 0;
   uint8_t segment = 0;

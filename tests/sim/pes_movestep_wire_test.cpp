@@ -34,6 +34,13 @@
 
 namespace {
 
+// A SetMotion issue of `motion` at the clip's own speed.
+pes::MotionRequest IssueOf(int motion) {
+  pes::MotionRequest request;
+  request.motion = motion;
+  request.playback = 1.0f;
+  return request;
+}
 constexpr int kHomeTeam = 1, kAwayTeam = 2;
 constexpr unsigned int kSeed = 1000;
 constexpr int kTicks = 900;  // about 17 s of play
@@ -367,7 +374,7 @@ TEST(MoveStepWire, AReIssueOfThePlayedMotionDoesNotRestartTheClip) {
       if (played.family != LocomotionFamily() || a->frameNum < 3) continue;
       const Animation* clipBefore = a->anim;
       const int frameBefore = a->frameNum;
-      p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
+      p->CastHumanoid()->PlayIssuedClip(IssueOf(played.motion));
       printf("[movestep-hold] frame %d re-issued, now %d\n", frameBefore, a->frameNum);
       EXPECT_EQ(a->anim, clipBefore);
       EXPECT_GE(a->frameNum, frameBefore);
@@ -702,7 +709,7 @@ TEST(MoveStepWire, ASameMotionReissueRestartsAFinishedClip) {
   ASSERT_NE(p, nullptr) << "no player played a PES locomotion clip in 2000 ticks";
   Anim* anim = const_cast<Anim*>(p->GetCurrentAnim());  // the test sets the clip's frame, as the humanoid does while it plays
   anim->frameNum = anim->anim->GetFrameCount() - 1;
-  p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
+  p->CastHumanoid()->PlayIssuedClip(IssueOf(played.motion));
   EXPECT_EQ(p->GetCurrentAnim()->frameNum, 0) << "a finished clip did not start again on its own motion";
 }
 
@@ -733,7 +740,7 @@ TEST(MoveStepWire, AnIssuedTrapClipTouchesAtItsContactFrame) {
   match->StartPlay();
   for (int t = 0; t < 60; ++t) match->Process();
   Player* p = FirstPlayer(*match);
-  ASSERT_TRUE(p->CastHumanoid()->PlayIssuedClip(motion, 1.0f, false, pes::PesClipFamily::kTrap));
+  ASSERT_TRUE(p->CastHumanoid()->PlayIssuedClip(IssueOf(motion), pes::PesClipFamily::kTrap));
   EXPECT_EQ(p->GetCurrentAnim()->touchFrame, pes::PesTouchAnimFrame(hitFrame));
 }
 

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iterator>
 #include <stdexcept>
 #include <vector>
 
@@ -35,6 +36,7 @@ struct PesFoxWorld::Impl {
   PesHeap heap;
   std::vector<uint8_t> stack, teb;
   uint8_t* osArena = nullptr;  // the VirtualAlloc model's arena, lazily zeroed pages (anonymous mmap)
+  uint64_t issueScratch = 0;   // IssueMotion's record and parameter block in the heap (made on the first issue)
   Impl(const PesVfs& v, uint64_t heapBytes) : vfs(v), heap(heapBytes), stack(kStackBytes), teb(kTebBytes) {}
 };
 
@@ -186,10 +188,39 @@ constexpr uint64_t kBodyCallbackVa = 0x141B970E0;
 // The preload owner (see LoadBody): the preload and the registrar touch its lock at +0x48 and its list pointer at +0x70.
 constexpr uint64_t kOwnerBytes = 0x200;
 constexpr char kBodyName[] = "body";
+// SetMotion's layer record, the 0x38-byte block FUN_141AF61C0 reads as its second argument (decompile of the pusher and of the constructor's own
+// push, FUN_141EB5250's local_c0..): {+0 resolved resource (0: the pusher looks the motion up), +8 motion u32, +0xC start time f32, +0x10 mirror
+// byte, +0x14 rate f32 (DAT_14256AE1C = 1.0 in the constructor's idle record), +0x18 flags (bit 0: resource resolved), +0x20 weight count u32,
+// +0x28 weight array pointer, +0x30 byte, +0x34 u32 -1}. The parameter block (third argument, P+0x3B80 in SetMotion): {+0 u32, +4 kind byte, +8
+// blend f32}.
+constexpr uint64_t kRecordBytes = 0x38, kParamsOffset = 0x40, kScratchBytes = 0x60;
+constexpr uint64_t kRecMotion = 0x8, kRecStartTime = 0xC, kRecMirror = 0x10, kRecRate = 0x14, kRecSlotMark = 0x34;
+constexpr uint64_t kParamKind = 0x4, kParamBlend = 0x8;
+constexpr uint32_t kRecNoSlot = 0xFFFFFFFFu;
+// FUN_1406F0F70: `if (0x1124 < motion) return`; the kind byte it stores at P+0x3B84 for its transition argument (1 -> 1, 2 -> 2, 3 -> 6, else 0).
+constexpr int kMaxMotion = 0x1124;
+constexpr uint8_t kKindByTransition[] = {0, 1, 2, 6};
+// The pusher's fifth argument ([rsp+0x28] in a Win64 call) is read only by the upper-layer arm (layer 1: a switch over it); SetMotion's flush
+// passes zero there (the high bits of a double masked off, FUN_1406E5FC0 at 0x1406E6268).
+constexpr uint64_t kFifthArgumentOffset = 0x28;
+// SetSpeed FUN_141AF6E40(A, rate in xmm1, layer 0, all records 0xFFFFFFFF).
+constexpr uint32_t kAllRecords = 0xFFFFFFFFu;
+constexpr uint64_t kUnitFloatVa = 0x14256AE1C;  // DAT_14256AE1C, 1.0f: the template's rate (FUN_141EB5250 stores it in the idle record)
+
+// PES's jemalloc (FUN_1403CF740 -> FUN_14037FDA0 -> FUN_14038E6B0 -> FUN_14038E3E0 allocates; FUN_14038EE80 is its malloc_init_hard) keeps its
+// state in two runs of the image's zero-initialised data (.bss, the virtual tail of .data from 0x1436CF800): at process start PES finds them
+// zero and FUN_14038EE80 builds the arenas, the chunk trees, the tsd key and the bin tables. The dump holds the dead game's state there, so a
+// call walks its trees over stale pointers. The runs are the lowest and highest .bss addresses the allocator's code names (a capstone sweep of
+// 0x14038E000..0x1403B6000 plus the translated closure of FUN_14038EE80, thunks 0x143E0F3A0 / 0x143E107E0 / 0x143E111B0 / 0x143E114E0
+// included): run 1 0x1436DCEB0 (the allocator's first byte flag) .. 0x1436DD294 (its last dword, map_bias-like cell at 0x1436DD290), run 2
+// 0x143AC2810 (its first dword) .. 0x143AC3DD0 (the dword at 0x143AC3DCC is the tsd key, the last one it names).
+constexpr uint64_t kAllocatorBssRuns[][2] = {{0x1436DCEB0, 0x1436DD294}, {0x143AC2810, 0x143AC3DD0}};
 
 }  // namespace
 
 void PesFoxWorld::Boot() {
+  for (const auto& run : kAllocatorBssRuns) std::memset(impl_->image + (run[0] - kImageBase), 0, run[1] - run[0]);
+  Call(::pes_fn_14038EE80, {});  // malloc_init_hard, as PES's first allocation runs it (FUN_14038E3E0 tests its flag at 0x1436DCEE0)
   for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
                       kPumpCountBVa, kResManagerVa, kRegistryVa})
     Write64(va, 0);
@@ -261,6 +292,43 @@ void PesFoxWorld::ConstructAnime(uint64_t p, uint64_t collision) {
 void PesFoxWorld::RunFrame(uint64_t p) {
   const uint64_t a = Read64(p + kAnimeOffset);
   for (uint32_t phase : kFramePhases) Call(::pes_fn_141AF4650, {a, phase});
+}
+
+void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {
+  if (request.group >= 0) throw std::runtime_error("fox world: IssueMotion takes SetMotion's arguments (group -1)");
+  if (request.motion > kMaxMotion) return;
+  if (impl_->issueScratch == 0) {
+    impl_->issueScratch = Alloc(kScratchBytes);
+    if (impl_->issueScratch == 0) throw std::runtime_error("fox world: the arena is full");
+  }
+  const uint64_t a = Read64(p + kAnimeOffset), record = impl_->issueScratch, params = record + kParamsOffset;
+  const auto bits = [](float f) {
+    uint32_t b;
+    std::memcpy(&b, &f, sizeof b);
+    return static_cast<uint64_t>(b);
+  };
+  PesState s = NewCall();
+  for (uint64_t at = 0; at < kScratchBytes; at += 8) s.wr(record + at, 0, 8);
+  s.wr(record + kRecMotion, static_cast<uint32_t>(request.motion), 4);
+  s.wr(record + kRecStartTime, bits(request.startTime), 4);
+  s.wr(record + kRecMirror, request.mirror ? 1 : 0, 1);
+  s.wr(record + kRecRate, s.rd(kUnitFloatVa, 4), 4);
+  s.wr(record + kRecSlotMark, kRecNoSlot, 4);
+  const bool known = request.transition >= 0 && request.transition < static_cast<int>(std::size(kKindByTransition));
+  s.wr(params + kParamKind, known ? kKindByTransition[request.transition] : 0, 1);
+  s.wr(params + kParamBlend, bits(request.duration), 4);
+  s.gpr[1] = a;
+  s.gpr[2] = record;
+  s.gpr[8] = params;
+  s.gpr[9] = 0;  // layer 0
+  s.wr(s.gpr[4] + kFifthArgumentOffset, 0, 4);
+  ::pes_fn_141AF61C0(s);
+  PesState speed = NewCall();
+  speed.gpr[1] = a;
+  speed.set_x_f32(1, request.playback);
+  speed.gpr[8] = 0;  // layer 0
+  speed.gpr[9] = kAllRecords;
+  ::pes_fn_141AF6E40(speed);
 }
 
 PesJointPose PesFoxWorld::ReadPose(uint64_t p) {

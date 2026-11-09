@@ -98,6 +98,10 @@ uint64_t Match::PesAnimePlayerOf(int slot) {
   return p;
 }
 
+void Match::PesAnimeIssue(const Player* player, const pes::MotionRequest& request) {
+  PesAnimeWorldOf().IssueMotion(PesAnimePlayerOf(PesSlotOf(player)), request);
+}
+
 Player* Match::GetPesActorPlayer(const pes::ActorKey& key) {
   if (!key.Valid()) return nullptr;
   const auto& squad = GetTeam(static_cast<int>(key.team))->GetAllPlayers();

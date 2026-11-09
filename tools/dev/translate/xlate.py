@@ -548,6 +548,11 @@ def import_model_lines(op, jump):
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
         return ["{ " + push_ret + (" s.wr(s.gpr[1], %dULL, 8); s.gpr[0] = 1;%s }" % (value, pop_ret))]
+    if e["do"] == "sysinfo":
+        # GetSystemInfo(rcx = SYSTEM_INFO *), the code_hex model register for register: three dword stores (dwPageSize +4, dwNumberOfProcessors
+        # +0x20, dwAllocationGranularity +0x28), no register or flag touched.
+        return ["{ " + push_ret + " s.wr(s.gpr[1] + 4ULL, 0x1000ULL, 4); s.wr(s.gpr[1] + 0x20ULL, 0x10ULL, 4);"
+                " s.wr(s.gpr[1] + 0x28ULL, 0x10000ULL, 4);%s }" % pop_ret]
     if e["do"] == "tebread":
         # DWORD read from the thread block at gs:[offset], zero-extended into rax (GetLastError: TEB.LastErrorValue).
         off = int(str(e["offset"]), 0)

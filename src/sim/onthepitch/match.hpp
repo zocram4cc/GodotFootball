@@ -310,6 +310,8 @@ public:
   // engine's player block of a slot (constructed on first use).
   pes::PesFoxWorld& PesAnimeWorldOf();
   uint64_t PesAnimePlayerOf(int slot);
+  // The clip a player's body was issued, pushed into his engine control (PesFoxWorld::IssueMotion): PlayIssuedClip's seam, PES mode only.
+  void PesAnimeIssue(const Player* player, const pes::MotionRequest& request);
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
   // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
   // takes the named fallback.

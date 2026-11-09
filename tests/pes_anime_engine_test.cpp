@@ -83,6 +83,20 @@ class AnimeEngine : public ::testing::Test {
     return out;
   }
 
+  // A player constructed, issued `motion` (when >= 0) and framed `frames` times: his pose.
+  static pes::PesJointPose PoseAfter(int motion, float playback, int frames) {
+    const uint64_t p = NewPlayer();
+    world_->ConstructAnime(p, 0);
+    if (motion >= 0) {
+      pes::MotionRequest request;
+      request.motion = motion;
+      request.playback = playback;
+      world_->IssueMotion(p, request);
+    }
+    for (int f = 0; f < frames; ++f) world_->RunFrame(p);
+    return world_->ReadPose(p);
+  }
+
   static std::unique_ptr<pes::PesVfs> vfs_;
   static std::unique_ptr<pes::PesFoxWorld> world_;
   static bool loaded_;
@@ -171,6 +185,24 @@ TEST_F(AnimeEngine, TwoPlayersBuiltAndFramedTheSameWayHoldTheSamePose) {
   world_->RunFrame(q);
   const pes::PesJointPose a = world_->ReadPose(p), b = world_->ReadPose(q);
   EXPECT_EQ(std::memcmp(&a, &b, sizeof a), 0);
+}
+constexpr int kIssueFrames = 6;
+
+TEST_F(AnimeEngine, AMotionSetMotionDropsLeavesThePoseOfAControlNeverIssued) {
+  // FUN_1406F0F70 returns at once for a motion above 0x1124: nothing reaches the control.
+  const pes::PesJointPose idle = PoseAfter(-1, 1.0f, kIssueFrames), dropped = PoseAfter(0x1125, 1.0f, kIssueFrames);
+  EXPECT_EQ(std::memcmp(&idle, &dropped, sizeof idle), 0);
+}
+
+TEST_F(AnimeEngine, AnIssuedMotionMovesThePoseOffTheIdleOneAndTheSameIssueMovesItTheSameWay) {
+  const pes::PesJointPose idle = PoseAfter(-1, 1.0f, kIssueFrames);
+  bool moved = false;
+  for (int motion = 0x100; motion <= 0x1100 && !moved; motion += 0x100) {
+    const pes::PesJointPose first = PoseAfter(motion, 1.0f, kIssueFrames), again = PoseAfter(motion, 1.0f, kIssueFrames);
+    EXPECT_EQ(std::memcmp(&first, &again, sizeof first), 0) << "motion " << motion << " is not deterministic";
+    moved = std::memcmp(&idle, &first, sizeof idle) != 0;
+  }
+  EXPECT_TRUE(moved) << "no issued motion left the idle pose";
 }
 
 TEST_F(AnimeEngine, TheHeapHoldsTheLoadAndTwentyTwoPlayers) {

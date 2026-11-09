@@ -12,6 +12,7 @@
 #include <string>
 
 #include "onthepitch/pesanimechain.hpp"
+#include "pes/movestep.hpp"
 #include "pes/vfs.hpp"
 #include "pes_native.hpp"
 #include "pes_state.hpp"
@@ -80,6 +81,12 @@ class PesFoxWorld final : public PesFileSource {
   // anime system's pipeline, FUN_141AE9010's loops, runs a phase over every control before the next; for one control that is this
   // order). The control's frame time step is the one the constructor stored (FUN_141AF7A90, L2+0x44).
   void RunFrame(uint64_t p);
+  // SetMotion's flush into the control (FUN_1406E5FC0 at 0x1406E6268 and 0x1406E6283): the record pusher FUN_141AF61C0(A, record, params, layer 0)
+  // that appends the clip's 0x30-byte layer record to the control's vector, then SetSpeed FUN_141AF6E40(A, rate, 0, -1) that sets the rate of
+  // every record. `request` is SetMotion FUN_1406F0F70's argument list (motion, startTime, mirror, playback = rate, duration = blend and the
+  // transition whose kind byte SetMotion stores); its group must be -1 (SetParametric's records are not pushed here). A motion above 0x1124
+  // is dropped, as SetMotion's first test does.
+  void IssueMotion(uint64_t p, const MotionRequest& request);
   // The pose the frame left in the control (L1+0x50: joint positions, A+0x20: joint rotations): the arrays FUN_141EB49B0 reads.
   PesJointPose ReadPose(uint64_t p);
   // Bytes of the world's heap in live blocks (the arena a world needs).

@@ -13,6 +13,7 @@
 #include "animcollection.hpp"
 #include "../../pesrandom.hpp"
 #include "../../pesclips.hpp"
+#include "pes/movestep.hpp"
 #include "base/math/vector3.hpp"
 #include "scene/scene3d/node.hpp"
 #include "../../peskickmotion.hpp"
@@ -243,11 +244,12 @@ public:
   const Vector3& GetTickSeparation() const { return spatialState.positionOffsetMovement; }
   void SetPlaybackRate(float rate) { currentAnim->playbackRate = rate; }
   // PES's MOVESTEP handoff (FUN_1406b8340's tail, through the anime player's vt+0x10): plays the PES
-  // locomotion clip `motion` on the body at `playback`. The body keeps a clip of the same motion until
+  // locomotion clip `request.motion` on the body at `request.playback`. The body keeps a clip of the same motion until
   // it runs out (a re-issue only changes its rate), and the AI takes the body back at the clip's end
   // unless MOVESTEP issues again. A ball action keeps the body, so the clip is refused. Returns whether
-  // the body plays it.
-  bool PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion);
+  // the body plays it. In PES mode the issue also goes into the man's engine control (Match::PesAnimeIssue), whether or not the body
+  // takes it: PES's SetMotion pushes the layer record every time it is called.
+  bool PlayIssuedClip(const pes::MotionRequest& request, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion);
   bool TripPending() const { return interruptAnim == e_InterruptAnim_Trip; }
   virtual float GetDecayingDifficultyFactor() const { return decayingDifficultyFactor; }
 

@@ -338,7 +338,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     ++issues_;
     pes::RecordIssue(player_.GetIssuedClip(), request, c_.parametric);
     if (request.group < 0) {
-      player_.CastHumanoid()->PlayIssuedClip(request.motion, request.playback, request.mirror);
+      player_.CastHumanoid()->PlayIssuedClip(request);
       return;
     }
     const std::vector<pes::BlendMember> members =
@@ -349,7 +349,13 @@ class MoveHostAdapter final : public pes::MoveHost {
       if (std::fabs(m.param - request.rate) < std::fabs(nearest->param - request.rate)) nearest = &m;
     const float playback =
         nearest->param > 0.0f && request.rate > 0.0f ? request.rate / nearest->param : 1.0f;
-    player_.CastHumanoid()->PlayIssuedClip(nearest->motionNo, playback, request.mirror);
+    // ponytail: PES's SetParametric pushes the blend group's records and drives them by the rate; GF stands the group's nearest member in for
+    // the body and the engine control alike (one SetMotion record at the speed that member needs). Removed by a SetParametric port.
+    pes::MotionRequest member = request;
+    member.motion = nearest->motionNo;
+    member.playback = playback;
+    member.group = -1;
+    player_.CastHumanoid()->PlayIssuedClip(member);
   }
   bool Issued() const { return issued_; }
   int IssueCount() const { return issues_; }

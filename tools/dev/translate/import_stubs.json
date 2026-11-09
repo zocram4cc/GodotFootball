@@ -464,6 +464,37 @@
       "why": [
         "BOOL VirtualFree(LPVOID addr, SIZE_T size, DWORD type): FUN_1403B4E00 releases an unaligned block with `(*DAT_14252F6D0)(addr, 0, 0x8000)` (MEM_RELEASE) and the trim path decommits (0x4000). Modelled as TRUE with no byte changed (the arena's pages stay zero-readable; no replay reads a released range back). Any other type is the model's int3, a trap in the mirror (do = virtualfree). Clobbers the flags."
       ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "getenv",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "char *getenv(const char *name): PES's jemalloc reads MALLOC_CONF (0x14339EB08) at 0x14038E810 (slot 0x1425300C8; FUN_1403A2350 / FUN_14039DD50 read the CRT environment through it too). GF's fox world re-runs PES's allocator start-up (FUN_14038EE80) on zeroed state, and this is the first call it makes.",
+        "Model: the variable is unset, NULL. EVIDENCE for MALLOC_CONF: the live dump's allocator holds the compile-time defaults (lg_chunk 0x16 at 0x1433ED718, lg_dirty_mult 3 at 0x1433DA368, lg_tcache_max 0xF at 0x1434034E8) and its conf cell je_malloc_conf (0x143AC3D88) is zero, so no option string was parsed in the live process. The answer for any other name is an assumption (no environment).",
+        "FUN_14038E7B0 (malloc_conf_init) returns at 0x14038EDA1 when this returns NULL."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "TlsAlloc",
+      "do": "return",
+      "value": 9,
+      "why": [
+        "DWORD TlsAlloc(void): PES's jemalloc stores the key at 0x143AC3DCC (0x14038EF90: `DAT_143ac3dcc = (*DAT_14252f6b0)()`) and every allocator call reads its thread cache through TlsGetValue(key).",
+        "EVIDENCE: the live dump holds 9 at 0x143AC3DCC, the value this very call returned in the live process. Model assumption: one call per boot, so the constant is the index; it is below 64 (TEB +0x1480 slots, the tls_get / tls_set models)."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "GetSystemInfo",
+      "do": "sysinfo",
+      "code_hex": "c7410400100000c7412010000000c7412800000100c3",
+      "why": [
+        "void GetSystemInfo(SYSTEM_INFO *): callers read three dwords. FUN_14038EE80 reads dwNumberOfProcessors (+0x20, `local_18` at 0x14038EFE9) into 0x143AC3DC8 and derives narenas = 4 x it; FUN_1403FCC30 reads dwPageSize (+4) and dwAllocationGranularity (+0x28) into 0x1436F0028 / 0x1436F0030.",
+        "EVIDENCE (the live dump, written by these very calls): 0x143AC3DC8 = 0x10 (and narenas 0x1436DCEC0 = 0x40 = 4 x 16), 0x1436F0028 = 0x1000, 0x1436F0030 = 0x10000. Model: those three dwords are written and nothing else in the structure (no caller reads another field; the rest stays as the caller's stack held it). code_hex: mov dword [rcx+4], 0x1000; mov dword [rcx+0x20], 0x10; mov dword [rcx+0x28], 0x10000; ret."
+      ]
     }
   ]
 }

@@ -184,5 +184,30 @@ class WaitModel(unittest.TestCase):
         self.assertEqual(self.wait(1000), 0x102)
 
 
+class SystemInfoModel(unittest.TestCase):
+    """KERNEL32 GetSystemInfo: the three dwords the callers read (page size +4, processors +0x20, granularity +0x28), no other byte."""
+
+    def test_writes_three_dwords_and_nothing_else(self):
+        model = ft.load_import_models()[("kernel32.dll", "GetSystemInfo")]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, model)
+        mu.mem_map(DATA, 0x1000)
+        info = DATA + 0x100
+        mu.mem_write(info, b"\xAB" * 0x30)
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.reg_write(UC_X86_REG_RCX, info)
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.emu_start(CODE, RET, count=100)
+        got = bytes(mu.mem_read(info, 0x30))
+        expect = bytearray(b"\xAB" * 0x30)
+        struct.pack_into("<I", expect, 4, 0x1000)
+        struct.pack_into("<I", expect, 0x20, 0x10)
+        struct.pack_into("<I", expect, 0x28, 0x10000)
+        self.assertEqual(got, bytes(expect))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3628,8 +3628,16 @@ void RunPesTrapTicks(Match& match) {
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
-      if (phaseBefore == 0)
-        p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
+      if (phaseBefore == 0) {
+        pes::MotionRequest issued;
+        issued.motion = r.motion;
+        issued.mirror = r.mirror != 0;
+        issued.playback = r.playback;
+        issued.startTime = r.startTime;
+        issued.duration = r.blend;
+        issued.transition = pes::TransitionOfKind(r.kind);
+        p->CastHumanoid()->PlayIssuedClip(issued, pes::PesClipFamily::kTrap);
+      }
     }
   }
 }
