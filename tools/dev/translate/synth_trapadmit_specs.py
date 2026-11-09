@@ -61,7 +61,10 @@ def main():
     p = call[2]  # rdx
     objs = object_offsets()
     os.makedirs(OUT, exist_ok=True)
+    only = {int(a, 16) for a in sys.argv[2:]}  # optional: write only these handlers' specs (each spec names the P of the capture used)
     for va, ids, thirds in HANDLERS:
+        if only and va not in only:
+            continue
         rcx = p + TABLE + objs[ids[0]]
         fields = [
             {"name": "this", "at": "rcx", "type": "u64", "values": [rcx]},
