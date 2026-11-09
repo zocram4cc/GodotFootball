@@ -8,8 +8,10 @@ translator value it took from xlate, still reads the same.
 ctest translate_buildcache (harness Python: xlate's decode; skips 77 without GF_DIFF_PYTHON).
 Usage: python3 test_buildcache.py
 """
+import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -222,7 +224,8 @@ class SharedAcrossCheckouts(unittest.TestCase):
 
     def doc_in(self, root):
         bc.REPO = root
-        return bc.entry_doc({"files": [os.path.join(root, "dep.py")], "decode": []})
+        dep = os.path.join(root, "dep.py")
+        return bc.entry_doc({"files": {dep: bc.file_digest(dep)}, "decode": [], "stubs": None})
 
     def test_a_file_inside_the_checkout_is_stored_relative(self):
         self.assertEqual(list(self.doc_in(self.a)["files"]), ["<repo>/dep.py"])
@@ -259,7 +262,7 @@ class SharedSlotPerHarnessVariant(unittest.TestCase):
 
     def store(self, state, root=None):
         write(self.dep, state)
-        record = {"files": [self.dep], "decode": []}
+        record = {"files": {self.dep: bc.file_digest(self.dep)}, "decode": [], "stubs": None}
         bc.corpus_store(root or self.root, "out " + state.strip(), ["corp_T.jsonl"], self.gen, record)
 
     def hit(self, root=None):
@@ -293,7 +296,8 @@ class SharedSlotPerHarnessVariant(unittest.TestCase):
     def test_trim_evicts_the_least_recently_used_record_across_keys(self):
         other = os.path.join(self.corpus, "OTHER")
         write(self.dep, "T0\n")
-        bc.corpus_store(other, "out T0", ["corp_T.jsonl"], self.gen, {"files": [self.dep], "decode": []})
+        bc.corpus_store(other, "out T0", ["corp_T.jsonl"], self.gen,
+                        {"files": {self.dep: bc.file_digest(self.dep)}, "decode": [], "stubs": None})
         for state in ("S0\n", "S1\n", "S2\n"):
             self.store(state)
         write(self.dep, "S0\n")
@@ -406,6 +410,86 @@ class ObjectCacheCap(unittest.TestCase):
         self.put("tmpXYZ.tmp", 0)
         bc.object_trim(self.objdir, cap=100)
         self.assertEqual(self.names(), ["b.o", "tmpXYZ.tmp"])
+
+
+STUB_RUN = """\
+import sys
+
+sys.path.insert(0, "CHECKOUT")
+import stubs
+
+stubs.load()
+print("summary valid=1 requested=1 nonreturn=0 failed=0 capped=0 icount_max=0")
+"""
+
+# The stubs.json kinds whose do is a model (stubs.MODEL_DOS): run.py installs these in every run.
+MODEL_KINDS = ("return-input", "engine-noop", "abort-trap", "libm")
+
+
+def load_copy(path):
+    spec = importlib.util.spec_from_file_location("buildcache_copy", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class StubsJsonEntriesThatRecordsUse(unittest.TestCase):
+    """run.py installs the stubs.json models and checks a spec's stub_refs against them; nothing else in stubs.json reaches
+    a record. So an edit to an entry no record uses (its why-text, a run-real callee) keeps every record warm, and a model
+    that goes away invalidates them. The test edits a copy of the translator files, never the repo's stubs.json."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.checkout = os.path.join(self.tmp.name, "tools", "dev", "translate")
+        self.run_dir = os.path.join(self.tmp.name, "run")
+        os.makedirs(self.checkout)
+        os.makedirs(os.path.join(self.run_dir, "gen"))
+        for name in ("buildcache.py", "xlate.py", "flow.py", "pdata.py", "stubs.py", "stubs.json"):
+            shutil.copy(os.path.join(HERE, name), self.checkout)
+        self.cbc = load_copy(os.path.join(self.checkout, "buildcache.py"))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def record_and_store(self):
+        run_py = os.path.join(self.run_dir, "stub_run.py")
+        deps = os.path.join(self.run_dir, "deps.json")
+        write(run_py, STUB_RUN.replace("CHECKOUT", self.checkout))
+        r = subprocess.run([sys.executable, os.path.join(self.checkout, "buildcache.py"), "record", deps, run_py],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        root = os.path.join(self.run_dir, "records", "key")
+        gen = os.path.join(self.run_dir, "gen")
+        with open(deps) as f:
+            self.cbc.corpus_store(root, r.stdout, [], gen, json.load(f))
+        return root, gen
+
+    def edit_stubs(self, change):
+        path = os.path.join(self.checkout, "stubs.json")
+        with open(path) as f:
+            data = json.load(f)
+        change(data["stubs"])
+        with open(path, "w") as f:
+            json.dump(data, f)
+
+    def test_an_edit_to_an_entry_no_record_uses_keeps_every_record_warm(self):
+        root, gen = self.record_and_store()
+
+        def reword_a_run_real_callee(stubs):
+            next(e for e in stubs if e["kind"] == "run-real")["why"] = ["reworded: no record reads this"]
+
+        self.edit_stubs(reword_a_run_real_callee)
+        self.assertIsNotNone(self.cbc.corpus_lookup(root, gen))
+
+    def test_a_model_that_goes_away_invalidates_the_records(self):
+        root, gen = self.record_and_store()
+
+        def drop_a_model(stubs):
+            stubs.remove(next(e for e in stubs if e["kind"] in MODEL_KINDS))
+
+        self.edit_stubs(drop_a_model)
+        self.assertIsNone(self.cbc.corpus_lookup(root, gen))
+
 
 
 if __name__ == "__main__":
