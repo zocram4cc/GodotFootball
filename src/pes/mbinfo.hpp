@@ -80,6 +80,10 @@ struct MotionRecord {
   // The raw words behind blend, cancel and rot, as the files have them (Animation +0/+4, CancelData +0/+4, RotData +0/+4),
   // admitted under the same caps in the same order. pesclipreaders lays them out as PES's table does.
   std::vector<std::array<uint32_t, 2>> blendWords, cancelWords, rotWords;
+  // The root offsets (x, z) the hit-distance reader FUN_1406e7730 takes, in file order: the Animation record's floats at +0x0c
+  // and +0x08 (FUN_1406af6d0: out[0] = dword 3, out[2] = dword 2) and each CancelData record's at +0x08 and +0x04
+  // (FUN_1406af9a0: out[0] = dword 2, out[2] = dword 1), admitted under the same caps as blend and cancel.
+  std::vector<std::array<float, 2>> blendRoot, cancelRoot;
 
   // The readers' answers. Past the end of a list they give PES's fallback value.
   int BlendStart() const { return blend.empty() ? 0 : blend[0]; }
@@ -89,6 +93,8 @@ struct MotionRecord {
   int FootPair(int i) const;                                           // FUN_1406afe20(.., i)
   RotRecord Rot(int i) const;                                          // FUN_1406b1c70 / b1f00 / b1d00
   bool PivotFlag(int i) const;                                         // FUN_1406b1930(.., i)
+  std::array<float, 2> BlendRoot() const;                              // FUN_1406af6d0: {0, 0} for a motion with no record
+  std::array<float, 2> CancelRoot(int i) const;                        // FUN_1406af9a0(.., i): {0, 0} past the list
 };
 
 // The four clip-record readers PES's movestep calls for a motion's record value in ticks (docs/re/pes-re-portmap-motion.md M2):

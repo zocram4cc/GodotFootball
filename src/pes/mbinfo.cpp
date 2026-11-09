@@ -114,6 +114,13 @@ int MotionRecord::CancelFrames(int i) const {
   if (i < 0 || size_t(i) >= cancel.size()) return 0;
   return cancel[i];
 }
+std::array<float, 2> MotionRecord::BlendRoot() const {
+  return blendRoot.empty() ? std::array<float, 2>{0.0f, 0.0f} : blendRoot[0];  // the zero fallback object, 0x1436F2430
+}
+std::array<float, 2> MotionRecord::CancelRoot(int i) const {
+  if (i < 0 || size_t(i) >= cancelRoot.size()) return {0.0f, 0.0f};  // the zero fallback object, 0x1436F2500
+  return cancelRoot[i];
+}
 int MotionRecord::FootPair(int i) const {
   if (i < 0 || size_t(i) >= foot.size()) return 0;
   return foot[i].pair;
@@ -169,6 +176,8 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     if (inTable(motion)) {
       Admit(m.motions_[motion].blend, caps.animation, t.blendStart);
       Admit(m.motions_[motion].blendWords, caps.animation, std::array<uint32_t, 2>{a, b});
+      // FUN_1406af6d0's reads: out[0] = dword 3 (f[1]), out[2] = dword 2 (f[0]).
+      Admit(m.motions_[motion].blendRoot, caps.animation, std::array<float, 2>{f[1], f[0]});
     }
   }
   for (size_t o = 0; o < hitData.size(); o += HIT_RECORD) {
@@ -193,6 +202,9 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     if (inTable(motion)) {
       Admit(m.motions_[motion].cancel, caps.cancel, int(w >> FRAME_SHIFT & CANCEL_FRAME_MASK));
       Admit(m.motions_[motion].cancelWords, caps.cancel, std::array<uint32_t, 2>{w, At<uint32_t>(cancelData, o + 4)});
+      // FUN_1406af9a0's reads: out[0] = dword 2, out[2] = dword 1 of the record (the same order as the words above).
+      Admit(m.motions_[motion].cancelRoot, caps.cancel,
+            std::array<float, 2>{At<float>(cancelData, o + 8), At<float>(cancelData, o + 4)});
     }
   }
   for (size_t o = 0; o < bins.rotData.size(); o += ROT_RECORD) {

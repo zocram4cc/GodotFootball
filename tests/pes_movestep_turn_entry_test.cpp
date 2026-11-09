@@ -13,6 +13,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -148,8 +149,10 @@ uint32_t Bits(float f) {
 class RowHost : public movestep_test::UnboundHost {
  public:
   RowHost(const Case& c, const pes::RunConstants& run, const pes::RunTables& tables, const pes::PlaybackConstants& playback,
-          const pes::AngleBucketConstants& buckets, const pes::MoveConstants& move, const pes::TurnEntryTables& turn)
-      : c_(c), run_(run), tables_(tables), playback_(playback), buckets_(buckets), move_(move), turn_(turn), team_(*this) {}
+          const pes::AngleBucketConstants& buckets, const pes::MoveConstants& move, const pes::TurnEntryTables& turn,
+          const pes::Mbinfo& mbinfo)
+      : c_(c), run_(run), tables_(tables), playback_(playback), buckets_(buckets), move_(move), turn_(turn), mbinfo_(mbinfo),
+        team_(*this) {}
 
   int percentDrawn = 0, analystCalls = 0, percentNext = 0;
   mutable int headingNext = 0, ballNext = 0;
@@ -269,13 +272,8 @@ class RowHost : public movestep_test::UnboundHost {
     EXPECT_TRUE(motion && mirror) << "no cell call for row " << std::hex << row << " column " << column;
     return cell;
   }
-  float ClipHitDistance(int motion, float g, int index) const override {
-    const Call& call = Need(kHitDistance);
-    EXPECT_EQ(motion, static_cast<int32_t>(call.reg[1]));
-    EXPECT_EQ(Bits(g), static_cast<uint32_t>(call.xmm[2]));
-    EXPECT_EQ(index, static_cast<int32_t>(call.reg[3]));
-    return F32(call.xmm0);
-  }
+  // FUN_1406e7730 (the hit distance) is computed by the port from the install's own motion records (Motion() below); its
+  // answer is checked through request words 0x34 and 0x27, which PES wrote from the same call.
   // FUN_1406e7920's blend ticks, solved for the seconds PES returned: ClipHitSeconds divides by the clock and the playback,
   // so the solved integer reproduces PES's value exactly when the formula is right.
   int ClipTicks(pes::ClipReader, int motion, float rate, int) const override {
@@ -284,7 +282,7 @@ class RowHost : public movestep_test::UnboundHost {
     const float playback = F32(call.xmm[2]);
     return static_cast<int>(std::lround(F32(call.xmm0) * playback * 54.0f));
   }
-  const pes::MotionRecord& Motion(int) const override { return empty_; }
+  const pes::MotionRecord& Motion(int motion) const override { return mbinfo_.Motion(motion); }
   void CountAnalyserEvent(bool flag, int motion) override {
     const Call& call = Need(kAnalyser);
     EXPECT_EQ(flag, (call.reg[1] & 0xff) != 0);
@@ -324,8 +322,8 @@ class RowHost : public movestep_test::UnboundHost {
   const pes::AngleBucketConstants& buckets_;
   const pes::MoveConstants& move_;
   const pes::TurnEntryTables& turn_;
+  const pes::Mbinfo& mbinfo_;
   RowTeam team_;
-  pes::MotionRecord empty_;
 };
 
 struct Install {
@@ -335,6 +333,7 @@ struct Install {
   pes::AngleBucketConstants buckets;
   pes::MoveConstants move;
   pes::TurnEntryTables turn;
+  std::shared_ptr<const pes::Mbinfo> mbinfo;
 };
 
 bool LoadInstall(Install& in, std::string* skip) {
@@ -349,8 +348,11 @@ bool LoadInstall(Install& in, std::string* skip) {
   auto buckets = pes::LoadAngleBucketConstants(*exe, &err);
   auto move = pes::LoadMoveConstants(*exe, &err);
   auto turn = pes::LoadTurnEntryTables(*exe, &err);
-  if (!run || !tables || !playback || !buckets || !move || !turn) { *skip = err; return false; }
-  in = {*run, *tables, *playback, *buckets, *move, *turn};
+  pes::PesVfs vfs;
+  if (!vfs.Mount(root, &err)) { *skip = err; return false; }
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  if (!run || !tables || !playback || !buckets || !move || !turn || !mbinfo) { *skip = err; return false; }
+  in = {*run, *tables, *playback, *buckets, *move, *turn, std::make_shared<pes::Mbinfo>(std::move(*mbinfo))};
   return true;
 }
 
@@ -369,7 +371,7 @@ TEST(TurnEntryRows, TheTurnEntryWritesPesRequestWordsAndAnswersLikePesOnItsRows)
   int real = 0, taken = 0;
   for (const Case& c : cases) {
     SCOPED_TRACE(c.label + " " + c.mode);
-    RowHost host(c, in.run, in.tables, in.playback, in.buckets, in.move, in.turn);
+    RowHost host(c, in.run, in.tables, in.playback, in.buckets, in.move, in.turn, *in.mbinfo);
     pes::MoveReq req;
     for (size_t i = 0; i < c.reqIn.size(); ++i) req.SetU(static_cast<int>(i), c.reqIn[i]);
     const bool entered = pes::EnterGotoTurn(host, req);

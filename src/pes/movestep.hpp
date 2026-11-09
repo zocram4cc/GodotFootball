@@ -179,6 +179,7 @@ inline constexpr int kStartTime = 0x33;        // req[0x33]: start time in the c
 inline constexpr int kPlayback = 0x35;         // req[0x35]: playback speed, default 1.0 (OBS)
 inline constexpr int kTransitionWord = 0x36;   // req[0x36]: transition record (OBS)
 inline constexpr int kParamState = 0x37;       // req[0x37]: 0x11 = a single clip (SetMotion); else the parametric group (OBS)
+inline constexpr uint32_t kSingleClip = 0x11;  // req[0x37] when a single clip is due (SetMotion); the request's init value
 inline constexpr int kChangeState = 0x38;      // req[0x38] byte: a state change is requested (OBS)
 inline constexpr int kNextState = 0x39;        // req[0x39]: the state entered when kChangeState is set (OBS)
 inline constexpr int kRate = 0x4a;             // req[0x4a]: parametric rate (OBS; AS 1)
@@ -335,6 +336,8 @@ struct RunConstants {
   float footNeg035;   // -0.35 (0x1425ddfec)
   float negHalf;      // -0.5  (0x14258d694)
   float bias5;        // 5     (0x14259be7c): FUN_1406b9b20's hysteresis bias
+  float stopPlaybackFloor;  // 0.9 (0x14258c260): FUN_1406d5d60's turn playback floor (outside [0.9, 1.5] the playback is 1.0)
+  float centi;        // 0.01  (0x14256ae18): FUN_1406e7730's centimetre-to-metre scale on the clip's root offsets
   float rampFloor;    // 0.001 (0x14259bdc4): FUN_1406eab00's tau floor
   float rampSlope;    // 0.15  (0x1425c48a0): FUN_1406b9aa0's rate floor
   float turnP2;       // 0.1   (0x142588210): the turn playback's p^2 term
@@ -516,6 +519,9 @@ struct IssuedClip {
 };
 // Records one issue; a parametric style index becomes the blend group it plays.
 void RecordIssue(IssuedClip& issued, const MotionRequest& request, const ParametricGroups& groups);
+// The request the tail issues from the request words (FUN_1406b8340's tail): the SetMotion of the single clip the entries'
+// WriteIssue stored, or the SetParametric of the style req[0x37] names. `foot` is the foot argument of the parametric call.
+MotionRequest DueRequest(const MoveReq& req, int foot);
 // FUN_1406ba2f0's install scalars (its .rdata reads). Each VA is named in movestep_common.cpp's loader.
 struct StyleConstants {
   float rate0p895;   // 0.895 (0x1425ddf74): the rate gate against rateMax (the 10 and 0 arms)
@@ -765,8 +771,6 @@ class MoveHost {
   virtual int RecordTicks(int) const { MoveHostUnbound("RecordTicks"); }
   // The match object at G+0x2c0: its byte +0x85 when its mode byte +0x12 is 1 or 2, else 0 (FUN_140a3f560).
   virtual bool MatchObjectFlag2c0() const { MoveHostUnbound("MatchObjectFlag2c0"); }
-  // FUN_1406e7730 (+0xab8 vt+0x58): the distance the clip's hit record covers, at the physique scale g, for hit `index`.
-  virtual float ClipHitDistance(int, float, int) const { MoveHostUnbound("ClipHitDistance"); }
   // FUN_140439e50(P+8, point): the heading in [0, 360) from the own position to `point` (PES order x, height, z).
   virtual float HeadingToPointDeg(const float[3]) const { MoveHostUnbound("HeadingToPointDeg"); }
   // FUN_1406cba60(P, flag, motion) -> FUN_1406e2c30(P, row): counts the issued motion in the analyser record (P+0x3AD8). INF: the

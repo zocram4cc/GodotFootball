@@ -23,19 +23,6 @@ struct TurnEntryTables {
 };
 std::optional<TurnEntryTables> LoadTurnEntryTables(const PeImage& exe, std::string* error);
 
-// FUN_1406e9f90 (+0xac0 vt+0x30): the ability weight in [0, 1] the playback functions take. `da` selects the DA ability byte
-// (0x15) instead of Acceleration (0x2b); the byte is less (10 - c) for a condition c of 10 or below, then (b - 40) / 59.
-float AbilityWeight(MoveHost& host, bool da);
-
-// FUN_1406d8620 (+0xac0 vt+0x10), the request writer every entry calls to "issue" a clip: it stores the clip into the request
-// words (0x2f pending, 0x30 motion, 0x31 mirror, 0x32 and 0x2e duration, 0x33 start time, 0x35 playback, 0x36 transition,
-// 0x1a and 0x2d cleared) and the clip's hit seconds and distance (0x1b, 0x34; zero for a motion of 0x1125 or more).
-// FUN_1406b8340's tail applies them.
-void WriteIssue(MoveHost& host, MoveReq& req, const MotionRequest& issue);
-
-// FUN_1406e7920: the clip's hit time in seconds (blend, or the cancel record at min(index, count - 1)) over the playback.
-float ClipHitSeconds(const MoveHost& host, int motion, float playback, int index);
-
 // FUN_1406d01d0(P, req).
 bool EnterGotoTurn(MoveHost& host, MoveReq& req);
 

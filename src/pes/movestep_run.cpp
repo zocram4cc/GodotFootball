@@ -20,6 +20,7 @@
 //   FUN_1406ea750  the engine blend rate             the live engine rate (INF, AS 7)
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_step.hpp"
+#include "pes/movestep_issue.hpp"
 #include "pes/movestep_turn_entry.hpp"
 
 #include <algorithm>
@@ -43,6 +44,8 @@ struct RunScalar {
 };
 constexpr RunScalar RUN_SCALARS[] = {
     {0x14256ae1c, &RunConstants::one},
+    {0x14256ae18, &RunConstants::centi},
+    {0x14258c260, &RunConstants::stopPlaybackFloor},
     {0x142588218, &RunConstants::neg},
     {0x142565600, &RunConstants::half},
     {0x1425ddffc, &RunConstants::wrapHalf},
@@ -549,7 +552,6 @@ void EnterStop(MoveHost& host, MoveReq& req) {
       const int col = static_cast<int>(k.negHalf < req.F(moveword::kFacingError)) + 8;
       mirror = host.Cell(row, col, false).mirror;
     }
-    host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend2, k.one, 0.0f, -1, 0.0f, 0.0f, 0});
     req.SetByte(moveword::kMirror, mirror ? 1 : 0);
     req.SetU(moveword::kMotion, static_cast<uint32_t>(cell.motionNo));
     req.SetF(moveword::kDuration, k.blend2);
@@ -593,15 +595,19 @@ void EnterStop(MoveHost& host, MoveReq& req) {
     heading = FoldFull(facing + c, k);
   }
   const int band = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
-  const int bucket = AngleBucket(host.AngleBuckets(),
-                                 PesAngleDiff(heading, DisplacementBearingDeg(host, k), k), 10, false);
+  const float bearing = DisplacementBearingDeg(host, k);  // uVar17: *FUN_14046f230 of the ring sample
+  const int bucket = AngleBucket(host.AngleBuckets(), PesAngleDiff(heading, bearing, k), 10, false);
   // FUN_1406d5d60 stores the bucket in req[0x20] only (decompile line 151: param_2[0x20] = bucket). Real PES calls (stop_replay.py,
   // seq7084 / seq7145 / seq9209 of pid2392772) leave req[8] and req[0x25] as they were and pass req[0x20] to the selector.
   req.SetU(moveword::kLiveBucket, static_cast<uint32_t>(bucket));
-  // The turn playback (FUN_1406e9f10 of the mirror argument) with the capability clamp.
-  const float p = host.MirrorChoice(false) ? k.one : k.half;
-  float playback = pes::TurnPlayback(host.PhysiqueG(), p, host.PlaybackConstantsView());
-  if (!(k.dist1m5 < playback || playback < k.ramp85)) playback = k.one;
+  // The root-facing rate (0x1406d5f..: param_2[0x19]): the bucket's centre angle plus the facing, folded, against the bearing,
+  // over one sixth of a second's ticks.
+  const float centre = FoldFull(host.StepTablesView().bucketDegrees[bucket] + facing, k);
+  req.SetF(moveword::kRecordStampC, PesAngleDiff(centre, bearing, k) / (host.TicksPerSecond() * k.blend1667));
+  // The turn playback (vt+0x30 then vt+0x50), reset to 1.0 outside [0.9, 1.5] (0x1406d5fb3 COMISS [0x14259bddc], 0x1406d5fbf
+  // COMISS [0x14258c260], both jumping to the reset at 0x1406d5fcc).
+  float playback = EntryPlayback(host);
+  if (k.dist1m5 < playback || playback < k.stopPlaybackFloor) playback = k.one;
   req.SetF(moveword::kPlayback, playback);
   // The turn-stop selector: FUN_1406d5d60 calls the +0xac0 interface's vt+0xE0 (0x1425E35B0 + 0xE0 = FUN_1406BA0D0), which reads
   // the row from DAT_1425ddb50[kind + class * 8] and the column from DAT_1425dd988[bucket], then FUN_1406ABB30 / FUN_1406ABD60.
@@ -609,9 +615,7 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   const int rowBand = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
   const int row = TurnStopRowFor(rowKind, rowBand, t);
   const MoveCell cell = host.Cell(row, t.bucketColumn[bucket], false);
-  host.Issue(MotionRequest{cell.motionNo, cell.mirror, 0, k.blend2, playback, 0.0f, -1, 0.0f, 0.0f, 0});
-  req.SetU(moveword::kMotion, static_cast<uint32_t>(cell.motionNo));
-  req.SetByte(moveword::kMirror, cell.mirror ? 1 : 0);
+  WriteIssue(host, req, MotionRequest{cell.motionNo, cell.mirror, 0, k.blend2, playback, 0.0f});  // 0x1406d6074 CALL [RAX+0x10]
   req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
   RequestState(req, MoveState::kStop);
   req.SetU(moveword::kRecordStampA, 0);
@@ -1112,11 +1116,11 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     cls = 1;
     req.SetU(moveword::kCommandSpeedClass, 1u);
   }
+  // The no-precise arm's playback: vt+0x50(vt+0x30(match-up flag)) (0x1406ce940, 0x1406ce94c), stored in req[0x35].
+  // ponytail: the precise arm (0x1406cfe83..0x1406d0100) computes its own playback from G (the gLow/gHigh ramp, FUN_1406e9f10's
+  // 0.15 and 0.95 terms) and a different row table; the port runs the no-precise arm for both until that arm is translated.
   float playback = k.one;
-  if (req.U(moveword::kPrecise) == 0u) {
-    // ponytail: the +0xac0 interface's vt+0x30/vt+0x50 pair (FUN_140a62960's mirror argument
-    // and its answer) is the anime player's own playback; the port uses the request's default.
-  }
+  if (req.U(moveword::kPrecise) == 0u) playback = EntryPlayback(host);
   const int lookBucket = static_cast<int>(req.U(moveword::kLookBucket));
 
   // Block 1: the look-bucket arm.
@@ -1252,20 +1256,10 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     // takes the row the table gave, which is PES's answer for a missing draw.
   }
   (void)motionRow;
-  // PES's vt+0x10 call takes (req, motion, mirror, the 0x3f-word's byte, the duration, the
-  // playback, the start time); the port's MotionRequest carries the byte as `transition`
-  // because the dispatcher's own Issue reads it as PES passes it.
-  host.Issue(MotionRequest{cell.motionNo, cell.mirror,
-                            static_cast<int>(req.U(moveword::kMirrorFlag) & 0xffu),
-                            duration, playback, 0.0f});
-  // The hit words 0x27/0x28: the clip's own start and its pose scale, for a clip under 0x1125.
-  if (cell.motionNo < 0x1125) {
-    req.SetF(moveword::kHitFrame, host.MotionStartTime(cell.motionNo));
-    req.SetF(moveword::kHitMotion, host.PhysiqueG());
-  } else {
-    req.SetF(moveword::kHitFrame, 0.0f);
-    req.SetF(moveword::kHitMotion, 0.0f);
-  }
+  // PES's vt+0x10 call (0x1406cfb.. CALL [R+0x10]) takes (req, motion, mirror, the run-stop variant flag, the blend, the
+  // playback, the start). Then 0x28 = FUN_1406e7920 and 0x27 = FUN_1406e7730 of the same motion, the values WriteIssue stored.
+  WriteIssue(host, req, MotionRequest{cell.motionNo, cell.mirror, runStopVariant ? 1 : 0, duration, playback, 0.0f});
+  CopyHitWords(req, cell.motionNo);
   // The root-facing pair: the facing plus the bucket's centre angle (DAT_1425dd660), wrapped,
   // against the request's word 1, and the first dwell as the divisor when it is set.
   float rootFacing = FoldFull(req.F(moveword::kFacing), k);
@@ -2545,12 +2539,8 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
     return false;
   }
 
-  // The playback word (FUN_1406ccd00:138-140): req[0x35] = the +0xac0 interface's vt+0x50
-  // answer (FUN_1406e9f10 = TurnPlayback(G, p)) to vt+0x30's mirror argument. p is the
-  // interface's own; the port answers it through MirrorChoice, as EnterStop does.
-  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
-                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                  host.PlaybackConstantsView()));
+  // The playback word (FUN_1406ccd00 0x1406cd020..0x1406cd02c): req[0x35] = vt+0x50(vt+0x30(match-up flag)).
+  req.SetF(moveword::kPlayback, EntryPlayback(host));
 
   // Arm 3: the bucket of the desired turn, computed with the gate above.
   const int bucket = AngleBucket(host.AngleBuckets(), desired, 10, false);
@@ -2619,8 +2609,7 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
 
   // Arm 7: the writes (FUN_1406ccd00:417-418). vt+0x10 takes (req, motion, mirror, 0, 0.1667,
   // req[0x35], startLadder): the playback is the word arm 3 wrote, not req[0x4b].
-  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback),
-                           startTime});
+  WriteIssue(host, req, MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback), startTime});  // vt+0x10
   req.SetU(moveword::kBandTarget, static_cast<uint32_t>(band));
   req.SetF(moveword::kSpeedBand, k.kmh28);
   req.SetU(moveword::kRateBand, 3u);
@@ -2671,11 +2660,8 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
     speedGate = k.kmh22;
   }
 
-  // The playback word (FUN_1406cdaf0:69): req[0x35] = the +0xac0 interface's vt+0x50
-  // answer (FUN_1406e9f10 = TurnPlayback(G, p)) to vt+0x30's mirror argument, as EnterAccelerate.
-  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
-                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                  host.PlaybackConstantsView()));
+  // The playback word (FUN_1406cdaf0:0x1406cdb85..0x1406cdb99): req[0x35] = vt+0x50(vt+0x30(match-up flag)).
+  req.SetF(moveword::kPlayback, EntryPlayback(host));
 
   // Arm 1: the gates.
   if (static_cast<uint32_t>(cls) > 1u) return false;
@@ -2745,8 +2731,7 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
   if (bucket - 8 < 2u && static_cast<int>(cell.motionNo) == 0xb53) startTime = k.blend2;
 
   // Arm 5: the writes (FUN_1406cdaf0:337-339).
-  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback),
-                           startTime});
+  WriteIssue(host, req, MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback), startTime});  // 0x1406ce31a.. vt+0x10
   req.SetU(moveword::kBandTarget, static_cast<uint32_t>(cls));
   req.SetF(moveword::kSpeedBand, req.F(moveword::kSpeedBand));
   req.SetU(moveword::kRateBand, 1u);

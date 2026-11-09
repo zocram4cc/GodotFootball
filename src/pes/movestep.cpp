@@ -354,5 +354,21 @@ void RecordIssue(IssuedClip& issued, const MotionRequest& request, const Paramet
   ++issued.serial;
 }
 
+MotionRequest DueRequest(const MoveReq& req, int foot) {
+  MotionRequest r;
+  r.motion = static_cast<int>(req.U(moveword::kMotion));
+  r.mirror = req.Flag(moveword::kMirror);
+  r.transition = static_cast<int>(req.U(moveword::kTransitionWord));
+  r.duration = req.F(moveword::kDuration);
+  r.playback = req.F(moveword::kPlayback);
+  r.startTime = req.F(moveword::kStartTime);
+  const uint32_t param = req.U(moveword::kParamState);
+  r.group = param == moveword::kSingleClip ? -1 : static_cast<int>(param);
+  r.startRate = req.F(moveword::kStartRate);
+  r.rate = req.F(moveword::kRate);
+  r.foot = foot;
+  return r;
+}
+
 
 }  // namespace pes

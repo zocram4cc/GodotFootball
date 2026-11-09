@@ -1681,9 +1681,9 @@ TEST(EnterTurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {
   req.SetF(pes::moveword::kDistToLook, 5.0f);
   req.SetF(pes::moveword::kRate, 0.3f);
   host.cellMotion = -1;     // the step cell is empty
-  host.issued.motion = -7;  // a sentinel: stays -7 if the entry issued nothing
+  req.SetU(pes::moveword::kMotion, static_cast<uint32_t>(-7));  // a sentinel: stays -7 if the entry wrote no request
   EnterTurnStop(host, req);
-  EXPECT_EQ(host.issued.motion, -1) << "an empty step cell's motion is -1, never the row id";
+  EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMotion)), -1) << "an empty step cell's motion is -1, never the row id";
 }
 
 TEST(TurnStop, ScalesTheRateByTheRecordConstant) {
@@ -1897,9 +1897,9 @@ TEST(TurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {
   host.displacement[1] = 0.0f;
   host.displacement[2] = 1.0f;  // heading 0: the third path's gates read the facing error as 0
   host.cellMotion = -1;         // the step cell is empty
-  host.issued.motion = -7;      // a sentinel: stays -7 if the path issued nothing
+  req.SetU(pes::moveword::kMotion, static_cast<uint32_t>(-7));  // a sentinel: stays -7 if the path wrote no request
   TurnStop(host, req);
-  EXPECT_EQ(host.issued.motion, -1) << "the empty cell's motion is -1, never the row id";
+  EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMotion)), -1) << "the empty cell's motion is -1, never the row id";
 }
 
 // TURN_STOP's stop (decompile block 5, the stop's own motion row IDLE) issues the IDLE row's cell at column 9, as STOP's IDLE

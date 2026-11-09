@@ -17,6 +17,7 @@
 #include "pes/exe.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_step.hpp"
+#include "pes/movestep_issue.hpp"
 #include "pes/movestep_turn_entry.hpp"
 
 namespace pes {
@@ -259,16 +260,9 @@ namespace movestep {
 
 // The vt+0x10 clip request, in PES's argument order: (interface, req, motion, mirror, 0, blend,
 // playback, start). The clip is a SetMotion (group -1): the start is its start time in seconds.
-void IssueClip(MoveHost& host, int motion, bool mirror, float blend, float playback, float start) {
-  MotionRequest clip;
-  clip.motion = motion;
-  clip.mirror = mirror;
-  clip.transition = 0;
-  clip.duration = blend;
-  clip.playback = playback;
-  clip.startTime = start;
-  clip.group = -1;  // SetMotion (req[0x37] == 0x11)
-  host.Issue(clip);
+void IssueClip(MoveHost& host, MoveReq& req, int motion, bool mirror, float blend, float playback, float start) {
+  // WriteIssue stores a SetMotion's words; req[0x37] keeps its value (kSingleClip unless a style arm wrote one).
+  WriteIssue(host, req, MotionRequest{motion, mirror, 0, blend, playback, start});
 }
 
 // PES's cell lookup in the RUN_TURN_RUN entry: an empty cell (FUN_1406ABDD0 answers 0) issues no clip and the entry hands
@@ -279,7 +273,7 @@ bool IssueRowOrTurnStop(MoveHost& host, MoveReq& req, int row, int column, float
     EnterTurnStop(host, req);
     return false;
   }
-  IssueClip(host, pick.motion, pick.mirror, blend, playback, 0.0f);
+  IssueClip(host, req, pick.motion, pick.mirror, blend, playback, 0.0f);
   return true;
 }
 
@@ -633,7 +627,7 @@ void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
         issued = 0xbeb;
       }
       if (issued != 0) {
-        IssueClip(host, issued, clipMirror, k.turnRamp, req.F(kPlaybackWord), startAtFrame);
+        IssueClip(host, req, issued, clipMirror, k.turnRamp, req.F(kPlaybackWord), startAtFrame);
         const float savedSpeed = req.F(moveword::kSpeedWord);
         req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
         req.SetF(moveword::kSpeedWord, kSpeedWord28);
@@ -658,7 +652,7 @@ void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     // 0x1406c1d89: the 0xc0b clip's second turn.
     if (motion == 0xc0b && d1 > k.angle225m && turnAbs > k.angle135 && lookAbs > k.angle135) {
       const int next = (turnAbs > k.angle1575 && lookAbs > k.angle1575) ? 0xc1c : 0xc10;
-      IssueClip(host, next, clipMirror, k.turnRamp, req.F(kPlaybackWord), startAtFrame);
+      IssueClip(host, req, next, clipMirror, k.turnRamp, req.F(kPlaybackWord), startAtFrame);
       const float savedSpeed = req.F(moveword::kSpeedWord);
       req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
       req.SetF(moveword::kSpeedWord, kSpeedWord16);
@@ -871,7 +865,7 @@ void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   if (!lock) {
     const int cls2 = static_cast<int>(req.U(moveword::kClassWord));
     if (cls2 < 3 && saved == 3 && motion == 0xbc7 && k.angle5625 > d1 && F < c2) {
-      IssueClip(host, 0xbe8, clipMirror, k.turnRamp, req.F(kPlaybackWord), static_cast<float>(F) / ticks);  // 0x1406c1bc8
+      IssueClip(host, req, 0xbe8, clipMirror, k.turnRamp, req.F(kPlaybackWord), static_cast<float>(F) / ticks);  // 0x1406c1bc8
       const float savedSpeed = req.F(moveword::kSpeedWord);
       req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
       req.SetF(moveword::kSpeedWord, kSpeedWord28);
@@ -1203,7 +1197,7 @@ void RunTurnStepIssueStepRow(MoveHost& host, MoveReq& req, const MoveTurnConstan
     RotateXZ(b, req.F(moveword::kFacing) * k.negOne, k);
     if (k.pointTwo < a[2] && k.pointTwo < b[2]) blend = k.blend03;
   }
-  IssueClip(host, repMotion, cell.mirror, blend, playback, start);
+  IssueClip(host, req, repMotion, cell.mirror, blend, playback, start);
   req.SetU(moveword::kDwellElapsed, 0);  // req[0x1a], req[0x1b] (qword at +0x68)
   req.SetU(moveword::kDwellLimit, 0);
   req.SetU(moveword::kPrevKind, kind);
@@ -1537,8 +1531,7 @@ void EnterRunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const int rowNow = AnimeRow(host, slot);
   const bool mirrorSlot =
       rowNow < 0x16 && static_cast<int>(req.U(moveword::kClassWord)) == rowNow;
-  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                  host.PlaybackConstantsView()));  // vt+0x50: a float store
+  req.SetF(moveword::kPlayback, EntryPlayback(host));  // vt+0x50(vt+0x30(match-up flag)): a float store (0x1406d6780 line 79)
   const int speedWord = static_cast<int>(req.U(moveword::kClassWord));
   const int kind = static_cast<int>(req.U(moveword::kKind));
   const int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
@@ -1978,9 +1971,8 @@ bool EnterRunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k, 
       req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));  // param_2[0x18] = param_2[1]
       req.SetF(moveword::kRowAngle,
                req.F(moveword::kHeading) + k.halfTurn);  // param_2[0x17] = req[1] + 180
-      req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                      host.PlaybackConstantsView()));  // vt+0x50: a float store
-      IssueClip(host, pick.motion, mirror, k.clipBlend, req.F(moveword::kPlayback), 0.0f);
+      req.SetF(moveword::kPlayback, EntryPlayback(host));  // vt+0x50(vt+0x30(match-up flag)): a float store
+      IssueClip(host, req, pick.motion, mirror, k.clipBlend, req.F(moveword::kPlayback), 0.0f);
       req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));  // param_2[0x24] = [0x1f]
       req.SetU(moveword::kPrevSpeedWord, req.U(moveword::kSpeedWord));  // param_2[0x22] = [0x1d]
       req.SetU(moveword::kClassWord, static_cast<uint32_t>(cls));      // param_2[0x1f]
@@ -2045,9 +2037,8 @@ bool EnterRunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k, 
     req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));
     req.SetF(moveword::kRowAngle,
              req.F(moveword::kHeading) - (stepped < 0.0f ? k.neg90 : k.angle90));
-    req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                    host.PlaybackConstantsView()));  // vt+0x50: a float store
-    IssueClip(host, pick.motion, mirror, k.clipBlend, req.F(moveword::kPlayback), 0.0f);
+    req.SetF(moveword::kPlayback, EntryPlayback(host));  // vt+0x50(vt+0x30(match-up flag)): a float store
+    IssueClip(host, req, pick.motion, mirror, k.clipBlend, req.F(moveword::kPlayback), 0.0f);
     req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
     req.SetU(moveword::kPrevSpeedWord, req.U(moveword::kSpeedWord));
     req.SetU(moveword::kClassWord, static_cast<uint32_t>(cls));
@@ -2250,12 +2241,11 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) 
           reselect) {
         if (!PickRow(host, motion, col2).found) return false;
         const RowPick pick = PickRow(host, motion, col2);
-        IssueClip(host, pick.motion, pick.mirror, k.clipBlend,
+        IssueClip(host, req, pick.motion, pick.mirror, k.clipBlend,
                   req.F(moveword::kPlayback), 0.0f);
         req.SetByte(moveword::kFootFlag, pick.mirror ? 1 : 0);
         req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));  // param_2[0x18] = param_2[1]
-        req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                        host.PlaybackConstantsView()));
+        req.SetF(moveword::kPlayback, EntryPlayback(host));  // vt+0x50(vt+0x30(match-up flag)): a float store
         int classWord = 2;
         if (speedClass < 3) {
           classWord = speedClass < 0 ? 0 : speedClass;
@@ -2314,7 +2304,7 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) 
       if (!((col - 8U) < 2u) || k.angle675 <= req.F(moveword::kFacingError)) {
         if (!PickRow(host, row, col).found) return false;
         const RowPick pick = PickRow(host, row, col);
-        IssueClip(host, pick.motion, pick.mirror, k.clipBlend,
+        IssueClip(host, req, pick.motion, pick.mirror, k.clipBlend,
                   req.F(moveword::kPlayback), 0.0f);
         const int classWord = speedClass < 3 ? (speedClass < 0 ? 0 : speedClass) : 3;
         float speed = req.F(moveword::kDesiredSpeedKmh);
@@ -2387,12 +2377,11 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) 
     }
     if (!PickRow(host, row, col).found) return false;
     const RowPick pick = PickRow(host, row, col);
-    IssueClip(host, pick.motion, pick.mirror, k.clipBlend,
+    IssueClip(host, req, pick.motion, pick.mirror, k.clipBlend,
               req.F(moveword::kPlayback), 0.0f);
     req.SetByte(moveword::kFootFlag, pick.mirror ? 1 : 0);
     req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));
-    req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                    host.PlaybackConstantsView()));
+    req.SetF(moveword::kPlayback, EntryPlayback(host));  // vt+0x50(vt+0x30(match-up flag)): a float store
     const int classWord = speedClass < 4 ? (speedClass < 0 ? 0 : speedClass) : 3;
     float speed = req.F(moveword::kDesiredSpeedKmh);
     const bool slow = !(speed <= k.speed28) || !(k.five <= speed);
@@ -2552,7 +2541,7 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       const float playback = PlaybackAt(host, k);
       req.SetF(moveword::kPlayback, playback);
       const float start = host.MotionStartTime(static_cast<uint16_t>(pick.motion));
-      IssueClip(host, pick.motion, pick.mirror, k.westBlend, playback, start);
+      IssueClip(host, req, pick.motion, pick.mirror, k.westBlend, playback, start);
       req.SetU(moveword::kDwellElapsed, 0);  // param_2[0x1a]
       req.SetU(moveword::kDwellLimit, 0);    // param_2[0x1b]
       req.SetU(moveword::kPrevKind, kindSel);  // param_2[0x1e]
@@ -2785,7 +2774,7 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       clipFrame < bandB) {
     const int clipFrames = host.CurrentClipFrames();  // vt+0x38
     const bool animMirror = req.Flag(moveword::kMirror);  // vt+0x30
-    IssueClip(host, 0x3b, !animMirror, k.turnRamp, req.F(kPlaybackWord), static_cast<float>(clipFrames + 1) / ticks);
+    IssueClip(host, req, 0x3b, !animMirror, k.turnRamp, req.F(kPlaybackWord), static_cast<float>(clipFrames + 1) / ticks);
     req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));  // req[0x24] (byte 0x90)
     req.SetU(kSavedSpeed, req.U(moveword::kSpeedWord));               // req[0x22] (byte 0x88)
     req.SetF(moveword::kSpeedWord, kSpeedWord28);
@@ -2999,7 +2988,7 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       if (0 <= clip) {
         const float startRate = static_cast<float>(host.CurrentClipFrames() + 1) / ticks;
         const bool animMirror = req.Flag(moveword::kMirror);  // vt+0x30
-        IssueClip(host, clip, mirrorSameAsAnim ? animMirror : !animMirror, blend, req.F(kPlaybackWord), startRate);  // 0x1406c93d5
+        IssueClip(host, req, clip, mirrorSameAsAnim ? animMirror : !animMirror, blend, req.F(kPlaybackWord), startRate);  // 0x1406c93d5
         req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));  // +0x90 <- +0x7c
         req.SetU(kSavedSpeed, req.U(moveword::kSpeedWord));               // +0x88 <- +0x74
         req.SetU(moveword::kPrevKind, req.U(moveword::kKind));            // +0x78 <- [R14]
@@ -3197,7 +3186,7 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       }
     }
   }
-  IssueClip(host, repMotion, cell.mirror, k.clipBlend, playback, start);  // DAT_1425ddf50
+  IssueClip(host, req, repMotion, cell.mirror, k.clipBlend, playback, start);  // DAT_1425ddf50
   req.SetU(moveword::kPrevKind, kind);  // req[0x1e] <- the remapped kind
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetU(moveword::kDwellLimit, 0);

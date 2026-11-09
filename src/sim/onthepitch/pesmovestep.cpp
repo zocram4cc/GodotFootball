@@ -235,6 +235,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     pes::MoveReq req;
     pes::CarryIn(player_.GetMoveStep(), req);
     req.SetF(pes::moveword::kFacing, FacingDeg());
+    req.SetU(pes::moveword::kParamState, pes::moveword::kSingleClip);  // FUN_1406b68d0's init: a single clip (req[0x37] == 0x11)
     FillCommandWords(req);
     return req;
   }
@@ -457,8 +458,7 @@ class MoveHostAdapter final : public pes::MoveHost {
   int RecordTicks(int) const override { return 0; }
   // ponytail: *(G+0x2c0)+0x85 (FUN_140a3f560) is the match object's flag; GF has none.
   bool MatchObjectFlag2c0() const override { return false; }
-  // ponytail: FUN_1406e7730 reads the clip's hit root offsets (FUN_1406af6d0 / FUN_1406af9a0), which no reader serves yet.
-  float ClipHitDistance(int, float, int) const override { return 0.0f; }
+  // FUN_1406e7730 is pes::ClipHitDistance (movestep_turn_entry.hpp), computed over Motion()'s root offsets.
   // FUN_140439e50(P+8, point): 0 when the point is the own position, else the bearing folded into [0, 360).
   float HeadingToPointDeg(const float point[3]) const override {
     float own[3];
@@ -537,27 +537,6 @@ constexpr int kPesMoveKindKeeperNear = 4;
 int MoveKindFor(bool keeper) { return keeper ? kPesMoveKindKeeperNear : kPesMoveKindMid; }
 
 
-// The single-clip word of req[0x37] (FUN_1406b68d0's init): a SetMotion. Any other value is a style index.
-constexpr uint32_t kSingleClip = 0x11;
-
-// The request the tail issues from the request block (FUN_1406b8340's tail): a SetMotion when req[0x37]
-// is the single-clip word, else the SetParametric of the style req[0x37] names.
-pes::MotionRequest DueRequest(const pes::MoveReq& req, int foot) {
-  pes::MotionRequest r;
-  r.motion = static_cast<int>(req.U(pes::moveword::kMotion));
-  r.mirror = req.Flag(pes::moveword::kMirror);
-  r.transition = static_cast<int>(req.U(pes::moveword::kTransitionWord));
-  r.duration = req.F(pes::moveword::kDuration);
-  r.playback = req.F(pes::moveword::kPlayback);
-  r.startTime = req.F(pes::moveword::kStartTime);
-  const uint32_t param = req.U(pes::moveword::kParamState);
-  r.group = param == kSingleClip ? -1 : static_cast<int>(param);
-  r.startRate = req.F(pes::moveword::kStartRate);
-  r.rate = req.F(pes::moveword::kRate);
-  r.foot = foot;
-  return r;
-}
-
 pes::MoveReq TickRequest(Player& player, Match& match) {
   MoveHostAdapter host(player, match, match.GetPesMoveStepConstants());
   return host.Request();
@@ -619,7 +598,6 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetF(pes::moveword::kPlaybackDefault, rec.playbackDefault);
   req.SetF(pes::moveword::kRate, rec.rate);
   req.SetByte(pes::moveword::kStyle, rec.style);
-  req.SetU(pes::moveword::kParamState, kSingleClip);  // PES's init: a single clip (req[0x37] == 0x11)
   // FUN_1406f99f0's store (P+0x377c): the TopRate ceiling at the record's G, once per match tick.
   // ponytail: the Speed byte (0x27) = clamp(trunc(base[0x27] * A1..A5), 40, 99), written by FUN_14092AF10
   // (docs/re/pes-re-speed-inputs.md). Its base row has no GF source yet, so physical_velocity stands in for it (SpeedByteOf).
@@ -629,12 +607,10 @@ void ProcessMoveStep(Player& player, Match& match) {
 
   const pes::MoveState stateAtEntry = rec.state;
   pes::movestep::RampsBeforeDispatch(host, req);
-  const int issuesBefore = host.IssueCount();
   pes::Dispatch(stateAtEntry, host, req);
-  // FUN_1406b8340's tail (anime-select 1, step 7): a request the handler left due (req[0x2f]) is issued
-  // now, unless the handler already issued this tick.
-  if (req.Flag(pes::moveword::kMotionPending) && host.IssueCount() == issuesBefore)
-    host.Issue(DueRequest(req, host.FootBand()));
+  // FUN_1406b8340's tail (anime-select 1, step 7): the request the handler left due (req[0x2f], written by WriteIssue or
+  // by a style arm) is issued now.
+  if (req.Flag(pes::moveword::kMotionPending)) host.Issue(pes::DueRequest(req, host.FootBand()));
   pes::movestep::ApplyTail(rec, host, req, stateAtEntry);
   rec.rate = req.F(pes::moveword::kRate);
   rec.style = static_cast<uint8_t>(req.U(pes::moveword::kStyle) & 0xffu);
@@ -650,6 +626,8 @@ void RequestStop(Player& player, Match& match) {
   MoveHostAdapter host(player, match, *constants);
   pes::MoveReq req = host.Request();
   pes::movestep::EnterStop(host, req);
+  // The request the entry wrote is issued by the tail (FUN_1406b8340), which this out-of-tick entry has no tick to reach.
+  if (req.Flag(pes::moveword::kMotionPending)) host.Issue(pes::DueRequest(req, host.FootBand()));
   pes::CarryOut(rec, req);
   pes::ApplyTransition(rec, req);
 }

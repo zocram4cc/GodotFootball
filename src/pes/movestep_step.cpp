@@ -14,6 +14,7 @@
 #include "pes/movestep_step.hpp"
 #include "pes/movestep_turn.hpp"
 #include "pes/movestep_run.hpp"
+#include "pes/movestep_issue.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -872,17 +873,18 @@ void StepLoop(MoveHost& host, MoveReq& req) {
               (k.deg67p5 < req.F(moveword::kLookDelta) && !precise)
           ? k.s0p2
           : k.s0p1333;
-  // FUN_1406c4f59's call: rateHeld is 0 there.
-  const int group = LocomotionStyle(host, host.AnimeState(), req.F(moveword::kRate), req,
-                                    host.RateCeiling(), false);
+  // PES 0x1406c6074..0x1406c61f1: WriteIssue(motion, mirror, transition, blend, req[0x35], start); the style arm above is the only
+  // writer of req[0x37], so this tail is a SetMotion unless that arm ran.
+  // ponytail: PES's transition is 2 (and the start 0) when the clip's mirror already equals the interface's own (vt+0x30,
+  // 0x1406c60b3..0x1406c60cf), and the start is the foot record's own time (FUN_1406afe20/FUN_1406afe70, 0x1406c6104..0x1406c61a6)
+  // for the 0x2a015 kinds; the port keeps transition 0 and FUN_1406b97d0's start until those records are read.
   pes::MotionRequest request;
   request.motion = motion;
   request.mirror = host.BucketIsLeft(bucket);
-  request.group = group;
   request.duration = clipBlend;
   request.playback = StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView());
   request.startTime = startTime;
-  host.Issue(request);
+  WriteIssue(host, req, request);
   // PES at 0x1406C5FE0 and the store at 0x1406C5FF1: the value written into req[0x17] is
   // wrap180((req[0x01] - the bucket's angle) - the player's facing), with the bucket's angle
   // from DAT_1425dd660.
@@ -910,7 +912,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   req.SetU(moveword::kClassWord, uint32_t(nextBand));
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
   RequestState(req, MoveState::kStepLoopChange);
-  req.SetByte(moveword::kMotionPending, 0);
+  req.SetByte(moveword::kTurnLockFlag, 0);  // word 0x3c (d_1406c4c10.c:894), not the motion-pending byte WriteIssue set
 }
 
 // The keep-tick tail PES runs when the band gate fails (LAB_1406c5b79's fall-through): the
@@ -977,9 +979,12 @@ void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn) {
   const int motion = cell.found ? cell.motionNo : row;
   const bool mirror = turn <= 0.0f;
   RequestState(req, MoveState::kStepTurnRun);
-  req.SetU(moveword::kMotion, uint32_t(motion));
-  req.SetByte(moveword::kMirror, mirror ? 1 : 0);
-  req.SetF(moveword::kPlayback, StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView()));
+  // PES 0x1406c5c34..0x1406c5c7e (decompile 859-862): req[0x35] = vt+0x50(vt+0x30(match-up flag)), then
+  // vt+0x10(req, motion, mirror, 0, DAT_1425ddf50, req[0x35], 0), which leaves the request due for the tail.
+  // ponytail: the row's bucket word, the column 9 - mirror and the mirror's sign source (decompile 814-846, the offside-line
+  // windows of 798-813) are not ported; the port's row/mirror above stand in until FUN_140a6cf70 and the line are read.
+  req.SetF(moveword::kPlayback, EntryPlayback(host));
+  WriteIssue(host, req, pes::MotionRequest{motion, mirror, 0, k.s0p1667, req.F(moveword::kPlayback), 0.0f});
   // PES's tail (0x1406C5CFE-0x1406C5D2B): the class is clamp(req[0x09], 0, 2), the speed band
   // is the desired speed clamped into [5, 11] (or 5 when it is already at or below 16), the
   // class word and its speed are carried over, the row's own word 0x20 becomes 0, and the live
@@ -998,7 +1003,7 @@ void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn) {
   req.SetF(moveword::kSpeedWord, speedArm);
   req.SetU(0x20, 0u);
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
-  req.SetByte(moveword::kMotionPending, 0);
+  req.SetByte(moveword::kTurnLockFlag, 0);  // 0x1406c62c..: word 0x3c (d_1406c4c10.c:894)
 }
 }  // namespace
 // -------------------------------------------------------------------------------------------------
@@ -1032,13 +1037,10 @@ void EnterTurnStop(MoveHost& host, MoveReq& req) {
     bucket = int(req.U(moveword::kLookBucket));       // req[0xc]
     turn = req.F(moveword::kLookDelta);               // req[5]
   }
-  // 1. The playback speed: the +0xac0 interface's vt+0x50 answer (FUN_1406e9f10), which is
-  // TurnPlayback(G, p); p is the interface's own (mirror-argument side test), answered here by
-  // MirrorChoice. It is never the band's km/h speed: writing a speed into req[0x35] latches a
-  // zero playback into the record of a standing player, and his clip never advances.
-  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
-                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
-                                                  host.PlaybackConstantsView()));
+  // 1. The playback: vt+0x50(vt+0x30(match-up flag)) (0x1406d2648, 0x1406d2654). A local of PES's, handed to the issue; it is
+  // never the band's km/h speed (a speed in req[0x35] latches a zero playback into a standing player's record).
+  const float playback = EntryPlayback(host);
+  req.SetF(moveword::kPlayback, playback);  // param_2[0x35] = local_124 (d_1406d2590.c:69)
   int band = int(req.U(moveword::kClassWord));
   band = std::min(std::max(band, 0), 3);
 
@@ -1190,14 +1192,8 @@ BucketDone:;
         ((0.0f < bodyDir && mirror) || (bodyDir < 0.0f && !mirror)))
       blend = k.s0p25;
   }
-  pes::MotionRequest request;
-  request.motion = motion;
-  request.mirror = mirror;
-  request.transition = 0;
-  request.duration = blend;
-  request.playback = req.F(moveword::kPlayback);
-  request.startTime = 0.0f;
-  host.Issue(request);
+  // PES 0x1406d2d..: vt+0x10(req, motion, mirror, 0, blend, playback, 0) with the local playback of line 1036.
+  WriteIssue(host, req, pes::MotionRequest{motion, mirror, 0, blend, playback, 0.0f});
   RequestState(req, MoveState::kTurnStop);
   float window = k.deg33p75;
   if (bucket - 3 < 2 || bucket - 8 < 2) window = k.deg11p25;
@@ -1212,7 +1208,7 @@ BucketDone:;
   req.SetU(moveword::kBucketPrev, req.U(moveword::kMoveBucket));
   req.SetU(moveword::kMoveBucket, uint32_t(bucket));
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
-  req.SetByte(moveword::kMotionPending, 0);
+  req.SetByte(moveword::kTurnLockFlag, 0);  // 0x1406d2d..: word 0x3c (d_1406d2590.c:347), not the motion-pending byte the issue set
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1671,13 +1667,9 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       req.SetF(moveword::kBandSpeed, speed);
       req.SetF(moveword::kBandSpeedCopy, speed);
       req.SetF(moveword::kPlayback, StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView()));
-      pes::MotionRequest request;
-      request.motion = cell.motionNo;
-      request.mirror = cell.mirror;
-      request.duration = k.s0p1333;
-      request.playback = req.F(moveword::kPlayback);
-      request.startTime = host.MotionStartTime(cell.motionNo);
-      host.Issue(request);
+      // 0x1406cb344..: vt+0x10(req, motion, cell mirror, 0, DAT_1425ddf4c, req[0x35], FUN_1406b97d0(motion)).
+      WriteIssue(host, req, pes::MotionRequest{cell.motionNo, cell.mirror, 0, k.s0p1333, req.F(moveword::kPlayback),
+                                               host.MotionStartTime(cell.motionNo)});
       req.SetU(moveword::kDwellElapsed, 0);
       req.SetU(moveword::kDwellLimit, 0);
       req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
