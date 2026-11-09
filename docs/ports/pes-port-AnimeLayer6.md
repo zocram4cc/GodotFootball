@@ -1,0 +1,21 @@
+# PES port: AnimeLayer6 (branch AnimeLayer): DRAFT (in progress; the final text replaces this file)
+
+Branch `AnimeLayer` (worktree `gf-AnimeLayer`). Image `pes_full.bin`, base 0x140000000. CONFIRMED = a tool run this session; INF = inference; OPEN = blocker named.
+
+## 1. Clean jemalloc boot (decision from Main: PES's own start-up, no native allocator)
+
+- PES's allocator is jemalloc: FUN_1403CF740 -> FUN_14037FDA0 -> FUN_14038E6B0 -> FUN_14038E3E0 (allocate); FUN_14038E3E0 tests the "initialised" flag at 0x1436DCEE0 and calls FUN_14038EE80 (malloc_init_hard) on zero. All translated, unchanged.
+- Its state lives in two runs of the zero-initialised data (.bss = the virtual tail of .data from 0x1436CF800, section table of the image): run 1 0x1436DCEB0..0x1436DD294, run 2 0x143AC2810..0x143AC3DD0. Extents = lowest/highest .bss address the allocator's code names (capstone sweep of 0x14038E000..0x1403B6000 with skipdata, plus the translated closure of FUN_14038EE80 incl. thunks 0x143E0F3A0 / 0x143E107E0 / 0x143E111B0 / 0x143E114E0). Every initialised-data (.data) cell the closure touches is either a string literal (read-only) or an option default the dump still holds at its compile-time value (lg_chunk 0x16 at 0x1433ED718, lg_dirty_mult 3 at 0x1433DA368, lg_tcache_max 0xF at 0x1434034E8, opt flag 1 at 0x143402D73, opt_dss pointer at 0x1433ED7D8).
+- `PesFoxWorld::Boot()` zeroes the two runs and calls `pes_fn_14038EE80`. No cell is set to a value chosen here.
+- OS imports the translated init calls and that had no model (survey, `GF_PES_SURVEY`): ucrtbase `getenv` (0x1425300C8: MALLOC_CONF unset -> NULL; evidence: the dump holds default options and a null je_malloc_conf at 0x143AC3D88), kernel32 `TlsAlloc` (0x14252F6B0: 9, the value the live dump holds at 0x143AC3DCC), kernel32 `GetSystemInfo` (0x14252F4B0: dwPageSize 0x1000, dwNumberOfProcessors 0x10, dwAllocationGranularity 0x10000; the dump holds 0x1000/0x10/0x10000 in 0x1436F0028, 0x143AC3DC8, 0x1436F0030). Added to `import_stubs.json` with evidence, mirrored in `xlate.import_model_lines` (`sysinfo`), `test_strstr_model.py` SystemInfoModel. These replace no PES function.
+
+(rest of the report: see the final version)
+
+## Final status (from the agent's closing message; the sections above are a draft)
+
+Tip `de842f54` (Main committed the agent's uncommitted work as a WIP checkpoint: the layer is from the 09:45 regeneration; regenerate before building).
+- **Clean jemalloc boot (written, not passing):** `PesFoxWorld::Boot()` zeroes PES's allocator `.bss` runs `0x1436DCEB0..0x1436DD294` and `0x143AC2810..0x143AC3DD0` and calls PES's translated `malloc_init_hard` `FUN_14038EE80`; no allocator function is replaced. OS import models for what the init calls: `getenv` (NULL), `GetSystemInfo` (0x1000 / 16 / 0x10000), `TlsAlloc` (lowest clear bit of the PEB TLS bitmap, 9 slots taken), each from the live dump's values; `TlsAllocModel`/`SystemInfoModel` 29/29. The load test stopped at an untranslated `TlsAlloc` through `.impdata` slot `0x15B960E60` (from `0x143E114E0`); the fix is written, not built or run.
+- **Real proofs:** `0x141EB5250` 2/2 on `pid3332804` seq007/008 (own-block 0.9032, not yet recorded in `results_animelayer.json`). `0x141ECA500`, `0x141EC8D30`, `0x141EA7A50`: no verdict. `0x141EC9AF0` excluded (spins in `SwitchToThread` on a lock the capture holds contended).
+- **Driver one-tick proof (SYNTHETIC, labelled):** PES's own bytes advance real `anime5_141EB49B0` states one tick; translated `0x141AF4650` vs PES on every phase call: 13/13 ×3 (base seq039 before and after one tick, seq325 after one tick), 0 mismatches, own-block 0.81–0.84. Tools `adjtick.py`, `run_tick.sh` in the scratch dir. Not recorded.
+- **Clip push (unbuilt):** `PesFoxWorld::IssueMotion` calls the record pusher `FUN_141AF61C0` then SetSpeed `FUN_141AF6E40`; `PlayIssuedClip` takes a `MotionRequest` and calls `Match::PesAnimeIssue` in PES mode; the MOVESTEP parametric path keeps a named `ponytail:`.
+- **Not done:** per-player graph, `pes_anime_engine_test`, render check (a Godot frame is required; `plot_engine_pose.py` only plots joints), ledger/generator checks, smokes, gate. Do not land: the wiring builds the engine world on first use, so every PES-mode match aborts until the load passes. The pes-loop smoke also needs TeamTick's keeper unit `0x142132E20`.
