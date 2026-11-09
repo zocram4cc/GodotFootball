@@ -12,6 +12,7 @@
 static constexpr uint8_t k_t1414A8AE0_1C[28] = {0xD5, 0x8A, 0x4A, 0x01, 0xD5, 0x8A, 0x4A, 0x01, 0xD5, 0x8A, 0x4A, 0x01, 0xD5, 0x8A, 0x4A, 0x01, 0xD5, 0x8A, 0x4A, 0x01, 0xD5, 0x8A, 0x4A, 0x01, 0xCC, 0xCC, 0xCC, 0xCC};
 
 void pes_fn_1414A8A50(PesState& s);
+void pes_fn_1403B1020(PesState& s);
 void pes_fn_1403B2860(PesState& s);
 void pes_fn_1403B29D0(PesState& s);
 
@@ -46,7 +47,7 @@ void pes_fn_1414A8A50(PesState& s) {
   L_1414A8A90:;
   s.gpr[2] = (uint64_t)(uint32_t)((4ULL));
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x20ULL)));
-  /*OUT-OF-SET CALL 0x1403B1020*/ pes_dispatch_missing(0x1403B1020);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403B1020(s); s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false; }
