@@ -3,6 +3,7 @@ extends Node3D
 ## Args after `--`: --pes21-root DIR --face ID [--team ID [--kit N]] [--clip NAME|0xHASH] [--in-place]
 ##   [--hide PART,...] [--number N --name NAME] [--yaw DEG] [--edit-save EDIT00000000] [--distance M]
 ##   [--stadium N] [--weather W] [--time-zone T] [--season S] [--hour H] [--minute M] [--target-y M]
+##   [--engine-pose DUMP --engine-label LABEL]: poses the skeleton with PES's anime engine output (GF_ENGINE_POSE_DUMP of pes_anime_engine_test)
 ## Each player's look comes from the user's save. --distance moves the camera (default 3.2 m, the
 ## whole figure; about 1.5 m frames a kit). The light is the stadium's rig, as match.tscn builds it
 ## (PesLighting), with match.gd's defaults. With --team the player is assembled as PES does
@@ -24,6 +25,8 @@ var skeleton: Skeleton3D
 var animation: PesAnimation
 var in_place := false
 var clock := 0.0
+var engine_pose := {}  # --engine-pose: {"root": Vector3, "local": Array of Quaternion} from a pes_anime_engine_test dump
+const ENGINE_JOINT_FLOATS := 7  # a dump row's per-joint floats: position (3), rotation x y z w (4)
 
 
 func _ready() -> void:
@@ -72,13 +75,55 @@ func _ready() -> void:
 			get_tree().quit(1)
 			return
 		print("clip ", args["clip"], ": ", animation.length_seconds(), " s")
+	if args.has("engine-pose"):
+		engine_pose = _read_engine_pose(args["engine-pose"], args.get("engine-label", "idle"))
+		if engine_pose.is_empty():
+			push_error("engine pose not found: %s %s" % [args["engine-pose"], args.get("engine-label", "idle")])
+			get_tree().quit(1)
+			return
+		_apply_engine_pose()
 
 
 func _process(delta: float) -> void:
+	if not engine_pose.is_empty():
+		_apply_engine_pose()
 	if animation == null:
 		return
 	clock += delta
 	animation.apply(skeleton, fmod(clock, animation.length_seconds()), in_place)
+
+
+# The pose PES's anime engine left in a player's control (pes_anime_engine_test with GF_ENGINE_POSE_DUMP): per rig joint the model-space
+# position and rotation in PES axes (y up, z forward), the skeleton's own space. A bone's local rotation is its parent's model rotation
+# taken off its own; the body joint (the root) takes the engine's position.
+func _read_engine_pose(path: String, label: String) -> Dictionary:
+	var parents := PackedInt32Array()
+	var pose := {}
+	for line in FileAccess.get_file_as_string(path).split("\n", false):
+		var p := line.split(" ", false)
+		if p[0] == "parents":
+			for i in range(1, p.size()):
+				parents.append(int(p[i]))
+		elif p[0] == "pose" and p[1] == label:
+			var rotations: Array[Quaternion] = []
+			var root := Vector3.ZERO
+			for j in range((p.size() - 2) / ENGINE_JOINT_FLOATS):
+				var at := 2 + j * ENGINE_JOINT_FLOATS
+				if j == 0:
+					root = Vector3(float(p[at]), float(p[at + 1]), float(p[at + 2]))
+				rotations.append(Quaternion(float(p[at + 3]), float(p[at + 4]), float(p[at + 5]), float(p[at + 6])))
+			var local: Array[Quaternion] = []
+			for j in rotations.size():
+				local.append(rotations[j] if parents[j] < 0 else rotations[parents[j]].inverse() * rotations[j])
+			pose = {"root": root, "local": local}
+	return pose
+
+
+func _apply_engine_pose() -> void:
+	var local: Array = engine_pose["local"]
+	for j in local.size():
+		skeleton.set_bone_pose_rotation(j, local[j])
+	skeleton.set_bone_pose_position(0, engine_pose["root"])
 
 
 func _parse_args(raw: PackedStringArray) -> Dictionary:

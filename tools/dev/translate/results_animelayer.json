@@ -1,5 +1,5 @@
 {
- "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). REAL: 0x1423A1AC0 (4 calls, hook anime_phase3_1423A1AC0), 0x141AF61C0 (4, anime_pusher), 0x1423A1900 (4, anime_phase4), 0x1423A2260 (4, stage 0 nested in the phase-4 calls). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3), 0x141EC86D0. SYNTHETIC: 0x141AF4650 (BodyAnimControl::Exec phases over the four real anime_bones_141EB49B0 captures, live2/pid952648). REAL (AnimeLayer4, live2/pid3147592 + pid3125670 fox captures): 0x141EA7640 (5 calls), 0x141EA7190 (4), 0x141EA8430 (6), 0x1414A89E0 (3), 0x141AE77B0 (1).",
+ "note": "animelayer results. diffed = bit-exact vs the unicorn harness (snapdiff --bounded). REAL: 0x1423A1AC0 (4 calls, hook anime_phase3_1423A1AC0), 0x141AF61C0 (4, anime_pusher), 0x1423A1900 (4, anime_phase4), 0x1423A2260 (4, stage 0 nested in the phase-4 calls). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3). REAL (AnimeLayer3, live2/pid2740946 match-load captures): 0x141EB5250 (4 calls), 0x141AF7AB0 (3), 0x141EC8D30 (1), 0x141AE87F0 (3), 0x141EC86D0. SYNTHETIC: 0x141AF4650 (BodyAnimControl::Exec phases over the four real anime_bones_141EB49B0 captures, live2/pid952648). REAL (AnimeLayer4, live2/pid3147592 + pid3125670 fox captures): 0x141EA7640 (5 calls), 0x141EA7190 (4), 0x141EA8430 (6), 0x1414A89E0 (3), 0x141AE77B0 (1). AnimeLayer7 (live2/pid3332804): REAL 0x141ECA500 (1), 0x141EB5250 (+2), 0x141EC8D30 (+1); SYNTHETIC 0x141AF4650 (+39, one-tick states). AnimeLayer7: REAL 0x141AF6E40 (4 calls), 0x141EA7A50 (2).",
  "results": [
   {
    "aborted": 0,
@@ -8,9 +8,9 @@
    "closure_file": "closure_animelayer.json",
    "coverage": {
     "0x141AF4650": {
-     "fraction": 0.8065,
-     "reached": 25,
-     "total": 31
+     "reached": 26,
+     "total": 31,
+     "fraction": 0.8387
     }
    },
    "dead_blocks": {},
@@ -19,18 +19,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: 49 SYNTHETIC calls (13 phases x 4 kickers, 3 ph9 excluded), 0 mismatches, own-block 25/31.",
+   "note": "proof snapdiff --bounded: 49 SYNTHETIC calls (13 phases x 4 kickers, 3 ph9 excluded), 0 mismatches, own-block 25/31. AnimeLayer7 adds 39 SYNTHETIC calls: one-tick states (PES's own bytes advance a real anime5_141EB49B0 state one tick in unicorn, adjtick.py; 13 phases each over live2/pid3332804 seq039 before and after one tick and seq325 after one tick), 0 mismatches.",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 49,
+    "calls": 88,
     "mismatches": 0,
     "own_block": {
-     "fraction": 0.8065,
-     "reached": 25,
-     "total": 31
+     "reached": 26,
+     "total": 31,
+     "fraction": 0.8387
     },
-    "replayed": 49,
+    "replayed": 88,
     "source": "tools/dev/translate/results_animelayer.json"
    },
    "stubs": [],
@@ -241,18 +241,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: 1 REAL call of FUN_141EC8D30 (hook anime_load_141EC8D30, live2/pid2740946 seq1052): the other caller of the registry insert FUN_141EC86D0. Own-block 32/46 (the unreached blocks are the second caller path).",
+   "note": "proof snapdiff --bounded: 1 REAL call of FUN_141EC8D30 (hook anime_load_141EC8D30, live2/pid2740946 seq1052): the other caller of the registry insert FUN_141EC86D0. Own-block 32/46 (the unreached blocks are the second caller path). AnimeLayer7 adds 1 REAL call (hook anime5_141EC8D30, live2/pid3332804 seq005).",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 1,
+    "calls": 2,
     "mismatches": 0,
     "own_block": {
      "reached": 32,
      "total": 46,
      "fraction": 0.6957
     },
-    "replayed": 1,
+    "replayed": 2,
     "source": "tools/dev/translate/results_animelayer.json"
    },
    "stubs": [],
@@ -315,18 +315,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: 4 REAL calls of the player's anime constructor FUN_141EB5250(P, \"body\", collision object, callback) (hook anime_ctor_141EB5250, live2/pid2740946 seq1060 seq1062 seq1064 (tid 980) and seq1120 (tid 984); 0 mismatches over ~393k written bytes each; 418-425 reached targets). First run: 3/4 and seq1062 read 0 from the heap's region-size reciprocal table 0x142581380 (the read starts 12 bytes below it, inside the neighbouring baked table's window): ro_tables.json 0x142581374 now declares it and the 4 calls match; with the entry removed again the 1062 case mismatches (the red run). Replaces the 2 SYNTHETIC cases. Own-block 28/31.",
+   "note": "proof snapdiff --bounded: 4 REAL calls of the player's anime constructor FUN_141EB5250(P, \"body\", collision object, callback) (hook anime_ctor_141EB5250, live2/pid2740946 seq1060 seq1062 seq1064 (tid 980) and seq1120 (tid 984); 0 mismatches over ~393k written bytes each; 418-425 reached targets). First run: 3/4 and seq1062 read 0 from the heap's region-size reciprocal table 0x142581380 (the read starts 12 bytes below it, inside the neighbouring baked table's window): ro_tables.json 0x142581374 now declares it and the 4 calls match; with the entry removed again the 1062 case mismatches (the red run). Replaces the 2 SYNTHETIC cases. Own-block 28/31. AnimeLayer7 adds 2 REAL calls on the 09-11-26 live launch (hook anime5_141EB5250, live2/pid3332804 seq007 seq008, 0 mismatches).",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 4,
+    "calls": 6,
     "mismatches": 0,
     "own_block": {
      "reached": 28,
      "total": 31,
      "fraction": 0.9032
     },
-    "replayed": 4,
+    "replayed": 6,
     "source": "tools/dev/translate/results_animelayer.json"
    },
    "stubs": [],
@@ -554,6 +554,117 @@
    "stubs": [],
    "translated": true,
    "va": "0x1414A89E0",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141ECA500": {
+     "reached": 22,
+     "total": 26,
+     "fraction": 0.8462
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 1 REAL call of the FoxAni body registrar FUN_141ECA500(owner) (hook anime5_141ECA500, live2/pid3332804 seq006): FUN_141EC86D0(registry, \"body\", \"cpk_dat/common/anime/FoxAnim/Body/\", \"Project.hkx\") then FUN_141EBCB10; the replay needs frame_trace --budget 1500000000 (the registry insert is heavy).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 22,
+     "total": 26,
+     "fraction": 0.8462
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141ECA500",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141EA7A50": {
+     "reached": 39,
+     "total": 76,
+     "fraction": 0.5132
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 2 REAL calls of the fox name queue FUN_141EA7A50 (hook anime5_141EA7A50, live2/pid3317578 seq017 seq018: the calls the preload FUN_141EC9AF0 makes).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 39,
+     "total": 76,
+     "fraction": 0.5132
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EA7A50",
+   "bounded": true
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x141AF6E40": {
+     "reached": 14,
+     "total": 43,
+     "fraction": 0.3256
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 4 REAL calls of SetSpeed FUN_141AF6E40(A, rate, layer, records) (hook anime7_setspeed_141AF6E40, live2/pid4152866 seq002 seq003 seq004 seq008; the first call and calls 21, 41, 101 of the match): the layer's rate written for the selected records. Own-block 14/43: the other blocks are the arms for the other layers.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 43,
+     "fraction": 0.3256
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141AF6E40",
    "bounded": true
   }
  ]

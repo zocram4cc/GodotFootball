@@ -22,7 +22,7 @@ def main():
             parents = [int(v) for v in p[1:]]
         elif p[0] == "pose" and (not only or p[1] in only):
             v = [float(x) for x in p[2:]]
-            poses.append((p[1], [v[i:i + 3] for i in range(0, len(v), 3)]))
+            poses.append((p[1], [v[i:i + 3] for i in range(0, len(v), 7)]))
     cols = min(4, len(poses))
     rows = (len(poses) + cols - 1) // cols
     fig, axes = plt.subplots(rows, cols * 2, figsize=(3.2 * cols * 2, 4.2 * rows), squeeze=False)

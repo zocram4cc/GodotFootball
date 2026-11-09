@@ -1,5 +1,5 @@
 {
- "note": "the functions snapdiff --bounded built for the proofs of 0x141AF4650 (BodyAnimControl::Exec(phase), 49 SYNTHETIC calls over the four anime_bones kicker captures live2/pid952648 seq3154 3160 3164 3170), 0x141AF61C0 (SetMotion's record pusher: 4 REAL calls, live2/pid2392772 seq001 858, pid2336073 seq6436, pid2254416 seq17301), 0x1423A1900 (phase 4: 4 REAL calls, live2/pid2336073 seq901 1724 3317 3480) and 0x1423A2260 (the stage runner: its 4 REAL stage-0 calls nested in those phase-4 calls); union of the members lists; 0x141EB5250 (the player's anime construction: BodyAnimControl, AnimControl, the 11 plugins, Model clone; 2 SYNTHETIC calls, a second construction on the real player's P in the ctor-time states live2/pid2336073 seq6436 and live2/pid2392772 seq858, run in two separate bounded replays: 402 and 413 targets, union of both). AnimeLayer3 adds the members of the five loader/constructor proofs on the pid2740946 match-load captures. AnimeLayer3 adds the members of the five loader/constructor proofs on the pid2740946 match-load captures. AnimeLayer4 adds the members of the four fox file-load proofs (FUN_141EA7640 / 141EA7190 / 141EA8430 / 1414A89E0). AnimeLayer4 also adds the static closure of the fox file layer's boot constructors (FUN_14149A620, 1414A3550, 1414B08A0, 1414B0E90, 140222390, 1402223C0) and the handle's reader and decode stages (FUN_1414A9280, 1414A8F10): translated, not reached by any capture; the CRI Fs calls under the reader are GF services (stubs.json gf-service). 0x140288160 (called from 0x1402B0360) and its callee 0x1403BB670 (held out since AnimeLayer3: its closure reaches the harness-recorded translator bug 0x14037CB50) are not members: 0x1402B0360's call to 0x140288160 stays the loud abort. 0x140388760 (a bridge row over data: ENTER/FMUL/INSB decode noise) is not a member. Not members (live reads of read-only image bytes the translator does not bake): 0x1403A7290 and 0x1403B1020 (PES heap internals: GF's native heap serves the allocator), 0x1415A1AD4 (the CRI library's error reporter); calls to them stay the loud abort. Survey-driven additions (GF_PES_SURVEY on the end-to-end load): the vector-constructor callbacks FUN_14149A5E0 / 14149A6C0 and the CRT report helpers FUN_1415A1BB0 / 1415A1F2C with their closures. AnimeLayer5 adds 0x1415A1F7C (the CRT leave-lock helper the fox job's delete reaches) and the preload FUN_141EC9AF0 with the queue FUN_141EA7A50 and their untranslated callees (translated, not yet proven on a real call).",
+ "note": "the functions snapdiff --bounded built for the proofs of 0x141AF4650 (BodyAnimControl::Exec(phase), 49 SYNTHETIC calls over the four anime_bones kicker captures live2/pid952648 seq3154 3160 3164 3170), 0x141AF61C0 (SetMotion's record pusher: 4 REAL calls, live2/pid2392772 seq001 858, pid2336073 seq6436, pid2254416 seq17301), 0x1423A1900 (phase 4: 4 REAL calls, live2/pid2336073 seq901 1724 3317 3480) and 0x1423A2260 (the stage runner: its 4 REAL stage-0 calls nested in those phase-4 calls); union of the members lists; 0x141EB5250 (the player's anime construction: BodyAnimControl, AnimControl, the 11 plugins, Model clone; 2 SYNTHETIC calls, a second construction on the real player's P in the ctor-time states live2/pid2336073 seq6436 and live2/pid2392772 seq858, run in two separate bounded replays: 402 and 413 targets, union of both). AnimeLayer3 adds the members of the five loader/constructor proofs on the pid2740946 match-load captures. AnimeLayer3 adds the members of the five loader/constructor proofs on the pid2740946 match-load captures. AnimeLayer4 adds the members of the four fox file-load proofs (FUN_141EA7640 / 141EA7190 / 141EA8430 / 1414A89E0). AnimeLayer4 also adds the static closure of the fox file layer's boot constructors (FUN_14149A620, 1414A3550, 1414B08A0, 1414B0E90, 140222390, 1402223C0) and the handle's reader and decode stages (FUN_1414A9280, 1414A8F10): translated, not reached by any capture; the CRI Fs calls under the reader are GF services (stubs.json gf-service). 0x140288160 (called from 0x1402B0360) and its callee 0x1403BB670 (held out since AnimeLayer3: its closure reaches the harness-recorded translator bug 0x14037CB50) are not members: 0x1402B0360's call to 0x140288160 stays the loud abort. 0x140388760 (a bridge row over data: ENTER/FMUL/INSB decode noise) is not a member. Not members (live reads of read-only image bytes the translator does not bake): 0x1403A7290 and 0x1403B1020 (PES heap internals: GF's native heap serves the allocator), 0x1415A1AD4 (the CRI library's error reporter); calls to them stay the loud abort. Survey-driven additions (GF_PES_SURVEY on the end-to-end load): the vector-constructor callbacks FUN_14149A5E0 / 14149A6C0 and the CRT report helpers FUN_1415A1BB0 / 1415A1F2C with their closures. AnimeLayer5 adds 0x1415A1F7C (the CRT leave-lock helper the fox job's delete reaches) and the preload FUN_141EC9AF0 with the queue FUN_141EA7A50 and their untranslated callees (translated, not yet proven on a real call). AnimeLayer7 adds the members of the 0x141ECA500 / 0x141EC8D30 / 0x141EB5250 / 0x141AF4650 proofs on the 09-11-26 captures.",
  "roots": [
   "0x141AF4650",
   "0x141AF61C0",
@@ -22,7 +22,10 @@
   "0x140222390",
   "0x1402223C0",
   "0x1414A9280",
-  "0x1414A8F10"
+  "0x1414A8F10",
+  "0x141ECA500",
+  "0x141EA7A50",
+  "0x141AF6E40"
  ],
  "members": [
   "0x140222390",
@@ -886,6 +889,7 @@
   "0x140FFF000",
   "0x141007D20",
   "0x141009BF0",
+  "0x141070370",
   "0x1410715A0",
   "0x1410717F0",
   "0x141147540",
@@ -1002,6 +1006,7 @@
   "0x1415C50E0",
   "0x1415C5840",
   "0x1415CA3B0",
+  "0x1415CA5E0",
   "0x1415CC2D0",
   "0x1415CD0F0",
   "0x1415CE3F0",
@@ -1083,6 +1088,7 @@
   "0x141AF2BC0",
   "0x141AF3190",
   "0x141AF3300",
+  "0x141AF3AA0",
   "0x141AF3D00",
   "0x141AF3F00",
   "0x141AF3FD0",
@@ -1307,6 +1313,7 @@
   "0x141B39400",
   "0x141B39420",
   "0x141E532D0",
+  "0x141EA01E0",
   "0x141EA6610",
   "0x141EA66B0",
   "0x141EA6960",
@@ -1454,6 +1461,7 @@
   "0x1423A75E0",
   "0x1423A7620",
   "0x1423A8530",
+  "0x1423A8540",
   "0x1423AAD80",
   "0x1423AAF90",
   "0x1423AB2F0",
@@ -1464,6 +1472,7 @@
   "0x1423AC830",
   "0x1423AD3B0",
   "0x1423ADB20",
+  "0x1423ADB30",
   "0x1423B0F60",
   "0x1423B1050",
   "0x1423B1190",

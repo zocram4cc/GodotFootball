@@ -8,9 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x15B960E60 (8 bytes)
-static constexpr uint64_t k_c15B960E60_q = 0x00006FFFFF9D0EECULL;
-static constexpr double k_c15B960E60_d = 6.0841860114914e-310; // 6.0841860114914e-310
 
 void pes_fn_143E114E0(PesState& s);
 void pes_fn_1403AB610(PesState& s);
@@ -22,10 +19,7 @@ void pes_fn_143E114E0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[4] = (uint64_t)(_r);
   }
-  { uint64_t _t = (uint64_t)(k_c15B960E60_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); uint64_t _peb = s.rd(s.gs_base + 0x60ULL, 8); uint64_t _bits = s.rd(_peb + 0x328ULL, 8); s.gpr[1] = _bits; s.gpr[2] = ~_bits; if (s.gpr[2] == 0) { s.gpr[0] = 0xFFFFFFFFULL; } else { uint64_t _i = (uint64_t)__builtin_ctzll(s.gpr[2]); s.gpr[2] = _i; s.gpr[1] = _bits | (1ULL << _i);   s.wr(_peb + 0x328ULL, s.gpr[1], 8); s.gpr[0] = _i; } s.gpr[4] += 8; }
   s.wr(0x143AC2814ULL, (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)((0ULL - 1ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -52,10 +46,7 @@ void pes_fn_143E114E0(PesState& s) {
       { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403AB610(s); s.gpr[4] += 8; }
     }
     s.wr(0x1436DD278ULL, (uint64_t)((1ULL)), 1);
-    { uint64_t _t = (uint64_t)(k_c15B960E60_q); PesDispatch _d = pes_dispatch_lookup(_t);
-      if (_d.fn == 0) pes_dispatch_missing(_t);
-      s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-      s.gpr[4] += 8; }
+    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); uint64_t _peb = s.rd(s.gs_base + 0x60ULL, 8); uint64_t _bits = s.rd(_peb + 0x328ULL, 8); s.gpr[1] = _bits; s.gpr[2] = ~_bits; if (s.gpr[2] == 0) { s.gpr[0] = 0xFFFFFFFFULL; } else { uint64_t _i = (uint64_t)__builtin_ctzll(s.gpr[2]); s.gpr[2] = _i; s.gpr[1] = _bits | (1ULL << _i);   s.wr(_peb + 0x328ULL, s.gpr[1], 8); s.gpr[0] = _i; } s.gpr[4] += 8; }
     s.wr(0x143AC2810ULL, (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
     { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)((0ULL - 1ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

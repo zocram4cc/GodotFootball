@@ -240,7 +240,7 @@ void pes_fn_14038EE80(PesState& s) {
                     s.gpr[3] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
                     return;
                   } else {
-                    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 9ULL; s.gpr[4] += 8; }
+                    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); uint64_t _peb = s.rd(s.gs_base + 0x60ULL, 8); uint64_t _bits = s.rd(_peb + 0x328ULL, 8); s.gpr[1] = _bits; s.gpr[2] = ~_bits; if (s.gpr[2] == 0) { s.gpr[0] = 0xFFFFFFFFULL; } else { uint64_t _i = (uint64_t)__builtin_ctzll(s.gpr[2]); s.gpr[2] = _i; s.gpr[1] = _bits | (1ULL << _i);   s.wr(_peb + 0x328ULL, s.gpr[1], 8); s.gpr[0] = _i; } s.gpr[4] += 8; }
                     s.wr(0x143AC3DCCULL, (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
                     { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)((0ULL - 1ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
                       s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

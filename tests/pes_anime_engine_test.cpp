@@ -219,11 +219,15 @@ TEST_F(AnimeEngine, ThePosesTheRenderCheckPlotsAreWrittenWhenAskedFor) {
   ASSERT_NE(out, nullptr);
   std::fprintf(out, "parents");
   for (uint32_t j = 0; j < kJointCount; ++j) std::fprintf(out, " %d", rig->bones[j].parent);
+  std::fprintf(out, "\nnames");
+  for (uint32_t j = 0; j < kJointCount; ++j) std::fprintf(out, " %s", rig->bones[j].gfName.c_str());
   std::fprintf(out, "\n");
+  // One row per pose: per joint the model-space position (x y z) and rotation (x y z w), PES axes (y up, z forward).
   const auto write = [&](const char* label, const pes::PesJointPose& pose) {
     std::fprintf(out, "pose %s", label);
     for (uint32_t j = 0; j < kJointCount; ++j)
-      std::fprintf(out, " %.5f %.5f %.5f", pose.position[j][0], pose.position[j][1], pose.position[j][2]);
+      std::fprintf(out, " %.6f %.6f %.6f %.6f %.6f %.6f %.6f", pose.position[j][0], pose.position[j][1], pose.position[j][2],
+                   pose.rotation[j][0], pose.rotation[j][1], pose.rotation[j][2], pose.rotation[j][3]);
     std::fprintf(out, "\n");
   };
   write("idle", PoseAfter(-1, 1.0f, kIssueFrames));
