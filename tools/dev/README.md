@@ -72,18 +72,12 @@ an unrelated change selects nothing.
 
 ### Diff caches
 
-Each `driver.py --check` keeps two caches under its out dir (`<build>/<set>-check/cache/`, never in `gen/`, which every run
+Each `driver.py` run keeps two caches under its cache root (`GF_DIFF_CACHE`, which `gate.sh` shares across worktrees; else `<out dir>/cache/`), never in `gen/`, which every run
 regenerates). A hit gives exactly what the uncached step gives; whatever cannot be shown unchanged runs as before
 (`translate/buildcache.py` has the keys and the validity rules).
 
-- **Objects** (`cache/obj/<sha256>.o`): one object per translation unit, keyed by the compiler, the flags, the TU's bytes and
-  the bytes of every build-tree header it includes (transitively). A build compiles its TUs in parallel (`--cc-jobs`, default 4,
-  across the whole run) and links them. A TU is shared across VAs with identical content.
-- **Corpus** (`cache/corpus/<sha256>/`): `run.py`'s outputs for one VA (corpus, trace, addresses, aborts), keyed by the image,
-  the spec, this VA's seed and bank files, `run.py`, the harness interpreter and the flags. A hit also needs every file the run
-  read (its data files, the modules it loaded, the libraries it mapped) to hash as recorded, and every decode it took from
-  `xlate` (`capstone_decode`, `CCMAP`) to recompute as recorded. So a translator-only change (`xlate.py`, `flow.py`, `pdata.py`,
-  `gen_translated.py`, the layer) hits; a change to anything `run.py` reads misses. Failed runs are never kept.
+- **Objects** (`obj/<sha256>.o` under the cache root): one object per translation unit, keyed by the compiler, the flags, the TU's bytes and the bytes of every build-tree header it includes (transitively). A build compiles its TUs in parallel (`--cc-jobs`, default 4, across the whole run) and links them. A TU is shared across VAs with identical content. A hit touches its object; each run trims the directory to `OBJECT_CAP_BYTES` (4 GiB), least recently used first.
+- **Records** (`records/<key>/<digest>/`): `run.py`'s outputs for one VA (corpus, trace, addresses, aborts), keyed by the image, the spec, this VA's seed and bank files, `run.py`, the harness interpreter and the flags. Every file `run.py` opens is digested at the open, and a file that changed while the run was in flight leaves no record. A hit also needs every file the run read (its data files, the modules it loaded, the libraries it mapped) to hash as recorded, and every decode it took from `xlate` (`capstone_decode`, `CCMAP`) to recompute as recorded. `stubs.json` counts only through the models `run.py` installs (VA and `do`) and the specs' `stub_refs`, so an edit to any other entry keeps every record. A translator-only change (`xlate.py`, `flow.py`, `pdata.py`, `gen_translated.py`, the layer) hits; a change to anything `run.py` reads misses, and a change to `buildcache.py` misses everything (it is the recorder). Failed runs are never kept. Records are trimmed to `CORPUS_CAP_BYTES` (10 GiB), least recently used first.
 - A layer header edit misses the objects of the TUs that include it and hits the corpus. To reset, delete
   `<build>/<set>-check/cache`. The driver ends with `driver: cache corpus hit=N miss=M object compiled=N hit=N`.
 
