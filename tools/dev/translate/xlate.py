@@ -553,6 +553,14 @@ def import_model_lines(op, jump):
         # +0x20, dwAllocationGranularity +0x28), no register or flag touched.
         return ["{ " + push_ret + " s.wr(s.gpr[1] + 4ULL, 0x1000ULL, 4); s.wr(s.gpr[1] + 0x20ULL, 0x10ULL, 4);"
                 " s.wr(s.gpr[1] + 0x28ULL, 0x10000ULL, 4);%s }" % pop_ret]
+    if e["do"] == "tlsalloc":
+        # TlsAlloc(), the code_hex model register for register: the lowest clear bit of PEB.TlsBitmapBits (PEB = gs:[0x60], bits at +0x328) is set
+        # and returned (rax); rcx = the new bits (the old when all 64 are taken, rax = -1); rdx = the bsf result (the inverted bits, 0, when none).
+        return ["{ " + push_ret + " uint64_t _peb = s.rd(s.gs_base + 0x60ULL, 8); uint64_t _bits = s.rd(_peb + 0x328ULL, 8);"
+                " s.gpr[1] = _bits; s.gpr[2] = ~_bits;"
+                " if (s.gpr[2] == 0) { s.gpr[0] = 0xFFFFFFFFULL; }"
+                " else { uint64_t _i = (uint64_t)__builtin_ctzll(s.gpr[2]); s.gpr[2] = _i; s.gpr[1] = _bits | (1ULL << _i);"
+                "   s.wr(_peb + 0x328ULL, s.gpr[1], 8); s.gpr[0] = _i; }%s }" % pop_ret]
     if e["do"] == "tebread":
         # DWORD read from the thread block at gs:[offset], zero-extended into rax (GetLastError: TEB.LastErrorValue).
         off = int(str(e["offset"]), 0)

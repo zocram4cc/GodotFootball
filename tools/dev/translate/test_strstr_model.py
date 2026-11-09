@@ -12,7 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import frame_trace as ft  # noqa: E402
 from unicorn import Uc, UC_ARCH_X86, UC_MODE_64  # noqa: E402
-from unicorn.x86_const import UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_R8, UC_X86_REG_RSP  # noqa: E402
+from unicorn.x86_const import UC_X86_REG_GS_BASE, UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_R8, UC_X86_REG_RSP  # noqa: E402
 
 CODE, DATA, STACK = 0x10000, 0x20000, 0x30000
 RET = CODE + 0x800
@@ -182,6 +182,35 @@ class WaitModel(unittest.TestCase):
 
     def test_finite_timeout_expires(self):
         self.assertEqual(self.wait(1000), 0x102)
+
+
+class TlsAllocModel(unittest.TestCase):
+    """KERNEL32 TlsAlloc: the lowest clear bit of the PEB's TlsBitmapBits (PEB = gs:[0x60], bits at +0x328), set and returned; -1 when all 64 are taken."""
+
+    TEB, PEB = DATA + 0x800, DATA + 0x200
+
+    def call(self, bits):
+        model = ft.load_import_models()[("kernel32.dll", "TlsAlloc")]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, model)
+        mu.mem_map(DATA, 0x1000)
+        mu.mem_write(self.TEB + 0x60, struct.pack("<Q", self.PEB))
+        mu.mem_write(self.PEB + 0x328, struct.pack("<Q", bits))
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.reg_write(UC_X86_REG_GS_BASE, self.TEB)
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.emu_start(CODE, RET, count=100)
+        return mu.reg_read(UC_X86_REG_RAX), struct.unpack("<Q", bytes(mu.mem_read(self.PEB + 0x328, 8)))[0]
+
+    def test_takes_the_lowest_clear_bit(self):
+        self.assertEqual(self.call(0x1FF), (9, 0x3FF))
+        self.assertEqual(self.call(0b10110111), (3, 0b10111111))
+
+    def test_a_full_bitmap_returns_minus_one_and_changes_nothing(self):
+        self.assertEqual(self.call(0xFFFFFFFFFFFFFFFF), (0xFFFFFFFF, 0xFFFFFFFFFFFFFFFF))
 
 
 class SystemInfoModel(unittest.TestCase):

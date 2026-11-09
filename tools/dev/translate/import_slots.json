@@ -1945,6 +1945,11 @@
   },
   "0x143AA0F20": {
    "kind": "null"
+  },
+  "0x15B960E60": {
+   "export": "TlsAlloc",
+   "kind": "export",
+   "module": "kernel32.dll"
   }
  }
 }

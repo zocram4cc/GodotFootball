@@ -479,11 +479,12 @@
     {
       "module": "kernel32.dll",
       "export": "TlsAlloc",
-      "do": "return",
-      "value": 9,
+      "do": "tlsalloc",
+      "code_hex": "65488b042560000000488b88280300004889ca48f7d2480fbcd2740e480fabd14889882803000089d0c3b8ffffffffc3",
       "why": [
-        "DWORD TlsAlloc(void): PES's jemalloc stores the key at 0x143AC3DCC (0x14038EF90: `DAT_143ac3dcc = (*DAT_14252f6b0)()`) and every allocator call reads its thread cache through TlsGetValue(key).",
-        "EVIDENCE: the live dump holds 9 at 0x143AC3DCC, the value this very call returned in the live process. Model assumption: one call per boot, so the constant is the index; it is below 64 (TEB +0x1480 slots, the tls_get / tls_set models)."
+        "DWORD TlsAlloc(void): Windows hands out the lowest clear bit of the process's TLS bitmap (PEB+0x240 RTL_BITMAP, its first 64 bits are TlsBitmapBits at PEB+0x328) and sets it; -1 when the 64 are taken. Callers: PES's jemalloc, FUN_14038EE80 at 0x14038EF90 (`DAT_143ac3dcc = (*DAT_14252f6b0)()`, the tsd key) and its tcache boot thunk 0x143E114E0 (two calls, through the .impdata copy of the slot, 0x15B960E60, which holds the same export), whose results land in 0x143AC2814 and 0x143AC2810.",
+        "EVIDENCE: the live dump holds 9 at 0x143AC3DCC, 0xA at 0x143AC2814 and 0xB at 0x143AC2810: the three calls returned 9, 10, 11 in that order, so the process's bits 0..8 were taken when the allocator started. PesFoxWorld seeds its PEB's TlsBitmapBits with 0x1FF for that reason (the one assumed number: the nine slots the loader had taken).",
+        "Model: gs:[0x60] is the PEB; rax = index (or -1), rcx = the new bits, rdx = the index (bsf's), flags clobbered. An index of 64 or more (TlsExpansionSlots) is not modelled: all 64 taken returns -1."
       ]
     },
     {

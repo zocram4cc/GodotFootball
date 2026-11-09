@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdio>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -21,6 +22,7 @@
 #include "pes/translated/translated.hpp"
 #include "pes/vfs.hpp"
 #include "pes_state.hpp"
+#include "rig/rig.hpp"
 
 namespace {
 
@@ -203,6 +205,30 @@ TEST_F(AnimeEngine, AnIssuedMotionMovesThePoseOffTheIdleOneAndTheSameIssueMovesI
     moved = std::memcmp(&idle, &first, sizeof idle) != 0;
   }
   EXPECT_TRUE(moved) << "no issued motion left the idle pose";
+}
+
+TEST_F(AnimeEngine, ThePosesTheRenderCheckPlotsAreWrittenWhenAskedFor) {
+  // The AGENTS.md render check: GF_ENGINE_POSE_DUMP=<file> writes the rig's parent joints and the 20 joint positions of the idle pose and of
+  // every motion probed, for tools/dev/render/plot_engine_pose.py. Nothing is written (and nothing asserted) without the variable.
+  const char* path = std::getenv("GF_ENGINE_POSE_DUMP");
+  if (!path || !*path) GTEST_SKIP() << "GF_ENGINE_POSE_DUMP unset";
+  std::string error;
+  const auto rig = pesrig::BuildRig(*vfs_, &error);
+  ASSERT_TRUE(rig.has_value()) << error;
+  FILE* out = std::fopen(path, "w");
+  ASSERT_NE(out, nullptr);
+  std::fprintf(out, "parents");
+  for (uint32_t j = 0; j < kJointCount; ++j) std::fprintf(out, " %d", rig->bones[j].parent);
+  std::fprintf(out, "\n");
+  const auto write = [&](const char* label, const pes::PesJointPose& pose) {
+    std::fprintf(out, "pose %s", label);
+    for (uint32_t j = 0; j < kJointCount; ++j)
+      std::fprintf(out, " %.5f %.5f %.5f", pose.position[j][0], pose.position[j][1], pose.position[j][2]);
+    std::fprintf(out, "\n");
+  };
+  write("idle", PoseAfter(-1, 1.0f, kIssueFrames));
+  for (int motion = 0x100; motion <= 0x1100; motion += 0x100) write(std::to_string(motion).c_str(), PoseAfter(motion, 1.0f, kIssueFrames));
+  std::fclose(out);
 }
 
 TEST_F(AnimeEngine, TheHeapHoldsTheLoadAndTwentyTwoPlayers) {

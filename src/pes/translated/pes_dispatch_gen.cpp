@@ -5590,6 +5590,7 @@ void pes_fn_141AF4EB0(PesState& s);
 void pes_fn_141AF4EC0(PesState& s);
 void pes_fn_141AF5100(PesState& s);
 void pes_fn_141AF61C0(PesState& s);
+void pes_fn_141AF6E40(PesState& s);
 void pes_fn_141AF70F0(PesState& s);
 void pes_fn_141AF74E0(PesState& s);
 void pes_fn_141AF7880(PesState& s);
@@ -12483,6 +12484,7 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x141AF4EC0ULL: return {pes_fn_141AF4EC0};
     case 0x141AF5100ULL: return {pes_fn_141AF5100};
     case 0x141AF61C0ULL: return {pes_fn_141AF61C0};
+    case 0x141AF6E40ULL: return {pes_fn_141AF6E40};
     case 0x141AF70F0ULL: return {pes_fn_141AF70F0};
     case 0x141AF74E0ULL: return {pes_fn_141AF74E0};
     case 0x141AF7880ULL: return {pes_fn_141AF7880};

@@ -21,6 +21,10 @@ constexpr uint64_t kImageBase = 0x140000000ULL;
 constexpr uint64_t kStackVa = 0x2600000000ULL, kStackBytes = 0x100000;
 constexpr uint64_t kTebVa = 0x2610000000ULL, kTebBytes = 0x2000;
 constexpr uint64_t kTebSelfOffset = 0x30;  // gs:[0x30]: the thread block's own address (FlsGetValue and the last-error model read it)
+// The process block the TlsAlloc model reads (gs:[0x60] = PEB; PEB+0x328 = TlsBitmapBits, the first 64 slots): it sits at the end of the thread
+// block's window. The bits are the slots taken when PES's allocator started: its three TlsAlloc calls returned 9, 10 and 11 (the live dump holds
+// those at 0x143AC3DCC, 0x143AC2814 and 0x143AC2810, import_stubs.json), so slots 0..8 were taken.
+constexpr uint64_t kTebPebPointerOffset = 0x60, kPebOffsetInTeb = 0x1800, kPebTlsBitmapOffset = 0x328, kTlsSlotsTakenAtStart = 9;
 // Win64: rsp at a function's entry holds the return address and is 8 (mod 16); the shadow space and the stack arguments sit above it.
 constexpr uint64_t kEntryFrameBytes = 0x200;
 // import_stubs.json "os_arena": PES's jemalloc (FUN_1403CF740, under FUN_14029D370) gets its chunks from VirtualAlloc, which the translated
@@ -61,6 +65,9 @@ PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64
   }
   impl_->osArena = static_cast<uint8_t*>(arena);
   std::memcpy(impl_->teb.data() + kTebSelfOffset, &kTebVa, sizeof kTebVa);
+  const uint64_t pebVa = kTebVa + kPebOffsetInTeb, takenBits = (1ULL << kTlsSlotsTakenAtStart) - 1;
+  std::memcpy(impl_->teb.data() + kTebPebPointerOffset, &pebVa, sizeof pebVa);
+  std::memcpy(impl_->teb.data() + kPebOffsetInTeb + kPebTlsBitmapOffset, &takenBits, sizeof takenBits);
   pes_service_set_file_source(this);
 }
 
