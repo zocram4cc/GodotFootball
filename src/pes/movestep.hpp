@@ -389,6 +389,12 @@ struct RunTables {
   std::array<int32_t, 32> turnStopRow;    // FUN_1406ba0d0, kind + class*8, 0x1425ddb50
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
   std::array<int32_t, kRunStyleCount * 4> styleGroup;  // FUN_1406d2030's representative motion, DAT_1425ddcf0: style*4 + band/4
+  // FUN_1406b9aa0's three-segment curve (vt+0x48 of +0xac0), rate -> metres a second: the segment is the last knot at or below
+  // the rate; speed = G * base + (rate - knot) / span * slope * (segment < 2 ? G : 1).
+  std::array<float, 3> curveKnot;   // 0x1425dde30
+  std::array<float, 3> curveSpan;   // 0x1425dde40
+  std::array<float, 3> curveBase;   // 0x1425dde50
+  std::array<float, 3> curveSlope;  // 0x1425dde60
 };
 
 // FUN_1406b9e80's 11-knot piecewise-linear table at 0x1425de010: ten records
@@ -458,6 +464,7 @@ struct StepScalars {
   float one, half, full, wrapFull, halfTurn, negOne;
   float ticks60, scale1000;
   float four;   // 4, the STEP_LOOP_CHANGE distance clamp's ceiling (FUN_1406c6480, read at 0x1406c6b18)
+  float two;    // 2.0 (0x142565604): TURN_STOP's distance factor's floor
   float kmh5;
   float kmh8, kmh11, kmh13p5, kmh16, kmh20, kmh22, kmh3p6;
   float deg5p625, deg10, deg11p25, deg16p875, deg22p5, deg28p125, deg31p64, deg33p75;
@@ -636,10 +643,6 @@ class MoveHost {
   // Group C's install scalars (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP and the transitions), read from
   // the exe by VA by the group's loader (movestep_step.hpp).
   virtual const StepScalars& StepConstants() const = 0;
-  // PES's band speed for `band` at physique `g`, before the callers' speed3600 scale. Its source is not decoded: the
-  // candidate is the 11-knot rate curve at 0x1425DE010 (docs/re/pes-re-speed-inputs.md; the band-to-knot map is open).
-  // ponytail: the adapter stands the player's ground speed for every band until that source is decoded.
-  virtual float BandSpeedKmh(int band, float g) const = 0;
   // FUN_140a62960's answer for this player's record: the mirror bit for the side. ponytail: the adapter
   // supplies the GF stand-in until the record writer is ported.
   virtual bool MirrorChoice(bool sameTeam) const = 0;

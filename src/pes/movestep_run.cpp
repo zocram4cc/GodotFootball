@@ -156,6 +156,10 @@ constexpr uint64_t GOTO_ROW_VA = 0x1425dda50;        // FUN_1406b9bd0, kind*8+cl
 constexpr uint64_t TURNSTOP_ROW_VA = 0x1425ddb50;    // FUN_1406ba0d0, kind*8+class, 32 words
 constexpr uint64_t BUCKET_COLUMN_VA = 0x1425dd988;   // FUN_1406b9b20's column table, 10 words
 constexpr uint64_t STYLE_GROUP_VA = 0x1425ddcf0;     // FUN_1406d2030, style*4 + band/4: kRunStyleCount (17) styles x 4 members
+constexpr uint64_t CURVE_KNOT_VA = 0x1425dde30;      // FUN_1406b9aa0, 3 floats (the table's fourth, 1.0, is never compared)
+constexpr uint64_t CURVE_SPAN_VA = 0x1425dde40;      // FUN_1406b9aa0 0x1406b9af5, 3 floats
+constexpr uint64_t CURVE_BASE_VA = 0x1425dde50;      // FUN_1406b9aa0 0x1406b9aec, 3 floats
+constexpr uint64_t CURVE_SLOPE_VA = 0x1425dde60;     // FUN_1406b9aa0 0x1406b9afe, 3 floats
 
 // FUN_1406d5d60's three dwell immediates. They are instruction operands (movss off an immediate
 // stored on the stack), not .rdata floats, so they have no VA; the values are the ones the
@@ -297,7 +301,7 @@ void RunUpdateArm(MoveHost& host, MoveReq& req, const pes::RunTables& t, float s
   // Slot 0x68 is FUN_1406ba030 (the ladder's class), slot 0x48 the band's own speed.
   const int cls = ClassForRateFor(rate, t);
   req.SetU(moveword::kRateBand, static_cast<uint32_t>(cls));
-  req.SetF(moveword::kSpeedBand, host.BandSpeedKmh(cls, host.PhysiqueG()) * k.speed3600);
+  req.SetF(moveword::kSpeedBand, RateToSpeedFor(rate, host.PhysiqueG(), t, k.rampSlope) * k.speed3600);
   // Slot 0 of the +0xac0 interface is FUN_1406d2030 (group B's run entry).
   movestep::EnterRun(host, req, foot, false);
 }
@@ -311,10 +315,25 @@ int CommandClassFor(int command, const pes::RunTables& t) {
 // FUN_1406b9e50(_, band, kind): the band's rate from table UNK_1425dde10; band 0 with kind 3
 // or 6 has no rate (AS 3.1).
 float BandRateFor(int band, int kind, const pes::RunTables& t) {
+  // 0x1406b9e50: `cmp edx,3; ja zero` (unsigned, so a negative or too large band has no rate), then band 0 at kind 3 or 6.
+  if (static_cast<uint32_t>(band) > 3u) return 0.0f;
   if (band == 0 && (kind == 3 || kind == 6)) return 0.0f;
-  if (band < 0) return t.bandRate[0];
-  if (band > 3) return t.bandRate[3];
   return t.bandRate[band];
+}
+
+// FUN_1406b9aa0(rate, g) (vt+0x48 of +0xac0): the rate floored at the knot floor (0x1425c48a0), then the segment
+// (knots 0x1425dde30, last one at or below the rate) gives metres a second. 0x1406b9aa8: `comiss floor, rate; jb` keeps the
+// rate only when the floor is below it; 0x1406b9ad7 returns 0 when no knot is at or below.
+float RateToSpeedFor(float rate, float g, const pes::RunTables& t, float rateFloor) {
+  if (!(rateFloor < rate)) rate = rateFloor;
+  for (int i = 2; i >= 0; --i) {
+    if (t.curveKnot[i] <= rate) {
+      float slope = (rate - t.curveKnot[i]) / t.curveSpan[i] * t.curveSlope[i];
+      if (i < 2) slope *= g;
+      return g * t.curveBase[i] + slope;
+    }
+  }
+  return 0.0f;
 }
 
 // FUN_1406ba030(_, rate): the first ladder entry the rate is below, else the last class.
@@ -368,7 +387,11 @@ std::optional<RunTables> LoadRunTables(const PeImage& exe, std::string* error) {
       !exe.ReadVa(GOTO_ROW_VA, sizeof t.gotoRow, reinterpret_cast<uint8_t*>(t.gotoRow.data())) ||
       !exe.ReadVa(TURNSTOP_ROW_VA, sizeof t.turnStopRow, reinterpret_cast<uint8_t*>(t.turnStopRow.data())) ||
       !exe.ReadVa(BUCKET_COLUMN_VA, sizeof t.bucketColumn, reinterpret_cast<uint8_t*>(t.bucketColumn.data())) ||
-      !exe.ReadVa(STYLE_GROUP_VA, sizeof t.styleGroup, reinterpret_cast<uint8_t*>(t.styleGroup.data()))) {
+      !exe.ReadVa(STYLE_GROUP_VA, sizeof t.styleGroup, reinterpret_cast<uint8_t*>(t.styleGroup.data())) ||
+      !exe.ReadVa(CURVE_KNOT_VA, sizeof t.curveKnot, reinterpret_cast<uint8_t*>(t.curveKnot.data())) ||
+      !exe.ReadVa(CURVE_SPAN_VA, sizeof t.curveSpan, reinterpret_cast<uint8_t*>(t.curveSpan.data())) ||
+      !exe.ReadVa(CURVE_BASE_VA, sizeof t.curveBase, reinterpret_cast<uint8_t*>(t.curveBase.data())) ||
+      !exe.ReadVa(CURVE_SLOPE_VA, sizeof t.curveSlope, reinterpret_cast<uint8_t*>(t.curveSlope.data()))) {
     *error = "run tables: .rdata unreadable";
     return std::nullopt;
   }
@@ -805,7 +828,7 @@ void GotoRun(MoveHost& host, MoveReq& req) {
       req.SetF(moveword::kRate, k.rate05);
     }
     req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(ClassForRateFor(req.F(moveword::kRate), t)));
-    req.SetF(moveword::kDesiredSpeedKmh, host.BandSpeedKmh(cls, host.PhysiqueG()) * k.speed3600);
+    req.SetF(moveword::kDesiredSpeedKmh, RateToSpeedFor(req.F(moveword::kRate), host.PhysiqueG(), t, k.rampSlope) * k.speed3600);
     if (EnterRunTurnStep(host, req, (ceiling - k.rate06) * half)) return;
     // PES's GOTO exit ends in the +0xac0 vt+0 call (FUN_1406bdf10 line 630): the run entry picks the style's motion row, the
     // mirror and the 0.1 dwell limit, and requests RUN_LOOP. The dispatcher's tail issues the clip.
@@ -1801,7 +1824,7 @@ void Decelerate(MoveHost& host, MoveReq& req) {
     req.SetF(moveword::kRate, rate);
     const int rateCls = ClassForRateFor(rate, t);
     req.SetU(moveword::kRateBand, static_cast<uint32_t>(rateCls));
-    req.SetF(moveword::kSpeedBand, host.BandSpeedKmh(rateCls, host.PhysiqueG()) * k.speed3600);
+    req.SetF(moveword::kSpeedBand, RateToSpeedFor(rate, host.PhysiqueG(), t, k.rampSlope) * k.speed3600);
     // Slot 0 of the +0xac0 interface is FUN_1406d2030 (group B's run entry).
     movestep::EnterRun(host, req, foot, false);
   };
@@ -2020,7 +2043,7 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kRate, rate);
   const int rateCls = ClassForRateFor(rate, t);
   req.SetU(moveword::kRateBand, static_cast<uint32_t>(rateCls));
-  req.SetF(moveword::kSpeedBand, host.BandSpeedKmh(rateCls, host.PhysiqueG()) * k.speed3600);
+  req.SetF(moveword::kSpeedBand, RateToSpeedFor(rate, host.PhysiqueG(), t, k.rampSlope) * k.speed3600);
   // Slot 0 of the +0xac0 interface is FUN_1406d2030 (group B's run entry).
   movestep::EnterRun(host, req, foot, false);
 }

@@ -249,7 +249,6 @@ class FakeHost : public MoveHost {
   void Issue(const pes::MotionRequest& request) override { issued = request; ++issues; }
 
   const pes::StepScalars& StepConstants() const override { return scalars; }
-  float BandSpeedKmh(int band, float g) const override { return 0.0f; }
   bool MirrorChoice(bool sameTeam) const override { return false; }
   int FootBand() const override { return footBand; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
@@ -542,6 +541,7 @@ void EnterRun(MoveHost&, MoveReq&, int foot, bool rateHeld) {
 // Group B's two table pickers (movestep_run.cpp), which the exit reads: the tests use distinct answers per input.
 float BandRateFor(int band, int kind, const RunTables&) { return 0.1f * static_cast<float>(band + 1) + 0.01f * static_cast<float>(kind); }
 int ClassForRateFor(float rate, const RunTables&) { return rate < 0.25f ? 0 : (rate < 0.45f ? 1 : 2); }
+float RateToSpeedFor(float, float, const RunTables&, float) { return 0.0f; }
 // Group B's FUN_1406d01d0 gate (movestep_run.cpp), which STEP_TURN_RUN's early gate calls: the tests set its answer.
 bool turnLockAnswer = false;
 int turnLockCalls = 0;

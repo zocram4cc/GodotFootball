@@ -241,7 +241,6 @@ class FakeHost : public MoveHost {
   void Issue(const pes::MotionRequest& request) override { issued = request; }
 
   const pes::StepScalars& StepConstants() const override { return scalars; }
-  float BandSpeedKmh(int band, float g) const override { return 0.0f; }
   bool MirrorChoice(bool sameTeam) const override { return false; }
   int FootBand() const override { return footBand; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
@@ -754,7 +753,7 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     req.SetF(pes::moveword::kBandSpeedCopy, 12.0f);
     RunToStep(host, req);
     EXPECT_EQ(req.U(pes::moveword::kClassWord), 2u);
-    EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeedPrev), 12.0f);
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeed), 12.0f);
   }
   TEST(RunToStep, RestoresTheBandWithTheWiderWindowWhenTheBandIsUp) {
     // The band at or above the previous one: the window is 0.7 of the limit (0x14257A194), so
@@ -774,11 +773,11 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     MoveReq restored = base;
     restored.SetF(pes::moveword::kDwellElapsed2, 0.50f);  // under 0.7
     RunToStep(host, restored);
-    EXPECT_FLOAT_EQ(restored.F(pes::moveword::kBandSpeedPrev), 12.0f);
+    EXPECT_FLOAT_EQ(restored.F(pes::moveword::kBandSpeed), 12.0f);
     MoveReq held = base;
     held.SetF(pes::moveword::kDwellElapsed2, 0.80f);  // past 0.7
     RunToStep(host, held);
-    EXPECT_FLOAT_EQ(held.F(pes::moveword::kBandSpeedPrev), 0.0f);
+    EXPECT_FLOAT_EQ(held.F(pes::moveword::kBandSpeed), 0.0f);
   }
   TEST(RunToStep, KeepsTheBandPastTheNarrowWindow) {
     // The narrow window: the band below the previous one gives 0.3 of the limit (0x142590D98),
@@ -798,7 +797,7 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     req.SetF(pes::moveword::kBodyDirection, 12.0f);
     req.SetF(pes::moveword::kBandSpeedCopy, 12.0f);
     RunToStep(host, req);
-    EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeedPrev), 0.0f);
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeed), 0.0f);
   }
 
 
@@ -1885,7 +1884,22 @@ bool EnterRunTurnStep(MoveHost&, MoveReq&, float threshold) {
   return false;
 }
 bool EnterStepTurnRun(MoveHost&, MoveReq&) { return false; }
+// Group B's run entry (FUN_1406d2030, movestep_run.cpp): the handlers' first-path exits.
+int runEntries = 0;
+int lastRunFoot = -1;
+void EnterRun(MoveHost&, MoveReq&, int foot, bool) {
+  ++runEntries;
+  lastRunFoot = foot;
+}
+// Group D's forward-displacement speed (movestep_turn.cpp): the tests set its answer.
+float forwardKmh = 0.0f;
+float DisplacementForwardKmh(const MoveHost&, const MoveTurnConstants&) { return forwardKmh; }
 }  // namespace movestep
+// Group B's table readers (movestep_run.cpp), synthetic here: a rate of 0.25 and above is class 1, 0.45 and above class 2, a
+// rate's speed is 10 m/s per unit of rate and of g (FUN_1406b9aa0's real curve is tested in pes_movestep_run_test).
+float BandRateFor(int band, int, const RunTables& t) { return t.bandRate[band & 3]; }
+int ClassForRateFor(float rate, const RunTables&) { return rate < 0.25f ? 0 : (rate < 0.45f ? 1 : 2); }
+float RateToSpeedFor(float rate, float g, const RunTables&, float) { return rate * 10.0f * g; }
 }  // namespace pes
 
 // FUN_1406b6ee0, the stop gate with flag 0 (decompile 0x1406b6ee0): the move bucket picks the rule and the class

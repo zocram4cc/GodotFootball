@@ -171,7 +171,6 @@ class SyntheticHost : public pes::MoveHost {
   const pes::movestep::MoveTurnConstants& MoveTurnConstantsView() const override {
     return turnConstants;
   }
-  float BandSpeedKmh(int band, float g) const override { return bandSpeeds[band]; (void)g; }
   bool MirrorChoice(bool sameTeam) const override { return mirrorChoice; (void)sameTeam; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
   const pes::RunTables& RunTablesView() const override { return runTables; }

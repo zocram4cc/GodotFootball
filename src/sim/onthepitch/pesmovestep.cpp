@@ -358,15 +358,6 @@ class MoveHostAdapter final : public pes::MoveHost {
   int IssueCount() const { return issues_; }
 
   const pes::StepScalars& StepConstants() const override { return c_.stepScalars; }
-  float BandSpeedKmh(int band, float g) const override {
-    (void)band;
-    (void)g;
-    // The callers scale this by speed3600 into km/h, so it is metres a second. ponytail: PES's band speed is not decoded.
-    // Its candidate source is the 11-knot rate curve at 0x1425DE010 (docs/re/pes-re-speed-inputs.md; the band-to-knot map
-    // is open). vt+0x60 is clip duration (FUN_1406E7EB0), not a band speed. Every band returns the player's ground speed
-    // for the last tick; the physique argument is ignored.
-    return player_.GetMovement().GetLength();
-  }
   bool MirrorChoice(bool sameTeam) const override {
     (void)sameTeam;
     return false;  // ponytail: FUN_140a62960's side choice.
