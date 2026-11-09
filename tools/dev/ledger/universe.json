@@ -41641,6 +41641,324 @@
    "vtables": [],
    "walked": true
   },
+  "1402A5200": {
+   "boundary": null,
+   "callees": {
+    "1402A5A90": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5200",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 15,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5240": {
+   "boundary": null,
+   "callees": {
+    "143DBE280": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5240",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5510": {
+   "boundary": null,
+   "callees": {
+    "1402A5240": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5510",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 99,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A56B0": {
+   "boundary": null,
+   "callees": {
+    "1402A5510": "direct",
+    "1402A58E0": "direct",
+    "1403DB2C0": "direct",
+    "1403DB410": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a56b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 29,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A58E0": {
+   "boundary": null,
+   "callees": {
+    "140227920": "direct",
+    "1402A5A40": "direct",
+    "1403DB2B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a58e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 28,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5950": {
+   "boundary": null,
+   "callees": {
+    "1402A5C50": "direct",
+    "1403DB2C0": "direct",
+    "1403DB410": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5950",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A59B0": {
+   "boundary": null,
+   "callees": {
+    "1402A56B0": "direct",
+    "1402A5950": "direct",
+    "1403DB210": "direct",
+    "1403DB240": "direct",
+    "1403DB250": "direct",
+    "1403DB290": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1402A5A1E",
+     "text": "call qword ptr [rdx + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1402a59b0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 44,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5A40": {
+   "boundary": null,
+   "callees": {
+    "14037FD90": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5a40",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 21,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5A90": {
+   "boundary": null,
+   "callees": {
+    "14037FD90": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5a90",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 27,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5AF0": {
+   "boundary": null,
+   "callees": {
+    "14037FDB0": "direct",
+    "1415DC930": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5af0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 36,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5B70": {
+   "boundary": null,
+   "callees": {
+    "143DC0C00": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5b70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1402A5C50": {
+   "boundary": null,
+   "callees": {
+    "143DC2640": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402a5c50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 1,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1402AB420": {
    "boundary": null,
    "callees": {
@@ -1291361,6 +1291679,88 @@
    "vtables": [],
    "walked": false
   },
+  "143DBE280": {
+   "boundary": null,
+   "callees": {
+    "1402A5200": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "143DBE2C6",
+     "text": "CALL qword ptr [0x15b961138]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_143dbe280",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 201,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "143DC0C00": {
+   "boundary": null,
+   "callees": {
+    "14028EA30": "direct",
+    "1402A5AF0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_143dc0c00",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 65,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "143DC2640": {
+   "boundary": null,
+   "callees": {
+    "1402A5B70": "direct",
+    "141F91980": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_143dc2640",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7b"
+   ],
+   "scope": "in",
+   "size": 59,
+   "source": "pdata",
+   "subsystem": "animelayer7b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "143E05000": {
    "boundary": null,
    "callees": {},
@@ -1303720,6 +1304120,13 @@
     "members": 180,
     "roots": [
      "0x140302830"
+    ]
+   },
+   "animelayer7b": {
+    "members": 276,
+    "roots": [
+     "0x140280470",
+     "0x1402A59B0"
     ]
    },
    "animepre": {

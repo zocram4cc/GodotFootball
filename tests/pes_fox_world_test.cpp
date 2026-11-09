@@ -141,4 +141,25 @@ TEST_F(FoxSeam, TheTranslatedJobLoadsAnInstallFileIntoTheResManager) {
   EXPECT_NE(world_->Read8(job + kJobKeyOffset + 8), 0);
 }
 
+// PES's own allocator (jemalloc: FUN_1403CF740 under FUN_14029D370) boots from the zeroed state PES starts in: FUN_14038EE80 (malloc_init_hard)
+// sets the "initialised" byte at 0x1436DCEE0 that FUN_14038E3E0 tests, and the allocator then hands out distinct, aligned blocks from the OS
+// arena the VirtualAlloc model serves. The dump holds that byte set (the dead game's), so Boot zeroes the allocator's state first: a Boot that
+// then skips the init leaves it clear, and one that skips the zeroing walks the dead trees (the first allocation never returns).
+constexpr uint64_t kAllocatorInitFlagVa = 0x1436DCEE0, kOsArenaVa = 0x3000000000ULL, kOsArenaBytes = 0x100000000ULL;
+constexpr uint64_t kAllocSize = 0x100, kAllocAlign = 0x10, kAllocFlags = 0x30001;  // FUN_141B04850's call shape: (size, 0x10, 0x30001)
+
+TEST_F(FoxSeam, TheBootRunsPesMallocInitAndItsAllocatorHandsOutDistinctAlignedBlocks) {
+  world_->Boot();
+  EXPECT_EQ(world_->Read8(kAllocatorInitFlagVa), 1);
+  const uint64_t a = world_->Call(::pes_fn_1403CF740, {kAllocSize, kAllocAlign, kAllocFlags});
+  const uint64_t b = world_->Call(::pes_fn_1403CF740, {kAllocSize, kAllocAlign, kAllocFlags});
+  for (uint64_t block : {a, b}) {
+    EXPECT_GE(block, kOsArenaVa);
+    EXPECT_LT(block, kOsArenaVa + kOsArenaBytes);
+    EXPECT_EQ(block % kAllocAlign, 0u);
+  }
+  EXPECT_NE(a, b);
+  EXPECT_TRUE(a + kAllocSize <= b || b + kAllocSize <= a) << "the two blocks overlap";
+}
+
 }  // namespace
