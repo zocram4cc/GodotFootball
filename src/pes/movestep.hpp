@@ -395,6 +395,8 @@ struct RunTables {
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
   std::array<int32_t, kRunStyleCount * 4> styleGroup;  // FUN_1406d2030's representative motion, DAT_1425ddcf0: style*4 + band/4
   std::array<int32_t, 8> idleTurnRow;     // FUN_1406d1390, kind, 0x1425dda30
+  std::array<uint8_t, 10> footFlag;        // FUN_1406ce820, look bucket, 0x1425dd930
+  std::array<uint8_t, 10> footFlagLocked;  // FUN_1406ce820 with the command's lock bytes, 0x1425dd940
   // FUN_1406b9aa0's three-segment curve (vt+0x48 of +0xac0), rate -> metres a second: the segment is the last knot at or below
   // the rate; speed = G * base + (rate - knot) / span * slope * (segment < 2 ? G : 1).
   std::array<float, 3> curveKnot;   // 0x1425dde30

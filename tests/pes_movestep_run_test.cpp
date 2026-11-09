@@ -549,6 +549,11 @@ TEST(RunRateGuard, StoresTheRateOnlyWhenItIsAtMostStepBaseOfTheCeiling) {
 // select each exit, with a host whose cross-group calls are inert.
 // ---------------------------------------------------------------------------------------------
 
+// A command flag BYTE at a request byte offset (cmd+0x5be.. -> req byte 0x3d..0x3f): not a word and not a word's low byte.
+void SetCommandFlagByte(pes::MoveReq& req, int byteOffset) {
+  req.SetU(byteOffset >> 2, req.U(byteOffset >> 2) | (1u << ((byteOffset & 3) * 8)));
+}
+
 // FUN_1406bdf10's re-entry arm (0x1406be37c..0x1406be3fa) is the clip's live frame BEFORE ITS END (`CMP EBP,R12D; JGE`, 0x1406be3b3;
 // R12D = FUN_1406b1d00), not before its first hit tick, and it fires on a body direction or a turn more than 45 degrees off in either
 // direction (ANDPS abs at 0x1406be3dd and 0x1406be3b8's XMM9) or the command flag byte at BYTE offset 0x3f (0x1406be3eb).
@@ -887,7 +892,7 @@ TEST(Stop, RePlansIntoGotoRunWhenTheTurnLockWordsAreSetAndTheStayDecisionHolds) 
   req.SetF(pes::moveword::kTurn, 2.0f);
   req.SetF(pes::moveword::kFacingError, 2.0f);
   // The turn-lock bytes 0x3d, 0x3e and 0x3f (stop_dec.c:64-66): one of them set is enough for the arm.
-  req.SetByte(pes::moveword::kAngle3d, 1);
+  SetCommandFlagByte(req, 0x3d);
   // The ground speed under 16 km/h: the host's last-tick displacement stays zero.
   h.currentKmh = 0.0f;
   pes::probe::Reset();
@@ -1779,7 +1784,8 @@ TEST(RunLoop, RePlansIntoGotoRunWhenTheClassIsHighAndTheRateIsLow) {
   req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // above 2
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kRate, 0.2f);             // at or below 0.225
-  req.SetF(pes::moveword::kDistToTarget, 5.0f);     // over 3 m
+  req.SetF(pes::moveword::kDistToLook, 5.0f);       // over 3 m: the LOOK distance, req[0x12] ([RSI+0x48], 0x1406c0357)
+  h.moveConstants.dist3 = 3.0f;
   req.SetF(pes::moveword::kTurn, 60.0f);            // past 56.25
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, 60.0f);
@@ -2183,9 +2189,10 @@ TEST(EnterGotoRun, TakesTheDrawRowWhenTheBallIsWithinReach) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(h.lastCellRow, 0x662);
   EXPECT_EQ(h.percentArg, 40);
-  // The foot flag carries the picked cell's mirror (FUN_1406ce820 lines 561/858): the column
-  // of bucket 0 is 9, so the mirror bit is 1.
-  EXPECT_EQ(req.U(pes::moveword::kFootFlag) & 0xffu, 1u);
+  // The foot flag is DAT_1425dd930's byte of the look bucket (LAB_1406cf683), not the picked cell's mirror: bucket 0's column 9 cell
+  // mirrors, the table byte here is 0.
+  EXPECT_EQ(req.U(pes::moveword::kFootFlag) & 0xffu, uint32_t(h.runTables.footFlag[0]));
+  EXPECT_EQ(h.issued.mirror, true);
   // The lost draw takes the base row instead.
   SyntheticHost h2;
   h2.runConstants = SyntheticRun();
@@ -2231,7 +2238,7 @@ TEST(EnterGotoRun, TheTurnLockByteSetsTheRowToTheTurnLockRowForAnyColumn) {
   req.SetU(pes::moveword::kMoveBucket, 3u);
   req.SetU(pes::moveword::kLookBucket, 3u);
   req.SetU(pes::moveword::kLookBucketAlt, 3u);  // bucket 3: column 15, which override 2 leaves alone
-  req.SetByte(pes::moveword::kMirrorFlag, 1);  // the turn-lock byte 0x3F
+  SetCommandFlagByte(req, 0x3f);  // the command's flag byte at request byte offset 0x3f
   req.SetF(pes::moveword::kFacingError, 10.0f);
   req.SetF(pes::moveword::kLookDelta, 10.0f);
   req.SetF(pes::moveword::kRate, 0.6f);
@@ -2256,7 +2263,7 @@ TEST(EnterGotoRun, TheTurnLockColumnIsNineWhenTheFacingErrorIsNegative) {
   req.SetU(pes::moveword::kMoveBucket, 5u);
   req.SetU(pes::moveword::kLookBucket, 5u);
   req.SetU(pes::moveword::kLookBucketAlt, 5u);  // bucket 5: column 8, which override 2 may move
-  req.SetByte(pes::moveword::kMirrorFlag, 1);
+  SetCommandFlagByte(req, 0x3f);
   req.SetF(pes::moveword::kFacingError, -10.0f);  // XMM8 (0.0) > req[7] (-10): column 9
   req.SetF(pes::moveword::kLookDelta, 10.0f);
   req.SetF(pes::moveword::kRate, 0.6f);
@@ -2264,6 +2271,60 @@ TEST(EnterGotoRun, TheTurnLockColumnIsNineWhenTheFacingErrorIsNegative) {
   pes::movestep::EnterGotoRun(h, req, false);
   EXPECT_EQ(h.lastCellColumn, 9) << "PES's column is 9 when req[7] < 0 (SETA on XMM8 = 0.0)";
   EXPECT_EQ(h.lastCellRow, 0x566);
+}
+
+// FUN_1406ce820's closing writes (d_1406ce820.c 742-778, LAB_1406d013b): the live bucket req[0x20] takes the look bucket (the port wrote
+// req[0x25]); the speed words are req[0x22] = the desired speed clamped to [5, 28] and req[0x1d] = clamped to [5, 16]; req[0x1e] is the
+// kind; the root-facing stamp req[0x17] uses the bucket centre table DAT_1425dd660 at the UNCLAMPED look bucket.
+TEST(EnterGotoRun, ClosesWithTheLiveBucketTheTwoSpeedWordsAndTheCentreOfTheLookBucket) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runConstants.kmh28 = 28.0f;
+  h.runTables = SyntheticTables();
+  h.runTables.bucketColumn = {9, 11, 13, 15, 17, 8, 6, 4, 2, 0};
+  h.runTables.footFlag = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
+  h.buckets.centre = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 0.0f, -45.0f, -90.0f, -135.0f, 180.0f};
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kLookBucket, 6u);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 20.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.5f);
+  pes::movestep::EnterGotoRun(h, req, true);
+  EXPECT_EQ(req.U(pes::moveword::kLiveBucket), 6u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 20.0f) << "req[0x22] clamps to [5, 28]";
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kStopSpeedWord), h.runConstants.kmh16) << "req[0x1d] clamps to [5, 16]";
+  EXPECT_EQ(req.U(pes::moveword::kLiveKind), 2u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRecordStampA), 45.0f / 0.5f) << "bucket 6's centre is -45: the root faces -45, the heading is 45 away";
+  EXPECT_EQ(req.U(pes::moveword::kFootFlag) & 0xffu, 1u) << "DAT_1425dd930[6]";
+  EXPECT_EQ(h.issued.transition, 1) << "the entry's own flag argument rides the issue (d_1406ce820.c 700)";
+}
+
+// 0x1406c0321..0x1406c0387: RUN_LOOP's second re-plan reads the LOOK distance (req[0x12]) and both turn magnitudes: a turn of -80 re-plans
+// a class-3 man, and a far TARGET with a near look point does not.
+TEST(RunLoop, TheReplanReadsTheLookDistanceAndTheTurnsMagnitude) {
+  for (const bool farLook : {true, false}) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.moveConstants.dist3 = 3.0f;
+    h.currentMotion = 0x8bb;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+    req.SetU(pes::moveword::kRateBand, 1u);
+    req.SetF(pes::moveword::kRate, 0.2f);
+    req.SetF(pes::moveword::kTurn, -80.0f);
+    req.SetF(pes::moveword::kDistToTarget, 10.0f);
+    req.SetF(pes::moveword::kDistToLook, farLook ? 10.0f : 1.0f);
+    req.SetF(pes::moveword::kDwellLimit, 1.0f);
+    pes::probe::Reset();
+    pes::movestep::RunLoop(h, req);
+    EXPECT_EQ(req.Flag(pes::moveword::kChangeState) && req.U(pes::moveword::kNextState) == uint32_t(pes::MoveState::kGotoRun),
+              farLook);
+  }
 }
 
 // EnterGotoRun's out-of-play arm (FUN_1406ce820 block 6): outside open-play phase 1, a row in
