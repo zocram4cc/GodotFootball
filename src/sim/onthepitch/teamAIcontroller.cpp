@@ -3475,19 +3475,27 @@ void WritePesManMovement(Player& pl, uint8_t* man) {
 
 namespace {
 
-// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state.
-pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
+// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state. `p` is P's bytes as the last tick left them.
+pes::PesActorFacts TrapFactsOf(Player& pl, int slot, bool carrier, const uint8_t* p) {
   pes::PesActorFacts f;
   f.slot = slot;
   f.side = slot / pes::kSlotsPerSide;
   f.heightCm = pesmovestep::PhysiqueHeightCmOf(pl);
   const pes::MoveStepRecord& rec = pl.GetMoveStep();
   f.phase = static_cast<uint8_t>(rec.state);  // P+0x245C is the MOVESTEP record's state
-  // ponytail: GF has no PES action id for the body (P+0xAC8; MOVESTEP's AnimeState answers 2 for movement-like functions too).
-  // The receiving man is in MOVE (2) or STEP_MOVE (3) when entry 3 fires (the six kind-0 captures show both with the same
-  // phases), and nothing in GF tells them apart, so MOVE stands in for the pair and the previous pair. A body action that has an
-  // id replaces this.
-  f.action = f.sub = f.prevAction = f.prevSub = pes::kAnimeActionMove;
+  // P+0xAC8..0xACB: the PES action the body is in (pes::AnimeActionOfClip, from the clip it plays). A trap clip is the exception: PES's
+  // own action ticks write the action it leaves for (the end handler 0x14079E5C0 calls FUN_1406EEBB0 for DRIBBLE or MOVE while the body
+  // is still on the trap clip), so P keeps what they wrote. The previous pair follows FUN_1406EEBB0's tail stores: a changed action
+  // moves the current pair into it, the same action leaves it.
+  const Anim* clip = pl.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  const uint8_t derived = pes::AnimeActionOfClip(pl.GetCurrentFunctionType(), family, carrier);
+  const uint8_t held = p[pes::kPByteAC8Offset];
+  f.action = f.sub = derived == pes::kAnimeActionTrap ? held : derived;
+  if (derived == pes::kAnimeActionTrap) f.sub = p[pes::kPByteAC9Offset];
+  const bool changed = f.action != held;
+  f.prevAction = changed ? held : p[pes::kPPrevActionOffset];
+  f.prevSub = changed ? p[pes::kPByteAC9Offset] : p[pes::kPPrevActionOffset + 1];
   // P+0xAE0: the PES motion number of the clip the humanoid plays; the AI's own clip has none, so the no-motion sentinel.
   const int motion = pesmovestep::CurrentMotionOf(pl);
   f.motion = motion < 0 ? pes::kPNoMotion : static_cast<uint16_t>(motion);
@@ -3550,7 +3558,7 @@ void WritePesTrapActors(Match& match) {
       for (std::size_t k = 0; k < pes::kVelocityRingEntries; ++k)
         std::memcpy(open.velocityRing.data() + k * pes::kVelocityRingEntryBytes, man + pes::kManVelXOffset,
                     pes::kVelocityRingEntryBytes);
-      pes::PesActorFacts facts = TrapFactsOf(*p, slot);
+      pes::PesActorFacts facts = TrapFactsOf(*p, slot, match.GetPesHolder() == p.get(), match.PesWorldOf().P(slot));
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);

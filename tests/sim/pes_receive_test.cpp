@@ -13,6 +13,7 @@
 
 #include "gametypes.hpp"
 #include "onthepitch/pesreceive.hpp"
+#include "onthepitch/pestrapactor.hpp"
 
 namespace {
 
@@ -503,6 +504,36 @@ TEST(PesReceiveCarrier, ACarrierStaggeringOrDodgingMayTouchAgain) {
 TEST(PesReceiveCarrier, TheKeepersDropBallTouchesOnlyWithTheClaimFlagClear) {
   EXPECT_TRUE(pes::CarrierMayTouch(kActionKeeperDropBall, false));
   EXPECT_FALSE(pes::CarrierMayTouch(kActionKeeperDropBall, true));
+}
+
+// The PES action a GF body is in (pes::AnimeActionOfClip): the id gate 4a's switch reads from P+0xAC8.
+TEST(PesAnimeAction, OnlyTheHolderIsInDribbleBecauseThePesSwitchTurnsEveryoneElsesDribbleIntoMove) {
+  EXPECT_EQ(pes::AnimeActionOfClip(e_FunctionType_BallControl, 0, true), pes::kAnimeActionDribble);
+  EXPECT_EQ(pes::AnimeActionOfClip(e_FunctionType_BallControl, 0, false), pes::kAnimeActionMove);
+  for (const e_FunctionType f : {e_FunctionType_None, e_FunctionType_Movement, e_FunctionType_Trap, e_FunctionType_ShortPass,
+                                 e_FunctionType_LongPass, e_FunctionType_HighPass, e_FunctionType_Header, e_FunctionType_Shot,
+                                 e_FunctionType_Deflect, e_FunctionType_Catch, e_FunctionType_Interfere, e_FunctionType_Trip,
+                                 e_FunctionType_Sliding, e_FunctionType_Special})
+    EXPECT_EQ(pes::AnimeActionOfClip(f, 0, true), pes::AnimeActionOfClip(f, 0, false)) << "function " << int(f);
+}
+
+TEST(PesAnimeAction, ABallActionIsNeverTakenForMovementOrForTheTrapItself) {
+  for (const e_FunctionType f : {e_FunctionType_ShortPass, e_FunctionType_LongPass, e_FunctionType_HighPass, e_FunctionType_Header,
+                                 e_FunctionType_Shot, e_FunctionType_Sliding}) {
+    EXPECT_NE(pes::AnimeActionOfClip(f, 0, false), pes::kAnimeActionMove) << "function " << int(f);
+    EXPECT_NE(pes::AnimeActionOfClip(f, 0, false), pes::kAnimeActionTrap) << "function " << int(f);
+  }
+  EXPECT_EQ(pes::AnimeActionOfClip(e_FunctionType_Trap, 0, false), pes::kAnimeActionTrap);
+}
+
+TEST(PesAnimeAction, ASpecialClipIsInTheActionItsFamilyNames) {
+  const auto of = [](pes::PesClipFamily family) { return pes::AnimeActionOfClip(e_FunctionType_Special, int(family), false); };
+  EXPECT_EQ(of(pes::PesClipFamily::kLocomotion), pes::AnimeActionOfClip(e_FunctionType_Movement, 0, false));
+  EXPECT_EQ(of(pes::PesClipFamily::kTrap), pes::kAnimeActionTrap);
+  EXPECT_EQ(of(pes::PesClipFamily::kDodge), pes::kAnimeActionDodge);
+  EXPECT_EQ(of(pes::PesClipFamily::kTackle), pes::kAnimeActionTackle);
+  // GF's own special clips (celebrations and cards use 1..3) are in no action a gate admits
+  EXPECT_EQ(pes::AnimeActionOfClip(e_FunctionType_Special, 1, false), pes::kAnimeActionNothing);
 }
 
 // --- Kick branch 0x5D (reaction entry 3, d_a.c:610-662): FUN_1409fbb40 action gate, FUN_1409fbba0 ball gate ---

@@ -6,6 +6,43 @@
 #include <initializer_list>
 
 namespace pes {
+
+uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier) {
+  switch (function) {
+    case e_FunctionType_Movement:
+      return kAnimeActionMove;
+    case e_FunctionType_BallControl:
+      return carrier ? kAnimeActionDribble : kAnimeActionMove;
+    case e_FunctionType_Trap:
+      return kAnimeActionTrap;
+    case e_FunctionType_ShortPass:
+      return kAnimeActionShortPass;
+    case e_FunctionType_LongPass:
+    case e_FunctionType_HighPass:
+      return kAnimeActionLongPass;
+    case e_FunctionType_Header:
+    case e_FunctionType_Shot:
+      return kAnimeActionShoot;
+    case e_FunctionType_Sliding:
+      return kAnimeActionSliding;
+    case e_FunctionType_Trip:
+    case e_FunctionType_Interfere:
+      return kAnimeActionTackle;
+    case e_FunctionType_Catch:
+      return kAnimeActionKeeperCatch;
+    case e_FunctionType_Deflect:
+      return kAnimeActionKeeperDeflect;
+    case e_FunctionType_Special:
+      if (specialVar1 == static_cast<int>(PesClipFamily::kDodge)) return kAnimeActionDodge;
+      if (specialVar1 == static_cast<int>(PesClipFamily::kTackle)) return kAnimeActionTackle;
+      if (IsPesLocomotionFamily(specialVar1)) return kAnimeActionMove;
+      if (IsPesTrapFamily(specialVar1)) return kAnimeActionTrap;
+      return kAnimeActionNothing;
+    case e_FunctionType_None:
+      break;
+  }
+  return kAnimeActionNothing;
+}
 namespace {
 
 // A rip-relative instruction the constant is read through: its bytes at `va` must start with `opcode`, the disp32 sits

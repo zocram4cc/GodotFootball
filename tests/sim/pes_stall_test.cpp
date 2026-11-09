@@ -5,6 +5,7 @@
 #include "base/log.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/player/humanoid/humanoid.hpp"
+#include "onthepitch/pestrapactor.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/team.hpp"
 #include "pes_match_constants.hpp"
@@ -67,6 +68,8 @@ class TrapRestartProbe : public pestest::Probe {
   long trapClips = 0;        // trap clips that started (a tick on which a man's trap clip began)
   long restartedTraps = 0;   // those that began over a trap clip of his that had not reached its contact frame
   long holderTraps = 0;      // those that began while he was PES's holder (MA+0x2601C == him)
+  long trapStarts = 0;       // PES trap starts: ticks on which a man's P+0xAC8 became the Trap action
+  long refusedStarts = 0;    // those whose clip the body did not take on the next tick (the action tick's PlayIssuedClip refused it)
   void OnTick(Match& match) override {
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
@@ -81,7 +84,11 @@ class TrapRestartProbe : public pestest::Probe {
           if (seen.onTrap && seen.frame < seen.touchFrame) restartedTraps++;
           if (match.GetPesHolder() == player.get()) holderTraps++;
         }
-        seen = {onTrap, clip->frameNum, clip->touchFrame};
+        const bool pesTrap = match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
+        if (seen.startedLastTick && !onTrap) refusedStarts++;
+        const bool started = pesTrap && !seen.pesTrap;
+        if (started) trapStarts++;
+        seen = {onTrap, clip->frameNum, clip->touchFrame, pesTrap, started};
       }
     }
   }
@@ -91,6 +98,8 @@ class TrapRestartProbe : public pestest::Probe {
     bool onTrap = false;
     int frame = 0;
     int touchFrame = -1;
+    bool pesTrap = false;
+    bool startedLastTick = false;
   };
   std::map<const Player*, Seen> seen_;
 };
@@ -143,6 +152,21 @@ TEST(PesStall, AHolderIsNeverHandedANewTrap) {
   ASSERT_GT(trapCensus.trapClips, 0) << "no trap clip was played";
   EXPECT_EQ(trapCensus.holderTraps, 0) << trapCensus.holderTraps << " of " << trapCensus.trapClips
                                        << " trap clips began for the man who already held the ball";
+}
+
+// PES's reaction gate 4a (the Trap action's slot +0x10, 0x14079BBE0) decides from the man's current action whether he may take a trap, and
+// PES's action switch then replaces whatever he was doing: a trap PES starts is a trap the body plays. GF's body used to refuse 84 of 113
+// starts (it was in a ball-control, slide or pass clip PlayIssuedClip would not interrupt), so the action tick ended the trap unplayed
+// and the reaction re-issued it two ticks later.
+TEST(PesStall, NoPesTrapStartIsRefusedByTheBody) {
+  pestest::Run(trapCensus);
+  if (trapCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(trapCensus.setupError.empty()) << trapCensus.setupError;
+  pestest::Settle(trapCensus);
+  ASSERT_TRUE(trapCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(trapCensus.trapStarts, 0) << "no PES trap started";
+  EXPECT_EQ(trapCensus.refusedStarts, 0) << trapCensus.refusedStarts << " of " << trapCensus.trapStarts
+                                         << " PES trap starts were refused by the body";
 }
 
 // The referee arms a restart and releases it when the taker is ready. While it is armed the referee owns the

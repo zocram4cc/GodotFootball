@@ -373,6 +373,20 @@ bool PesWorld::RunEntryAim(int slot, int side, uint32_t playState) {
   return (s.gpr[0] & 0xFF) != 0;
 }
 
+bool PesWorld::RunTrapAdmit(int slot, uint32_t action, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;  // rsp at the entry: the return address slot
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = PVa(slot);  // rcx: P
+  s.gpr[2] = action;     // edx: the action FUN_1406D9010 names in P's table
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_1406B4C10(s);
+  ReturnSegments(s, ext, lent);
+  return (s.gpr[0] & 0xFF) != 0;  // al
+}
+
 PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
   const std::size_t lent = LendExternals(s, ext);

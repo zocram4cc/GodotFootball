@@ -820,6 +820,11 @@ class PesWorld {
   // arguments), then the chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp); its segments are lent to
   // the call (moved in and back), so the loader data is never copied.
   PesTrapResult RunTrapKind0(int slot, const PesTrapRequest& request, PesTrapExternals& ext);
+  // FUN_1406B4C10(P, action): the "may the man take `action`" gate. It names `action` in P's action table and calls that action's
+  // slot +0x10; for the Trap action (id 7, FUN_1409FA520's first test: reaction gate 4a) that is 0x14079BBE0: the man's CURRENT
+  // action id (P+0xAC8) must be one the Trap action may follow, and that action's own slot +0x70 handler must accept (action, P, 7).
+  // Reads P and the loader data; `ext` is lent as in RunTrapTick.
+  bool RunTrapAdmit(int slot, uint32_t action, PesTrapExternals& ext);
   // The movestep's two reads of the player object P, PES's translated code on the window with `slot`'s P's pieces bound (the slot at
   // P+0x2458; the anime interface at P+0xAB8, whose vtable is the image's 0x1425E3508, bound by BindImageTables; for the aim flag
   // P+0x3AC0, the side's context, whose +0xE0 names the event store). Both overwrite those P fields, which the trap chain's own run

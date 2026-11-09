@@ -13,6 +13,8 @@
 #include <optional>
 #include <string>
 
+#include "gamedefines.hpp"
+#include "onthepitch/pesclips.hpp"
 #include "pes/exe.hpp"
 #include "onthepitch/pestrapworld.hpp"
 #include "onthepitch/pesstamina.hpp"
@@ -23,11 +25,35 @@ namespace pes {
 
 inline constexpr std::size_t kLocomotionPhases = 0x18;  // P+0x245C below this indexes the class table (0x1406D8C59)
 
-// PES's anime action id for MOVE (P+0xAC8; names read from 0x1434A5470: 2 MOVE, 3 STEP_MOVE, 7 TRAP) and the "no motion"
-// sentinel of P+0x2810 (0xBE5, FUN_1406EB670; also the Animetable's row count).
+// PES's anime action ids (P+0xAC8; the names are the image's table at 0x1434A5470, read by script: 0 NOTHING, 2 MOVE, 3 STEP_MOVE, 4 DRIBBLE,
+// 7 TRAP, 8 LONG_PASS, 9 SHORT_PASS, 0xA SHOOT, 0xB SLIDING, 0xD TACKLE, 0x15 DODGE, 0x38 KP_CATCH, 0x3A KP_DEFLECT) and the "no
+// motion" sentinel of P+0x2810 (0xBE5, FUN_1406EB670; also the Animetable's row count).
+inline constexpr uint8_t kAnimeActionNothing = 0;
 inline constexpr uint8_t kAnimeActionMove = 2;
-inline constexpr uint16_t kPNoMotion = 0xBE5;
+inline constexpr uint8_t kAnimeActionDribble = 4;
 inline constexpr uint8_t kAnimeActionTrap = 7;
+inline constexpr uint8_t kAnimeActionLongPass = 8;
+inline constexpr uint8_t kAnimeActionShortPass = 9;
+inline constexpr uint8_t kAnimeActionShoot = 0xA;
+inline constexpr uint8_t kAnimeActionSliding = 0xB;
+inline constexpr uint8_t kAnimeActionTackle = 0xD;
+inline constexpr uint8_t kAnimeActionDodge = 0x15;
+inline constexpr uint8_t kAnimeActionKeeperCatch = 0x38;
+inline constexpr uint8_t kAnimeActionKeeperDeflect = 0x3A;
+inline constexpr uint16_t kPNoMotion = 0xBE5;
+
+// The PES action a GF body is in, from the clip it plays. GF has no action machine: PES writes P+0xAC8 only in FUN_1406EEBB0, which
+// the action ticks call. `function` is the clip's function type, `specialVar1` its family (pesclips.hpp), `carrier` that the man is PES's
+// holder (MA+0x2601C == him). Each row names the PES action that plays that behaviour:
+//   - a movement clip, or a MOVESTEP locomotion clip: MOVE. (STEP_MOVE is entered from other actions' ticks, e.g. FUN_140748390, and
+//     nothing in GF tells it from MOVE.)
+//   - a ball-control clip: DRIBBLE for the holder. FUN_1406EEBB0's 4/5 arm turns a DRIBBLE request of a man who is not the carrier
+//     (anime +8 against FUN_140A627E0) into MOVE, so any other man is in MOVE.
+//   - the passes and the shot: LONG_PASS (long and high), SHORT_PASS, SHOOT; a header is a kick: SHOOT (INF: PES has no header action).
+//   - a slide: SLIDING; a trip and an interfere: TACKLE (INF); the keeper's catch and deflect: KP_CATCH and KP_DEFLECT.
+//   - a Special clip by family: dodge DODGE, tackle TACKLE, locomotion MOVE, trap TRAP; any other (GF's own celebrations, cards,
+//     feints): NOTHING, which no gate admits.
+uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier);
 
 // One motion of the anime player's list, as FUN_141EB4650 reads it (FUN_141AF3070 id, FUN_141AF4160 flag byte, FUN_141AF3100
 // seconds played, FUN_141AF3330 the layer's rate).
