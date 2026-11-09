@@ -955,6 +955,8 @@ class Emitter:
             return self.do_double_shift(m, ops)
         if m in ("RCL", "RCR"):
             return self.do_rotate_carry(m, ops)
+        if m in ("STC", "CLC", "CMC"):
+            return ["s.cf = %s;" % {"STC": "true", "CLC": "false", "CMC": "!s.cf"}[m]]
         if m == "PUSHFQ":
             # RFLAGS as the flags the translator tracks (CF, PF, ZF, SF, OF) plus the always-set bit 1 and IF (user mode); AF, DF, TF read 0.
             return ["s.gpr[4] -= 8;",
@@ -2172,6 +2174,12 @@ class Emitter:
             if ctx.get("addrs") and tgt not in ctx["addrs"]:
                 return ["__builtin_trap(); /* LOOP target is not an instruction of this body */"]
             return ["s.gpr[1] -= 1; if (s.gpr[1] != 0) goto L_%X;" % tgt]
+        if m == "JRCXZ":
+            # JRCXZ rel8: taken when RCX == 0 (64-bit address size); flags are untouched, RCX is not decremented.
+            tgt = imm_val(ops[0])
+            if ctx.get("addrs") and tgt not in ctx["addrs"]:
+                return ["__builtin_trap(); /* JRCXZ target is not an instruction of this body */"]
+            return ["if (s.gpr[1] == 0) goto L_%X;" % tgt]
         cc = cc_of(m)
         if cc:
             tgt = imm_val(ops[0])
@@ -2337,7 +2345,7 @@ def prepass(lines, img):
             t = imm_val(ops[0])
             if t in addrs:
                 labels.add(t)
-        elif m == "LOOP" and ops and is_imm(ops[0]):
+        elif m in ("LOOP", "JRCXZ") and ops and is_imm(ops[0]):
             t = imm_val(ops[0])
             if t in addrs:
                 labels.add(t)
@@ -2512,7 +2520,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
                  "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR", "BSWAP",
                  "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
-                 "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP", "SHLD", "SHRD", "RCL", "RCR", "PUSHFQ", "POPFQ"):
+                 "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP", "SHLD", "SHRD", "RCL", "RCR", "PUSHFQ", "POPFQ", "STC", "CLC", "CMC"):
             out = em.emit_alu(m, ops)
         elif m in ("MOVSS", "MOVSD", "MOVD", "ADDSS", "SUBSS", "MULSS",
                    "DIVSS", "MAXSS", "MINSS", "COMISS", "UCOMISS",
@@ -2542,7 +2550,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
             out = ["__builtin_trap();"]
         elif m in ("DIV", "IDIV"):
             out = em.do_div(m, ops)
-        elif m in CCMAP or m in ("RET", "CALL", "JMP", "LOOP"):
+        elif m in CCMAP or m in ("RET", "CALL", "JMP", "LOOP", "JRCXZ"):
             out = em.emit_branch(m, ops, addr, ctx)
         elif m.startswith("SET") or m.startswith("CMOV"):
             out = em.emit_set_cmov(m, ops)

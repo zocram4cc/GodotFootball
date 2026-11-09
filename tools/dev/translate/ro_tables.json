@@ -59,5 +59,7 @@
   {"va": "0x14257CF50", "bytes": "0x100", "evidence": "CONFIRMED 0x14038F5B0: Lua's luaO_log2 byte table [rax + 0x14257CF50], rax = a value reduced below 0x100 (loop `cmp ecx,0x100; jae`): 256 bytes"},
   {"va": "0x14257E0D0", "bytes": "0x26", "evidence": "CONFIRMED 0x14038C6B0: Lua's luaP_opmodes byte table [r14 + 0x14257E0D0], r14d bounded by `cmp r14d,0x26; jae` at 0x14038C79E: 0x26 entries"},
   {"va": "0x140391118", "bytes": "0x1C", "evidence": "CONFIRMED 0x140391030: a dword offset jump table in code [r11 + rax*4 + 0x391118] (`add rcx,r11; jmp rcx`), rax = (byte at +8) - 4 bounded by `cmp eax,6; ja` at 0x140391065: 7 entries"},
-  {"va": "0x14257D520", "bytes": "0xA8", "evidence": "CONFIRMED 0x140398D30: Lua's luaX_tokens (luaX_init): 21 name pointers walked by `add rbx,8` until `cmp edi,0x15`: and, break, do, else, elseif, end, false, for, function, if, in, local, ..."}
+  {"va": "0x14257D520", "bytes": "0xA8", "evidence": "CONFIRMED 0x140398D30: Lua's luaX_tokens (luaX_init): 21 name pointers walked by `add rbx,8` until `cmp edi,0x15`: and, break, do, else, elseif, end, false, for, function, if, in, local, ..."},
+  {"va": "0x14257E0B0", "bytes": "0x20", "evidence": "CONFIRMED 0x1403A2350: the package library's loader list: three function pointers (0x1403A2200, 0x1403A20B0, 0x1403A2130) walked by `mov rax,[r14+rdi*8+8]` until a null qword: 4 qwords"},
+  {"va": "0x142581C80", "bytes": "0x26", "evidence": "CONFIRMED 0x1403B1020 (zlib inflate): the code-length order table [rdx+rax*2+0x2581C80], rax < 0x13 (`cmp dword [r13+0x84],0x13`): 19 words (16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15)"}
 ]
