@@ -23,5 +23,9 @@ void pes_fn_157FF3365(PesState& s) {
   s.wr(((s.gpr[2]) + (0ULL - 0x23131675ULL)), (uint64_t)(s.gpr[15]), 8);
   s.gpr[15] = (uint64_t)(((0x15B185A50ULL)));
   { uint64_t _t = s.rd(((s.gpr[4])), 8); s.wr(((s.gpr[4])), (uint64_t)(s.gpr[15]), 8); s.gpr[15] = (uint64_t)(_t); }
+  { uint64_t _t = s.rd(s.gpr[4], 8);
+    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+      if (_d.fn == 0) pes_dispatch_missing(_t);
+      else _d.fn(s); } }
   return;
 }

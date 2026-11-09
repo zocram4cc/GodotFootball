@@ -40,5 +40,9 @@ void pes_fn_1440558C0(PesState& s) {
   s.set_x_f32(0, s.rdf(0x1434A02F0ULL)); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.wrf(((s.gpr[1]) + (0x38ULL)), s.x_f32(0));
   s.wrf(((s.gpr[1]) + (0x3CULL)), s.x_f32(2));
+  { uint64_t _t = s.rd(s.gpr[4], 8);
+    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+      if (_d.fn == 0) pes_dispatch_missing(_t);
+      else _d.fn(s); } }
   return;
 }

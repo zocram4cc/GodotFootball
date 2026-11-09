@@ -83,6 +83,10 @@ void pes_fn_144035D30(PesState& s) {
       s.gpr[4] = (uint64_t)(_r);
     }
     s.gpr[7] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
+    { uint64_t _t = s.rd(s.gpr[4], 8);
+      if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+        if (_d.fn == 0) pes_dispatch_missing(_t);
+        else _d.fn(s); } }
     return;
   } else {
     s.set_x_f32(0, k_c14259A768_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
@@ -96,6 +100,10 @@ void pes_fn_144035D30(PesState& s) {
       s.gpr[4] = (uint64_t)(_r);
     }
     s.gpr[7] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
+    { uint64_t _t = s.rd(s.gpr[4], 8);
+      if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+        if (_d.fn == 0) pes_dispatch_missing(_t);
+        else _d.fn(s); } }
     return;
   }
 }

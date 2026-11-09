@@ -21,5 +21,9 @@ void pes_fn_14C725068(PesState& s) {
   { uint64_t _t = s.rd(((s.gpr[4]) + (0x8ULL)), 8); s.wr(((s.gpr[4]) + (0x8ULL)), (uint64_t)(s.gpr[13]), 8); s.gpr[13] = (uint64_t)(_t); }
   s.gpr[13] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
   { uint64_t _t = s.rd(((s.gpr[4])), 8); s.wr(((s.gpr[4])), (uint64_t)(s.gpr[3]), 8); s.gpr[3] = (uint64_t)(_t); }
+  { uint64_t _t = s.rd(s.gpr[4], 8);
+    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+      if (_d.fn == 0) pes_dispatch_missing(_t);
+      else _d.fn(s); } }
   return;
 }

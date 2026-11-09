@@ -41,5 +41,9 @@ void pes_fn_143F22110(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[4] = (uint64_t)(_r);
   }
+  { uint64_t _t = s.rd(s.gpr[4], 8);
+    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+      if (_d.fn == 0) pes_dispatch_missing(_t);
+      else _d.fn(s); } }
   return;
 }

@@ -165,5 +165,9 @@ void pes_fn_143FA8420(PesState& s) {
   { unsigned __int128 _v = s.rd128(((s.gpr[4]) + (0x60ULL))); s.xmm[7][0] = (uint64_t)_v; s.xmm[7][1] = (uint64_t)(_v >> 64); }
   s.gpr[4] = (uint64_t)(s.gpr[11]);
   s.gpr[7] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
+  { uint64_t _t = s.rd(s.gpr[4], 8);
+    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+      if (_d.fn == 0) pes_dispatch_missing(_t);
+      else _d.fn(s); } }
   return;
 }

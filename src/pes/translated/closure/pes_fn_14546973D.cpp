@@ -33,5 +33,9 @@ void pes_fn_14546973D(PesState& s) {
   { uint64_t _f = s.rd(s.gpr[4], 8); s.gpr[4] += 8; s.cf = (_f & 1) != 0; s.pf = (_f & 4) != 0; s.zf = (_f & 0x40) != 0; s.sf = (_f & 0x80) != 0; s.of = (_f & 0x800) != 0; }
   s.gpr[11] = (uint64_t)(((s.gpr[11]) + (0ULL - 0x568471AULL)));
   { uint64_t _t = s.rd(((s.gpr[4])), 8); s.wr(((s.gpr[4])), (uint64_t)(s.gpr[11]), 8); s.gpr[11] = (uint64_t)(_t); }
+  { uint64_t _t = s.rd(s.gpr[4], 8);
+    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+      if (_d.fn == 0) pes_dispatch_missing(_t);
+      else _d.fn(s); } }
   return;
 }
