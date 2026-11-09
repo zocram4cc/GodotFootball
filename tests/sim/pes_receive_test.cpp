@@ -14,6 +14,7 @@
 #include "gametypes.hpp"
 #include "onthepitch/pesreceive.hpp"
 #include "onthepitch/pestrapactor.hpp"
+#include "onthepitch/pestrapdata.hpp"
 
 namespace {
 
@@ -534,6 +535,43 @@ TEST(PesAnimeAction, ASpecialClipIsInTheActionItsFamilyNames) {
   EXPECT_EQ(of(pes::PesClipFamily::kTackle), pes::kAnimeActionTackle);
   // GF's own special clips (celebrations and cards use 1..3) are in no action a gate admits
   EXPECT_EQ(pes::AnimeActionOfClip(e_FunctionType_Special, 1, false), pes::kAnimeActionNothing);
+}
+
+// A body that plays one of GF's own clips has no PES motion. Its P+0xAE0 must name no motion of PES's Animetable: the old value 0xBE5 is
+// the cell table's row count, a real idle motion with a cancel point the body never reaches, which left every man in a GF clip refused
+// by gate 4a (a resting ball nobody trapped, PesStall.ALiveBallNeverLiesStillLongEnoughForTheBreaker).
+TEST(PesAnimeAction, ABodyInAGfClipHoldsNoMotionOfPesAnimetable) {
+  EXPECT_GE(pes::kPNoMotion, pes::kMotionSlotCount);
+}
+
+// PES's action switch (FUN_1406EEBB0) stores the previous pair only when the action or the sub id changes, and a keep sub (0x5E) names the
+// action itself. The cases are the decompile's four arms; the captured pairs (49 of 49) all have sub == action.
+TEST(PesActionSwitch, AnActionChangeMovesTheCurrentPairToThePreviousOne) {
+  const pes::ActionIds now{pes::kAnimeActionMove, pes::kAnimeActionMove, 0x18, 0x18};
+  const pes::ActionIds got = pes::ActionIdsAfterSwitch(now, pes::kAnimeActionShortPass);
+  EXPECT_EQ(got.action, pes::kAnimeActionShortPass);
+  EXPECT_EQ(got.sub, pes::kAnimeActionShortPass) << "a keep sub becomes the action's own id";
+  EXPECT_EQ(got.prevAction, pes::kAnimeActionMove);
+  EXPECT_EQ(got.prevSub, pes::kAnimeActionMove);
+}
+
+TEST(PesActionSwitch, TheSameActionWithAKeepSubStoresNothing) {
+  const pes::ActionIds now{pes::kAnimeActionMove, pes::kAnimeActionMove, 0x18, 0x18};
+  const pes::ActionIds got = pes::ActionIdsAfterSwitch(now, pes::kAnimeActionMove);
+  EXPECT_EQ(got.prevAction, 0x18) << "the previous pair is not overwritten by a repeat";
+  EXPECT_EQ(got.prevSub, 0x18);
+  EXPECT_EQ(got.sub, pes::kAnimeActionMove);
+}
+
+TEST(PesActionSwitch, AnExplicitSubIsStoredAndAChangedSubMovesThePairToo) {
+  const pes::ActionIds now{pes::kAnimeActionDribble, pes::kAnimeActionDribble, pes::kAnimeActionMove, pes::kAnimeActionMove};
+  const pes::ActionIds changed = pes::ActionIdsAfterSwitch(now, pes::kAnimeActionTrap, 3);
+  EXPECT_EQ(changed.action, pes::kAnimeActionTrap);
+  EXPECT_EQ(changed.sub, 3) << "a sub other than the keep value is stored as given";
+  const pes::ActionIds sameAction = pes::ActionIdsAfterSwitch(now, pes::kAnimeActionDribble, 9);
+  EXPECT_EQ(sameAction.sub, 9);
+  EXPECT_EQ(sameAction.prevAction, pes::kAnimeActionDribble) << "a new sub of the same action also moves the pair";
+  EXPECT_EQ(sameAction.prevSub, pes::kAnimeActionDribble);
 }
 
 // --- Kick branch 0x5D (reaction entry 3, d_a.c:610-662): FUN_1409fbb40 action gate, FUN_1409fbba0 ball gate ---

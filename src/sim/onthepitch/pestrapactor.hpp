@@ -26,8 +26,14 @@ namespace pes {
 inline constexpr std::size_t kLocomotionPhases = 0x18;  // P+0x245C below this indexes the class table (0x1406D8C59)
 
 // PES's anime action ids (P+0xAC8; the names are the image's table at 0x1434A5470, read by script: 0 NOTHING, 2 MOVE, 3 STEP_MOVE, 4 DRIBBLE,
-// 7 TRAP, 8 LONG_PASS, 9 SHORT_PASS, 0xA SHOOT, 0xB SLIDING, 0xD TACKLE, 0x15 DODGE, 0x38 KP_CATCH, 0x3A KP_DEFLECT) and the "no
-// motion" sentinel of P+0x2810 (0xBE5, FUN_1406EB670; also the Animetable's row count).
+// 7 TRAP, 8 LONG_PASS, 9 SHORT_PASS, 0xA SHOOT, 0xB SLIDING, 0xD TACKLE, 0x15 DODGE, 0x38 KP_CATCH, 0x3A KP_DEFLECT) and P+0xAE0 for a body
+// that plays one of GF's own clips. PES has no such body: every man plays a motion of its Animetable. So P+0xAE0 holds the "none" index PES
+// stores in the member's motion cells (kMemberNoneIndex, FUN_141EB42B0), which is past the 0x1125-motion table: no class predicate of the
+// gate-4a handlers (FUN_140A6E290, 6E2E0, 6E4D0, the STEP handler's four motions) names it, and FUN_1406AFBC0 reads the default record for
+// it. The previous value, 0xBE5, is the Animetable's CELL row count (FUN_1406AA440), not a "no motion": as a motion it is a real idle motion
+// whose first cancel point is about 23 ticks in, and a body that plays no PES motion has no elapsed ticks to reach it, so every man in a GF
+// clip was refused by gate 4a for good (2,806 of 4,293 slow-ball candidates on seed 7).
+// ponytail: GF's own clips stand in for PES motions; MoveStepCell issuing a PES motion for every locomotion request removes the case.
 inline constexpr uint8_t kAnimeActionNothing = 0;
 inline constexpr uint8_t kAnimeActionMove = 2;
 inline constexpr uint8_t kAnimeActionDribble = 4;
@@ -40,20 +46,26 @@ inline constexpr uint8_t kAnimeActionTackle = 0xD;
 inline constexpr uint8_t kAnimeActionDodge = 0x15;
 inline constexpr uint8_t kAnimeActionKeeperCatch = 0x38;
 inline constexpr uint8_t kAnimeActionKeeperDeflect = 0x3A;
-inline constexpr uint16_t kPNoMotion = 0xBE5;
+inline constexpr uint16_t kPNoMotion = kMemberNoneIndex;
 
-// The PES action a GF body is in, from the clip it plays. GF has no action machine: PES writes P+0xAC8 only in FUN_1406EEBB0, which
+// The PES action a GF body runs, from the clip it plays. GF has no action machine: PES writes P+0xAC8 only in FUN_1406EEBB0, which
 // the action ticks call. `function` is the clip's function type, `specialVar1` its family (pesclips.hpp), `carrier` that the man is PES's
-// holder (MA+0x2601C == him). Each row names the PES action that plays that behaviour:
-//   - a movement clip, or a MOVESTEP locomotion clip: MOVE. (STEP_MOVE is entered from other actions' ticks, e.g. FUN_140748390, and
-//     nothing in GF tells it from MOVE.)
-//   - a ball-control clip: DRIBBLE for the holder. FUN_1406EEBB0's 4/5 arm turns a DRIBBLE request of a man who is not the carrier
-//     (anime +8 against FUN_140A627E0) into MOVE, so any other man is in MOVE.
-//   - the passes and the shot: LONG_PASS (long and high), SHORT_PASS, SHOOT; a header is a kick: SHOOT (INF: PES has no header action).
-//   - a slide: SLIDING; a trip and an interfere: TACKLE (INF); the keeper's catch and deflect: KP_CATCH and KP_DEFLECT.
-//   - a Special clip by family: dodge DODGE, tackle TACKLE, locomotion MOVE, trap TRAP; any other (GF's own celebrations, cards,
-//     feints): NOTHING, which no gate admits.
+// holder (MA+0x2601C == him). Each row of the function names the PES action that plays that behaviour and cites the PES site that writes it.
+// MOVE against STEP_MOVE is not derived: PES's two ids are the AI command's choice (FUN_1406EEA90's cmd[1]), and the 17 captured gate-4a
+// calls (live2/pid3332804) hold both ids at phase 5 of P+0x245C and STEP_MOVE at the run-turn phase 12 and the idle phase 1, so no state
+// family of GF's MOVESTEP says which one PES commanded. GF is always MOVE.
 uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier);
+
+// The third argument that keeps the sub id (FUN_1406EEBB0 compares it at 0x1406EED32 and 0x1406EED5C; FEINT_KIND_AUTO in the table at 0x1434A5470). Of the 125
+// direct call sites, 117 pass it, five compute the sub id and three leave r8 as an earlier call set it; so P+0xAC9 equals P+0xAC8 whenever an
+// action changes (every captured pair, 49 of 49, is equal).
+inline constexpr uint8_t kActionSubKeep = 0x5E;
+// P+0xAC8..+0xACB: the current action and sub id, then the previous pair.
+struct ActionIds {
+  uint8_t action = 0, sub = 0, prevAction = 0, prevSub = 0;
+};
+// The four bytes after PES's action switch ran with `request` and `sub` on a man whose bytes were `now`.
+ActionIds ActionIdsAfterSwitch(const ActionIds& now, uint8_t request, uint8_t sub = kActionSubKeep);
 
 // One motion of the anime player's list, as FUN_141EB4650 reads it (FUN_141AF3070 id, FUN_141AF4160 flag byte, FUN_141AF3100
 // seconds played, FUN_141AF3330 the layer's rate).

@@ -70,6 +70,7 @@ class TrapRestartProbe : public pestest::Probe {
   long holderTraps = 0;      // those that began while he was PES's holder (MA+0x2601C == him)
   long trapStarts = 0;       // PES trap starts: ticks on which a man's P+0xAC8 became the Trap action
   long refusedStarts = 0;    // those whose clip the body did not take on the next tick (the action tick's PlayIssuedClip refused it)
+  long gateRefusedStarts = 0;  // those that left an action gate 4a (0x14079BBE0's admitted ids) does not admit
   void OnTick(Match& match) override {
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
@@ -87,7 +88,15 @@ class TrapRestartProbe : public pestest::Probe {
         const bool pesTrap = match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
         if (seen.startedLastTick && !onTrap) refusedStarts++;
         const bool started = pesTrap && !seen.pesTrap;
-        if (started) trapStarts++;
+        if (started) {
+          trapStarts++;
+          // StartTrapAction moved the action the man left into P+0xACA. PES admits a trap from the ids of 0x14079BBE0's list only; a tackle,
+          // a keeper's catch or deflect and a man in no action (GF's own cards and celebrations) are not in it.
+          const uint8_t left = match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPPrevActionOffset];
+          if (left == pes::kAnimeActionTackle || left == pes::kAnimeActionNothing || left == pes::kAnimeActionKeeperCatch ||
+              left == pes::kAnimeActionKeeperDeflect)
+            gateRefusedStarts++;
+        }
         seen = {onTrap, clip->frameNum, clip->touchFrame, pesTrap, started};
       }
     }
@@ -167,6 +176,19 @@ TEST(PesStall, NoPesTrapStartIsRefusedByTheBody) {
   ASSERT_GT(trapCensus.trapStarts, 0) << "no PES trap started";
   EXPECT_EQ(trapCensus.refusedStarts, 0) << trapCensus.refusedStarts << " of " << trapCensus.trapStarts
                                          << " PES trap starts were refused by the body";
+}
+
+// Gate 4a refuses a man whose current action is not in 0x14079BBE0's list (a tackle, the keeper's catch and deflect, no action at all): the
+// reaction never hands him a trap, so no trap start leaves one of those actions.
+TEST(PesStall, NoTrapStartsFromAnActionGate4aRefuses) {
+  pestest::Run(trapCensus);
+  if (trapCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(trapCensus.setupError.empty()) << trapCensus.setupError;
+  pestest::Settle(trapCensus);
+  ASSERT_TRUE(trapCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(trapCensus.trapStarts, 0) << "no PES trap started";
+  EXPECT_EQ(trapCensus.gateRefusedStarts, 0) << trapCensus.gateRefusedStarts << " of " << trapCensus.trapStarts
+                                             << " PES trap starts left an action gate 4a does not admit";
 }
 
 // The referee arms a restart and releases it when the taker is ready. While it is armed the referee owns the
