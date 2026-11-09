@@ -10,6 +10,9 @@
 
 
 void pes_fn_14239D020(PesState& s);
+void pes_fn_14239E3A0(PesState& s);
+void pes_fn_1423A3AD0(PesState& s);
+void pes_fn_1423B1210(PesState& s);
 
 void pes_fn_14239D020(PesState& s) {
   s.gpr[4] -= 8;
@@ -84,14 +87,14 @@ void pes_fn_14239D020(PesState& s) {
         }
       }
       s.gpr[1] = (uint64_t)(uint32_t)(((s.gpr[8]) + (0x1ULL)));
-      /*OUT-OF-SET CALL 0x1423A3AD0*/ pes_dispatch_missing(0x1423A3AD0);
+      { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423A3AD0(s); s.gpr[4] += 8; }
       s.wr(((s.gpr[3]) + (0x98ULL)), (uint64_t)(s.gpr[0]), 8);
       s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x4ULL)), 4));
       s.wr(((s.gpr[3]) + (0x3CULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
       s.gpr[8] = (s.gpr[8] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
       s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[6]));
       s.gpr[1] = (uint64_t)(s.gpr[3]);
-      /*OUT-OF-SET CALL 0x14239E3A0*/ pes_dispatch_missing(0x14239E3A0);
+      { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14239E3A0(s); s.gpr[4] += 8; }
     }
   } else {
     s.wr(((s.gpr[1]) + (0x30ULL)), (uint64_t)((1114112ULL)), 4);
@@ -102,7 +105,7 @@ void pes_fn_14239D020(PesState& s) {
   if (!s.cond("z")) {
     s.gpr[2] = (uint64_t)(uint32_t)((5ULL));
     s.gpr[1] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[7]));
-    /*OUT-OF-SET CALL 0x1423A3AD0*/ pes_dispatch_missing(0x1423A3AD0);
+    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423A3AD0(s); s.gpr[4] += 8; }
     s.wr(((s.gpr[3]) + (0xA8ULL)), (uint64_t)(s.gpr[0]), 8);
     s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x4ULL)), 4));
     s.wr(((s.gpr[3]) + (0x44ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
@@ -133,7 +136,7 @@ void pes_fn_14239D020(PesState& s) {
         s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
         s.cf = false; s.of = false; }
       if (!s.cond("z")) {
-        /*OUT-OF-SET CALL 0x1423B1210*/ pes_dispatch_missing(0x1423B1210);
+        { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423B1210(s); s.gpr[4] += 8; }
         (void)0;
       }
     }

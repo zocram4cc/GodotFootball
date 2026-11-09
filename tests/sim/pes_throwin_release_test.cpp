@@ -36,11 +36,16 @@ constexpr int kMinutes = 2;
 // section 8). Every cutover that moves the matches needs a new census.
 // Carried throw-ins (path A): seeds 5, 6, 7, 10 and 11 release one (first at ticks 22628, 4573, 25018, 14048 and 10588), fastest
 // first. The tests search matches in turn until one has a throw-in.
+// Re-checked on the RestingBall3 merge (the same census): carried releases on 6 (first at frame 6358), 11 (10223), 10
+// (10797) and 5 (30381), in that order, so the list stands.
 constexpr unsigned int kThrowInSeeds[] = {6u, 11u, 10u, 5u};
-// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take. Census on the KickMotion tree (its kick
-// picks moved seeds 3 and 8 off the ceremony: neither places one now), serial per list, two-minute pes-loop matches: the test passed
-// on the lists {1, 2, 4} (834 s), {9, 10, 11} (1,101 s) and {12, 13, 14} (3,104 s) and failed on {5, 6, 7}; the first is staged.
-constexpr unsigned int kCeremonySeeds[] = {1u, 2u, 4u};
+// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take. Census on the RestingBall3 merge
+// (MergeBatchBI; seeds 1..24, two-minute pes-loop matches, one process per seed; a taker is counted when IsPieceTakerHeld
+// at the throw-in's start and its release ends the throw-in): ceremony releases on seeds 18 (first at frame 7237, two
+// releases), 12 (7525), 11 (11290), 23 (27409), 22 (31775) and 10 (42655); none on 1-9, 13-15, 17, 19-21 and 24. Seed 16
+// aborts in PES_DISPATCH_UNTRANSLATED 0x14079E0B0, not counted. No release missed the key. Fastest first; the table is in
+// docs/ports/pes-merge-BI.md section 3.
+constexpr unsigned int kCeremonySeeds[] = {18u, 12u, 11u, 23u, 22u, 10u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).

@@ -218,6 +218,12 @@ ActorKey DesignatedOwnerScan(const std::array<Ring0Entry, kRing0ScanCount>& ring
 // Gate 4c (FUN_1409fa520, d_b.c:91): the designated owner never traps through reaction entry 3.
 bool RefusedAsDesignatedOwner(const ActorKey& designatedOwner, const ActorKey& me);
 
+// Gate 3's carrier clause (FUN_1409fa400, 0x1409FA4AD..0x1409FA4D0): the man who is the carrier (MA+0x2601C == me) touches again only
+// from anime action 0x44 (KP_DROP_BALL) while MA+0x251FA[his side] is clear, or from 0x10 or 0x15. actionType is the anime record's byte
+// +1 (FUN_140A48910): the man's current action type, the same byte as P+0xAC9 (2 MOVE, 3 STEP_MOVE, 4 DRIBBLE, 7 TRAP). A carrier in
+// his trap, his dribble or his move is refused the receive: PES does not start his trap again.
+bool CarrierMayTouch(uint8_t actionType, bool keeperClaimFlag);
+
 // --- Kick branch 0x5D (reaction entry 3, d_a.c:610-662) ---
 
 // FUN_1409fbb40: the anime action gate. hasAction: the anime action pointer (param_1+0x28) is set. A held AI
