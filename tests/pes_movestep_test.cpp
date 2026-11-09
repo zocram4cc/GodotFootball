@@ -338,6 +338,10 @@ class RateHost : public pes::MoveHost {
   int MoveStatePrevious() const override { return 0; }
   float RecordF0bec() const override { return f0bec; }
   void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
+  void SetRootFacing(float angleDeg) override { rootFacings.push_back(angleDeg); }
+  void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) override {
+    yawArms.push_back({fromDeg, toDeg, ticks, overrideMode});
+  }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
   void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
@@ -429,6 +433,13 @@ class RateHost : public pes::MoveHost {
   int recordActionB = 5;
   float f0bec = 0.0f;
   int f0becWrites = 0;
+  struct YawArm {
+    float from, to;
+    int ticks;
+    bool overrideMode;
+  };
+  std::vector<float> rootFacings;
+  std::vector<YawArm> yawArms;
   int cellCalls = 0;
   int lastCellRow = -1;
   int lastCellColumn = -1;
@@ -969,6 +980,31 @@ TEST(SimTail, StoresTheRequestsPlaybackSpeed) {
   req.SetF(pes::moveword::kPlayback, 0.75f);
   pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kIdle);
   EXPECT_FLOAT_EQ(rec.playbackSpeed, 0.75f);
+}
+
+// FUN_1406b8340's body tail: the root-facing write (req[0x3a], angle req[0x3b]) and the yaw adjuster's arm (req[0x3c]: from the facing
+// req[2] to the stamp req[0x3d] over req[0x3e] ticks, override flag byte req[0x3f]), in that order.
+TEST(SimTail, TheBodyTailWritesTheRootFacingAndArmsTheYawAdjusterFromTheLockWords) {
+  RateHost host = IdleHost();
+  pes::MoveReq req;
+  pes::movestep::ApplyBodyTail(host, req);
+  EXPECT_TRUE(host.rootFacings.empty());
+  EXPECT_TRUE(host.yawArms.empty());
+  req.SetByte(pes::moveword::kRootFacing, 1);
+  req.SetF(pes::moveword::kRootFacingAngle, 210.0f);
+  req.SetF(pes::moveword::kFacing, 181.5f);
+  req.SetByte(pes::moveword::kTurnLockFlag, 1);
+  req.SetF(pes::moveword::kTurnLockStamp, 109.0f);
+  req.SetU(pes::moveword::kTurnLockTicks, 22u);
+  req.SetByte(pes::moveword::kTurnLockDir, 1);
+  pes::movestep::ApplyBodyTail(host, req);
+  ASSERT_EQ(host.rootFacings.size(), 1u);
+  EXPECT_FLOAT_EQ(host.rootFacings[0], 210.0f);
+  ASSERT_EQ(host.yawArms.size(), 1u);
+  EXPECT_FLOAT_EQ(host.yawArms[0].from, 181.5f);
+  EXPECT_FLOAT_EQ(host.yawArms[0].to, 109.0f);
+  EXPECT_EQ(host.yawArms[0].ticks, 22);
+  EXPECT_TRUE(host.yawArms[0].overrideMode);
 }
 
 // The clip the FSM last issued, as the viewer plays it. Each issue is a new clip in PES, so a

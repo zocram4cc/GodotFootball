@@ -938,17 +938,27 @@ class PesWorld {
   // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
   // touched bit (kPFlagTouched) is the reach test's answer.
   PesBodyScanOut RunBodyScan(int slot, PesTrapExternals& ext);
-  // One frame of the strike adjuster A = P+0x428 (pestrapworld.hpp kPAdjusterOffset): the root advance FUN_141EB1BF0 on `slot`'s P.
-  // `moved` is false while A is not running; else (x, z) is the frame's root displacement in PES axes, m (the clip's own root motion
-  // is not in it: GF's body plays that).
-  // ponytail: FUN_141EB3AF0, the per-frame wrapper (hold ticks, finish, and the anime layer's own displacement loaded into A+0x14 by
-  // FUN_141AF3CA0) reads the anime chain *(P+0xA08), which GF's window does not have: its counters and its finish are written here
-  // as 0x141EB3AF0 reads them and the layer's term is zero. AnimeLayer's chain removes this.
-  struct AdjusterStep {
-    bool moved = false;
+  // One frame of the three body adjusters of `slot`'s P, in the order of the anime driver FUN_141EB5E70: the root adjuster A =
+  // P+0x428 (strike, approach), the height adjuster P+0x498 and the yaw adjuster P+0x4D0, each through FUN_141EB3AF0 (hold ticks,
+  // finish, the layer's root point loaded into A+0x14, the step through the adjuster's vtable +0x18).
+  // `strikeMoved` is set when A ran (x, z) = the frame's root displacement it added to the root point, PES axes (the trap world's: z =
+  // GF y), m. `yawStepped` is set when the yaw adjuster ran: `yawRad` is its per-tick rotation (FUN_141EB1A50), in the trap world's
+  // facing sense (clockwise seen from above). `degToRad` is 0x1425A0C48 (a yaw adjuster in override mode, flag +0x24 = 1, steps in
+  // degrees: FUN_1406EEDF0 multiplies by it, 0x1406EEF75).
+  // ponytail: the height adjuster's output (+0x18, metres of root height) has no consumer: GF's body has no root height (2D contract).
+  // ponytail: the chain's root point O2+0xD0 is the man's position the actor writer stores; PES's anime evaluation (the engine step
+  // FUN_141EB5E70 ends in, chain vtable +0x38) is not run, so the engine's own consumption of these outputs is GF's body step (AnimeLayer).
+  struct AdjusterFrame {
+    bool strikeMoved = false;
     float x = 0.0f, z = 0.0f;
+    bool yawStepped = false;
+    float yawRad = 0.0f;
   };
-  AdjusterStep RunTrapAdjuster(int slot);
+  AdjusterFrame StepAdjusters(int slot, float degToRad);
+  // FUN_141EB35A0(P+0x4D0, from, to, ticks, override) then FUN_141EB3AE0: arms the yaw adjuster (facing degrees, the trap world's sense).
+  void ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool overrideMode);
+  // FUN_141EB56D0(P, &angle, 1): the root-facing write: P+0x20 takes the angle and the yaw adjuster is armed over one tick without error.
+  void SetRootFacing(int slot, float angleDeg);
   // The joint block (pesbodyscan.hpp) from the bones' world frames, as FUN_141EB49B0 leaves it: last tick's cells move to the previous
   // slots, the masked bones' positions and rotations are written, P+0xA04 is set.
   void WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask);

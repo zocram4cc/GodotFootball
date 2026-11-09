@@ -39,6 +39,7 @@ void pes_fn_140A92C80(PesState& s);
 void pes_fn_140A93070(PesState& s);
 void pes_fn_141AF3100(PesState& s);
 void pes_fn_141AF3330(PesState& s);
+void pes_fn_141AF3AF0(PesState& s);
 void pes_fn_141AF3CA0(PesState& s);
 void pes_fn_141AF4160(PesState& s);
 void pes_fn_141E532D0(PesState& s);
@@ -313,7 +314,7 @@ void pes_fn_141EB1BF0(PesState& s) {
   L_141EB1FBD:;
   s.gpr[2] = (s.gpr[2] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
   s.gpr[1] = (uint64_t)(s.gpr[15]);
-  /*OUT-OF-SET CALL 0x141AF3AF0*/ pes_dispatch_missing(0x141AF3AF0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_141AF3AF0(s); s.gpr[4] += 8; }
   s.set_x_f32(0, (float)((s.x_f32(0)) * ((k_c14259BE40_f))));
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x38ULL)));
   s.xmm[1][0] = s.xmm[0][0]; s.xmm[1][1] = s.xmm[0][1];

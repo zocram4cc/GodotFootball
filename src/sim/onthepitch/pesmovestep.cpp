@@ -25,6 +25,20 @@ constexpr float kBallFallbackDistance_m = 0.2f;
 using MoveHostConstants = pes::MoveStepConstants;
 
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
+constexpr float kHalfTurn_deg = 180.0f, kFullTurn_deg = 360.0f;
+
+// The trap world's facing (the man record's atan2(x, GF y), which the translated Trap start arms the yaw adjuster in) is the mirror of
+// MOVESTEP's (atan2(x, -GF y), PES's z = -GF y): trap = 180 - movestep. Every angle the adapter hands the yaw adjuster goes through
+// here, so the P window holds one sense.
+float TrapFacingOf(float moveStepDeg) {
+  const float folded = std::fmod(kHalfTurn_deg - moveStepDeg, kFullTurn_deg);
+  return folded < 0.0f ? folded + kFullTurn_deg : folded;
+}
+// An angle difference folded into [-180, 180].
+float FoldSigned(float deg) {
+  const float folded = std::fmod(deg + kHalfTurn_deg, kFullTurn_deg);
+  return (folded < 0.0f ? folded + kFullTurn_deg : folded) - kHalfTurn_deg;
+}
 
 // PES's ground frame against GF's: PES's z is -coords[1] (referee.cpp:197 in.ballZ_m).
 // Every heading the adapter feeds PES goes through here, so the sign lives in this one place.
@@ -321,6 +335,18 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   float RecordF0bec() const override { return player_.GetMoveStep().yawLock; }
   void SetRecordF0bec(float value) override { player_.GetMoveStep().yawLock = value; }
+  // FUN_141eb56d0(P, &angle, 1): P+0x20 takes the angle (the trap world's sense, see TrapFacingOf) and the yaw adjuster is
+  // re-armed over one tick without error. ponytail: PES's engine reads the root yaw back from the anime evaluation (not run);
+  // GF's body takes the facing change at once, as the facing P+0x20 is what the AI reads next tick.
+  void SetRootFacing(float angleDeg) override {
+    const float target = TrapFacingOf(angleDeg);
+    const float turn = FoldSigned(target - TrapFacingOf(FacingDeg()));
+    match_.PesWorldOf().SetRootFacing(match_.PesSlotOf(&player_), target);
+    player_.CastHumanoid()->TurnRoot(-turn / kDegPerRad);
+  }
+  void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) override {
+    match_.PesWorldOf().ArmYaw(match_.PesSlotOf(&player_), TrapFacingOf(fromDeg), TrapFacingOf(toDeg), ticks, overrideMode);
+  }
   const pes::AngleBucketConstants& AngleBuckets() const override { return c_.buckets; }
   // FUN_141eb50b0 index 0 and 1: the displacement of the last tick, in metres per PES tick (every reader multiplies it by the
   // tick rate to get km/h: FUN_1406bb570 line `ticks * 60 * 60 / 1000 * |displacement|`). GF's movement is metres per second
@@ -639,6 +665,7 @@ void ProcessMoveStep(Player& player, Match& match) {
   pes::movestep::RampsBeforeDispatch(host, req);
   const int issuesBefore = host.IssueCount();
   pes::Dispatch(stateAtEntry, host, req);
+  pes::movestep::ApplyBodyTail(host, req);  // FUN_1406b8340's root-facing write and yaw adjuster arm, before its issue
   // FUN_1406b8340's tail (anime-select 1, step 7): a request the handler left due (req[0x2f]) is issued
   // now, unless the handler already issued this tick.
   if (req.Flag(pes::moveword::kMotionPending) && host.IssueCount() == issuesBefore)
@@ -649,6 +676,17 @@ void ProcessMoveStep(Player& player, Match& match) {
   rec.liveKind = static_cast<uint8_t>(req.U(pes::moveword::kLiveKind) & 0xffu);
   pes::CarryOut(rec, req);  // FUN_1406b6a90's copy-back: the words the next tick reads back
   pes::ApplyTransition(rec, req);
+}
+
+void StepAdjusters(Player& player, Match& match) {
+  if (!match.PesLoop()) return;
+  const pes::PesWorld::AdjusterFrame frame =
+      match.PesWorldOf().StepAdjusters(match.PesSlotOf(&player), match.GetPesActorConstants().degToRad);
+  HumanoidBase* body = player.CastHumanoid();
+  // The trap world's axes: PES z is GF y (the strike's target was built in them).
+  if (frame.strikeMoved) body->WarpRoot(Vector3(frame.x, frame.z, 0.0f), 0.0f);
+  // A positive PES yaw is clockwise seen from above (the trap world's facing is 90 - GF heading), GF's yaw counter-clockwise.
+  if (frame.yawStepped) body->TurnRoot(-frame.yawRad);
 }
 
 void RequestStop(Player& player, Match& match) {

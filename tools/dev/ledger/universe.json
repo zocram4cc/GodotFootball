@@ -223900,6 +223900,34 @@
    "vtables": [],
    "walked": true
   },
+  "1406EEDF0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141EB3320": "direct",
+    "141EB3350": "direct",
+    "141EB3360": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1406eedf0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "rootmotion"
+   ],
+   "scope": "in",
+   "size": 205,
+   "source": "pdata",
+   "subsystem": "rootmotion",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406EF320": {
    "boundary": null,
    "callees": {},
@@ -1093671,6 +1093699,31 @@
    "vtables": [],
    "walked": true
   },
+  "141EB1A50": {
+   "boundary": null,
+   "callees": {
+    "1415A17CE": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141eb1a50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "rootmotion"
+   ],
+   "scope": "in",
+   "size": 97,
+   "source": "pdata",
+   "subsystem": "rootmotion",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EB1BF0": {
    "boundary": null,
    "callees": {
@@ -1093706,6 +1093759,29 @@
    "size": 453,
    "source": "pdata",
    "subsystem": "trapadjust",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EB2450": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141eb2450",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "rootmotion"
+   ],
+   "scope": "in",
+   "size": 61,
+   "source": "pdata",
+   "subsystem": "rootmotion",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1094099,6 +1094175,34 @@
    "source": "bridge",
    "subsystem": "restart",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141EB3830": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141EB3867",
+     "text": "call qword ptr [rax + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141eb3830",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "rootmotion"
+   ],
+   "scope": "in",
+   "size": 56,
+   "source": "pdata",
+   "subsystem": "rootmotion",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1308390,6 +1308494,19 @@
     "members": 272,
     "roots": [
      "0x141F7BFE0"
+    ]
+   },
+   "rootmotion": {
+    "members": 9,
+    "roots": [
+     "0x141EB3AF0",
+     "0x141EB35A0",
+     "0x141EB3830",
+     "0x141EB26F0",
+     "0x141EB3910",
+     "0x1406EEDF0",
+     "0x141EB1A50",
+     "0x141EB2450"
     ]
    },
    "teampass": {

@@ -654,6 +654,12 @@ class MoveHost {
   // to P+0xbec after Dispatch.
   virtual float RecordF0bec() const = 0;
   virtual void SetRecordF0bec(float value) = 0;
+  // FUN_1406b8340's tail, after the handler (the anime-select 1, step 6): the body's root. FUN_141eb56d0(P, &req[0x3b], 1) when the
+  // root-facing flag req[0x3a] is set: P+0x20 takes the angle and the yaw adjuster is re-armed over one tick without error.
+  virtual void SetRootFacing(float angleDeg) = 0;
+  // FUN_141eb35a0(P+0x4d0, req[2], req[0x3d], req[0x3e], req[0x3f] byte) then FUN_141eb3ae0(P+0x4d0) when the turn-lock flag
+  // req[0x3c] is set: the yaw adjuster spreads the turn over `ticks` frames (the facing, in degrees, to the target).
+  virtual void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) = 0;
   // The angle-bucket install tables of FUN_1406b9b20 (see AngleBucketConstants).
   virtual const AngleBucketConstants& AngleBuckets() const = 0;
   // Group C's install scalars (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP and the transitions), read from
@@ -996,6 +1002,8 @@ int BodyBucketFlag(float recordValue);
 // P+0xbec is req[0xec]; otherwise a root-facing write is req[0x3b] when req[0x3a] is set. The
 // request's playback word is stored at P+0x3758 (MoveStepRecord::playbackSpeed).
 void ApplyTail(MoveStepRecord& rec, MoveHost& host, MoveReq& req, MoveState stateAtEntry);
+// FUN_1406b8340's body tail: the root-facing write and the yaw adjuster's arm, in PES's order.
+void ApplyBodyTail(MoveHost& host, const MoveReq& req);
 }  // namespace movestep
 
 }  // namespace pes

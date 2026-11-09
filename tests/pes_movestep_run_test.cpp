@@ -116,6 +116,8 @@ class SyntheticHost : public pes::MoveHost {
   int MoveStatePrevious() const override { return previousState; }
   float RecordF0bec() const override { return f0bec; }
   void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
+  void SetRootFacing(float) override {}
+  void ArmYawAdjuster(float, float, int, bool) override {}
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
   void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {

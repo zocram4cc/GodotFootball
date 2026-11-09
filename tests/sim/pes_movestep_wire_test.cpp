@@ -5,7 +5,11 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -20,6 +24,8 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesmovestep.hpp"
+#include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/player/humanoid/animcollection.hpp"
 #include "onthepitch/team.hpp"
@@ -834,6 +840,64 @@ TEST(MoveStepWire, TheFacingWordIsTheRootYawNotTheTravelDirection) {
   }
   ASSERT_GT(split, 0) << "no body's root yaw left its travel direction";
   EXPECT_EQ(wrong, 0) << wrong << " of " << split << " split ticks read the travel direction as the facing";
+}
+
+// PES's turn is the yaw adjuster P+0x4D0: FUN_1406B8340's tail arms it (FUN_141EB35A0) from the facing to the turn lock's heading over
+// req[0x3E] ticks, FUN_141EB3AF0 steps it each frame (vtable +0x18 = FUN_141EB1A50: curve 0 is the error spread evenly, `fVar6 /
+// iVar2 + acc`, so the N steps sum to the error), and FUN_1406EEDF0 hands each step to the anime request as a rotation about the
+// vertical axis. GF never ran any of it: a turn clip played its 0.5 degrees a tick and the man kept his heading. The root yaw must
+// move by the armed error over the armed ticks (the trap world's sense: PES's yaw is atan2(x, GF y); the P window holds that sense).
+TEST(RootMotion, ATurnTheYawAdjusterIsArmedWithTurnsTheManByItsErrorOverItsTicks) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kTicks = 3000;
+  constexpr float kMinError_deg = 30.0f;  // a turn, not a trap's trim
+  constexpr int kMinTicks = 8;
+  constexpr float kDegPerRad = 57.2957795f;
+  constexpr int kSlots = 22;
+  constexpr float kLow = 0.6f, kHigh = 1.4f;  // the clip's own body yaw adds a few degrees to the adjuster's error
+  auto facing = [&](Player* p) {  // PES's facing in the trap world: atan2(x, GF y)
+    const Vector3 v = p->GetRootDirectionVec();
+    return std::atan2(v.coords[0], v.coords[1]) * kDegPerRad;
+  };
+  auto fold = [](float d) { return std::fmod(d + 540.0f, 360.0f) - 180.0f; };
+  struct Watch {
+    bool on = false;
+    float error = 0.0f, start = 0.0f, last = 0.0f;
+    int ticks = 0, elapsed = 0;
+  };
+  std::array<Watch, kSlots> watch{};
+  std::vector<float> ratios;
+  pes::PesWorld& world = match->PesWorldOf();
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const int slot = match->PesSlotOf(p);
+      Watch& w = watch.at(slot);
+      const uint8_t* yaw = world.P(slot) + pes::kPYawAdjusterOffset;
+      uint32_t state;
+      int16_t count, ticks;
+      float error;
+      std::memcpy(&state, yaw + pes::kAdjStateOffset, sizeof state);
+      std::memcpy(&count, yaw + pes::kAdjCountOffset, sizeof count);
+      std::memcpy(&ticks, yaw + 0x10, sizeof ticks);
+      std::memcpy(&error, yaw + 0x28, sizeof error);
+      const float now = facing(p);
+      if (!w.on && state == pes::kAdjRunning && count == 2 && ticks >= kMinTicks && std::fabs(error) >= kMinError_deg) {
+        w = {true, error, w.last, now, ticks, 1};  // armed and stepped once this tick: the facing before is last tick's
+      } else if (w.on && ++w.elapsed >= w.ticks) {
+        ratios.push_back(fold(now - w.start) / w.error);
+        w.on = false;
+      }
+      w.last = now;
+    }
+  }
+  ASSERT_FALSE(ratios.empty()) << "no yaw adjuster was ever armed with a turn of " << kMinError_deg << " degrees";
+  std::sort(ratios.begin(), ratios.end());
+  const float median = ratios[ratios.size() / 2];
+  EXPECT_GT(median, kLow) << ratios.size() << " turns; the body turned less than the armed error";
+  EXPECT_LT(median, kHigh) << ratios.size() << " turns; the body turned more than the armed error";
 }
 
 // The throw-in hold (SelectRetainAnim) starts from a body whose root and travel differ, and it keeps the root's yaw: the lift

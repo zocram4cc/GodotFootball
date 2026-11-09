@@ -684,6 +684,16 @@ void HumanoidBase::WarpRoot(const Vector3& offset, radian yaw) {
   spatialState.bodyAngle = ModulateIntoRange(-pi, pi, spatialState.bodyAngle + yaw);
 }
 
+void HumanoidBase::TurnRoot(radian yaw) {
+  WarpRoot(Vector3(0), yaw);
+  nextStartPos = spatialState.position + (nextStartPos - spatialState.position).GetRotated2D(yaw);
+  std::vector<Vector3>& path = currentAnim->positions;
+  const std::size_t at = static_cast<std::size_t>(currentAnim->frameNum);
+  if (path.size() <= at) return;
+  const Vector3 pivot = path[at];
+  for (std::size_t k = at + 1; k < path.size(); ++k) path[k] = pivot + (path[k] - pivot).GetRotated2D(yaw);
+}
+
 bool HumanoidBase::TripMe(const Vector3& tripVector, int tripType) {
   if (currentAnim->anim->GetVariable("incoming_special_state").compare("") == 0 &&
       currentAnim->anim->GetVariable("outgoing_special_state").compare("") == 0) {

@@ -3579,10 +3579,6 @@ void RunPesTrapTicks(Match& match) {
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
       if (phaseBefore == 0)
         p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
-      // The anime tick that follows the action tick in a PES frame steps the strike adjuster the start armed (the root's walk onto
-      // the ball's predicted contact point): its frame displacement is the root moving, a warp like the throw-in's.
-      const pes::PesWorld::AdjusterStep adj = world.RunTrapAdjuster(slot);
-      if (adj.moved) p->CastHumanoid()->WarpRoot(Vector3(adj.x, adj.z, 0.0f), 0.0f);
     }
   }
 }

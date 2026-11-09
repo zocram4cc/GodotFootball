@@ -423,6 +423,8 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
 // The scan's call frame: the output record sits above the entry rsp in the window's stack, zeroed as the anime driver zeroes it before
 // the scan; the callee frames grow below the entry.
 static constexpr std::size_t kScanFrameBytes = 0x600, kScanOutAboveEntry = 0x200;
+// Win64: the 5th integer-class argument sits above the return address and the 32-byte shadow space.
+static constexpr uint64_t kArmFirstStackArg = 0x28;
 
 PesBodyScanOut PesWorld::RunBodyScan(int slot, PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
@@ -442,45 +444,63 @@ PesBodyScanOut PesWorld::RunBodyScan(int slot, PesTrapExternals& ext) {
   return result;
 }
 
-PesWorld::AdjusterStep PesWorld::RunTrapAdjuster(int slot) {
-  uint8_t* a = P(slot) + kPAdjusterOffset;
-  AdjusterStep step;
-  uint32_t state;
-  std::memcpy(&state, a + kAdjStateOffset, sizeof state);
-  if (state != kAdjRunning) return step;
-  int16_t count, delay, ticks;
-  std::memcpy(&count, a + kAdjCountOffset, sizeof count);
-  std::memcpy(&delay, a + kAdjDelayOffset, sizeof delay);
-  std::memcpy(&ticks, a + kAdjTicksOffset, sizeof ticks);
-  // FUN_141EB3AF0: a counter still under the hold only counts; past the last tick the adjuster finishes (its own zeroing, then
-  // vtable +0x10 = FUN_141EB1A20); otherwise vtable +0x18 = FUN_141EB1BF0 steps it.
-  if (count < delay) {
-    ++count;
-    std::memcpy(a + kAdjCountOffset, &count, sizeof count);
-    return step;
+PesWorld::AdjusterFrame PesWorld::StepAdjusters(int slot, float degToRad) {
+  uint8_t* p = P(slot);
+  AdjusterFrame frame;
+  const uint64_t chain = LoadU64(p, kPScalePtrOffset);  // the anime chain *(P+0xA08): the window's physique object
+  const std::size_t order[3] = {kPAdjusterOffset, kPHeightAdjusterOffset, kPYawAdjusterOffset};
+  const uint8_t yawOverride = p[kPYawAdjusterOffset + kAdjYawFlagOffset];  // FUN_141EB3AF0's finish zeroes it
+  for (const std::size_t at : order) {
+    PesState s = NewCall(Bytes());
+    const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = PVa(slot) + at;  // rcx: the adjuster
+    s.gpr[2] = chain;           // rdx: the anime chain
+    ::pes_fn_141EB3AF0(s);
   }
-  if (ticks < count) {
-    std::memset(a + kAdjFinishWordsFrom, 0, kAdjFinishWordsBytes);
-    std::memset(a + kAdjFinishDwordOffset, 0, sizeof(uint32_t));
-    a[kAdjFinishByteOffset] = 0;
-    std::memset(a + kAdjClearFrom, 0, kAdjClearBytes);
-    std::memset(a + kAdjClearDwordOffset, 0, sizeof(uint32_t));
-    a[kAdjModeOffset] = 0;
-    return step;
-  }
-  std::memset(a + kAdjStepOffset, 0, 3 * sizeof(float));  // the anime layer's own displacement term (FUN_141AF3CA0): not in GF's window
-  PesState s = NewCall(Bytes());
+  // A's step adds the frame's root displacement to the layer's root point FUN_141AF3CA0 loaded (the man's position, O2+0xD0), so the
+  // displacement is the difference. A that did not step leaves the point as loaded (a difference of zero).
+  uint32_t aState;
+  std::memcpy(&aState, p + kPAdjusterOffset + kAdjStateOffset, sizeof aState);
+  const uint8_t* o2 = InWindow(Bytes(), LoadU64(PhysiqueA(slot), kAChildO2Offset));
+  const uint8_t* a = p + kPAdjusterOffset + kAdjStepOffset;
+  const float dx = LoadF32(a, 0) - LoadF32(o2, kO2PointOffset), dz = LoadF32(a, 2 * sizeof(float)) - LoadF32(o2, kO2PointOffset + 2 * sizeof(float));
+  frame.strikeMoved = aState == kAdjRunning && (dx != 0.0f || dz != 0.0f);
+  frame.x = dx;
+  frame.z = dz;
+  const float yaw = LoadF32(p, kPYawAdjusterOffset + kAdjYawOutOffset);
+  frame.yawStepped = yaw != 0.0f;
+  frame.yawRad = yawOverride != 0 ? yaw * degToRad : yaw;
+  return frame;
+}
+
+void PesWorld::ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool overrideMode) {
   const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
+  uint32_t bits;
+  PesState s = NewCall(Bytes());
   s.wr(entry, 0, 8);
   s.gpr[4] = entry;
-  s.gpr[1] = PVa(slot) + kPAdjusterOffset;                    // rcx: A
-  s.gpr[2] = 0;                                               // rdx: the anime chain (read only by modes 2, 3 and 0)
-  s.gpr[8] = PVa(slot) + kPAdjusterOffset + kAdjStepOffset;   // r8: the frame's displacement
-  ::pes_fn_141EB1BF0(s);
-  step.moved = true;
-  std::memcpy(&step.x, a + kAdjStepOffset, sizeof(float));
-  std::memcpy(&step.z, a + kAdjStepOffset + 2 * sizeof(float), sizeof(float));
-  return step;
+  s.gpr[1] = PVa(slot) + kPYawAdjusterOffset;
+  std::memcpy(&bits, &fromDeg, sizeof bits);
+  s.xmm[1][0] = bits;
+  std::memcpy(&bits, &toDeg, sizeof bits);
+  s.xmm[2][0] = bits;
+  s.gpr[9] = static_cast<uint32_t>(ticks);
+  s.wr(entry + kArmFirstStackArg, overrideMode ? 1 : 0, 1);  // 5th argument: the override flag; the 6th and 7th are 0
+  s.wr(entry + kArmFirstStackArg + 8, 0, 1);
+  s.wr(entry + kArmFirstStackArg + 16, 0, 1);
+  ::pes_fn_141EB35A0(s);
+  PesState arm = NewCall(Bytes());
+  arm.wr(entry, 0, 8);
+  arm.gpr[4] = entry;
+  arm.gpr[1] = PVa(slot) + kPYawAdjusterOffset;
+  ::pes_fn_141EB3AE0(arm);  // state 1 -> 2
+}
+
+void PesWorld::SetRootFacing(int slot, float angleDeg) {
+  StoreF32(P(slot), kPHeadingOffset, angleDeg);
+  ArmYaw(slot, angleDeg, angleDeg, 1, false);
 }
 
 void PesWorld::WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask) {

@@ -32,6 +32,8 @@ class UnboundHost : public pes::MoveHost {
   int MoveStatePrevious() const override { Unbound("MoveStatePrevious"); }
   float RecordF0bec() const override { Unbound("RecordF0bec"); }
   void SetRecordF0bec(float) override { Unbound("SetRecordF0bec"); }
+  void SetRootFacing(float) override { Unbound("SetRootFacing"); }
+  void ArmYawAdjuster(float, float, int, bool) override { Unbound("ArmYawAdjuster"); }
   const pes::AngleBucketConstants& AngleBuckets() const override { Unbound("AngleBuckets"); }
   const pes::StepScalars& StepConstants() const override { Unbound("StepConstants"); }
   bool MirrorChoice(bool) const override { Unbound("MirrorChoice"); }

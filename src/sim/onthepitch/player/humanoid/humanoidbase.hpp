@@ -227,6 +227,9 @@ public:
   // read the warp's travel as the body's direction. OffsetPosition books its offset as movement (a bump), which made GF's
   // direction, and with it the start angle of every clip the warp's ticks began, follow the warp instead of the root.
   void WarpRoot(const Vector3& offset, radian yaw);
+  // A root yaw (PES's yaw adjuster step, the root-facing write): WarpRoot's turn, and the clip's remaining root path turns with the
+  // body about the point it has reached, as PES's engine integrates the root yaw before it applies the clip's displacement.
+  void TurnRoot(radian yaw);
   // False when the current clip cannot be interrupted by a trip.
   bool TripMe(const Vector3& tripVector, int tripType);
 

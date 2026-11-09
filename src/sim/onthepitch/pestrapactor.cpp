@@ -35,6 +35,8 @@ constexpr Site kMemberVtableSite[3] = {{0x141EB4375, {0x48, 0x8D, 0x05}, 3, 7},
 constexpr Site kMemberRateSite{0x141EB4333, {0xF3, 0x0F, 0x10, 0x0D}, 4, 8};
 // FUN_1406EB210: `divss xmm0,[180]` for P+0x3B18.
 constexpr Site kHeightDivisorSite{0x1406EB231, {0xF3, 0x0F, 0x5E, 0x05}, 4, 8};
+// FUN_1406EEDF0 (the driver's yaw step to the anime request): `mulss xmm0,[degrees to radians]` on the override path.
+constexpr Site kDegToRadSite{0x1406EEF75, {0xF3, 0x0F, 0x59, 0x05}, 4, 8};
 // FUN_1406D8BF0: `cmp byte [phase],0x18` and `movzx eax,byte [rdi + rcx*4 + disp32]` with rdi = the image base.
 constexpr uint64_t kPhaseCountVa = 0x1406D8C59;
 constexpr uint64_t kClassTableVa = 0x1406D8C92;
@@ -81,7 +83,8 @@ std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::str
   ok = ok && img.Float(kMemberRateSite, &c.memberRateNumerator);
   ok = ok && img.Float(kStandingSite, &c.standingSpeedKmh) && img.Float(kSixtySite, &c.secondsPerHour60) &&
        img.Float(kSixtyAgainSite, &again) && again == c.secondsPerHour60 && img.Float(kThousandSite, &c.metresPerKm) &&
-       img.Float(kTickRateSite, &c.tickRate) && img.Float(kHeightDivisorSite, &c.heightDivisor);
+       img.Float(kTickRateSite, &c.tickRate) && img.Float(kHeightDivisorSite, &c.heightDivisor) &&
+       img.Float(kDegToRadSite, &c.degToRad);
   // The class table: its base is the image base plus the instruction's disp32, and the guard before it bounds the phase.
   uint8_t bound = 0;
   int32_t disp = 0;

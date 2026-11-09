@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP dbb90b3a2ef95635 -->
+<!-- LEDGER-STAMP 1ddef00c01eaac2f -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,15 +13,15 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 18953 | 19481 | 38434 |
+| total | 18957 | 19481 | 38438 |
 | ported | 421 | 0 | 421 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
 | stand-in | 102 | 0 | 102 |
 | decoded | 1272 | 0 | 1272 |
-| leaf accessor | 1979 | 0 | 1979 |
+| leaf accessor | 1980 | 0 | 1980 |
 | engine | 1242 | 0 | 1242 |
-| undecoded | 13719 | 0 | 13719 |
+| undecoded | 13722 | 0 | 13722 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 19481 | 19481 |
 
@@ -165,6 +165,7 @@ Rows per subsystem and status:
 | gkdribble | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | motion | 2 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 |
 | proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
+| rootmotion | 4 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 3 | 0 |
 | trapact4 | 20 | 2 | 0 | 0 | 0 | 6 | 4 | 0 | 8 | 0 |
 | trapadjust | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | trapchain | 105 | 1 | 0 | 0 | 0 | 8 | 46 | 0 | 50 | 0 |
@@ -174,7 +175,7 @@ Rows per subsystem and status:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | trapkind | 13 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 12 | 0 |
 | trapscan | 91 | 4 | 0 | 0 | 0 | 34 | 7 | 0 | 46 | 0 |
-| total | 18953 | 421 | 154 | 63 | 102 | 1272 | 1979 | 1242 | 13719 | 1 |
+| total | 18957 | 421 | 154 | 63 | 102 | 1272 | 1980 | 1242 | 13722 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -203,6 +204,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | gkdribble | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | motion | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
 | proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
+| rootmotion | 4 | 1 | 0 | 0 | 0 | 0 | 0 |
 | trapact4 | 20 | 6 | 2 | 0 | 0 | 0 | 0 |
 | trapadjust | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapchain | 105 | 68 | 1 | 1 | 0 | 0 | 0 |
@@ -212,7 +214,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapkind | 13 | 5 | 0 | 0 | 0 | 0 | 0 |
 | trapscan | 91 | 15 | 4 | 2 | 0 | 0 | 0 |
-| total | 18953 | 5915 | 677 | 384 | 9941 | 8139 | 289 |
+| total | 18957 | 5916 | 677 | 384 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -420,7 +422,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 1979 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 1980 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 466 | 465 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -7128,12 +7130,12 @@ Not found (owner's list):
 | 0x1414C1E20 | FUN_1414c1e20 | leaf accessor | - | - | - | 3 | 2 | y | doc | 1405069A0>140504990>1414C1E20 |
 | 0x14159EF7C | ?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z | engine | - | - | - | 1 | 15 | - | doc | 140AC4900>140AC4BA0>14159EF7C |
 | 0x14159EFF8 | ??_L@YAXPEAX_K1P6AX0@Z2@Z | engine | - | - | - | 103 | 35 | - | doc | 14051E970>14159EFF8 |
-| 0x14159F3E0 | __security_check_cookie | engine | - | - | - | 3708 | 8 | - | doc | 1404F6C30>14159F3E0 |
+| 0x14159F3E0 | __security_check_cookie | engine | - | - | - | 3709 | 8 | - | doc | 1404F6C30>14159F3E0 |
 | 0x14159FA0C | ??_M@YAXPEAX_K1P6AX0@Z@Z | engine | - | - | - | 193 | 36 | - | doc | 14051E970>14159FA0C |
 | 0x14159FB70 | _alloca_probe | engine | - | - | - | 44 | 19 | - | doc | 140500B90>14159FB70 |
 | 0x1415A1714 | FUN_1415a1714 | engine | - | - | - | 15 | 1 | - | doc | 1404FEDC0>140A58550>1415A1714 |
 | 0x1415A1780 | FUN_1415a1780 | engine | - | - | - | 722 | 1 | - | doc | 140A07E40>1415A1780 |
-| 0x1415A17CE | FUN_1415a17ce | engine | - | - | - | 16 | 1 | - | doc | 142107D00>14080EBA0>1415A17CE |
+| 0x1415A17CE | FUN_1415a17ce | engine | - | - | - | 17 | 1 | - | doc | 142107D00>14080EBA0>1415A17CE |
 | 0x1415A9FB0 | FUN_1415a9fb0 | engine | - | - | - | 1 | 2 | - | doc | 14041ECF0>1405069A0>1415A9FB0 |
 | 0x1416B7D20 | FUN_1416b7d20 | leaf accessor | - | - | - | 2 | 2 | y | doc | 1405069A0>1405B5230>1416B7D20 |
 | 0x1416E7150 | FUN_1416e7150 | undecoded | - | - | - | 1 | 44 | - | doc | 140A788C0>1408C8220>1416E7150 |
@@ -7925,7 +7927,7 @@ Not found (owner's list):
 | 0x141EB1260 | FUN_141eb1260 | undecoded | - | - | - | 5 | 22 | - | doc | 14044C880>14044A2A0>141EB1260 |
 | 0x141EB30C0 | FUN_141eb30c0 | undecoded | - | - | - | 1 | 72 | y | doc | 140791EC0>141EB39A0>141EB30C0 |
 | 0x141EB3220 | FUN_141eb3220 | undecoded | - | - | - | 2 | 58 | y | doc | 140791EC0>141EB39A0>141EB3220 |
-| 0x141EB3320 | FUN_141eb3320 | leaf accessor | - | - | - | 19 | 3 | y | doc | 140791EC0>141EB3320 |
+| 0x141EB3320 | FUN_141eb3320 | leaf accessor | - | - | - | 20 | 3 | y | doc | 140791EC0>141EB3320 |
 | 0x141EB34B0 | FUN_141eb34b0 | undecoded | - | - | - | 2 | 61 | - | doc | 140791EC0>141EB34B0 |
 | 0x141EB35A0 | FUN_141eb35a0 | undecoded | - | - | - | 6 | 79 | - | doc | 140791EC0>141EB56D0>141EB35A0 |
 | 0x141EB37B0 | FUN_141eb37b0 | undecoded | - | - | - | 3 | 33 | - | doc | 140791EC0>141EB37B0 |
@@ -19106,6 +19108,15 @@ Not found (owner's list):
 | 0x141B34C30 | FUN_141b34c30 | undecoded | - | - | - | 0 | 11 | y | closure |  |
 | 0x141B3D6E0 | FUN_141b3d6e0 | undecoded | - | - | - | 0 | 1 | - | closure |  |
 | 0x141B3DE00 | FUN_141b3de00 | undecoded | - | - | - | 1 | 108 | - | closure |  |
+
+## rootmotion (4)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x1406EEDF0 | FUN_1406eedf0 | undecoded | - | - | - | 0 | 205 | - | closure |  |
+| 0x141EB1A50 | FUN_141eb1a50 | undecoded | - | - | - | 0 | 97 | - | closure |  |
+| 0x141EB2450 | FUN_141eb2450 | leaf accessor | - | - | - | 0 | 61 | y | closure |  |
+| 0x141EB3830 | FUN_141eb3830 | undecoded | - | - | - | 0 | 56 | - | closure |  |
 
 ## trapact4 (20)
 
