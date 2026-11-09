@@ -663,18 +663,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 0 REAL captured call(s) and 4 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. FUN_1406EDCE0 body contact scan; SYNTHETIC cases over a real trap-tick state (RestingBall3 ee_pid1010053_153, mod-era): reach hit (ball on the predicted contact point), reach with another owner, hand sensor, forced flag; an earlier run proved reach miss, touched flag and foot sensor bit-exact too (4/4)",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 1 REAL captured call(s) and 4 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. FUN_1406EDCE0 body contact scan: 1 REAL call (live2/pid3332804/seq040, No-Mod, 09-11-26) and 4 SYNTHETIC cases over a real trap-tick state (RestingBall3 ee_pid1010053_153, mod-era): reach hit, reach with another owner, hand sensor, forced flag; an earlier run proved reach miss, touched flag and foot sensor bit-exact too",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 4,
+    "calls": 5,
     "mismatches": 0,
     "own_block": {
      "reached": 57,
      "total": 126,
      "fraction": 0.4524
     },
-    "replayed": 4,
+    "replayed": 5,
     "source": "tools/dev/translate/results_trapaction.json"
    },
    "stubs": [],
