@@ -53239,6 +53239,36 @@
    "vtables": [],
    "walked": true
   },
+  "140389A20": {
+   "boundary": null,
+   "callees": {
+    "140389E60": "direct",
+    "140391D10": "direct",
+    "140391F60": "direct",
+    "140392420": "direct",
+    "140395FC0": "direct",
+    "140398D30": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140389a20",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer8c"
+   ],
+   "scope": "in",
+   "size": 41,
+   "source": "pdata",
+   "subsystem": "animelayer8c",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140389AE0": {
    "boundary": null,
    "callees": {
@@ -53285,6 +53315,31 @@
    "size": 1,
    "source": "pdata",
    "subsystem": "animelayer8b",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140389E60": {
+   "boundary": null,
+   "callees": {
+    "140398360": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140389e60",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer8c"
+   ],
+   "scope": "in",
+   "size": 43,
+   "source": "pdata",
+   "subsystem": "animelayer8c",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -57226,6 +57281,31 @@
    "vtables": [],
    "walked": true
   },
+  "140395FC0": {
+   "boundary": null,
+   "callees": {
+    "140391D10": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140395fc0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer8c"
+   ],
+   "scope": "in",
+   "size": 32,
+   "source": "pdata",
+   "subsystem": "animelayer8c",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140396050": {
    "boundary": null,
    "callees": {},
@@ -58153,6 +58233,31 @@
    "size": 6,
    "source": "pdata",
    "subsystem": "animelayer8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140398D30": {
+   "boundary": null,
+   "callees": {
+    "140391D10": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140398d30",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer8c"
+   ],
+   "scope": "in",
+   "size": 28,
+   "source": "pdata",
+   "subsystem": "animelayer8c",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1309057,6 +1309162,12 @@
      "0x14029DB50",
      "0x14029E260",
      "0x140380500"
+    ]
+   },
+   "animelayer8c": {
+    "members": 114,
+    "roots": [
+     "0x140389A20"
     ]
    },
    "animepre": {

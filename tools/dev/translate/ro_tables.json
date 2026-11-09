@@ -58,5 +58,6 @@
   {"va": "0x14257D090", "bytes": "0x58", "evidence": "CONFIRMED 0x14038C2C0 / 0x14038C350: Lua's luaT_typenames, a qword name pointer per type tag [r9 + tt*8], tt in 0..10 (nil, boolean, userdata, number, string, table, function, userdata, thread, proto, upval): 11 entries"},
   {"va": "0x14257CF50", "bytes": "0x100", "evidence": "CONFIRMED 0x14038F5B0: Lua's luaO_log2 byte table [rax + 0x14257CF50], rax = a value reduced below 0x100 (loop `cmp ecx,0x100; jae`): 256 bytes"},
   {"va": "0x14257E0D0", "bytes": "0x26", "evidence": "CONFIRMED 0x14038C6B0: Lua's luaP_opmodes byte table [r14 + 0x14257E0D0], r14d bounded by `cmp r14d,0x26; jae` at 0x14038C79E: 0x26 entries"},
-  {"va": "0x140391118", "bytes": "0x1C", "evidence": "CONFIRMED 0x140391030: a dword offset jump table in code [r11 + rax*4 + 0x391118] (`add rcx,r11; jmp rcx`), rax = (byte at +8) - 4 bounded by `cmp eax,6; ja` at 0x140391065: 7 entries"}
+  {"va": "0x140391118", "bytes": "0x1C", "evidence": "CONFIRMED 0x140391030: a dword offset jump table in code [r11 + rax*4 + 0x391118] (`add rcx,r11; jmp rcx`), rax = (byte at +8) - 4 bounded by `cmp eax,6; ja` at 0x140391065: 7 entries"},
+  {"va": "0x14257D520", "bytes": "0xA8", "evidence": "CONFIRMED 0x140398D30: Lua's luaX_tokens (luaX_init): 21 name pointers walked by `add rbx,8` until `cmp edi,0x15`: and, break, do, else, elseif, end, false, for, function, if, in, local, ..."}
 ]
