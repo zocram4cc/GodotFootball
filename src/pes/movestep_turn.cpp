@@ -479,7 +479,7 @@ void ExitToRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k, int foo
   req.SetF(moveword::kRate, rate);
   req.SetU(moveword::kClassWord, static_cast<uint32_t>(pes::ClassForRateFor(rate, rt)));
   req.SetF(moveword::kSpeedWord,
-           host.BandSpeedKmh(static_cast<int>(req.U(moveword::kClassWord)), host.PhysiqueG()) * k.kmhToRate);
+           pes::RateToSpeedFor(rate, host.PhysiqueG(), rt, host.RunConstantsView().rampSlope) * k.kmhToRate);
   EnterRun(host, req, foot, false);
 }
 
@@ -517,6 +517,7 @@ void StampLiveWords(MoveHost& host, MoveReq& req, float savedSpeed) {
 bool MotionIsRunning(int motion) { return IsRunningMotion(motion); }
 bool MotionIsHalted(int motion) { return IsHaltedMotion(motion); }
 bool MotionIsFading(int motion) { return IsFadingMotion(motion); }
+float DisplacementForwardKmh(const MoveHost& host, const MoveTurnConstants& k) { return ForwardDisplacementKmh(host, k); }
 
 void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const pes::RunTables& rt = host.RunTablesView();
@@ -933,7 +934,7 @@ void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     const float rate = req.F(moveword::kRate);
     req.SetU(moveword::kClassWord, static_cast<uint32_t>(pes::ClassForRateFor(rate, rt)));
     req.SetF(moveword::kSpeedWord,
-             host.BandSpeedKmh(static_cast<int>(req.U(moveword::kClassWord)), host.PhysiqueG()) * k.kmhToRate);
+             pes::RateToSpeedFor(rate, host.PhysiqueG(), rt, host.RunConstantsView().rampSlope) * k.kmhToRate);
   }
   EnterRun(host, req, foot, false);  // vt+0 = FUN_1406d2030
   // 0x1406c2c64: the rate of the new class.
@@ -1339,7 +1340,7 @@ void RunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     }
     req.SetU(moveword::kClassWord, static_cast<uint32_t>(pes::ClassForRateFor(req.F(moveword::kRate), runTables)));  // vt+0x68
     req.SetF(moveword::kSpeedWord,
-             host.BandSpeedKmh(static_cast<int>(req.U(moveword::kClassWord)), host.PhysiqueG()) * k.kmhToRate);  // vt+0x48
+             pes::RateToSpeedFor(req.F(moveword::kRate), host.PhysiqueG(), runTables, host.RunConstantsView().rampSlope) * k.kmhToRate);  // vt+0x48
     EnterRun(host, req, foot, false);  // vt+0
     req.SetU(moveword::kPrevKind, req.U(moveword::kKind));
     return;
@@ -2698,7 +2699,7 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
               req.SetF(moveword::kRate, kRate015);
             }
             req.SetU(moveword::kClassWord, static_cast<uint32_t>(pes::ClassForRateFor(req.F(moveword::kRate), host.RunTablesView())));  // vt+0x68
-            req.SetF(moveword::kSpeedWord, host.BandSpeedKmh(liveClass(), host.PhysiqueG()) * k.kmhToRate);                          // vt+0x48
+            req.SetF(moveword::kSpeedWord, pes::RateToSpeedFor(req.F(moveword::kRate), host.PhysiqueG(), host.RunTablesView(), host.RunConstantsView().rampSlope) * k.kmhToRate);  // vt+0x48
             if (EnterRunTurnStep(host, req, k, startThreshold)) return;  // 0x1406c80c5
             if (liveClass() == 0) {
               EnterGotoRun(host, req, false);  // 0x1406c80e6
@@ -2716,7 +2717,7 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
               req.SetF(moveword::kRate, kRate015);
             }
             req.SetU(moveword::kClassWord, static_cast<uint32_t>(pes::ClassForRateFor(req.F(moveword::kRate), host.RunTablesView())));
-            req.SetF(moveword::kSpeedWord, host.BandSpeedKmh(liveClass(), host.PhysiqueG()) * k.kmhToRate);
+            req.SetF(moveword::kSpeedWord, pes::RateToSpeedFor(req.F(moveword::kRate), host.PhysiqueG(), host.RunTablesView(), host.RunConstantsView().rampSlope) * k.kmhToRate);
             EnterRunTurnRun(host, req, k);  // 0x1406c81b7
             return;
           }

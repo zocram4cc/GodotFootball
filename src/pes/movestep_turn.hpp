@@ -167,6 +167,8 @@ void RunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k);
 void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k);
 // 19: STEP_TURN_STEP (FUN_1406c8d80).
 void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k);
+// 0x1406c1ae5..0x1406c1b1d: the last tick's displacement rotated by the facing; its forward component in km/h.
+float DisplacementForwardKmh(const MoveHost& host, const MoveTurnConstants& k);
 
 // FUN_1406d6780: the RUN_TURN_RUN entry.
 void EnterRunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k);

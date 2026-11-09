@@ -351,7 +351,6 @@ class RateHost : public pes::MoveHost {
     ++issueCalls;
   }
   const pes::StepScalars& StepConstants() const override { return step; }
-  float BandSpeedKmh(int, float) const override { return 0.0f; }
   bool MirrorChoice(bool) const override { return false; }
   int FootBand() const override { return 0; }
   const pes::RunConstants& RunConstantsView() const override { return run; }

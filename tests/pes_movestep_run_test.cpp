@@ -171,7 +171,6 @@ class SyntheticHost : public pes::MoveHost {
   const pes::movestep::MoveTurnConstants& MoveTurnConstantsView() const override {
     return turnConstants;
   }
-  float BandSpeedKmh(int band, float g) const override { return bandSpeeds[band]; (void)g; }
   bool MirrorChoice(bool sameTeam) const override { return mirrorChoice; (void)sameTeam; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
   const pes::RunTables& RunTablesView() const override { return runTables; }
@@ -206,7 +205,6 @@ class SyntheticHost : public pes::MoveHost {
   bool percent = false;
   int percentArg = 0;
   int footBand = 0;
-  float bandSpeeds[4] = {0.0f, 0.0f, 0.0f, 0.0f};
   bool mirrorChoice = false;
   pes::RunConstants runConstants{};
   pes::StepScalars stepConstants{};
@@ -334,6 +332,10 @@ pes::RunTables SyntheticTables() {
   t.bandRate = {0.15f, 0.30f, 0.60f, 1.00f};
   t.rateLadder = {0.29f, 0.59f, 0.70f, 1.00f};
   t.rateClass = {0, 1, 2, 3};
+  t.curveKnot = {0.1f, 0.3f, 0.6f};  // synthetic (the install's curve is read by LoadRunTables)
+  t.curveSpan = {0.2f, 0.3f, 0.4f};
+  t.curveBase = {2.0f, 4.0f, 6.0f};
+  t.curveSlope = {1.0f, 2.0f, 3.0f};
   t.bucketColumn = {9, 11, 13, 15, 17, 8, 6, 4, 2, 0};
   // Distinct rows so an index swap changes the answer: row = kind + class*8.
   for (int i = 0; i < 32; ++i) t.stopRow[i] = 0x576 + i;
@@ -1355,10 +1357,6 @@ TEST(Stop, SetsTheBandSentinelAndRePlansWhenTheStayDecisionIsTrue) {
   h.runConstants = SyntheticRun();
   h.runTables = SyntheticTables();
   h.currentKmh = 0.0f;
-  h.bandSpeeds[0] = 4.0f;  // the band's own speeds in km/h, as the anime info record holds
-  h.bandSpeeds[1] = 8.0f;
-  h.bandSpeeds[2] = 14.0f;
-  h.bandSpeeds[3] = 22.0f;
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
   req.SetU(pes::moveword::kCommandSpeedClass, 1u);
@@ -1384,7 +1382,7 @@ TEST(Stop, SetsTheBandSentinelAndRePlansWhenTheStayDecisionIsTrue) {
   // times 3.6 and the state word 3 (RUN_LOOP), the run entry's own transition.
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.15f);
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 4.0f * 3.6f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), (2.0f + (0.15f - 0.1f) / 0.2f) * 3.6f) << "FUN_1406b9aa0's curve of the rate, times 3.6";
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
 }
 
@@ -1396,10 +1394,6 @@ TEST(Stop, RewritesTheBandAndSpeedWordsThroughTheTablesInTheUpdateArm) {
   h.runConstants = SyntheticRun();
   h.runTables = SyntheticTables();
   h.currentKmh = 0.0f;
-  h.bandSpeeds[0] = 4.0f;
-  h.bandSpeeds[1] = 8.0f;
-  h.bandSpeeds[2] = 14.0f;
-  h.bandSpeeds[3] = 22.0f;
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
   req.SetU(pes::moveword::kCommandSpeedClass, 1u);
@@ -1422,7 +1416,7 @@ TEST(Stop, RewritesTheBandAndSpeedWordsThroughTheTablesInTheUpdateArm) {
   // transition is state 3 (RUN_LOOP).
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.15f);
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 4.0f * 3.6f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), (2.0f + (0.15f - 0.1f) / 0.2f) * 3.6f) << "FUN_1406b9aa0's curve of the rate, times 3.6";
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
@@ -2297,10 +2291,6 @@ TEST(RunLoop, TheRunningSwingArmIssuesNoClipOfItsOwn) {
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed, 1.0f);  // the first dwell has run out (PES 120)
   req.SetF(pes::moveword::kDistToLook, 5.0f);
-  h.bandSpeeds[0] = 4.0f;
-  h.bandSpeeds[1] = 8.0f;
-  h.bandSpeeds[2] = 14.0f;
-  h.bandSpeeds[3] = 22.0f;
   h.stepTables.bucketDegrees = {0.0f, 45.0f, 90.0f, 135.0f, 135.0f, 0.0f, -45.0f, -90.0f, -135.0f, -135.0f};
   pes::movestep::RunLoop(h, req);
   EXPECT_EQ(h.issues, 0) << "PES's swing arm issues no clip of its own (decompile 120-263)";
@@ -2338,10 +2328,6 @@ TEST(RunLoop, TheStyleArmAsksForRunToStep) {
   req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed, 0.0f);
-  h.bandSpeeds[0] = 4.0f;
-  h.bandSpeeds[1] = 8.0f;
-  h.bandSpeeds[2] = 14.0f;
-  h.bandSpeeds[3] = 22.0f;
   pes::probe::Reset();
   // The style ladder's answer differs from the request's own style byte, so the change runs.
   pes::probe::styleAnswer = 6;
@@ -2792,4 +2778,30 @@ TEST(Accelerate, TheBandGateReadsTheDesiredTurnNotTheHeadingToFacing) {
   req.SetF(pes::moveword::kFacing, 90.0f);
   req.SetF(pes::moveword::kBodyDirection, 90.0f);
   EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// FUN_1406b9e50 (vt+0x38 of +0xac0), 0x1406b9e50..0x1406b9e78: `cmp edx,3; ja zero` is an UNSIGNED compare, so a negative or too
+// large band has no rate (0), and band 0 at kind 3 or 6 has none either. The old port clamped the band into the table.
+TEST(BandRate, ABandOutsideZeroToThreeHasNoRate) {
+  const pes::RunTables t = SyntheticTables();
+  EXPECT_FLOAT_EQ(pes::BandRateFor(1, 2, t), 0.30f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(3, 2, t), 1.00f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(4, 2, t), 0.0f) << "band 4 is past the table";
+  EXPECT_FLOAT_EQ(pes::BandRateFor(-1, 2, t), 0.0f) << "a negative band wraps to a huge unsigned value";
+  EXPECT_FLOAT_EQ(pes::BandRateFor(0, 3, t), 0.0f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(0, 6, t), 0.0f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(0, 2, t), 0.15f);
+}
+
+// FUN_1406b9aa0 (vt+0x48 of +0xac0), 0x1406b9aa0..0x1406b9b14: the rate is floored (`comiss floor, rate; jb`), the segment is the
+// last knot at or below it, and speed = g * base + (rate - knot) / span * slope * (segment < 2 ? g : 1). The synthetic curve: knots
+// 0.1 / 0.3 / 0.6, spans 0.2 / 0.3 / 0.4, bases 2 / 4 / 6, slopes 1 / 2 / 3.
+TEST(RateToSpeed, IsTheThreeSegmentCurveWithTheGScaleOnTheLowTwoSegments) {
+  const pes::RunTables t = SyntheticTables();
+  constexpr float kFloor = 0.05f;
+  const float g = 1.1f;
+  EXPECT_NEAR(pes::RateToSpeedFor(0.2f, g, t, kFloor), g * 2.0f + (0.2f - 0.1f) / 0.2f * 1.0f * g, 1e-5f);
+  EXPECT_NEAR(pes::RateToSpeedFor(0.45f, g, t, kFloor), g * 4.0f + (0.45f - 0.3f) / 0.3f * 2.0f * g, 1e-5f);
+  EXPECT_NEAR(pes::RateToSpeedFor(0.8f, g, t, kFloor), g * 6.0f + (0.8f - 0.6f) / 0.4f * 3.0f, 1e-5f) << "the top segment has no g factor on the slope";
+  EXPECT_NEAR(pes::RateToSpeedFor(0.01f, g, t, 0.1f), g * 2.0f, 1e-5f) << "a rate under the floor reads the floor";
 }
