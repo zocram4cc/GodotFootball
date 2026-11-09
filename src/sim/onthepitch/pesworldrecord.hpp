@@ -812,6 +812,17 @@ class PesWorld {
   // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
   // touched bit (kPFlagTouched) is the reach test's answer.
   PesBodyScanOut RunBodyScan(int slot, PesTrapExternals& ext);
+  // One frame of the strike adjuster A = P+0x428 (pestrapworld.hpp kPAdjusterOffset): the root advance FUN_141EB1BF0 on `slot`'s P.
+  // `moved` is false while A is not running; else (x, z) is the frame's root displacement in PES axes, m (the clip's own root motion
+  // is not in it: GF's body plays that).
+  // ponytail: FUN_141EB3AF0, the per-frame wrapper (hold ticks, finish, and the anime layer's own displacement loaded into A+0x14 by
+  // FUN_141AF3CA0) reads the anime chain *(P+0xA08), which GF's window does not have: its counters and its finish are written here
+  // as 0x141EB3AF0 reads them and the layer's term is zero. AnimeLayer's chain removes this.
+  struct AdjusterStep {
+    bool moved = false;
+    float x = 0.0f, z = 0.0f;
+  };
+  AdjusterStep RunTrapAdjuster(int slot);
   // The joint block (pesbodyscan.hpp) from the bones' world frames, as FUN_141EB49B0 leaves it: last tick's cells move to the previous
   // slots, the masked bones' positions and rotations are written, P+0xA04 is set.
   void WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask);

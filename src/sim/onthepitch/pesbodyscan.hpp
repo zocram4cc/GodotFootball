@@ -47,8 +47,9 @@ inline constexpr uint32_t kPFlagForced = 0x80;                // bit 7
 inline constexpr uint32_t kPFlagContactPending = 0x200;       // bit 9: the trap tick's contact frame
 inline constexpr uint32_t kPFlagTouched = 0x400;              // bit 10: the reach test passed
 
-// The ball record's owner byte (G+0x40 -> +0x279C): the slot of the man the ball is controlled by, 0xFF for nobody. The scan runs the
-// action's reach test only for a free ball or its own man (0x1406EDE54, 0x1406EDE69). Writers in PES: 0x140871A5C, 0x140430C66.
+// The ball record's byte G+0x40 -> +0x279C: the ball body's B+0x48, copied on every ball update (0x140871A5C; the record copy
+// 0x140430C66 also moves it). A value below 0x16 names a man, and the scan's reach test (0x1406EDE54, 0x1406EDE69) and the bone-mode
+// setter (0x14081DA86, 0x14081DF29) treat any other man as locked out. B+0x48's only match-path value is the constructed 0xFF.
 inline constexpr std::size_t kBallOwnerOffset = 0x279C;
 inline constexpr uint8_t kBallNoOwner = 0xFF;
 

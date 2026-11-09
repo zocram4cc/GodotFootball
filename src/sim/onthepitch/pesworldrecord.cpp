@@ -423,6 +423,47 @@ PesBodyScanOut PesWorld::RunBodyScan(int slot, PesTrapExternals& ext) {
   return result;
 }
 
+PesWorld::AdjusterStep PesWorld::RunTrapAdjuster(int slot) {
+  uint8_t* a = P(slot) + kPAdjusterOffset;
+  AdjusterStep step;
+  uint32_t state;
+  std::memcpy(&state, a + kAdjStateOffset, sizeof state);
+  if (state != kAdjRunning) return step;
+  int16_t count, delay, ticks;
+  std::memcpy(&count, a + kAdjCountOffset, sizeof count);
+  std::memcpy(&delay, a + kAdjDelayOffset, sizeof delay);
+  std::memcpy(&ticks, a + kAdjTicksOffset, sizeof ticks);
+  // FUN_141EB3AF0: a counter still under the hold only counts; past the last tick the adjuster finishes (its own zeroing, then
+  // vtable +0x10 = FUN_141EB1A20); otherwise vtable +0x18 = FUN_141EB1BF0 steps it.
+  if (count < delay) {
+    ++count;
+    std::memcpy(a + kAdjCountOffset, &count, sizeof count);
+    return step;
+  }
+  if (ticks < count) {
+    std::memset(a + kAdjFinishWordsFrom, 0, kAdjFinishWordsBytes);
+    std::memset(a + kAdjFinishDwordOffset, 0, sizeof(uint32_t));
+    a[kAdjFinishByteOffset] = 0;
+    std::memset(a + kAdjClearFrom, 0, kAdjClearBytes);
+    std::memset(a + kAdjClearDwordOffset, 0, sizeof(uint32_t));
+    a[kAdjModeOffset] = 0;
+    return step;
+  }
+  std::memset(a + kAdjStepOffset, 0, 3 * sizeof(float));  // the anime layer's own displacement term (FUN_141AF3CA0): not in GF's window
+  PesState s = NewCall(Bytes());
+  const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = PVa(slot) + kPAdjusterOffset;                    // rcx: A
+  s.gpr[2] = 0;                                               // rdx: the anime chain (read only by modes 2, 3 and 0)
+  s.gpr[8] = PVa(slot) + kPAdjusterOffset + kAdjStepOffset;   // r8: the frame's displacement
+  ::pes_fn_141EB1BF0(s);
+  step.moved = true;
+  std::memcpy(&step.x, a + kAdjStepOffset, sizeof(float));
+  std::memcpy(&step.z, a + kAdjStepOffset + 2 * sizeof(float), sizeof(float));
+  return step;
+}
+
 void PesWorld::WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask) {
   uint8_t* p = P(slot);
   constexpr std::size_t kPosBytes = 3 * sizeof(float), kRotBytes = 4 * sizeof(float);

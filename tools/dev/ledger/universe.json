@@ -1093594,6 +1093594,46 @@
    "vtables": [],
    "walked": true
   },
+  "141EB1BF0": {
+   "boundary": null,
+   "callees": {
+    "1404BCAD0": "direct",
+    "140581CE0": "direct",
+    "140A92C80": "direct",
+    "140A93070": "direct",
+    "14159F3E0": "direct",
+    "1415A1780": "direct",
+    "1415A1798": "direct",
+    "141AF3070": "direct",
+    "141AF3100": "direct",
+    "141AF3330": "direct",
+    "141AF3AF0": "direct",
+    "141AF3CA0": "direct",
+    "141AF4160": "direct",
+    "141AFDF10": "direct",
+    "141E532D0": "direct",
+    "141EB2550": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141eb1bf0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "trapadjust"
+   ],
+   "scope": "in",
+   "size": 453,
+   "source": "pdata",
+   "subsystem": "trapadjust",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EB26F0": {
    "boundary": null,
    "callees": {},
@@ -1308223,6 +1308263,12 @@
      "0x1407BA840"
     ]
    },
+   "trapadjust": {
+    "members": 1,
+    "roots": [
+     "0x141EB1BF0"
+    ]
+   },
    "trapanime": {
     "members": 1,
     "roots": [
@@ -1308292,6 +1308338,12 @@
     "members": 1,
     "roots": [
      "0x1406F02F0"
+    ]
+   },
+   "trapreach": {
+    "members": 1,
+    "roots": [
+     "0x140799060"
     ]
    },
    "trapscan": {

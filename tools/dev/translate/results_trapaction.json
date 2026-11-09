@@ -682,6 +682,82 @@
    "va": "0x1406EDCE0",
    "synthetic": true,
    "synthetic_cases": 4
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapreach.json",
+   "coverage": {
+    "0x140799060": {
+     "reached": 33,
+     "total": 42,
+     "fraction": 0.7857
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reach test of the Trap action (vt slot 23): 6 real calls, joint branch, pass path (slot +8 called twice) in all",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 33,
+     "total": 42,
+     "fraction": 0.7857
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140799060"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadjust.json",
+   "coverage": {
+    "0x141EB1BF0": {
+     "reached": 12,
+     "total": 69,
+     "fraction": 0.1739
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 0 REAL captured call(s) and 2 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. strike-mode (A+0x6d == 1) root advance of the Trap action's adjuster A=P+0x428; SYNTHETIC cases over seq299; modes 2/3/0 are loud aborts",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 12,
+     "total": 69,
+     "fraction": 0.1739
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB1BF0",
+   "synthetic": true,
+   "synthetic_cases": 2
   }
  ]
 }

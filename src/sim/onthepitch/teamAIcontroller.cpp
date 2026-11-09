@@ -3586,6 +3586,10 @@ void RunPesTrapTicks(Match& match) {
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
       if (phaseBefore == 0)
         p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
+      // The anime tick that follows the action tick in a PES frame steps the strike adjuster the start armed (the root's walk onto
+      // the ball's predicted contact point): its frame displacement is the root moving, a warp like the throw-in's.
+      const pes::PesWorld::AdjusterStep adj = world.RunTrapAdjuster(slot);
+      if (adj.moved) p->CastHumanoid()->WarpRoot(Vector3(adj.x, adj.z, 0.0f), 0.0f);
     }
   }
 }
@@ -3621,11 +3625,12 @@ pes::BoneFrames BoneFramesOf(Player& player, const pesrig::Rig& rig) {
 void RunPesBodyScans(Match& match) {
   pes::PesWorld& world = match.PesWorldOf();
   match.ClearPesTouches();
-  // ponytail: the ball record's owner byte (+0x279C) has no GF writer (PES's are in the ball's per-tick state pull, 0x140871A5C, and the
-  // setter at 0x1411944F6, neither translated), and its meaning for an in-flight pass is not decoded: the two captured trap states read
-  // 0xFF (ee_pid1010053_153, live2 seq040), while PES's holder is another man on nearly every GF contact frame (the first stand-in, a
-  // holder byte, refused 28 of 28 reach tests). "Nobody" stands in; a man controlling the ball therefore does not block another man's
-  // reach test, which PES's byte would. The byte's writer removes this.
+  // The ball record's byte +0x279C is PES's copy of the ball body's byte B+0x48, taken on every ball update (0x140871A5C in
+  // 0x140870E90, B = the ball entity's +0x20). B+0x48 has one writer on any match path: the script binding 0x140BEB330 (a 0/1 from the
+  // two-row table at 0x1426CBAF8, picked by a script argument), and nothing in GF's match runs a script; otherwise it keeps its
+  // constructed value 0xFF. All six real reach-test captures (live2/pid3332804 seq088..seq1475) hold 0xFF in both cells while the ball
+  // is loose, in a pass and at rest, and the holder MA+0x2601C is a different cell (the last toucher, never cleared). So the byte is
+  // PES's constant for this match, not GF's holder: the scan's "owner is another man" refusal never fires, as in PES.
   world.BallRecord()[pes::kBallOwnerOffset] = pes::kBallNoOwner;
   for (int t = 0; t < 2; ++t) {
     int written = 0;
