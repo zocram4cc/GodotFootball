@@ -210,7 +210,7 @@ class FakeHost : public MoveHost {
     lastWalk = walkFlag;
     pes::MoveCell c;
     c.motionNo = cellMotion;
-    c.mirror = false;
+    c.mirror = cellMirror;
     c.found = cellMotion >= 0;
     return c;
   }
@@ -324,6 +324,7 @@ class FakeHost : public MoveHost {
   int animeState = 0;   // vt+0x28 of the +0xab8 interface
   int cellCalls = 0, lastRow = -1, lastColumn = -1;
   bool lastWalk = false;
+  bool cellMirror = false;
   int cellMotion = -1;
   pes::MotionRequest issued{};
 };
@@ -1684,6 +1685,24 @@ TEST(EnterTurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {
   req.SetU(pes::moveword::kMotion, static_cast<uint32_t>(-7));  // a sentinel: stays -7 if the entry wrote no request
   EnterTurnStop(host, req);
   EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMotion)), -1) << "an empty step cell's motion is -1, never the row id";
+}
+
+// FUN_1406b9d80 stores FUN_1406abd60's answer as the stop clip's mirror; EnterTurnStop issues it as it is. The old port asked an
+// interface choice (always false in the adapter), so a mirrored stop cell played unmirrored.
+TEST(EnterTurnStop, TheStopClipIsMirroredAsItsCellSays) {
+  for (const bool cellMirror : {false, true}) {
+    FakeHost host;
+    host.cellMotion = 0x600;
+    host.cellMirror = cellMirror;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 3u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+    req.SetU(pes::moveword::kClassWord, 1u);
+    req.SetF(pes::moveword::kRate, 0.3f);
+    EnterTurnStop(host, req);
+    EXPECT_EQ(pes::DueRequest(req, 0).mirror, cellMirror);
+    EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMotion)), 0x600);
+  }
 }
 
 TEST(TurnStop, ScalesTheRateByTheRecordConstant) {

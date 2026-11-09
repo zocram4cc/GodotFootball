@@ -1178,10 +1178,11 @@ BucketDone:;
   const int stopRow = StopRowFor(kind, band, int(req.U(moveword::kCommandId)), host.RunTablesView());
   const MoveCell cell = host.Cell(stopRow, int(tables.bucketColumn[stopBucket]), false);
   const int motion = cell.motionNo;
-  // ponytail: PES reads the mirror and the blend from the interface's own answers
-  // (vt+0x30 with FUN_140a62960's sameness, and vt+0xd0's motion-record walk); GF has neither
-  // record, so the mirror is the table's left flag and the blend the default.
-  const bool mirror = host.MirrorChoice(false);
+  // The mirror is the cell's own (FUN_1406b9d80 stores FUN_1406abd60's answer behind the motion, the byte cStackX_22 of
+  // d_1406d2590.c:290, 0x1406d2996), never an interface choice.
+  // ponytail: the 0xe2d arm (d_1406d2590.c:305-324) re-derives the mirror from the bone ring (FUN_141eb51a0 joints 3 and 6); that
+  // motion's ring joints have no GF source, so the cell's mirror stands for it until the joint block is read.
+  const bool mirror = cell.mirror;
   float blend = k.s0p1667;
   const int motionGroup = motion >= 0xbee && motion - 0xbee < 0x36
                               ? int((0x30000000000011ull >> ((motion - 0xbee) & 0x3f)) & 1)
