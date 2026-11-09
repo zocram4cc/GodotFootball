@@ -78,7 +78,7 @@ class AdapterTeam final : public pes::TeamAi {
     return slot < 0 ? kNoPlayer : slot;
   }
   // The player a slot names: the own record, or the run world's player in that slot; nullptr when none.
-  const Player* PlayerAt(int slot) const { return Who(slot); }
+  Player* PlayerAt(int slot) const { return Who(slot); }
   // ponytail: GF's physical_acceleration stands in for the Acceleration byte (0x2b), scaled to the PES
   // ceiling (rec99). The DA (0x15) and PC (0x28) bytes have no GF stat yet and read 0.
   int Ability(int slot, int ability) const override {
@@ -445,13 +445,13 @@ class MoveHostAdapter final : public pes::MoveHost {
   // ponytail: *(MA+0x2601c), the carrier slot (FUN_140a627e0(ctx, 0)); GF's ball retainer stands in. Removed by the MA record
   // writer (TeamTick's carrier record).
   int CarrierSlot() const override {
-    const Player* holder = match_.GetBallRetainer();
+    Player* holder = match_.GetBallRetainer();
     const int slot = holder ? holder->GetTeam()->GetController()->RunSlotOf(holder) : -1;
     return slot < 0 ? 0x16 : slot;
   }
   // ponytail: byte +1 of the anime record (FUN_140a48910); GF knows only the role: a goalkeeper is 0x12.
   int AnimeRecordClass(int slot) const override {
-    const Player* p = team_.PlayerAt(slot);
+    Player* p = team_.PlayerAt(slot);
     return p && p->GetFormationEntry().role == e_PlayerRole_GK ? 0x12 : 0;
   }
   // ponytail: FUN_14044e020's event-table ticks (MA+0x24840) have no GF record: 0, which keeps the tired row off.
