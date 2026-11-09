@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 
+#include "onthepitch/pesanimechain.hpp"
 #include "pes/vfs.hpp"
 #include "pes_native.hpp"
 #include "pes_state.hpp"
@@ -59,7 +60,34 @@ class PesFoxWorld final : public PesFileSource {
   // queued it, the decode stage FUN_1414A8F10 (state 5), then FUN_141EA7640 until the job answers done. Returns false (error set) when the
   // handle never reaches state 8 within a bounded number of steps.
   bool Finish(uint64_t job, std::string* error);
+  // The scratch-arena frame the anime engine's phases need on the calling thread (docs/ports/pes-port-AnimeLayer.md section 2): the
+  // TLS slot +0x38 of the block [0x1437067A0] indexes holds a root frame {vtable 0x14258BCA8, 0, 0, base, base, end, 0} over a 256 KiB
+  // arena, which FUN_1403EFDF0 pushes child frames on. PES gives each engine thread one; the match thread had none. Boot calls it.
+  void InstallScratchArena();
+  // The job pump FUN_141EA8430 and the worker stages it waits on, run until the pending list is empty and the finished resources have
+  // moved into the ResManager (the pump drains them when the list empties). False (error set) when a job never completes.
+  bool PumpUntilIdle(std::string* error);
+  // The match-load sequence of the body animations (PES's, translated): the FoxAni preload FUN_141EC9AF0 queues every animation file
+  // (Body mtar x10, skeletons, Face / Hand / Eye) on an owner object, the pump loads them, and the project registrar FUN_141ECA500 runs
+  // the registry insert FUN_141EC86D0("body", "cpk_dat/common/anime/FoxAnim/Body/", "Project.hkx") that builds the BodyAnimControlResource.
+  // ponytail: the owner is a zeroed block. PES's is the game scene object FUN_141E8B400 builds (its subsystems are not translated); the
+  // preload and the registrar read only its lock at +0x48 and its list pointer at +0x70 and write the list there. Remove with that scene.
+  bool LoadBody(std::string* error);
+  // The player's anime constructor FUN_141EB5250(P, "body", collision, callback) on a player block `p` of the world's heap: the
+  // BodyAnimControl at P+0xA08 and everything under it. `collision` is the player's collision object (FUN_1406E03D0 passes *(P+0x3AA0)).
+  void ConstructAnime(uint64_t p, uint64_t collision);
+  // One engine frame of a constructed player: BodyAnimControl::Exec (FUN_141AF4650) for each phase of the frame in order (INF: the
+  // anime system's pipeline, FUN_141AE9010's loops, runs a phase over every control before the next; for one control that is this
+  // order). The control's frame time step is the one the constructor stored (FUN_141AF7A90, L2+0x44).
+  void RunFrame(uint64_t p);
+  // The pose the frame left in the control (L1+0x50: joint positions, A+0x20: joint rotations): the arrays FUN_141EB49B0 reads.
+  PesJointPose ReadPose(uint64_t p);
+  // Bytes of the world's heap in live blocks (the arena a world needs).
+  uint64_t HeapLiveBytes() const;
   uint8_t Read8(uint64_t va);
+  void Write8(uint64_t va, uint8_t value);
+  uint32_t Read32(uint64_t va);
+  void Write32(uint64_t va, uint32_t value);
   uint64_t FileServes() const { return serves_; }
 
  private:

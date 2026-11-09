@@ -126,10 +126,9 @@ constexpr char kSkeletonJobPath[] = "cpk_dat/common/anime/FoxAnim/Body/Character
 constexpr uint64_t kResManagerVa = 0x1437CEAA0, kNoKey = 0xB8A0BF169F98;
 constexpr uint64_t kJobStateOffset = 8, kJobKeyOffset = 0x40, kJobDone = 2;
 
-// DISABLED: the run reaches one untranslated target, 0x1415A1F7C (a CRT/CRI error-report helper, reached once from the boot or the job:
-// GF_PES_SURVEY=file lists it); translate it (closure.py root 0x1415A1F7C), regenerate, then enable. Every other call of the chain
-// (boot constructors, job maker, job, reader and decode stages with the CRI services) is translated.
-TEST_F(FoxSeam, DISABLED_TheTranslatedJobLoadsAnInstallFileIntoTheResManager) {
+// Every call of the chain is translated: boot constructors, job maker, job, reader and decode stages with the CRI services, and the
+// job's lock release 0x1415A1F7C (the CRT leave-lock helper the file handle's delete reaches).
+TEST_F(FoxSeam, TheTranslatedJobLoadsAnInstallFileIntoTheResManager) {
   world_->Boot();
   ASSERT_NE(world_->Read64(kResManagerVa), 0u) << "the boot built no ResManager";
   const uint64_t job = world_->StartJob(kSkeletonJobPath);

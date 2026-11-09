@@ -123,6 +123,17 @@ int64_t PesFoxWorld::Read(const char* path, uint64_t offset, uint8_t* dst, uint6
 }
 
 uint8_t PesFoxWorld::Read8(uint64_t va) { return static_cast<uint8_t>(NewCall().rd(va, 1)); }
+void PesFoxWorld::Write8(uint64_t va, uint8_t value) {
+  PesState s = NewCall();
+  s.wr(va, value, 1);
+}
+
+uint32_t PesFoxWorld::Read32(uint64_t va) { return static_cast<uint32_t>(NewCall().rd(va, 4)); }
+
+void PesFoxWorld::Write32(uint64_t va, uint32_t value) {
+  PesState s = NewCall();
+  s.wr(va, value, 4);
+}
 
 namespace {
 
@@ -138,15 +149,43 @@ constexpr uint64_t kBootArgs[4] = {0, 1, 0, 0};
 // FUN_141EA7190's flags (FUN_141EA8430 passes 0x20009 for a queued name).
 constexpr uint64_t kJobFlags = 0x20009;
 constexpr uint64_t kJobHandleOffset = 0x38, kHandleStateOffset = 8;
+// The player's anime object and its parts (docs/ports/pes-port-AnimeLayer3.md section 2): A = *(P+0xA08), L1 = *(A+0x88) the AnimControl,
+// the joint position array pointer at L1+0x50 and the joint rotation array pointer at A+0x20 (what FUN_141EB49B0 reads).
+constexpr uint64_t kAnimeOffset = 0xA08, kControlOffset = 0x88, kPosePointerOffset = 0x50, kQuatPointerOffset = 0x20;
+// The phases one frame runs on a body control, ascending (docs/ports/pes-port-AnimeLayer.md section 2: the driver's switch).
+constexpr uint32_t kFramePhases[] = {1, 2, 3, 4, 5, 7, 8, 9, 0xB, 0xD, 0xF, 0x10, 0x11};
 constexpr uint8_t kHandleQueuedRead = 2, kHandleQueuedDecode = 5;
 constexpr int kFinishSteps = 16;
+// The registry (FUN_141EC8C40's singleton DAT_1437F4F78) and the project registrars' once-flags (FUN_141ECA500 reads DAT_1437F4F82), which
+// the dump holds as the running game left them; the anime systems' table (FUN_141AE87F0 creates a system only for a null cell of
+// DAT_1437CEA30[index]) and the ResManager cell above it, whose cells the dump also holds as pointers into the dead heap.
+constexpr uint64_t kRegistryVa = 0x1437F4F78, kRegistrarFlagVa = 0x1437F4F82, kAnimeSystemTableVa = 0x1437CEA30, kAnimeSystemCells = 8;
+// The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
+// cell, the slot offset in the thread's block, the frame's vtable and the arena's size.
+constexpr uint64_t kTebTlsPointerOffset = 0x58, kTlsIndexVa = 0x1437067A0, kTlsSlotOffset = 0x38, kScratchFrameVtable = 0x14258BCA8,
+                   kScratchArenaBytes = 0x40000, kTlsBlockBytes = 0x100, kScratchFrameBytes = 0x38;
+constexpr uint64_t kScratchFrameBaseOffset = 0x18, kScratchFrameCursorOffset = 0x20, kScratchFrameEndOffset = 0x28;
+// The pump's queue node: the job at +0x10 (FUN_141EA8430), the job's handle at +0x38.
+constexpr uint64_t kPumpNodeJobOffset = 0x10;
+constexpr int kPumpSteps = 4096;
+// The constructor's callback argument: FUN_1406E03D0 calls thunk_FUN_141EB5250(P, "body", P[0x754], &LAB_141B970E0) (decompile): an
+// image code address.
+constexpr uint64_t kBodyCallbackVa = 0x141B970E0;
+// The preload owner (see LoadBody): the preload and the registrar touch its lock at +0x48 and its list pointer at +0x70.
+constexpr uint64_t kOwnerBytes = 0x200;
+constexpr char kBodyName[] = "body";
 
 }  // namespace
 
 void PesFoxWorld::Boot() {
   for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
-                      kPumpCountBVa, kResManagerVa})
+                      kPumpCountBVa, kResManagerVa, kRegistryVa})
     Write64(va, 0);
+  for (uint64_t cell = 0; cell < kAnimeSystemCells; ++cell) Write64(kAnimeSystemTableVa + 8 * cell, 0);
+  {
+    PesState s = NewCall();
+    s.wr(kRegistrarFlagVa, 0, 1);
+  }
   {
     PesState s = NewCall();
     s.wr(kAnimeInitFlagVa, 0, 1);
@@ -159,7 +198,73 @@ void PesFoxWorld::Boot() {
   Call(::pes_fn_1402223C0, {});
   Call(::pes_fn_140222390, {});
   Call(::pes_fn_141AE77B0, {kBootArgs[0], kBootArgs[1], kBootArgs[2], kBootArgs[3]});
+  InstallScratchArena();
 }
+
+void PesFoxWorld::InstallScratchArena() {
+  const uint64_t tlsArray = Alloc(8 * (static_cast<uint64_t>(Read32(kTlsIndexVa)) + 1));
+  const uint64_t block = Alloc(kTlsBlockBytes), frame = Alloc(kScratchFrameBytes), arena = Alloc(kScratchArenaBytes);
+  if (!tlsArray || !block || !frame || !arena) throw std::runtime_error("fox world: the arena is full");
+  Write64(frame, kScratchFrameVtable);  // {vtable, 0, prev = 0, base, cursor = base, end, 0}
+  Write64(frame + kScratchFrameBaseOffset, arena);
+  Write64(frame + kScratchFrameCursorOffset, arena);
+  Write64(frame + kScratchFrameEndOffset, arena + kScratchArenaBytes);
+  Write64(block + kTlsSlotOffset, frame);
+  Write64(tlsArray + 8 * static_cast<uint64_t>(Read32(kTlsIndexVa)), block);
+  Write64(kTebVa + kTebTlsPointerOffset, tlsArray);
+}
+
+bool PesFoxWorld::PumpUntilIdle(std::string* error) {
+  for (int step = 0; step < kPumpSteps; ++step) {
+    Call(::pes_fn_141EA8430, {});
+    if (Read64(kPumpCountAVa) == 0) return true;
+    // The worker threads' part for every queued job whose handle waits for a stage.
+    const uint64_t head = Read64(kPumpListAVa);
+    for (uint64_t node = Read64(head); node != head; node = Read64(node)) {
+      const uint64_t job = Read64(node + kPumpNodeJobOffset);
+      const uint64_t handle = job ? Read64(job + kJobHandleOffset) : 0;
+      if (!handle) continue;
+      const uint8_t state = Read8(handle + kHandleStateOffset);
+      if (state == kHandleQueuedRead) Call(::pes_fn_1414A9280, {handle});
+      else if (state == kHandleQueuedDecode) Call(::pes_fn_1414A8F10, {handle});
+    }
+  }
+  if (error) *error = "fox world: the pump's list never emptied in " + std::to_string(kPumpSteps) + " steps";
+  return false;
+}
+
+bool PesFoxWorld::LoadBody(std::string* error) {
+  const uint64_t owner = Alloc(kOwnerBytes);
+  if (!owner) throw std::runtime_error("fox world: the arena is full");
+  Call(::pes_fn_141EC9AF0, {owner});
+  if (!PumpUntilIdle(error)) return false;
+  Call(::pes_fn_141ECA500, {owner});
+  return true;
+}
+
+void PesFoxWorld::ConstructAnime(uint64_t p, uint64_t collision) {
+  Call(::pes_fn_141EB5250, {p, NewCString(kBodyName), collision, kBodyCallbackVa});
+}
+
+void PesFoxWorld::RunFrame(uint64_t p) {
+  const uint64_t a = Read64(p + kAnimeOffset);
+  for (uint32_t phase : kFramePhases) Call(::pes_fn_141AF4650, {a, phase});
+}
+
+PesJointPose PesFoxWorld::ReadPose(uint64_t p) {
+  const uint64_t a = Read64(p + kAnimeOffset), l1 = Read64(a + kControlOffset);
+  const uint64_t positions = Read64(l1 + kPosePointerOffset), rotations = Read64(a + kQuatPointerOffset);
+  PesState s = NewCall();
+  PesJointPose pose;
+  for (uint32_t j = 0; j < kAnimeJointCount; ++j)
+    for (uint32_t k = 0; k < 4; ++k) {
+      pose.position[j][k] = s.mem.rdf(positions + j * kJointEntryBytes + 4 * k);
+      pose.rotation[j][k] = s.mem.rdf(rotations + j * kJointEntryBytes + 4 * k);
+    }
+  return pose;
+}
+
+uint64_t PesFoxWorld::HeapLiveBytes() const { return impl_->heap.LiveBytes(); }
 
 uint64_t PesFoxWorld::StartJob(const std::string& path) { return Call(::pes_fn_141EA7190, {NewCString(path), kJobFlags}); }
 

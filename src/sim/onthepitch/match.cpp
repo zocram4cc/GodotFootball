@@ -297,6 +297,8 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
     pes::ConstructAnimPlugin(*pesWorld, slot);
   }
   pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
+  pesVfs = setup.pesVfs;
+  pesImagePath = setup.pesTrapSource->imagePath;
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;
   if (setup.pesSheetConstants) pesSheetConstants = *setup.pesSheetConstants;

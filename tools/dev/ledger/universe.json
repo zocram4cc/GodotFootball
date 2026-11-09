@@ -760894,6 +760894,34 @@
    "vtables": [],
    "walked": false
   },
+  "1415A1F7C": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1415A1F90",
+     "text": "CALL qword ptr [0x14252f6e8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1415a1f7c",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer"
+   ],
+   "scope": "in",
+   "size": 14,
+   "source": "pdata",
+   "subsystem": "animelayer",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1415A204C": {
    "boundary": {
     "rule": "crt",
@@ -822435,6 +822463,34 @@
    "vtables": [],
    "walked": true
   },
+  "141AF2BC0": {
+   "boundary": null,
+   "callees": {
+    "14022C980": "direct",
+    "1403D25A0": "direct",
+    "1403D27D0": "direct",
+    "1423C3F90": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141af2bc0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer"
+   ],
+   "scope": "in",
+   "size": 21,
+   "source": "pdata",
+   "subsystem": "animelayer",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141AF2C20": {
    "boundary": null,
    "callees": {},
@@ -824002,6 +824058,29 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141AFCA80": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141afca80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer"
+   ],
+   "scope": "in",
+   "size": 20,
+   "source": "pdata",
+   "subsystem": "animelayer",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1090936,6 +1091015,65 @@
    "vtables": [],
    "walked": true
   },
+  "141EBC990": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "141AF3AA0": "direct",
+    "141AFCA80": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ebc990",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer"
+   ],
+   "scope": "in",
+   "size": 100,
+   "source": "pdata",
+   "subsystem": "animelayer",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EBCB10": {
+   "boundary": null,
+   "callees": {
+    "1403FB5B0": "direct",
+    "140402370": "direct",
+    "14159F3E0": "direct",
+    "141AF2BC0": "direct",
+    "141EA01E0": "direct",
+    "141EBC990": "direct",
+    "141EC8BD0": "direct",
+    "141EC8C40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141ebcb10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer"
+   ],
+   "scope": "in",
+   "size": 54,
+   "source": "pdata",
+   "subsystem": "animelayer",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EBD2F0": {
    "boundary": null,
    "callees": {},
@@ -1094787,6 +1094925,36 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141EC9A10": {
+   "boundary": null,
+   "callees": {
+    "1403815F0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141EC9A53",
+     "text": "CALL qword ptr [0x142530438]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141ec9a10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "animelayer",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1284808,6 +1284976,29 @@
    "vtables": [],
    "walked": true
   },
+  "1423C3F90": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_1423c3f90",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer"
+   ],
+   "scope": "in",
+   "size": 13,
+   "source": "pdata",
+   "subsystem": "animelayer",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1423C3FB0": {
    "boundary": null,
    "callees": {},
@@ -1303420,6 +1303611,42 @@
     "members": 1,
     "roots": [
      "0x1404F8C70"
+    ]
+   },
+   "animecrt": {
+    "members": 1,
+    "roots": [
+     "0x1415A1F7C"
+    ]
+   },
+   "animelayer": {
+    "members": 1,
+    "roots": [
+     "0x1415A1F7C"
+    ]
+   },
+   "animepre": {
+    "members": 471,
+    "roots": [
+     "0x141EC9AF0",
+     "0x141EA7A50",
+     "0x140412300",
+     "0x1404ECDE0",
+     "0x1408DF1D0",
+     "0x14149B6B0",
+     "0x14149B6C0",
+     "0x14149FA80",
+     "0x14149FC70",
+     "0x141EC9A10"
+    ]
+   },
+   "animereg": {
+    "members": 212,
+    "roots": [
+     "0x141ECA500",
+     "0x141EA7620",
+     "0x141EBCB10",
+     "0x141EC8C40"
     ]
    },
    "cardlevel": {

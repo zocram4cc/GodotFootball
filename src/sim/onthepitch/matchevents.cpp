@@ -65,6 +65,39 @@ int Match::PesSlotOf(const Player* player) {
   return static_cast<int>(key.team) * pes::kSlotsPerSide + static_cast<int>(key.slot);
 }
 
+namespace {
+// The engine world's heap (a zero-filled arena): the ResManager's archives and graph, and one control graph per slot. Sized from a run of
+// the body load and 22 constructions (tests/pes_anime_engine_test.cpp prints the live bytes) with room for the frame's scratch.
+constexpr uint64_t kPesAnimeHeapBytes = 768ull << 20;
+// The player block FUN_1406E03D0 constructs (P: at least 0x3BC0 bytes) the engine's constructor writes its anime fields into.
+constexpr uint64_t kPesAnimePlayerBytes = 0x3C00;
+}  // namespace
+
+pes::PesFoxWorld& Match::PesAnimeWorldOf() {
+  if (!pesAnimeWorld) {
+    if (pesVfs == nullptr)
+      throw std::runtime_error("PES anime engine: the install's file system is missing: give MatchSetup::pesVfs");
+    pesAnimeWorld = std::make_unique<pes::PesFoxWorld>(pesImagePath, *pesVfs, kPesAnimeHeapBytes);
+    pesAnimeWorld->Boot();
+    std::string error;
+    if (!pesAnimeWorld->LoadBody(&error)) throw std::runtime_error("PES anime engine: " + error);
+  }
+  return *pesAnimeWorld;
+}
+
+uint64_t Match::PesAnimePlayerOf(int slot) {
+  uint64_t& p = pesAnimePlayers[static_cast<std::size_t>(slot)];
+  if (p == 0) {
+    pes::PesFoxWorld& world = PesAnimeWorldOf();
+    p = world.Alloc(kPesAnimePlayerBytes);
+    if (p == 0) throw std::runtime_error("PES anime engine: the heap is full");
+    // ponytail: the collision object FUN_1406E03D0 passes (*(P+0x3AA0), set by FUN_1406EB670) has no GF source; 0. The constructor only
+    // stores it at A+0x78 (FUN_141AFB090); the frame's phases do not read it on the path the engine takes (OPEN: INF from the decompile).
+    world.ConstructAnime(p, 0);
+  }
+  return p;
+}
+
 Player* Match::GetPesActorPlayer(const pes::ActorKey& key) {
   if (!key.Valid()) return nullptr;
   const auto& squad = GetTeam(static_cast<int>(key.team))->GetAllPlayers();

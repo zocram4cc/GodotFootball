@@ -33,6 +33,7 @@ class PlayerData;
 #include "peskickerror.hpp"
 #include "peskickmotion.hpp"
 #include "pesworldrecord.hpp"
+#include "pesfoxworld.hpp"
 #include "pesdodge.hpp"
 #include "pesclipreaders.hpp"
 #include "pestackle.hpp"
@@ -304,6 +305,11 @@ public:
   // loader data the chain runs on, built once at construction.
   const pes::PesActorConstants& GetPesActorConstants() const { return pesActorConstants; }
   pes::PesTrapExternals& PesTrapExternalsOf() { return pesTrapMemory->Externals(); }
+  // PES's per-player anime engine graph (pesfoxworld.hpp), built from the install on first use: the translated fox load chain fills the
+  // ResManager from the body animation files, and the player constructor makes each slot's BodyAnimControl. PesAnimePlayerOf(slot) is the
+  // engine's player block of a slot (constructed on first use).
+  pes::PesFoxWorld& PesAnimeWorldOf();
+  uint64_t PesAnimePlayerOf(int slot);
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
   // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
   // takes the named fallback.
@@ -763,6 +769,10 @@ protected:
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   pes::PesActorConstants pesActorConstants{};
   std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
+  std::unique_ptr<pes::PesFoxWorld> pesAnimeWorld;
+  std::array<uint64_t, pes::kSlotCount> pesAnimePlayers{};
+  const pes::PesVfs* pesVfs = nullptr;
+  std::string pesImagePath;
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
   std::optional<pes::formation::FormationTables> pesFormations;
   std::optional<pes::formation::SheetConstants> pesSheetConstants;

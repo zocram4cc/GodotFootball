@@ -413,6 +413,7 @@ int main(int argc, char** argv) {
   setup.pesMoveStepConstants = &*moveStepConstants;
   setup.pesMarkTableConstants = &*markTableConstants;
   setup.pesTrapSource = &*trapSource;
+  setup.pesVfs = &vfs;
   setup.pesImageTables = &*imageTables;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData

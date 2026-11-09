@@ -76,6 +76,7 @@ struct PesMatchConstants {
   std::optional<pes::formation::SheetConstants> sheetConstants;
   std::optional<pes::PlayerDatabase> playerDatabase;
   std::optional<pes::PesTrapSource> trap;
+  pes::PesVfs vfs;  // the mounted install, kept for MatchSetup::pesVfs (the engine's file layer reads through it)
 };
 
 inline const PesMatchConstants& SharedPesMatchConstants() {
@@ -88,7 +89,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   std::string err;
   auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
   if (!exe) return c;
-  pes::PesVfs vfs;
+  pes::PesVfs& vfs = c.vfs;
   const bool mounted = vfs.Mount(root, &err);
   c.clock = pes::LoadPesClockConstants(*exe, &err);
   if (mounted) c.ball = pes::LoadPesBallConstants(*exe, vfs, &err);
@@ -177,6 +178,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesMarkTableConstants, c.markTable);
   fill(setup->pesTrapSource, c.trap);
   fill(setup->pesImageTables, c.imageTables);
+  if (!setup->pesVfs) setup->pesVfs = &c.vfs;
   return ok;
 }
 

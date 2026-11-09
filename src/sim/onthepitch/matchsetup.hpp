@@ -202,6 +202,9 @@ struct MatchSetup {
   // PES 2021's Trap action chain's inputs from the install (pestrapdata.hpp LoadTrapSource): the image slice, the actor
   // constants and the loader data. Required: the reaction trap's clip is the chain's commit, and there is no GF picker.
   const pes::PesTrapSource* pesTrapSource = nullptr;
+  // The install's file system, which PES's translated fox file layer reads the animation files through (pesfoxworld.hpp). Required in
+  // the PES loop: the player's engine graph is built from the install's own body animation files.
+  const pes::PesVfs* pesVfs = nullptr;
   // The install's own table bytes the translated window runs read at register-held image addresses (pesimagetables.hpp:
   // the anime class table, the quarter sine table, the frame-rate cells), read from the install's exe. Required: the danger
   // builder's lane lists differ from PES's without them.

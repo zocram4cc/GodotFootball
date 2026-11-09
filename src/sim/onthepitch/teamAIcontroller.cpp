@@ -3593,13 +3593,15 @@ void WritePesTrapActors(Match& match) {
       // (WriteSlotStamina's ponytail).
       pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
                             static_cast<uint32_t>(match.GetActualTime_ms()));
-      // The anime player's joint block, PES's order in the player's tick (FUN_141EB49B0 then FUN_1406F6CE0): the pose GF's skeleton
-      // holds from last tick's put, in the anime player's layout (the joint heights P+0xB90.., the Kick gate's and the chooser's input).
-      float headingDeg;
-      std::memcpy(&headingDeg, match.PesWorldOf().P(slot) + pes::kPHeadingOffset, sizeof headingDeg);
-      pes::PesJointPose pose;
-      BuildJointPose(p->GetNodeMap(), match.GetRig(), headingDeg, pose);
-      match.PesWorldOf().RunAnimeJoints(slot, pose, match.PesTrapExternalsOf());
+      // The anime player's joint block, PES's order in the player's tick (FUN_141AF4650's phases, then FUN_141EB49B0, then FUN_1406F6CE0):
+      // the engine runs this man's frame (PES's translated driver on his BodyAnimControl, built from the install's animation files) and the
+      // pose it leaves in the control's arrays is the joint writer's input, the heights P+0xB90.. the Kick gate and the chooser read.
+      // ponytail: the window's P is not the engine's (its A at P+0xA08 is the window's physique object): the engine holds its own player
+      // block per slot and the pose is copied into the window's joint arrays. Removed when the window's P is the constructor's own.
+      pes::PesFoxWorld& engine = match.PesAnimeWorldOf();
+      const uint64_t engineP = match.PesAnimePlayerOf(slot);
+      engine.RunFrame(engineP);
+      match.PesWorldOf().RunAnimeJoints(slot, engine.ReadPose(engineP), match.PesTrapExternalsOf());
       match.PesWorldOf().RunPlayerUpdate(slot, match.PesTrapExternalsOf());
     }
   }

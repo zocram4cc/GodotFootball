@@ -87,6 +87,10 @@ add_executable(pes_fox_world_test pes_fox_world_test.cpp)
 target_link_libraries(pes_fox_world_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_fox_world_test)
 
+add_executable(pes_anime_engine_test pes_anime_engine_test.cpp)
+target_link_libraries(pes_anime_engine_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_anime_engine_test)
+
 add_executable(pes_kick_header_oracle_test pes_kick_header_oracle_test.cpp)
 target_link_libraries(pes_kick_header_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_kick_header_oracle_test)

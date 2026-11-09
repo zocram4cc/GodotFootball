@@ -95,23 +95,3 @@ boost::intrusive_ptr<Node> BuildPlayerNode(const pesrig::Rig& rig) {
   }
   return player;
 }
-
-void BuildJointPose(const std::map<const std::string, boost::intrusive_ptr<Node>>& nodes, const pesrig::Rig& rig, float headingDeg,
-                    pes::PesJointPose& out) {
-  const Vector3 origin = nodes.at("player")->GetDerivedPosition();
-  const float heading = headingDeg * pes::kDegToRad, c = std::cos(heading), s = std::sin(heading);
-  // The rotation taking the world rotation into the player's frame: about y by -heading (PES axes), as a quaternion.
-  const float halfSin = std::sin(-0.5f * heading), halfCos = std::cos(-0.5f * heading);
-  for (std::size_t j = 0; j < pes::kAnimeJointCount; ++j) {
-    const boost::intrusive_ptr<Node>& node = nodes.at(rig.bones.at(j).gfName);
-    const Vector3 w = node->GetDerivedPosition() - origin;
-    const float wx = w.coords[0], wy = w.coords[2], wz = -w.coords[1];  // GF (x, y, z) -> PES (x, z, -y)
-    out.position[j] = {wx * c - wz * s, wy, wx * s + wz * c, 0.0f};
-    const Quaternion q = node->GetDerivedRotation();
-    // The rotation's axis in PES axes: the same basis change as the position; (qx, qy, qz) -> (qx, qz, -qy).
-    const float x = q.elements[0], y = q.elements[2], z = -q.elements[1], qw = q.elements[3];
-    // qFrame = (0, halfSin, 0, halfCos) * (x, y, z, qw) (Hamilton product).
-    out.rotation[j] = {halfCos * x + halfSin * z, halfCos * y + halfSin * qw, halfCos * z - halfSin * x,
-                       halfCos * qw - halfSin * y};
-  }
-}
