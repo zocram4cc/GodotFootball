@@ -22,6 +22,9 @@ constexpr uint64_t kTebVa = 0x2610000000ULL, kTebBytes = 0x2000;
 constexpr uint64_t kTebSelfOffset = 0x30;  // gs:[0x30]: the thread block's own address (FlsGetValue and the last-error model read it)
 // Win64: rsp at a function's entry holds the return address and is 8 (mod 16); the shadow space and the stack arguments sit above it.
 constexpr uint64_t kEntryFrameBytes = 0x200;
+// import_stubs.json "os_arena": PES's jemalloc (FUN_1403CF740, under FUN_14029D370) gets its chunks from VirtualAlloc, which the translated
+// model serves from this range (the cell at its base is the bump pointer): the world maps it, or the allocator reads zeros and never returns.
+constexpr uint64_t kOsArenaVa = 0x3000000000ULL, kOsArenaBytes = 0x100000000ULL;
 
 }  // namespace
 
@@ -31,6 +34,7 @@ struct PesFoxWorld::Impl {
   uint64_t imageBytes = 0;
   PesHeap heap;
   std::vector<uint8_t> stack, teb;
+  uint8_t* osArena = nullptr;  // the VirtualAlloc model's arena, lazily zeroed pages (anonymous mmap)
   Impl(const PesVfs& v, uint64_t heapBytes) : vfs(v), heap(heapBytes), stack(kStackBytes), teb(kTebBytes) {}
 };
 
@@ -48,6 +52,12 @@ PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64
   ::close(fd);
   if (map == MAP_FAILED) throw std::runtime_error("fox world: cannot map the image " + imagePath);
   impl_->image = static_cast<uint8_t*>(map);
+  void* arena = ::mmap(nullptr, kOsArenaBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+  if (arena == MAP_FAILED) {
+    ::munmap(map, impl_->imageBytes);
+    throw std::runtime_error("fox world: cannot map the OS arena");
+  }
+  impl_->osArena = static_cast<uint8_t*>(arena);
   std::memcpy(impl_->teb.data() + kTebSelfOffset, &kTebVa, sizeof kTebVa);
   pes_service_set_file_source(this);
 }
@@ -55,6 +65,7 @@ PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64
 PesFoxWorld::~PesFoxWorld() {
   pes_service_set_file_source(nullptr);
   ::munmap(impl_->image, impl_->imageBytes);
+  ::munmap(impl_->osArena, kOsArenaBytes);
 }
 
 PesState PesFoxWorld::NewCall() {
@@ -65,6 +76,7 @@ PesState PesFoxWorld::NewCall() {
   impl_->heap.Attach(s);  // clears the services, so the world's windows follow
   s.mem.services.push_back({kStackVa, kStackBytes, nullptr, impl_->stack.data()});
   s.mem.services.push_back({kTebVa, kTebBytes, nullptr, impl_->teb.data()});
+  s.mem.services.push_back({kOsArenaVa, kOsArenaBytes, nullptr, impl_->osArena});
   s.gs_base = kTebVa;
   s.gpr[4] = kStackVa + kStackBytes - kEntryFrameBytes;
   s.wr(s.gpr[4], 0, 8);  // the return address slot
@@ -157,9 +169,9 @@ constexpr uint32_t kFramePhases[] = {1, 2, 3, 4, 5, 7, 8, 9, 0xB, 0xD, 0xF, 0x10
 constexpr uint8_t kHandleQueuedRead = 2, kHandleQueuedDecode = 5;
 constexpr int kFinishSteps = 16;
 // The registry (FUN_141EC8C40's singleton DAT_1437F4F78) and the project registrars' once-flags (FUN_141ECA500 reads DAT_1437F4F82), which
-// the dump holds as the running game left them; the anime systems' table (FUN_141AE87F0 creates a system only for a null cell of
-// DAT_1437CEA30[index]) and the ResManager cell above it, whose cells the dump also holds as pointers into the dead heap.
-constexpr uint64_t kRegistryVa = 0x1437F4F78, kRegistrarFlagVa = 0x1437F4F82, kAnimeSystemTableVa = 0x1437CEA30, kAnimeSystemCells = 8;
+// the dump holds as the running game left them. The anime systems table DAT_1437CEA30 is left as the dump holds it (a system is made only for
+// a null cell, and a made one allocates through PES's jemalloc, whose state is the dead game's: see the report, section 5 item 1).
+constexpr uint64_t kRegistryVa = 0x1437F4F78, kRegistrarFlagVa = 0x1437F4F82;
 // The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
 // cell, the slot offset in the thread's block, the frame's vtable and the arena's size.
 constexpr uint64_t kTebTlsPointerOffset = 0x58, kTlsIndexVa = 0x1437067A0, kTlsSlotOffset = 0x38, kScratchFrameVtable = 0x14258BCA8,
@@ -181,7 +193,6 @@ void PesFoxWorld::Boot() {
   for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
                       kPumpCountBVa, kResManagerVa, kRegistryVa})
     Write64(va, 0);
-  for (uint64_t cell = 0; cell < kAnimeSystemCells; ++cell) Write64(kAnimeSystemTableVa + 8 * cell, 0);
   {
     PesState s = NewCall();
     s.wr(kRegistrarFlagVa, 0, 1);
