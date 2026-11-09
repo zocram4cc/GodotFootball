@@ -974,6 +974,58 @@ TEST(StepLoop, TheStepToRunArmNeedsTheTurnInsideTheWindow) {
   EXPECT_NE(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
 }
 
+// 0x1406c55f7 / 0x1406c560f / 0x1406c562f: the arm's window is `|turn + body| <= 112.5 || (|turn| < 67.5 && |body| <= 90)`. A turn of
+// 100 degrees with a body turn of -30 sums to 70: inside the first term although the turn alone is past 67.5. (The old port joined the
+// terms with &&.)
+TEST(StepLoop, TheStepToRunArmTakesAnySumInsideOneHundredTwelveAndAHalfDegrees) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 2);  // at class 1 the earlier GOTO_RUN re-plan (turn past 33.75) takes the tick
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 340.0f);  // wrap180(340 - 10) = -30
+  req.SetF(pes::moveword::kTurn, 100.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
+}
+
+// 0x1406c70..: FUN_1406d2f60 (RUN_TURN_STEP) returning nonzero ends STEP_TO_RUN's stop arm (`if (cVar2) return`); a refusal falls
+// through to the stop. The old port returned when it refused.
+TEST(StepToRun, ARefusedRunTurnStepFallsThroughToTheStop) {
+  FakeHost host;
+  host.rateCeiling = 0.9f;
+  MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kHeading, 100.0f);
+  req.SetF(pes::moveword::kRecordStampB, 0.0f);  // remaining 100 deg: 10000 > 8100
+  req.SetF(pes::moveword::kFacing, 50.0f);       // the facing turn 50 deg: 2500 > 2025
+  host.displacement[0] = std::sin(50.0f * 3.14159265f / 180.0f) * MetresPerTick(10.0f);  // travelling along the facing
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = std::cos(50.0f * 3.14159265f / 180.0f) * MetresPerTick(10.0f);
+  lastRunTurnStepThreshold = -1.0f;
+  requested = MoveState::kInit;
+  StepToRun(host, req);
+  EXPECT_NEAR(lastRunTurnStepThreshold, (0.9f - 0.6f) * 0.5f, 1e-6f);
+  EXPECT_EQ(requested, MoveState::kStop);
+}
+
 // -------------------------------------------------------------------------------------
 // STEP_LOOP, FUN_1406c4c10: the body turn and the stamp it writes.
 // -------------------------------------------------------------------------------------
