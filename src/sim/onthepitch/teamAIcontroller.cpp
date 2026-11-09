@@ -3604,11 +3604,11 @@ pes::BoneFrames BoneFramesOf(Player& player, const pesrig::Rig& rig) {
   for (std::size_t bone = 0; bone < pes::kScanBoneCount; ++bone) {
     const std::optional<int> joint = pesrig::ResolveBone(rig, pes::kScanBoneNames[bone], nullptr);
     assert(joint.has_value());
-    const Node& node = *nodes.at(rig.bones[*joint].gfName);
-    frames[bone].position = PesPoint(node.GetDerivedPosition());
+    const boost::intrusive_ptr<blunted::Node>& node = nodes.at(rig.bones[*joint].gfName);
+    frames[bone].position = PesPoint(node->GetDerivedPosition());
     // The rotation's axis changes basis with the position: (x, y, z) -> (x, z, y), a reflection, so the rotation about the swapped axis
     // turns the other way and the vector part is negated.
-    const Quaternion q = node.GetDerivedRotation();
+    const blunted::Quaternion q = node->GetDerivedRotation();
     frames[bone].rotation = {-q.elements[0], -q.elements[2], -q.elements[1], q.elements[3]};
   }
   return frames;
@@ -3621,11 +3621,12 @@ pes::BoneFrames BoneFramesOf(Player& player, const pesrig::Rig& rig) {
 void RunPesBodyScans(Match& match) {
   pes::PesWorld& world = match.PesWorldOf();
   match.ClearPesTouches();
-  // ponytail: the ball record's owner byte (+0x279C) has no GF writer (PES's are in the ball's state pull, 0x140871A5C): PES's holder
-  // (MA+0x2601C, RecomputePesHolder) stands in for it. Its writer removes this.
-  const Player* holder = match.GetPesHolder();
-  world.BallRecord()[pes::kBallOwnerOffset] =
-      holder != nullptr ? static_cast<uint8_t>(match.PesSlotOf(const_cast<Player*>(holder))) : pes::kBallNoOwner;
+  // ponytail: the ball record's owner byte (+0x279C) has no GF writer (PES's are in the ball's per-tick state pull, 0x140871A5C, and the
+  // setter at 0x1411944F6, neither translated), and its meaning for an in-flight pass is not decoded: the two captured trap states read
+  // 0xFF (ee_pid1010053_153, live2 seq040), while PES's holder is another man on nearly every GF contact frame (the first stand-in, a
+  // holder byte, refused 28 of 28 reach tests). "Nobody" stands in; a man controlling the ball therefore does not block another man's
+  // reach test, which PES's byte would. The byte's writer removes this.
+  world.BallRecord()[pes::kBallOwnerOffset] = pes::kBallNoOwner;
   for (int t = 0; t < 2; ++t) {
     int written = 0;
     for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
