@@ -308,5 +308,105 @@ class SharedSlotPerHarnessVariant(unittest.TestCase):
         self.assertIsNone(self.hit())
 
 
+MUTATING_RUN = """\
+import os
+
+path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.txt")
+with open(path) as f:
+    f.read()
+with open(path, "w") as f:
+    f.write("two\\n")
+print("summary valid=1 requested=1 nonreturn=0 failed=0 capped=0 icount_max=0")
+"""
+
+READ_ONLY_RUN = """\
+import os
+
+path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.txt")
+with open(path) as f:
+    f.read()
+print("summary valid=1 requested=1 nonreturn=0 failed=0 capped=0 icount_max=0")
+"""
+
+
+class RecordedFileChangedDuringTheRun(unittest.TestCase):
+    """run.py rewrites a file it has already read. The entry must not be kept under the file's new bytes: a later run with
+    those bytes would hit an output computed from the old ones. Digests are taken as each file is opened."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = self.tmp.name
+        write(os.path.join(self.dir, "data.txt"), "one\n")
+        self.deps = os.path.join(self.dir, "deps.json")
+        self.gen = os.path.join(self.dir, "gen")
+        self.root = os.path.join(self.dir, "records", "key")
+        os.makedirs(self.gen)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def record_and_store(self, source):
+        run_py = os.path.join(self.dir, "run.py")
+        write(run_py, source)
+        r = subprocess.run([sys.executable, BUILDCACHE, "record", self.deps, run_py], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(self.deps) as f:
+            bc.corpus_store(self.root, r.stdout, [], self.gen, json.load(f))
+
+    def test_a_file_run_py_rewrites_after_reading_it_is_not_kept(self):
+        self.record_and_store(MUTATING_RUN)
+        self.assertIsNone(bc.corpus_lookup(self.root, self.gen))
+
+    def test_a_file_run_py_only_reads_is_kept(self):
+        self.record_and_store(READ_ONLY_RUN)
+        self.assertIsNotNone(bc.corpus_lookup(self.root, self.gen))
+
+
+class ObjectCacheCap(unittest.TestCase):
+    """The object cache holds at most OBJECT_CAP_BYTES. Its least recently used objects go first, a hit counts as a use,
+    and a compile in flight (a .tmp file) is neither counted nor evicted."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.objdir = self.tmp.name
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def put(self, name, used_ns):
+        path = os.path.join(self.objdir, name)
+        with open(path, "wb") as f:
+            f.write(b"x" * 100)
+        os.utime(path, ns=(used_ns, used_ns))
+
+    def names(self):
+        return sorted(os.listdir(self.objdir))
+
+    def test_a_cache_under_its_cap_is_left_alone(self):
+        self.put("a.o", 1)
+        bc.object_trim(self.objdir, cap=100)
+        self.assertEqual(self.names(), ["a.o"])
+
+    def test_the_least_recently_used_objects_go_first(self):
+        for name, used in (("a.o", 1), ("b.o", 2), ("c.o", 3)):
+            self.put(name, used)
+        bc.object_trim(self.objdir, cap=200)
+        self.assertEqual(self.names(), ["b.o", "c.o"])
+
+    def test_a_hit_makes_an_object_recently_used(self):
+        for name, used in (("a.o", 1), ("b.o", 2), ("c.o", 3)):
+            self.put(name, used)
+        self.assertTrue(bc.object_hit(os.path.join(self.objdir, "a.o")))
+        bc.object_trim(self.objdir, cap=200)
+        self.assertEqual(self.names(), ["a.o", "c.o"])
+
+    def test_a_compile_in_flight_is_neither_counted_nor_evicted(self):
+        for name, used in (("a.o", 1), ("b.o", 2)):
+            self.put(name, used)
+        self.put("tmpXYZ.tmp", 0)
+        bc.object_trim(self.objdir, cap=100)
+        self.assertEqual(self.names(), ["b.o", "tmpXYZ.tmp"])
+
+
 if __name__ == "__main__":
     unittest.main()
