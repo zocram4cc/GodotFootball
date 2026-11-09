@@ -609,17 +609,6 @@ void Match::SetMatchPhase(e_MatchPhase newMatchPhase) {
     }
 #endif
   }
-
-  // Ends have just changed, so put both teams back out on the ones they swapped to.
-  // The referee prepares its kickoff at prepareTime and fires the phase change from
-  // the same tick, in that order - so the marks it computed belonged to the ends the
-  // teams were leaving, and nothing re-prepared afterwards. The second half kicked
-  // off with everyone standing wherever the whistle caught him, on the wrong side of
-  // a pitch that had turned round underneath him.
-  if (MatchProgression::SwapsEnds(matchPhase)) {
-    ResetSituation(Vector3(0, 0, 0));
-    if (referee) referee->PrepareSetPiece(e_SetPiece_KickOff);
-  }
 }
 
 void Match::SetScore(int teamID, int goals) {
