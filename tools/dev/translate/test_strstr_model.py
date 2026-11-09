@@ -265,5 +265,38 @@ class SetLastErrorModel(unittest.TestCase):
         self.assertEqual(mu.reg_read(UC_X86_REG_RAX), self.TEB)
 
 
+class ModuleFileNameAndIobModels(unittest.TestCase):
+    """KERNEL32 GetModuleFileNameA writes a NUL-terminated backslash path and returns its length; ucrtbase __acrt_iob_func answers distinct, stable stream pointers."""
+
+    def run_model(self, key, rcx, rdx=0):
+        model = ft.load_import_models()[key]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, model)
+        mu.mem_map(DATA, 0x1000)
+        mu.mem_write(DATA + 0x100, b"\xAB" * 0x40)
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.reg_write(UC_X86_REG_RCX, rcx)
+        mu.reg_write(UC_X86_REG_RDX, rdx)
+        mu.emu_start(CODE, RET, count=100)
+        return mu
+
+    def test_module_file_name_writes_a_terminated_path_with_a_backslash_and_returns_its_length(self):
+        mu = self.run_model(("kernel32.dll", "GetModuleFileNameA"), 0, DATA + 0x100)
+        n = mu.reg_read(UC_X86_REG_RAX)
+        raw = bytes(mu.mem_read(DATA + 0x100, 0x40))
+        self.assertGreater(n, 0)
+        self.assertEqual(raw[n], 0)
+        self.assertIn(b"\\", raw[:n])
+        self.assertEqual(raw[n + 1:], b"\xAB" * (0x40 - n - 1))  # nothing past the terminator is written
+
+    def test_iob_func_answers_a_distinct_stable_pointer_per_stream(self):
+        ptrs = [self.run_model(("ucrtbase.dll", "__acrt_iob_func"), i).reg_read(UC_X86_REG_RAX) for i in (0, 1, 2)]
+        self.assertEqual(len(set(ptrs)), 3)
+        self.assertEqual(ptrs, [self.run_model(("ucrtbase.dll", "__acrt_iob_func"), i).reg_read(UC_X86_REG_RAX) for i in (0, 1, 2)])
+
 if __name__ == "__main__":
     unittest.main()

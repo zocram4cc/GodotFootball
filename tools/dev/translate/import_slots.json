@@ -1,6 +1,11 @@
 {
- "note": "Named import slots: each absolute CALL/JMP qword ptr [slot] the universe reaches, named by the export its snapshot value resolves to (import_slots.py). kind export = an OS export; anything else is not an import and keeps the dispatch path. AnimeLayer7: the .tls$ section (0x15B960000..0x15B968DA0) holds a second copy of the import table that PES code calls through (FUN_143E114E0 TlsAlloc, SetLastError): a slot there whose qword equals the qword of a named IAT slot names the same export (366 slots added by value).",
+ "note": "Named import slots: each absolute CALL/JMP qword ptr [slot] the universe reaches, named by the export its snapshot value resolves to (import_slots.py). kind export = an OS export; anything else is not an import and keeps the dispatch path. AnimeLayer7: the .tls$ section (0x15B960000..0x15B968DA0) holds a second copy of the import table that PES code calls through (FUN_143E114E0 TlsAlloc, SetLastError): a slot there whose qword equals the qword of a named IAT slot names the same export (366 slots added by value). AnimeLayer7/8: every remaining IAT slot (0x14252F000..0x142530800) and .tls$ copy slot whose snapshot value is an exact OS export is named by import_slots.classify over live2/pid4152866/seq002 (845 added).",
  "slots": {
+  "0x14252F000": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptDestroyHash"
+  },
   "0x14252F008": {
    "export": "ReportEventW",
    "kind": "export",
@@ -31,20 +36,150 @@
    "kind": "export",
    "module": "advapi32.dll"
   },
+  "0x14252F038": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptGetHashParam"
+  },
+  "0x14252F040": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptCreateHash"
+  },
+  "0x14252F048": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptHashData"
+  },
+  "0x14252F050": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "LookupAccountNameW"
+  },
   "0x14252F058": {
    "export": "CryptGenRandom",
    "kind": "export",
    "module": "advapi32.dll"
+  },
+  "0x14252F060": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "ConvertSidToStringSidW"
+  },
+  "0x14252F070": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?isAnselAvailable@ansel@@YA_NXZ"
+  },
+  "0x14252F078": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?setConfiguration@ansel@@YA?AW4SetConfigurationStatus@1@AEBUConfiguration@1@@Z"
+  },
+  "0x14252F080": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?quaternionToRotationMatrixVectors@ansel@@YAXAEBUQuat@nv@@AEAUVec3@3@11@Z"
+  },
+  "0x14252F088": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?rotationMatrixVectorsToQuaternion@ansel@@YAXAEBUVec3@nv@@00AEAUQuat@3@@Z"
+  },
+  "0x14252F090": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?updateCamera@ansel@@YAXAEAUCamera@1@@Z"
+  },
+  "0x14252F0A0": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CryptMsgClose"
+  },
+  "0x14252F0A8": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CryptMsgGetParam"
+  },
+  "0x14252F0B0": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertCloseStore"
+  },
+  "0x14252F0B8": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertFindCertificateInStore"
+  },
+  "0x14252F0C0": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertFreeCertificateContext"
+  },
+  "0x14252F0C8": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertGetNameStringW"
+  },
+  "0x14252F0D0": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CryptQueryObject"
+  },
+  "0x14252F0E0": {
+   "kind": "export",
+   "module": "dinput8.dll",
+   "export": "DirectInput8Create"
   },
   "0x14252F0F0": {
    "export": "DirectSoundCaptureCreate8",
    "kind": "export",
    "module": "dsound.dll"
   },
+  "0x14252F0F8": {
+   "kind": "export",
+   "module": "dsound.dll",
+   "export": "DirectSoundEnumerateW"
+  },
   "0x14252F100": {
    "export": "DirectSoundCreate8",
    "kind": "export",
    "module": "dsound.dll"
+  },
+  "0x14252F110": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "ExtEscape"
+  },
+  "0x14252F118": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "GetDeviceCaps"
+  },
+  "0x14252F120": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "DeleteDC"
+  },
+  "0x14252F128": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "CreateDCW"
+  },
+  "0x14252F138": {
+   "kind": "export",
+   "module": "iphlpapi.dll",
+   "export": "GetNetworkParams"
+  },
+  "0x14252F140": {
+   "kind": "export",
+   "module": "iphlpapi.dll",
+   "export": "AddIPAddress"
+  },
+  "0x14252F148": {
+   "kind": "export",
+   "module": "iphlpapi.dll",
+   "export": "DeleteIPAddress"
   },
   "0x14252F150": {
    "export": "GetAdaptersAddresses",
@@ -141,15 +276,85 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F1F0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetLocaleInfoA"
+  },
+  "0x14252F1F8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetPriorityClass"
+  },
+  "0x14252F200": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetThreadExecutionState"
+  },
+  "0x14252F208": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RaiseException"
+  },
+  "0x14252F210": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "InitializeCriticalSectionEx"
+  },
   "0x14252F218": {
    "export": "GetVersionExW",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F220": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetLogicalProcessorInformation"
+  },
+  "0x14252F228": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadLibraryW"
+  },
+  "0x14252F230": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GlobalMemoryStatus"
+  },
+  "0x14252F238": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateMutexA"
+  },
+  "0x14252F240": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadResource"
+  },
+  "0x14252F248": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SizeofResource"
+  },
+  "0x14252F250": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FindResourceW"
+  },
+  "0x14252F258": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LocalFileTimeToFileTime"
+  },
   "0x14252F260": {
    "export": "SystemTimeToTzSpecificLocalTime",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x14252F268": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SystemTimeToFileTime"
   },
   "0x14252F270": {
    "export": "CreateEventW",
@@ -226,6 +431,11 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F2E8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LocalFree"
+  },
   "0x14252F2F0": {
    "export": "MoveFileExW",
    "kind": "export",
@@ -236,10 +446,25 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F300": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFileAttributesA"
+  },
   "0x14252F308": {
    "export": "CreateFileA",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x14252F310": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FindFirstFileA"
+  },
+  "0x14252F318": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FindNextFileA"
   },
   "0x14252F320": {
    "export": "SetFilePointer",
@@ -265,6 +490,26 @@
    "export": "RtlEnterCriticalSection",
    "kind": "export",
    "module": "ntdll.dll"
+  },
+  "0x14252F348": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "OutputDebugStringA"
+  },
+  "0x14252F350": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadLibraryExA"
+  },
+  "0x14252F358": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LocalAlloc"
+  },
+  "0x14252F360": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetSystemDirectoryW"
   },
   "0x14252F368": {
    "export": "RtlDeleteCriticalSection",
@@ -316,14 +561,39 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F3B8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateProcessA"
+  },
+  "0x14252F3C0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetExitCodeProcess"
+  },
   "0x14252F3C8": {
    "export": "GetCurrentProcessId",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F3D0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "PeekNamedPipe"
+  },
+  "0x14252F3D8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreatePipe"
+  },
   "0x14252F3E0": {
    "kind": "no-exact-export",
    "module": "sider.dll"
+  },
+  "0x14252F3E8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "WaitForMultipleObjects"
   },
   "0x14252F3F0": {
    "export": "CreateEventA",
@@ -355,6 +625,11 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F420": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetSystemTime"
+  },
   "0x14252F428": {
    "export": "QueryPerformanceFrequency",
    "kind": "export",
@@ -380,10 +655,40 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F450": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadLibraryExW"
+  },
+  "0x14252F458": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFullPathNameW"
+  },
+  "0x14252F460": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetEnvironmentVariableW"
+  },
+  "0x14252F468": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlInitializeSRWLock"
+  },
+  "0x14252F470": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlReleaseSRWLockExclusive"
+  },
   "0x14252F478": {
    "export": "RtlReleaseSRWLockShared",
    "kind": "export",
    "module": "ntdll.dll"
+  },
+  "0x14252F480": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlAcquireSRWLockExclusive"
   },
   "0x14252F488": {
    "export": "RtlAcquireSRWLockShared",
@@ -400,6 +705,11 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F4A0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetModuleFileNameA"
+  },
   "0x14252F4A8": {
    "export": "FreeLibrary",
    "kind": "export",
@@ -415,10 +725,40 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F4C0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetConsoleMode"
+  },
+  "0x14252F4C8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ReadConsoleW"
+  },
+  "0x14252F4D0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ReadConsoleA"
+  },
+  "0x14252F4D8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetConsoleMode"
+  },
+  "0x14252F4E0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetEnvironmentVariableW"
+  },
   "0x14252F4E8": {
    "export": "ConvertThreadToFiber",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x14252F4F0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ConvertFiberToThread"
   },
   "0x14252F4F8": {
    "export": "CreateFiber",
@@ -440,6 +780,11 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F518": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FormatMessageW"
+  },
   "0x14252F520": {
    "export": "RemoveDirectoryW",
    "kind": "export",
@@ -450,10 +795,30 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F530": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetExitCodeThread"
+  },
+  "0x14252F538": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetThreadPriority"
+  },
   "0x14252F540": {
    "export": "GetModuleFileNameW",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x14252F548": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "QueryFullProcessImageNameW"
+  },
+  "0x14252F550": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "OpenProcess"
   },
   "0x14252F558": {
    "export": "SetHandleInformation",
@@ -465,10 +830,60 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F568": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "VerifyVersionInfoW"
+  },
+  "0x14252F570": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "VerSetConditionMask"
+  },
   "0x14252F578": {
    "export": "GetStdHandle",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x14252F580": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RemoveDirectoryA"
+  },
+  "0x14252F588": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateHardLinkA"
+  },
+  "0x14252F590": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFileInformationByHandle"
+  },
+  "0x14252F598": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFullPathNameA"
+  },
+  "0x14252F5A0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetLongPathNameA"
+  },
+  "0x14252F5A8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "DeviceIoControl"
+  },
+  "0x14252F5B0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetTimeZoneInformation"
+  },
+  "0x14252F5B8": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlInitializeConditionVariable"
   },
   "0x14252F5C0": {
    "export": "RtlWakeAllConditionVariable",
@@ -485,15 +900,135 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F5D8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "DuplicateHandle"
+  },
+  "0x14252F5E0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetThreadIdealProcessor"
+  },
+  "0x14252F5E8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SuspendThread"
+  },
   "0x14252F5F0": {
    "export": "GetCurrentThread",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x14252F5F8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetThreadPriorityBoost"
+  },
+  "0x14252F600": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "TlsFree"
+  },
+  "0x14252F608": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetProcessPriorityBoost"
+  },
   "0x14252F610": {
    "export": "GetProcessAffinityMask",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x14252F618": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "MoveFileW"
+  },
+  "0x14252F620": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "MoveFileA"
+  },
+  "0x14252F628": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetEndOfFile"
+  },
+  "0x14252F630": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FlushFileBuffers"
+  },
+  "0x14252F638": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateDirectoryA"
+  },
+  "0x14252F640": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "OutputDebugStringW"
+  },
+  "0x14252F648": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetStartupInfoW"
+  },
+  "0x14252F650": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "IsDebuggerPresent"
+  },
+  "0x14252F658": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlInitializeSListHead"
+  },
+  "0x14252F660": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetSystemTimeAsFileTime"
+  },
+  "0x14252F668": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "IsProcessorFeaturePresent"
+  },
+  "0x14252F670": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "TerminateProcess"
+  },
+  "0x14252F678": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetUnhandledExceptionFilter"
+  },
+  "0x14252F680": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "UnhandledExceptionFilter"
+  },
+  "0x14252F688": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlVirtualUnwind"
+  },
+  "0x14252F690": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RtlLookupFunctionEntry"
+  },
+  "0x14252F698": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RtlCaptureContext"
+  },
+  "0x14252F6A0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "WaitForSingleObjectEx"
   },
   "0x14252F6A8": {
    "export": "TlsGetValue",
@@ -509,6 +1044,11 @@
    "export": "SetLastError",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x14252F6C0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "K32GetProcessMemoryInfo"
   },
   "0x14252F6C8": {
    "export": "VirtualQuery",
@@ -535,6 +1075,36 @@
    "kind": "export",
    "module": "ntdll.dll"
   },
+  "0x14252F6F0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "DeleteFileA"
+  },
+  "0x14252F700": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFCreateAlignedMemoryBuffer"
+  },
+  "0x14252F708": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFCreateSample"
+  },
+  "0x14252F710": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFCreateMediaType"
+  },
+  "0x14252F718": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFShutdown"
+  },
+  "0x14252F720": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFStartup"
+  },
   "0x14252F730": {
    "export": "?__ExceptionPtrCopy@@YAXPEAXPEBX@Z",
    "kind": "export",
@@ -549,6 +1119,11 @@
    "export": "?__ExceptionPtrToBool@@YA_NPEBX@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252F748": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?__ExceptionPtrCurrentException@@YAXPEAX@Z"
   },
   "0x14252F750": {
    "export": "?__ExceptionPtrCopyException@@YAXPEAXPEBX1@Z",
@@ -584,6 +1159,16 @@
    "export": "?_Rethrow_future_exception@std@@YAXVexception_ptr@1@@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252F788": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@PEBX@Z"
+  },
+  "0x14252F790": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Init@locale@std@@CAPEAV_Locimp@12@_N@Z"
   },
   "0x14252F798": {
    "export": "??5?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@AEAI@Z",
@@ -639,6 +1224,16 @@
    "export": "?_Ipfx@?$basic_istream@DU?$char_traits@D@std@@@std@@QEAA_N_N@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252F7F0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??1?$basic_istream@DU?$char_traits@D@std@@@std@@UEAA@XZ"
+  },
+  "0x14252F7F8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??0?$basic_istream@DU?$char_traits@D@std@@@std@@QEAA@PEAV?$basic_streambuf@DU?$char_traits@D@std@@@1@_N@Z"
   },
   "0x14252F800": {
    "export": "??Bios_base@std@@QEBA_NXZ",
@@ -765,6 +1360,16 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252F8C8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?id@?$codecvt@DDU_Mbstatet@@@std@@2V0locale@2@A"
+  },
+  "0x14252F8D0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_BADOFF@std@@3_JB"
+  },
   "0x14252F8D8": {
    "export": "?xsputn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JPEBD_J@Z",
    "kind": "export",
@@ -780,10 +1385,20 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252F8F0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Fiopen@std@@YAPEAU_iobuf@@PEBDHH@Z"
+  },
   "0x14252F8F8": {
    "export": "?flush@?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV12@XZ",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252F900": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?put@?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV12@D@Z"
   },
   "0x14252F908": {
    "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@_K@Z",
@@ -799,6 +1414,11 @@
    "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@H@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252F920": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??6?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV01@P6AAEAV01@AEAV01@@Z@Z"
   },
   "0x14252F928": {
    "export": "?_Osfx@?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAXXZ",
@@ -825,6 +1445,11 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252F950": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?widen@?$basic_ios@DU?$char_traits@D@std@@@std@@QEBADD@Z"
+  },
   "0x14252F958": {
    "export": "?setstate@?$basic_ios@_WU?$char_traits@_W@std@@@std@@QEAAXH_N@Z",
    "kind": "export",
@@ -850,6 +1475,11 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252F980": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?setprecision@std@@YA?AU?$_Smanip@_J@1@_J@Z"
+  },
   "0x14252F988": {
    "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@M@Z",
    "kind": "export",
@@ -860,6 +1490,21 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252F998": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?swap@?$basic_ostream@DU?$char_traits@D@std@@@std@@IEAAXAEAV12@@Z"
+  },
+  "0x14252F9A0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?swap@?$basic_streambuf@DU?$char_traits@D@std@@@std@@IEAAXAEAV12@@Z"
+  },
+  "0x14252F9A8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?id@?$ctype@D@std@@2V0locale@2@A"
+  },
   "0x14252F9B0": {
    "export": "?getloc@ios_base@std@@QEBA?AVlocale@2@XZ",
    "kind": "export",
@@ -869,6 +1514,31 @@
    "export": "?_Getcat@?$ctype@D@std@@SA_KPEAPEBVfacet@locale@2@PEBV42@@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252F9C0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?underflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ"
+  },
+  "0x14252F9C8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?underflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ"
+  },
+  "0x14252F9D0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??_D?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAXXZ"
+  },
+  "0x14252F9D8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?seekg@?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV12@_JH@Z"
+  },
+  "0x14252F9E0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Init@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@IEAAXXZ"
   },
   "0x14252F9E8": {
    "export": "?toupper@?$ctype@_W@std@@QEBAPEB_WPEA_WPEB_W@Z",
@@ -885,6 +1555,11 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252FA00": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?getloc@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@QEBA?AVlocale@2@XZ"
+  },
   "0x14252FA08": {
    "export": "??1?$basic_streambuf@DU?$char_traits@D@std@@@std@@UEAA@XZ",
    "kind": "export",
@@ -894,6 +1569,16 @@
    "export": "??0?$basic_streambuf@DU?$char_traits@D@std@@@std@@IEAA@XZ",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252FA18": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Getcat@?$codecvt@DDU_Mbstatet@@@std@@SA_KPEAPEBVfacet@locale@2@PEBV42@@Z"
+  },
+  "0x14252FA20": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_FDtest"
   },
   "0x14252FA28": {
    "export": "?_Xlength_error@std@@YAXPEBD@Z",
@@ -935,20 +1620,115 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252FA68": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?tolower@?$ctype@D@std@@QEBAPEBDPEADPEBD@Z"
+  },
+  "0x14252FA70": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?in@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEBD1AEAPEBDPEA_W3AEAPEA_W@Z"
+  },
+  "0x14252FA78": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_Getcoll"
+  },
+  "0x14252FA80": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_Strcoll"
+  },
+  "0x14252FA88": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_Strxfrm"
+  },
+  "0x14252FA90": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??0_Locinfo@std@@QEAA@PEBD@Z"
+  },
+  "0x14252FA98": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??1_Locinfo@std@@QEAA@XZ"
+  },
+  "0x14252FAA0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??0facet@locale@std@@IEAA@_K@Z"
+  },
+  "0x14252FAA8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?read@?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV12@PEAD_J@Z"
+  },
   "0x14252FAB0": {
    "export": "??1?$basic_iostream@DU?$char_traits@D@std@@@std@@UEAA@XZ",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252FAB8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?out@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEB_W1AEAPEB_WPEAD3AEAPEAD@Z"
+  },
+  "0x14252FAC0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?unshift@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEAD1AEAPEAD@Z"
   },
   "0x14252FAC8": {
    "export": "??0?$basic_iostream@DU?$char_traits@D@std@@@std@@QEAA@PEAV?$basic_streambuf@DU?$char_traits@D@std@@@1@@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x14252FAD0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?id@?$collate@D@std@@2V0locale@2@A"
+  },
+  "0x14252FAD8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Incref@facet@locale@std@@UEAAXXZ"
+  },
+  "0x14252FAE0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Decref@facet@locale@std@@UEAAPEAV_Facet_base@3@XZ"
+  },
+  "0x14252FAE8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Xregex_error@std@@YAXW4error_type@regex_constants@1@@Z"
+  },
+  "0x14252FAF0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?tolower@?$ctype@D@std@@QEBAPEBDPEADPEBD@Z"
+  },
+  "0x14252FAF8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_Cnd_destroy_in_situ"
+  },
+  "0x14252FB00": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??1time_base@std@@UEAA@XZ"
+  },
   "0x14252FB08": {
    "export": "??6?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV01@P6AAEAVios_base@1@AEAV21@@Z@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x14252FB18": {
+   "kind": "export",
+   "module": "oleaut32.dll",
+   "export": "VariantClear"
   },
   "0x14252FB28": {
    "export": "SHGetSpecialFolderPathW",
@@ -960,15 +1740,195 @@
    "kind": "export",
    "module": "shell32.dll"
   },
+  "0x14252FB40": {
+   "kind": "export",
+   "module": "secur32.dll",
+   "export": "GetUserNameExW"
+  },
+  "0x14252FB50": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CallNextHookEx"
+  },
   "0x14252FB58": {
    "export": "GetProcessWindowStation",
    "kind": "export",
    "module": "user32.dll"
   },
+  "0x14252FB60": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowsHookExW"
+  },
+  "0x14252FB68": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetForegroundWindow"
+  },
+  "0x14252FB70": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CloseWindow"
+  },
+  "0x14252FB78": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowThreadProcessId"
+  },
+  "0x14252FB80": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EnumChildWindows"
+  },
+  "0x14252FB88": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetAncestor"
+  },
+  "0x14252FB90": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "IsIconic"
+  },
+  "0x14252FB98": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "IsWindow"
+  },
+  "0x14252FBA0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendMessageW"
+  },
+  "0x14252FBA8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "UnregisterHotKey"
+  },
+  "0x14252FBB0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterHotKey"
+  },
+  "0x14252FBB8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetMonitorInfoW"
+  },
+  "0x14252FBC0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "MonitorFromPoint"
+  },
+  "0x14252FBC8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "LoadIconW"
+  },
+  "0x14252FBD0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "LoadCursorW"
+  },
+  "0x14252FBD8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetParent"
+  },
+  "0x14252FBE0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowLongW"
+  },
+  "0x14252FBE8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowLongW"
+  },
+  "0x14252FBF0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowDC"
+  },
+  "0x14252FBF8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetMenu"
+  },
+  "0x14252FC00": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetMenu"
+  },
+  "0x14252FC08": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowPlacement"
+  },
+  "0x14252FC10": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowPlacement"
+  },
+  "0x14252FC18": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowPos"
+  },
+  "0x14252FC20": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CreateWindowExW"
+  },
+  "0x14252FC28": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterClassExW"
+  },
   "0x14252FC30": {
    "export": "GetUserObjectInformationW",
    "kind": "export",
    "module": "user32.dll"
+  },
+  "0x14252FC38": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtdllDefWindowProc_W"
+  },
+  "0x14252FC40": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterDeviceNotificationW"
+  },
+  "0x14252FC48": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendMessageCallbackW"
+  },
+  "0x14252FC50": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendNotifyMessageW"
+  },
+  "0x14252FC58": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "DispatchMessageW"
+  },
+  "0x14252FC60": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "TranslateMessage"
+  },
+  "0x14252FC68": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetMessageW"
+  },
+  "0x14252FC70": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EnumDisplayDevicesA"
   },
   "0x14252FC78": {
    "export": "MessageBoxA",
@@ -979,6 +1939,121 @@
    "export": "MessageBoxW",
    "kind": "export",
    "module": "user32.dll"
+  },
+  "0x14252FC88": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EnumDisplaySettingsW"
+  },
+  "0x14252FC90": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetSystemMetrics"
+  },
+  "0x14252FC98": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ShowCursor"
+  },
+  "0x14252FCA0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowRect"
+  },
+  "0x14252FCA8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetActiveWindow"
+  },
+  "0x14252FCB0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "UpdateWindow"
+  },
+  "0x14252FCB8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetFocus"
+  },
+  "0x14252FCC0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ShowWindow"
+  },
+  "0x14252FCC8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "AdjustWindowRectEx"
+  },
+  "0x14252FCD0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "MonitorFromWindow"
+  },
+  "0x14252FCD8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ReleaseDC"
+  },
+  "0x14252FCE0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetDC"
+  },
+  "0x14252FCE8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterRawInputDevices"
+  },
+  "0x14252FCF0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetRawInputData"
+  },
+  "0x14252FCF8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ScreenToClient"
+  },
+  "0x14252FD00": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetCursorPos"
+  },
+  "0x14252FD08": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetClientRect"
+  },
+  "0x14252FD10": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "PostThreadMessageW"
+  },
+  "0x14252FD18": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "MapVirtualKeyW"
+  },
+  "0x14252FD20": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ToAscii"
+  },
+  "0x14252FD28": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetKeyboardState"
+  },
+  "0x14252FD30": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "PostQuitMessage"
+  },
+  "0x14252FD40": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__C_specific_handler"
   },
   "0x14252FD48": {
    "export": "wcsstr",
@@ -1010,6 +2085,11 @@
    "kind": "export",
    "module": "msvcrt.dll"
   },
+  "0x14252FD78": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__std_terminate"
+  },
   "0x14252FD80": {
    "export": "_purecall",
    "kind": "export",
@@ -1040,6 +2120,21 @@
    "kind": "export",
    "module": "VCRUNTIME140.dll"
   },
+  "0x14252FDB0": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "longjmp"
+  },
+  "0x14252FDB8": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "wcsrchr"
+  },
+  "0x14252FDC0": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__CxxFrameHandler3"
+  },
   "0x14252FDC8": {
    "export": "memchr",
    "kind": "export",
@@ -1049,6 +2144,11 @@
    "export": "__intrinsic_setjmp",
    "kind": "export",
    "module": "VCRUNTIME140.dll"
+  },
+  "0x14252FDD8": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__vcrt_InitializeCriticalSectionEx"
   },
   "0x14252FDE0": {
    "export": "_CxxThrowException",
@@ -1064,6 +2164,11 @@
    "export": "WinHttpSetTimeouts",
    "kind": "export",
    "module": "winhttp.dll"
+  },
+  "0x14252FE00": {
+   "kind": "export",
+   "module": "winhttp.dll",
+   "export": "WinHttpSetOption"
   },
   "0x14252FE08": {
    "export": "WinHttpReadData",
@@ -1095,6 +2200,11 @@
    "kind": "export",
    "module": "winhttp.dll"
   },
+  "0x14252FE38": {
+   "kind": "export",
+   "module": "winhttp.dll",
+   "export": "WinHttpReceiveResponse"
+  },
   "0x14252FE40": {
    "export": "WinHttpSendRequest",
    "kind": "export",
@@ -1125,6 +2235,16 @@
    "kind": "export",
    "module": "winhttp.dll"
   },
+  "0x14252FE78": {
+   "kind": "export",
+   "module": "winmm.dll",
+   "export": "timeEndPeriod"
+  },
+  "0x14252FE80": {
+   "kind": "export",
+   "module": "winmm.dll",
+   "export": "timeBeginPeriod"
+  },
   "0x14252FE88": {
    "export": "timeGetTime",
    "kind": "export",
@@ -1149,6 +2269,31 @@
    "export": "freeaddrinfo",
    "kind": "export",
    "module": "ws2_32.dll"
+  },
+  "0x14252FEB8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "inet_ntoa"
+  },
+  "0x14252FEC0": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "gethostbyaddr"
+  },
+  "0x14252FEC8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "gethostbyname"
+  },
+  "0x14252FED0": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "getservbyport"
+  },
+  "0x14252FED8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "getservbyname"
   },
   "0x14252FEE0": {
    "export": "WSASetLastError",
@@ -1195,6 +2340,11 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x14252FF28": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "__WSAFDIsSet"
+  },
   "0x14252FF30": {
    "export": "listen",
    "kind": "export",
@@ -1214,6 +2364,21 @@
    "export": "closesocket",
    "kind": "export",
    "module": "ws2_32.dll"
+  },
+  "0x14252FF50": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "shutdown"
+  },
+  "0x14252FF58": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSASendTo"
+  },
+  "0x14252FF60": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSARecvFrom"
   },
   "0x14252FF68": {
    "export": "getpeername",
@@ -1245,6 +2410,21 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x14252FF98": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "inet_ntop"
+  },
+  "0x14252FFA0": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSACleanup"
+  },
+  "0x14252FFA8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSAStartup"
+  },
   "0x14252FFB0": {
    "export": "InetNtopW",
    "kind": "export",
@@ -1265,10 +2445,25 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x14252FFD0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "WaitForMultipleObjectsEx"
+  },
+  "0x14252FFD8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ResetEvent"
+  },
   "0x14252FFE0": {
    "export": "WSAEventSelect",
    "kind": "export",
    "module": "ws2_32.dll"
+  },
+  "0x14252FFE8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSAEnumNetworkEvents"
   },
   "0x14252FFF0": {
    "export": "WSACreateEvent",
@@ -1300,6 +2495,16 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x142530030": {
+   "kind": "export",
+   "module": "xinput1_3.dll",
+   "export": "XInputSetState"
+  },
+  "0x142530038": {
+   "kind": "export",
+   "module": "xinput1_3.dll",
+   "export": "XInputGetCapabilities"
+  },
   "0x142530048": {
    "export": "wcstombs_s",
    "kind": "export",
@@ -1315,6 +2520,21 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530060": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtof"
+  },
+  "0x142530068": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtoumax"
+  },
+  "0x142530070": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "atol"
+  },
   "0x142530078": {
    "export": "wcstombs",
    "kind": "export",
@@ -1329,6 +2549,11 @@
    "export": "_ui64tow_s",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530090": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtold"
   },
   "0x142530098": {
    "export": "strtoul",
@@ -1350,6 +2575,11 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x1425300B8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wtoll"
+  },
   "0x1425300C8": {
    "export": "getenv",
    "kind": "export",
@@ -1359,6 +2589,16 @@
    "export": "remove",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x1425300E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_unlock_file"
+  },
+  "0x1425300E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_lock_file"
   },
   "0x1425300F0": {
    "export": "rename",
@@ -1385,6 +2625,16 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530120": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_aligned_malloc"
+  },
+  "0x142530128": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_aligned_free"
+  },
   "0x142530130": {
    "export": "_malloc_base",
    "kind": "export",
@@ -1394,6 +2644,16 @@
    "export": "_free_base",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530140": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_new_mode"
+  },
+  "0x142530148": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "calloc"
   },
   "0x142530158": {
    "export": "_free_locale",
@@ -1405,6 +2665,26 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530168": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "setlocale"
+  },
+  "0x142530170": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_configthreadlocale"
+  },
+  "0x142530178": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "localeconv"
+  },
+  "0x142530188": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "cbrtf"
+  },
   "0x142530190": {
    "export": "roundf",
    "kind": "export",
@@ -1414,6 +2694,16 @@
    "export": "fmodf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x1425301A0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fabs"
+  },
+  "0x1425301A8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_FMA3_enable"
   },
   "0x1425301B0": {
    "export": "log10f",
@@ -1450,6 +2740,11 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x1425301E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__setusermatherr"
+  },
   "0x1425301F0": {
    "export": "sqrtf",
    "kind": "export",
@@ -1460,15 +2755,30 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530200": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_FMA3_enable"
+  },
   "0x142530208": {
    "export": "cosf",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530210": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "frexp"
+  },
   "0x142530218": {
    "export": "sinf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530220": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ldexp"
   },
   "0x142530228": {
    "export": "acosf",
@@ -1495,6 +2805,11 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530250": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "modf"
+  },
   "0x142530258": {
    "export": "expf",
    "kind": "export",
@@ -1505,25 +2820,75 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530268": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fmod"
+  },
+  "0x142530270": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "acos"
+  },
   "0x142530278": {
    "export": "logf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530280": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "asin"
+  },
+  "0x142530288": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "atan"
   },
   "0x142530290": {
    "export": "powf",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530298": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tanh"
+  },
+  "0x1425302A0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tan"
+  },
   "0x1425302A8": {
    "export": "sqrt",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x1425302B0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "sinh"
+  },
   "0x1425302B8": {
    "export": "sin",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x1425302C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "log10"
+  },
+  "0x1425302C8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "exp"
+  },
+  "0x1425302D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "cosh"
   },
   "0x1425302D8": {
    "export": "cos",
@@ -1535,15 +2900,75 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x1425302E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "log"
+  },
+  "0x1425302F8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_errno"
+  },
+  "0x142530300": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_narrow_winmain_command_line"
+  },
   "0x142530308": {
    "export": "_beginthreadex",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530310": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "exit"
+  },
+  "0x142530318": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_register_onexit_function"
+  },
+  "0x142530320": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initialize_narrow_environment"
+  },
+  "0x142530328": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_configure_narrow_argv"
+  },
+  "0x142530330": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strerror"
+  },
+  "0x142530338": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_register_thread_local_exe_atexit_callback"
+  },
+  "0x142530340": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "signal"
+  },
   "0x142530348": {
    "export": "_crt_atexit",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530350": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_controlfp"
+  },
+  "0x142530358": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strerror_s"
   },
   "0x142530360": {
    "export": "terminate",
@@ -1555,6 +2980,11 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530370": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "system"
+  },
   "0x142530378": {
    "export": "_errno",
    "kind": "export",
@@ -1565,10 +2995,65 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530388": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "abort"
+  },
+  "0x142530390": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_app_type"
+  },
+  "0x142530398": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_seh_filter_exe"
+  },
+  "0x1425303A0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_c_exit"
+  },
   "0x1425303A8": {
    "export": "_invalid_parameter_noinfo",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x1425303B0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__p___argv"
+  },
+  "0x1425303B8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__p___argc"
+  },
+  "0x1425303C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_cexit"
+  },
+  "0x1425303C8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_endthreadex"
+  },
+  "0x1425303D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initterm"
+  },
+  "0x1425303D8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initialize_onexit_table"
+  },
+  "0x1425303E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initterm_e"
   },
   "0x1425303E8": {
    "export": "_exit",
@@ -1580,6 +3065,16 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530400": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_ftelli64"
+  },
+  "0x142530408": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_fmode"
+  },
   "0x142530410": {
    "export": "_write",
    "kind": "export",
@@ -1590,20 +3085,115 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530420": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_stream_buffer_pointers"
+  },
   "0x142530428": {
    "export": "fclose",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530430": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fflush"
   },
   "0x142530438": {
    "export": "__stdio_common_vsprintf_s",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530440": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fgetc"
+  },
+  "0x142530448": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vfprintf_s"
+  },
+  "0x142530450": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fgetpos"
+  },
+  "0x142530458": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fputc"
+  },
+  "0x142530460": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "clearerr"
+  },
+  "0x142530468": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fgets"
+  },
+  "0x142530470": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_pclose"
+  },
+  "0x142530478": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_popen"
+  },
+  "0x142530480": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tmpfile"
+  },
+  "0x142530488": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vfscanf"
+  },
+  "0x142530490": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fsetpos"
+  },
+  "0x142530498": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_fseeki64"
+  },
+  "0x1425304A0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_fileno"
+  },
+  "0x1425304A8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_setmode"
+  },
   "0x1425304B0": {
    "export": "fwrite",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x1425304B8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wfopen"
+  },
+  "0x1425304C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fputs"
+  },
+  "0x1425304C8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tmpnam"
   },
   "0x1425304D0": {
    "export": "__stdio_common_vsscanf",
@@ -1615,25 +3205,85 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x1425304E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "setvbuf"
+  },
+  "0x1425304E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ungetc"
+  },
+  "0x1425304F0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fopen"
+  },
   "0x1425304F8": {
    "export": "__stdio_common_vfprintf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530500": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "getc"
+  },
+  "0x142530508": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ferror"
+  },
+  "0x142530510": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "feof"
   },
   "0x142530518": {
    "export": "__acrt_iob_func",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530520": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vswscanf"
+  },
+  "0x142530528": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fread"
+  },
+  "0x142530530": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__p__commode"
+  },
   "0x142530538": {
    "export": "__stdio_common_vfwprintf",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530540": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fseek"
+  },
+  "0x142530548": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ftell"
+  },
   "0x142530550": {
    "export": "_wfopen_s",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530558": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fopen_s"
   },
   "0x142530560": {
    "export": "__stdio_common_vsnprintf_s",
@@ -1645,6 +3295,16 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530578": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wcsicmp"
+  },
+  "0x142530580": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wcsnicmp"
+  },
   "0x142530588": {
    "export": "_stricmp",
    "kind": "export",
@@ -1654,6 +3314,11 @@
    "export": "_strnicmp",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530598": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wcsupr"
   },
   "0x1425305A0": {
    "export": "strcmp",
@@ -1685,10 +3350,45 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x1425305D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strncat_s"
+  },
   "0x1425305D8": {
    "export": "toupper",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x1425305E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ispunct"
+  },
+  "0x1425305E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "wcsnlen"
+  },
+  "0x1425305F0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "isxdigit"
+  },
+  "0x1425305F8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "isupper"
+  },
+  "0x142530600": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "wcscmp"
+  },
+  "0x142530608": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "iscntrl"
   },
   "0x142530610": {
    "export": "isalnum",
@@ -1699,6 +3399,11 @@
    "export": "strpbrk",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x142530620": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strcoll"
   },
   "0x142530628": {
    "export": "isspace",
@@ -1740,15 +3445,65 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530668": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strncat"
+  },
+  "0x142530670": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtok_s"
+  },
   "0x142530678": {
    "export": "strspn",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530680": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "wcslen"
+  },
+  "0x142530688": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "islower"
+  },
   "0x142530698": {
    "export": "_time64",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x1425306A0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "clock"
+  },
+  "0x1425306A8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_difftime64"
+  },
+  "0x1425306B0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_gmtime64"
+  },
+  "0x1425306B8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_localtime64"
+  },
+  "0x1425306C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_mktime64"
+  },
+  "0x1425306C8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strftime"
   },
   "0x1425306D0": {
    "export": "_gmtime64_s",
@@ -1780,10 +3535,130 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x142530708": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_byteswap_ushort"
+  },
+  "0x142530710": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_byteswap_uint64"
+  },
+  "0x142530720": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptOpenAlgorithmProvider"
+  },
+  "0x142530728": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptGetProperty"
+  },
+  "0x142530730": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptSetProperty"
+  },
+  "0x142530738": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptCloseAlgorithmProvider"
+  },
+  "0x142530740": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptGenRandom"
+  },
+  "0x142530748": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptDestroyKey"
+  },
+  "0x142530750": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptDecrypt"
+  },
+  "0x142530758": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptEncrypt"
+  },
+  "0x142530760": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptGenerateSymmetricKey"
+  },
+  "0x142530770": {
+   "kind": "export",
+   "module": "D3D11.DLL",
+   "export": "D3D11CreateDevice"
+  },
+  "0x142530790": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoInitializeEx"
+  },
+  "0x142530798": {
+   "kind": "export",
+   "module": "ole32.dll",
+   "export": "CoInitialize"
+  },
+  "0x1425307A0": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoUninitialize"
+  },
+  "0x1425307A8": {
+   "kind": "export",
+   "module": "ole32.dll",
+   "export": "OleInitialize"
+  },
+  "0x1425307B0": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoCreateInstance"
+  },
+  "0x1425307B8": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoTaskMemFree"
+  },
+  "0x1425307C0": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoCreateGuid"
+  },
+  "0x1425307D0": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_GetHSteamUser"
+  },
   "0x1425307D8": {
    "export": "SteamAPI_IsSteamRunning",
    "kind": "export",
    "module": "steam_api64.dll"
+  },
+  "0x1425307E0": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_Init"
+  },
+  "0x1425307E8": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_IsSteamRunning"
+  },
+  "0x1425307F0": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_IsSteamRunning"
+  },
+  "0x1425307F8": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_IsSteamRunning"
   },
   "0x142530818": {
    "export": "SteamInternal_ContextInit",
@@ -1946,6 +3821,11 @@
   "0x143AA0F20": {
    "kind": "null"
   },
+  "0x15B960000": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "ConvertSidToStringSidW"
+  },
   "0x15B960008": {
    "export": "CryptAcquireContextA",
    "kind": "export",
@@ -1956,10 +3836,30 @@
    "kind": "export",
    "module": "advapi32.dll"
   },
+  "0x15B960018": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptCreateHash"
+  },
+  "0x15B960020": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptDestroyHash"
+  },
   "0x15B960028": {
    "export": "CryptGenRandom",
    "kind": "export",
    "module": "advapi32.dll"
+  },
+  "0x15B960030": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptGetHashParam"
+  },
+  "0x15B960038": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "CryptHashData"
   },
   "0x15B960040": {
    "export": "CryptReleaseContext",
@@ -1971,6 +3871,26 @@
    "kind": "export",
    "module": "advapi32.dll"
   },
+  "0x15B960050": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "LookupAccountNameW"
+  },
+  "0x15B960058": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "RegCloseKey"
+  },
+  "0x15B960060": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "RegOpenKeyExA"
+  },
+  "0x15B960068": {
+   "kind": "export",
+   "module": "advapi32.dll",
+   "export": "RegQueryValueExW"
+  },
   "0x15B960070": {
    "export": "RegisterEventSourceW",
    "kind": "export",
@@ -1981,15 +3901,50 @@
    "kind": "export",
    "module": "advapi32.dll"
   },
+  "0x15B960088": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?quaternionToRotationMatrixVectors@ansel@@YAXAEBUQuat@nv@@AEAUVec3@3@11@Z"
+  },
+  "0x15B960090": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?rotationMatrixVectorsToQuaternion@ansel@@YAXAEBUVec3@nv@@00AEAUQuat@3@@Z"
+  },
+  "0x15B960098": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?setConfiguration@ansel@@YA?AW4SetConfigurationStatus@1@AEBUConfiguration@1@@Z"
+  },
+  "0x15B9600A0": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?updateCamera@ansel@@YAXAEAUCamera@1@@Z"
+  },
+  "0x15B9600A8": {
+   "kind": "export",
+   "module": "AnselSDK64.dll",
+   "export": "?isAnselAvailable@ansel@@YA_NXZ"
+  },
   "0x15B9600B8": {
    "export": "strtoll",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9600C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtoumax"
+  },
   "0x15B9600C8": {
    "export": "_ui64tow_s",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B9600D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wtoll"
   },
   "0x15B9600D8": {
    "export": "atof",
@@ -2016,6 +3971,16 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960100": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtold"
+  },
+  "0x15B960108": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtof"
+  },
   "0x15B960110": {
    "export": "strtol",
    "kind": "export",
@@ -2041,10 +4006,20 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960148": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_lock_file"
+  },
   "0x15B960150": {
    "export": "_stat64i32",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960158": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_unlock_file"
   },
   "0x15B960160": {
    "export": "remove",
@@ -2056,6 +4031,16 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960178": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_aligned_free"
+  },
+  "0x15B960180": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_aligned_malloc"
+  },
   "0x15B960188": {
    "export": "_free_base",
    "kind": "export",
@@ -2065,6 +4050,16 @@
    "export": "_malloc_base",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960198": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_new_mode"
+  },
+  "0x15B9601A0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "calloc"
   },
   "0x15B9601A8": {
    "export": "free",
@@ -2091,6 +4086,26 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9601D8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "localeconv"
+  },
+  "0x15B9601E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "setlocale"
+  },
+  "0x15B9601E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_configthreadlocale"
+  },
+  "0x15B9601F8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__setusermatherr"
+  },
   "0x15B960200": {
    "export": "_fdtest",
    "kind": "export",
@@ -2101,20 +4116,45 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960210": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_FMA3_enable"
+  },
   "0x15B960218": {
    "export": "_isnan",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960220": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_FMA3_enable"
+  },
+  "0x15B960228": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "acos"
   },
   "0x15B960230": {
    "export": "acosf",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960238": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "asin"
+  },
   "0x15B960240": {
    "export": "asinf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960248": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "atan"
   },
   "0x15B960250": {
    "export": "atan2",
@@ -2130,6 +4170,11 @@
    "export": "atanf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960268": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "cbrtf"
   },
   "0x15B960270": {
    "export": "ceil",
@@ -2151,10 +4196,25 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960290": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "cosh"
+  },
+  "0x15B960298": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "exp"
+  },
   "0x15B9602A0": {
    "export": "expf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B9602A8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fabs"
   },
   "0x15B9602B0": {
    "export": "floor",
@@ -2166,10 +4226,35 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9602C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fmod"
+  },
   "0x15B9602C8": {
    "export": "fmodf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B9602D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "frexp"
+  },
+  "0x15B9602D8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ldexp"
+  },
+  "0x15B9602E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "log"
+  },
+  "0x15B9602E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "log10"
   },
   "0x15B9602F0": {
    "export": "log10f",
@@ -2180,6 +4265,11 @@
    "export": "logf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960300": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "modf"
   },
   "0x15B960308": {
    "export": "pow",
@@ -2206,6 +4296,11 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960330": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "sinh"
+  },
   "0x15B960338": {
    "export": "sqrt",
    "kind": "export",
@@ -2216,20 +4311,65 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960348": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tan"
+  },
   "0x15B960350": {
    "export": "tanf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960358": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tanh"
+  },
+  "0x15B960368": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__p___argc"
+  },
+  "0x15B960370": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__p___argv"
   },
   "0x15B960378": {
    "export": "_beginthreadex",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960380": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_c_exit"
+  },
+  "0x15B960388": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_cexit"
+  },
+  "0x15B960390": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_configure_narrow_argv"
+  },
+  "0x15B960398": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_controlfp"
+  },
   "0x15B9603A0": {
    "export": "_crt_atexit",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B9603A8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_endthreadex"
   },
   "0x15B9603B0": {
    "export": "_errno",
@@ -2241,6 +4381,36 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9603C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_errno"
+  },
+  "0x15B9603C8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_narrow_winmain_command_line"
+  },
+  "0x15B9603D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initialize_narrow_environment"
+  },
+  "0x15B9603D8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initialize_onexit_table"
+  },
+  "0x15B9603E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initterm"
+  },
+  "0x15B9603E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_initterm_e"
+  },
   "0x15B9603F0": {
    "export": "_invalid_parameter_noinfo",
    "kind": "export",
@@ -2251,10 +4421,60 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960400": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_register_onexit_function"
+  },
+  "0x15B960408": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_register_thread_local_exe_atexit_callback"
+  },
+  "0x15B960410": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_seh_filter_exe"
+  },
+  "0x15B960418": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_app_type"
+  },
+  "0x15B960420": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "abort"
+  },
+  "0x15B960428": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "exit"
+  },
   "0x15B960430": {
    "export": "raise",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960438": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "signal"
+  },
+  "0x15B960440": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strerror"
+  },
+  "0x15B960448": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strerror_s"
+  },
+  "0x15B960450": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "system"
   },
   "0x15B960458": {
    "export": "terminate",
@@ -2266,10 +4486,25 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960470": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__p__commode"
+  },
   "0x15B960478": {
    "export": "__stdio_common_vfprintf",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960480": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vfprintf_s"
+  },
+  "0x15B960488": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vfscanf"
   },
   "0x15B960490": {
    "export": "__stdio_common_vfwprintf",
@@ -2306,6 +4541,56 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9604C8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vswscanf"
+  },
+  "0x15B9604D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_fileno"
+  },
+  "0x15B9604D8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_fseeki64"
+  },
+  "0x15B9604E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_ftelli64"
+  },
+  "0x15B9604E8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_get_stream_buffer_pointers"
+  },
+  "0x15B9604F0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_pclose"
+  },
+  "0x15B9604F8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_popen"
+  },
+  "0x15B960500": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_set_fmode"
+  },
+  "0x15B960508": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_setmode"
+  },
+  "0x15B960510": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wfopen"
+  },
   "0x15B960518": {
    "export": "_wfopen_s",
    "kind": "export",
@@ -2316,15 +4601,115 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960528": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "clearerr"
+  },
   "0x15B960530": {
    "export": "fclose",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960538": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "feof"
+  },
+  "0x15B960540": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ferror"
+  },
+  "0x15B960548": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fflush"
+  },
+  "0x15B960550": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fgetc"
+  },
+  "0x15B960558": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fgetpos"
+  },
+  "0x15B960560": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fgets"
+  },
+  "0x15B960568": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fopen"
+  },
+  "0x15B960570": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fopen_s"
+  },
+  "0x15B960578": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fputc"
+  },
+  "0x15B960580": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fputs"
+  },
+  "0x15B960588": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fread"
+  },
+  "0x15B960590": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fseek"
+  },
+  "0x15B960598": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "fsetpos"
+  },
+  "0x15B9605A0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ftell"
+  },
   "0x15B9605A8": {
    "export": "fwrite",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B9605B0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "getc"
+  },
+  "0x15B9605B8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "setvbuf"
+  },
+  "0x15B9605C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tmpfile"
+  },
+  "0x15B9605C8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "tmpnam"
+  },
+  "0x15B9605D0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ungetc"
   },
   "0x15B9605E0": {
    "export": "_stricmp",
@@ -2336,6 +4721,21 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9605F0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wcsicmp"
+  },
+  "0x15B9605F8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wcsnicmp"
+  },
+  "0x15B960600": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_wcsupr"
+  },
   "0x15B960608": {
    "export": "isalnum",
    "kind": "export",
@@ -2346,15 +4746,40 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960618": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "iscntrl"
+  },
   "0x15B960620": {
    "export": "isdigit",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960628": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "islower"
+  },
+  "0x15B960630": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "ispunct"
+  },
   "0x15B960638": {
    "export": "isspace",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960640": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "isupper"
+  },
+  "0x15B960648": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "isxdigit"
   },
   "0x15B960650": {
    "export": "strcat_s",
@@ -2365,6 +4790,11 @@
    "export": "strcmp",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960660": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strcoll"
   },
   "0x15B960668": {
    "export": "strcpy_s",
@@ -2380,6 +4810,16 @@
    "export": "strlen",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960680": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strncat"
+  },
+  "0x15B960688": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strncat_s"
   },
   "0x15B960690": {
    "export": "strncmp",
@@ -2411,6 +4851,11 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9606C0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strtok_s"
+  },
   "0x15B9606C8": {
    "export": "tolower",
    "kind": "export",
@@ -2420,6 +4865,16 @@
    "export": "toupper",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B9606D8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "wcscmp"
+  },
+  "0x15B9606E0": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "wcslen"
   },
   "0x15B9606E8": {
    "export": "wcsncat_s",
@@ -2431,25 +4886,65 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B9606F8": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "wcsnlen"
+  },
+  "0x15B960708": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_difftime64"
+  },
+  "0x15B960710": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_gmtime64"
+  },
   "0x15B960718": {
    "export": "_gmtime64_s",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960720": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_localtime64"
   },
   "0x15B960728": {
    "export": "_localtime64_s",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960730": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_mktime64"
+  },
   "0x15B960738": {
    "export": "_time64",
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960740": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "clock"
+  },
+  "0x15B960748": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "strftime"
+  },
   "0x15B960758": {
    "export": "_byteswap_ulong",
    "kind": "export",
    "module": "ucrtbase.dll"
+  },
+  "0x15B960760": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_byteswap_ushort"
   },
   "0x15B960768": {
    "export": "qsort",
@@ -2466,15 +4961,180 @@
    "kind": "export",
    "module": "ucrtbase.dll"
   },
+  "0x15B960780": {
+   "kind": "export",
+   "module": "ucrtbase.dll",
+   "export": "_byteswap_uint64"
+  },
+  "0x15B960790": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptCloseAlgorithmProvider"
+  },
+  "0x15B960798": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptDecrypt"
+  },
+  "0x15B9607A0": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptDestroyKey"
+  },
+  "0x15B9607A8": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptEncrypt"
+  },
+  "0x15B9607B0": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptGenRandom"
+  },
+  "0x15B9607B8": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptGenerateSymmetricKey"
+  },
+  "0x15B9607C0": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptGetProperty"
+  },
+  "0x15B9607C8": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptOpenAlgorithmProvider"
+  },
+  "0x15B9607D0": {
+   "kind": "export",
+   "module": "bcrypt.dll",
+   "export": "BCryptSetProperty"
+  },
+  "0x15B9607E0": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertCloseStore"
+  },
+  "0x15B9607E8": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertFindCertificateInStore"
+  },
+  "0x15B9607F0": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertFreeCertificateContext"
+  },
+  "0x15B9607F8": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CertGetNameStringW"
+  },
+  "0x15B960800": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CryptMsgClose"
+  },
+  "0x15B960808": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CryptMsgGetParam"
+  },
+  "0x15B960810": {
+   "kind": "export",
+   "module": "crypt32.dll",
+   "export": "CryptQueryObject"
+  },
+  "0x15B960820": {
+   "kind": "export",
+   "module": "D3D11.DLL",
+   "export": "D3D11CreateDevice"
+  },
+  "0x15B960830": {
+   "kind": "export",
+   "module": "dinput8.dll",
+   "export": "DirectInput8Create"
+  },
   "0x15B960840": {
    "export": "DirectSoundCaptureCreate8",
    "kind": "export",
    "module": "dsound.dll"
   },
+  "0x15B960848": {
+   "kind": "export",
+   "module": "dsound.dll",
+   "export": "DirectSoundEnumerateW"
+  },
   "0x15B960850": {
    "export": "DirectSoundCreate8",
    "kind": "export",
    "module": "dsound.dll"
+  },
+  "0x15B960860": {
+   "kind": "export",
+   "module": "DXGI.DLL",
+   "export": "CreateDXGIFactory1"
+  },
+  "0x15B960870": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "CreateDCW"
+  },
+  "0x15B960878": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "CreateFontIndirectA"
+  },
+  "0x15B960880": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "DeleteDC"
+  },
+  "0x15B960888": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "DeleteObject"
+  },
+  "0x15B960890": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "ExtEscape"
+  },
+  "0x15B960898": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "GetDeviceCaps"
+  },
+  "0x15B9608A0": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "GetObjectA"
+  },
+  "0x15B9608A8": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "GetStockObject"
+  },
+  "0x15B9608B0": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "GetTextExtentPoint32W"
+  },
+  "0x15B9608B8": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "SelectObject"
+  },
+  "0x15B9608C0": {
+   "kind": "export",
+   "module": "gdi32.dll",
+   "export": "SetTextColor"
+  },
+  "0x15B9608D0": {
+   "kind": "export",
+   "module": "iphlpapi.dll",
+   "export": "AddIPAddress"
   },
   "0x15B9608D8": {
    "export": "ConvertInterfaceLuidToGuid",
@@ -2485,6 +5145,11 @@
    "export": "CreateSortedAddressPairs",
    "kind": "export",
    "module": "iphlpapi.dll"
+  },
+  "0x15B9608E8": {
+   "kind": "export",
+   "module": "iphlpapi.dll",
+   "export": "DeleteIPAddress"
   },
   "0x15B9608F0": {
    "export": "FreeMibTable",
@@ -2521,6 +5186,16 @@
    "kind": "export",
    "module": "iphlpapi.dll"
   },
+  "0x15B960928": {
+   "kind": "export",
+   "module": "iphlpapi.dll",
+   "export": "GetNetworkParams"
+  },
+  "0x15B960938": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlAcquireSRWLockExclusive"
+  },
   "0x15B960940": {
    "export": "RtlAcquireSRWLockShared",
    "kind": "export",
@@ -2531,10 +5206,20 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960950": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ConvertFiberToThread"
+  },
   "0x15B960958": {
    "export": "ConvertThreadToFiber",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960960": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateDirectoryA"
   },
   "0x15B960968": {
    "export": "CreateDirectoryW",
@@ -2571,15 +5256,40 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B9609A0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateHardLinkA"
+  },
+  "0x15B9609A8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateMutexA"
+  },
   "0x15B9609B0": {
    "export": "CreateMutexW",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B9609B8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreatePipe"
+  },
+  "0x15B9609C0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateProcessA"
+  },
   "0x15B9609C8": {
    "export": "CreateSemaphoreW",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B9609D0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "CreateThread"
   },
   "0x15B9609D8": {
    "export": "RtlDeleteCriticalSection",
@@ -2591,10 +5301,25 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B9609E8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "DeleteFileA"
+  },
   "0x15B9609F0": {
    "export": "DeleteFileW",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B9609F8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "DeviceIoControl"
+  },
+  "0x15B960A00": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "DuplicateHandle"
   },
   "0x15B960A08": {
    "export": "RtlEnterCriticalSection",
@@ -2611,25 +5336,60 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960A20": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FindFirstFileA"
+  },
   "0x15B960A28": {
    "export": "FindFirstFileW",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960A30": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FindNextFileA"
   },
   "0x15B960A38": {
    "export": "FindNextFileW",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960A40": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FindResourceW"
+  },
+  "0x15B960A48": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FlushFileBuffers"
+  },
   "0x15B960A50": {
    "export": "FormatMessageA",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960A58": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "FormatMessageW"
+  },
   "0x15B960A60": {
    "export": "FreeLibrary",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960A68": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetCommandLineW"
+  },
+  "0x15B960A70": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetConsoleMode"
   },
   "0x15B960A78": {
    "export": "GetCurrentDirectoryW",
@@ -2666,10 +5426,40 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960AB0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetEnvironmentVariableA"
+  },
+  "0x15B960AB8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetEnvironmentVariableW"
+  },
+  "0x15B960AC0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetExitCodeProcess"
+  },
+  "0x15B960AC8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetExitCodeThread"
+  },
+  "0x15B960AD0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFileAttributesA"
+  },
   "0x15B960AD8": {
    "export": "GetFileAttributesW",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960AE0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFileInformationByHandle"
   },
   "0x15B960AE8": {
    "export": "GetFileSize",
@@ -2686,6 +5476,16 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960B00": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFullPathNameA"
+  },
+  "0x15B960B08": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetFullPathNameW"
+  },
   "0x15B960B10": {
    "export": "GetHandleInformation",
    "kind": "export",
@@ -2701,10 +5501,35 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960B28": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetLocaleInfoA"
+  },
+  "0x15B960B30": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetLogicalProcessorInformation"
+  },
+  "0x15B960B38": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetLongPathNameA"
+  },
+  "0x15B960B40": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetModuleFileNameA"
+  },
   "0x15B960B48": {
    "export": "GetModuleFileNameW",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960B50": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetModuleHandleA"
   },
   "0x15B960B58": {
    "export": "GetModuleHandleW",
@@ -2721,6 +5546,21 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960B70": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetProcessHeap"
+  },
+  "0x15B960B78": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetProcessTimes"
+  },
+  "0x15B960B80": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetStartupInfoW"
+  },
   "0x15B960B88": {
    "export": "GetStdHandle",
    "kind": "export",
@@ -2731,30 +5571,100 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960B98": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetSystemDirectoryW"
+  },
   "0x15B960BA0": {
    "export": "GetSystemInfo",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960BA8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetSystemTime"
+  },
+  "0x15B960BB0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetSystemTimeAsFileTime"
   },
   "0x15B960BB8": {
    "export": "GetTempPathW",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960BC0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetThreadPriority"
+  },
   "0x15B960BC8": {
    "export": "GetTickCount",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960BD0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GetTimeZoneInformation"
   },
   "0x15B960BD8": {
    "export": "GetVersionExW",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960BE0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GlobalAlloc"
+  },
   "0x15B960BE8": {
    "export": "GlobalFree",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960BF0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GlobalLock"
+  },
+  "0x15B960BF8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GlobalMemoryStatus"
+  },
+  "0x15B960C00": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "GlobalUnlock"
+  },
+  "0x15B960C08": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlAllocateHeap"
+  },
+  "0x15B960C10": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "HeapFree"
+  },
+  "0x15B960C18": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlReAllocateHeap"
+  },
+  "0x15B960C20": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlSizeHeap"
+  },
+  "0x15B960C28": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlInitializeConditionVariable"
   },
   "0x15B960C30": {
    "export": "RtlInitializeCriticalSection",
@@ -2766,6 +5676,36 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960C40": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "InitializeCriticalSectionEx"
+  },
+  "0x15B960C48": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlInitializeSListHead"
+  },
+  "0x15B960C50": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlInitializeSRWLock"
+  },
+  "0x15B960C58": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "IsDebuggerPresent"
+  },
+  "0x15B960C60": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "IsProcessorFeaturePresent"
+  },
+  "0x15B960C68": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "K32GetProcessMemoryInfo"
+  },
   "0x15B960C70": {
    "export": "RtlLeaveCriticalSection",
    "kind": "export",
@@ -2776,20 +5716,90 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960C80": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadLibraryExA"
+  },
+  "0x15B960C88": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadLibraryExW"
+  },
+  "0x15B960C90": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadLibraryW"
+  },
+  "0x15B960C98": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LoadResource"
+  },
+  "0x15B960CA0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LocalAlloc"
+  },
+  "0x15B960CA8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LocalFileTimeToFileTime"
+  },
+  "0x15B960CB0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "LocalFree"
+  },
   "0x15B960CB8": {
    "export": "MapViewOfFile",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960CC0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "MoveFileA"
   },
   "0x15B960CC8": {
    "export": "MoveFileExW",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960CD0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "MoveFileW"
+  },
   "0x15B960CD8": {
    "export": "MultiByteToWideChar",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960CE0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "OpenProcess"
+  },
+  "0x15B960CE8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "OutputDebugStringA"
+  },
+  "0x15B960CF0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "OutputDebugStringW"
+  },
+  "0x15B960CF8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "PeekNamedPipe"
+  },
+  "0x15B960D00": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "QueryFullProcessImageNameW"
   },
   "0x15B960D08": {
    "export": "QueryPerformanceCounter",
@@ -2801,10 +5811,35 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960D18": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RaiseException"
+  },
+  "0x15B960D20": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ReadConsoleA"
+  },
+  "0x15B960D28": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ReadConsoleW"
+  },
+  "0x15B960D30": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "ReadFile"
+  },
   "0x15B960D38": {
    "export": "ReleaseMutex",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960D40": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlReleaseSRWLockExclusive"
   },
   "0x15B960D48": {
    "export": "RtlReleaseSRWLockShared",
@@ -2815,6 +5850,11 @@
    "export": "ReleaseSemaphore",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960D58": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RemoveDirectoryA"
   },
   "0x15B960D60": {
    "export": "RemoveDirectoryW",
@@ -2830,6 +5870,36 @@
    "export": "ResumeThread",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960D78": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RtlCaptureContext"
+  },
+  "0x15B960D80": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "RtlLookupFunctionEntry"
+  },
+  "0x15B960D88": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "RtlVirtualUnwind"
+  },
+  "0x15B960D90": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetConsoleMode"
+  },
+  "0x15B960D98": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetEndOfFile"
+  },
+  "0x15B960DA0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetEnvironmentVariableW"
   },
   "0x15B960DA8": {
    "export": "SetEvent",
@@ -2856,20 +5926,55 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960DD0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetPriorityClass"
+  },
+  "0x15B960DD8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetProcessPriorityBoost"
+  },
   "0x15B960DE0": {
    "export": "SetThreadAffinityMask",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960DE8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetThreadExecutionState"
+  },
+  "0x15B960DF0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetThreadIdealProcessor"
   },
   "0x15B960DF8": {
    "export": "SetThreadPriority",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960E00": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetThreadPriorityBoost"
+  },
+  "0x15B960E08": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SetUnhandledExceptionFilter"
+  },
   "0x15B960E10": {
    "export": "SignalObjectAndWait",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960E18": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SizeofResource"
   },
   "0x15B960E20": {
    "export": "Sleep",
@@ -2881,6 +5986,11 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960E30": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SuspendThread"
+  },
   "0x15B960E38": {
    "export": "SwitchToFiber",
    "kind": "export",
@@ -2891,15 +6001,30 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960E48": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "SystemTimeToFileTime"
+  },
   "0x15B960E50": {
    "export": "SystemTimeToTzSpecificLocalTime",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960E58": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "TerminateProcess"
+  },
   "0x15B960E60": {
    "export": "TlsAlloc",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960E68": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "TlsFree"
   },
   "0x15B960E70": {
    "export": "TlsGetValue",
@@ -2916,10 +6041,25 @@
    "kind": "export",
    "module": "ntdll.dll"
   },
+  "0x15B960E88": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "UnhandledExceptionFilter"
+  },
   "0x15B960E90": {
    "export": "UnmapViewOfFile",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960E98": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "VerSetConditionMask"
+  },
+  "0x15B960EA0": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "VerifyVersionInfoW"
   },
   "0x15B960EA8": {
    "export": "VirtualAlloc",
@@ -2931,15 +6071,30 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960EB8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "VirtualProtect"
+  },
   "0x15B960EC0": {
    "export": "VirtualQuery",
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960EC8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "WaitForMultipleObjects"
+  },
   "0x15B960ED0": {
    "export": "WaitForSingleObject",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B960ED8": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "WaitForSingleObjectEx"
   },
   "0x15B960EE0": {
    "export": "RtlWakeAllConditionVariable",
@@ -2961,6 +6116,71 @@
    "kind": "export",
    "module": "kernel32.dll"
   },
+  "0x15B960F00": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "__chkstk"
+  },
+  "0x15B960F08": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "lstrcatW"
+  },
+  "0x15B960F10": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "lstrcmpA"
+  },
+  "0x15B960F18": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "lstrcmpW"
+  },
+  "0x15B960F20": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "lstrcmpiA"
+  },
+  "0x15B960F28": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "lstrcpyW"
+  },
+  "0x15B960F30": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "lstrlenA"
+  },
+  "0x15B960F38": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "lstrlenW"
+  },
+  "0x15B960F48": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFCreateMediaType"
+  },
+  "0x15B960F50": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFCreateSample"
+  },
+  "0x15B960F58": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFShutdown"
+  },
+  "0x15B960F60": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFStartup"
+  },
+  "0x15B960F68": {
+   "kind": "export",
+   "module": "mfplat.dll",
+   "export": "MFCreateAlignedMemoryBuffer"
+  },
   "0x15B960F78": {
    "export": "??0?$basic_ios@DU?$char_traits@D@std@@@std@@IEAA@XZ",
    "kind": "export",
@@ -2970,6 +6190,11 @@
    "export": "??0?$basic_iostream@DU?$char_traits@D@std@@@std@@QEAA@PEAV?$basic_streambuf@DU?$char_traits@D@std@@@1@@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B960F88": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??0?$basic_istream@DU?$char_traits@D@std@@@std@@QEAA@PEAV?$basic_streambuf@DU?$char_traits@D@std@@@1@_N@Z"
   },
   "0x15B960F90": {
    "export": "??0?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAA@PEAV?$basic_streambuf@DU?$char_traits@D@std@@@1@_N@Z",
@@ -2981,10 +6206,20 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B960FA0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??0_Locinfo@std@@QEAA@PEBD@Z"
+  },
   "0x15B960FA8": {
    "export": "??0_Lockit@std@@QEAA@H@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B960FB0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??0facet@locale@std@@IEAA@_K@Z"
   },
   "0x15B960FB8": {
    "export": "??1?$basic_ios@_WU?$char_traits@_W@std@@@std@@UEAA@XZ",
@@ -2996,6 +6231,11 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B960FC8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??1?$basic_istream@DU?$char_traits@D@std@@@std@@UEAA@XZ"
+  },
   "0x15B960FD0": {
    "export": "??1?$basic_ostream@DU?$char_traits@D@std@@@std@@UEAA@XZ",
    "kind": "export",
@@ -3006,10 +6246,20 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B960FE0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??1_Locinfo@std@@QEAA@XZ"
+  },
   "0x15B960FE8": {
    "export": "??1_Lockit@std@@QEAA@XZ",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B960FF0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??1time_base@std@@UEAA@XZ"
   },
   "0x15B960FF8": {
    "export": "??5?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@AEAG@Z",
@@ -3061,10 +6311,20 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961048": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??6?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV01@P6AAEAV01@AEAV01@@Z@Z"
+  },
   "0x15B961050": {
    "export": "??6?$basic_ostream@_WU?$char_traits@_W@std@@@std@@QEAAAEAV01@P6AAEAVios_base@1@AEAV21@@Z@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B961058": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@PEBX@Z"
   },
   "0x15B961060": {
    "export": "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV01@_K@Z",
@@ -3086,6 +6346,31 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961080": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "??_D?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAXXZ"
+  },
+  "0x15B961088": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_BADOFF@std@@3_JB"
+  },
+  "0x15B961090": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Decref@facet@locale@std@@UEAAPEAV_Facet_base@3@XZ"
+  },
+  "0x15B961098": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Fiopen@std@@YAPEAU_iobuf@@PEBDHH@Z"
+  },
+  "0x15B9610A0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Getcat@?$codecvt@DDU_Mbstatet@@@std@@SA_KPEAPEBVfacet@locale@2@PEBV42@@Z"
+  },
   "0x15B9610A8": {
    "export": "?_Getcat@?$ctype@D@std@@SA_KPEAPEBVfacet@locale@2@PEBV42@@Z",
    "kind": "export",
@@ -3095,6 +6380,21 @@
    "export": "?_Getgloballocale@locale@std@@CAPEAV_Locimp@12@XZ",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B9610B8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Incref@facet@locale@std@@UEAAXXZ"
+  },
+  "0x15B9610C0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Init@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@IEAAXXZ"
+  },
+  "0x15B9610C8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Init@locale@std@@CAPEAV_Locimp@12@_N@Z"
   },
   "0x15B9610D0": {
    "export": "?_Ipfx@?$basic_istream@DU?$char_traits@D@std@@@std@@QEAA_N_N@Z",
@@ -3171,6 +6471,11 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961148": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?_Xregex_error@std@@YAXW4error_type@regex_constants@1@@Z"
+  },
   "0x15B961150": {
    "export": "?__ExceptionPtrAssign@@YAXPEAXPEBX@Z",
    "kind": "export",
@@ -3191,6 +6496,11 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961170": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?__ExceptionPtrCurrentException@@YAXPEAX@Z"
+  },
   "0x15B961178": {
    "export": "?__ExceptionPtrDestroy@@YAXPEAX@Z",
    "kind": "export",
@@ -3200,6 +6510,11 @@
    "export": "?__ExceptionPtrToBool@@YA_NPEBX@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B961188": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?tolower@?$ctype@D@std@@QEBAPEBDPEADPEBD@Z"
   },
   "0x15B961190": {
    "export": "?clear@?$basic_ios@_WU?$char_traits@_W@std@@@std@@QEAAXH_N@Z",
@@ -3211,25 +6526,80 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B9611A0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?getloc@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@QEBA?AVlocale@2@XZ"
+  },
   "0x15B9611A8": {
    "export": "?getloc@ios_base@std@@QEBA?AVlocale@2@XZ",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B9611B0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?id@?$codecvt@DDU_Mbstatet@@@std@@2V0locale@2@A"
+  },
+  "0x15B9611B8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?id@?$collate@D@std@@2V0locale@2@A"
+  },
+  "0x15B9611C0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?id@?$ctype@D@std@@2V0locale@2@A"
   },
   "0x15B9611C8": {
    "export": "?isfx@?$basic_istream@_WU?$char_traits@_W@std@@@std@@QEAAXXZ",
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B9611D0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?in@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEBD1AEAPEBDPEA_W3AEAPEA_W@Z"
+  },
+  "0x15B9611D8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?out@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEB_W1AEAPEB_WPEAD3AEAPEAD@Z"
+  },
+  "0x15B9611E0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?underflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ"
+  },
+  "0x15B9611E8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?put@?$basic_ostream@DU?$char_traits@D@std@@@std@@QEAAAEAV12@D@Z"
+  },
+  "0x15B9611F0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?read@?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV12@PEAD_J@Z"
+  },
   "0x15B9611F8": {
    "export": "?sbumpc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@QEAAHXZ",
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961200": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?seekg@?$basic_istream@DU?$char_traits@D@std@@@std@@QEAAAEAV12@_JH@Z"
+  },
   "0x15B961208": {
    "export": "?setbuf@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@MEAAPEAV12@PEA_W_J@Z",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B961210": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?setprecision@std@@YA?AU?$_Smanip@_J@1@_J@Z"
   },
   "0x15B961218": {
    "export": "?setstate@?$basic_ios@_WU?$char_traits@_W@std@@@std@@QEAAXH_N@Z",
@@ -3266,6 +6636,16 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961250": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?swap@?$basic_ostream@DU?$char_traits@D@std@@@std@@IEAAXAEAV12@@Z"
+  },
+  "0x15B961258": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?swap@?$basic_streambuf@DU?$char_traits@D@std@@@std@@IEAAXAEAV12@@Z"
+  },
   "0x15B961260": {
    "export": "?sync@?$basic_streambuf@_WU?$char_traits@_W@std@@@std@@MEAAHXZ",
    "kind": "export",
@@ -3276,6 +6656,11 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961270": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?tolower@?$ctype@D@std@@QEBAPEBDPEADPEBD@Z"
+  },
   "0x15B961278": {
    "export": "?uflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ",
    "kind": "export",
@@ -3285,6 +6670,21 @@
    "export": "?uncaught_exception@std@@YA_NXZ",
    "kind": "export",
    "module": "MSVCP140.dll"
+  },
+  "0x15B961288": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?underflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ"
+  },
+  "0x15B961290": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?unshift@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEAD1AEAPEAD@Z"
+  },
+  "0x15B961298": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "?widen@?$basic_ios@DU?$char_traits@D@std@@@std@@QEBADD@Z"
   },
   "0x15B9612A0": {
    "export": "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JPEAD_J@Z",
@@ -3336,6 +6736,16 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B9612F0": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_FDtest"
+  },
+  "0x15B9612F8": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_Getcoll"
+  },
   "0x15B961300": {
    "export": "_Lock_shared_ptr_spin_lock",
    "kind": "export",
@@ -3371,6 +6781,16 @@
    "kind": "export",
    "module": "MSVCP140.dll"
   },
+  "0x15B961338": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_Strcoll"
+  },
+  "0x15B961340": {
+   "kind": "export",
+   "module": "MSVCP140.dll",
+   "export": "_Strxfrm"
+  },
   "0x15B961348": {
    "export": "_Unlock_shared_ptr_spin_lock",
    "kind": "export",
@@ -3386,15 +6806,150 @@
    "kind": "export",
    "module": "msvcrt.dll"
   },
+  "0x15B961370": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtClose"
+  },
+  "0x15B961378": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtCreateNamedPipeFile"
+  },
+  "0x15B961380": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtCreateThreadEx"
+  },
+  "0x15B961388": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtGetContextThread"
+  },
+  "0x15B961390": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtOpenFile"
+  },
+  "0x15B961398": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtReadFile"
+  },
+  "0x15B9613A0": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtSuspendThread"
+  },
+  "0x15B9613A8": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtTerminateThread"
+  },
+  "0x15B9613B0": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtWriteFile"
+  },
+  "0x15B9613C0": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoCreateGuid"
+  },
+  "0x15B9613C8": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoCreateInstance"
+  },
+  "0x15B9613D0": {
+   "kind": "export",
+   "module": "ole32.dll",
+   "export": "CoInitialize"
+  },
+  "0x15B9613D8": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoInitializeEx"
+  },
+  "0x15B9613E0": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoTaskMemFree"
+  },
+  "0x15B9613E8": {
+   "kind": "export",
+   "module": "combase.dll",
+   "export": "CoUninitialize"
+  },
+  "0x15B9613F0": {
+   "kind": "export",
+   "module": "ole32.dll",
+   "export": "OleInitialize"
+  },
+  "0x15B961400": {
+   "kind": "export",
+   "module": "oleaut32.dll",
+   "export": "VariantClear"
+  },
+  "0x15B961410": {
+   "kind": "export",
+   "module": "secur32.dll",
+   "export": "GetUserNameExW"
+  },
+  "0x15B961420": {
+   "kind": "export",
+   "module": "shcore.dll",
+   "export": "CommandLineToArgvW"
+  },
   "0x15B961428": {
    "export": "SHGetFolderPathW",
    "kind": "export",
    "module": "shell32.dll"
   },
+  "0x15B961430": {
+   "kind": "export",
+   "module": "shell32.dll",
+   "export": "SHGetKnownFolderPath"
+  },
   "0x15B961438": {
    "export": "SHGetSpecialFolderPathW",
    "kind": "export",
    "module": "shell32.dll"
+  },
+  "0x15B961440": {
+   "kind": "export",
+   "module": "shell32.dll",
+   "export": "ShellExecuteW"
+  },
+  "0x15B961450": {
+   "kind": "export",
+   "module": "shlwapi.dll",
+   "export": "PathFileExistsW"
+  },
+  "0x15B961460": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_GetHSteamUser"
+  },
+  "0x15B961468": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_Init"
+  },
+  "0x15B961470": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_RegisterCallback"
+  },
+  "0x15B961478": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_RestartAppIfNecessary"
+  },
+  "0x15B961480": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamAPI_RunCallbacks"
   },
   "0x15B961488": {
    "export": "SteamAPI_IsSteamRunning",
@@ -3426,15 +6981,305 @@
    "kind": "export",
    "module": "steam_api64.dll"
   },
+  "0x15B9614B8": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamInternal_CreateInterface"
+  },
+  "0x15B9614C0": {
+   "kind": "export",
+   "module": "steam_api64.dll",
+   "export": "SteamInternal_FindOrCreateUserInterface"
+  },
+  "0x15B9614D0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "AdjustWindowRectEx"
+  },
+  "0x15B9614D8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "BeginPaint"
+  },
+  "0x15B9614E0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CallNextHookEx"
+  },
+  "0x15B9614E8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CallWindowProcA"
+  },
+  "0x15B9614F0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ClientToScreen"
+  },
+  "0x15B9614F8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CloseClipboard"
+  },
+  "0x15B961500": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CloseWindow"
+  },
+  "0x15B961508": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CreateWindowExA"
+  },
+  "0x15B961510": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "CreateWindowExW"
+  },
+  "0x15B961518": {
+   "kind": "export",
+   "module": "ntdll.dll",
+   "export": "NtdllDefWindowProc_W"
+  },
+  "0x15B961520": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "DestroyWindow"
+  },
+  "0x15B961528": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "DispatchMessageA"
+  },
+  "0x15B961530": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "DispatchMessageW"
+  },
+  "0x15B961538": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "DrawTextW"
+  },
+  "0x15B961540": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EmptyClipboard"
+  },
+  "0x15B961548": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EnableWindow"
+  },
+  "0x15B961550": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EndPaint"
+  },
+  "0x15B961558": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EnumChildWindows"
+  },
+  "0x15B961560": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EnumDisplayDevicesA"
+  },
+  "0x15B961568": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "EnumDisplaySettingsW"
+  },
+  "0x15B961570": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetAncestor"
+  },
+  "0x15B961578": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetCapture"
+  },
+  "0x15B961580": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetClientRect"
+  },
+  "0x15B961588": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetClipboardData"
+  },
+  "0x15B961590": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetCursorPos"
+  },
+  "0x15B961598": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetDC"
+  },
+  "0x15B9615A0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetDesktopWindow"
+  },
+  "0x15B9615A8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetDlgCtrlID"
+  },
+  "0x15B9615B0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetDlgItem"
+  },
+  "0x15B9615B8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetForegroundWindow"
+  },
+  "0x15B9615C0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetKeyboardState"
+  },
+  "0x15B9615C8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetMenu"
+  },
+  "0x15B9615D0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetMessageA"
+  },
+  "0x15B9615D8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetMessageW"
+  },
+  "0x15B9615E0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetMonitorInfoW"
+  },
   "0x15B9615E8": {
    "export": "GetProcessWindowStation",
    "kind": "export",
    "module": "user32.dll"
   },
+  "0x15B9615F0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetRawInputData"
+  },
+  "0x15B9615F8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetSystemMetrics"
+  },
   "0x15B961600": {
    "export": "GetUserObjectInformationW",
    "kind": "export",
    "module": "user32.dll"
+  },
+  "0x15B961608": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowDC"
+  },
+  "0x15B961610": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowLongA"
+  },
+  "0x15B961618": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowLongPtrA"
+  },
+  "0x15B961620": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowLongW"
+  },
+  "0x15B961628": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowPlacement"
+  },
+  "0x15B961630": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowRect"
+  },
+  "0x15B961638": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowTextA"
+  },
+  "0x15B961640": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowTextLengthA"
+  },
+  "0x15B961648": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowTextLengthW"
+  },
+  "0x15B961650": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowTextW"
+  },
+  "0x15B961658": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "GetWindowThreadProcessId"
+  },
+  "0x15B961660": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "InvalidateRect"
+  },
+  "0x15B961668": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "IsIconic"
+  },
+  "0x15B961670": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "IsWindow"
+  },
+  "0x15B961678": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "LoadCursorA"
+  },
+  "0x15B961680": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "LoadCursorW"
+  },
+  "0x15B961688": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "LoadIconA"
+  },
+  "0x15B961690": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "LoadIconW"
+  },
+  "0x15B961698": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "MapVirtualKeyW"
   },
   "0x15B9616A0": {
    "export": "MessageBoxA",
@@ -3446,10 +7291,220 @@
    "kind": "export",
    "module": "user32.dll"
   },
+  "0x15B9616B0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "MonitorFromPoint"
+  },
+  "0x15B9616B8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "MonitorFromWindow"
+  },
+  "0x15B9616C0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "OpenClipboard"
+  },
+  "0x15B9616C8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "PostQuitMessage"
+  },
+  "0x15B9616D0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "PostThreadMessageW"
+  },
+  "0x15B9616D8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "PtInRect"
+  },
+  "0x15B9616E0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterClassExW"
+  },
+  "0x15B9616E8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterDeviceNotificationW"
+  },
+  "0x15B9616F0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterHotKey"
+  },
+  "0x15B9616F8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "RegisterRawInputDevices"
+  },
+  "0x15B961700": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ReleaseCapture"
+  },
+  "0x15B961708": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ReleaseDC"
+  },
+  "0x15B961710": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ScreenToClient"
+  },
+  "0x15B961718": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendDlgItemMessageA"
+  },
+  "0x15B961720": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendMessageA"
+  },
+  "0x15B961728": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendMessageCallbackW"
+  },
+  "0x15B961730": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendMessageW"
+  },
+  "0x15B961738": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SendNotifyMessageW"
+  },
+  "0x15B961740": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetActiveWindow"
+  },
+  "0x15B961748": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetCapture"
+  },
+  "0x15B961750": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetClipboardData"
+  },
+  "0x15B961758": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetCursor"
+  },
+  "0x15B961760": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetFocus"
+  },
+  "0x15B961768": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetMenu"
+  },
+  "0x15B961770": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetParent"
+  },
+  "0x15B961778": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowLongA"
+  },
+  "0x15B961780": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowLongPtrA"
+  },
+  "0x15B961788": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowLongW"
+  },
+  "0x15B961790": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowPlacement"
+  },
+  "0x15B961798": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowPos"
+  },
+  "0x15B9617A0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowTextA"
+  },
+  "0x15B9617A8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowTextW"
+  },
+  "0x15B9617B0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "SetWindowsHookExW"
+  },
+  "0x15B9617B8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ShowCursor"
+  },
+  "0x15B9617C0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ShowWindow"
+  },
+  "0x15B9617C8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "ToAscii"
+  },
+  "0x15B9617D0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "TranslateMessage"
+  },
+  "0x15B9617D8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "UnregisterHotKey"
+  },
+  "0x15B9617E0": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "UpdateWindow"
+  },
+  "0x15B9617E8": {
+   "kind": "export",
+   "module": "user32.dll",
+   "export": "wsprintfW"
+  },
   "0x15B9617F8": {
    "export": "_CxxThrowException",
    "kind": "export",
    "module": "VCRUNTIME140.dll"
+  },
+  "0x15B961800": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__C_specific_handler"
+  },
+  "0x15B961808": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__CxxFrameHandler3"
   },
   "0x15B961810": {
    "export": "__intrinsic_setjmp",
@@ -3466,15 +7521,30 @@
    "kind": "export",
    "module": "VCRUNTIME140.dll"
   },
+  "0x15B961828": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__std_terminate"
+  },
   "0x15B961830": {
    "export": "__std_type_info_compare",
    "kind": "export",
    "module": "VCRUNTIME140.dll"
   },
+  "0x15B961838": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "__vcrt_InitializeCriticalSectionEx"
+  },
   "0x15B961840": {
    "export": "_purecall",
    "kind": "export",
    "module": "VCRUNTIME140.dll"
+  },
+  "0x15B961848": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "longjmp"
   },
   "0x15B961850": {
    "export": "memchr",
@@ -3510,6 +7580,11 @@
    "export": "strstr",
    "kind": "export",
    "module": "VCRUNTIME140.dll"
+  },
+  "0x15B961888": {
+   "kind": "export",
+   "module": "VCRUNTIME140.dll",
+   "export": "wcsrchr"
   },
   "0x15B961890": {
    "export": "wcsstr",
@@ -3571,10 +7646,20 @@
    "kind": "export",
    "module": "winhttp.dll"
   },
+  "0x15B9618F8": {
+   "kind": "export",
+   "module": "winhttp.dll",
+   "export": "WinHttpReceiveResponse"
+  },
   "0x15B961900": {
    "export": "WinHttpSendRequest",
    "kind": "export",
    "module": "winhttp.dll"
+  },
+  "0x15B961908": {
+   "kind": "export",
+   "module": "winhttp.dll",
+   "export": "WinHttpSetOption"
   },
   "0x15B961910": {
    "export": "WinHttpSetStatusCallback",
@@ -3586,6 +7671,51 @@
    "kind": "export",
    "module": "winhttp.dll"
   },
+  "0x15B961928": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "HttpOpenRequestA"
+  },
+  "0x15B961930": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "HttpSendRequestA"
+  },
+  "0x15B961938": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "InternetCloseHandle"
+  },
+  "0x15B961940": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "InternetConnectA"
+  },
+  "0x15B961948": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "InternetOpenA"
+  },
+  "0x15B961950": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "InternetQueryOptionA"
+  },
+  "0x15B961958": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "InternetReadFile"
+  },
+  "0x15B961960": {
+   "kind": "export",
+   "module": "wininet.dll",
+   "export": "InternetSetOptionA"
+  },
+  "0x15B961970": {
+   "kind": "export",
+   "module": "winmm.dll",
+   "export": "timeEndPeriod"
+  },
   "0x15B961978": {
    "export": "timeGetSystemTime",
    "kind": "export",
@@ -3595,6 +7725,16 @@
    "export": "timeGetTime",
    "kind": "export",
    "module": "winmm.dll"
+  },
+  "0x15B961988": {
+   "kind": "export",
+   "module": "winmm.dll",
+   "export": "timeBeginPeriod"
+  },
+  "0x15B961998": {
+   "kind": "export",
+   "module": "wlanapi.dll",
+   "export": "WlanCloseHandle"
   },
   "0x15B9619A0": {
    "export": "WlanFreeMemory",
@@ -3646,6 +7786,21 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x15B9619F8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSAStartup"
+  },
+  "0x15B961A00": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSACleanup"
+  },
+  "0x15B961A08": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "inet_ntoa"
+  },
   "0x15B961A10": {
    "export": "listen",
    "kind": "export",
@@ -3660,6 +7815,11 @@
    "export": "ntohs",
    "kind": "export",
    "module": "ws2_32.dll"
+  },
+  "0x15B961A28": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "__WSAFDIsSet"
   },
   "0x15B961A30": {
    "export": "recv",
@@ -3696,6 +7856,11 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x15B961A68": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "shutdown"
+  },
   "0x15B961A70": {
    "export": "socket",
    "kind": "export",
@@ -3715,6 +7880,26 @@
    "export": "getpeername",
    "kind": "export",
    "module": "ws2_32.dll"
+  },
+  "0x15B961A90": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "gethostbyaddr"
+  },
+  "0x15B961A98": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "gethostbyname"
+  },
+  "0x15B961AA0": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "getservbyname"
+  },
+  "0x15B961AA8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "getservbyport"
   },
   "0x15B961AB0": {
    "export": "getsockname",
@@ -3751,6 +7936,11 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x15B961AE8": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSAEnumNetworkEvents"
+  },
   "0x15B961AF0": {
    "export": "WSAEventSelect",
    "kind": "export",
@@ -3761,10 +7951,25 @@
    "kind": "export",
    "module": "ws2_32.dll"
   },
+  "0x15B961B00": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSARecvFrom"
+  },
   "0x15B961B08": {
    "export": "ResetEvent",
    "kind": "export",
    "module": "kernel32.dll"
+  },
+  "0x15B961B10": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "WSASendTo"
+  },
+  "0x15B961B18": {
+   "kind": "export",
+   "module": "kernel32.dll",
+   "export": "WaitForMultipleObjectsEx"
   },
   "0x15B961B20": {
    "export": "freeaddrinfo",
@@ -3780,6 +7985,26 @@
    "export": "getnameinfo",
    "kind": "export",
    "module": "ws2_32.dll"
+  },
+  "0x15B961B38": {
+   "kind": "export",
+   "module": "ws2_32.dll",
+   "export": "inet_ntop"
+  },
+  "0x15B961B48": {
+   "kind": "export",
+   "module": "xinput1_3.dll",
+   "export": "XInputSetState"
+  },
+  "0x15B961B50": {
+   "kind": "export",
+   "module": "xinput1_3.dll",
+   "export": "XInputGetCapabilities"
+  },
+  "0x15B961B58": {
+   "kind": "export",
+   "module": "xinput1_3.dll",
+   "export": "XInputGetState"
   }
  }
 }

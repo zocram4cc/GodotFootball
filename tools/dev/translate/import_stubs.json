@@ -499,6 +499,26 @@
     },
     {
       "module": "kernel32.dll",
+      "export": "GetModuleFileNameA",
+      "do": "module_file_name",
+      "code_hex": "48b8433a5c5045533230488902c7420832312e6566c7420c7865c6420e00b80e000000c3",
+      "why": [
+        "DWORD GetModuleFileNameA(HMODULE, LPSTR buf, DWORD size): luaopen_package's setpath (FUN_1403A2850, called through the IAT slot 0x14252F4A0 and its .tls$ copy 0x15B960B40) asks for the executable's path and only cuts it at its last backslash to replace ';;' in package.path; it raises a Lua error when the call returns 0.",
+        "Model: writes the 15 bytes `C:\\PES2021.exe` and returns 14 (the length without the terminator), rax only. The real path is the install's (the live process's PEB ImagePathName); the translated code uses only its directory part to build package.path, which GF's scripts never read. A stand-in value for an OS answer, named: replace it with the install path when a script that reads package.path exists."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "__acrt_iob_func",
+      "do": "iob_func",
+      "code_hex": "89c8486bc03048b900100000300000004801c8c3",
+      "why": [
+        "FILE* __acrt_iob_func(unsigned index): the C runtime's standard stream table entry (0 stdin, 1 stdout, 2 stderr). luaopen_io (createstdfile) stores the three pointers in Lua userdata and never reads through them while the libraries open.",
+        "Model: rax = 0x3000001000 + index * 0x30 (inside the OS arena the VirtualAlloc model serves, above its bump cell), rcx = 0x3000001000 (the register the code uses). The live process's table address is the dead process's; only distinct, stable pointers matter here."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
       "export": "GetSystemInfo",
       "do": "sysinfo",
       "code_hex": "c7410400100000c7412010000000c7412800000100c3",

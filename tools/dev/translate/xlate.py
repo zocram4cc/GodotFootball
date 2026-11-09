@@ -569,6 +569,12 @@ def import_model_lines(op, jump):
         # SetLastError(ecx), the code_hex model register for register: rax = the thread block's self pointer (gs:[0x30]), TEB.LastErrorValue
         # (+0x68) = ecx, no flag touched.
         return ["{ " + push_ret + " s.gpr[0] = s.rd(s.gs_base + 0x30ULL, 8); s.wr(s.gpr[0] + 0x68ULL, s.gpr[1], 4);%s }" % pop_ret]
+    if e["do"] == "module_file_name":
+        # GetModuleFileNameA(h, buf = rdx, size): the code_hex model register for register: "C:\PES2021.exe" and its terminator into [rdx], rax = 14.
+        return ["{ " + push_ret + " s.wr(s.gpr[2], 0x30325345505C3A43ULL, 8); s.wr(s.gpr[2] + 8, 0x652E3132ULL, 4); s.wr(s.gpr[2] + 12, 0x6578ULL, 2); s.wr(s.gpr[2] + 14, 0ULL, 1); s.gpr[0] = 14ULL;%s }" % pop_ret]
+    if e["do"] == "iob_func":
+        # __acrt_iob_func(ecx), the code_hex model register for register: rax = 0x3000001000 + (uint32)ecx * 0x30, rcx = 0x3000001000.
+        return ["{ " + push_ret + " s.gpr[0] = (uint64_t)(uint32_t)s.gpr[1] * 0x30ULL + 0x3000001000ULL; s.gpr[1] = 0x3000001000ULL;%s }" % pop_ret]
     if e["do"] == "tls_get":
         # TlsGetValue(index): TEB.TlsSlots[index] for index < 64 (x64 TEB +0x1480), else NULL.
         return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"
