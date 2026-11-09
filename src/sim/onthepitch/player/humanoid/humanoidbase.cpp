@@ -476,9 +476,12 @@ bool HumanoidBase::OnPesTrap() const {
 bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family) {
   const bool onLocomotion = OnPesLocomotion();
   const bool onFamily = family == pes::PesClipFamily::kTrap ? OnPesTrap() : onLocomotion;
-  // The body takes an issued clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES clip
-  // already on the body (a trap's clip takes over a locomotion clip, as PES's action switch does). A ball action keeps the body.
-  if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion && !OnPesTrap()) return false;
+  // The body takes an issued locomotion clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES
+  // clip already on the body. A ball action keeps the body. A trap clip is not refused here: PES's reaction gate 4a (the Trap action's
+  // slot +0x10, PlayerController::_ReceiveCandidate) decided from the man's PES action whether he may take the trap, and PES's action
+  // switch then replaces whatever clip he was in.
+  if (family != pes::PesClipFamily::kTrap && currentAnim->functionType != e_FunctionType_Movement && !onLocomotion && !OnPesTrap())
+    return false;
   // The same motion plays on: a re-issue changes its rate only, while the clip has frames left. A clip at its last frame
   // starts again from its first (PES's issue is a restart, movestep.hpp IssuedClip), because the body's own Switch at the
   // last frame is held in STOP and ACCELERATE (PesPoseHeld), so a re-issue is the only way that clip moves on.

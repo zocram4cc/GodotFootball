@@ -758,6 +758,550 @@
    "va": "0x140799060",
    "synthetic": true,
    "synthetic_cases": 1
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_140724820.json",
+   "coverage": {
+    "0x140724820": {
+     "reached": 47,
+     "total": 90,
+     "fraction": 0.5222
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 1 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 47,
+     "total": 90,
+     "fraction": 0.5222
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140724820",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_1407C6F40.json",
+   "coverage": {
+    "0x1407C6F40": {
+     "reached": 14,
+     "total": 51,
+     "fraction": 0.2745
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 0 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 51,
+     "fraction": 0.2745
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407C6F40",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_140787EC0.json",
+   "coverage": {
+    "0x140787EC0": {
+     "reached": 14,
+     "total": 17,
+     "fraction": 0.8235
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 0 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 17,
+     "fraction": 0.8235
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140787EC0",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_140744090.json",
+   "coverage": {
+    "0x140744090": {
+     "reached": 3,
+     "total": 12,
+     "fraction": 0.25
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 0 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 3,
+     "total": 12,
+     "fraction": 0.25
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140744090",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_1407E8D20.json",
+   "coverage": {
+    "0x1407E8D20": {
+     "reached": 3,
+     "total": 14,
+     "fraction": 0.2143
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 0 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 3,
+     "total": 14,
+     "fraction": 0.2143
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407E8D20",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_1406B4C10.json",
+   "coverage": {
+    "0x1406B4C10": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 8 of 8: 0 REAL captured call(s) and 8 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 8,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    },
+    "replayed": 8,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B4C10",
+   "synthetic": true,
+   "synthetic_cases": 8
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_14072E450.json",
+   "coverage": {
+    "0x14072E450": {
+     "reached": 15,
+     "total": 34,
+     "fraction": 0.4412
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 15,
+     "total": 34,
+     "fraction": 0.4412
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14072E450",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_14072E360.json",
+   "coverage": {
+    "0x14072E360": {
+     "reached": 14,
+     "total": 17,
+     "fraction": 0.8235
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 17,
+     "fraction": 0.8235
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14072E360",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_14073B680.json",
+   "coverage": {
+    "0x14073B680": {
+     "reached": 34,
+     "total": 112,
+     "fraction": 0.3036
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 34,
+     "total": 112,
+     "fraction": 0.3036
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14073B680",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_140779DF0.json",
+   "coverage": {
+    "0x140779DF0": {
+     "reached": 29,
+     "total": 71,
+     "fraction": 0.4085
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 29,
+     "total": 71,
+     "fraction": 0.4085
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140779DF0",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_1407E8E10.json",
+   "coverage": {
+    "0x1407E8E10": {
+     "reached": 35,
+     "total": 43,
+     "fraction": 0.814
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 9 of 9: 4 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 9,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 35,
+     "total": 43,
+     "fraction": 0.814
+    },
+    "replayed": 9,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407E8E10",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_140782570.json",
+   "coverage": {
+    "0x140782570": {
+     "reached": 10,
+     "total": 19,
+     "fraction": 0.5263
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 10,
+     "total": 19,
+     "fraction": 0.5263
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140782570",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_140789E60.json",
+   "coverage": {
+    "0x140789E60": {
+     "reached": 6,
+     "total": 15,
+     "fraction": 0.4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a slot +0x70 handler (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 6,
+     "total": 15,
+     "fraction": 0.4
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140789E60",
+   "synthetic": true,
+   "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_trapadmit_14079BBE0.json",
+   "coverage": {
+    "0x14079BBE0": {
+     "reached": 8,
+     "total": 12,
+     "fraction": 0.6667
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. reaction gate 4a: the Trap action's slot +0x10 (TrapAdmit)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 12,
+     "fraction": 0.6667
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14079BBE0"
   }
  ]
 }

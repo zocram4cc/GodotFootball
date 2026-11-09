@@ -6,6 +6,60 @@
 #include <initializer_list>
 
 namespace pes {
+
+// Every row names the PES action GF's body runs and the PES site that writes that id (FUN_1406EEBB0 callers, the survey of its 125 direct call sites,
+// docs/ports/pes-port-TrapAdmit2.md section 4; the names are the image's table at 0x1434A5470). An id with no constant call site is entered by
+// the pending-command commit (FUN_1406EEA90 at 0x1406EEB78, edx = the command's action byte cmd[1]); its row is the command GF's body runs.
+uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier) {
+  switch (function) {
+    case e_FunctionType_Movement:
+      return kAnimeActionMove;  // 2: written at 0x14079E688 (the trap end handler), 0x1407976AA and every tick that hands the body back
+    case e_FunctionType_BallControl:
+      // 4: written at 0x1407A3934 (FUN_1407A38E0, the action's start). A man who is not the carrier is turned into MOVE by the switch's own
+      // 4/5 arm (0x1406EEBC5: anime +8 against FUN_140A627E0, the carrier), CONFIRMED by the decompile.
+      return carrier ? kAnimeActionDribble : kAnimeActionMove;
+    case e_FunctionType_Trap:
+      return kAnimeActionTrap;  // 7: written at 0x1407B0D57 (FUN_1407B0C33) and 0x1407B35E6 (FUN_1407B35DA)
+    case e_FunctionType_ShortPass:
+      return kAnimeActionShortPass;  // 9: written at 0x1407822CB (FUN_140781FC0, a pass tick)
+    case e_FunctionType_LongPass:
+    case e_FunctionType_HighPass:
+      return kAnimeActionLongPass;  // 8: no constant site, the command commit; the name is the table's
+    case e_FunctionType_Header:
+    case e_FunctionType_Shot:
+      // 0xA: no constant site, the command commit. INF for the header: PES's table has no header action, so a header is a kick action.
+      return kAnimeActionShoot;
+    case e_FunctionType_Sliding:
+      return kAnimeActionSliding;  // 0xB: no constant site, the command commit
+    case e_FunctionType_Trip:
+    case e_FunctionType_Interfere:
+      return kAnimeActionTackle;  // 0xD: no constant site, the command commit. INF: which GF function PES's tackle command is
+    case e_FunctionType_Catch:
+      return kAnimeActionKeeperCatch;  // 0x38: the table's name; no constant site
+    case e_FunctionType_Deflect:
+      return kAnimeActionKeeperDeflect;  // 0x3A: the table's name; no constant site
+    case e_FunctionType_Special:
+      if (specialVar1 == static_cast<int>(PesClipFamily::kDodge)) return kAnimeActionDodge;  // 0x15: no constant site, the command commit
+      if (specialVar1 == static_cast<int>(PesClipFamily::kTackle)) return kAnimeActionTackle;
+      if (IsPesLocomotionFamily(specialVar1)) return kAnimeActionMove;
+      if (IsPesTrapFamily(specialVar1)) return kAnimeActionTrap;
+      return kAnimeActionNothing;  // GF's own celebrations, cards and feints: no PES action
+    case e_FunctionType_None:
+      break;
+  }
+  return kAnimeActionNothing;
+}
+
+// FUN_1406EEBB0's id stores (decompile tail; asm: the same-action arm compares the sub at 0x1406EED32 and stores 0x1406EED36 / 0x1406EED43 / 0x1406EED54,
+// the action-change arm compares at 0x1406EED5C and stores 0x1406EED75 / 0x1406EED82 / 0x1406EED88, then 0x1406EED8F): the previous pair
+// takes the current pair whenever the action or the sub id changes, and a keep sub (0x5E) becomes the action itself on an action change.
+ActionIds ActionIdsAfterSwitch(const ActionIds& now, uint8_t request, uint8_t sub) {
+  if (request == now.action) {
+    if (sub == kActionSubKeep || sub == now.sub) return now;  // 0x1406EED96: nothing is stored
+    return {now.action, sub, now.action, now.sub};
+  }
+  return {request, sub == kActionSubKeep ? request : sub, now.action, now.sub};
+}
 namespace {
 
 // A rip-relative instruction the constant is read through: its bytes at `va` must start with `opcode`, the disp32 sits
