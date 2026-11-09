@@ -5,6 +5,8 @@
 // pes_movestep_test.cpp does.
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <set>
 #include <cstdlib>
 #include <cmath>
 #include <string>
@@ -2603,6 +2605,42 @@ TEST(EnterStop, TheRunStopArmPicksItsRowFromTheClassWord) {
     return h.lastCellRow;
   };
   EXPECT_EQ(pick(0u), pick(2u));
+}
+
+// FUN_1406d5d60's run-stop arm asks the +0xac0 interface's vt+0xE0 (FUN_1406BA0D0): row DAT_1425ddb50[kind + class * 8] (the
+// turn-stop table), column DAT_1425dd988[bucket] (the bucket-to-column table). Only the table's columns are populated here, as
+// in the install's rows; the raw bucket (0..9) as the column asked for cells the rows do not have (the odd buckets 1, 3, 5, 7)
+// and the request carried motion -1. Every facing error must reach a populated cell on the turn-stop row.
+TEST(EnterStop, TheRunStopArmReadsTheTurnStopRowAtTheBucketsColumn) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.buckets.wide = {-180.0f, -157.5f, -112.5f, -67.5f, -22.5f, 0.0f, 22.5f, 67.5f, 112.5f, 157.5f, 180.0f};
+  h.buckets.bucket = {9, 8, 7, 6, 5, 0, 1, 2, 3, 4};
+  h.buckets.hysteresisUp = 5.0f;
+  h.populatedColumns.assign(h.runTables.bucketColumn.begin(), h.runTables.bucketColumn.end());
+  constexpr int kKind = 2, kClass = 1;
+  std::set<int> columns;
+  for (float error = -170.0f; error <= 170.0f; error += 10.0f) {
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, kKind);
+    req.SetU(pes::moveword::kClassWord, kClass);
+    req.SetU(pes::moveword::kMoveBucket, 7);   // sentinels: the run-stop arm leaves req[8] and req[0x25] alone
+    req.SetU(pes::moveword::kPrevBucket, 6);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kFacingError, error);
+    pes::movestep::EnterStop(h, req);
+    EXPECT_EQ(h.lastCellRow, h.runTables.turnStopRow[kKind + kClass * 8]) << "error " << error;
+    EXPECT_NE(std::find(h.runTables.bucketColumn.begin(), h.runTables.bucketColumn.end(), h.lastCellColumn),
+              h.runTables.bucketColumn.end())
+        << "error " << error << " asked column " << h.lastCellColumn;
+    // The selector's bucket is the word the entry stored: req[0x20] (stop_replay.py: w20 after = the call's bucket argument).
+    EXPECT_EQ(h.lastCellColumn, h.runTables.bucketColumn[req.U(pes::moveword::kLiveBucket)]) << "error " << error;
+    EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 7u) << "error " << error;
+    EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 6u) << "error " << error;
+    columns.insert(h.lastCellColumn);
+  }
+  EXPECT_GT(columns.size(), 2u) << "the sweep reaches several buckets";
 }
 // FUN_140a92950(heading, target, clamp): the heading stepped toward the target by at most the
 // clamp, wrapped into [0, 360). The stalled seed-7 free-kick taker drifts ~90 deg off his walk

@@ -26,6 +26,9 @@
 #include "pes/exe.hpp"
 #include "pes/mbinfo.hpp"
 #include "pes/movestep.hpp"
+#include "pes/movestep_turn.hpp"
+#include "pes/translated/pes_state.hpp"
+#include "pes/translated/translated.hpp"
 #include "pes/vfs.hpp"
 #include "pes_match_constants.hpp"
 #include "rig/rig.hpp"
@@ -903,4 +906,103 @@ TEST(MoveStepWire, AJogMoveWiresTheMoveIdAndDerivesThePreciseWord) {
   EXPECT_EQ(req.U(pes::moveword::kCommandId), 2u) << "cmd[0] is the MOVE action";
   EXPECT_EQ(req.U(pes::moveword::kKind), 0u) << "an outfield move is the mid kind";
   EXPECT_EQ(req.U(pes::moveword::kPrecise), 1u) << "the set clause: MOVE at a jog with the anime state set";
+}
+
+// The STOP entry's run-stop arm asks the anime interface's vt+0xE0 selector (FUN_1406BA0D0) for its motion: the row is
+// DAT_1425ddb50[kind + class * 8] and the column DAT_1425dd988[bucket]. The port asked the Animetable for the raw bucket as the
+// column on the stop-row table, so every odd bucket found no cell: the request carried motion -1 and PES's tail never issues
+// that (FUN_1406B8340 tail: `-1 < iVar9`). Seed 7 pes-loop, the first 1500 ticks.
+TEST(MoveStepWire, NoMoveStepIssueRequestsNoMotion) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  match->StartPlay();
+  int issues = 0, noMotion = 0;
+  for (int t = 0; t < 1500; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<uint32_t> serial;
+    for (Player* p : ps) serial.push_back(p->GetIssuedClip().serial);
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      if (ps[i]->GetIssuedClip().serial == serial[i]) continue;
+      ++issues;
+      if (ps[i]->GetIssuedClip().request.motion < 0) ++noMotion;
+    }
+  }
+  printf("[movestep-nomotion] issues %d, issues with no motion %d\n", issues, noMotion);
+  EXPECT_GT(issues, 0);
+  EXPECT_EQ(noMotion, 0) << "every issue names a motion";
+}
+
+// The FSM drives a body whose clip PES numbers: a state that reads the clip (RUN_TURN_RUN is one) on a body playing the AI's own
+// movement clip reads CurrentMotion -1, never meets its exit tests and stands there for good (TeamTick4: a named receiver stood
+// 5 s). PES's anime player keeps a finished clip as the current motion until the next issue, so the handler sees its own clip
+// to the end. No man whose body the FSM drives may sit in RUN_TURN_RUN on a clip PES does not number for a second, and none may
+// stand a second on a finished clip in RUN_TURN_RUN (the hold must not freeze a body either).
+TEST(MoveStepWire, NoManSitsInRunTurnRunOnAClipPesDoesNotNumber) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  match->StartPlay();
+  constexpr int kOneSecond = Match::kFramesPerSecond;
+  std::map<const Player*, int> run, finished;
+  int longest = 0, longestFinished = 0;
+  for (int t = 0; t < 3000; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const bool drivenOnOwnClip = p->GetCurrentFunctionType() == e_FunctionType_Movement;
+      const bool stuck = p->GetMoveStep().state == pes::MoveState::kRunTurnRun && drivenOnOwnClip;
+      run[p] = stuck ? run[p] + 1 : 0;
+      longest = std::max(longest, run[p]);
+      const Anim* a = p->GetCurrentAnim();
+      // A held set-piece taker is in his standby action (not MOVE), so MOVESTEP does not tick for him (ProcessMoveStep).
+      const bool fsmTicks = p->CastHumanoid()->IsMovementClip() && !p->GetTeam()->GetController()->IsPieceTakerHeld(p);
+      const bool atEnd = fsmTicks && a->anim && a->frameNum >= a->anim->GetFrameCount() - 1 && pesmovestep::CurrentMotionOf(*p) >= 0;
+      finished[p] = atEnd && p->GetMoveStep().state == pes::MoveState::kRunTurnRun ? finished[p] + 1 : 0;
+      longestFinished = std::max(longestFinished, finished[p]);
+    }
+  }
+  printf("[movestep-rtr] longest stretch in RUN_TURN_RUN on the AI's own clip %d ticks, on a finished PES clip %d ticks\n", longest,
+         longestFinished);
+  EXPECT_LT(longest, kOneSecond);
+  EXPECT_LT(longestFinished, kOneSecond);
+}
+
+// RUN_TURN_RUN's two motion-set predicates are hand-ported from FUN_140a6e290 / FUN_140a6e2e0 (pure tests of a u16 motion id).
+// The translated functions are the oracle: every motion id answers the same.
+TEST(MoveStepWire, TheMotionSetPredicatesAgreeWithTheTranslatedFunctions) {
+  constexpr uint64_t kBase = 0x10000;
+  int checked = 0;
+  for (int motion = 0; motion <= 0xffff; ++motion) {
+    uint8_t bytes[2] = {static_cast<uint8_t>(motion & 0xff), static_cast<uint8_t>(motion >> 8)};
+    for (const bool halted : {false, true}) {
+      PesState s;
+      s.mem.window = {kBase, sizeof bytes, bytes, nullptr};
+      s.gpr[1] = kBase;
+      (halted ? ::pes_fn_140A6E2E0 : ::pes_fn_140A6E290)(s);
+      const bool oracle = (s.gpr[0] & 0xffu) != 0;
+      const bool port = halted ? pes::movestep::MotionIsHalted(motion) : pes::movestep::MotionIsRunning(motion);
+      ASSERT_EQ(port, oracle) << (halted ? "halted " : "running ") << motion;
+      ++checked;
+    }
+  }
+  EXPECT_EQ(checked, 2 * 0x10000);
+}
+
+// STEP_TURN_RUN's fading-clip predicate is hand-ported from FUN_140a6e4f0 (a pure test of the u16 motion id); the translated
+// function is the oracle over every motion id.
+TEST(MoveStepWire, TheFadingMotionSetAgreesWithTheTranslatedFunction) {
+  constexpr uint64_t kBase = 0x10000;
+  int members = 0;
+  for (int motion = 0; motion <= 0xffff; ++motion) {
+    uint8_t bytes[2] = {static_cast<uint8_t>(motion & 0xff), static_cast<uint8_t>(motion >> 8)};
+    PesState s;
+    s.mem.window = {kBase, sizeof bytes, bytes, nullptr};
+    s.gpr[1] = kBase;
+    ::pes_fn_140A6E4F0(s);
+    const bool oracle = (s.gpr[0] & 0xffu) != 0;
+    ASSERT_EQ(pes::movestep::MotionIsFading(motion), oracle) << motion;
+    members += oracle ? 1 : 0;
+  }
+  EXPECT_GT(members, 0);
 }

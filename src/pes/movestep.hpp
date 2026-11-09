@@ -66,10 +66,15 @@ enum class MoveState : uint8_t {
 };
 inline constexpr int kMoveStateCount = 24;
 
-// The FSM's pose hold: while the state is STOP or ACCELERATE the body keeps its pose. The clip's end does not switch the
-// body and the AI's movement command selects no clip (humanoid.cpp). ponytail: the hold set is STOP and ACCELERATE; the
-// IDLE family is not held, since its exit to GOTO_RUN is not decoded.
-inline bool HoldsBodyPose(MoveState s) { return s == MoveState::kStop || s == MoveState::kAccelerate; }
+// The FSM's pose hold: while the state is STOP, ACCELERATE or RUN_TURN_RUN the body keeps its pose. The clip's end does not
+// switch the body and the AI's movement command selects no clip (humanoid.cpp): PES's anime player keeps a finished clip as the
+// current motion until the next issue, and these handlers read that clip to exit. ponytail: the hold set is the states whose
+// exit is decoded and checked (RUN_TURN_RUN: FUN_1406C14C0 from its instruction stream); the other turn states keep the old
+// hand-off because their ports do not exit reliably yet (widening the hold to them froze a man for 2,500 ticks); the IDLE
+// family is not held, since its exit to GOTO_RUN is not decoded.
+inline bool HoldsBodyPose(MoveState s) {
+  return s == MoveState::kStop || s == MoveState::kAccelerate || s == MoveState::kRunTurnRun;
+}
 
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.
 struct MoveStepRecord {
@@ -149,6 +154,7 @@ inline constexpr int kLookDelta = 0x05;        // req[5]: wrap180 difference (OB
 inline constexpr int kTurn = 0x06;             // req[6]: target minus facing, the turn angle (OBS)
 inline constexpr int kFacingError = 0x07;      // req[7]: facing error to the look-at point (OBS)
 inline constexpr int kMoveBucket = 0x08;       // req[8]: 10-way angle bucket of the move (OBS)
+inline constexpr int kLiveBucket = 0x20;       // req[0x20] (byte 0x80): the bucket the live clip's row was selected at; FUN_1406d5d60's run-stop arm writes it and passes it to FUN_1406ba0d0 (real calls: stop_replay.py seq7084, seq7145, seq9209)
 inline constexpr int kCommandSpeedClass = 0x09;  // req[9]: cmd[0x17] mapped to 0..3, else -1 (OBS)
 inline constexpr int kDesiredSpeedKmh = 0x0a;  // req[0xa]: desired speed, km/h, cmd[0x172] (OBS)
 inline constexpr int kUseClassRate = 0x0b;     // req[0xb] byte: "use the class rate" flag, cmd+0x5c5 (OBS)
@@ -179,7 +185,7 @@ inline constexpr int kRate = 0x4a;             // req[0x4a]: parametric rate (OB
 inline constexpr int kPlaybackDefault = 0x4b;  // req[0x4b]: P+0x3750, default 1.0 (OBS copy-in)
 inline constexpr int kStartRate = 0x4f;        // req[0x4f]: start phase, the normalised foot phase (AS 1)
 inline constexpr int kClassWord = 0x1f;        // req[0x1f] (byte 0x7c): the 0..3 class word the ramp, dwell and step tables share (CONFIRMED: FUN_1406c2f80 reads *(int*)(req+0x7c), INIT writes 1; pes-re-a3helpers.md addendum item 4)
-inline constexpr int kFootFlag = 0x98;         // req[0x98] byte (byte req+0x26): the foot flag (CONFIRMED: FUN_1406ce820 writes *(req+0x26) at lines 561, 858; FUN_1406bb570 writes *(req+0x26) at the shared-band block)
+inline constexpr int kFootFlag = 0x26;         // req[0x26] byte (byte offset 0x98): the foot flag (CONFIRMED: FUN_1406ce820 writes *(req+0x26) at lines 561, 858; FUN_1406bb570 writes *(req+0x26) at the shared-band block; FUN_1406c14c0 asm `mov byte ptr [rsi+0x98]`)
 inline constexpr int kPrevClassWord = 0x24;    // req[0x24] (byte 0x90): the class before the change
 inline constexpr int kRootFacing = 0x3a;       // req[0x3a] byte: a root-facing write is due (OBS: FUN_1406c14c0 rate tail)
 inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-facing angle, degrees (OBS)
@@ -187,8 +193,8 @@ inline constexpr int kTurnLockFlag = 0x3c;     // req[0x3c] byte: a turn lock is
 inline constexpr int kTurnLockStamp = 0x3d;    // req[0x3d]: the lock's stamp, req[0x18] at the write (0x1406CACA3)
 inline constexpr int kTurnLockTicks = 0x3e;    // req[0x3e]: the lock's tick count (0x1406CACB4)
 inline constexpr int kTurnLockDir = 0x3f;      // req[0x3f] byte: the lock's direction flag, 0 at the write (0x1406CACBB)
-inline constexpr int kSlipActive = 0xe8;       // req[0xe8] byte: slip damping is active (OBS: FUN_1406c2f80)
-inline constexpr int kSlipAngle = 0xec;        // req[0xec]: the damped facing, degrees (OBS). The adapter copies it to P+0xbec.
+inline constexpr int kSlipActive = kRootFacing;       // req[0x3a] byte (byte offset 0xe8): slip damping is active (FUN_1406c2f80; FUN_1406c14c0 asm `mov byte ptr [rsi+0xe8]`)
+inline constexpr int kSlipAngle = kRootFacingAngle;   // req[0x3b] (byte offset 0xec): the damped facing, degrees. The adapter copies it to P+0xbec.
 inline constexpr int kLiveKind = 0x1e;        // req[0x1e]: the live clip's kind; FUN_1406d5d60 writes it (OBS per MovestepRun)
 inline constexpr int kStopBand = 0x51;        // req[0x51] (req+0x144): the band FUN_1406d5d60 reads for its stop-row picker (OBS per MovestepRun)
 inline constexpr int kPrevBucket = 0x25;      // req[0x25]: the bucket before the last change (OBS: FUN_1406bdf10, FUN_1406c14c0)
@@ -214,6 +220,9 @@ class MoveReq {
   // A PES byte flag: the low byte of the word.
   bool Flag(int word) const { return (words_[word] & 0xffu) != 0; }
   void SetByte(int word, uint8_t v) { words_[word] = (words_[word] & ~0xffu) | v; }
+  // The byte at request byte offset `off` (`*(char*)((longlong)param_2 + off)` in a decompile, which is NOT word off): byte
+  // off & 3 of word off / 4, little-endian.
+  bool FlagAtByte(int off) const { return ((words_[off >> 2] >> ((off & 3) * 8)) & 0xffu) != 0; }
 
  private:
   std::array<uint32_t, kMoveReqWords> words_{};

@@ -61,9 +61,11 @@ float HeadingFrom(float x, float z, float toX, float toZ) {
   return a;
 }
 
-// FUN_140141e532d0: the logic-clock draw in [0, 1). The handlers only scale it, so the scale
-// (one tick = 1 / ticksPerSecond) is the only thing this port needs.
-float ClockStep(MoveHost& host) { return 1.0f / host.TicksPerSecond(); }
+// FUN_141e532d0: the frame rate as a float, 54.0 (image bytes 0x42580000; docs/re/pes-re-A6Writers.md). Every handler in this file
+// multiplies or divides by it exactly as PES does: ground speed in km/h is `fps * 60 * 60 / 1000 * |metres per tick|`, a dwell
+// is `fps * seconds`, a per-tick angle is `degrees / fps`. (The port once read it as 1/54 "the logic clock draw": every ground
+// speed came out ~2,900 times too small, so the step loop saw a running man as standing.)
+float FramesPerSecond(MoveHost& host) { return host.TicksPerSecond(); }
 
 // DAT_14259be40 (57.2957..): FUN_14046f260's radians-to-degrees scale.
 constexpr float kDegToRad = 57.2957763671875f;
@@ -204,10 +206,10 @@ bool StepLetsRunTurn(MoveHost& host, MoveReq& req) {
 // -------------------------------------------------------------------------------------------------
 void RunToStep(MoveHost& host, MoveReq& req) {
   const StepScalars& k = host.StepConstants();
-  const float tick = ClockStep(host);
+  const float fps = FramesPerSecond(host);
   float blended = 0.0f;
-  if (tick * req.F(moveword::kDwellLimit2) != 0.0f)
-    blended = req.F(moveword::kRecordStampA) / (tick * req.F(moveword::kDwellLimit2));
+  if (fps * req.F(moveword::kDwellLimit2) != 0.0f)
+    blended = req.F(moveword::kRecordStampA) / (fps * req.F(moveword::kDwellLimit2));
 
   // 2. The rate target and the walk toward it.
   const float target = RateFor(host, req.F(moveword::kUseClassRate),
@@ -284,13 +286,14 @@ void RunToStep(MoveHost& host, MoveReq& req) {
     }
     req.SetF(moveword::kRootFacingAngle, drift);
     req.SetByte(moveword::kRootFacing, 1);
-    if (req.F(moveword::kDwellLimit2) * k.s0p6 <= req.F(moveword::kDwellElapsed2) &&
+    // 0x1406c1070 (decompile lines 131-147): the second dwell past 0.7 of its limit (DAT_14257a194) and a heading error past 31.64 deg^2.
+    if (req.F(moveword::kDwellLimit2) * k.s0p7 <= req.F(moveword::kDwellElapsed2) &&
         k.deg31p64 < headingError * headingError) {
-      // The drift is clamped to what the clock can cover, and FUN_140470d60 keeps the
-      // shortest-way side of the wrapped heading.
-      const float limit = k.deg22p5 / tick;
-      float delta = headingError;
-      if (limit < delta) {
+      // The drift is clamped to what the clock can cover (22.5 / 54 degrees): fVar5 = fVar6 (the limit) above it, -limit below
+      // -limit, the error itself between; FUN_140470d60 keeps the shortest-way side of the wrapped heading.
+      const float limit = k.deg22p5 / fps;
+      float delta = limit;
+      if (headingError <= limit) {
         delta = -limit;
         if (-limit <= headingError) delta = headingError;
       }
@@ -332,10 +335,10 @@ void RunToStep(MoveHost& host, MoveReq& req) {
 // -------------------------------------------------------------------------------------------------
 void StepToRun(MoveHost& host, MoveReq& req) {
   const StepScalars& k = host.StepConstants();
-  const float tick = ClockStep(host);
+  const float fps = FramesPerSecond(host);
   float blended = 0.0f;
-  if (tick * req.F(moveword::kDwellLimit) != 0.0f)
-    blended = req.F(moveword::kRecordStampA) / (tick * req.F(moveword::kDwellLimit));
+  if (fps * req.F(moveword::kDwellLimit) != 0.0f)
+    blended = req.F(moveword::kRecordStampA) / (fps * req.F(moveword::kDwellLimit));
 
   const float heading = req.F(moveword::kHeading);
   // PES at 0x1406C6FEC and 0x1406C7000: FUN_14043a0a0(stamp, heading) and
@@ -357,7 +360,7 @@ void StepToRun(MoveHost& host, MoveReq& req) {
         // (60 * 60 / 1000) times the displacement length.
         float d[3];
         host.PositionAt(0, d);
-        const float speed = (tick * k.ticks60 * k.ticks60) / k.scale1000 *
+        const float speed = (fps * k.ticks60 * k.ticks60) / k.scale1000 *
                             std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
         if (k.kmh5 <= speed) {
           if (k.kmh13p5 <= speed) {
@@ -411,15 +414,17 @@ void StepToRun(MoveHost& host, MoveReq& req) {
 
   // The drift gate: the clock covers 270 degrees per tick; below that the heading error is
   // split over the remaining dwell and clamped by FUN_140470d60's shortest-way fold.
-  const float draw = k.deg270 / tick;
+  const float draw = k.deg270 / fps;
   if (blended * blended < draw * draw && k.deg31p64 < remaining * remaining) {
-    const float span = tick * (req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellElapsed2));
+    const float span = fps * (req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellElapsed2));
     float error = remaining;
     if (span != 0.0f) error = remaining / span;
-    float delta = draw - std::fabs(blended);
-    if (error <= delta) {
-      delta = -delta;
-      if (-delta <= error) delta = error;
+    // The same clamp: the bound above it, minus the bound below it, the error itself between (decompile lines 108-120).
+    const float bound = draw - std::fabs(blended);
+    float delta = bound;
+    if (error <= bound) {
+      delta = -bound;
+      if (-bound <= error) delta = error;
     }
     // FUN_140470d60 keeps the shortest-way side, so on the wrapped path the result is the
     // folded sum; the handler adds the delta to req[0x18] either way.
@@ -485,7 +490,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   const int kind = int(req.U(moveword::kKind));
   const bool precise = req.Flag(moveword::kPrecise);
   const float facing = req.F(moveword::kFacing);
-  const float tick = ClockStep(host);
+  const float fps = FramesPerSecond(host);
 
   // 1. The band walk: `if (req[0x1f] == 0 && req[0x24] == 1 && 0 < req[0x2e])` in PES.
   if (int(req.U(moveword::kClassWord)) == 0 && int(req.U(moveword::kPrevClassWord)) == 1 &&
@@ -524,7 +529,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   float blendedSpeed = speed * k.half + req.F(moveword::kBandSpeed) * k.half;
   float ground[3];
   host.PositionAt(1, ground);
-  const float groundSpeed = (tick * k.ticks60 * k.ticks60) / k.scale1000 *
+  const float groundSpeed = (fps * k.ticks60 * k.ticks60) / k.scale1000 *
                             std::sqrt(ground[0] * ground[0] + ground[1] * ground[1] +
                                       ground[2] * ground[2]);
 
@@ -649,7 +654,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
         const float a = lookDelta < 0.0f ? k.negOne : k.one;
         const float b = lookError < 0.0f ? k.negOne : k.one;
         if (a != b) {
-          drift = k.halfTurn / (tick * 2.0f);
+          drift = k.halfTurn;  // 0x1406c4c10: fVar24 = fVar21 = DAT_142598580 (180), or DAT_1425ddffc (-180) just below
           if (0.0f < lookDelta) drift = k.neg180;
         }
       }
@@ -1181,7 +1186,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   const bool precise = req.Flag(moveword::kPrecise);
   const int speedClass = int(req.U(moveword::kCommandSpeedClass));
   const float facing = req.F(moveword::kFacing);
-  const float tick = ClockStep(host);
+  const float fps = FramesPerSecond(host);
 
   // 1. The blended heading integral, and the drift's weight.
   float weight = 1.0f;
@@ -1201,7 +1206,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     if (std::fabs(blended) < k.eps1e7) blended = 0.0f;
     const float held = req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellLimit2) * weight;
     req.SetU(moveword::kBlendB, uint32_t(held));
-    req.SetU(moveword::kBlendA, uint32_t(held * blended * tick + held * share));
+    req.SetU(moveword::kBlendA, uint32_t(held * blended * k.half + held * share));  // fVar15 = DAT_142565600 (0.5) at 0x1406c6480's top
   }
 
   // 2/3. The band and the rate, then the two run-turn entries.
@@ -1213,7 +1218,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
       // The ground speed decides the band, in km/h: the clock times the displacement length.
       float d[3];
       host.PositionAt(0, d);
-      const float speed = (tick * k.ticks60 * k.ticks60) / k.scale1000 *
+      const float speed = (fps * k.ticks60 * k.ticks60) / k.scale1000 *
                           std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
       if (k.kmh8 <= speed) {
         if (k.kmh13p5 <= speed) {
@@ -1236,7 +1241,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
       req.SetF(moveword::kRate, kRateHigh);
       float d[3];
       host.PositionAt(0, d);
-      const float speed = (tick * k.ticks60 * k.ticks60) / k.scale1000 *
+      const float speed = (fps * k.ticks60 * k.ticks60) / k.scale1000 *
                           std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
       if (k.kmh8 <= speed) {
         if (k.kmh13p5 <= speed) {
@@ -1250,15 +1255,15 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
       const int band = host.BandSpeedKmh(int(req.F(moveword::kRate)), host.PhysiqueG());
       req.SetU(moveword::kClassWord, uint32_t(band));
       req.SetF(moveword::kBandSpeed, host.RateCeiling() * k.s0p6 * k.kmh3p6);
-      // FUN_1406d2f60's threshold: (rate ceiling - 0.6) * the clock step.
-      if (EnterRunTurnStep(host, req, (ceiling - k.s0p6) * tick)) return;
+      // FUN_1406d2f60's threshold: (rate ceiling - 0.6) * 0.5.
+      if (EnterRunTurnStep(host, req, (ceiling - k.s0p6) * k.half)) return;  // FUN_1406d2f60(.., (ceiling - 0.6) * fVar15 = 0.5)
     }
   }
 
   // 4. The arrival flag: does the change complete, or does the loop re-plan?
   float d[3];
   host.PositionAt(1, d);
-  const float groundSpeed = (tick * k.ticks60 * k.ticks60) / k.scale1000 *
+  const float groundSpeed = (fps * k.ticks60 * k.ticks60) / k.scale1000 *
                             std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
   if (req.U(0x3f) == 0 || int(req.U(moveword::kClassWord)) > 1 || !precise) {
     if (!precise && 1 < int(req.U(moveword::kCommandSpeedClass)) &&
@@ -1315,8 +1320,8 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     stopFallback = true;
   }
   float blendedTurn = 0.0f;
-  if (tick * req.F(moveword::kDwellLimit2) != 0.0f)
-    blendedTurn = req.F(moveword::kRecordStampA) / (tick * req.F(moveword::kDwellLimit2));
+  if (fps * req.F(moveword::kDwellLimit2) != 0.0f)
+    blendedTurn = req.F(moveword::kRecordStampA) / (fps * req.F(moveword::kDwellLimit2));
   if ((kind != 4 || (k.s0p15 < req.F(moveword::kDwellElapsed2) ||
                      k.s0p15 == req.F(moveword::kDwellElapsed2))) &&
       stopFallback) {
@@ -1374,7 +1379,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     float deltaLook = drift - toLookFolded;
     if (k.halfTurn < std::fabs(deltaLook))
       deltaLook -= (deltaLook < 0.0f ? k.negOne : k.one) * k.full;
-    if (tick * 2.0f <= std::fabs(deltaLook) && std::fabs(deltaLook) <= k.deg135) {
+    if (k.deg67p5 <= std::fabs(deltaLook) && std::fabs(deltaLook) <= k.deg135) {  // 0x1406c6d8d: COMISS XMM15 (DAT_1425cca34 = 67.5)
       const float toFacing = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kFacing));
       float facingFolded = req.F(moveword::kFacing);
       if (0.0f <= facingFolded) {
@@ -1426,7 +1431,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   const int speedClass = int(req.U(moveword::kCommandSpeedClass));
   const bool precise = req.Flag(moveword::kPrecise);
   const float facing = req.F(moveword::kFacing);
-  const float tick = ClockStep(host);
+  const float fps = FramesPerSecond(host);
 
   // 1. The motion's own record: the toe-off window and the divisor (0x1406CAB95..0x1406CACBB).
   // P+0x2468 under 0.85 (0x1425AB120, COMISS at 0x1406CABC1) reads 1.0 (0x14256AE1C, 0x1406CABD2).
@@ -1453,7 +1458,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       k.kmh5 < distance ? (distance < k.kmh5 ? (distance - k.kmh5) / k.dist3 : 1.0f) : 0.0f;
   float ground[3];
   host.PositionAt(1, ground);
-  const float groundSpeed = (tick * k.ticks60 * k.ticks60) / k.scale1000 *
+  const float groundSpeed = (fps * k.ticks60 * k.ticks60) / k.scale1000 *
                             std::sqrt(ground[0] * ground[0] + ground[1] * ground[1] +
                                       ground[2] * ground[2]);
   req.SetF(moveword::kRate, req.F(moveword::kRate) * k.rate0p9);
@@ -1461,7 +1466,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   // The result's magnitude (the abs mask at 0x1406CAD24) is the first path's gate.
   const float turnToTarget = Wrap180(req.F(moveword::kHeading) - facing);
   const float turnToTargetDeg = std::fabs(turnToTarget);
-  const float dwellLimit = k.one / tick * k.deg10;  // the clock's 10-degree window
+  const float dwellLimit = k.one / fps * k.deg10;  // the clock's 10-degree window
 
   // 2. The first path: turn the facing back with a step clip.
   if (req.F(moveword::kDwellElapsed) <= dwellLimit && dwellLimit != req.F(moveword::kDwellElapsed) &&
@@ -1503,7 +1508,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   }
 
   // 3. The second path: the class-3 and bucket gates lead to the run-turn states.
-  const float lookAhead = k.one / tick * k.deg10;
+  const float lookAhead = k.one / fps * k.deg10;
   if (req.F(moveword::kDwellElapsed) <= lookAhead && lookAhead != req.F(moveword::kDwellElapsed) &&
       speedClass > 0 && int(req.U(moveword::kClassWord)) > 0) {
     const float turn = Wrap180(facing - req.F(moveword::kBodyDirection));
@@ -1661,8 +1666,9 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       }
     }
     if (stopNow && StayDecision(host, req)) {
-      if (!precise && std::fabs(Wrap180(DisplacementHeading(host) - facing)) < k.deg67p5 &&
-          std::fabs(Wrap180(DisplacementHeading(host) - facing)) < std::fabs(dwellLimit)) {
+      // 0x1406cb68f..0x1406cb6e4: |wrap180(req[1] - req[2])| under 67.5 (DAT_1425cca34), and |wrap180(req[1] - req[4])| under XMM12
+      // (DAT_14256ae34 = 1000, so always true for a wrapped angle).
+      if (!precise && turnToTargetDeg < k.deg67p5) {
         // The left/right feet decide the mirror and the stop's own row.
         // ponytail: PES reads the two feet through FUN_141eb50b0 indices 3 and 6 and rotates
         // them by the facing; GF has no pose bones, so the mirror is a coin flip from the
@@ -1684,7 +1690,10 @@ void TurnStop(MoveHost& host, MoveReq& req) {
         req.SetF(moveword::kRate, kRateMid);
         return;
       }
-      if (req.F(moveword::kDwellElapsed) < dwell && k.deg22p5 <= std::fabs(dwellLimit)) return;
+      // 0x1406cb83d..0x1406cb868: the dwell is not over and |wrap180(req[1] - req[4])| (the heading against the body direction)
+      // is at least 22.5 (XMM8 = DAT_14259d618): the tick is kept.
+      if (req.F(moveword::kDwellElapsed) < dwell &&
+          k.deg22p5 <= std::fabs(Wrap180(req.F(moveword::kHeading) - req.F(moveword::kBodyDirection)))) return;
     } else {
       if (req.F(moveword::kDwellElapsed) < dwell) return;
       if (!StayDecision(host, req)) {

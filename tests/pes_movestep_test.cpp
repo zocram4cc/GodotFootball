@@ -797,15 +797,19 @@ TEST(Init, AStandingPlayerWhoStaysGoesIdle) {
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
 }
 
-TEST(SimTail, CopiesTheSlipFacingAfterSlipdownEvenWhenRootFacingIsSet) {
-  RateHost host = IdleHost();
-  pes::MoveStepRecord rec;
-  pes::MoveReq req;
-  req.SetF(pes::moveword::kSlipAngle, 123.0f);
-  req.SetByte(pes::moveword::kRootFacing, 1);
-  req.SetF(pes::moveword::kRootFacingAngle, 300.0f);
-  pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kRunTurnRunSlipdown);
-  EXPECT_FLOAT_EQ(host.f0bec, 123.0f);
+// The slip tail of RUN_TURN_RUN_SLIPDOWN (FUN_1406c2f80) stores its damped facing at byte offsets 0xe8 / 0xec of the request, the
+// words 0x3a / 0x3b that FUN_1406b8340's tail copies to P+0xbec when the flag is set: one rule for every state.
+TEST(SimTail, CopiesTheSlipFacingOnlyWhenTheSlipFlagIsSet) {
+  for (const bool flagged : {true, false}) {
+    RateHost host = IdleHost();
+    host.f0bec = 7.0f;
+    pes::MoveStepRecord rec;
+    pes::MoveReq req;
+    req.SetF(pes::moveword::kSlipAngle, 123.0f);
+    req.SetByte(pes::moveword::kSlipActive, flagged ? 1 : 0);
+    pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kRunTurnRunSlipdown);
+    EXPECT_FLOAT_EQ(host.f0bec, flagged ? 123.0f : 7.0f);
+  }
 }
 
 TEST(SimTail, CopiesTheRootFacingOnOtherStatesOnlyWhenTheFlagIsSet) {
