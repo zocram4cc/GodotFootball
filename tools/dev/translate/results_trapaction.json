@@ -728,9 +728,9 @@
    "closure_file": "closure_trapadjust.json",
    "coverage": {
     "0x141EB1BF0": {
-     "reached": 12,
+     "reached": 11,
      "total": 69,
-     "fraction": 0.1739
+     "fraction": 0.1594
     }
    },
    "dead_blocks": {},
@@ -739,25 +739,23 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 0 REAL captured call(s) and 2 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. strike-mode (A+0x6d == 1) root advance of the Trap action's adjuster A=P+0x428; SYNTHETIC cases over seq299; modes 2/3/0 are loud aborts",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3: 3 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. strike-mode (A+0x6D == 1) root advance of the Trap action's adjuster A=P+0x428; modes 2/3/0 are loud aborts",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 2,
+    "calls": 3,
     "mismatches": 0,
     "own_block": {
-     "reached": 12,
+     "reached": 11,
      "total": 69,
-     "fraction": 0.1739
+     "fraction": 0.1594
     },
-    "replayed": 2,
+    "replayed": 3,
     "source": "tools/dev/translate/results_trapaction.json"
    },
    "stubs": [],
    "translated": true,
-   "va": "0x141EB1BF0",
-   "synthetic": true,
-   "synthetic_cases": 2
+   "va": "0x141EB1BF0"
   }
  ]
 }
