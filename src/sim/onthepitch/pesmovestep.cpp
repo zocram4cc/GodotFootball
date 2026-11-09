@@ -77,6 +77,8 @@ class AdapterTeam final : public pes::TeamAi {
     const int slot = Controller().RunSlotOf(&player_);
     return slot < 0 ? kNoPlayer : slot;
   }
+  // The player a slot names: the own record, or the run world's player in that slot; nullptr when none.
+  const Player* PlayerAt(int slot) const { return Who(slot); }
   // ponytail: GF's physical_acceleration stands in for the Acceleration byte (0x2b), scaled to the PES
   // ceiling (rec99). The DA (0x15) and PC (0x28) bytes have no GF stat yet and read 0.
   int Ability(int slot, int ability) const override {
@@ -424,10 +426,40 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   int ActionIndex() const override { return team_.OwnSlot(); }
   int RelatedSlot() const override { return -1; }  // ponytail: FUN_140a627e0's related record.
+  // The record's position (+0x55c x, +0x560 height, +0x564 z) in PES's order; zeros for a slot that names no player.
   void RecordPosition(int slot, float out[3]) const override {
-    (void)slot;
-    out[0] = out[1] = out[2] = 0.0f;  // ponytail: the match's per-player record positions.
+    const Player* p = team_.PlayerAt(slot);
+    const Vector3 v = p ? p->GetPosition() : Vector3{};
+    pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
+  const pes::TurnEntryTables& TurnEntryTablesView() const override { return c_.turnEntry; }
+  // ponytail: *(MA+0x2601c), the carrier slot (FUN_140a627e0(ctx, 0)); GF's ball retainer stands in. Removed by the MA record
+  // writer (TeamTick's carrier record).
+  int CarrierSlot() const override {
+    const Player* holder = match_.GetBallRetainer();
+    const int slot = holder ? holder->GetTeam()->GetController()->RunSlotOf(holder) : -1;
+    return slot < 0 ? 0x16 : slot;
+  }
+  // ponytail: byte +1 of the anime record (FUN_140a48910); GF knows only the role: a goalkeeper is 0x12.
+  int AnimeRecordClass(int slot) const override {
+    const Player* p = team_.PlayerAt(slot);
+    return p && p->GetFormationEntry().role == e_PlayerRole_GK ? 0x12 : 0;
+  }
+  // ponytail: FUN_14044e020's event-table ticks (MA+0x24840) have no GF record: 0, which keeps the tired row off.
+  int RecordTicks(int) const override { return 0; }
+  // ponytail: *(G+0x2c0)+0x85 (FUN_140a3f560) is the match object's flag; GF has none.
+  bool MatchObjectFlag2c0() const override { return false; }
+  // ponytail: FUN_1406e7730 reads the clip's hit root offsets (FUN_1406af6d0 / FUN_1406af9a0), which no reader serves yet.
+  float ClipHitDistance(int, float, int) const override { return 0.0f; }
+  // FUN_140439e50(P+8, point): 0 when the point is the own position, else the bearing folded into [0, 360).
+  float HeadingToPointDeg(const float point[3]) const override {
+    float own[3];
+    OwnPosition(own);
+    if (point[2] == own[2] && point[0] == own[0]) return 0.0f;
+    return pes::FoldFull(std::atan2(point[0] - own[0], point[2] - own[2]) * kDegPerRad, c_.run);
+  }
+  // ponytail: the analyser's counter row (FUN_1406e2c30, P+0x3AD8) has no GF record.
+  void CountAnalyserEvent(int) override {}
   float RecordFacing(int slot) const override {
     (void)slot;
     return 0.0f;  // ponytail: the match's per-player record facings.

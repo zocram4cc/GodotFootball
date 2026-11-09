@@ -14,6 +14,7 @@
 #include "pes/movestep.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_turn.hpp"
+#include "pes/movestep_turn_entry.hpp"
 #include "pes/physique.hpp"
 #include "pes/vfs.hpp"
 
@@ -27,6 +28,7 @@ struct MoveStepConstants {
   StepTables stepTables{};
   PlaybackConstants playback{};
   SpeedRateTable speedRate{};
+  TurnEntryTables turnEntry{};  // FUN_1406d01d0's foot-flag tables
   MoveConstants move{};
   IdleRowTables idleRows{};
   AngleBucketConstants buckets{};

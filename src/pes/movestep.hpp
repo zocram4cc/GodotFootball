@@ -594,6 +594,9 @@ inline constexpr int kAbilityDa = 0x15;
 inline constexpr int kReplayAnimeState = 0x4a;  // vt+0x28 == 0x4a: the replay action
 
 struct SpeedClassConstants;  // the sine table of FUN_140a92c80 (defined below, with TableSinDeg)
+struct TurnEntryTables;      // the foot-flag tables of FUN_1406d01d0, defined in movestep_turn_entry.hpp
+// A MoveHost read the host does not bind: reports the name and aborts.
+[[noreturn]] void MoveHostUnbound(const char* what);
 class MoveHost {
  public:
   virtual ~MoveHost() = default;
@@ -747,6 +750,24 @@ class MoveHost {
   virtual const TeamAi& Team() const = 0;
   // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
   virtual void Issue(const MotionRequest& request) = 0;
+
+  // The reads of the GOTO_RUN turn entry FUN_1406d01d0 (movestep_turn_entry.hpp). Each names the PES call it stands for;
+  // a host that does not bind one stops loudly (MoveHostUnbound), it never answers a made-up value.
+  virtual const TurnEntryTables& TurnEntryTablesView() const { MoveHostUnbound("TurnEntryTablesView"); }
+  // FUN_140a627e0(ctx, 0) = *(MA+0x2601c): the slot of the man holding the ball; 0x16 or more is nobody.
+  virtual int CarrierSlot() const { MoveHostUnbound("CarrierSlot"); }
+  // FUN_140a48910(G, slot)+1: the anime record's class byte of a slot (0x12 marks a keeper).
+  virtual int AnimeRecordClass(int) const { MoveHostUnbound("AnimeRecordClass"); }
+  // FUN_14044e020(MA+0x24840, slot): the ticks of the slot's record in the match's event table.
+  virtual int RecordTicks(int) const { MoveHostUnbound("RecordTicks"); }
+  // The match object at G+0x2c0: its byte +0x85 when its mode byte +0x12 is 1 or 2, else 0 (FUN_140a3f560).
+  virtual bool MatchObjectFlag2c0() const { MoveHostUnbound("MatchObjectFlag2c0"); }
+  // FUN_1406e7730 (+0xab8 vt+0x58): the distance the clip's hit record covers, at the physique scale g, for hit `index`.
+  virtual float ClipHitDistance(int, float, int) const { MoveHostUnbound("ClipHitDistance"); }
+  // FUN_140439e50(P+8, point): the heading in [0, 360) from the own position to `point` (PES order x, height, z).
+  virtual float HeadingToPointDeg(const float[3]) const { MoveHostUnbound("HeadingToPointDeg"); }
+  // FUN_1406cba60 -> FUN_1406e2c30(P, row): the analyser's per-row counter (P+0x3AD8 record); no gameplay path reads it.
+  virtual void CountAnalyserEvent(int) { MoveHostUnbound("CountAnalyserEvent"); }
 };
 
 // ---------------------------------------------------------------------------------------------

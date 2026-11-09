@@ -61,7 +61,6 @@ int TurnStopRowFor(int kind, int cls, const RunTables& t);  // FUN_1406ba0d0, 0x
 
 // The group-B file-local helpers, defined in namespace pes beside the loaders (their callers
 // are the handlers in namespace pes::movestep, which see them through pes::).
-bool TurnLockEligible(MoveHost& host, MoveReq& req);       // FUN_1406d01d0
 // FUN_140a92950(heading, target, clamp): the heading stepped toward the target by at most the
 // clamp, wrapped into [0, 360). Group C carries the same helper as StepHeadingToPoint; the two
 // reconcile when the shared contract names it.

@@ -542,10 +542,10 @@ void EnterRun(MoveHost&, MoveReq&, int foot, bool rateHeld) {
 float BandRateFor(int band, int kind, const RunTables&) { return 0.1f * static_cast<float>(band + 1) + 0.01f * static_cast<float>(kind); }
 int ClassForRateFor(float rate, const RunTables&) { return rate < 0.25f ? 0 : (rate < 0.45f ? 1 : 2); }
 float RateToSpeedFor(float, float, const RunTables&, float) { return 0.0f; }
-// Group B's FUN_1406d01d0 gate (movestep_run.cpp), which STEP_TURN_RUN's early gate calls: the tests set its answer.
+// FUN_1406d01d0 (movestep_turn_entry.cpp), which STEP_TURN_RUN's early gate calls: the tests set its answer.
 bool turnLockAnswer = false;
 int turnLockCalls = 0;
-bool TurnLockEligible(MoveHost&, MoveReq&) {
+bool EnterGotoTurn(MoveHost&, MoveReq&) {
   ++turnLockCalls;
   return turnLockAnswer;
 }

@@ -20,6 +20,7 @@
 //   FUN_1406ea750  the engine blend rate             the live engine rate (INF, AS 7)
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_step.hpp"
+#include "pes/movestep_turn_entry.hpp"
 
 #include <algorithm>
 #include <array>
@@ -398,20 +399,6 @@ std::optional<RunTables> LoadRunTables(const PeImage& exe, std::string* error) {
   return t;
 }
 
-// FUN_1406d01d0(ap, req): the turn-lock test, true when the request's words are already locked.
-// Its decompile (gf-MovestepRun-scratch/d_1406d01d0.c) reads the look bucket and the facing error
-// against the 45/112.5/135 gates and writes the same words back; the port keeps the decision.
-bool TurnLockEligible(MoveHost& host, MoveReq& req) {
-  // The class of -1 is normalised to 1 (the decompile's first block).
-  if (req.U(moveword::kCommandSpeedClass) == 0xffffffffu) {
-    req.SetU(moveword::kCommandSpeedClass, 1u);
-  }
-  if (req.U(moveword::kPrecise) != 0u) return false;
-  const int motion = host.CurrentMotion();
-  if (motion < 0x8ac || motion == 0x8af || motion > 0x8b1) return false;
-  return true;
-}
-
 namespace movestep {
 
 // ---------------------------------------------------------------------------------------------
@@ -759,7 +746,7 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   if ((static_cast<uint32_t>(static_cast<int>(req.U(moveword::kBandTarget)) - 1) < 2u) && cls > 2) {
     if (req.U(moveword::kPrecise) == 0u) {
       const bool keeper = host.MatchPhase() == 0x4a;
-      if (bearing < k.deg45 && !keeper && motion != 0x8d1 && !turnFamily && TurnLockEligible(host, req)) {
+      if (bearing < k.deg45 && !keeper && motion != 0x8d1 && !turnFamily && EnterGotoTurn(host, req)) {
         return;
       }
     }

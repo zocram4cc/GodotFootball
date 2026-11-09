@@ -4,6 +4,15 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
+
+namespace pes {
+void MoveHostUnbound(const char* what) {
+  std::fprintf(stderr, "MoveHost::%s is not bound by this host\n", what);
+  std::abort();
+}
+}  // namespace pes
 
 namespace pes {
 namespace {
