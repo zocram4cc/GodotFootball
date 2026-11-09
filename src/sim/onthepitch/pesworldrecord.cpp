@@ -2,6 +2,8 @@
 // record an entry names, and fall back to entry 0 past the table's count, as PES does. GF's readers of the two tables
 // run them on the world window.
 
+#include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 
 #include "onthepitch/pesworldrecord.hpp"
@@ -41,6 +43,19 @@ uint64_t Answer(void (*accessor)(PesState&), uint8_t* world, int index) {
 uint8_t* InWindow(uint8_t* world, uint64_t va) {
   if (va < kWorldWindowVa || va >= kWorldWindowVa + kWorldBytes) return nullptr;
   return world + (va - kWorldWindowVa);
+}
+
+// PES's man accessor 0x140A48A10 answers the table entry unchecked (a slot past the table reads entry 0), and PesWorld binds every
+// entry (BindSlot, BindOfficial): an answer outside the window is a table nobody bound, never a record to run on. Stop there rather
+// than hand the callers a null they would read through.
+uint8_t* BoundRecord(uint8_t* world, uint64_t va) {
+  uint8_t* record = InWindow(world, va);
+  if (record == nullptr) {
+    std::fprintf(stderr, "PesWorld: the man table answered 0x%llx, outside the window: the slot was never bound\n",
+                 static_cast<unsigned long long>(va));
+    std::abort();
+  }
+  return record;
 }
 
 // PES's bearing 0x140439EF0 on the window: rcx = from, rdx = to, the heading in xmm0 (coincident reads 0, else the fold
@@ -416,7 +431,7 @@ void PesWorld::SetTickFrame(int slot, float bodyHeadingDeg) {
 
 uint8_t* PesWorld::AnimeRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48910, Bytes(), slot)); }
 
-uint8_t* PesWorld::ManRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48A10, Bytes(), slot)); }
+uint8_t* PesWorld::ManRecord(int slot) { return BoundRecord(Bytes(), Answer(&::pes_fn_140A48A10, Bytes(), slot)); }
 
 bool PesWorld::Involved(int official) {
   uint8_t* frame = Block(official) + kOfficialFrameOffset;
