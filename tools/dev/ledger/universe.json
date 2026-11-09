@@ -29660,6 +29660,36 @@
    "vtables": [],
    "walked": true
   },
+  "14023A230": {
+   "boundary": null,
+   "callees": {
+    "14028F170": "direct",
+    "14028F250": "direct",
+    "1403CF740": "direct",
+    "1403CF770": "direct",
+    "1403D2180": "direct",
+    "1403D25A0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14023a230",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7"
+   ],
+   "scope": "in",
+   "size": 139,
+   "source": "pdata",
+   "subsystem": "animelayer7",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14023CC20": {
    "boundary": null,
    "callees": {
@@ -33316,6 +33346,35 @@
    "source": "bridge",
    "subsystem": "cutscene",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "140246CC0": {
+   "boundary": null,
+   "callees": {
+    "14023A230": "direct",
+    "1403D2180": "direct",
+    "1403D26A0": "direct",
+    "1403D27D0": "direct",
+    "1403D2E60": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140246cc0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7"
+   ],
+   "scope": "in",
+   "size": 121,
+   "source": "pdata",
+   "subsystem": "animelayer7",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -45554,6 +45613,38 @@
      "va": "142544F80"
     }
    ],
+   "walked": true
+  },
+  "140302830": {
+   "boundary": null,
+   "callees": {
+    "140246CC0": "direct",
+    "14028F170": "direct",
+    "14028F250": "direct",
+    "1403CF740": "direct",
+    "1403CF770": "direct",
+    "1403D2180": "direct",
+    "1403D25A0": "direct",
+    "1403D2E10": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140302830",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer7"
+   ],
+   "scope": "in",
+   "size": 219,
+   "source": "pdata",
+   "subsystem": "animelayer7",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
    "walked": true
   },
   "14030E300": {
@@ -1303623,6 +1303714,12 @@
     "members": 1,
     "roots": [
      "0x1415A1F7C"
+    ]
+   },
+   "animelayer7": {
+    "members": 180,
+    "roots": [
+     "0x140302830"
     ]
    },
    "animepre": {

@@ -238,5 +238,32 @@ class SystemInfoModel(unittest.TestCase):
         self.assertEqual(got, bytes(expect))
 
 
+class SetLastErrorModel(unittest.TestCase):
+    """KERNEL32 SetLastError: TEB.LastErrorValue (+0x68) = ecx, rax = the thread block's self pointer (gs:[0x30]), nothing else written."""
+
+    TEB = DATA + 0x800
+
+    def test_stores_the_error_dword_and_returns_the_thread_block(self):
+        model = ft.load_import_models()[("kernel32.dll", "SetLastError")]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, model)
+        mu.mem_map(DATA, 0x1000)
+        mu.mem_write(self.TEB, b"\xAB" * 0x100)
+        mu.mem_write(self.TEB + 0x30, struct.pack("<Q", self.TEB))
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.reg_write(UC_X86_REG_GS_BASE, self.TEB)
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.reg_write(UC_X86_REG_RCX, 0xDEAD00000057)
+        mu.emu_start(CODE, RET, count=100)
+        expect = bytearray(b"\xAB" * 0x100)
+        struct.pack_into("<Q", expect, 0x30, self.TEB)
+        struct.pack_into("<I", expect, 0x68, 0x57)
+        self.assertEqual(bytes(mu.mem_read(self.TEB, 0x100)), bytes(expect))
+        self.assertEqual(mu.reg_read(UC_X86_REG_RAX), self.TEB)
+
+
 if __name__ == "__main__":
     unittest.main()

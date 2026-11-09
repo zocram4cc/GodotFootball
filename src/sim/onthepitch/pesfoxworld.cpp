@@ -222,11 +222,19 @@ constexpr uint64_t kUnitFloatVa = 0x14256AE1C;  // DAT_14256AE1C, 1.0f: the temp
 // included): run 1 0x1436DCEB0 (the allocator's first byte flag) .. 0x1436DD294 (its last dword, map_bias-like cell at 0x1436DD290), run 2
 // 0x143AC2810 (its first dword) .. 0x143AC3DD0 (the dword at 0x143AC3DCC is the tsd key, the last one it names).
 constexpr uint64_t kAllocatorBssRuns[][2] = {{0x1436DCEB0, 0x1436DD294}, {0x143AC2810, 0x143AC3DD0}};
+// The string table singleton FUN_1403D2BB0 returns (&DAT_1436EDC00): a function-local static, built by FUN_1403D23F0 on the first call behind the
+// thread-safe-init guard DAT_1436EDCA8 (the last dword of the run). The dump holds it built, with its pools in the dead game's heap (guard
+// 0x80000001, pools at 0x1820000..), so FUN_1403D2A20 walks pool memory that does not exist here and never returns. Zero is the state PES starts
+// in: the guard clear, so the first call constructs it.
+constexpr uint64_t kStringTableRun[2] = {0x1436EDC00, 0x1436EDCB0};
 
 }  // namespace
 
 void PesFoxWorld::Boot() {
   for (const auto& run : kAllocatorBssRuns) std::memset(impl_->image + (run[0] - kImageBase), 0, run[1] - run[0]);
+  std::memset(impl_->image + (kStringTableRun[0] - kImageBase), 0, kStringTableRun[1] - kStringTableRun[0]);
+  // The thread-safe static guards (FUN_1403D2BB0's _Init_thread_header) read the thread's TLS block (epoch at +0x84): it exists before the first one runs.
+  InstallScratchArena();
   Call(::pes_fn_14038EE80, {});  // malloc_init_hard, as PES's first allocation runs it (FUN_14038E3E0 tests its flag at 0x1436DCEE0)
   for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
                       kPumpCountBVa, kResManagerVa, kRegistryVa})
@@ -247,7 +255,6 @@ void PesFoxWorld::Boot() {
   Call(::pes_fn_1402223C0, {});
   Call(::pes_fn_140222390, {});
   Call(::pes_fn_141AE77B0, {kBootArgs[0], kBootArgs[1], kBootArgs[2], kBootArgs[3]});
-  InstallScratchArena();
 }
 
 void PesFoxWorld::InstallScratchArena() {

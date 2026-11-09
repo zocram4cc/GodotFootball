@@ -565,6 +565,10 @@ def import_model_lines(op, jump):
         # DWORD read from the thread block at gs:[offset], zero-extended into rax (GetLastError: TEB.LastErrorValue).
         off = int(str(e["offset"]), 0)
         return ["{ " + push_ret + (" s.gpr[0] = (uint64_t)s.rd(s.gs_base + %dULL, 4);%s }" % (off, pop_ret))]
+    if e["do"] == "set_last_error":
+        # SetLastError(ecx), the code_hex model register for register: rax = the thread block's self pointer (gs:[0x30]), TEB.LastErrorValue
+        # (+0x68) = ecx, no flag touched.
+        return ["{ " + push_ret + " s.gpr[0] = s.rd(s.gs_base + 0x30ULL, 8); s.wr(s.gpr[0] + 0x68ULL, s.gpr[1], 4);%s }" % pop_ret]
     if e["do"] == "tls_get":
         # TlsGetValue(index): TEB.TlsSlots[index] for index < 64 (x64 TEB +0x1480), else NULL.
         return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"

@@ -489,6 +489,16 @@
     },
     {
       "module": "kernel32.dll",
+      "export": "SetLastError",
+      "do": "set_last_error",
+      "code_hex": "65488b042530000000894868c3",
+      "why": [
+        "VOID SetLastError(DWORD): stores TEB.LastErrorValue (TEB +0x68). The export chain in the rig's prefix (read from its DLLs by script, file offsets in kernel32.dll 0x14ee0 / ntdll.dll 0x39cb0): kernel32's thunk is `jmp [rip+0x40aa2]` into kernelbase's forward of ntdll!RtlSetLastWin32Error, whose code is `mov rax, gs:[0x30]; mov [rax+0x68], ecx; ret`. So after the call rax holds the TEB's self pointer and [TEB+0x68] = ecx; no other register or flag changes.",
+        "Callers: PES's jemalloc (FUN_14038E6B0 through the IAT slot 0x14252F6B8, and the .tls$ copy 0x15B960DC8: the same export). Same TEB as GetLastError's model (offset 0x68)."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
       "export": "GetSystemInfo",
       "do": "sysinfo",
       "code_hex": "c7410400100000c7412010000000c7412800000100c3",
