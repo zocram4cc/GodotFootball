@@ -549,47 +549,161 @@ TEST(RunRateGuard, StoresTheRateOnlyWhenItIsAtMostStepBaseOfTheCeiling) {
 // select each exit, with a host whose cross-group calls are inert.
 // ---------------------------------------------------------------------------------------------
 
-// FUN_1406bdf10's re-entry arm needs the clip past its first hit tick (iVar10 < iVar11 in the
-// decompile). The hit ticks come from the clip's HitData record, which GF does not model yet
-// (A-AN13), so with no record the port holds them at zero and this arm cannot fire. The test
-// states that: the class, the band and the turn all allow the re-entry, but the missing hit tick
-// keeps the handler in the straight-ahead re-plan, and the root-facing pair is written instead.
-TEST(GotoRun, KeepsTheRePlanWhileTheClipHasNoHitRecord) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
-  req.SetU(pes::moveword::kRateBand, 0u);
-  req.SetU(pes::moveword::kBandTarget, 0u);
-  req.SetF(pes::moveword::kDuration, 0.05f);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 5.0f);
-  req.SetF(pes::moveword::kTurn, 5.0f);
-  req.SetF(pes::moveword::kFacingError, 5.0f);
-  pes::movestep::GotoRun(h, req);
-  // The handler stays in the re-plan: no state request, and the root-facing pair is written.
-  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
-  EXPECT_EQ(req.U(pes::moveword::kRootFacing) & 0xffu, 1u);
+// FUN_1406bdf10's re-entry arm (0x1406be37c..0x1406be3fa) is the clip's live frame BEFORE ITS END (`CMP EBP,R12D; JGE`, 0x1406be3b3;
+// R12D = FUN_1406b1d00), not before its first hit tick, and it fires on a body direction or a turn more than 45 degrees off in either
+// direction (ANDPS abs at 0x1406be3dd and 0x1406be3b8's XMM9) or the command flag byte at BYTE offset 0x3f (0x1406be3eb).
+pes::RotRecord ClipEnding(int rotEnd) {
+  pes::RotRecord rot;
+  rot.offset = 0;
+  rot.start = 0;
+  rot.end = rotEnd;
+  return rot;
 }
 
-TEST(GotoRun, FallsThroughToTheStraightAheadRePlanWithoutATurn) {
+// A GOTO_RUN request that would re-plan: class 2, both band words zero, the live bucket nonzero (no draw overwrites the clip end).
+pes::MoveReq ReEntryRequest() {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kLiveBucket, 2u);
+  return req;
+}
+
+bool EnteredGotoRun(const pes::MoveReq& req) {
+  return req.Flag(pes::moveword::kChangeState) && req.U(pes::moveword::kNextState) == uint32_t(pes::MoveState::kGotoRun);
+}
+
+TEST(GotoRun, ReEntersWhileTheFrameIsBeforeTheClipEndWhateverTheTurnsSign) {
   SyntheticHost h;
   h.runConstants = SyntheticRun();
   h.runTables = SyntheticTables();
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
-  req.SetU(pes::moveword::kBandTarget, 1u);
-  req.SetF(pes::moveword::kFacing, 10.0f);
-  req.SetF(pes::moveword::kHeading, 12.0f);  // 2 degrees apart: no turn
-  req.SetF(pes::moveword::kTurn, 2.0f);
-  req.SetF(pes::moveword::kFacingError, 2.0f);
-  req.SetF(pes::moveword::kDuration, 0.05f);
-  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  h.record.rot.push_back(ClipEnding(10));  // end = int(2 * 10 * 54 / 60 + 0.5) = 18 ticks
+  h.currentClipFrames = 5;
+  pes::MoveReq req = ReEntryRequest();
+  req.SetF(pes::moveword::kTurn, -80.0f);
   pes::movestep::GotoRun(h, req);
-  // The straight-ahead arm writes the root-facing pair (words 0x3a/0x3b) with the clamped turn.
-  EXPECT_EQ((req.U(pes::moveword::kRootFacing) & 0xffu), 1u);
+  EXPECT_TRUE(EnteredGotoRun(req)) << "|req[6]| > 45 with the frame before the clip end re-plans (0x1406be3dd)";
+
+  SyntheticHost after;
+  after.runConstants = SyntheticRun();
+  after.runTables = SyntheticTables();
+  after.record.rot.push_back(ClipEnding(10));
+  after.currentClipFrames = 20;  // past the end: PES's `CMP EBP,R12D; JGE` skips the re-entry
+  pes::MoveReq late = ReEntryRequest();
+  late.SetF(pes::moveword::kTurn, -80.0f);
+  pes::movestep::GotoRun(after, late);
+  EXPECT_FALSE(EnteredGotoRun(late)) << "a clip at or past its end does not re-plan";
 }
+
+TEST(GotoRun, TheReEntryFlagIsTheRequestByteAtOffset3fNotWordThreeF) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.record.rot.push_back(ClipEnding(10));
+  h.currentClipFrames = 5;
+  pes::MoveReq byteSet = ReEntryRequest();
+  byteSet.SetU(0xf, 1u << 24);  // byte offset 0x3f is byte 3 of word 0xf (0x1406be3eb: CMP byte ptr [RDI+0x3f],0)
+  pes::movestep::GotoRun(h, byteSet);
+  EXPECT_TRUE(EnteredGotoRun(byteSet));
+
+  SyntheticHost g;
+  g.runConstants = SyntheticRun();
+  g.runTables = SyntheticTables();
+  g.record.rot.push_back(ClipEnding(10));
+  g.currentClipFrames = 5;
+  pes::MoveReq wordSet = ReEntryRequest();
+  wordSet.SetByte(pes::moveword::kTurnLockDir, 1);  // word 0x3f's low byte is the turn lock's direction, not this flag
+  pes::movestep::GotoRun(g, wordSet);
+  EXPECT_FALSE(EnteredGotoRun(wordSet));
+}
+
+// 0x1406be146..0x1406be17c: with the live bucket (req[0x20]) at 0 or 5 the clip end (R12D) is REPLACED by the draw
+// int(tps * 8 / 60 + 0.5); any other bucket keeps the record's end.
+TEST(GotoRun, TheClipEndIsTheDrawWhenTheLiveBucketIsZeroOrFive) {
+  for (const uint32_t bucket : {0u, 5u, 2u}) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.record.rot.push_back(ClipEnding(2));  // end = int(2 * 2 * 54 / 60 + 0.5) = 4 ticks
+    h.currentClipFrames = 5;
+    pes::MoveReq req = ReEntryRequest();
+    req.SetU(pes::moveword::kLiveBucket, bucket);
+    req.SetF(pes::moveword::kTurn, 80.0f);
+    pes::movestep::GotoRun(h, req);
+    const int draw = static_cast<int>(h.ticks * h.runConstants.kmh8 / h.runConstants.kmh60 + h.runConstants.half);
+    ASSERT_GT(draw, h.currentClipFrames);
+    EXPECT_EQ(EnteredGotoRun(req), bucket != 2u) << "bucket " << bucket;
+  }
+}
+
+// 0x1406be21b..0x1406be244: the turn lock holds while total <= frame < (total + 2 end) / 3, with no +1; it stores the lock heading as
+// a float in word 0x3d (0x1406be2ee) and the tick count in word 0x3e.
+TEST(GotoRun, TheTurnLockWindowEndsAtAThirdOfTheWayToTheClipEnd) {
+  for (const int frame : {11, 12}) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.record.rot.push_back(ClipEnding(10));  // total 0, end 18: the window is frames 0..11
+    h.currentClipFrames = frame;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kLiveBucket, 2u);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    pes::movestep::GotoRun(h, req);
+    if (frame == 11) {
+      EXPECT_FLOAT_EQ(req.F(pes::moveword::kTurnLockStamp), 10.0f);
+      EXPECT_EQ(req.U(pes::moveword::kTurnLockTicks), 7u) << "int((18 - 11) / 1 + 0.5)";
+    } else {
+      EXPECT_EQ(req.U(pes::moveword::kTurnLockTicks), 0u) << "frame 12 is outside the window";
+    }
+  }
+}
+
+// 0x1406be5f6 (MOVAPS XMM1,XMM7; XMM7 = FUN_14043a0a0(req[2], req[4]) from 0x1406be386): the stop entry's bucket is that of the signed
+// body-direction difference, not of the stamp's bearing.
+TEST(GotoRun, TheStopArmTakesTheBucketOfTheBodyDirection) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.buckets.wide = {-180.0f, -157.5f, -112.5f, -67.5f, -22.5f, 0.0f, 22.5f, 67.5f, 112.5f, 157.5f, 180.0f};
+  h.buckets.bucket = {9, 8, 7, 6, 5, 0, 1, 2, 3, 4};
+  h.buckets.hysteresisUp = 5.0f;
+  h.buckets.hysteresisDown = -5.0f;
+  h.record.rot.push_back(ClipEnding(10));
+  h.record.rot.back().start = 20;  // total 36: the frame is inside the clip, so the arm's clip gate holds
+  h.currentClipFrames = 5;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kLiveBucket, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kClassWord, 2u);  // the band GOTO_RUN left: keeps the re-entry (0x1406be39b: req[0x1f] < 1) closed
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 90.0f);        // the stamp's bearing: 90 degrees, past the 56.25 stop gate
+  req.SetF(pes::moveword::kBodyDirection, 160.0f);  // the body direction: another bucket than the bearing's
+  pes::movestep::GotoRun(h, req);
+  const int bodyBucket = pes::movestep::AngleBucket(h.buckets, 160.0f, 10, false);
+  ASSERT_NE(bodyBucket, pes::movestep::AngleBucket(h.buckets, 90.0f, 10, false));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle)) << "the stop arm ran (class word cleared)";
+  EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 2u);
+  EXPECT_EQ(req.U(pes::moveword::kLiveBucket), static_cast<uint32_t>(bodyBucket));
+}
+
+// 0x1406be629..: past the clip's end the facing re-aims at the heading by at most 157.5 degrees a second (0x1406be8cc: DIVSS by tps).
+TEST(GotoRun, TheRePlanTurnsTheFacingByAtMostTheTurnRatePerTick) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.record.rot.push_back(ClipEnding(0));
+  h.currentClipFrames = 6;
+  h.previousState = static_cast<int>(pes::MoveState::kIdle);  // IDLE's second dwell keeps the stop arm closed
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kLiveBucket, 2u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 40.0f);  // inside the 45-degree turn allowance: the straight-ahead re-plan
+  req.SetF(pes::moveword::kDwellLimit2, 0.35f);
+  pes::movestep::GotoRun(h, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRootFacingAngle), h.runConstants.deg1575 / h.ticks);
+}
+
 
 TEST(GotoRun, ClampsTheBodyTurnToTheLookLimitBeforeTurning) {
   SyntheticHost h;
@@ -663,6 +777,7 @@ TEST(GotoRun, TheCruiseHandsOverToTheRunEntryAndRequestsRunLoop) {
   SyntheticHost h;
   h.runConstants = SyntheticRun();
   h.runTables = SyntheticTables();
+  h.previousState = static_cast<int>(pes::MoveState::kIdle);  // IDLE's second dwell keeps the stop arm (0x1406be573) closed
   for (int i = 0; i < 64; ++i) h.runTables.styleGroup[i] = 0x100 + i;  // distinct rows: a wrong row reads a wrong motion
   pes::MoveReq req;
   req.SetF(pes::moveword::kFacing, 0.0f);
