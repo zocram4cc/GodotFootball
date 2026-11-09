@@ -21,6 +21,7 @@
 #include "pestrapworld.hpp"
 #include "pesimagetables.hpp"
 #include "pes_native.hpp"
+#include "pesbodyscan.hpp"
 
 struct PesState;  // the translated layer's call state (pes_state.hpp)
 
@@ -807,6 +808,24 @@ class PesWorld {
   // phase machine the action runs each logic frame. `ext` is the chain's (the loader data and the image). A path no capture
   // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
   PesTickResult RunTrapTick(int slot, PesTrapExternals& ext);
+  // PES's body contact scan 0x1406EDCE0 on the window for `slot`'s P (rcx = P, rdx = the driver's output record, zeroed in the call's
+  // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
+  // touched bit (kPFlagTouched) is the reach test's answer.
+  PesBodyScanOut RunBodyScan(int slot, PesTrapExternals& ext);
+  // One frame of the strike adjuster A = P+0x428 (pestrapworld.hpp kPAdjusterOffset): the root advance FUN_141EB1BF0 on `slot`'s P.
+  // `moved` is false while A is not running; else (x, z) is the frame's root displacement in PES axes, m (the clip's own root motion
+  // is not in it: GF's body plays that).
+  // ponytail: FUN_141EB3AF0, the per-frame wrapper (hold ticks, finish, and the anime layer's own displacement loaded into A+0x14 by
+  // FUN_141AF3CA0) reads the anime chain *(P+0xA08), which GF's window does not have: its counters and its finish are written here
+  // as 0x141EB3AF0 reads them and the layer's term is zero. AnimeLayer's chain removes this.
+  struct AdjusterStep {
+    bool moved = false;
+    float x = 0.0f, z = 0.0f;
+  };
+  AdjusterStep RunTrapAdjuster(int slot);
+  // The joint block (pesbodyscan.hpp) from the bones' world frames, as FUN_141EB49B0 leaves it: last tick's cells move to the previous
+  // slots, the masked bones' positions and rotations are written, P+0xA04 is set.
+  void WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask);
   // The planned touch's heading and kind a man's committed trap carries (F+0x744 / F+0x748), kept with the window because PES keeps
   // them in the caller's per-man state (OPEN: where). SetTickFrame writes them, the body's heading and the weight into F and F+0x868's object.
   struct TickPlan {

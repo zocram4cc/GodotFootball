@@ -91,12 +91,9 @@ public:
   e_MatchPhase GetMatchPhase() const { return matchPhase; }
 
   void StartPlay() { inPlay = true; }
-  // PES's ball is dead at the whistle: on the PES path the stop zeroes it in place (velocity and
-  // spin), so the stop never inherits a flight. The prepare teleport still moves it to the spot.
-  void StopPlay() {
-    inPlay = false;
-    if (pesLoop) ball->Stop();
-  }
+  // PES's whistle leaves the ball alone: the whistle 0x14050E770 writes the stoppage words and no ball state
+  // (docs/ports/pes-port-TeamTick7.md §3), so a ball in flight keeps flying until the prepare places it.
+  void StopPlay() { inPlay = false; }
   bool IsInPlay() const { return inPlay; }
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
@@ -303,6 +300,21 @@ public:
   // loader data the chain runs on, built once at construction.
   const pes::PesActorConstants& GetPesActorConstants() const { return pesActorConstants; }
   pes::PesTrapExternals& PesTrapExternalsOf() { return pesTrapMemory->Externals(); }
+  // PES's body contact scan (pesbodyscan.hpp), run for each man in the Trap action after his action tick (RunPesBodyScans): the scan's
+  // answer per PES slot, kept until the man's body takes it (TakePesTouch). A grant is the scan having filled the driver's output record
+  // with a touch request: the reach test passed on this tick's contact frame.
+  void GrantPesTouch(int slot, const pes::PesBodyScanOut& out) { pesTouch[slot] = out; pesTouchGranted[slot] = true; }
+  bool TakePesTouch(int slot, pes::PesBodyScanOut* out) {
+    if (!pesTouchGranted[slot]) return false;
+    pesTouchGranted[slot] = false;
+    ++pesTouchesTaken[slot];
+    *out = pesTouch[slot];
+    return true;
+  }
+  // How many grants slot's body has taken in this match (the tests' witness that a touch was a grant).
+  unsigned PesTouchesTaken(int slot) const { return pesTouchesTaken[slot]; }
+  // A grant lives for the tick that made it (the bodies take it in the same tick's team stage): RunPesBodyScans clears the last tick's.
+  void ClearPesTouches() { pesTouchGranted.fill(false); }
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
   // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
   // takes the named fallback.
@@ -755,6 +767,9 @@ protected:
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   pes::PesActorConstants pesActorConstants{};
   std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
+  std::array<unsigned, pes::kSlotCount> pesTouchesTaken{};
+  std::array<pes::PesBodyScanOut, pes::kSlotCount> pesTouch{};
+  std::array<bool, pes::kSlotCount> pesTouchGranted{};
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
   std::optional<pes::formation::FormationTables> pesFormations;
   std::optional<pes::formation::SheetConstants> pesSheetConstants;

@@ -96,6 +96,7 @@ std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::str
     if (error != nullptr) *error = "PES image: the trap actor's constants did not match their opcodes";
     return std::nullopt;
   }
+  if (!LoadJointMask(exe, &c.jointMask, error)) return std::nullopt;
   return c;
 }
 
