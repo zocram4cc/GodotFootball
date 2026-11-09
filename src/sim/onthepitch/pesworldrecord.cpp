@@ -450,8 +450,20 @@ PesWorld::AdjusterFrame PesWorld::StepAdjusters(int slot, float degToRad) {
   const uint64_t chain = LoadU64(p, kPScalePtrOffset);  // the anime chain *(P+0xA08): the window's physique object
   const std::size_t order[3] = {kPAdjusterOffset, kPHeightAdjusterOffset, kPYawAdjusterOffset};
   const uint8_t yawOverride = p[kPYawAdjusterOffset + kAdjYawFlagOffset];  // FUN_141EB3AF0's finish zeroes it
+  // FUN_141EB3AF0 steps an adjuster when its state is 2 and the counter is past the hold (+0xE) and not past the last tick (+0x10).
+  const auto steps = [p](std::size_t at) {
+    uint32_t state;
+    int16_t count, delay, ticks;
+    std::memcpy(&state, p + at + kAdjStateOffset, sizeof state);
+    std::memcpy(&count, p + at + kAdjCountOffset, sizeof count);
+    std::memcpy(&delay, p + at + kAdjDelayOffset, sizeof delay);
+    std::memcpy(&ticks, p + at + kAdjTicksOffset, sizeof ticks);
+    return state == kAdjRunning && count >= delay && count <= ticks;
+  };
+  const bool aStepped = steps(kPAdjusterOffset), yawStepped = steps(kPYawAdjusterOffset);
   for (const std::size_t at : order) {
     PesState s = NewCall(Bytes());
+    AttachImageTables(s);  // the adjusters' vtable slots (Match binds them) and the sine/frame-rate cells
     const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
     s.wr(entry, 0, 8);
     s.gpr[4] = entry;
@@ -461,17 +473,20 @@ PesWorld::AdjusterFrame PesWorld::StepAdjusters(int slot, float degToRad) {
   }
   // A's step adds the frame's root displacement to the layer's root point FUN_141AF3CA0 loaded (the man's position, O2+0xD0), so the
   // displacement is the difference. A that did not step leaves the point as loaded (a difference of zero).
-  uint32_t aState;
-  std::memcpy(&aState, p + kPAdjusterOffset + kAdjStateOffset, sizeof aState);
   const uint8_t* o2 = InWindow(Bytes(), LoadU64(PhysiqueA(slot), kAChildO2Offset));
   const uint8_t* a = p + kPAdjusterOffset + kAdjStepOffset;
-  const float dx = LoadF32(a, 0) - LoadF32(o2, kO2PointOffset), dz = LoadF32(a, 2 * sizeof(float)) - LoadF32(o2, kO2PointOffset + 2 * sizeof(float));
-  frame.strikeMoved = aState == kAdjRunning && (dx != 0.0f || dz != 0.0f);
-  frame.x = dx;
-  frame.z = dz;
+  frame.strikeMoved = aStepped;
+  if (aStepped) {
+    frame.x = LoadF32(a, 0) - LoadF32(o2, kO2PointOffset);
+    frame.z = LoadF32(a, 2 * sizeof(float)) - LoadF32(o2, kO2PointOffset + 2 * sizeof(float));
+  }
+  // The yaw adjuster's output (+0x20, P+0x4F0): FUN_141EB1A50's curves store acc = from + (the error spread so far) in degrees and
+  // output acc * 0.0174533, i.e. the ABSOLUTE yaw in radians; with the flag (+0x24 = P+0x4F4, FUN_1406EEDF0 0x1406EEF75) it outputs
+  // err / N, a rate in degrees per tick that EEDF0 turns into radians per tick.
+  frame.yawStepped = yawStepped;
+  frame.yawIsRate = yawOverride != 0;
   const float yaw = LoadF32(p, kPYawAdjusterOffset + kAdjYawOutOffset);
-  frame.yawStepped = yaw != 0.0f;
-  frame.yawRad = yawOverride != 0 ? yaw * degToRad : yaw;
+  frame.yawRad = frame.yawIsRate ? yaw * degToRad : yaw;
   return frame;
 }
 
@@ -479,6 +494,7 @@ void PesWorld::ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool over
   const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
   uint32_t bits;
   PesState s = NewCall(Bytes());
+  AttachImageTables(s);
   s.wr(entry, 0, 8);
   s.gpr[4] = entry;
   s.gpr[1] = PVa(slot) + kPYawAdjusterOffset;
@@ -492,6 +508,7 @@ void PesWorld::ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool over
   s.wr(entry + kArmFirstStackArg + 16, 0, 1);
   ::pes_fn_141EB35A0(s);
   PesState arm = NewCall(Bytes());
+  AttachImageTables(arm);
   arm.wr(entry, 0, 8);
   arm.gpr[4] = entry;
   arm.gpr[1] = PVa(slot) + kPYawAdjusterOffset;

@@ -89,6 +89,9 @@ struct PesActorConstants {
   float metresPerKm = 0.0f;       // 0x14256AE34 (0x1406EA168)
   float heightDivisor = 0.0f;     // 0x142598580: P+0x3B18 = height_cm / 180 (0x1406EB231)
   uint64_t memberVtable[3] = {0, 0, 0};  // P+0x428, +0x498, +0x4D0: the member constructor 0x141EB42B0's three `lea rax,[vtable]` sites
+  // The vtables' slots (5 qwords: ctor/dtor, reset +8, +0x10, step +0x18, finish +0x20) as the image holds them: the virtual calls of
+  // FUN_141EB3AF0 and the arms read them at the vptr the window's P holds.
+  std::array<std::array<uint8_t, 0x28>, 3> memberVtableSlots{};
   float memberRateNumerator = 0.0f;      // 0x14256AE1C: P+0x41C = this / tickRate (0x141EB4333)
   float degToRad = 0.0f;                 // 0x1425A0C48: the yaw adjuster's override rate, degrees -> radians (FUN_1406EEDF0, 0x1406EEF75)
   std::array<bool, 19> jointMask{};      // DAT_14351E540: the bones the joint block holds (the body scan's input; pesbodyscan.hpp)

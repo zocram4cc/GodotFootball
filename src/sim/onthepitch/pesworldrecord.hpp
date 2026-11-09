@@ -895,6 +895,10 @@ class PesWorld {
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
   void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }
+  // One more image range the window's calls read (the member adjusters' vtable slots: pestrapactor.hpp memberVtableSlots).
+  void AddImageSegment(uint64_t va, const uint8_t* bytes, std::size_t count) {
+    imageTables_.segments.push_back(PesTrapSegment{va, std::vector<uint8_t>(bytes, bytes + count)});
+  }
   // Gives a window call the bound image tables (the event store's none record 0x1436F3A40 and the frame-rate cells among them); every
   // call that reads an event query or the fps cells needs them.
   void AttachImageTables(::PesState& s) const;
@@ -942,9 +946,9 @@ class PesWorld {
   // P+0x428 (strike, approach), the height adjuster P+0x498 and the yaw adjuster P+0x4D0, each through FUN_141EB3AF0 (hold ticks,
   // finish, the layer's root point loaded into A+0x14, the step through the adjuster's vtable +0x18).
   // `strikeMoved` is set when A ran (x, z) = the frame's root displacement it added to the root point, PES axes (the trap world's: z =
-  // GF y), m. `yawStepped` is set when the yaw adjuster ran: `yawRad` is its per-tick rotation (FUN_141EB1A50), in the trap world's
-  // facing sense (clockwise seen from above). `degToRad` is 0x1425A0C48 (a yaw adjuster in override mode, flag +0x24 = 1, steps in
-  // degrees: FUN_1406EEDF0 multiplies by it, 0x1406EEF75).
+  // GF y), m. `yawStepped` is set when the yaw adjuster ran: `yawRad` is its output in the trap world's facing sense (atan2(x, GF y)):
+  // the ABSOLUTE yaw, radians (FUN_141EB1A50 curves 0-2), or, when `yawIsRate`, the rotation of this one tick (the flag mode: FUN_1406EEDF0
+  // multiplies it by `degToRad`, 0x1425A0C48, 0x1406EEF75).
   // ponytail: the height adjuster's output (+0x18, metres of root height) has no consumer: GF's body has no root height (2D contract).
   // ponytail: the chain's root point O2+0xD0 is the man's position the actor writer stores; PES's anime evaluation (the engine step
   // FUN_141EB5E70 ends in, chain vtable +0x38) is not run, so the engine's own consumption of these outputs is GF's body step (AnimeLayer).
@@ -952,6 +956,7 @@ class PesWorld {
     bool strikeMoved = false;
     float x = 0.0f, z = 0.0f;
     bool yawStepped = false;
+    bool yawIsRate = false;
     float yawRad = 0.0f;
   };
   AdjusterFrame StepAdjusters(int slot, float degToRad);

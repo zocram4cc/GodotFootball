@@ -34,11 +34,6 @@ float TrapFacingOf(float moveStepDeg) {
   const float folded = std::fmod(kHalfTurn_deg - moveStepDeg, kFullTurn_deg);
   return folded < 0.0f ? folded + kFullTurn_deg : folded;
 }
-// An angle difference folded into [-180, 180].
-float FoldSigned(float deg) {
-  const float folded = std::fmod(deg + kHalfTurn_deg, kFullTurn_deg);
-  return (folded < 0.0f ? folded + kFullTurn_deg : folded) - kHalfTurn_deg;
-}
 
 // PES's ground frame against GF's: PES's z is -coords[1] (referee.cpp:197 in.ballZ_m).
 // Every heading the adapter feeds PES goes through here, so the sign lives in this one place.
@@ -335,14 +330,10 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   float RecordF0bec() const override { return player_.GetMoveStep().yawLock; }
   void SetRecordF0bec(float value) override { player_.GetMoveStep().yawLock = value; }
-  // FUN_141eb56d0(P, &angle, 1): P+0x20 takes the angle (the trap world's sense, see TrapFacingOf) and the yaw adjuster is
-  // re-armed over one tick without error. ponytail: PES's engine reads the root yaw back from the anime evaluation (not run);
-  // GF's body takes the facing change at once, as the facing P+0x20 is what the AI reads next tick.
+  // FUN_141eb56d0(P, &angle, 1): P+0x20 takes the angle and the yaw adjuster is armed from it to itself over one tick (the call's
+  // `FUN_141eb35a0(P+0x4d0, *P+0x20, *angle, 1)` reads P+0x20 after the store), so the write turns nothing by itself.
   void SetRootFacing(float angleDeg) override {
-    const float target = TrapFacingOf(angleDeg);
-    const float turn = FoldSigned(target - TrapFacingOf(FacingDeg()));
-    match_.PesWorldOf().SetRootFacing(match_.PesSlotOf(&player_), target);
-    player_.CastHumanoid()->TurnRoot(-turn / kDegPerRad);
+    match_.PesWorldOf().SetRootFacing(match_.PesSlotOf(&player_), TrapFacingOf(angleDeg));
   }
   void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) override {
     match_.PesWorldOf().ArmYaw(match_.PesSlotOf(&player_), TrapFacingOf(fromDeg), TrapFacingOf(toDeg), ticks, overrideMode);
@@ -685,8 +676,17 @@ void StepAdjusters(Player& player, Match& match) {
   HumanoidBase* body = player.CastHumanoid();
   // The trap world's axes: PES z is GF y (the strike's target was built in them).
   if (frame.strikeMoved) body->WarpRoot(Vector3(frame.x, frame.z, 0.0f), 0.0f);
-  // A positive PES yaw is clockwise seen from above (the trap world's facing is 90 - GF heading), GF's yaw counter-clockwise.
-  if (frame.yawStepped) body->TurnRoot(-frame.yawRad);
+  // The trap world's facing is atan2(x, GF y) = pi - GF's angle: a positive PES yaw turns GF's angle the other way.
+  if (frame.yawStepped) {
+    constexpr float kPi = 3.14159265358979323846f;
+    float turnTrap = frame.yawRad;  // the flag mode's rotation of this tick
+    if (!frame.yawIsRate) {         // the absolute yaw: the turn that takes the body's facing there
+      const Vector3 dir = player.GetRootDirectionVec();
+      const float bodyTrap = std::atan2(dir.coords[0], dir.coords[1]);
+      turnTrap = std::remainder(frame.yawRad - bodyTrap, 2.0f * kPi);
+    }
+    body->TurnRoot(-turnTrap);
+  }
 }
 
 void RequestStop(Player& player, Match& match) {

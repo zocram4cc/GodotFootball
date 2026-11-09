@@ -95,6 +95,8 @@ inline constexpr std::size_t kPAdjusterOffset = 0x428;
 inline constexpr std::size_t kPHeightAdjusterOffset = 0x498, kPYawAdjusterOffset = 0x4D0;
 inline constexpr std::size_t kAdjStateOffset = 0x8;   // u32: 1 armed, 2 running (FUN_141EB3AE0 moves 1 -> 2)
 inline constexpr std::size_t kAdjCountOffset = 0xC;   // s16: the tick counter
+inline constexpr std::size_t kAdjDelayOffset = 0xE;   // s16: ticks held before the first step
+inline constexpr std::size_t kAdjTicksOffset = 0x10;  // s16: the last step's tick
 inline constexpr std::size_t kAdjStepOffset = 0x14;   // 3 x f32 (x, y, z): the layer's root point (FUN_141AF3CA0), then the step's result
 inline constexpr std::size_t kAdjYawOutOffset = 0x20; // f32: the yaw adjuster's per-tick rotation (rad; degrees when the flag below is 1)
 inline constexpr std::size_t kAdjYawFlagOffset = 0x24; // u8: the yaw adjuster's override flag (FUN_141EB35A0's 5th argument)

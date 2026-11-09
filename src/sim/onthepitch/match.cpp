@@ -331,6 +331,9 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES image tables missing: read them from the install with "
         "pes::LoadPesImageTables into MatchSetup::pesImageTables");
   pesWorld->BindImageTables(*setup.pesImageTables);
+  for (int k = 0; k < 3; ++k)
+    pesWorld->AddImageSegment(pesActorConstants.memberVtable[k], pesActorConstants.memberVtableSlots[k].data(),
+                              pesActorConstants.memberVtableSlots[k].size());
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);

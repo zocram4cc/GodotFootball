@@ -78,7 +78,7 @@ std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::str
   c.interfaceVtable[1] = vt1;
   for (int k = 0; k < 3; ++k) {
     c.memberVtable[k] = img.Target(kMemberVtableSite[k]);
-    ok = ok && c.memberVtable[k] != 0;
+    ok = ok && c.memberVtable[k] != 0 && img.Read(c.memberVtable[k], c.memberVtableSlots[k].size(), c.memberVtableSlots[k].data());
   }
   ok = ok && img.Float(kMemberRateSite, &c.memberRateNumerator);
   ok = ok && img.Float(kStandingSite, &c.standingSpeedKmh) && img.Float(kSixtySite, &c.secondsPerHour60) &&
