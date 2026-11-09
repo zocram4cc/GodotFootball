@@ -2989,6 +2989,7 @@ TEST(ClipHitDistance, ACancelRecordReplacesTheBlendOffsetAndTheIndexClampsToTheL
   h.record.cancelRoot = {{600.0f, 800.0f}, {30.0f, 40.0f}};
   EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 0), 10.0f * 2.0f) << "record 0: 6 m, 8 m";
   EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 1), 0.5f * 2.0f);
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 2), 0.5f * 2.0f) << "index == count is already past the list: the last record";
   EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 9), 0.5f * 2.0f) << "index 9 clamps to the last record (count - 1)";
   h.record.cancel.clear();
   h.record.cancelRoot.clear();
