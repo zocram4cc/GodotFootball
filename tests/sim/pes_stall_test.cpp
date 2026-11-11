@@ -158,6 +158,8 @@ class TrapContactProbe : public pestest::Probe {
         }
       }
     }
+    previousSpeed_ = speed;
+    tickStart_ms_ = match.GetActualTime_ms();
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
