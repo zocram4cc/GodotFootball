@@ -3570,6 +3570,18 @@ void WritePesTrapActors(Match& match) {
     }
   }
 }
+// PES's holder MA+0x2601C for the window (pestrapworld.hpp kMaOwnerOffset): W1's value is the actor of the newest ring-1 touch
+// key, which GF's RecomputePesHolder adopts as the sticky pesHolder (match.hpp). The trap end chain (the switch 0x1406EEBB0's
+// carrier arm at 0x1406EEBC5, the act4 start 0x1407A38E0's holder gate FUN_1406EC5F0) reads it through P+0x3AC0 -> Ctx+0x18 -> MA
+// (the Ctx binding is PesWorld's own: P+0x3AC0 holds CtxVa(f.side), Ctx+0x18 holds MaVa(side)), so it is fed before the trap
+// ticks from the sticky holder — not from GF's retainer (SetMaOwner's eliza writer), which clears on the possession flicker
+// while PES's holder persists on a loose ball until a newer key replaces it. Both sides' MA hold the one global carrier.
+void WritePesMaHolders(Match& match) {
+  const Player* holder = match.GetPesHolder();
+  const uint32_t id =
+      holder != nullptr ? static_cast<uint32_t>(match.PesSlotOf(holder)) : static_cast<uint32_t>(pes::kMiNoSlot);
+  for (int side = 0; side < 2; ++side) match.PesWorldOf().SetMaOwner(side, id);
+}
 
 // Every man in the Trap action runs PES's action tick 0x140797CD0 (the phase machine) on his P and the world window, after the
 // actors were written. A start tick (phase 0, which runs SetMotion on the committed plan) plays the clip it issued: the motion

@@ -466,6 +466,8 @@ void WritePesMovementRecords(Match& match);
 // Every active player's P (PES's AnimePlayer, pestrapactor.hpp) from his state, written right after the movement records: the
 // Trap chain's actor objects, one per player. Match::Process calls it on the PES path.
 void WritePesTrapActors(Match& match);
+// PES's holder into both sides' window MA before the trap ticks (the end chain reads it): Match::Process calls it on the PES path.
+void WritePesMaHolders(Match& match);
 // Every man in the Trap action runs PES's action tick on the window and plays the clip it issues (after WritePesTrapActors).
 void RunPesTrapTicks(Match& match);
 // Every man in the Trap action runs PES's body contact scan (pesbodyscan.hpp) after his action tick: a touch request grants his body the
