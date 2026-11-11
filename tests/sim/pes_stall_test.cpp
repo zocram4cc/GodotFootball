@@ -1,8 +1,10 @@
+#include "pes/movestep.hpp"
 #include <gtest/gtest.h>
 
 #include <map>
 
 #include "base/log.hpp"
+#include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/player/humanoid/humanoid.hpp"
 #include "onthepitch/pestrapactor.hpp"
@@ -183,6 +185,71 @@ class FallbackProbe : public pestest::Probe {
 
 FallbackProbe fallbackCensus;
 
+// On PES's path every man plays a motion PES issued (MOVESTEP's, or another PES action's): the anime player has no clip of GF's own. A
+// body whose clip carries no PES motion number (pesmovestep::CurrentMotionOf < 0, the case P+0xAE0 holds the none index for) is a path
+// where GF's own animation selection (Humanoid::SelectAnim) replaced PES's issue. Each man-tick on such a clip is filed by the
+// function type and the clip's folder, and each START of one by what the man was playing before and what handed the clip over.
+class GfClipProbe : public pestest::Probe {
+ public:
+  GfClipProbe()
+      : Probe("PesStallGfClip", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
+  long manTicks = 0;      // active men, ticks
+  long gfClipTicks = 0;   // those on a GF-native clip
+  long loopClipsLost = 0;  // a locomotion clip PES issued in IDLE, RUN_LOOP or STEP_LOOP replaced by a GF clip
+  std::map<std::string, long> byClip;    // "fn / folder": ticks
+  std::map<std::string, long> byEntry;   // "from -> to (interrupt, command)": clip starts
+  void OnTick(Match& match) override {
+    for (int team = 0; team < 2; ++team) {
+      for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
+        if (!player->IsActive()) continue;
+        Humanoid* body = player->CastHumanoid();
+        const Anim* clip = body->GetCurrentAnim();
+        const bool gf = pesmovestep::CurrentMotionOf(*player) < 0;
+        const std::string name = clip->anim ? clip->anim->GetName() : "-";
+        Seen& seen = seen_[player.get()];
+        manTicks++;
+        if (gf) {
+          gfClipTicks++;
+          byClip["fn " + std::to_string(int(clip->functionType)) + " " + Folder(name) + " | movestep " +
+                 std::to_string(int(player->GetMoveStep().state))]++;
+        }
+        if (name != seen.name || clip->frameNum < seen.frame) {
+          if (gf && seen.looping) loopClipsLost++;
+          if (gf)
+            byEntry[std::string(seen.gf ? "GF " : "PES ") + "fn" + std::to_string(seen.function) + " -> fn" +
+                    std::to_string(int(clip->functionType)) + " " + Folder(name) + " (interrupt " +
+                    std::to_string(int(clip->originatingInterrupt)) + ", command fn " +
+                    std::to_string(int(clip->originatingCommand.desiredFunctionType)) + ")"]++;
+        }
+        const pes::MoveState state = player->GetMoveStep().state;
+        seen = {name, clip->frameNum, gf, int(clip->functionType),
+                body->OnPesLocomotion() && (state == pes::MoveState::kIdle || state == pes::MoveState::kRunLoop ||
+                                            state == pes::MoveState::kStepLoop)};
+      }
+    }
+  }
+
+ private:
+  struct Seen {
+    std::string name;
+    int frame = 0;
+    bool gf = false;
+    int function = 0;
+    bool looping = false;  // a MOVESTEP locomotion clip in a state whose clip PES's anime player loops
+  };
+  // The clip's folder under gf_anims, its first three components ("movement/idle/135_accel.anim" -> "movement/idle"); autogen blends have none.
+  static std::string Folder(const std::string& name) {
+    const std::size_t at = name.find("gf_anims/");
+    if (at == std::string::npos) return name.compare(0, 7, "autogen") == 0 ? "autogen" : name.substr(0, name.find(' ')).substr(0, 24);
+    const std::string rest = name.substr(at + 9);
+    const std::size_t last = rest.rfind('/');
+    return last == std::string::npos ? rest : rest.substr(0, last);
+  }
+  std::map<const Player*, Seen> seen_;
+};
+
+GfClipProbe gfClipCensus;
+
 }  // namespace
 
 TEST(PesStall, ATrapClipIsNeverRestartedBeforeItsContactFrame) {
@@ -194,6 +261,31 @@ TEST(PesStall, ATrapClipIsNeverRestartedBeforeItsContactFrame) {
   ASSERT_GT(trapCensus.trapClips, 0) << "no trap clip was played";
   EXPECT_EQ(trapCensus.restartedTraps, 0) << trapCensus.restartedTraps << " of " << trapCensus.trapClips
                                           << " trap clips restarted before their contact frame";
+}
+
+// docs/ports/pes-port-ClipOwner.md: on PES's path no man plays a clip of GF's own. Every clip is a motion PES issued, so P+0xAE0 names a
+// motion of PES's Animetable and gate 4a can admit the man.
+TEST(PesStall, NoPesLoopManPlaysAClipOfGfsOwn) {
+  pestest::Run(gfClipCensus);
+  if (gfClipCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(gfClipCensus.setupError.empty()) << gfClipCensus.setupError;
+  pestest::Settle(gfClipCensus);
+  for (const auto& [key, ticks] : gfClipCensus.byClip) std::fprintf(stderr, "[gfclip] %8ld ticks  %s\n", ticks, key.c_str());
+  for (const auto& [key, starts] : gfClipCensus.byEntry) std::fprintf(stderr, "[gfclip-start] %6ld starts  %s\n", starts, key.c_str());
+  ASSERT_TRUE(gfClipCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(gfClipCensus.gfClipTicks, 0) << gfClipCensus.gfClipTicks << " of " << gfClipCensus.manTicks
+                                         << " man-ticks were on a clip of GF's own";
+}
+
+// The clip a MOVESTEP handler issued in IDLE, RUN_LOOP or STEP_LOOP is one PES's anime player loops (the handlers issue again only when
+// the request changes), so GF's end-of-clip switch must not put a clip of GF's own over it. Each such replacement is counted.
+TEST(PesStall, ALoopingLocomotionClipIsNeverReplacedByAGfClip) {
+  pestest::Run(gfClipCensus);
+  if (gfClipCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(gfClipCensus.setupError.empty()) << gfClipCensus.setupError;
+  pestest::Settle(gfClipCensus);
+  ASSERT_TRUE(gfClipCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(gfClipCensus.loopClipsLost, 0) << gfClipCensus.loopClipsLost << " looping PES locomotion clips were replaced by a GF clip";
 }
 
 // PES's reaction entry 3 refuses the carrier (MA+0x2601C) unless he is in stagger, dodge or the keeper's drop (FUN_1409fa400 at
