@@ -68,6 +68,8 @@ class PesFoxWorld final : public PesFileSource {
   // PES's process-start state of the CRT's thread-safe function-local statics: every guard 0 and the global epoch at INT_MIN (the dump holds
   // the dead game's, whose objects hold dead-heap state). Boot calls it first.
   void ResetStaticInitState();
+  // The constant-initialized statics whose dump bytes are runtime state, restored from the install's own exe (PeImage). Boot calls it first.
+  void RestoreInitialData();
   // The job pump FUN_141EA8430 and the worker stages it waits on, run until the pending list is empty and the finished resources have
   // moved into the ResManager (the pump drains them when the list empties). False (error set) when a job never completes.
   bool PumpUntilIdle(std::string* error);

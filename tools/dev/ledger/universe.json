@@ -29630,6 +29630,34 @@
    "vtables": [],
    "walked": true
   },
+  "1402388D0": {
+   "boundary": null,
+   "callees": {
+    "14028F170": "direct",
+    "14028F250": "direct",
+    "1403CF740": "direct",
+    "1403CF770": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1402388d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animelayer9"
+   ],
+   "scope": "in",
+   "size": 137,
+   "source": "pdata",
+   "subsystem": "animelayer9",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1402391E0": {
    "boundary": null,
    "callees": {
@@ -1323920,6 +1323948,12 @@
      "0x1403A20B0",
      "0x1403A2130",
      "0x1403B1020"
+    ]
+   },
+   "animelayer9": {
+    "members": 134,
+    "roots": [
+     "0x1402388D0"
     ]
    },
    "animepre": {

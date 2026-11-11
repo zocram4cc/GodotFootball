@@ -1,5 +1,6 @@
 #include "onthepitch/pesfoxworld.hpp"
 
+#include "pes/exe.hpp"
 #include "pes/translated/translated.hpp"
 
 #include <fcntl.h>
@@ -197,6 +198,11 @@ constexpr uint64_t kTlsInitEpochOffset = 0x84;
 // `lea rcx, [rip + rel32]` (48 8D 0D) directly followed by `call rel32` (E8): 7 + 5 bytes.
 constexpr uint8_t kLeaRcxRipOpcode[3] = {0x48, 0x8D, 0x0D}, kCallOpcode = 0xE8;
 constexpr uint64_t kLeaBytes = 7, kCallBytes = 5;
+// Statics the exe holds constant-initialized in .data (FUN_14026A2B0's guarded `static` registers only an atexit; the object's initial bytes are
+// the file's) whose dump bytes are the dead game's runtime state (counts and pointers into its heap). {va, bytes}: the install's own file
+// supplies the initial bytes (PeImage::ReadVa). 0x14339B010: the type table's hash map (FUN_14026A2B0 returns it; FUN_140266ED0's inlined
+// constructor stores the six qwords 0x14339B010..0x14339B038 = {0, -1, 0xFFFFFFFF, 0, 0, 0}, which is the file's content).
+constexpr uint64_t kInitialDataObjects[][2] = {{0x14339B010, 0x30}};
 // FUN_14029E940's config block: it reads only the dword at +4 (the pool size, 0 = default).
 constexpr uint64_t kScriptConfigBytes = 0x10;
 // The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
@@ -245,6 +251,7 @@ constexpr uint64_t kAllocatorBssRuns[][2] = {{0x1436DCEB0, 0x1436DD294}, {0x143A
 
 void PesFoxWorld::Boot() {
   for (const auto& run : kAllocatorBssRuns) std::memset(impl_->image + (run[0] - kImageBase), 0, run[1] - run[0]);
+  RestoreInitialData();
   ResetStaticInitState();
   // The thread-safe static guards (_Init_thread_header) read the thread's TLS block (epoch at +0x84): it exists before the first one runs.
   InstallScratchArena();
@@ -287,6 +294,16 @@ void PesFoxWorld::InstallScratchArena() {
   Write32(block + kTlsInitEpochOffset, kInitEpochStart);
   Write64(tlsArray + 8 * static_cast<uint64_t>(Read32(kTlsIndexVa)), block);
   Write64(kTebVa + kTebTlsPointerOffset, tlsArray);
+}
+
+void PesFoxWorld::RestoreInitialData() {
+  std::string error;
+  const auto exe = PeImage::Open(impl_->vfs.Root() + "/PES2021.exe", &error);
+  if (!exe) throw std::runtime_error("fox world: the install's exe: " + error);
+  for (const auto& object : kInitialDataObjects) {
+    if (!exe->ReadVa(object[0], object[1], impl_->image + (object[0] - kImageBase)))
+      throw std::runtime_error("fox world: the install's exe holds no initial data at " + std::to_string(object[0]));
+  }
 }
 
 void PesFoxWorld::ResetStaticInitState() {

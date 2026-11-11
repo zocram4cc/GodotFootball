@@ -176,6 +176,27 @@ TEST_F(FoxSeam, TheStaticInitResetClearsEveryGuardAndStartsTheEpochAtIntMin) {
   EXPECT_EQ(world_->Read32(kGlobalEpochVa), 0x80000000u);
 }
 
+// A constant-initialized static (the type table's hash map, FUN_14026A2B0's) holds the dead game's runtime state in the dump; the restore
+// brings back the install's own exe bytes for exactly that object.
+constexpr uint64_t kTypeTableVa = 0x14339B010, kTypeTableBytes = 0x30;
+
+TEST_F(FoxSeam, TheInitialDataRestoreBringsBackTheExesBytesOfAConstantInitializedStatic) {
+  std::string error;
+  const auto exe = pes::PeImage::Open(std::string(std::getenv("PES21_ROOT")) + "/PES2021.exe", &error);
+  ASSERT_TRUE(exe.has_value()) << error;
+  std::vector<uint8_t> initial(kTypeTableBytes);
+  ASSERT_TRUE(exe->ReadVa(kTypeTableVa, initial.size(), initial.data()));
+  std::vector<uint8_t> dump(kTypeTableBytes);
+  for (uint64_t i = 0; i < dump.size(); ++i) dump[i] = world_->Read8(kTypeTableVa + i);
+  ASSERT_NE(dump, initial) << "the dump no longer holds runtime state there: the test proves nothing";
+  const uint8_t neighbourBefore = world_->Read8(kTypeTableVa + kTypeTableBytes);
+  world_->RestoreInitialData();
+  std::vector<uint8_t> restored(kTypeTableBytes);
+  for (uint64_t i = 0; i < restored.size(); ++i) restored[i] = world_->Read8(kTypeTableVa + i);
+  EXPECT_EQ(restored, initial);
+  EXPECT_EQ(world_->Read8(kTypeTableVa + kTypeTableBytes), neighbourBefore) << "the byte after the object was touched";
+}
+
 // The stand-ins for the packer's virtualized functions (stubs.json gf-service): their effects were read from PES's own bytes on a real
 // pre-state (the entries' evidence): 0x143E98DA0(pool, size) stored size at pool+0x60 and returned the old value; 0x143DFA780 =
 // lua_atpanic(L, f) stored f at L+0x160 (with the global state at L+0xB8) and returned the old value. Each test checks the one store, the
