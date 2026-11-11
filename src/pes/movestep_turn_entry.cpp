@@ -30,36 +30,22 @@ constexpr int kPercentClose3 = 0x1e, kPercentClose = 0x14;
 constexpr int kAnimeClassKeeper = 0x12;
 constexpr int kStateStop = 6, kStateGoto = 8;       // the state byte values of the long-duration test, 0x1406d0eeb
 constexpr uint32_t kCmdWhistleA = 0x2f, kCmdFirst = 0x1d;  // req[0x16] == 0x2f, or 0x1d..0x1f
-constexpr int kRequestLookBlockValidByte = 0x148;  // FUN_140a6e6b0(req + 0x144): the byte at +4
-constexpr int kRequestLookPointWord = 0x53;        // FUN_140a76240(req + 0x144) of a clear index: req + 0x144 + 8
-
 
 float Sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
 }  // namespace
 
 std::optional<TurnEntryTables> LoadTurnEntryTables(const PeImage& exe, std::string* error) {
+  constexpr uint64_t kClassFlagsVa = 0x1426484f0;  // FUN_140a6e4b0's table
   TurnEntryTables t;
   if (!exe.ReadVa(kFootFlagVa, t.footFlag.size(), t.footFlag.data()) ||
-      !exe.ReadVa(kFootFlagTurnVa, t.footFlagTurn.size(), t.footFlagTurn.data())) {
+      !exe.ReadVa(kFootFlagTurnVa, t.footFlagTurn.size(), t.footFlagTurn.data()) ||
+      !exe.ReadVa(kClassFlagsVa, sizeof t.classFlags, reinterpret_cast<uint8_t*>(t.classFlags.data()))) {
     *error = "turn entry tables: .rdata unreadable";
     return std::nullopt;
   }
   return t;
 }
-
-namespace {
-
-// The shared look-bucket flip of the arms: bucket 4 <-> 9, the look delta set to -180 / +180 by the bucket it LEAVES
-// (0x1406d04d6..0x1406d04f0: the delta is the old bucket's, 4 gives -180, the new bucket is 9).
-void FlipLookBucket(MoveReq& req, const RunConstants& k) {
-  using namespace moveword;
-  const bool four = req.U(kLookBucket) == kBucketA;
-  req.SetF(kLookDelta, four ? k.wrapHalf : k.half_turn);
-  req.SetU(kLookBucket, four ? kBucketB : kBucketA);
-}
-
-}  // namespace
 
 bool EnterGotoTurn(MoveHost& host, MoveReq& req) {
   using namespace moveword;
@@ -104,9 +90,9 @@ bool EnterGotoTurn(MoveHost& host, MoveReq& req) {
   if (req.U(kLookBucket) == kBucketA || req.U(kLookBucket) == kBucketB) {  // 0x1406d0387..0x1406d038f
     float look = req.F(kHeading);
     const float facingError = std::fabs(req.F(kFacingError));
-    if (req.FlagAtByte(kRequestLookBlockValidByte)) {
+    if (RequestLookCount(req) != 0) {  // 0x1406d03b1: FUN_140a6e6b0(req + 0x144), TEST AL,AL
       float point[3];
-      for (int i = 0; i < 3; ++i) point[i] = req.F(kRequestLookPointWord + i);
+      RequestLookPoint(req, point);  // 0x1406d03bf: FUN_140a76240(req + 0x144)
       look = host.HeadingToPointDeg(point);  // 0x1406d03d1: FUN_140439e50(P+8, the block's point)
     }
     const float lookTurn = PesAngleDiff(req.F(kHeading), look, k);  // 0x1406d03da..0x1406d0413 (FUN_14043a0a0 inlined)

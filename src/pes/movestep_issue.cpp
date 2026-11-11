@@ -96,4 +96,28 @@ void CopyHitWords(MoveReq& req, int motion) {
   req.SetU(kHitMotion, hits ? req.U(kHitDistanceWord) : 0u);  // req[0x27] = the hit distance (req[0x34])
 }
 
+
+int RequestLookCount(const MoveReq& req) { return static_cast<int>(req.U(0x148 >> 2) & 0xffu); }
+
+void RequestLookPoint(const MoveReq& req, float out[3]) {
+  const int count = RequestLookCount(req);
+  const int word = count == 0 ? 0x53 : 0x54 + 3 * count;  // FUN_140a76240: block + 8, else block + 12 * (count + 1)
+  for (int i = 0; i < 3; ++i) out[i] = req.F(word + i);
+}
+
+CellPick PickCell(MoveHost& host, int row, int column) {
+  const MoveCell c = host.Cell(row, column, false);
+  CellPick pick;
+  pick.motion = c.found ? static_cast<int16_t>(c.motionNo) : 0;
+  pick.mirror = c.mirror;
+  return pick;
+}
+
+void FlipLookBucket(MoveReq& req, const RunConstants& k) {
+  using namespace moveword;
+  constexpr uint32_t kBucketA = 4, kBucketB = 9;
+  const bool four = req.U(kLookBucket) == kBucketA;
+  req.SetF(kLookDelta, four ? k.wrapHalf : k.half_turn);
+  req.SetU(kLookBucket, four ? kBucketB : kBucketA);
+}
 }  // namespace pes

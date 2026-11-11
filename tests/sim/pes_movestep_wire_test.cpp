@@ -455,7 +455,7 @@ TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
 // look bucket (word 0xd) is off straight and the facing error's magnitude is at least 33.75 degrees (VA 0x1425cc688); the
 // call is at VA 0x1406ca51f. Built on main, that else arm is empty and the bucket it tests is the move bucket (word 8), so
 // a stop with a turned body holds for the whole match: the trace held one for 72 ticks. Every active player is set into
-// STOP, and none on a MOVE clip may still be in STOP after 60 ticks.
+// STOP, and none on a MOVE clip may stay in STOP for 60 ticks: each must leave it at least once.
 TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
   Properties config;
   config.SetBool("pes_loop", true);
@@ -476,8 +476,16 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
       pesmovestep::RequestStop(*p, *match);
       if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
     }
+    // The bodies do not move in this harness (only MOVESTEP is stepped), so a man the AI tells to run is sent out of STOP into
+    // GOTO_RUN and RUN_LOOP and, finding no ground speed, enters STOP again, as PES's no-class arm does. Where the 60th tick
+    // falls in that cycle says nothing about a hold; the defect is a STOP that never leaves, so each man is watched for the
+    // first tick on which his state is not STOP.
+    std::set<Player*> left;
     for (int t = 0; t < kStopTicks; ++t) {
-      for (Player* p : stopped) pesmovestep::ProcessMoveStep(*p, *match);
+      for (Player* p : stopped) {
+        pesmovestep::ProcessMoveStep(*p, *match);
+        if (p->GetMoveStep().state != pes::MoveState::kStop) left.insert(p);
+      }
     }
     for (Player* p : stopped) {
       ++forced;
@@ -488,11 +496,11 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
       auto* body = p->CastHumanoid();
       if (!body->IsMovementClip() || IsBallActionFunction(body->GetCurrentFunctionType())) continue;
       ++counted;
-      if (p->GetMoveStep().state == pes::MoveState::kStop) ++held;
+      if (left.count(p) == 0) ++held;
     }
   }
   EXPECT_GT(counted, 0) << "no forced STOP was on a MOVE clip, so the bound was not tested (" << forced << " forced)";
-  EXPECT_EQ(held, 0) << held << " of " << counted << " forced STOPs on a MOVE clip still held after " << kStopTicks
+  EXPECT_EQ(held, 0) << held << " of " << counted << " forced STOPs on a MOVE clip never left the STOP in " << kStopTicks
                      << " ticks";
 }
 

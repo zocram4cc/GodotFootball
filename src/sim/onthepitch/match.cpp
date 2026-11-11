@@ -20,6 +20,7 @@
 #include "matchreport.hpp"
 #include "pes_survey.hpp"
 #include "pesclips.hpp"
+#include "pesmovestep.hpp"
 #include "pesteamtick.hpp"
 #include "pespossession.hpp"
 #include "pesreceive.hpp"
@@ -985,6 +986,15 @@ void Match::Process() {
           closestTime_ms = time_ms;
         }
       }
+    }
+    if (closest && pesLoop && GetRefereeBuffer().taker && actualTime_ms - stalemateLastRealAction_ms > 1500 && static_cast<long>(actualTime_ms / kTick_ms) % 9 == 0) {  // DIAG
+      Player* tk = GetRefereeBuffer().taker;
+      pes::MoveReq r = pesmovestep::TickRequest(*tk, *this);
+      const Vector3 tp = tk->GetPosition();
+      printf("DIAG t=%lu taker %s st=%d<-%d pos %.1f,%.1f ball %.1f,%.1f vel %.2f | req kind=%u cmdcls=%u cls=%d cmdid=%u spd=%.1f class=%d dist=%.2f facErr=%.1f | dwell %.2f/%.2f d2 %.2f/%.2f motion=%d\n",
+             actualTime_ms, tk->GetPlayerData()->GetLastName().c_str(), int(tk->GetMoveStep().state), int(tk->GetMoveStep().previous),
+             tp.coords[0], tp.coords[1], ballNow.coords[0], ballNow.coords[1], tk->GetMovement().GetLength(), r.U(0), r.U(9), int(r.U(0x1f)), r.U(0x16),
+             r.F(10), int(r.U(0xe)), r.F(0x12), r.F(7), r.F(0x1a), r.F(0x1b), r.F(0x2d), r.F(0x2e), int(r.U(0x30)));
     }
     if (closest) {
       designatedPossessionPlayer = closest;

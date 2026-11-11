@@ -340,6 +340,9 @@ struct RunConstants {
   float centi;        // 0.01  (0x14256ae18): FUN_1406e7730's centimetre-to-metre scale on the clip's root offsets
   float rampFloor;    // 0.001 (0x14259bdc4): FUN_1406eab00's tau floor
   float rampSlope;    // 0.15  (0x1425c48a0): FUN_1406b9aa0's rate floor
+  float weightScale;  // 0.05  (0x1425c4898): FUN_1406ce820's precise arm: blend = 0.15 - weight^2 * this
+  float speedDt;      // 0.6944 (0x14259bdd0): the jostle block's look-ahead numerator, divided by the tick rate
+  float rampSpan13;   // 1.3   (0x14259bdd8): FUN_1406ce820's precise arm: the span of the distance ramp that scales the playback
   float turnP2;       // 0.1   (0x142588210): the turn playback's p^2 term
   float foxTime;      // 300.0 (0x1425a266c): the Fox time unit of the parametric startTime
   float pct50;        // 50    percent test (FUN_1406ebf30's argument, no exe float)
@@ -769,6 +772,20 @@ class MoveHost {
   virtual int AnimeRecordClass(int) const { MoveHostUnbound("AnimeRecordClass"); }
   // FUN_14044e020(MA+0x24840, slot): the ticks of the slot's record in the match's event table.
   virtual int RecordTicks(int) const { MoveHostUnbound("RecordTicks"); }
+
+  // The reads of the GOTO_RUN entry FUN_1406ce820 beyond the turn entry's (movestep_run.cpp EnterGotoRun).
+  // FUN_140a71540(MA, *(FUN_140a48a30(G, side) + 0x254)): the team record's anchor heading in degrees (side: the own slot is 11..21).
+  virtual float TeamAnchorHeading(bool) const { MoveHostUnbound("TeamAnchorHeading"); }
+  // *(*(G + 0x2aa8) + 0x10): the limit the swing arm compares the own |x| against.
+  virtual float PitchLimit() const { MoveHostUnbound("PitchLimit"); }
+  // *(int*)(MA + 0x22e4c + slot * 0xc8 + (side ? 0 : 0x58)) of the own slot: the man's jostle target slot (0x16 or more: none).
+  virtual int JostleTarget(bool) const { MoveHostUnbound("JostleTarget"); }
+  // *(float*)(FUN_140a48910(G, slot) + offset): the anime record's floats the jostle block reads (offsets 0xc8 and 0x124).
+  virtual float AnimeRecordFloat(int, int) const { MoveHostUnbound("AnimeRecordFloat"); }
+  // FUN_140a6c6d0(FUN_140a48a10(G, slot), out, dt): the slot's predicted velocity vector.
+  virtual void TargetVelocity(int, float, float[3]) const { MoveHostUnbound("TargetVelocity"); }
+  // *(int8*)(P + 0xacb): the action's sub byte (FUN_1406ce820's blend arm reads 0x50 and 0x52).
+  virtual int ActionSubByte() const { MoveHostUnbound("ActionSubByte"); }
   // The match object at G+0x2c0: its byte +0x85 when its mode byte +0x12 is 1 or 2, else 0 (FUN_140a3f560).
   virtual bool MatchObjectFlag2c0() const { MoveHostUnbound("MatchObjectFlag2c0"); }
   // FUN_140439e50(P+8, point): the heading in [0, 360) from the own position to `point` (PES order x, height, z).

@@ -20,6 +20,10 @@ namespace pes {
 struct TurnEntryTables {
   std::array<uint8_t, 10> footFlag{};      // 0x1425dd930
   std::array<uint8_t, 10> footFlagTurn{};  // 0x1425dd940
+  // FUN_140a6e4b0's table (0x1426484F0, 95 dwords): bit 7 of the entry of an anime record's class byte (a class below 94).
+  // FUN_1406ce820's jostle block skips a target whose class has it.
+  std::array<uint32_t, 95> classFlags{};
+  bool ClassHasFlag7(int cls) const { return cls >= 0 && cls < 94 && ((classFlags[cls] >> 7) & 1u) != 0u; }
 };
 std::optional<TurnEntryTables> LoadTurnEntryTables(const PeImage& exe, std::string* error);
 

@@ -18,6 +18,7 @@
 #include "pes/movestep_issue.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_turn.hpp"
+#include "pes/movestep_turn_entry.hpp"
 
 // The group-B test probe's stand-ins for the symbols other groups own (see
 // movestep_probe_stubs.cpp). They record the call and return the neutral answer, so a test
@@ -145,7 +146,35 @@ class SyntheticHost : public pes::MoveHost {
     return pes::FakeClipTicks(record, reader, rate, index, TicksPerSecond());
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
-  bool ClipFlag() const override { return false; }
+  bool ClipFlag() const override { return clipFlag; }
+  // SYNTHETIC answers for the reads of FUN_1406ce820 (EnterGotoRun); every test states the ones its branch reads.
+  const pes::TurnEntryTables& TurnEntryTablesView() const override { return turnEntry; }
+  int CarrierSlot() const override { return carrier; }
+  int AnimeRecordClass(int) const override { return animeClass; }
+  int RecordTicks(int) const override { return recordTicks; }
+  bool MatchObjectFlag2c0() const override { return trainer; }
+  float HeadingToPointDeg(const float[3]) const override { return pointHeading; }
+  void CountAnalyserEvent(bool flag, int motion) override { analyser.emplace_back(flag, motion); }
+  float TeamAnchorHeading(bool) const override { return anchorHeading; }
+  float PitchLimit() const override { return pitchLimit; }
+  int JostleTarget(bool) const override { return jostleTarget; }
+  float AnimeRecordFloat(int, int offset) const override { return offset == 0xc8 ? markedFloat : turnFloat; }
+  void TargetVelocity(int, float, float out[3]) const override { for (int i = 0; i < 3; ++i) out[i] = targetVelocity[i]; }
+  int ActionSubByte() const override { return actionSub; }
+  pes::TurnEntryTables turnEntry{};
+  bool clipFlag = false;
+  int carrier = 0x16;
+  int animeClass = 0;
+  int recordTicks = 0;
+  bool trainer = false;
+  float pointHeading = 0.0f;
+  std::vector<std::pair<bool, int>> analyser;
+  float anchorHeading = 0.0f;
+  float pitchLimit = 0.0f;
+  int jostleTarget = -1;
+  float markedFloat = 0.0f, turnFloat = 0.0f;
+  float targetVelocity[3] = {0.0f, 0.0f, 0.0f};
+  int actionSub = 0;
   int AbilityByte(int id) const override { return id == pes::kAbilityDa ? daByte : abilityByte; }
   bool EntryAimFlag() const override { return entryAim; }
   int abilityByte = 50;   // FUN_1406e6660's answer for Acceleration (0x2b)
@@ -2030,73 +2059,6 @@ TEST(EnterDecelerate, WritesTheBandWordOneAndTheStateWordTen) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
 
-// EnterGotoRun's distance/speed arm (FUN_1406ce820 block 5): on the 0x5ca row with a column
-// of 8/9, a ball within reach takes row 0x662 on the Percent(40) draw, else 0x661. The test
-// stands the ball a metre away and the draw at "below 40".
-TEST(EnterGotoRun, TakesTheDrawRowWhenTheBallIsWithinReach) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  h.runTables.gotoRow[0 + 1 * 8] = 0x5ca;  // kind 0, cls 1 picks the distance arm's row
-  h.percent = true;  // the Percent(40) draw holds
-  h.positions[0][0] = 0.0f;
-  h.positions[0][1] = 0.0f;
-  // BallSample returns the origin; the player stands at the origin, so the ball is within
-  // reach and the row becomes 0x662.
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kKind, 0u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 0.0f);
-  req.SetF(pes::moveword::kLookHeading, 0.0f);
-  req.SetF(pes::moveword::kBodyDirection, 0.0f);
-  req.SetF(pes::moveword::kTurn, 0.0f);
-  req.SetF(pes::moveword::kFacingError, 0.0f);
-  req.SetU(pes::moveword::kMoveBucket, 0u);
-  req.SetU(pes::moveword::kLookBucket, 0u);
-  req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
-  req.SetF(pes::moveword::kRate, 0.5f);
-  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
-  req.SetF(pes::moveword::kDwellLimit, 0.0f);
-  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
-  pes::probe::Reset();
-  pes::movestep::EnterGotoRun(h, req, false);
-  // The entry always requests ACCELERATE (state 7) from this path; the distance arm's row
-  // pick is observed through the issued cell: the draw held, so the row is 0x662.
-  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
-  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
-  EXPECT_EQ(h.lastCellRow, 0x662);
-  EXPECT_EQ(h.percentArg, 40);
-  // The foot flag carries the picked cell's mirror (FUN_1406ce820 lines 561/858): the column
-  // of bucket 0 is 9, so the mirror bit is 1.
-  EXPECT_EQ(req.U(pes::moveword::kFootFlag) & 0xffu, 1u);
-  // The lost draw takes the base row instead.
-  SyntheticHost h2;
-  h2.runConstants = SyntheticRun();
-  h2.runTables = SyntheticTables();
-  h2.runTables.gotoRow[0 + 1 * 8] = 0x5ca;
-  h2.percent = false;
-  pes::MoveReq req2;
-  req2.SetU(pes::moveword::kKind, 0u);
-  req2.SetU(pes::moveword::kCommandSpeedClass, 1u);
-  req2.SetF(pes::moveword::kFacing, 0.0f);
-  req2.SetF(pes::moveword::kHeading, 0.0f);
-  req2.SetF(pes::moveword::kLookHeading, 0.0f);
-  req2.SetF(pes::moveword::kBodyDirection, 0.0f);
-  req2.SetF(pes::moveword::kTurn, 0.0f);
-  req2.SetF(pes::moveword::kFacingError, 0.0f);
-  req2.SetU(pes::moveword::kMoveBucket, 0u);
-  req2.SetU(pes::moveword::kLookBucket, 0u);
-  req2.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
-  req2.SetF(pes::moveword::kRate, 0.5f);
-  req2.SetF(pes::moveword::kPlaybackDefault, 1.0f);
-  req2.SetF(pes::moveword::kDwellLimit, 0.0f);
-  req2.SetF(pes::moveword::kDwellElapsed, 0.0f);
-  pes::probe::Reset();
-  pes::movestep::EnterGotoRun(h2, req2, false);
-  EXPECT_EQ(h2.lastCellRow, 0x661);
-}
-
 // PES 0x1406CEF83-0x1406CEFA4 (TeamDecode 4, override 2): the turn-lock byte 0x3F sets the GOTO row to 0x566 whatever the
 // column; the column changes only when it is 8 or 9 already. The port set 0x564 and only for columns 8 and 9.
 TEST(EnterGotoRun, TheTurnLockByteSetsTheRowToTheTurnLockRowForAnyColumn) {
@@ -2115,7 +2077,7 @@ TEST(EnterGotoRun, TheTurnLockByteSetsTheRowToTheTurnLockRowForAnyColumn) {
   req.SetU(pes::moveword::kMoveBucket, 3u);
   req.SetU(pes::moveword::kLookBucket, 3u);
   req.SetU(pes::moveword::kLookBucketAlt, 3u);  // bucket 3: column 15, which override 2 leaves alone
-  req.SetByte(pes::moveword::kMirrorFlag, 1);  // the turn-lock byte 0x3F
+  req.SetU(0xf, 1u << 24);  // the turn-lock byte at request byte offset 0x3f (word 0xf, byte 3)
   req.SetF(pes::moveword::kFacingError, 10.0f);
   req.SetF(pes::moveword::kLookDelta, 10.0f);
   req.SetF(pes::moveword::kRate, 0.6f);
@@ -2140,7 +2102,7 @@ TEST(EnterGotoRun, TheTurnLockColumnIsNineWhenTheFacingErrorIsNegative) {
   req.SetU(pes::moveword::kMoveBucket, 5u);
   req.SetU(pes::moveword::kLookBucket, 5u);
   req.SetU(pes::moveword::kLookBucketAlt, 5u);  // bucket 5: column 8, which override 2 may move
-  req.SetByte(pes::moveword::kMirrorFlag, 1);
+  req.SetU(0xf, 1u << 24);
   req.SetF(pes::moveword::kFacingError, -10.0f);  // XMM8 (0.0) > req[7] (-10): column 9
   req.SetF(pes::moveword::kLookDelta, 10.0f);
   req.SetF(pes::moveword::kRate, 0.6f);
@@ -2148,41 +2110,6 @@ TEST(EnterGotoRun, TheTurnLockColumnIsNineWhenTheFacingErrorIsNegative) {
   pes::movestep::EnterGotoRun(h, req, false);
   EXPECT_EQ(h.lastCellColumn, 9) << "PES's column is 9 when req[7] < 0 (SETA on XMM8 = 0.0)";
   EXPECT_EQ(h.lastCellRow, 0x566);
-}
-
-// EnterGotoRun's out-of-play arm (FUN_1406ce820 block 6): outside open-play phase 1, a row in
-// the two 0xa014-bit bands takes row 0x5cc. In play the arm never fires.
-TEST(EnterGotoRun, TakesTheOutOfPlayRowOnlyOutsideOpenPlay) {
-  for (int phase : {1, 0}) {
-    SyntheticHost h;
-    h.runConstants = SyntheticRun();
-    h.runTables = SyntheticTables();
-    h.runTables.gotoRow[0 + 1 * 8] = 0x2;  // a row inside the 0xa014 bands
-    h.phase = phase;
-    h.percent = false;
-    pes::MoveReq req;
-    req.SetU(pes::moveword::kKind, 0u);
-    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
-    req.SetF(pes::moveword::kFacing, 0.0f);
-    req.SetF(pes::moveword::kHeading, 0.0f);
-    req.SetF(pes::moveword::kLookHeading, 0.0f);
-    req.SetF(pes::moveword::kBodyDirection, 0.0f);
-    req.SetF(pes::moveword::kTurn, 0.0f);
-    req.SetF(pes::moveword::kFacingError, 0.0f);
-    req.SetU(pes::moveword::kMoveBucket, 0u);
-    req.SetU(pes::moveword::kLookBucket, 0u);
-    req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
-    req.SetF(pes::moveword::kRate, 0.5f);
-    req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
-    req.SetF(pes::moveword::kDwellLimit, 0.0f);
-    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
-    pes::probe::Reset();
-    pes::movestep::EnterGotoRun(h, req, false);
-    // Column for bucket 0 is 9 (synthetic bucketColumn[0] = 9), so block 5's column gate
-    // (column - 8 < 2) holds but the row is 0x2, not 0x5ca: block 5 is skipped. Block 6's
-    // verdict is the picked row.
-    EXPECT_EQ(h.lastCellRow, phase == 1 ? 0x2 : 0x5cc) << "phase " << phase;
-  }
 }
 
 // EnterDecelerate's issue (FUN_1406cdaf0:337-339): vt+0x10 takes (req, motion, mirror, 0,

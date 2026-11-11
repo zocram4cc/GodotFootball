@@ -44,6 +44,9 @@ struct RunScalar {
 };
 constexpr RunScalar RUN_SCALARS[] = {
     {0x14256ae1c, &RunConstants::one},
+    {0x1425c4898, &RunConstants::weightScale},
+    {0x14259bdd0, &RunConstants::speedDt},
+    {0x14259bdd8, &RunConstants::rampSpan13},
     {0x14256ae18, &RunConstants::centi},
     {0x14258c260, &RunConstants::stopPlaybackFloor},
     {0x142588218, &RunConstants::neg},
@@ -1075,223 +1078,401 @@ void Stop(MoveHost& host, MoveReq& req) {
 
 
 // ---------------------------------------------------------------------------------------------
-// FUN_1406ce820, the GOTO_RUN entry (mv4.a.c:120). It writes the request for a run at the goto
-// row and issues it. Its decompile has two arms chosen by `param_3` (the caller's
-// runStopVariant flag): the shared second block (the row pick, its overrides, the swing arm
-// and the transition writes) and, for the flag-1 path, the extra yaw lock through
-// FUN_1406cba60. The port keeps PES's order and names each stand-in.
+// FUN_1406ce820, the GOTO_RUN entry, ported from its instruction stream (asm gf-StepAudit3-scratch/a_1406ce820.txt). `runStopVariant`
+// is the caller's R8B: it is stored as the issue's transition word (req[0x36]). The decompile's float variables are reused
+// across arms, so every compare below cites the instruction it comes from.
 //
-// The shared block, in PES's order:
-//   0. the class word -1 becomes 1; with the precise word 0xe clear the playback is read
-//      through the +0xac0 interface (vt+0x30's mirror argument, vt+0x50's answer);
-//   1. the look-bucket arm (word 0xc at 4 or 9): the facing-error magnitude selects the AI
-//      target's heading or the request's own word 1 as the desired angle, and the second word
-//      0x5 is swapped between 180 and -180 with the bucket between 4 and 9;
-//   2. the turn-lock arm (words 0x3d/0x3e clear): the class above 1, the bucket 4 or 9, the
-//      turn-error magnitude past 45 degrees and the team record's flag, then the same swap;
-//   3. the row pick (word 0 + word 9*8, through FUN_1406b9bd0's table) and the column from the
-//      bucket word 0xc through FUN_1406b9b20's table;
-//   4. three row overrides: the turn-lock byte 0x3f with a column of 8/9 (row 0x564), the
-//      foot-band rows 0x561..0x566 and the band 0x55f..0x571 with the same column (rows
-//      0x577 and 0x575 through FUN_140a58550/FUN_14044e020);
-//   5. the distance/speed arm: rows 0x5c9/0x5ca with a column of 8/9 read the ball-line point
-//      20 m away, the keeper test and the Percent(40) draw, ending at row 0x662 or 0x661;
-//   6. the out-of-play arm: the match phase 1, the row in the two 0xa014-bit bands
-//      (values 0..3 and 8..11, rows 0x5cc/0x5cd), the FUN_140a6cf70 point and the event-ring
-//      frame, ending at row 0x5cc;
-//   7. the two style rows (0x55f..0x571 with the mirror row in 0x562..0x564 or 0x570), the
-//      swing row 0x573 (the target under 1.1 m ahead and the facing error under 67.5), the
-//      foot row 0x575, and the transition writes (the motion, the mirror, the duration, the
-//      playback, the hit words 0x27/0x28, the root-facing pair, the class/speed/band words and
-//      the state word 7 for ACCELERATE or 0xe for RUN_TO_STEP).
-// The port's mirrors, the AI target point, the event ring and the swing arm are absent in GF;
-// each is a ponytail naming the site that supplies it.
+//   0x1406ce840  the aim flag (FUN_1406ba7d0); the class word -1 becomes 1; a precise request (req[0xe]) takes 0x1406cfd40.
+//   0x1406ce8f1  the playback: vt+0x50(vt+0x30(match-up flag)), stored in req[0x35] at once (0x1406ce9ac).
+//   0x1406ce9c0  arm 1, look bucket 4 or 9: the look point's turn against the look delta, then the ball arm.
+//   0x1406ceb57  arm 2, no lock bytes, a wide look delta, class above 1, bucket 3 or 8: the swing test.
+//   0x1406cef41  the goto row of (kind, class) and its overrides (swing 0x572, turn lock byte 0x566, the tired rows 0x565).
+//   0x1406cf0cf  the lock arm (rows 0x56f / 0x570) or the carrier contest (row 0x571 and the analyser call).
+//   0x1406cf6a5  the jostle block: rows 0x573 and 0x575 against the marked man.
+//   0x1406cfa8f  the issue, the hit words, the root-facing rate, and the class / speed words of the request.
 // ---------------------------------------------------------------------------------------------
-void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
+namespace {
+
+float SignOf(float v) { return v < 0.0f ? -1.0f : 1.0f; }  // COMISS 0,v; JBE: -1.0 (XMM11) when 0 > v, else 1.0 (XMM9)
+
+// MAXSS dst, src: dst when dst > src, else src (NaN and equality answer src).
+float Maxss(float dst, float src) { return dst > src ? dst : src; }
+
+// FUN_1404bcad0(v, angle): (x, z) of v rotated by the folded angle, through FUN_140a92c80's table sine.
+void RotateXZ(float v[3], float angleDeg, const RunConstants& k, const SpeedClassConstants& sk) {
+  float a = angleDeg;
+  if (0.0f <= a) {
+    if (!(a < k.full)) a -= k.full;
+  } else {
+    a += k.full;
+  }
+  const float cosA = TableSinDeg(a + k.deg90, k.one, sk);
+  const float sinA = TableSinDeg(a, k.one, sk);
+  const float x = v[0], z = v[2];
+  v[2] = cosA * z - sinA * x;
+  v[0] = sinA * z + cosA * x;
+}
+
+// The turn from the facing (P+0x20) to `reference`, folded to +-180 (XMM6 in each ball arm).
+float TurnToward(const MoveHost& host, float reference, const RunConstants& k) {
+  float turn = reference - host.FacingDeg();
+  if (k.half_turn < std::fabs(turn)) turn -= SignOf(turn) * k.full;
+  return turn;
+}
+
+// The own slot is 11..21 (`TEST EAX; JS; CMP EAX,0xb; JL; CMP EAX,0x16; SETL`): the argument of FUN_140a62960 and FUN_140a48a30.
+bool OwnSideFlag(int slot) { return slot >= 11 && slot < 22; }
+
+// The ball arm's heading source (0x1406cec67..0x1406ced3b and its copies): the ball sample (clock * 20 / 60 + 0.5 ticks ahead),
+// or the folded look heading when the command is 0x2f or 0x1d..0x1f (`withCommand`), or the carrier is out of the roster and the
+// look point lies 22.5..157.5 degrees off the facing.
+float BallArmReference(MoveHost& host, const MoveReq& req, const RunConstants& k, bool withCommand) {
+  using namespace moveword;
+  float ball[3];
+  host.BallSample(static_cast<int>(host.TicksPerSecond() * k.reserveLow / k.kmh60 + k.half), ball);
+  const float ballDeg = host.HeadingToPointDeg(ball);
+  const int carrier = host.CarrierSlot();
+  const float off = std::fabs(PesAngleDiff(req.F(kFacing), req.F(kLookHeading), k));
+  const uint32_t cmd = req.U(kCommandId);
+  const bool command = withCommand && (cmd == 0x2f || cmd - 0x1d <= 2u);
+  if (command || (static_cast<uint32_t>(carrier) > 0x15u && k.deg225 < off && off < k.deg1575)) return FoldFull(req.F(kLookHeading), k);
+  return ballDeg;
+}
+
+// FUN_1406ce820 from 0x1406cfd40: the precise request. Its own row table (DAT_1425dd9b0), bucket from the stepped look
+// heading, a step playback and a blend of 0.2 or 0.15 less the ability weight squared; the state word is 4.
+void GotoRunPrecise(MoveHost& host, MoveReq& req) {
+  using namespace moveword;
   const RunConstants& k = host.RunConstantsView();
   const RunTables& t = host.RunTablesView();
-  // Block 0: the class sentinel and the playback read.
-  int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
-  if (cls == -1) {
-    cls = 1;
-    req.SetU(moveword::kCommandSpeedClass, 1u);
-  }
-  // The no-precise arm's playback: vt+0x50(vt+0x30(match-up flag)) (0x1406ce940, 0x1406ce94c), stored in req[0x35].
-  // ponytail: the precise arm (0x1406cfe83..0x1406d0100) computes its own playback from G (the gLow/gHigh ramp, FUN_1406e9f10's
-  // 0.15 and 0.95 terms) and a different row table; the port runs the no-precise arm for both until that arm is translated.
-  float playback = k.one;
-  if (req.U(moveword::kPrecise) == 0u) playback = EntryPlayback(host);
-  const int lookBucket = static_cast<int>(req.U(moveword::kLookBucket));
-
-  // Block 1: the look-bucket arm.
-  if (lookBucket == 4 || lookBucket == 9) {
-    const float facingError = req.F(moveword::kFacingError);
-    float desired = req.F(moveword::kHeading);
-    // ponytail: FUN_140a76240/FUN_140439e50 of the request's +0x144 block (the AI target) are
-    // not in GF; the port keeps the request's own heading, which is PES's answer for an unset
-    // target.
-    const float folded = FoldFull(req.F(moveword::kHeading), k);
-    float delta = desired - folded;
-    if (k.half_turn < delta) {
-      const float sign = delta < 0.0f ? k.neg : k.one;
-      delta -= sign * k.full;
-    }
-    const float mag = std::fabs(delta);
-    const bool narrow = !(k.deg1125 < mag || k.deg1575 <= mag);
-    const float a = delta < 0.0f ? k.neg : k.one;
-    const float b = facingError < 0.0f ? k.neg : k.one;
-    bool swap = false;
-    if (narrow) {
-      swap = (a == b) || !(k.deg135 < mag) || !(k.deg45 <= mag);
-    } else {
-      if (k.deg1125 < mag && mag < k.deg1575) {
-        const float c = req.F(moveword::kLookDelta);
-        const float e = (c <= 0.0f && c != 0.0f) ? k.neg : k.one;
-        const float f = delta >= 0.0f ? k.one : k.neg;
-        if (e != f) swap = true;
-      }
-    }
-    if (swap) {
-      const float second = lookBucket == 4 ? k.wrapHalf : k.half_turn;
-      req.SetF(moveword::kLookDelta, second);
-      req.SetU(moveword::kLookBucket, static_cast<uint32_t>(lookBucket == 4 ? 9 : 4));
-    }
-  }
-
-  // Block 2: the turn-lock arm.
-  // PES dec_ce820 238-239: the arm reads the low bytes of words 0x3d and 0x3e, not the words.
-  if (!req.Flag(moveword::kAngle3d) && !req.Flag(moveword::kTurnFrames) &&
-      k.deg45 < std::fabs(req.F(moveword::kLookDelta)) && cls > 1 &&
-      (lookBucket == 4 || lookBucket == 9)) {
-    // ponytail: FUN_140a48a30/FUN_140a71540 (the team's newest record and its rank byte) and
-    // the record's own x position are the foundation's event ring; the port stands the
-    // comparison at the request's own heading.
-    const float aiX = req.F(moveword::kHeading);
-    const float delta = aiX - FoldFull(req.F(moveword::kFacing), k);
-    if (k.deg45 < std::fabs(delta)) {
-      const float a = (req.F(moveword::kLookDelta) <= 0.0f && req.F(moveword::kLookDelta) != 0.0f)
-                          ? k.neg
-                          : k.one;
-      const float b = delta < 0.0f ? k.neg : k.one;
-      if (a != b) {
-        // The turn-lock byte 0x5 flag and the 180/-180 swap follow in PES; the port applies
-        // the same swap the look arm does, since the two arms share the second word.
-        const float second = lookBucket == 4 ? k.half_turn : k.wrapHalf;
-        req.SetF(moveword::kLookDelta, second);
-        req.SetU(moveword::kLookBucket, static_cast<uint32_t>(lookBucket == 4 ? 9 : 4));
-      }
-    }
-  }
-
-  // Block 3: the row pick and the bucket's column.
-  const int kind = static_cast<int>(req.U(moveword::kKind));
-  int row = GotoRowFor(kind, cls, t);
-  int column = t.bucketColumn[lookBucket];
-  // The foot flag (byte req+0x26, moveword::kFootFlag): the picked cell's mirror bit
-  // (FUN_1406ce820 line 561: *(req+0x26) = FUN_1406abd60's answer).
-  req.SetByte(moveword::kFootFlag, host.Cell(row, column, false).mirror ? 1 : 0);
-
-  // Block 4: the three row overrides. PES 0x1406CEF83-0x1406CEFA4 (TeamDecode 4, override 2): the turn-lock byte 0x3F sets the
-  // row 0x566 whatever the column; the column changes only when it is 8 or 9 already, to 9 when req[7] is negative (SETA on
-  // XMM8 = 0.0, XORPS at 0x1406CE960).
-  if (req.Flag(moveword::kMirrorFlag)) {
-    row = 0x566;
-    if (static_cast<uint32_t>(column - 8) < 2u) column = req.F(moveword::kFacingError) < 0.0f ? 9 : 8;
-  }
-  // The foot-band rows 0x561..0x566 and the band 0x55f..0x571 overrides: the row-id gate is
-  // the anime state below 0x16 with the picked row id below 0x12 in the 0x2a015 band and the
-  // row in 0x55f..0x571 in the 0x4c03f band (FUN_1406ce820). The inner record-chain tests
-  // (FUN_140a58550/FUN_14044e020, the jostle record) are the foundation's player table.
-  // ponytail: the inner record-chain tests remove this gate's remainder.
-  if (host.AnimeState() < 0x16 && static_cast<uint32_t>(kind) < 0x12 &&
-      ((0x2a015u >> (static_cast<uint32_t>(kind) & 0x1f)) & 1u) != 0 &&
-      0x55f <= row && row < 0x55f + 0x13 && ((0x4c03fu >> ((row - 0x55f) & 0x1f)) & 1u) != 0) {
-    // The record chain answers here; without it the row stands, which is PES's answer for a
-    // missing record.
-  }
-  if (row == 0x5c9) row = 0x5ca;
-
-  // Block 5: the distance/speed arm (FUN_1406ce820): the ball 20/60 s ahead
-  // (FUN_140a6cf70 at index int(54*20/60 + 0.5) = 18) within reach takes row 0x662 on the
-  // Percent(40) draw, else 0x661. The keeper/class inner gates are the foundation's player
-  // table.
-  // ponytail: the keeper/class inner gates (FUN_140a48a30/FUN_140a71540's rank byte)
-  // remove this arm's remainder.
-  if (row == 0x5ca && static_cast<uint32_t>(column - 8) < 2u) {
-    float ball[3] = {0.0f, 0.0f, 0.0f};
-    host.BallSample(18, ball);
-    float self[3] = {0.0f, 0.0f, 0.0f};
-    host.OwnPosition(self);
-    const float bdx = ball[0] - self[0];
-    const float bdz = ball[2] - self[2];
-    const float ballDist = std::sqrt(bdx * bdx + bdz * bdz);
-    row = host.Percent(40) && ballDist < k.dist1m5 ? 0x662 : 0x661;
-  }
-
-  // Block 6: the out-of-play arm (FUN_1406ce820): outside open-play phase 1, a row in the
-  // two 0xa014-bit bands (0..3, 8..11) takes row 0x5cc (0x5cd by the point/rank/frame pick).
-  // The point (FUN_140a6cf70), the rank (FUN_140a627e0) and the event ring's frame are the
-  // foundation's event store.
-  // ponytail: the point/rank/frame pick between 0x5cc and 0x5cd removes this arm's remainder.
-  if (host.MatchPhase() != 1 && row < 0x10 && ((0xa014u >> (row & 0x1f)) & 1u) != 0) {
-    row = 0x5cc;
-  }
-
-  // Block 7: the style, swing and foot rows, then the transition writes.
-  int stateWord = 7;  // ACCELERATE, the entry's own state word.
-  if ((static_cast<uint32_t>(row - 0x55f) < 0x13u) && (host.MirrorChoice(false)) &&
-      ((row - 0x562) < 3u || row == 0x570)) {
-    // ponytail: the style row's mirror test (FUN_140a62960's answer) is the anime player's
-    // own; the port leaves the row as the table picked it.
-  }
-  const MoveCell cell = host.Cell(row, column, false);
-  // The foot flag's final write (FUN_1406ce820 line 858: *(req+0x26) = the pick's own byte):
-  // the settled row's mirror bit, overwriting the block-3 pick.
-  req.SetByte(moveword::kFootFlag, cell.mirror ? 1 : 0);
-  const float duration = k.blend1667;  // 0.1667 s, the entry's own blend.
-  // The foot row 0x575 with a speed under 17.2 km/h takes the keeper's own row instead.
-  int motionRow = static_cast<int>(cell.motionNo);
-  if (row == 0x575 && host.CurrentSpeedKmh() <= 17.2f) {
-    // ponytail: FUN_1406ebf30's two draws (0x662/0x661) are the anime player's; the port
-    // takes the row the table gave, which is PES's answer for a missing draw.
-  }
-  (void)motionRow;
-  // PES's vt+0x10 call (0x1406cfb.. CALL [R+0x10]) takes (req, motion, mirror, the run-stop variant flag, the blend, the
-  // playback, the start). Then 0x28 = FUN_1406e7920 and 0x27 = FUN_1406e7730 of the same motion, the values WriteIssue stored.
-  WriteIssue(host, req, MotionRequest{cell.motionNo, cell.mirror, runStopVariant ? 1 : 0, duration, playback, 0.0f});
-  CopyHitWords(req, cell.motionNo);
-  // The root-facing pair: the facing plus the bucket's centre angle (DAT_1425dd660), wrapped,
-  // against the request's word 1, and the first dwell as the divisor when it is set.
-  float rootFacing = FoldFull(req.F(moveword::kFacing), k);
-  rootFacing =
-      FoldFull(rootFacing + host.StepTablesView().bucketDegrees[Clamp03(lookBucket)], k);
-  float bearing = PesAngleDiff(rootFacing, req.F(moveword::kHeading), k);
-  const float dwell = req.F(moveword::kDwellLimit);
-  if (dwell == 0.0f) {
-    bearing = 0.0f;
+  const StepTables& st = host.StepTablesView();
+  const int kind = static_cast<int>(req.U(kKind));
+  const int cmdClass = static_cast<int>(req.U(kCommandSpeedClass));
+  int ebx = cmdClass > 2 ? 2 : (cmdClass < 0 ? 0 : cmdClass);  // 0x1406cfd4f..0x1406cfd63
+  const float desired = req.F(kDesiredSpeedKmh);
+  float speed = desired > k.kmh16 ? k.kmh16 : Maxss(k.kmh5, desired);  // 0x1406cfd68..0x1406cfd84
+  if (static_cast<int>(req.U(kClassWord)) >= 1) {
+    req.SetF(kStopSpeedWord, speed);  // 0x1406cfdb4
+    req.SetU(kClassWord, static_cast<uint32_t>(ebx));
   } else {
-    bearing = bearing / dwell;
+    ebx = 0;  // 0x1406cfd8a..0x1406cfd95: EBX = 0 whatever the class
+    speed = desired > k.kmh5 ? k.kmh5 : Maxss(k.kmh5, desired);  // 0x1406cfd9b..0x1406cfda3
+    req.SetU(kClassWord, 0u);
+    req.SetF(kStopSpeedWord, k.kmh5);  // 0x40a00000
   }
-  req.SetF(moveword::kRecordStampA, bearing);
-  // The class, speed and band words.
-  int bandTarget = cls;
-  if (bandTarget > 3) bandTarget = 3;
-  req.SetU(moveword::kBandTarget, static_cast<uint32_t>(bandTarget));
-  float speed = req.F(moveword::kDesiredSpeedKmh);
-  float clampedSpeed = k.kmh16;
-  if (speed <= k.kmh16 && k.kmh5 <= speed) clampedSpeed = speed;
-  req.SetF(moveword::kSpeedBand, clampedSpeed);
-  int band = bandTarget - 1;
-  if (band > 2) band = 2;
-  if (band < 0) band = 0;
-  req.SetU(moveword::kRateBand, static_cast<uint32_t>(band));
-  req.SetF(moveword::kSpeedBand, clampedSpeed);
-  req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(lookBucket));
-  req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
-  req.SetU(moveword::kNextState, static_cast<uint32_t>(stateWord));
-  req.SetByte(moveword::kChangeState, 1);
-  req.SetF(moveword::kRecordStampC, req.F(moveword::kHeading));
-  req.SetByte(moveword::kMirrorFlag, 0);
+  // 0x1406cfdbc..0x1406cfdf4: FUN_140a92950(facing, look heading, 22.5), its turn from the heading, the bucket (vt+0x60).
+  const float stepped = StepHeading(req.F(kFacing), req.F(kLookHeading), k.deg225, k);
+  const int bucket = AngleBucket(host.AngleBuckets(), PesAngleDiff(stepped, req.F(kHeading), k), 10, false);
+  const int col = t.bucketColumn[bucket];
+  int row = st.kindBandRow[kind + ebx * 8];  // DAT_1425dd9b0, 0x1406cfe26
+  bool settled = false;
+  if (col == 0x11 || col == 0) {
+    if (row == 0x53a) {
+      if (host.Percent(0x32)) row = 0x53b;  // 0x1406cfe41..0x1406cfe57
+      settled = true;
+    } else if (row == 0x542) {
+      if (host.Percent(0x14)) row = 0x543;  // 0x1406cfe66..0x1406cfe7c
+      settled = true;
+    }
+  }
+  if (!settled && row == 0x52e) {
+    row = 0x530;  // 0x1406cfe83 CMP EDI,0x52e; JZ 0x1406cfea3
+  } else if (req.U(kCommandId) == 5u && ebx == 0 && static_cast<uint32_t>(kind - 2) <= 1u) {
+    row = 0x530;  // 0x1406cfe8b..0x1406cfea3
+  }
+  const CellPick cell = PickCell(host, row, col);
+  req.SetByte(kFootFlag, host.BucketIsLeft(bucket) ? 1 : 0);  // DAT_1425dd950, 0x1406cff07
+  req.SetU(kPrevBucket, req.U(kLiveBucket));                  // req[0x25] = req[0x20]
+  req.SetU(kLiveBucket, static_cast<uint32_t>(bucket));
+  req.SetF(kSpeedBand, speed);                                // req[0x22]
+  req.SetU(kBandTarget, static_cast<uint32_t>(ebx));          // req[0x24]
+  // 0x1406cff39..0x1406cff72: FUN_1406afbc0(motion, 4) then FUN_1406b10d0(motion, 1.0, 0), an answer PES drops: no effect.
+  float blend = k.blend2;
+  float dwell = k.rampSlope;
+  if (ebx >= 1 && (ebx >= 2 || (kind != 3 && kind != 6))) {  // 0x1406cff8d..0x1406cffaf
+    const bool matchUp = host.Team().IsMatchUpMan(host.ActionIndex());
+    const float weight = AbilityWeight(host, matchUp);
+    const float lowered = k.rampSlope - weight * weight * k.weightScale;  // 0x1406d0004..0x1406d0014
+    blend = lowered > k.rampSlope ? k.rampSlope : Maxss(k.rate01, lowered);
+    dwell = blend;
+  }
+  float playback = StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView());
+  req.SetF(kPlayback, playback);  // 0x1406d008b
+  if (kind == 4 && req.F(kDistToTarget) < k.dist1m5) {  // 0x1406d007b..0x1406d00d2
+    float ramp = 0.0f;
+    if (!(k.blend2 >= req.F(kDistToTarget))) ramp = (req.F(kDistToTarget) - k.blend2) / k.rampSpan13;
+    ramp *= playback;
+    playback = ramp > k.dist1m5 ? k.dist1m5 : Maxss(k.blend08, ramp);
+    req.SetF(kPlayback, playback);
+  }
+  WriteIssue(host, req, MotionRequest{cell.motion, cell.mirror, 0, blend, req.F(kPlayback), host.MotionStartTime(cell.motion)});
+  req.SetF(kDwellLimit, dwell);  // 0x1406d0128, after the issue's own hit seconds
+  req.SetU(kDwellElapsed, 0u);
+  req.SetU(kLiveKind, static_cast<uint32_t>(kind));
+  req.SetU(kNextState, static_cast<uint32_t>(MoveState::kStepLoop));  // 0x1406d0135: state 4
+}
+
+}  // namespace
+
+void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
+  using namespace moveword;
+  const RunConstants& k = host.RunConstantsView();
+  const RunTables& t = host.RunTablesView();
+  const TurnEntryTables& tt = host.TurnEntryTablesView();
+  const float tps = host.TicksPerSecond();
+
+  const bool aim = host.EntryAimFlag();                                            // 0x1406ce840
+  if (req.U(kCommandSpeedClass) == 0xffffffffu) req.SetU(kCommandSpeedClass, 1u);  // 0x1406ce845
+  if (req.U(kPrecise) != 0u) {                                                     // 0x1406ce857
+    GotoRunPrecise(host, req);
+  } else {
+    const float playback = EntryPlayback(host);
+    req.SetF(kPlayback, playback);  // 0x1406ce9ac
+    bool forced = false;            // [RBP+0xb8]
+    bool swing = false;             // [RSP+0x40]
+
+    // Arm 1 (0x1406ce9c0): the look bucket is 4 or 9.
+    if (req.U(kLookBucket) == 4u || req.U(kLookBucket) == 9u) {
+      const float facingMag = std::fabs(req.F(kFacingError));  // XMM6
+      float lookPoint = req.F(kHeading);                        // XMM7
+      if (RequestLookCount(req) > 1) {                          // 0x1406ce9e9: CMP AL,1; JBE
+        float point[3];
+        RequestLookPoint(req, point);
+        lookPoint = host.HeadingToPointDeg(point);
+      }
+      float lookTurn = FoldFull(lookPoint, k) - FoldFull(req.F(kHeading), k);  // XMM7
+      if (k.half_turn < std::fabs(lookTurn)) lookTurn -= SignOf(lookTurn) * k.full;
+      const float lookMag = std::fabs(lookTurn);  // XMM12
+      bool ball = true;
+      if (k.deg1125 < facingMag && facingMag < k.deg1575) {  // 0x1406cea80, 0x1406cea9d
+        if (SignOf(lookTurn) == SignOf(req.F(kFacingError)) || k.deg135 < lookMag || lookMag < k.deg45) {
+          if (k.deg1125 < lookMag) {  // 0x1406ceae6: COMISS XMM12,XMM3; JBE 0x1406cec67
+            if (SignOf(req.F(kLookDelta)) != SignOf(req.F(kFacingError))) {
+              FlipLookBucket(req, k);
+              forced = true;
+            }
+            ball = false;
+          }
+        }
+      }
+      if (ball) {  // 0x1406cec67
+        const float turn = TurnToward(host, BallArmReference(host, req, k, true), k);
+        const float turnMag = std::fabs(turn);
+        if (k.turn16875 < turnMag && turnMag < k.deg163p125) {  // 0x1406ced76, 0x1406ced83
+          if (SignOf(lookTurn) == SignOf(turn) || k.deg135 < lookMag || lookMag < k.deg45) {  // 0x1406cedb4..0x1406cedcd
+            if (SignOf(req.F(kLookDelta)) != SignOf(turn)) {
+              FlipLookBucket(req, k);
+              forced = true;
+            }
+          }
+        }
+      }
+    }
+
+    // Arm 2 (0x1406ceb57).
+    if (!req.FlagAtByte(0x3d) && !req.FlagAtByte(0x3e) && k.deg135 < std::fabs(req.F(kLookDelta)) &&
+        static_cast<int>(req.U(kCommandSpeedClass)) > 1 && (req.U(kLookBucket) == 3u || req.U(kLookBucket) == 8u)) {
+      const float turn = TurnToward(host, BallArmReference(host, req, k, true), k);
+      if (k.deg45 < std::fabs(turn) && SignOf(req.F(kLookDelta)) != SignOf(turn)) {  // 0x1406cee4a, 0x1406cee54..0x1406cee75
+        const bool side = OwnSideFlag(host.ActionIndex());
+        const float anchor = host.TeamAnchorHeading(side);  // FUN_140a71540(MA, FUN_140a48a30(G, side)+0x254)
+        const float anchorTurn = PesAngleDiff(req.F(kFacing), anchor, k);
+        float own[3];
+        host.OwnPosition(own);
+        if (SignOf(anchorTurn) != SignOf(turn) || std::fabs(own[0]) < host.PitchLimit()) {  // 0x1406cef12..0x1406cef33
+          forced = true;
+          swing = true;
+        }
+      }
+    }
+
+    // The goto row (0x1406cef41).
+    const int kind = static_cast<int>(req.U(kKind));
+    int row = t.gotoRow[kind + static_cast<int>(req.U(kCommandSpeedClass)) * 8];  // DAT_1425dda50, 0x1406cef66
+    int col = t.bucketColumn[req.U(kLookBucket)];                                  // DAT_1425dd988, 0x1406cef6e
+    const int slot = host.ActionIndex();
+    if (swing) {
+      row = 0x572;
+    } else {
+      if (req.FlagAtByte(0x3f)) {  // 0x1406cef83
+        row = 0x566;
+        if (static_cast<uint32_t>(col - 8) <= 1u) col = (0.0f > req.F(kFacingError) ? 1 : 0) + 8;  // SETA R15B; ADD R15D,8
+      }
+      if (static_cast<uint32_t>(slot) <= 0x15u && static_cast<uint32_t>(row - 0x561) <= 5u && ((0x29u >> (row - 0x561)) & 1u) != 0u &&
+          static_cast<uint32_t>(col - 8) <= 1u) {  // 0x1406cefb1..0x1406cefdc
+        const int stamina = host.StaminaPercent();
+        const float ticks = static_cast<float>(host.RecordTicks(slot));
+        if (stamina < 0x14 && tps * host.MoveConstantsView().dist3 < ticks) row = 0x565;  // 0x1406cf033..0x1406cf04e
+      }
+    }
+    CellPick cell = PickCell(host, row, col);  // 0x1406cf059..0x1406cf0a1
+
+    // 0x1406cf0b4..0x1406cf696: the lock arm, the carrier contest or neither.
+    const bool lock3d = req.FlagAtByte(0x3d), lock3e = req.FlagAtByte(0x3e);
+    int footTable = 0;  // 0: DAT_1425dd930 (0x1406cf683), 1: DAT_1425dd940 (0x1406cf377)
+    if ((lock3d || lock3e) && static_cast<int>(req.U(kCommandSpeedClass)) > 1) {  // 0x1406cf0cf, 0x1406cf0dc
+      footTable = 1;
+      if (lock3d && !swing) {
+        row = 0x56f;  // 0x1406cf0f1
+      } else {
+        if (!forced && (req.U(kLookBucket) == 4u || req.U(kLookBucket) == 9u)) {  // 0x1406cf0fc..0x1406cf114
+          const float errMag = std::fabs(req.F(kFacingError));
+          bool flip = false;
+          if (k.deg1125 < errMag && errMag < k.deg1575) {  // 0x1406cf132, 0x1406cf13b
+            flip = SignOf(req.F(kLookDelta)) != SignOf(req.F(kFacingError));
+          } else {
+            const float turn = TurnToward(host, BallArmReference(host, req, k, false), k);  // 0x1406cf1a1..0x1406cf268
+            const float turnMag = std::fabs(turn);
+            flip = k.deg225 < turnMag && turnMag < k.deg1575 && SignOf(req.F(kLookDelta)) != SignOf(turn);
+          }
+          if (flip) {  // 0x1406cf167..0x1406cf19c: bucket 3, 4 -> 9; 8, 9 -> 4
+            const uint32_t to = (req.U(kLookBucket) - 3u) > 1u ? 4u : 9u;
+            req.SetU(kLookBucket, to);
+            req.SetF(kLookDelta, to == 4u ? k.wrapHalf : k.half_turn);
+          }
+        }
+        row = 0x570;  // 0x1406cf30b
+      }
+      col = t.bucketColumn[req.U(kLookBucket)];  // 0x1406cf330
+      cell = PickCell(host, row, col);
+    } else if (host.MatchPhase() == 1 && static_cast<int>(req.U(kCommandSpeedClass)) > 0 &&
+               static_cast<uint32_t>(slot) <= 0x15u && !swing) {  // 0x1406cf384..0x1406cf3b2
+      const bool trainer = host.MatchObjectFlag2c0();             // [RBP+0xb8]
+      bool contest = false;                                       // DIL
+      const int carrier = host.CarrierSlot();
+      if (static_cast<uint32_t>(carrier) <= 0x15u) {
+        float own[3], other[3];
+        host.OwnPosition(own);
+        host.RecordPosition(carrier, other);
+        const float groundSpeed = GroundSpeedKmh(host, k);  // XMM9: FUN_14042d470 of the ring sample's length
+        const float dz = own[2] - other[2], dx = own[0] - other[0];
+        if (k.kmh5 > std::sqrt(dz * dz + dx * dx)) {  // 0x1406cf4bf
+          const bool carrierSide = carrier >= 11;
+          if (OwnSideFlag(slot) != carrierSide) {
+            const float bodyOff = std::fabs(PesAngleDiff(req.F(kBodyDirection), req.F(kHeading), k));
+            if (bodyOff > k.deg135 && groundSpeed > host.MoveConstantsView().dist2m5) {  // 0x1406cf525, 0x1406cf52a
+              const bool keeper = host.AnimeRecordClass(carrier) == 0x12;
+              const int pct = trainer ? (keeper ? 0x5f : 0x46) : (keeper ? 0x32 : 10);
+              contest = host.Percent(pct);
+            }
+          }
+        }
+      }
+      bool take = true;
+      if (aim) {
+        contest = true;  // 0x1406cf59b
+      } else if (!contest) {
+        // 0x1406cf5a5: the class word at or below 0 or a request turn of at most 135 degrees ends the arm.
+        if (static_cast<int>(req.U(kClassWord)) <= 0 || !(std::fabs(req.F(kTurn)) > k.deg135)) take = false;
+      }
+      if (take) {
+        const bool three = req.U(kCommandSpeedClass) == 3u;
+        const int pct = trainer ? (three ? 0x1e : 0x14) : (three ? 1 : 0);  // 0x1406cf5c8..0x1406cf5ed
+        if (contest || host.Percent(pct)) {
+          row = 0x571;  // 0x1406cf60d
+          col = t.bucketColumn[req.U(kLookBucket)];
+          cell = PickCell(host, row, col);
+          host.CountAnalyserEvent(trainer, cell.motion);  // 0x1406cf67e: FUN_1406cba60(P, trainer, motion)
+        }
+      }
+    }
+    req.SetByte(kFootFlag, footTable != 0 ? tt.footFlagTurn[req.U(kLookBucket)] : tt.footFlag[req.U(kLookBucket)]);  // 0x1406cf6a5
+
+    // The jostle block (0x1406cf6b2..0x1406cfa86): a man marked by this one, level with him in front, takes the swing rows.
+    float startTime = 0.0f;  // XMM9 at 0x1406cfaa7, the issue's start
+    if (static_cast<uint32_t>(slot) <= 0x15u && static_cast<uint32_t>(col) <= 0x11u && ((0x2a015u >> col) & 1u) != 0u &&
+        static_cast<uint32_t>(row - 0x55f) <= 0x12u && ((0x4c03fu >> (row - 0x55f)) & 1u) != 0u) {
+      const int target = host.JostleTarget(OwnSideFlag(slot));
+      if (static_cast<uint32_t>(target) <= 0x15u) {
+        const int targetClass = host.AnimeRecordClass(target);
+        const float marked = host.AnimeRecordFloat(target, 0xc8);
+        if (targetClass != 0x11 && marked > k.rate07 && !tt.ClassHasFlag7(static_cast<int8_t>(targetClass))) {  // 0x1406cf772..0x1406cf79d
+          float own[3], other[3];
+          host.OwnPosition(own);
+          host.RecordPosition(target, other);
+          const float dxz2 = (own[2] - other[2]) * (own[2] - other[2]) + (own[0] - other[0]) * (own[0] - other[0]);
+          const float gap = std::sqrt(dxz2);  // FUN_140a8f860(own, target): the ground distance
+          float v[3] = {other[0] - own[0], other[1] - own[1], other[2] - own[2]};
+          RotateXZ(v, host.FacingDeg() * k.neg, k, host.SpeedClassConstantsView());  // 0x1406cf82c: FUN_1404bcad0(v, -facing)
+          const float markedTurn = std::fabs(PesAngleDiff(req.F(kHeading), host.AnimeRecordFloat(target, 0x124), k));  // XMM12
+          float velocity[3];
+          host.TargetVelocity(target, k.speedDt / tps, velocity);  // 0x1406cf87b: FUN_140a6c6d0
+          const float speed = tps * k.kmh60 * k.kmh60 / k.kmh1000 *
+                              std::sqrt(velocity[1] * velocity[1] + velocity[0] * velocity[0] + velocity[2] * velocity[2]);  // XMM15
+          const float dx = v[0], dz = v[2];
+          const float ahead = std::fabs(dx);  // |XMM6|
+          if (k.rate07 > gap && dz > 0.0f && k.half > ahead && k.deg675 > markedTurn && k.kmh16 > speed) {  // 0x1406cf8ac..0x1406cf916
+            bool take = false;
+            if (col == 0xd || col == 4) {
+              take = k.blend3 > ahead;  // 0x1406cf949
+            } else if (col == 0xf || col == 2) {
+              take = true;  // 0x1406cf956
+            } else if (col == 0x11 || col == 0) {
+              take = k.blend08 > ahead;  // 0x1406cf943
+            }
+            if (take) {
+              row = 0x573;
+              cell = PickCell(host, row, col);  // 0x1406cf962..0x1406cf9a9
+            }
+          }
+          if (k.dist11 > gap && dz > 0.0f && k.blend08 > ahead && k.deg675 > markedTurn && k.kmh16 > speed) {  // 0x1406cf9b6..0x1406cf9f4
+            bool take = false;
+            if (((col - 0xd) & ~2) == 0) {
+              take = k.footNeg010 > dx;  // 0x1406cfa1d: COMISS [0x14259d648], XMM6
+            } else if (((col - 2) & ~2) == 0) {
+              take = dx > k.frameGate01;  // 0x1406cfa14: COMISS XMM6,[0x142588200]
+            }
+            if (take) {
+              row = 0x575;
+              cell = PickCell(host, row, col);  // 0x1406cfa2a..0x1406cfa80
+            }
+          }
+        }
+      }
+    }
+
+    // The issue (0x1406cfa8f..0x1406cfbb1): the blend is 1/6, or 0.4 in the replay's stop / goto states or on the 0x50 / 0x52 action.
+    float blend = k.blend1667;
+    if (host.AnimeState() == kReplayAnimeState) {
+      const int state = host.CurrentState();
+      if ((state == 6 || state == 8) && static_cast<int>(req.U(kCommandSpeedClass)) < 1 && req.U(kKind) == 3u) blend = k.blend04;
+    } else if (host.CurrentState() == 0 && (((host.ActionSubByte() - 0x50) & ~2) == 0)) {
+      blend = k.blend04;  // 0x1406cfb01..0x1406cfb1a
+    }
+    if (host.CurrentState() == 0x16) {  // 0x1406cfb22..0x1406cfb77: a motion in the 0x2b50 columns starts at 0.15
+      // vt+0x30 of the +0xab8 interface is `movzx eax, byte [rcx+0x19ba]` = P+0x2472 (0x1406ec700), ClipFlag().
+      if (cell.mirror == host.ClipFlag() && static_cast<uint32_t>(col) <= 0xdu && ((0x2b50u >> col) & 1u) != 0u &&
+          (static_cast<uint32_t>(row - 0x562) <= 2u || row == 0x56e))
+        startTime = k.rampSlope;
+    }
+    WriteIssue(host, req, MotionRequest{cell.motion, cell.mirror, runStopVariant ? 1 : 0, blend, playback, startTime});  // 0x1406cfbb1
+    CopyHitWords(req, cell.motion);  // 0x1406cfbb4..0x1406cfc15
+
+    // The root-facing rate (0x1406cfc1b..0x1406cfc9d): the facing plus the look bucket's centre, folded, against the heading,
+    // over the hit seconds the issue stored.
+    float rootFacing = FoldFull(req.F(kFacing), k);
+    rootFacing = FoldFull(rootFacing + host.AngleBuckets().centre[req.U(kLookBucket)], k);
+    const float bearing = PesAngleDiff(rootFacing, req.F(kHeading), k);
+    req.SetF(kRecordStampA, req.F(kDwellLimit) == 0.0f ? 0.0f : bearing / req.F(kDwellLimit));
+
+    // The class and speed words (0x1406cfc9d..0x1406cfd3b). The store of req[0x1d] = 0.5 * the band speed at 0x1406cfcfc is
+    // overwritten at 0x1406cfd1d by the clamp below, so only the clamp is written.
+    const int cmdClass = static_cast<int>(req.U(kCommandSpeedClass));
+    req.SetU(kBandTarget, static_cast<uint32_t>(cmdClass > 3 ? 3 : (cmdClass < 0 ? 0 : cmdClass)));  // req[0x24]
+    const float desired = req.F(kDesiredSpeedKmh);
+    req.SetF(kSpeedBand, desired > k.kmh28 ? k.kmh28 : Maxss(k.kmh5, desired));  // req[0x22]
+    const int bandIndex = cmdClass - 1;
+    req.SetU(kClassWord, static_cast<uint32_t>(bandIndex > 2 ? 2 : (bandIndex < 0 ? 0 : bandIndex)));  // req[0x1f]
+    req.SetF(kStopSpeedWord, desired > k.kmh16 ? k.kmh16 : Maxss(k.kmh5, desired));                  // req[0x1d]
+    req.SetU(kLiveBucket, req.U(kLookBucket));                                                       // req[0x20] = req[0xc]
+    req.SetU(kNextState, static_cast<uint32_t>(MoveState::kGotoRun));                                // 0x1406cfd31: state 7
+  }
+  // The shared tail (0x1406d013b).
+  req.SetU(kRecordStampB, req.U(kHeading));  // req[0x18] = req[1]
+  req.SetByte(kChangeState, 1);
+  req.SetU(kLiveKind, req.U(kKind));  // req[0x1e] = req[0]
+  req.SetByte(kTurnLockFlag, 0);
+  // P+0x4d0 vt+8 (the AdjustAngle adjuster's apply): a no-op in this port (AdjustAngleApply, movestep_turn.cpp).
 }
 
 

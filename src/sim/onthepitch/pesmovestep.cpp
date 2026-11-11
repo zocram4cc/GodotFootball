@@ -416,8 +416,20 @@ class MoveHostAdapter final : public pes::MoveHost {
     return match_.PesWorldOf().RunEntryAim(match_.PesSlotOf(&player_), player_.GetTeamID(),
                                            static_cast<uint32_t>(MatchPhase()));
   }
-  // ponytail: P+0x2472, the anime interface's flag byte (vt+0x30); its writer is not decoded yet.
-  bool ClipFlag() const override { return false; }
+  // P+0x2472 (vt+0x30 of the anime interface): FUN_1406b8340's tail stores the issued request's mirror there at every issue
+  // (0x1406b8..: `*(P+0x2472) = local_694`); the issued clip's record holds the same bit.
+  bool ClipFlag() const override { return player_.GetIssuedClip().request.mirror; }
+  // ponytail: FUN_140a71540(MA, *(FUN_140a48a30(G, side)+0x254)) is the team record's anchor heading; GF has no such record, so
+  // the own facing stands in (a zero turn). Removed by TeamTick's team record.
+  float TeamAnchorHeading(bool) const override { return FacingDeg(); }
+  // ponytail: *(*(G+0x2aa8)+0x10) is a pitch struct field GF does not mirror; 0 keeps the swing arm's |x| test false.
+  float PitchLimit() const override { return 0.0f; }
+  // ponytail: the MA record at +0x22e4c (the AI's per-man marking record) has no GF writer: no jostle target (0xffffffff).
+  int JostleTarget(bool) const override { return -1; }
+  float AnimeRecordFloat(int, int) const override { return 0.0f; }
+  void TargetVelocity(int, float, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
+  // ponytail: P+0xacb, the action's sub byte, has no GF source.
+  int ActionSubByte() const override { return 0; }
 
   const pes::MoveConstants& MoveConstantsView() const override { return c_.move; }
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return c_.speedClass; }

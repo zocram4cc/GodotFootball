@@ -32,4 +32,23 @@ float ClipHitDistance(const MoveHost& host, int motion, float g, int index);
 // req[0x1b]) and req[0x27] = its hit distance (FUN_1406e7730, req[0x34]); both zero for a motion of 0x1125 or more.
 void CopyHitWords(MoveReq& req, int motion);
 
+// FUN_140a6e6b0(req + 0x144): the count byte of the request's look-point list (the byte at request offset 0x148).
+int RequestLookCount(const MoveReq& req);
+// FUN_140a76240(req + 0x144): the list's point the arms steer by: the block's own point (req + 0x14c) when the count is 0, else
+// the entry at 12 * (count + 1) bytes into the block. Copies its three floats.
+void RequestLookPoint(const MoveReq& req, float out[3]);
+
+// FUN_1406abb30(table, &row, &column, 0) and FUN_1406abd60(table, &row, &column) as the GOTO_RUN entries call them: the clip's
+// motion as a 16-bit word, and its mirror bit. With the walk argument 0 the motion's default is 0 (`NEG R9B; SBB R10W,R10W`
+// at 0x1406abb30), so a row without a clip at that column answers motion 0, never -1.
+struct CellPick {
+  int motion = 0;
+  bool mirror = false;
+};
+CellPick PickCell(MoveHost& host, int row, int column);
+
+// 0x1406d04d6.. / 0x1406ceb0d..: the look bucket flip of the GOTO_RUN entries, 4 <-> 9; the look delta (word 5) is set to -180
+// when the bucket it leaves is 4, else 180.
+void FlipLookBucket(MoveReq& req, const RunConstants& k);
+
 }  // namespace pes
