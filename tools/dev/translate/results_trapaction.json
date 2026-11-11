@@ -1302,6 +1302,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x14079BBE0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribbletick.json",
+   "coverage": {
+    "0x1407B37D0": {
+     "reached": 29,
+     "total": 96,
+     "fraction": 0.3021
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1: 1 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble action tick (action-4 vtable 0x1425E2440 +0x20): 1 REAL in-dribble call (sub-state 6 -> 0x1407B05F0), no ball write on this path",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 29,
+     "total": 96,
+     "fraction": 0.3021
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407B37D0"
   }
  ]
 }
