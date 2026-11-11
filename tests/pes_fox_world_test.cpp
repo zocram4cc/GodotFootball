@@ -162,4 +162,51 @@ TEST_F(FoxSeam, TheBootRunsPesMallocInitAndItsAllocatorHandsOutDistinctAlignedBl
   EXPECT_TRUE(a + kAllocSize <= b || b + kAllocSize <= a) << "the two blocks overlap";
 }
 
+// The stand-ins for the packer's virtualized functions (stubs.json gf-service): their effects were read from PES's own bytes on a real
+// pre-state (the entries' evidence): 0x143E98DA0(pool, size) stored size at pool+0x60 and returned the old value; 0x143DFA780 =
+// lua_atpanic(L, f) stored f at L+0x160 (with the global state at L+0xB8) and returned the old value. Each test checks the one store, the
+// return, and that no other byte of the object moved.
+struct ObjectState : PesState {
+  static constexpr uint64_t kBase = 0x40000, kBytes = 0x400;
+  ObjectState() { mem.segs.push_back({kBase, std::vector<uint8_t>(kBytes, 0x5A)}); }
+  std::vector<uint8_t> Bytes() { std::vector<uint8_t> out(kBytes); for (uint64_t i = 0; i < kBytes; ++i) out[i] = static_cast<uint8_t>(rd(kBase + i, 1)); return out; }
+};
+
+TEST(PackerStandIns, PoolSetMaxStoresTheSizeAtPlus0x60AndReturnsTheOldValue) {
+  ObjectState s;
+  const uint64_t pool = ObjectState::kBase + 0x100, oldMax = 0x2FFFF0, newMax = 0x4000;
+  s.wr(pool + 0x60, oldMax, 8);
+  const std::vector<uint8_t> before = s.Bytes();
+  s.gpr[1] = pool;
+  s.gpr[2] = newMax;
+  pes_service_packer_pool_set_max(s);
+  EXPECT_EQ(s.gpr[0], oldMax);
+  EXPECT_EQ(s.rd(pool + 0x60, 8), newMax);
+  std::vector<uint8_t> after = s.Bytes();
+  for (uint64_t i = 0; i < 8; ++i) after[pool + 0x60 - ObjectState::kBase + i] = before[pool + 0x60 - ObjectState::kBase + i];
+  EXPECT_EQ(after, before) << "a byte outside the max-size qword changed";
+}
+
+TEST(PackerStandIns, LuaAtPanicStoresTheFunctionInTheGlobalStatesPanicSlotAndReturnsTheOldOne) {
+  ObjectState s;
+  // PES's layout as the real run and the live game show it: the global state follows the thread at L+0xB8 (l_G at L+0x20), its panic slot is
+  // L+0x160.
+  const uint64_t L = ObjectState::kBase + 0x40, G = L + 0xB8, oldPanic = 0, panicFn = 0x14029E220;
+  s.wr(L + 0x20, G, 8);
+  s.wr(L + 0x160, oldPanic, 8);
+  const std::vector<uint8_t> before = s.Bytes();
+  s.gpr[1] = L;
+  s.gpr[2] = panicFn;
+  pes_service_packer_lua_atpanic(s);
+  EXPECT_EQ(s.gpr[0], oldPanic);
+  EXPECT_EQ(s.rd(L + 0x160, 8), panicFn);
+  std::vector<uint8_t> after = s.Bytes();
+  for (uint64_t i = 0; i < 8; ++i) after[L + 0x160 - ObjectState::kBase + i] = before[L + 0x160 - ObjectState::kBase + i];
+  EXPECT_EQ(after, before) << "a byte outside the panic slot changed";
+  // A second call returns the first call's function (the slot is the state).
+  s.gpr[2] = 0x1234;
+  pes_service_packer_lua_atpanic(s);
+  EXPECT_EQ(s.gpr[0], panicFn);
+}
+
 }  // namespace

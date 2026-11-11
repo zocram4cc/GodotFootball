@@ -3956,6 +3956,41 @@
     "GF's seam (pes_service_fs_op_destroy): the operation object is released to GF's heap."
    ],
    "model": {"op": "fs_op_destroy", "effect": "the operation object is freed"}
+  },
+  {
+   "va": "143E98DA0",
+   "callers": [
+    "1403EA250"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (obfuscated blocks in .impdata that jump into steam_api64.dll's own code; no .pdata, not translatable, not hookable): the pool's set-max-size, called by FUN_1403EA250 (the pool wrapper FUN_14029E940 calls as thunk_EXT_FUN_143e98da0(pool, 0x4000)).",
+    "EFFECT READ FROM PES'S OWN BYTES on a REAL pre-state: unicorn ran the recorded FUN_14029E940 call (live2/pid974668/seq001, hook anime8_scriptinit_14029E940) through the whole image with steam_api64.dll's code as the snapshot's bytes (112,761,877 instructions; the virtualized call is 74,992,325 of them). Over the call, the only non-stack memory change is the qword at pool+0x60: 0x2FFFF0 -> 0x4000 (= rdx); rax = the old value 0x2FFFF0. Cross-check on a running game (live2/pid4152866/seq002): [DAT_1436D0070 pool + 0x60] = 0x4000.",
+    "Not covered: registers other than rax and the stack scratch below rsp are not modelled (the caller reads only rax); flags are untouched here. A model of a PES effect, not a translation."
+   ],
+   "model": {
+    "op": "packer_pool_set_max",
+    "effect": "rax = [rcx+0x60]; [rcx+0x60] = rdx (8 bytes)"
+   }
+  },
+  {
+   "va": "143DFA780",
+   "callers": [
+    "14037FF60"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0): lua_atpanic(L, panicf), called by FUN_14037FF60 (FUN_14029DCE0 calls it as thunk_EXT_FUN_143dfa780(L, FUN_14029E220)).",
+    "EFFECT READ FROM PES'S OWN BYTES on the same real pre-state and run: the virtualized call (36,091,543 instructions) makes exactly one non-stack store: the qword at L+0x160 (L = 0x3000410010 in that run): 0 -> 0x14029E220 (= rdx); rax = 0, the old value. Cross-check on a running game (live2/pid4152866/seq002): L = [[DAT_1436D0068 + 8]]; G = [L+0x20] = L+0xB8; [L+0x160] = 0x14029E220 = G+0xA8: the slot is global_State's panic.",
+    "The model reads G = [L+0x20] and stores at G+0xA8 (equal to L+0x160 in the emulation and in the live game).",
+    "Not covered: registers other than rax and the stack scratch below rsp are not modelled."
+   ],
+   "model": {
+    "op": "packer_lua_atpanic",
+    "effect": "G = [rcx+0x20]; rax = [G+0xA8]; [G+0xA8] = rdx (8 bytes)"
+   }
   }
  ]
 }

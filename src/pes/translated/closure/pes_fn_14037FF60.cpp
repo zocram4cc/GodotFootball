@@ -10,8 +10,8 @@
 
 
 void pes_fn_14037FF60(PesState& s);
-void pes_fn_143DFA780(PesState& s);
 
 void pes_fn_14037FF60(PesState& s) {
-  { pes_fn_143DFA780(s); return; }
+  pes_service_packer_lua_atpanic(s);
+  return;
 }

@@ -281,3 +281,23 @@ void pes_service_fs_op_status(PesState& s) {
 
 // FUN_1415A6CBC(op): the operation object is released.
 void pes_service_fs_op_destroy(PesState& s) { HeapOf(s).Free(s.gpr[1]); }
+
+// STAND-INS for the packer's virtualized functions (stubs.json gf-service, ops packer_*; the effects are read from PES's own bytes on a real
+// pre-state, see the entries' evidence). Registers other than rax follow the caller's use: only rax is read after either call.
+namespace {
+constexpr uint64_t kPoolMaxSizeOff = 0x60;  // the pool object's max request size: FUN_1403EA250 tests `size <= [pool + 0x60]`
+constexpr uint64_t kLuaStateGlobalOff = 0x20, kLuaGlobalPanicOff = 0xA8;  // lua_State::l_G, global_State::panic
+}  // namespace
+
+// 0x143E98DA0(pool, size): rax = the old max size; the pool's max size = size.
+void pes_service_packer_pool_set_max(PesState& s) {
+  s.gpr[0] = s.rd(s.gpr[1] + kPoolMaxSizeOff, 8);
+  s.wr(s.gpr[1] + kPoolMaxSizeOff, s.gpr[2], 8);
+}
+
+// 0x143DFA780(L, panicf) = lua_atpanic: rax = the old panic function; global_State::panic = panicf.
+void pes_service_packer_lua_atpanic(PesState& s) {
+  const uint64_t panic = s.rd(s.gpr[1] + kLuaStateGlobalOff, 8) + kLuaGlobalPanicOff;
+  s.gpr[0] = s.rd(panic, 8);
+  s.wr(panic, s.gpr[2], 8);
+}

@@ -10,8 +10,8 @@
 
 
 void pes_fn_1403EA250(PesState& s);
-void pes_fn_143E98DA0(PesState& s);
 
 void pes_fn_1403EA250(PesState& s) {
-  { pes_fn_143E98DA0(s); return; }
+  pes_service_packer_pool_set_max(s);
+  return;
 }

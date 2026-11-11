@@ -188,3 +188,6 @@ void pes_service_fs_op_callback(PesState& s);
 void pes_service_fs_op_read(PesState& s);
 void pes_service_fs_op_status(PesState& s);
 void pes_service_fs_op_destroy(PesState& s);
+// Stand-ins for the packer's virtualized functions 0x143E98DA0 (a pool's set-max-size) and 0x143DFA780 (lua_atpanic): stubs.json gf-service.
+void pes_service_packer_pool_set_max(PesState& s);
+void pes_service_packer_lua_atpanic(PesState& s);
