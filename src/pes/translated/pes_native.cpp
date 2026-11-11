@@ -287,6 +287,7 @@ void pes_service_fs_op_destroy(PesState& s) { HeapOf(s).Free(s.gpr[1]); }
 namespace {
 constexpr uint64_t kPoolMaxSizeOff = 0x60;  // the pool object's max request size: FUN_1403EA250 tests `size <= [pool + 0x60]`
 constexpr uint64_t kLuaStateGlobalOff = 0x20, kLuaGlobalPanicOff = 0xA8;  // lua_State::l_G, global_State::panic
+constexpr uint64_t kLuaGlobalAllocOff = 0x10, kLuaGlobalAllocUdOff = 0x18;  // global_State::frealloc, ::ud
 }  // namespace
 
 // 0x143E98DA0(pool, size): rax = the old max size; the pool's max size = size.
@@ -300,4 +301,12 @@ void pes_service_packer_lua_atpanic(PesState& s) {
   const uint64_t panic = s.rd(s.gpr[1] + kLuaStateGlobalOff, 8) + kLuaGlobalPanicOff;
   s.gpr[0] = s.rd(panic, 8);
   s.wr(panic, s.gpr[2], 8);
+}
+
+// 0x143DFCCE0(L, f, ud) = lua_setallocf: global_State::frealloc = f, ::ud = ud; rax = the global state (as the real call left it).
+void pes_service_packer_lua_setallocf(PesState& s) {
+  const uint64_t g = s.rd(s.gpr[1] + kLuaStateGlobalOff, 8);
+  s.wr(g + kLuaGlobalAllocOff, s.gpr[2], 8);
+  s.wr(g + kLuaGlobalAllocUdOff, s.gpr[8], 8);
+  s.gpr[0] = g;
 }

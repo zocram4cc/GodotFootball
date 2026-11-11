@@ -3991,6 +3991,23 @@
     "op": "packer_lua_atpanic",
     "effect": "G = [rcx+0x20]; rax = [G+0xA8]; [G+0xA8] = rdx (8 bytes)"
    }
+  },
+  {
+   "va": "143DFCCE0",
+   "callers": [
+    "140380F70"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0): lua_setallocf(L, f, ud), reached through FUN_140380F70 (a `jmp` thunk) from FUN_14029DB50 (thunk_EXT_FUN_143dfcce0(L, FUN_14029EB40, manager)).",
+    "EFFECT READ FROM PES'S OWN BYTES on the same real pre-state (live2/pid974668/seq001, 140 s trace): the virtualized call stores 16 bytes at G+0x10 and G+0x18 (G = [L+0x20] = L+0xB8; at L = 0x3000410010: 0x30004100D8 = 0x14029EB40 = rdx, 0x30004100E0 = 0x1FB0180 = r8): frealloc and ud, Lua 5.1's lua_setallocf (`g->ud = ud; g->frealloc = f`). Both stores write the values lua_newstate already put there (old == new), so the call changes no byte in this boot. rax = G (observed; the caller ignores it).",
+    "Not covered: other registers and the stack scratch below rsp."
+   ],
+   "model": {
+    "op": "packer_lua_setallocf",
+    "effect": "G = [rcx+0x20]; [G+0x10] = rdx; [G+0x18] = r8; rax = G"
+   }
   }
  ]
 }

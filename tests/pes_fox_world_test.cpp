@@ -209,4 +209,21 @@ TEST(PackerStandIns, LuaAtPanicStoresTheFunctionInTheGlobalStatesPanicSlotAndRet
   EXPECT_EQ(s.gpr[0], panicFn);
 }
 
+TEST(PackerStandIns, LuaSetAllocFStoresTheAllocatorAndItsUserDataInTheGlobalState) {
+  ObjectState s;
+  const uint64_t L = ObjectState::kBase + 0x40, G = L + 0xB8, allocFn = 0x14029EB40, ud = 0x1FB0180;
+  s.wr(L + 0x20, G, 8);
+  const std::vector<uint8_t> before = s.Bytes();
+  s.gpr[1] = L;
+  s.gpr[2] = allocFn;
+  s.gpr[8] = ud;
+  pes_service_packer_lua_setallocf(s);
+  EXPECT_EQ(s.rd(L + 0xC8, 8), allocFn);  // G + 0x10 as the real run's state holds it (L + 0xC8 = frealloc, L + 0xD0 = ud)
+  EXPECT_EQ(s.rd(L + 0xD0, 8), ud);
+  EXPECT_EQ(s.gpr[0], G);
+  std::vector<uint8_t> after = s.Bytes();
+  for (uint64_t i = 0; i < 16; ++i) after[L + 0xC8 - ObjectState::kBase + i] = before[L + 0xC8 - ObjectState::kBase + i];
+  EXPECT_EQ(after, before) << "a byte outside the two stores changed";
+}
+
 }  // namespace
