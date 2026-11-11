@@ -178,7 +178,8 @@ TEST_F(FoxSeam, TheStaticInitResetClearsEveryGuardAndStartsTheEpochAtIntMin) {
 
 // A constant-initialized static (the type table's hash map, FUN_14026A2B0's) holds the dead game's runtime state in the dump; the restore
 // brings back the install's own exe bytes for exactly that object.
-constexpr uint64_t kTypeTableVa = 0x14339B010, kTypeTableBytes = 0x30;
+// The nine mutated objects the scan restores include the type table (0x14339B010) and the next one (0x14339B040).
+constexpr uint64_t kTypeTableVa = 0x14339B010, kTypeTableBytes = 0x30, kNextMapVa = 0x14339B040;
 
 TEST_F(FoxSeam, TheInitialDataRestoreBringsBackTheExesBytesOfAConstantInitializedStatic) {
   std::string error;
@@ -189,12 +190,14 @@ TEST_F(FoxSeam, TheInitialDataRestoreBringsBackTheExesBytesOfAConstantInitialize
   std::vector<uint8_t> dump(kTypeTableBytes);
   for (uint64_t i = 0; i < dump.size(); ++i) dump[i] = world_->Read8(kTypeTableVa + i);
   ASSERT_NE(dump, initial) << "the dump no longer holds runtime state there: the test proves nothing";
-  const uint8_t neighbourBefore = world_->Read8(kTypeTableVa + kTypeTableBytes);
   world_->RestoreInitialData();
   std::vector<uint8_t> restored(kTypeTableBytes);
   for (uint64_t i = 0; i < restored.size(); ++i) restored[i] = world_->Read8(kTypeTableVa + i);
   EXPECT_EQ(restored, initial);
-  EXPECT_EQ(world_->Read8(kTypeTableVa + kTypeTableBytes), neighbourBefore) << "the byte after the object was touched";
+  std::vector<uint8_t> next(kTypeTableBytes), nextInitial(kTypeTableBytes);
+  ASSERT_TRUE(exe->ReadVa(kNextMapVa, nextInitial.size(), nextInitial.data()));
+  for (uint64_t i = 0; i < next.size(); ++i) next[i] = world_->Read8(kNextMapVa + i);
+  EXPECT_EQ(next, nextInitial) << "a sibling hash map was not restored";
 }
 
 // The stand-ins for the packer's virtualized functions (stubs.json gf-service): their effects were read from PES's own bytes on a real
