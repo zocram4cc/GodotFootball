@@ -46,7 +46,9 @@ struct PesActorFacts {
   uint8_t phase = 0;           // P+0x245C: the locomotion phase byte
   uint8_t action = 0, sub = 0, prevAction = 0, prevSub = 0;  // P+0xAC8..+0xACB: PES's ids (2 MOVE, 3 STEP_MOVE, 7 TRAP)
   uint16_t motion = 0;         // P+0xAE0: the PES motion number playing
-  uint32_t kickApproach = 0;   // P+0x430: 0 unless the kick approach is armed (adjuster A state)
+  // P+0x430 is adjuster A's own state word (A = P+0x428, pestrapworld.hpp): the match runs A (PesWorld::StepAdjusters), so it leaves the word
+  // alone (nullopt). An oracle that replays a captured tick sets the captured value.
+  std::optional<uint32_t> kickApproach;
   float word277C = 0.0f;       // P+0x277C and +0x2780: the phase-1 test of the class writer (writers OPEN)
   float word2780 = 0.0f;
   float speedByte = 0.0f;      // slot record +0x97

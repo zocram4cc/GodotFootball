@@ -167,7 +167,7 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
     p[kPPrevActionOffset + 1] = f.prevSub;
     std::memcpy(p + kPWordAE0Offset, &f.motion, sizeof f.motion);
   }
-  StoreU32(p, kPWord430Offset, f.kickApproach);
+  if (f.kickApproach) StoreU32(p, kPWord430Offset, *f.kickApproach);
   StoreF32(p, kPWord277COffset, f.word277C);
   StoreF32(p, kPWord277COffset + 4, f.word2780);
   RebuildMotionTable(p, f);

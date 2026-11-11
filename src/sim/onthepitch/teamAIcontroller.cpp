@@ -3495,7 +3495,6 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
       f.playingCount = 1;
     }
   }
-  f.kickApproach = 0;  // the kick approach (adjuster A) is never armed in GF
   // P+0x277C / +0x2780: the first dwell's elapsed and limit, MOVESTEP's carried words req[0x1a] / req[0x1b].
   const auto carried = [&rec](int word) {
     float v;
