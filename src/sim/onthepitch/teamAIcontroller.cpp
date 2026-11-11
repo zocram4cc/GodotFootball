@@ -3592,6 +3592,11 @@ void RunPesTrapTicks(Match& match) {
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
+      // TC_DIAG2: did PES's tick switch the man out of Trap (end handler 0x14079E5C0 past its early return -> switch 0x1406EEBB0)?
+      if (std::getenv("TC_DIAG2") && pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap)
+        printf("TCSWITCH t=%lu %s ac8 %d->%d phase %d->%d\n", match.GetActualTime_ms(),
+               p->GetPlayerData()->GetLastName().c_str(), pes::kAnimeActionTrap, pb[pes::kPByteAC8Offset], phaseBefore,
+               pb[pes::kPPhaseOffset]);
       if (phaseBefore == 0)
         p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
       // The anime tick that follows the action tick in a PES frame steps the strike adjuster the start armed (the root's walk onto

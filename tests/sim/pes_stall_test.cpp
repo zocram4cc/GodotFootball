@@ -127,6 +127,11 @@ class TrapContactProbe : public pestest::Probe {
   long restingGrants = 0;        // those with the ball at rest (under a metre per second) at the tick's start
   long touchesWithoutGrant = 0;  // a man in a trap clip touched the ball with no grant: a touch with no PES source
   long grantsWithoutTouch = 0;   // a grant that did not touch the ball
+  // DribbleEngage (docs/ports/pes-port-TrapContact3.md §4.1): a granted touch that leaves the ball at rest must hand the man to
+  // PES's dribble: within kDribbleEngageTicks of the grant his P+0xAC8 is the Dribble action (4). A trapper stranded in Trap beside a
+  // resting ball is the post-touch chain never running (end handler 0x14079E5C0 -> switch 0x1406EEBB0 -> act4 start 0x1407A38E0).
+  static constexpr long kDribbleEngageTicks = 150;  // ~2.8 s: the trap clip's tail past its contact frame plus the end chain
+  long strandedTrappers = 0;  // granted resting touches with no dribble inside the window
   // Match::Process advances the clock at its end (match.cpp, `actualTime_ms += kTick_ms`), after the bodies stamped this tick's
   // touches, so a touch made on the tick that just ran carries the clock as it stood when the tick began.
   void OnStart(Match& match) override { tickStart_ms_ = match.GetActualTime_ms(); }
@@ -143,18 +148,33 @@ class TrapContactProbe : public pestest::Probe {
         const bool touched = player->GetLastTouchTime_ms() == tickStart_ms_;
         if (granted) {
           grants++;
-          if (previousSpeed_ < restingSpeed_mps) restingGrants++;
+          if (previousSpeed_ < restingSpeed_mps) {
+            restingGrants++;
+            waiting_[player.get()].restLeft = kDribbleEngageTicks;
+          }
           if (!touched) grantsWithoutTouch++;
         } else if (touched && player->CastHumanoid()->OnPesTrap()) {
           touchesWithoutGrant++;
         }
       }
     }
-    previousSpeed_ = speed;
-    tickStart_ms_ = match.GetActualTime_ms();
+    for (int team = 0; team < 2; ++team) {
+      for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
+        if (!player->IsActive()) continue;
+        auto& w = waiting_[player.get()];
+        if (w.restLeft > 0 && --w.restLeft == 0) {
+          const int slot = match.PesSlotOf(player.get());
+          if (match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) strandedTrappers++;
+        }
+      }
+    }
   }
 
  private:
+  struct Wait {
+    long restLeft = 0;
+  };
+  std::map<const Player*, Wait> waiting_;
   std::map<int, unsigned> taken_;
   float previousSpeed_ = 0.0f;
   unsigned long tickStart_ms_ = 0;
@@ -294,4 +314,18 @@ TEST(PesStall, ATrapReachesABallAtRest) {
   pestest::Settle(contactCensus);
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
   EXPECT_GT(contactCensus.restingGrants, 0) << "no trap touched a ball at rest in the whole match";
+}
+// A granted touch that leaves the ball at rest hands the man to PES's dribble: the post-touch chain (end handler 0x14079E5C0 ->
+// switch 0x1406EEBB0 -> act4 start 0x1407A38E0) puts him in the Dribble action, which carries the ball. A trapper still in Trap 150
+// ticks after his granted resting touch is stranded: the chain never ran and the ball lies still until the breaker fires.
+TEST(PesStall, AGrantedRestingTouchStartsPesDribble) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(contactCensus.restingGrants, 0) << "no trap touched a ball at rest in the whole match";
+  EXPECT_EQ(contactCensus.strandedTrappers, 0)
+      << contactCensus.strandedTrappers << " of " << contactCensus.restingGrants
+      << " granted resting touches left the trapper out of PES's dribble";
 }
