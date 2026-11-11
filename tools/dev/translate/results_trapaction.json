@@ -1023,6 +1023,84 @@
    "stubs": [],
    "translated": true,
    "va": "0x141EB3910"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_rootyawarm.json",
+   "coverage": {
+    "0x141EB35A0": {
+     "reached": 21,
+     "total": 21,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 12 of 12: 0 REAL captured call(s) and 12 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. the yaw adjuster arm FUN_141EB35A0 (FUN_141EB35A0(P+0x4D0, from, to, ticks, f5, f6, flag7)): SYNTHETIC states over a real yaw-adjuster capture (live2/pid4152866 seq006), entered at the call site of FUN_141EB56D0 (0x141EB5717): plain, both angle wraps of each argument, the 180-degree error fold both ways, the override flag with both error signs, the byte flags, zero and one tick",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 12,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 21,
+     "total": 21,
+     "fraction": 1.0
+    },
+    "replayed": 12,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB35A0",
+   "synthetic": true,
+   "synthetic_cases": 12
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_rootfacing.json",
+   "coverage": {
+    "0x141EB56D0": {
+     "reached": 5,
+     "total": 8,
+     "fraction": 0.625
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 0 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. the root-facing write FUN_141EB56D0(P, &angle, 1): SYNTHETIC states over a real yaw-adjuster capture (live2/pid4152866 seq006); the angle read from a stack cell, the one-tick yaw arm (FUN_141EB35A0 inside)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 5,
+     "total": 8,
+     "fraction": 0.625
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB56D0",
+   "synthetic": true,
+   "synthetic_cases": 5
   }
  ]
 }
