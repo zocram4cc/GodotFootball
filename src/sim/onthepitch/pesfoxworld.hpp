@@ -65,6 +65,9 @@ class PesFoxWorld final : public PesFileSource {
   // TLS slot +0x38 of the block [0x1437067A0] indexes holds a root frame {vtable 0x14258BCA8, 0, 0, base, base, end, 0} over a 256 KiB
   // arena, which FUN_1403EFDF0 pushes child frames on. PES gives each engine thread one; the match thread had none. Boot calls it.
   void InstallScratchArena();
+  // PES's process-start state of the CRT's thread-safe function-local statics: every guard 0 and the global epoch at INT_MIN (the dump holds
+  // the dead game's, whose objects hold dead-heap state). Boot calls it first.
+  void ResetStaticInitState();
   // The job pump FUN_141EA8430 and the worker stages it waits on, run until the pending list is empty and the finished resources have
   // moved into the ResManager (the pump drains them when the list empties). False (error set) when a job never completes.
   bool PumpUntilIdle(std::string* error);

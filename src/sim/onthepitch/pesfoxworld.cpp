@@ -185,6 +185,18 @@ constexpr uint64_t kRegistryVa = 0x1437F4F78, kRegistrarFlagVa = 0x1437F4F82;
 // heap. Zero is the state before the first use. FUN_140302EA0's registry (the type table FUN_140303290 / FUN_141B0BA70 register into) is one,
 // FUN_1402A58E0's object registry (a std::map under a lock, DAT_1436D0260: FUN_1402A59B0 assigns through it) another.
 constexpr uint64_t kLazySingletonCells[] = {0x1436D8C50, 0x1436D0260};
+// The CRT's thread-safe function-local statics (`static T x;` -> _Init_thread_header / _Init_thread_footer): a static is built on its first
+// use, while its guard dword is 0. The dump holds the dead game's: 692 of the image's 856 guards are set and their objects hold dead-heap
+// state, so a first use here would skip the constructor and walk dead pointers (the string table, the anime type objects). PES starts with
+// every guard 0, the global epoch (_Init_global_epoch, DAT_14350B358) at INT_MIN and each thread's epoch (TLS block +0x84, a thread-local
+// initialised to INT_MIN) likewise. A guard is the rip-relative operand of the `lea rcx, [guard]` that sits right before each `call
+// _Init_thread_header` (0x14159F8B0): the scan finds them in the image's code section (.trace, the section table: 0x140001000, 0x252D800 bytes).
+constexpr uint64_t kInitThreadHeaderVa = 0x14159F8B0, kInitGlobalEpochVa = 0x14350B358, kCodeSectionVa = 0x140001000, kCodeSectionBytes = 0x252D800;
+constexpr uint32_t kInitEpochStart = 0x80000000u;  // INT_MIN
+constexpr uint64_t kTlsInitEpochOffset = 0x84;
+// `lea rcx, [rip + rel32]` (48 8D 0D) directly followed by `call rel32` (E8): 7 + 5 bytes.
+constexpr uint8_t kLeaRcxRipOpcode[3] = {0x48, 0x8D, 0x0D}, kCallOpcode = 0xE8;
+constexpr uint64_t kLeaBytes = 7, kCallBytes = 5;
 // FUN_14029E940's config block: it reads only the dword at +4 (the pool size, 0 = default).
 constexpr uint64_t kScriptConfigBytes = 0x10;
 // The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
@@ -228,18 +240,13 @@ constexpr uint64_t kUnitFloatVa = 0x14256AE1C;  // DAT_14256AE1C, 1.0f: the temp
 // included): run 1 0x1436DCEB0 (the allocator's first byte flag) .. 0x1436DD294 (its last dword, map_bias-like cell at 0x1436DD290), run 2
 // 0x143AC2810 (its first dword) .. 0x143AC3DD0 (the dword at 0x143AC3DCC is the tsd key, the last one it names).
 constexpr uint64_t kAllocatorBssRuns[][2] = {{0x1436DCEB0, 0x1436DD294}, {0x143AC2810, 0x143AC3DD0}};
-// The string table singleton FUN_1403D2BB0 returns (&DAT_1436EDC00): a function-local static, built by FUN_1403D23F0 on the first call behind the
-// thread-safe-init guard DAT_1436EDCA8 (the last dword of the run). The dump holds it built, with its pools in the dead game's heap (guard
-// 0x80000001, pools at 0x1820000..), so FUN_1403D2A20 walks pool memory that does not exist here and never returns. Zero is the state PES starts
-// in: the guard clear, so the first call constructs it.
-constexpr uint64_t kStringTableRun[2] = {0x1436EDC00, 0x1436EDCB0};
 
 }  // namespace
 
 void PesFoxWorld::Boot() {
   for (const auto& run : kAllocatorBssRuns) std::memset(impl_->image + (run[0] - kImageBase), 0, run[1] - run[0]);
-  std::memset(impl_->image + (kStringTableRun[0] - kImageBase), 0, kStringTableRun[1] - kStringTableRun[0]);
-  // The thread-safe static guards (FUN_1403D2BB0's _Init_thread_header) read the thread's TLS block (epoch at +0x84): it exists before the first one runs.
+  ResetStaticInitState();
+  // The thread-safe static guards (_Init_thread_header) read the thread's TLS block (epoch at +0x84): it exists before the first one runs.
   InstallScratchArena();
   Call(::pes_fn_14038EE80, {});  // malloc_init_hard, as PES's first allocation runs it (FUN_14038E3E0 tests its flag at 0x1436DCEE0)
   for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
@@ -277,8 +284,24 @@ void PesFoxWorld::InstallScratchArena() {
   Write64(frame + kScratchFrameCursorOffset, arena);
   Write64(frame + kScratchFrameEndOffset, arena + kScratchArenaBytes);
   Write64(block + kTlsSlotOffset, frame);
+  Write32(block + kTlsInitEpochOffset, kInitEpochStart);
   Write64(tlsArray + 8 * static_cast<uint64_t>(Read32(kTlsIndexVa)), block);
   Write64(kTebVa + kTebTlsPointerOffset, tlsArray);
+}
+
+void PesFoxWorld::ResetStaticInitState() {
+  const uint8_t* code = impl_->image + (kCodeSectionVa - kImageBase);
+  for (uint64_t at = 0; at + kLeaBytes + kCallBytes <= kCodeSectionBytes; ++at) {
+    if (std::memcmp(code + at, kLeaRcxRipOpcode, sizeof kLeaRcxRipOpcode) != 0 || code[at + kLeaBytes] != kCallOpcode) continue;
+    int32_t callRel, guardRel;
+    std::memcpy(&guardRel, code + at + sizeof kLeaRcxRipOpcode, sizeof guardRel);
+    std::memcpy(&callRel, code + at + kLeaBytes + 1, sizeof callRel);
+    const uint64_t site = kCodeSectionVa + at;
+    if (site + kLeaBytes + kCallBytes + static_cast<int64_t>(callRel) != kInitThreadHeaderVa) continue;
+    const uint64_t guard = site + kLeaBytes + static_cast<int64_t>(guardRel);
+    std::memset(impl_->image + (guard - kImageBase), 0, sizeof(uint32_t));
+  }
+  std::memcpy(impl_->image + (kInitGlobalEpochVa - kImageBase), &kInitEpochStart, sizeof kInitEpochStart);
 }
 
 bool PesFoxWorld::PumpUntilIdle(std::string* error) {

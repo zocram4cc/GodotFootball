@@ -162,6 +162,20 @@ TEST_F(FoxSeam, TheBootRunsPesMallocInitAndItsAllocatorHandsOutDistinctAlignedBl
   EXPECT_TRUE(a + kAllocSize <= b || b + kAllocSize <= a) << "the two blocks overlap";
 }
 
+// Process-start state of the CRT's thread-safe statics: the dump holds the dead game's guards (the string table's, a function-local static
+// at 0x1436EDCA8, reads 0x80000001 = built) and global epoch; the reset clears every guard and sets the epoch to INT_MIN. The string table's
+// guard stands for the 856 the scan finds; a second guard (the anime type object's, 0x1437CEEB8) is read too, from another function.
+constexpr uint64_t kStringTableGuardVa = 0x1436EDCA8, kAnimeTypeGuardVa = 0x1437CEEB8, kGlobalEpochVa = 0x14350B358;
+
+TEST_F(FoxSeam, TheStaticInitResetClearsEveryGuardAndStartsTheEpochAtIntMin) {
+  ASSERT_NE(world_->Read32(kStringTableGuardVa), 0u) << "the dump no longer holds the guard set: the test proves nothing";
+  ASSERT_NE(world_->Read32(kAnimeTypeGuardVa), 0u);
+  world_->ResetStaticInitState();
+  EXPECT_EQ(world_->Read32(kStringTableGuardVa), 0u);
+  EXPECT_EQ(world_->Read32(kAnimeTypeGuardVa), 0u);
+  EXPECT_EQ(world_->Read32(kGlobalEpochVa), 0x80000000u);
+}
+
 // The stand-ins for the packer's virtualized functions (stubs.json gf-service): their effects were read from PES's own bytes on a real
 // pre-state (the entries' evidence): 0x143E98DA0(pool, size) stored size at pool+0x60 and returned the old value; 0x143DFA780 =
 // lua_atpanic(L, f) stored f at L+0x160 (with the global state at L+0xB8) and returned the old value. Each test checks the one store, the
