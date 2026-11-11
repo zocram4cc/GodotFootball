@@ -1005,10 +1005,11 @@ void Match::Process() {
           if (!who) continue;
           const pes::MoveStepRecord& ms = who->GetMoveStep();
           const Anim* a = who->CastHumanoid()->GetCurrentAnim();
-          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f\n",
+          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f | %.1f m from the ball, %.1f m/s\n",
                  who->GetPlayerData()->GetLastName().c_str(), who->GetID(), int(ms.state), int(ms.previous),
                  int(a->functionType), a->anim ? a->anim->GetName().c_str() : "-", a->frameNum,
-                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate);
+                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate, (who->GetPosition() - ballNow).Get2D().GetLength(),
+                 who->GetMovement().GetLength());
         }
       }
     }
