@@ -2070,6 +2070,11 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     if (!IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement)
       return false;
+    // The Move action's movement is MOVESTEP's alone (PES has no other mover): a requeue of GF's own movement clip on top of a PES
+    // locomotion clip throws away the clip the FSM just issued, and the FSM's next tick issues it again at frame 0. A designated man
+    // within 3 m of the ball requeues every second tick, so the keeper of a ball at rest never left his first frame.
+    if (OnPesLocomotion() && command.desiredFunctionType == e_FunctionType_Movement)
+      return false;
     if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement &&
         (CastPlayer()->HasPossession() /* || team->GetTeamPossessionAmount() >= 1.0f*/ ||
