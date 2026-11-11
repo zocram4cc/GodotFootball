@@ -378,6 +378,7 @@ class RateHost : public pes::MoveHost {
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return facingDeg; }
+  float BodyDeg() const override { return bodyDeg; }
   float BallBearingDeg() const override { return ballBearingDeg; }
   int ActionIndex() const override { return actionIndex; }
   int RelatedSlot() const override { return relatedSlot; }
@@ -408,6 +409,7 @@ class RateHost : public pes::MoveHost {
   pes::IdleRowTables idleRows{};
   pes::MotionRecord record;  // the motion table entry the host hands the handlers
   float facingDeg = 0.0f;
+  float bodyDeg = 0.0f;  // SYNTHETIC: P+0x28, the body's yaw (FUN_1406d2590 reads it against the facing)
   float ballBearingDeg = 0.0f;
   int actionIndex = 0;
   int relatedSlot = -1;

@@ -277,6 +277,9 @@ class FakeHost : public MoveHost {
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return 0.0f; }
+  float BodyDeg() const override { return bodyDeg; }
+  int CarrierSlot() const override { return carrierSlot; }
+  float HeadingToPointDeg(const float[3]) const override { return ballHeadingDeg; }
   float BallBearingDeg() const override { return 0.0f; }
   int ActionIndex() const override { return 0; }
   int RelatedSlot() const override { return -1; }
@@ -326,6 +329,10 @@ class FakeHost : public MoveHost {
   bool lastWalk = false;
   bool cellMirror = false;
   int cellMotion = -1;
+  // SYNTHETIC: the reads of FUN_1406d2590's re-aim (P+0x28, the carrier slot, the heading to the ball sample).
+  float bodyDeg = 0.0f;
+  int carrierSlot = 0x16;
+  float ballHeadingDeg = 0.0f;
   pes::MotionRequest issued{};
 };
 
@@ -1662,9 +1669,11 @@ TEST(EnterTurnStop, TheStopColumnIsTheFoldedBucketsColumn) {
   EXPECT_EQ(host.lastColumn, 5) << "bucket 4 folds to 3 before the selector (lines 279-284): DAT_1425DD988[3]";
 }
 
-// PES's cell lookup answers -1 for an empty cell (TeamDecode 3). The TURN_STOP entry issued the row id when its step cell was
-// empty; the cell's own motion goes out, -1 when empty.
-TEST(EnterTurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {
+// FUN_1406abb30 with walk=0 (the call TURN_STOP's entry makes through vt+0xd0): `neg r9b; sbb r10w, r10w` defaults the motion
+// to 0, and every empty-cell exit (null table, negative row, row >= 0xbe5, bad column) leaves eax=0 — never -1. The row id is
+// issued only when a loaded cell holds it at that column. The old test asserted -1 from TeamDecode-era notes on a different
+// call convention.
+TEST(EnterTurnStop, AnEmptyStepCellIssuesMotionZeroNotTheRowId) {
   FakeHost host;
   host.currentKmh = 0.0f;
   pes::MoveReq req;
@@ -1684,7 +1693,7 @@ TEST(EnterTurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {
   host.cellMotion = -1;     // the step cell is empty
   req.SetU(pes::moveword::kMotion, static_cast<uint32_t>(-7));  // a sentinel: stays -7 if the entry wrote no request
   EnterTurnStop(host, req);
-  EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMotion)), -1) << "an empty step cell's motion is -1, never the row id";
+  EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMotion)), 0) << "an empty step cell's motion is 0, never the row id";
 }
 
 // FUN_1406b9d80 stores FUN_1406abd60's answer as the stop clip's mirror; EnterTurnStop issues it as it is. The old port asked an
@@ -1703,6 +1712,51 @@ TEST(EnterTurnStop, TheStopClipIsMirroredAsItsCellSays) {
     EXPECT_EQ(pes::DueRequest(req, 0).mirror, cellMirror);
     EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMotion)), 0x600);
   }
+}
+
+// FUN_1406d2590 0x1406d26af (d_1406d2590.c:91-92): the look-behind re-aim tests `bucket - 3U < 2 || bucket - 8U < 2`, UNSIGNED, so
+// only the buckets 3, 4, 8 and 9 reach it. A signed test sent buckets 0..2 through the flip, which then wrote bucket 4.
+TEST(EnterTurnStop, TheLookBehindReAimOnlyTouchesBuckets3_4_8And9) {
+  for (const int bucket : {0, 1, 2, 5, 6, 7}) {
+    FakeHost host;
+    host.ballHeadingDeg = 300.0f;  // the re-aim is -60 degrees: opposite to the +170 turn
+    pes::MoveReq req;
+    StopSelectorRequest(req, /*classWord=*/1, /*command=*/0, bucket);
+    req.SetF(pes::moveword::kLookDelta, 170.0f);
+    req.SetF(pes::moveword::kFacingError, 170.0f);
+    EnterTurnStop(host, req);
+    EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kLiveBucket)), bucket) << "bucket " << bucket << " is outside the pair tests";
+  }
+}
+
+// The flip reads the bucket it leaves (`uVar9 = bucket - 3` before `bucket = 9`, lines 159-163): 3 and 4 become 9 and fold to 8,
+// 8 and 9 become 4 and fold to 3. The old port tested the NEW bucket (9 - 3 > 1), which always answered 4.
+TEST(EnterTurnStop, TheFlipLeavesTheMirroredPairOfTheBucketItLeaves) {
+  const int expected[10] = {0, 1, 2, 8, 8, 5, 6, 7, 3, 3};
+  for (const int bucket : {3, 4, 8, 9}) {
+    FakeHost host;
+    host.ballHeadingDeg = 300.0f;
+    pes::MoveReq req;
+    StopSelectorRequest(req, /*classWord=*/1, /*command=*/0, bucket);
+    req.SetF(pes::moveword::kLookDelta, 170.0f);
+    req.SetF(pes::moveword::kFacingError, 170.0f);
+    EnterTurnStop(host, req);
+    EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kLiveBucket)), expected[bucket]) << "bucket " << bucket;
+  }
+}
+
+// The tail's history words are req[0x25] = the old req[0x20] and req[0x20] = the folded bucket (lines 342-344); the move bucket
+// req[8] is not touched.
+TEST(EnterTurnStop, TheTailMovesTheLiveBucketWordNotTheMoveBucket) {
+  FakeHost host;
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/1, /*command=*/0, /*lookBucket=*/4);
+  req.SetU(pes::moveword::kLiveBucket, 7u);
+  req.SetU(pes::moveword::kMoveBucket, 6u);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kLiveBucket)), 3);
+  EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kBucketPrev)), 7);
+  EXPECT_EQ(static_cast<int>(req.U(pes::moveword::kMoveBucket)), 6);
 }
 
 TEST(TurnStop, ScalesTheRateByTheRecordConstant) {

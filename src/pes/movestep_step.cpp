@@ -1007,209 +1007,191 @@ void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn) {
 }
 }  // namespace
 // -------------------------------------------------------------------------------------------------
-// EnterTurnStop, FUN_1406d2590 (0x1406d2590..0x1406d2e64), the TURN_STOP entry. RUN_TO_STEP and
-// TURN_STOP itself call it. It picks the stop row's bucket from the player's own motion and the
-// body turn, sets the request (motion, mirror, blend, playback, start time) and enters TURN_STOP.
-//
-//   1. The playback speed and the mirror come from the interface's own answers (vt+0x50 for the
-//      speed, vt+0x30/0x50 for the mirror), with the sameness test FUN_140a62960 drives.
-//   2. The bucket: req[0xd] normally, or req[0xc] when the class is not negative and the request
-//      is not precise; and the turn: req[7] normally, or req[5] in that same case.
-//   3. In play (phase 1), with the bucket 3/4 or 8/9 and the turn past 146.25 deg, PES re-aims
-//      at a sampled ball position (ctx+0x40 through FUN_140a6cf70), recomputes the body turn,
-//      and may flip the bucket to its mirrored pair.
-//   4. The row comes from the player's own motion (the interface's vt+0x18, a motion id) for the
-//      special groups, or from the turn and the body direction for the rest.
-//   5. The mirror, blend and playback follow the chosen motion's own group; the tail writes the
-//      recorded band/bucket/speed and enters TURN_STOP.
+// EnterTurnStop, FUN_1406d2590 (0x1406d2590..0x1406d2e64), the TURN_STOP entry. RUN_TO_STEP and TURN_STOP itself call it. Ported from
+// the instruction stream (the call sites 0x1406d25fa..0x1406d2e17) and the decompile d_1406d2590.c:
+//   0x1406d25fa..0x1406d2654  the playback from the match-up flag (EntryPlayback), stored in req[0x35].
+//   0x1406d2655..0x1406d26a0  the bucket and turn the entry starts from: req[0xd] and req[7], or req[0xc] and req[5] when the command
+//                             class is not -1 and the request is not precise; the class word clamped into 0..3.
+//   0x1406d26af..0x1406d2828  in play (phase 1) at bucket 3, 4, 8 or 9 (UNSIGNED tests) with the turn past 146.25: the look-behind
+//                             re-aim at the ball sample (or the look heading), and the flip of the bucket to its mirrored pair.
+//   0x1406d2828..0x1406d2b4c  the bucket of the body turn (P+0x28 against P+0x20) for the motion groups the player is in, through the
+//                             interface's bucket function (vt+0x60).
+//   0x1406d2968..0x1406d2bc3  the 4 -> 3 and 9 -> 8 fold, the kind fold, and the stop cell (vt+0xd0: FUN_1406b9d80's row, the cell's
+//                             motion and mirror).
+//   0x1406d2bc3..0x1406d2d76  the blend by the clip's group, and the 0xe2d arm's mirror from the bone ring.
+//   0x1406d2d76..0x1406d2e64  the issue (vt+0x10), TURN_STOP, and the tail's request words.
 // -------------------------------------------------------------------------------------------------
+namespace {
+
+// FUN_1405aef10(&a, &b): b - a, wrapped once by 360 when its magnitude passes 180 (no fold of either side first, unlike
+// FUN_14043a0a0). The inline `x - P+0x20` of the re-aim is the same wrap.
+float PlainDiffDeg(float a, float b, const RunConstants& k) {
+  float d = b - a;
+  if (k.half_turn < std::fabs(d)) d -= (d < 0.0f ? k.neg : k.one) * k.full;
+  return d;
+}
+
+// COMISS 0, x; the -1.0 / 1.0 pair every sign test of the entry builds: -1 when x < 0, else 1.
+float SignOne(float x, const RunConstants& k) { return x < 0.0f ? k.neg : k.one; }
+
+}  // namespace
+
 void EnterTurnStop(MoveHost& host, MoveReq& req) {
+  const RunConstants& rk = host.RunConstantsView();
   const StepScalars& k = host.StepConstants();
   const StepTables& tables = host.StepTablesView();
-  const float facing = req.F(moveword::kFacing);
-  const bool precise = req.Flag(moveword::kPrecise);
-  const int speedClass = int(req.U(moveword::kCommandSpeedClass));
 
-  // 2. The bucket and turn the entry starts from.
+  // 0x1406d25fa..0x1406d2654 (d_1406d2590.c:52-69): req[0x35] is a local of PES's, handed to the issue.
+  const float playback = EntryPlayback(host);
+  req.SetF(moveword::kPlayback, playback);
+
+  // 0x1406d2655.. (c:67-82).
   int bucket = int(req.U(moveword::kLookBucketAlt));  // req[0xd]
   float turn = req.F(moveword::kFacingError);         // req[7]
-  if (speedClass >= 0 && !precise) {
-    bucket = int(req.U(moveword::kLookBucket));       // req[0xc]
-    turn = req.F(moveword::kLookDelta);               // req[5]
+  if (-1 < int(req.U(moveword::kCommandSpeedClass)) && req.U(moveword::kPrecise) == 0) {
+    bucket = int(req.U(moveword::kLookBucket));  // req[0xc]
+    turn = req.F(moveword::kLookDelta);          // req[5]
   }
-  // 1. The playback: vt+0x50(vt+0x30(match-up flag)) (0x1406d2648, 0x1406d2654). A local of PES's, handed to the issue; it is
-  // never the band's km/h speed (a speed in req[0x35] latches a zero playback into a standing player's record).
-  const float playback = EntryPlayback(host);
-  req.SetF(moveword::kPlayback, playback);  // param_2[0x35] = local_124 (d_1406d2590.c:69)
-  int band = int(req.U(moveword::kClassWord));
-  band = std::min(std::max(band, 0), 3);
+  const int classBand = std::clamp(int(req.U(moveword::kClassWord)), 0, 3);
 
-  // 3. In play, the look-behind re-aim and the mirrored-bucket flip.
-  if (host.MatchPhase() == 1 &&
-      ((bucket - 3 < 2 || bucket - 8 < 2) && k.deg146p25 < std::fabs(turn))) {
-    // ponytail: PES samples the match's ball-position list (ctx+0x40 through FUN_140a6cf70) for
-    // the re-aim heading; GF has no such list, so the port aims at the player's own displacement.
+  // 0x1406d26af..0x1406d2828 (c:91-166): `bucket - 3 < 2 || bucket - 8 < 2` are unsigned compares (3, 4, 8, 9 only).
+  if (host.MatchPhase() == 1 && (static_cast<uint32_t>(bucket - 3) < 2u || static_cast<uint32_t>(bucket - 8) < 2u) &&
+      rk.deg146p25 < std::fabs(turn)) {
     float ball[3];
-    host.PositionAt(2, ball);
-    float aim = Atan2Delta(ball[0], ball[2]) / kDegToRad;
-    if (aim < 0.0f) aim += 360.0f;
-    // PES: `uVar9 = FUN_140a627e0(ctx, 0)` (the player's record slot), and when it is past 21
-    // (an outfield player, not an official) and the turn to the look point is inside
-    // (22.5, 157.5) degrees, the re-aim aims at the look heading instead of the ball.
-    // ponytail: FUN_140a627e0's slot is the roster index; GF's Player::GetID() is not the same
-    // numbering, so the port uses the record slot the adapter supplies through RecentStamp(1).
-    const int slot = host.RecentStamp(1);
-    const float toLook = std::fabs(Wrap180(facing - req.F(moveword::kLookHeading)));
-    if (0x15 < slot && k.deg22p5 < toLook && toLook < 157.5f) {
-      const float look = req.F(moveword::kLookHeading);
-      aim = 0.0f <= look ? (k.full <= look ? look + k.wrapFull : look) : look + k.full;
+    host.BallSample(static_cast<int>(host.TicksPerSecond() * rk.reserveLow / rk.kmh60 + rk.half), ball);  // 0x1406d2748..0x1406d276c
+    float aim = host.HeadingToPointDeg(ball);                                                            // FUN_140439e50(P+8, sample)
+    const uint32_t carrier = static_cast<uint32_t>(host.CarrierSlot());                                    // FUN_140a627e0(trainer, 0)
+    const float look = req.F(moveword::kLookHeading);
+    const float lookOff = std::fabs(PesAngleDiff(req.F(moveword::kFacing), look, rk));
+    if (0x15u < carrier && rk.deg225 < lookOff && lookOff < rk.deg1575) {
+      aim = 0.0f <= look ? (rk.full <= look ? look + rk.wrapFull : look) : look + rk.full;
     }
-    float reAim = aim - facing;
-    if (k.halfTurn < std::fabs(reAim)) reAim -= (reAim < 0.0f ? k.negOne : k.one) * k.full;
-    // The flip: PES compares the sign of the entry's own turn against the sign of the re-aimed
-    // body direction (both folded), and flips the bucket to its mirrored pair when they differ.
-    const float a = turn < 0.0f ? k.negOne : k.one;
-    const float b = reAim < 0.0f ? k.negOne : k.one;
-    if (a != b) {
-      turn = k.neg180;
-      if (1 < bucket - 3) turn = k.halfTurn;
-      bucket = 9;
-      if (1 < bucket - 3) bucket = 4;
+    const float reAim = PlainDiffDeg(host.FacingDeg(), aim, rk);  // aim - P+0x20, wrapped
+    const float bodyOff = PlainDiffDeg(host.FacingDeg(), host.BodyDeg(), rk);  // FUN_1405aef10(P+0x20, P+0x28)
+    float window = rk.deg225;
+    if (rk.deg225 < std::fabs(bodyOff) && SignOne(bodyOff, rk) == SignOne(reAim, rk)) window = rk.deg1125;
+    const float reAimAbs = std::fabs(reAim);
+    if (window < reAimAbs && reAimAbs < rk.half_turn - window && SignOne(turn, rk) != SignOne(reAim, rk)) {
+      const uint32_t was = static_cast<uint32_t>(bucket - 3);
+      turn = 1u < was ? rk.half_turn : -rk.half_turn;  // fVar19 = DAT_1425ddffc (-180), or 180 past the first pair
+      bucket = 1u < was ? 4 : 9;
     }
   }
 
-  // The body direction: P+0x28 minus P+0x20, folded.
-  float bodyDir = req.F(moveword::kBodyDirection) - facing;
-  if (k.halfTurn < std::fabs(bodyDir)) bodyDir -= (bodyDir < 0.0f ? k.negOne : k.one) * k.full;
+  // 0x1406d2828.. (c:167-275): the body turn P+0x28 - P+0x20 and its magnitude.
+  const float bodyDir = PlainDiffDeg(host.FacingDeg(), host.BodyDeg(), rk);
   const float bodyError = std::fabs(bodyDir);
+  float stamp = turn;  // fVar14: the value the tail clamps into the bucket's window (the turn unless an arm replaced it)
+  const auto interfaceBucket = [&](float angle) { return AngleBucket(host.AngleBuckets(), angle, 10, false); };  // vt+0x60(angle, 10)
 
-  // 4. The row's bucket. PES switches on the player's own motion id (the interface's vt+0x18):
-  //    LAB_1406d299d (the body-turn path) for the special groups, and direct otherwise.
-  //    In the body-turn path, `fVar21` is the body turn's magnitude (the (x, z) difference folded),
-  //    `fVar22` is 22.5 deg, `fVar13` the folded body direction and `fVar16` the entry's turn.
-  int bucketSet = 0;  // 1 = the bucket was set by the bucket function below
-  switch (host.CurrentMotion()) {
-    case 0xb4f:
-    case 0xb52:
-    case 0xb5a:
-    case 0xbc3:
-    case 0xc05:
-    case 0xc3d:
-    case 0xb48:
-    case 0x8ba:
-    case 0x8ca:
-      goto BodyTurnBucket;
-    case 0x8c7: {
-      const float side = 0.0f < turn ? k.deg45 : k.neg45;
-      if (k.deg45 < std::fabs(turn)) {
-        bucket = AngleBucket(host.AngleBuckets(), side, 10, false);
-        goto BucketSet;
-      }
-      break;
+  // The motion-group arms (c:178-275). `uVar3` is the 16-bit motion id of the interface (vt+0x18).
+  const uint16_t current = static_cast<uint16_t>(host.CurrentMotion());
+  bool bodyTurnGroup = false;
+  bool lowArm = false;  // 0x8c7
+  if (0xb48u < current) {
+    bodyTurnGroup = current == 0xb4f || current == 0xb52 || current == 0xb5a || current == 0xbc3 || current == 0xc05 || current == 0xc3d;
+  } else if (current == 0xb48) {
+    bodyTurnGroup = true;
+  } else if (current < 0x4fu) {
+    const uint32_t group = static_cast<uint32_t>(current) - 0x25u;
+    bodyTurnGroup = group < 0x2au && ((0x24800000001ull >> (group & 0x3f)) & 1) != 0;
+  } else if (0x8b4u < current) {
+    if (current < 0x8bau) {
+      bodyTurnGroup = true;
+    } else if (current == 0x8c7) {
+      lowArm = true;
+    } else if (current == 0x8ca) {
+      bodyTurnGroup = true;
     }
-    default:
-      break;
   }
-  if (host.CurrentMotion() < 0x4f) {
-    const int motionGroup = host.CurrentMotion() - 0x25;
-    if (motionGroup < 0x2a && ((0x24800000001ull >> (motionGroup & 0x3f)) & 1) != 0)
-      goto BodyTurnBucket;
-  }
-
-  // LAB_1406d2965: the entry keeps its own turn, and the bucket is not set here.
-  goto BucketDone;
-
-BodyTurnBucket:
-  if (bodyError <= k.deg33p75) {
-    if (k.deg22p5 < bodyError) {
-      float side = k.neg90;
-      if (0.0f < bodyDir) side = k.deg90;
-      const float signA = turn < 0.0f ? k.negOne : k.one;
-      const float signB = side < 0.0f ? k.negOne : k.one;
-      if (signA != signB) {
-        bucket = AngleBucket(host.AngleBuckets(), side == 0.0f ? 0.0f : -side, 10, false);
-        goto BucketSet;
-      }
+  if (lowArm) {
+    const float side = 0.0f < turn ? k.deg45 : k.neg45;  // DAT_14259be30 / DAT_1425aa1c8
+    if (k.deg45 < std::fabs(turn)) {
+      stamp = side;
+      bucket = interfaceBucket(side);
     }
-  } else {
-    // The wide angle: the side and the window follow the body direction's sign.
-    float wide = k.neg180;
-    float window = k.neg45;
-    if (0.0f < bodyDir) {
-      wide = k.halfTurn;
-      window = k.deg45;
-    }
-    if (k.deg146p25 <= std::fabs(turn)) {
-      const float signA = turn < 0.0f ? k.negOne : k.one;
-      const float signB = window < 0.0f ? k.negOne : k.one;
-      if (signA != signB) {
-        bucket = AngleBucket(host.AngleBuckets(), wide, 10, false);
-        goto BucketSet;
+  } else if (bodyTurnGroup) {
+    if (bodyError <= k.deg33p75) {
+      if (k.deg22p5 < bodyError) {
+        const float side = 0.0f < bodyDir ? k.deg90 : k.neg90;  // DAT_14259be5c / DAT_1425c5958
+        if (SignOne(turn, rk) != SignOne(side, rk)) {
+          stamp = -side;  // the sign bit flipped (XORPS with DAT_1425656d0)
+          bucket = interfaceBucket(stamp);
+        }
       }
     } else {
-      const float signA = turn < 0.0f ? k.negOne : k.one;
-      const float signB = window < 0.0f ? k.negOne : k.one;
-      if (signA != signB) {
-        bucket = AngleBucket(host.AngleBuckets(),
-                             FoldHalfTurn(window == 0.0f ? 0.0f : -window), 10, false);
-        goto BucketSet;
+      const float wide = 0.0f < bodyDir ? k.halfTurn : k.neg180;
+      const float window = 0.0f < bodyDir ? k.deg45 : k.neg45;
+      if (SignOne(turn, rk) != SignOne(window, rk)) {
+        stamp = k.deg146p25 <= std::fabs(turn) ? wide : -window;  // 0x1406d2a9f: the 180 arm, else the window with its sign flipped
+        bucket = interfaceBucket(stamp);
       }
     }
   }
-  goto BucketDone;
 
-BucketSet:
-  bucketSet = 1;
-BucketDone:;
-  (void)bucketSet;
-
-  // 5. The row id and the tail's writes.
+  // 0x1406d2968 (c:279-289): the 4 -> 3 and 9 -> 8 fold, and the kind fold (P+0x2458 is the slot byte, read as unsigned).
+  if (bucket == 4) {
+    bucket = 3;
+  } else if (bucket == 9) {
+    bucket = 8;
+  }
   int kind = int(req.U(moveword::kKind));
-  if (host.RecentStamp(0) >= 0 && host.RecentStamp(0) < 0x16 &&
-      ((int(req.U(moveword::kCommandId)) - 0x33u < 2 ||
-       int(req.U(moveword::kCommandId)) == 0x4d) &&
-      kind - 2u < 2)) {
+  const int command = int(req.U(moveword::kCommandId));
+  if (static_cast<uint8_t>(host.ActionIndex()) < 0x16 && (static_cast<uint32_t>(command - 0x33) < 2u || command == 0x4d) &&
+      static_cast<uint32_t>(kind - 2) < 2u) {
     kind = 1;
   }
-  // PES FUN_1406D2590 (decompile 285-296): the row is the stop-row selector FUN_1406B9D80 at kind + class * 8, with the class the
-  // class word clamped to 0..3 (`band`, lines 74-82) and the action the command id (line 290). The column is the bucket's column
-  // after the 4 -> 3 and 9 -> 8 fold (lines 279-284). FUN_1406ABB30 answers -1 for an empty cell, and PES issues that too.
-  const int stopBucket = bucket == 4 ? 3 : (bucket == 9 ? 8 : bucket);
-  const int stopRow = StopRowFor(kind, band, int(req.U(moveword::kCommandId)), host.RunTablesView());
-  const MoveCell cell = host.Cell(stopRow, int(tables.bucketColumn[stopBucket]), false);
-  const int motion = cell.motionNo;
-  // The mirror is the cell's own (FUN_1406b9d80 stores FUN_1406abd60's answer behind the motion, the byte cStackX_22 of
-  // d_1406d2590.c:290, 0x1406d2996), never an interface choice.
-  // ponytail: the 0xe2d arm (d_1406d2590.c:305-324) re-derives the mirror from the bone ring (FUN_141eb51a0 joints 3 and 6); that
-  // motion's ring joints have no GF source, so the cell's mirror stands for it until the joint block is read.
-  const bool mirror = cell.mirror;
+  // vt+0xd0 (c:293): FUN_1406b9d80's stop row at kind + class * 8, and the cell's motion and mirror at the bucket's column.
+  const int row = StopRowFor(kind, classBand, command, host.RunTablesView());
+  const CellPick cell = PickCell(host, row, int(tables.bucketColumn[bucket]));
+  const int motion = static_cast<uint16_t>(cell.motion);
+  bool mirror = cell.mirror;
+
+  // 0x1406d2bc3.. (c:294-325): the blend by the motion's group, and the 0xe2d arm's mirror from the bone ring.
   float blend = k.s0p1667;
-  const int motionGroup = motion >= 0xbee && motion - 0xbee < 0x36
-                              ? int((0x30000000000011ull >> ((motion - 0xbee) & 0x3f)) & 1)
-                              : 0;
-  if (motionGroup != 0 || motion == 0xbc2 || (motion >= 0xb45 && motion - 0xb45 < 2)) {
+  const uint32_t groupBit = static_cast<uint16_t>(motion - 0xbee);
+  if ((groupBit < 0x36u && ((0x30000000000011ull >> (groupBit & 0x3f)) & 1) != 0) || motion == 0xbc2 ||
+      static_cast<uint16_t>(motion - 0xb45) < 2) {
     blend = k.s0p2;
-    if (k.deg22p5 < bodyError &&
-        ((0.0f < bodyDir && mirror) || (bodyDir < 0.0f && !mirror)))
-      blend = k.s0p25;
+    if (k.deg22p5 < bodyError && ((0.0f < bodyDir && mirror) || (bodyDir < 0.0f && !mirror))) blend = k.s0p25;
+  } else if (motion == 0xe2d) {
+    // FUN_141eb51a0(P, out, 3 / 6): the bone ring's joints 3 and 6, each less the own position and turned by -facing.
+    float own[3], joint3[3], joint6[3];
+    host.OwnPosition(own);
+    host.PositionAt(3, joint3);
+    host.PositionAt(6, joint6);
+    for (int i = 0; i < 3; ++i) {
+      joint3[i] -= own[i];
+      joint6[i] -= own[i];
+    }
+    RotateXZ(joint3, host.FacingDeg() * k.negOne, host.SpeedClassConstantsView());
+    RotateXZ(joint6, host.FacingDeg() * k.negOne, host.SpeedClassConstantsView());
+    if (joint3[2] <= 0.0f || 0.0f <= joint6[2]) {
+      if (joint3[2] < 0.0f && 0.0f < joint6[2]) mirror = true;
+    } else {
+      mirror = false;
+    }
   }
-  // PES 0x1406d2d..: vt+0x10(req, motion, mirror, 0, blend, playback, 0) with the local playback of line 1036.
+
+  // 0x1406d2d76 (c:326-330): vt+0x10(req, motion, mirror, 0, blend, playback, 0), then TURN_STOP.
   WriteIssue(host, req, pes::MotionRequest{motion, mirror, 0, blend, playback, 0.0f});
   RequestState(req, MoveState::kTurnStop);
-  float window = k.deg33p75;
-  if (bucket - 3 < 2 || bucket - 8 < 2) window = k.deg11p25;
-  float look = tables.bucketDegrees[bucket] + window;
-  if (bodyError <= look) {
-    look = tables.bucketDegrees[bucket] - window;
-    if (look <= bodyError) look = bodyError;
+
+  // c:331-346: the heading the stop turns toward (the stamp clamped into the bucket's window about its angle) and the history words.
+  const float centre = tables.bucketDegrees[bucket];  // 0x1425dd960
+  const float window = (static_cast<uint32_t>(bucket - 3) < 2u || static_cast<uint32_t>(bucket - 8) < 2u) ? rk.deg1125 : rk.deg225;
+  float heading = centre + window;
+  if (stamp <= heading) {
+    heading = centre - window;
+    if (heading <= stamp) heading = stamp;
   }
-  req.SetF(moveword::kRecordStampB, look + facing);
+  req.SetF(moveword::kRecordStampB, heading + req.F(moveword::kFacing));
   req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
   req.SetU(moveword::kBandSpeedCopy, req.U(moveword::kBandSpeed));
-  req.SetU(moveword::kBucketPrev, req.U(moveword::kMoveBucket));
-  req.SetU(moveword::kMoveBucket, uint32_t(bucket));
+  req.SetU(moveword::kBucketPrev, req.U(moveword::kLiveBucket));
+  req.SetU(moveword::kLiveBucket, uint32_t(bucket));
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
-  req.SetByte(moveword::kTurnLockFlag, 0);  // 0x1406d2d..: word 0x3c (d_1406d2590.c:347), not the motion-pending byte the issue set
+  req.SetByte(moveword::kTurnLockFlag, 0);  // c:346: the byte of word 0x3c
 }
 
 // -------------------------------------------------------------------------------------------------

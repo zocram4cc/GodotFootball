@@ -155,6 +155,22 @@ float TableSinDeg(float x, float s, const SpeedClassConstants& k) {
   return ((k.one - frac) * k.sinQuarter[i] + frac * k.sinQuarter[i + 1]) * scale;
 }
 
+// FUN_1404bcad0(v, angle): the (x, z) of v rotated by the angle folded into [0, 360), through FUN_140a92c80's table sine for both
+// the sine and the cosine (sin(a + 90)).
+void RotateXZ(float v[3], float angleDeg, const SpeedClassConstants& k) {
+  float a = angleDeg;
+  if (0.0f <= a) {
+    if (!(a < k.full)) a -= k.full;
+  } else {
+    a += k.full;
+  }
+  const float cosA = TableSinDeg(a + k.quarter, k.one, k);
+  const float sinA = TableSinDeg(a, k.one, k);
+  const float x = v[0], z = v[2];
+  v[2] = cosA * z - sinA * x;
+  v[0] = sinA * z + cosA * x;
+}
+
 int SpeedClassOf(float desiredKmh, float deltaDeg, const SpeedClassConstants& k) {
   const float turn = WrapHalfTurn(deltaDeg, k);
   // FUN_14081e340: the turn factor is FUN_140a92c80(|turn| + 90, 1) = sin(|turn| + 90) = cos(turn).

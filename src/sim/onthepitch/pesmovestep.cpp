@@ -430,6 +430,12 @@ class MoveHostAdapter final : public pes::MoveHost {
   void TargetVelocity(int, float, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
   // ponytail: P+0xacb, the action's sub byte, has no GF source.
   int ActionSubByte() const override { return 0; }
+  // ponytail: P+0x28, the body's yaw: GF's body direction (humanoid bodyDirectionVec) stands for it until the root-motion
+  // adjusters (P+0x4d0, RootMotion's lane) own the yaw words of P.
+  float BodyDeg() const override {
+    const Vector3 dir = player_.GetBodyDirectionVec();
+    return HeadingDeg(dir.coords[0], dir.coords[1], c_.run);
+  }
 
   const pes::MoveConstants& MoveConstantsView() const override { return c_.move; }
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return c_.speedClass; }

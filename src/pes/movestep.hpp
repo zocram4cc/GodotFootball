@@ -786,6 +786,8 @@ class MoveHost {
   virtual void TargetVelocity(int, float, float[3]) const { MoveHostUnbound("TargetVelocity"); }
   // *(int8*)(P + 0xacb): the action's sub byte (FUN_1406ce820's blend arm reads 0x50 and 0x52).
   virtual int ActionSubByte() const { MoveHostUnbound("ActionSubByte"); }
+  // *(float*)(P + 0x28): the body's yaw, which the turn-stop entry (FUN_1406d2590) folds against the facing (P+0x20).
+  virtual float BodyDeg() const { MoveHostUnbound("BodyDeg"); }
   // The match object at G+0x2c0: its byte +0x85 when its mode byte +0x12 is 1 or 2, else 0 (FUN_140a3f560).
   virtual bool MatchObjectFlag2c0() const { MoveHostUnbound("MatchObjectFlag2c0"); }
   // FUN_140439e50(P+8, point): the heading in [0, 360) from the own position to `point` (PES order x, height, z).
@@ -833,6 +835,8 @@ struct SpeedClassConstants {
 std::optional<SpeedClassConstants> LoadSpeedClassConstants(const PeImage& exe, std::string* error);
 // FUN_140a92c80: s * sin(x) with x in degrees, the table linearly interpolated.
 float TableSinDeg(float x, float s, const SpeedClassConstants& k);
+// FUN_1404bcad0: v's (x, z) turned by `angleDeg` (folded into [0, 360)), the sine and cosine both FUN_140a92c80's.
+void RotateXZ(float v[3], float angleDeg, const SpeedClassConstants& k);
 // The fold of FUN_14081e340 and FUN_1406e4230: an angle difference wrapped into [-180, 180].
 float WrapHalfTurn(float deltaDeg, const SpeedClassConstants& k);
 // FUN_14081e340's tail: the class 0..4 of a desired speed (km/h) at a turn (heading minus facing, degrees).

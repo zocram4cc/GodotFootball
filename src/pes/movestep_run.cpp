@@ -1098,21 +1098,6 @@ float SignOf(float v) { return v < 0.0f ? -1.0f : 1.0f; }  // COMISS 0,v; JBE: -
 // MAXSS dst, src: dst when dst > src, else src (NaN and equality answer src).
 float Maxss(float dst, float src) { return dst > src ? dst : src; }
 
-// FUN_1404bcad0(v, angle): (x, z) of v rotated by the folded angle, through FUN_140a92c80's table sine.
-void RotateXZ(float v[3], float angleDeg, const RunConstants& k, const SpeedClassConstants& sk) {
-  float a = angleDeg;
-  if (0.0f <= a) {
-    if (!(a < k.full)) a -= k.full;
-  } else {
-    a += k.full;
-  }
-  const float cosA = TableSinDeg(a + k.deg90, k.one, sk);
-  const float sinA = TableSinDeg(a, k.one, sk);
-  const float x = v[0], z = v[2];
-  v[2] = cosA * z - sinA * x;
-  v[0] = sinA * z + cosA * x;
-}
-
 // The turn from the facing (P+0x20) to `reference`, folded to +-180 (XMM6 in each ball arm).
 float TurnToward(const MoveHost& host, float reference, const RunConstants& k) {
   float turn = reference - host.FacingDeg();
@@ -1393,7 +1378,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
           const float dxz2 = (own[2] - other[2]) * (own[2] - other[2]) + (own[0] - other[0]) * (own[0] - other[0]);
           const float gap = std::sqrt(dxz2);  // FUN_140a8f860(own, target): the ground distance
           float v[3] = {other[0] - own[0], other[1] - own[1], other[2] - own[2]};
-          RotateXZ(v, host.FacingDeg() * k.neg, k, host.SpeedClassConstantsView());  // 0x1406cf82c: FUN_1404bcad0(v, -facing)
+          RotateXZ(v, host.FacingDeg() * k.neg, host.SpeedClassConstantsView());  // 0x1406cf82c: FUN_1404bcad0(v, -facing)
           const float markedTurn = std::fabs(PesAngleDiff(req.F(kHeading), host.AnimeRecordFloat(target, 0x124), k));  // XMM12
           float velocity[3];
           host.TargetVelocity(target, k.speedDt / tps, velocity);  // 0x1406cf87b: FUN_140a6c6d0

@@ -62,6 +62,7 @@ constexpr uint64_t kVelocity = 0x140a6c6d0;
 struct Extra {
   pes::SpeedClassConstants speedClass{};
   pes::StepTables step{};
+  pes::StepScalars scalars{};
   std::array<uint8_t, 10> bucketLeft{};
   std::function<int(pes::ClipReader, int, float, int)> ticks;  // PES's clip readers, bound by the test
 };
@@ -199,7 +200,18 @@ class RowHost : public movestep_test::UnboundHost {
   }
 
   int CurrentMotion() const override { return Le<uint16_t>(Need(kMotionPtr).retmem); }
-  int ActionIndex() const override { return static_cast<int32_t>(Need(kAnimeSlot).rax); }
+  // The slot byte P+0x2458 (FUN_1406ea810's answer): perturbed rows set it by seed memory (probe `slot`), which PES's call
+  // then reads back, so answer the probe directly and do not require the (often unmade) call.
+  int ActionIndex() const override {
+    const auto it = c_.probe.find("slot");
+    if (it != c_.probe.end()) return static_cast<int32_t>(Le<uint8_t>(it->second));
+    // Rows predating the slot probe have no kAnimeSlot call when PES skipped the kind fold: P+0x2458 was set by the
+    // caller then and the game reads it directly, so answer the ctx P image (rows_ts/rows_ts2) instead of failing.
+    if (c_.probe.find("g") != c_.probe.end() && c_.ctx.size() >= 0x2459 &&
+        First(kAnimeSlot) == nullptr)
+      return static_cast<int32_t>(c_.ctx[0x2458]);
+    return static_cast<int32_t>(Need(kAnimeSlot).rax);
+  }
   float PhysiqueG() const override { return F32(Le<uint32_t>(c_.probe.at("g"))); }
   float TicksPerSecond() const override { return 54.0f; }
   int AnimeState() const override { return static_cast<int32_t>(Need(kAnimeState).rax); }
@@ -326,6 +338,7 @@ class RowHost : public movestep_test::UnboundHost {
     return F32(call.xmm0);
   }
   const pes::StepTables& StepTablesView() const override { return extra->step; }
+  const pes::StepScalars& StepConstants() const override { return extra->scalars; }
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return extra->speedClass; }
   bool BucketIsLeft(int bucket) const override { return extra->bucketLeft[bucket] != 0; }
   // FUN_141eb50b0(P, out, index) answers a pointer to the sample: its three floats are the call's result window.
@@ -428,12 +441,14 @@ bool LoadInstall(Install& in, std::string* skip) {
   in = {*run, *tables, *playback, *buckets, *move, *turn, std::make_shared<pes::Mbinfo>(std::move(*mbinfo)), {}};
   auto speedClass = pes::LoadSpeedClassConstants(*exe, &err);
   auto step = pes::LoadStepTables(*exe, &err);
-  if (!speedClass || !step || !exe->ReadVa(0x1425dd950, in.extra.bucketLeft.size(), in.extra.bucketLeft.data())) {
+  auto scalars = pes::LoadStepScalars(*exe, &err);
+  if (!speedClass || !step || !scalars || !exe->ReadVa(0x1425dd950, in.extra.bucketLeft.size(), in.extra.bucketLeft.data())) {
     *skip = "FUN_1406ce820's tables: " + err;
     return false;
   }
   in.extra.speedClass = *speedClass;
   in.extra.step = *step;
+  in.extra.scalars = *scalars;
   return true;
 }
 

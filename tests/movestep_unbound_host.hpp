@@ -53,6 +53,7 @@ class UnboundHost : public pes::MoveHost {
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { Unbound("SpeedClassConstantsView"); }
   const pes::IdleRowTables& IdleRowTablesView() const override { Unbound("IdleRowTablesView"); }
   float FacingDeg() const override { Unbound("FacingDeg"); }
+  float BodyDeg() const override { Unbound("BodyDeg"); }
   float BallBearingDeg() const override { Unbound("BallBearingDeg"); }
   int ActionIndex() const override { Unbound("ActionIndex"); }
   int RelatedSlot() const override { Unbound("RelatedSlot"); }

@@ -188,7 +188,8 @@ class Oracle:
                 pending.append({"site": addr, "target": self.target_of(uc, ins), "args": self.call_args(uc),
                                 "next": addr + size})
 
-        uc, err = ft.run_recorded(self.snap, orig=ft.hook_bytes(self.hooks), trace=self.trace(), on_code=on_code)
+        uc, err = ft.run_recorded(self.snap, orig=ft.hook_bytes(self.hooks), trace=self.trace(), on_code=on_code,
+                                  start=self.entry)
         if err is not None:
             return None, err
         raw = self.readable(uc, state["req_addr"], 4 * a.req_words)

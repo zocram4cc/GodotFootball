@@ -659,10 +659,13 @@ def _xmm_int(uc, n):
 
 
 def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=None, on_write=None,
-                 models=None):
+                 models=None, start=None):
     """One recorded call (load_recorded_call) emulated from its captured entry, with its captured GPRs, XMM,
     RFLAGS, MXCSR and GS base, over the snapshot's own memory. The stack and the return address are the
-    snapshot's, so the call returns to the caller's address with the caller's rsp. orig maps an entry VA to
+    snapshot's, so the call returns to the caller's address with the caller's rsp. `start` (a VA, default the
+    recorded entry) begins emulation at another function — the recorded call's registers and memory as its
+    arguments — while still returning to the recorded return address: the oracle mode of handler_oracle.py,
+    which replays the same P and request through a different entry of the same capture. orig maps an entry VA to
     the bytes a rendezvous hook displaced there (hook_bytes); every such entry is restored before the run, so no
     callee runs a hook patch. trace (None, or {out, impure, stubs}) instruments the run as a snapdiff trace: the
     import models and stub models, the call-time delta (its baseline is the restored image), and each impure
@@ -676,6 +679,8 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
     sm = fs.SnapMem(snap_dir, restore=orig)
     call = load_recorded_call(snap_dir)
     gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
+    if start is None:
+        start = entry
     rsp = gpr["rsp"]
     uc = rn.new_x86_64()
     lazy = LazyMap(sm, models if models is not None else (load_import_models() if trace is not None else {}))
@@ -686,17 +691,17 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
     if trace is not None:
         uc._ret_sentinel = ret  # the recorded return address ends each call (run.py install_hooks)
         rn.install_hooks(uc, trace["stubs"], ret)
-    if not lazy.ensure(entry, 1):
-        return uc, "entry %#x is not in the snapshot" % entry
+    if not lazy.ensure(start, 1):
+        return uc, "entry %#x is not in the snapshot" % start
     if not lazy.ensure(rsp, 8):
         return uc, "stack at rsp %#x is not in the snapshot" % rsp
     if not lazy.ensure(teb, PAGE):
         return uc, "TEB %#x is not in the snapshot" % teb
     if struct.unpack("<Q", bytes(uc.mem_read(rsp, 8)))[0] != ret:
         return uc, "the record's return address differs from the snapshot at rsp"
-    if entry not in (orig or {}) and bytes(uc.mem_read(entry, len(HOOK_PATCH_HEAD))) == HOOK_PATCH_HEAD:
+    if start not in (orig or {}) and bytes(uc.mem_read(start, len(HOOK_PATCH_HEAD))) == HOOK_PATCH_HEAD:
         return uc, ("entry %#x starts with jmp [rip+0], a rendezvous hook patch: give its displaced bytes "
-                    "(the hook config), or the replay would run the hook" % entry)
+                    "(the hook config), or the replay would run the hook" % start)
     for va, code in sorted((orig or {}).items()):
         if sm.page_dropped(va):  # a slim capture's dropped page: a call that enters this hook is refused when it runs
             continue
@@ -719,7 +724,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
         uc.hook_add(UC_HOOK_MEM_WRITE, on_write)
     err = None
     try:
-        uc.emu_start(entry, ret, count=budget)
+        uc.emu_start(start, ret, count=budget)
     except Exception as e:  # unicorn raises on a fault; the lazy map records a refusal
         err = "emu error: %s (rip %#x)" % (e, uc.reg_read(xc.UC_X86_REG_RIP))
     rip = uc.reg_read(xc.UC_X86_REG_RIP)
