@@ -22,6 +22,9 @@ struct PesHeap {
   static constexpr uint64_t kTableSlotVa = 0x1436EF2C8;
   static constexpr uint64_t kFailHandlerSlotVa = 0x1436EF2B8;  // 0x1403FB410's last resort; null: no handler
   static constexpr uint64_t kTableVa = 0x1436EF300;
+  // The pool manager's init count (FUN_1403FB610: `if (count++ == 0) { build the table }`): 1 once PES's start-up has built the table, which GF's
+  // page stands for; at 0 a later call of FUN_1403FB610 (a guarded static's constructor, FUN_1403FB8A0) would rebuild the table over GF's heap.
+  static constexpr uint64_t kInitCountVa = 0x1436EF2D0;
   static constexpr uint64_t kPageVa = 0x1436EF000, kPageBytes = 0x1000;
   static constexpr unsigned kPools = 0x32, kPoolBytes = 0x40;
   // Pool occupancy of the live game (snapshot pid1694737/seq009, table walked by script): ids 1, 2, 4, 5, 6 and 9 hold

@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -139,6 +140,19 @@ TEST_F(FoxSeam, TheTranslatedJobLoadsAnInstallFileIntoTheResManager) {
   EXPECT_EQ(world_->Read8(job + kJobStateOffset), kJobDone);
   EXPECT_NE(world_->Read64(job + kJobKeyOffset), kNoKey);
   EXPECT_NE(world_->Read8(job + kJobKeyOffset + 8), 0);
+}
+
+// The pool manager's table is GF's after the boot: PES's own start-up code (a guarded static's constructor FUN_1403FB8A0 -> FUN_1403FB610) must
+// not rebuild it. A pool id the table holds a forwarder for (0xB, the job object's) still answers an allocation after Boot; with the init count
+// 0 the rebuild wiped the forwarders (entry 0xB = 0) and the allocation returned 0.
+constexpr uint32_t kForwardedPoolId = 0xB;
+constexpr uint64_t kPoolAllocBytes = 0x50, kPoolDescBytes = 0x40;
+
+TEST_F(FoxSeam, ThePoolManagerStillAnswersAForwardedPoolAfterTheBoot) {
+  world_->Boot();
+  const uint64_t desc = world_->Alloc(kPoolDescBytes);
+  world_->Write32(desc, kForwardedPoolId);
+  EXPECT_NE(world_->Call(::pes_fn_1403FB410, {desc, kPoolAllocBytes, 0}), 0u);
 }
 
 // PES's own allocator (jemalloc: FUN_1403CF740 under FUN_14029D370) boots from the zeroed state PES starts in: FUN_14038EE80 (malloc_init_hard)

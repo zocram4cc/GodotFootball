@@ -45,6 +45,7 @@ PesHeap::PesHeap(uint64_t arenaBytes) : page_(kPageBytes), arena_(arenaBytes), t
   Store64(arena_, kFwdVtOff + kSlotOwns, kFwdOwnsVa);
   Store64(arena_, kFwdVtOff + kSlotTrim, kFwdTrimVa);
   Store64(page_, kTableSlotVa - kPageVa, kTableVa);
+  Store64(page_, kInitCountVa - kPageVa, 1);
   const uint64_t table = kTableVa - kPageVa;
   for (unsigned id : kHeapPools) Store64(page_, table + id * kPoolBytes, heapObj);
   for (unsigned id = kForwarderFirst; id <= kForwarderLast; ++id) Store64(page_, table + id * kPoolBytes, fwdObj);
