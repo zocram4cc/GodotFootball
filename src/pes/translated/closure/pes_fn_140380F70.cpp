@@ -10,8 +10,8 @@
 
 
 void pes_fn_140380F70(PesState& s);
-void pes_fn_143DFCCE0(PesState& s);
 
 void pes_fn_140380F70(PesState& s) {
-  { pes_fn_143DFCCE0(s); return; }
+  pes_service_packer_lua_setallocf(s);
+  return;
 }
