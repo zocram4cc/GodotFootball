@@ -823,10 +823,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   // with PES's own A (the decompile's five-way || at 0x1406C5177):
   //     A = (class < 0)
   //      || ((nextBand < 3 && ((nextBand < 2 || kind == 3 || kind == 6) || precise != 0))
-  //      || ((rowBucket - 3 > 1 && rowBucket - 8 > 1)
-  //          || (distance <= 4.0 || distanceFactor * 22.5 + 45 <= |wrap180(kHeading - kBodyDirection)|))
-  // The port had the precise test inverted, the bucket term on the column instead of the row
-  // and the distance term on the drift instead of the distance.
+  //      || ((unsigned(rowBucket - 3) > 1 && unsigned(rowBucket - 8) > 1)
+  //          || (|wrap180(kHeading - kFacing)| <= 112.5 || distanceFactor * 22.5 + 45 <= |wrap180(kHeading - kBodyDirection)|))
+  // (asm 0x1406c59b0..0x1406c5a21). The port had the precise test inverted, the bucket term on the column instead of the row, and
+  // a 4 m distance test where the heading turn belongs.
   const float bodyToTarget = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kBodyDirection));
   const int band0 = int(req.U(moveword::kClassWord));
   const float distance = req.F(moveword::kDistToTarget);
@@ -834,11 +834,17 @@ void StepLoop(MoveHost& host, MoveReq& req) {
       k.two < distance ? (distance < k.kmh5 ? (distance - k.two) / k.dist3 : k.one) : 0.0f;  // 0x1406c5d5..: 2.0, 5.0, 3.0
   // PES's row bucket: param_2[0x20] is the row id, and DAT_1425dd660[it] is that row's angle.
   // The bucket in 4..7 is the one the term tests.
-  const int rowBucket = int(req.U(0x20));
+  const uint32_t rowBucket = req.U(0x20);
+  // 0x1406c59eb..0x1406c59ff: `LEA EAX,[RCX-3]; CMP EAX,1; JBE` then `LEA EAX,[RCX-8]; CMP EAX,1; JA A`: UNSIGNED, so a row bucket
+  // outside {3, 4, 8, 9} (0..2 wrap high) takes path A. 0x1406c5a05..0x1406c5a21: the keep-tick tail needs |req[1] - req[2]| (the
+  // heading turn, XMM11 from FUN_14043a0a0(req[2], req[1]) at 0x1406c55b1) above 112.5 (XMM6 = DAT_1425cb30c, 0x1406c55d2) and the
+  // distance factor's 45 + 22.5 * f above |FUN_14043a0a0(req[4], req[1])| (XMM3 at 0x1406c595e); the port had a 4 m distance
+  // test where the heading turn belongs.
+  const float headTurn = Wrap180(req.F(moveword::kHeading) - facing);
   const bool gateA =
       band0 < 0 || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || precise) ||
-      ((1 < rowBucket - 3 && 1 < rowBucket - 8) ||
-       (distance <= k.four ||
+      ((rowBucket - 3u > 1u && rowBucket - 8u > 1u) ||
+       (std::fabs(headTurn) <= k.deg112p5 ||
         distanceFactor * k.deg22p5 + k.deg45 <= std::fabs(bodyToTarget)));
   if (!bucketMoved && !req.FlagAtByte(0x3f) && !slowTurn) {
     // LAB_1406c5eba: keep the tick, record only the band and the bucket.
@@ -892,8 +898,8 @@ void StepLoop(MoveHost& host, MoveReq& req) {
            Wrap180(req.F(moveword::kHeading) - tables.bucketDegrees[bucket] - facing));
   req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
   req.SetU(moveword::kDwellElapsed, 0);
-  req.SetU(moveword::kDwellLimit, precise ? 0u : uint32_t(clipBlend));
-  const float rateTarget = RateFor(host, req.F(moveword::kUseClassRate), blendedSpeed,
+  req.SetF(moveword::kDwellLimit, precise ? 0.0f : clipBlend);  // d_1406c4c10.c after the vt+0x10 issue: req[0x1a] = 0, req[0x1b] = req[0xe] == 0 ? the blend (a float) : 0
+  const float rateTarget = RateFor(host, req.Flag(moveword::kUseClassRate), blendedSpeed,
                                    nextBand, kind);
   if (req.F(moveword::kRate) <= rateTarget) {
     const float raised = req.F(moveword::kRate) + k.step0p05;

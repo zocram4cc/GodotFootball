@@ -1122,12 +1122,12 @@ TEST(StepLoop, TheStepTurnRunArmCarriesTheClassAndTheRowOver) {
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kPrecise, 0u);
   req.SetU(pes::moveword::kClassWord, 3);
-  req.SetU(0x20, 1u);
+  req.SetU(0x20, 3u);  // 0x1406c59eb: the keep-tick tail needs the row bucket in {3, 4, 8, 9} (unsigned test)
   req.SetF(pes::moveword::kFacing, 10.0f);
-  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(pes::moveword::kHeading, 200.0f);  // |req[1] - req[2]| = 170 > 112.5 (0x1406c5a15)
   req.SetF(pes::moveword::kLookHeading, 10.0f);
-  req.SetF(pes::moveword::kBodyDirection, 40.0f);
-  req.SetF(pes::moveword::kTurn, 100.0f);  // |turn + body (30)| = 130 > 112.5 and |turn| > 67.5: the STEP_TO_RUN arm stays closed
+  req.SetF(pes::moveword::kBodyDirection, 190.0f);  // |req[1] - req[4]| = 10 < 45 + 22.5 (0x1406c5a1e)
+  req.SetF(pes::moveword::kTurn, 100.0f);  // |turn + body (180)| > 112.5 and |turn| > 67.5: the STEP_TO_RUN arm stays closed
   req.SetF(pes::moveword::kLookDelta, 0.0f);
   req.SetF(pes::moveword::kFacingError, 0.0f);
   req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
@@ -1135,10 +1135,12 @@ TEST(StepLoop, TheStepTurnRunArmCarriesTheClassAndTheRowOver) {
   req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed, 0.5f);
-  req.SetU(pes::moveword::kMoveBucket, 0);
-  req.SetU(pes::moveword::kBucketPrev, 0);
-  // The distance is past 4 metres, so PES's distance term is closed and the band gate's
-  // fall-through (the STEP_TURN_RUN arm) runs.
+  // The live bucket is 5 (-225, i.e. 135 degrees; StepStops keeps a step in bucket 5), so the body turn (200 - 145 = 55) moves
+  // the bucket without the wide-turn band drop.
+  req.SetU(pes::moveword::kMoveBucket, 5);
+  req.SetU(pes::moveword::kBucketPrev, 5);
+  // The heading turn (170) is past 112.5 and the body-to-target term (10) is inside 45 + 22.5 * f, so PES's gate falls through
+  // to the STEP_TURN_RUN arm (0x1406c5a27).
   req.SetF(pes::moveword::kDistToTarget, 9.0f);
   host.displacement[0] = 0.0f;
   host.displacement[1] = 0.0f;
@@ -1147,7 +1149,7 @@ TEST(StepLoop, TheStepTurnRunArmCarriesTheClassAndTheRowOver) {
   // The tail asks for STEP_TURN_RUN, and the class and the row's own word follow.
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepTurnRun));
   EXPECT_EQ(req.U(pes::moveword::kClassWord), 2u);
-  EXPECT_EQ(req.U(pes::moveword::kBucketPrev), 1u);
+  EXPECT_EQ(req.U(pes::moveword::kBucketPrev), 3u);
   EXPECT_EQ(req.U(0x20), 0u);
 }
 
@@ -1162,14 +1164,14 @@ TEST(StepLoop, TheStepTurnRunArmWritesTheRootFacing) {
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kPrecise, 0u);
   req.SetU(pes::moveword::kClassWord, 3);
-  req.SetU(0x20, 1u);
+  req.SetU(0x20, 3u);
   req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(pes::moveword::kHeading, 190.0f);
   req.SetF(pes::moveword::kLookHeading, 0.0f);
-  // The body direction is 30 degrees from the heading, so the turn is -30 and the delta is the
-  // negated draw (-3.33): the facing lands on 356.67.
-  req.SetF(pes::moveword::kBodyDirection, 30.0f);
-  req.SetF(pes::moveword::kTurn, 100.0f);  // |turn + body| = 130 > 112.5 and |turn| > 67.5: the STEP_TO_RUN arm stays closed
+  // The body direction is 10 degrees below the heading, so the turn is -10, clamped against the draw (3.33): the facing lands
+  // on 356.67.
+  req.SetF(pes::moveword::kBodyDirection, 180.0f);
+  req.SetF(pes::moveword::kTurn, 100.0f);  // |turn + body (180)| > 112.5 and |turn| > 67.5: the STEP_TO_RUN arm stays closed
   req.SetF(pes::moveword::kLookDelta, 0.0f);
   req.SetF(pes::moveword::kFacingError, 0.0f);
   req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
@@ -1177,8 +1179,8 @@ TEST(StepLoop, TheStepTurnRunArmWritesTheRootFacing) {
   req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed, 0.5f);
-  req.SetU(pes::moveword::kMoveBucket, 0);
-  req.SetU(pes::moveword::kBucketPrev, 0);
+  req.SetU(pes::moveword::kMoveBucket, 5);  // 135 degrees: the body turn (190 - 135 = 55) moves the bucket without the wide-turn band drop
+  req.SetU(pes::moveword::kBucketPrev, 5);
   req.SetF(pes::moveword::kDistToTarget, 9.0f);
   host.displacement[0] = 0.0f;
   host.displacement[1] = 0.0f;
@@ -1187,6 +1189,74 @@ TEST(StepLoop, TheStepTurnRunArmWritesTheRootFacing) {
   // The root facing is the player's own facing (0) plus the delta.
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
   EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 356.66666f, 0.01f);
+}
+
+// PES's STEP_TURN_RUN gate (0x1406c59b0..0x1406c5a21): the stop-row arm 0x1406c5a27 needs the row bucket in {3, 4, 8, 9} (an
+// UNSIGNED `LEA EAX,[RCX-3]; CMP EAX,1; JBE`, so rows 0..2 wrap high and issue the clip), the heading turn |req[1] - req[2]|
+// past 112.5 (XMM11 against DAT_1425cb30c) and the body-to-target term inside 45 + 22.5 * the distance factor. The port tested
+// the distance against 4 m where the heading turn belongs.
+namespace {
+// One STEP_LOOP tick on the premise of TheStepTurnRunArmCarriesTheClassAndTheRowOver, with the three gate inputs free.
+MoveReq RunTheGate(uint32_t rowBucket, float heading, float distance) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(0x20, rowBucket);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, heading);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, heading - 10.0f);
+  req.SetF(pes::moveword::kTurn, 100.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 5);
+  req.SetU(pes::moveword::kBucketPrev, 5);
+  req.SetF(pes::moveword::kDistToTarget, distance);
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  return req;
+}
+uint32_t NextStateOfTheGate(uint32_t rowBucket, float heading, float distance) {
+  return RunTheGate(rowBucket, heading, distance).U(pes::moveword::kNextState);
+}
+}  // namespace
+
+TEST(StepLoop, TheStepTurnRunGateNeedsTheHeadingTurnPastOneHundredTwelveAndAHalf) {
+  const uint32_t turnRun = uint32_t(MoveState::kStepTurnRun);
+  EXPECT_EQ(NextStateOfTheGate(3u, 200.0f, 9.0f), turnRun);
+  // 170 degrees of heading turn at any distance: PES has no distance test, the port's `distance <= 4` closed the arm here.
+  EXPECT_EQ(NextStateOfTheGate(3u, 200.0f, 3.0f), turnRun);
+  // 100 degrees of heading turn is inside 112.5: the arm is closed (the body turn still moves the bucket, so the clip issues).
+  EXPECT_NE(NextStateOfTheGate(3u, 110.0f, 9.0f), turnRun);
+}
+
+TEST(StepLoop, TheStepTurnRunGateRowBucketTestIsUnsigned) {
+  const uint32_t turnRun = uint32_t(MoveState::kStepTurnRun);
+  EXPECT_EQ(NextStateOfTheGate(8u, 200.0f, 9.0f), turnRun);
+  // Rows 0..2 wrap to 0xfffffffd..0xffffffff in `row - 3`: they are above 1, so the clip issues. The port's signed test read -3 as
+  // below 1 and opened the arm.
+  EXPECT_NE(NextStateOfTheGate(0u, 200.0f, 9.0f), turnRun);
+  EXPECT_NE(NextStateOfTheGate(2u, 200.0f, 9.0f), turnRun);
+  EXPECT_NE(NextStateOfTheGate(5u, 200.0f, 9.0f), turnRun);
+}
+
+// PES's clip issue ends with req[0x1a] = 0 and req[0x1b] = (req[0xe] == 0 ? the blend float : 0) (d_1406c4c10.c, after the
+// vt+0x10 issue). The port stored the blend through an integer cast, so the dwell limit read 0 and the next tick's
+// `req[0x1a] < req[0x1b] * 0.25` keep never held.
+TEST(StepLoop, TheClipIssueStoresTheBlendAsTheDwellLimit) {
+  const MoveReq req = RunTheGate(0u, 200.0f, 9.0f);  // row 0: the gate is open, so the clip issues
+  ASSERT_NE(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepTurnRun));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed), 0.0f);
+  EXPECT_GT(req.F(pes::moveword::kDwellLimit), 0.1f);
+  EXPECT_LT(req.F(pes::moveword::kDwellLimit), 0.25f);
 }
 
 // -------------------------------------------------------------------------------------
