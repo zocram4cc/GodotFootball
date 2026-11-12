@@ -187,13 +187,16 @@ bool MotionPredicateSet(int motion) { return movestep::MotionIsRunning(motion) |
 
 // FUN_1406b9ff0(ap, useClassRate, classIdx, speed, kind): the requested rate. The class-rate
 // path is FUN_1406b9e50's table; the speed path is the shared FUN_1406b9e80 (AS 3.2).
-float RequestedRate(MoveHost& host, MoveReq& req, const pes::RunTables& t) {
-  const bool useClass = req.Flag(moveword::kUseClassRate);
-  const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
-  const int kind = static_cast<int>(req.U(moveword::kKind));
+float RequestedRateFor(MoveHost& host, bool useClass, int cls, int kind, float speedKmh, const pes::RunTables& t) {
   if (useClass) return BandRateFor(cls, kind, t);
   if (cls == 0 && (kind == 3 || kind == 6)) return 0.0f;
-  return pes::movestep::SpeedToRate(host, req.F(moveword::kDesiredSpeedKmh), 0);
+  return pes::movestep::SpeedToRate(host, speedKmh, 0);
+}
+
+// RUN_LOOP's and ACCELERATE's call: the command's class (req[9]) and desired speed (req[0xa]).
+float RequestedRate(MoveHost& host, MoveReq& req, const pes::RunTables& t) {
+  return RequestedRateFor(host, req.Flag(moveword::kUseClassRate), static_cast<int>(req.U(moveword::kCommandSpeedClass)),
+                          static_cast<int>(req.U(moveword::kKind)), req.F(moveword::kDesiredSpeedKmh), t);
 }
 
 namespace {
@@ -644,245 +647,346 @@ float PickedHeading(float playerHeadingDeg, float sign, const RunConstants& k) {
 }
 
 
+namespace {
+
+// FUN_140a6e260(motion): the standing-turn motions 0x8bc, 0x8c6 and 0x8ce..0x8d0 (0x140a6e260..0x140a6e27c).
+bool MotionIsStandingTurn(int motion) { return motion == 0x8bc || motion == 0x8c6 || (motion >= 0x8ce && motion <= 0x8d0); }
+
+// The step-out clips FUN_1406bdf10 treats alike (0x1406be11e..0x1406be13b): 0x89c, 0x89e, 0x8a0, 0x8a2, 0x8a4.
+bool MotionIsStepOut(int motion) { return motion == 0x89c || motion == 0x89e || motion == 0x8a0 || motion == 0x8a2 || motion == 0x8a4; }
+
+// The turn clips of 0x1406be1b8..0x1406be1e6: 0x8bb, 0x8be, 0x8c0.
+bool MotionIsTurnClip(int motion) { return motion == 0x8bb || motion == 0x8be || motion == 0x8c0; }
+
+// The motions whose hit threshold FUN_1406bdf10's switch (jump table 0x1406bf088) takes from the look side.
+bool MotionIsInThresholdSwitch(int motion) {
+  switch (motion) {
+    case 0x8a9: case 0x8aa: case 0x8ab: case 0x8ae: case 0x8b0: case 0x8b1: case 0x8b7: case 0x8b8: case 0x8b9: case 0x8bf:
+    case 0x8c1: case 0x8c2: case 0x8c3: case 0x8c4: case 0x8c5: case 0x8c8: case 0x8ca: case 0x8cb: case 0x8cc: case 0x8cd:
+      return true;
+    default:
+      return false;
+  }
+}
+
+constexpr int kStandMotion = 0x8d1;  // the motion the replay/stand tests compare against (cmp word [rsp+0x148], 0x8d1)
+constexpr int kRunStyleNine = 9;     // 0x1406bec79: byte req[0x50] = 9 before the final run entry
+
+// The facing error toward req[1]: both folded into [0, 360), the difference wrapped to (-180, 180] (the decompile's inline fold).
+float FacingToHeadingError(MoveHost& host, const MoveReq& req, const RunConstants& k, const StepScalars& s, float* facingOut) {
+  const float facing = FoldFull(host.FacingDeg(), k);
+  float error = FoldFull(req.F(moveword::kHeading), k) - facing;
+  if (s.halfTurn < std::fabs(error)) error -= (error < 0.0f ? s.negOne : s.one) * s.full;
+  *facingOut = facing;
+  return error;
+}
+
+// 0x1406be742..0x1406be79f and 0x1406bea58..0x1406beab9: the root-facing step, at most `limitDeg` toward the error, written to
+// req[0x3b] (byte req[0x3a] = 1) and P+0xbec, and to req[0x18] when `stampToo`.
+void RootFacingStep(MoveHost& host, MoveReq& req, float error, float facing, float limitDeg, bool stampToo, const RunConstants& k) {
+  float delta = error;
+  if (!(error <= limitDeg)) {
+    delta = limitDeg;
+  } else if (-limitDeg > error) {
+    delta = -limitDeg;
+  }
+  const float angle = FoldFull(facing + delta, k);
+  req.SetByte(moveword::kRootFacing, 1);
+  req.SetF(moveword::kRootFacingAngle, angle);
+  if (stampToo) req.SetF(moveword::kRecordStampB, angle);
+  host.SetRecordF0bec(angle);
+}
+
+}  // namespace
+
 // ---------------------------------------------------------------------------------------------
-// FUN_1406bdf10, the GOTO_RUN handler (d_1406bdf10.c). One tick of the re-plan between a clip
-// and the run. Its decompile's plVar1 is the anime-player interface at +0xab8, plVar2 the +0xac0
-// one; iVar10 is the clip's current tick (FUN_1406b1f00's total), iVar11 its length
-// (FUN_1406b1d00), and local_res18/local_108/local_100 the hit ticks (FUN_1406af620's start,
-// FUN_1406af8e0's 0 and 1/2). GF has no hit records, so the hit ticks equal the clip's start.
+// FUN_1406bdf10, the GOTO_RUN handler (0x1406bdf10..0x1406bf087; d_1406bdf10.c, a_1406bdf10.txt). Register map of the asm (the
+// decompile reuses variables): EBP the clip frame, R12D `end` (FUN_1406b1d00, or 8 km/h's ticks while req[0x20] is 0 or 5, and
+// from 0x1406beb72 the blend-or-last hit local_104), [RSP+0x158] the rotation start, [RSP+0x150] / +0x30 / +0x38 the hit ticks 0..2
+// (the first two moved up a slot for the step-out motions), [RSP+0x34] local_104, [RSP+0x3c] the signed offset, [RSP+0x148] the motion.
 // ---------------------------------------------------------------------------------------------
 void GotoRun(MoveHost& host, MoveReq& req) {
+  using namespace moveword;
   const RunConstants& k = host.RunConstantsView();
-  const RunTables& t = host.RunTablesView();
-  const float one = k.one;
-  const float neg = k.neg;
-  const float half = k.half;
-  const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
-  const int motion = host.CurrentMotion();
+  const StepScalars& s = host.StepConstants();
+  const RunTables& rt = host.RunTablesView();
+  const float fps = host.TicksPerSecond();
 
-  // The clip's record reads: the total (FUN_1406b1f00), the length (FUN_1406b1d00) and the three hit
-  // ticks (FUN_1406af8e0 at entries 0..2, the Animation blend when missing), all from the live
-  // motion's record through ReadClipHits.
+  float clipDivisor = host.RecordF2468();  // P+0x2468
+  if (clipDivisor < s.s0p85) clipDivisor = s.one;
+  const int elapsed = host.CurrentClipFrames();  // vt+0x38
+  const int motion = host.CurrentMotion();       // vt+0x18
   const ClipHits clip = ReadClipHits(host, motion, k, host.ClipFlag());
-  // iVar10 of FUN_1406bdf10 is the anime interface's vt+0x38: the current clip's frame (decompile line 47).
-  const int clipLen = host.CurrentClipFrames();
-  const int clipTotal = clip.total;
-  int hit0 = clip.hit[0];
-  int hit1 = clip.hit[1];
-  int hit2 = clip.hit[2];
+  const int rotStart = clip.total;         // FUN_1406b1f00
+  int end = clip.end;                      // FUN_1406b1d00
+  const float signedLen = clip.signedLen;  // FUN_1406b1c70
+  int hit0 = clip.hit[0], hit1 = clip.hit[1];
+  const int hit2 = clip.hit[2];
+  int lastHit = clip.blend;  // local_104: the blend, raised to the last cancel entry's tick
+  if (clip.cancelCount > 0) lastHit = std::max(lastHit, host.ClipTicks(pes::ClipReader::kCancel, motion, k.one, clip.cancelCount - 1));
 
-  req.SetF(moveword::kRate, k.blend3);
-
-  // The two motion families: 0x89c..0x8a4 (the run-step ids) and 0x8bb/0x8be/0x8c0 (the turn ids).
-  const bool isRunStep = motion >= 0x89c && motion <= 0x8a4;
-  const bool isTurnMotion = motion == 0x8bb || motion == 0x8be || motion == 0x8c0;
-  bool turnFamily = false;
-  bool turnFlag = false;
-  turnFamily = isRunStep;
-  if (req.U(moveword::kMoveBucket) == 0u || req.U(moveword::kMoveBucket) == 5u) {
-    const int rolled = static_cast<int>(host.PickN(1) * k.kmh8 / host.TicksPerSecond() + half);
-    if (isRunStep) {
-      hit2 = hit1;
+  req.SetF(kRate, s.s0p3);  // 0x3e99999a
+  const bool stepOut = MotionIsStepOut(motion);
+  const bool turnClip = MotionIsTurnClip(motion);
+  const int liveBucket = static_cast<int>(req.U(kLiveBucket));
+  if (liveBucket == 0 || liveBucket == 5) {
+    end = static_cast<int>(fps * s.kmh8 / s.ticks60 + s.half);  // 0x1406be17c overwrites R12D
+    if (stepOut) {
       hit1 = hit0;
-      hit0 = rolled;
+      hit0 = end;
     }
   }
-  turnFamily = isTurnMotion;
 
-  // The yaw lock (FUN_1406cbb00's own call inside the function): the AI target ahead, the clip
-  // still running, and the lock written with the desired direction and its tick count.
-  if (!isTurnMotion && clipTotal <= clipLen && clipLen < (clipTotal + hit0 * 2) / 3 + 1) {
-    float lockHeading = req.F(moveword::kRecordStampB);
-    const int lockTicks = static_cast<int>(static_cast<float>(hit0 - clipLen) / req.F(moveword::kRecordStampA) + half);
-    // PES's turn-lock (ACCELERATE's block): the stamp steps toward the heading by at most 22.5 degrees when the turn from the
-    // stamp is under 90; the lock is the stamp itself otherwise.
-    const float ratio = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
-    if (std::fabs(ratio) < k.deg90) {
-      lockHeading = StepHeading(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k.deg225, k);
-    }
-    if (std::fabs(PesAngleDiff(req.F(moveword::kFacing), lockHeading, k)) / static_cast<float>(lockTicks) < k.deg45) {
-      req.SetU(moveword::kRecordStampB, static_cast<uint32_t>(lockHeading));
-      req.SetByte(moveword::kReorientFlag, 1);
-      req.SetU(moveword::kTurnFrames, static_cast<uint32_t>(lockTicks));
-      req.SetF(moveword::kAngle3d, lockHeading);
-      req.SetByte(moveword::kMirrorFlag, 0);
-      req.SetF(moveword::kRecordStampC, lockHeading);
-      if (k.deg90 < req.F(moveword::kTurn)) {
-        const float a = req.F(moveword::kTurn) < 0.0f ? neg : one;
-        const float b = ratio < 0.0f ? neg : one;
-        if (a != b) {
-          uint8_t dir = 0;
-          if (k.deg225 < std::fabs(ratio)) dir = 1;
-          req.SetByte(moveword::kMirrorFlag, dir);
-        }
+  // 0x1406be1fe..0x1406be37c: the toe-off window of the turn lock.
+  if (!host.FacingAdjusterBusy() && rotStart <= elapsed && elapsed < (rotStart + end * 2) / 3) {
+    const int ticks = static_cast<int>(static_cast<float>(end - elapsed) / clipDivisor + s.half);
+    float stamp = req.F(kRecordStampB);
+    if (std::fabs(PesAngleDiff(stamp, req.F(kHeading), k)) < s.deg90) stamp = StepHeading(stamp, req.F(kHeading), s.deg22p5, k);
+    const float lockTurn = PesAngleDiff(req.F(kFacing), stamp, k);
+    if (std::fabs(lockTurn) / static_cast<float>(ticks) < s.deg45) {
+      req.SetF(kTurnLockStamp, stamp);
+      req.SetByte(kTurnLockFlag, 1);
+      req.SetU(kTurnLockTicks, static_cast<uint32_t>(ticks));
+      req.SetByte(kTurnLockDir, 0);
+      req.SetF(kRecordStampB, stamp);
+      if (s.deg90 < std::fabs(signedLen)) {
+        const float sideOffset = signedLen < 0.0f ? s.negOne : s.one;
+        const float sideTurn = lockTurn < 0.0f ? s.negOne : s.one;
+        if (sideOffset != sideTurn && s.deg22p5 < std::fabs(lockTurn)) req.SetByte(kTurnLockDir, 1);
       }
-      host.SetRecordF0bec(lockHeading);
+      host.SetRecordF0bec(stamp);  // FUN_1406cbb00(P, stamp)
     }
   }
 
-  // The re-entry into the run (FUN_1406ce820's call): the class and the band both below 1, the
-  // class above 1, the clip past the hit tick, not a keeper, and the turn past 45 degrees.
-  const float turn = req.F(moveword::kTurn);
-  if (static_cast<int>(req.U(moveword::kRateBand)) < 1 &&
-      static_cast<int>(req.U(moveword::kBandTarget)) < 1 && cls > 1 &&
-      clipLen < hit0 && host.AnimeState() != kReplayAnimeState &&
-      (k.deg45 < turn || k.deg45 < req.F(moveword::kFacingError) ||
-       req.Flag(moveword::kMirrorFlag))) {
+  // 0x1406be37c..0x1406be3ff: the re-entry into GOTO_RUN.
+  const float bodyTurn = PesAngleDiff(req.F(kFacing), req.F(kBodyDirection), k);  // FUN_14043a0a0(req[2], req[4])
+  const float absBodyTurn = std::fabs(bodyTurn);
+  if (static_cast<int>(req.U(kClassWord)) < 1 && static_cast<int>(req.U(kPrevClassWord)) < 1 &&
+      static_cast<int>(req.U(kCommandSpeedClass)) > 1 && elapsed < end && host.AnimeState() != kReplayAnimeState &&
+      (s.deg45 < absBodyTurn || s.deg45 < std::fabs(req.F(kTurn)) || req.FlagAtByte(0x3f))) {
     EnterGotoRun(host, req, false);
     return;
   }
 
-  // The desired direction and the two bearings: bVar6 is "no turn needed", bVar5 the fast-turn.
-  // ponytail: PES's GOTO_RUN has no FUN_140a92950 call at this point (its one helper call is the turn-lock above); the
-  // heading stands here, as FirstAngle's stub had it. The PES value for the desired direction is not decoded yet.
-  const float desired = req.F(moveword::kHeading);
-  const float bearing = InlineDiffDeg(desired, req.F(moveword::kFacing), k);
-  bool noTurn = false;
-  if (hit0 <= clipLen || bearing < k.deg45) noTurn = true;
-  const float lookBearing = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
-  bool fastTurn = false;
-  bool fastTurnLocked = false;
-  if (!(lookBearing * lookBearing < k.kmh95sq) && req.U(moveword::kPrecise) == 1u) {
-    fastTurn = true;
-    fastTurnLocked = true;
-  }
-  if ((motion == 0x8d1 || turnFamily) && clipLen < hit2) {
-    fastTurnLocked = fastTurn;
-    if (clipLen < hit2) fastTurnLocked = false;
+  // 0x1406be40d..0x1406be475: the heading from the stamp, and the fast-turn flag.
+  const float absStampTurn = std::fabs(PesAngleDiff(req.F(kRecordStampB), req.F(kHeading), k));
+  const float lookTurn = PesAngleDiff(req.F(kRecordStampB), req.F(kLookHeading), k);
+  bool fastTurn = !(lookTurn * lookTurn < s.sq8100) && req.U(kPrecise) == 1u;
+  if ((motion == kStandMotion || turnClip) && elapsed < hit2) fastTurn = false;
+
+  const int commandClass = static_cast<int>(req.U(kCommandSpeedClass));  // req[9]
+  const int prevBand = static_cast<int>(req.U(kPrevClassWord));          // req[0x24]
+  const auto angleBucket = [&](float angle) { return AngleBucket(host.AngleBuckets(), angle, 10, false); };  // vt+0x60 = FUN_1406b9b20
+
+  // 0x1406be47b..0x1406be4c9: the turn-lock entry (FUN_1406d01d0). (PES's other branch, 0x1406be4c9, reads vt+0x28 and drops it.)
+  if (static_cast<uint32_t>(prevBand - 1) < 2u && commandClass > 2 && req.U(kPrecise) == 0u && s.deg45 > absStampTurn &&
+      host.AnimeState() != kReplayAnimeState && motion != kStandMotion && !turnClip && EnterGotoTurn(host, req)) {
+    return;
   }
 
-  // The turn-lock test arm (FUN_1406d01d0's call). PES's other branch (0x1406be4c9) reads the anime state (vt+0x28) and drops it.
-  if ((static_cast<uint32_t>(static_cast<int>(req.U(moveword::kBandTarget)) - 1) < 2u) && cls > 2) {
-    if (req.U(moveword::kPrecise) == 0u) {
-      const bool keeper = host.AnimeState() == kReplayAnimeState;
-      if (bearing < k.deg45 && !keeper && motion != 0x8d1 && !turnFamily && EnterGotoTurn(host, req)) {
+  // 0x1406be4ec..0x1406be629: the stop arm.
+  if (motion != kStandMotion && !turnClip && !MotionIsStandingTurn(motion)) {
+    if (host.PlaybackConstantsView().turnP2 > req.F(kDwellElapsed) && commandClass != -1 && req.U(kPrecise) == 1u && prevBand == 3 &&
+        commandClass < 2) {
+      req.SetF(kStopSpeedWord, s.kmh5);
+      req.SetU(kClassWord, 0);
+      EnterGotoRun(host, req, false);
+      return;
+    }
+    const bool stopOpen = host.MoveStatePrevious() != static_cast<int>(MoveState::kIdle) ||
+                          req.F(kDwellElapsed2) > req.F(kDwellLimit2) || req.U(kCommandId) == 5u;
+    if (stopOpen) {
+      const float scale = (liveBucket == 0 || liveBucket == 5) ? s.s0p6 : s.s0p3;
+      if ((static_cast<float>(end) * scale > static_cast<float>(elapsed) || elapsed < rotStart) &&
+          (absStampTurn >= k.deg5625 || fastTurn)) {
+        req.SetU(kPrevBucket, static_cast<uint32_t>(liveBucket));
+        req.SetF(kStopSpeedWord, s.kmh5);
+        req.SetU(kClassWord, 0);
+        req.SetU(kLiveBucket, static_cast<uint32_t>(angleBucket(bodyTurn)));
+        EnterStop(host, req);
         return;
       }
     }
   }
 
-  // The stop arm (FUN_1406bdf10 lines 215-217): it runs when the state before the current one is not IDLE, or the second
-  // dwell has run out, or the command id is 5. P+0x245d holds that state (read at VA 0x1406be573): it is written as the
-  // old state at each change (FUN_1406b8340's tail, VA 0x1406b8736), at its INIT path (0x1406b8408) and at an anime
-  // action entry (FUN_1406eb440, 0x1406eb459).
-  const bool secondDwellPast = req.F(moveword::kDwellLimit2) <= req.F(moveword::kDwellElapsed2) &&
-                               req.F(moveword::kDwellElapsed2) != req.F(moveword::kDwellLimit2);
-  const bool stopArmOpen = host.MoveStatePrevious() != static_cast<int>(MoveState::kIdle) || secondDwellPast ||
-                           req.U(moveword::kCommandId) == 5u;
-  if (stopArmOpen && req.U(moveword::kCommandSpeedClass) != 0xffffffffu) {
-    const float dwellFactor = (req.U(moveword::kMoveBucket) == 0u || req.U(moveword::kMoveBucket) == 5u) ? k.rate06 : k.blend3;
-    if ((static_cast<float>(clipLen) < static_cast<float>(hit0) * dwellFactor ||
-         clipLen < clipTotal) &&
-        (k.deg5625 <= bearing || fastTurnLocked)) {
-      req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
-      const int bucket = AngleBucket(host.AngleBuckets(), bearing, 10, false);
-      req.SetU(moveword::kClassWord, 0u);  // PES param_2[0x1f] = 0 before the STOP entry: its no-class arm answers IDLE
-      req.SetF(moveword::kStopSpeedWord, k.kmh5);  // PES param_2[0x1d] = 5.0 (FUN_1406bdf10 line 226)
-      req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(bucket));
-      EnterStop(host, req);
-      return;
-    }
+  // 0x1406be629..0x1406be79f: before the first hit tick, a clip that is not a step-out turns the root toward the heading.
+  if (elapsed < hit0 && !stepOut) {
+    if (elapsed < end) return;
+    req.SetByte(kTurnLockFlag, 0);  // then vt+0x08 of +0x4d0 (the adjuster's apply, a no-op here)
+    float facing = 0.0f;
+    const float error = FacingToHeadingError(host, req, k, s, &facing);
+    if (!(std::fabs(error) < s.deg112p5)) return;
+    float limit = s.halfTurn / fps;
+    if (motion == kStandMotion || turnClip) limit = s.deg135 / fps;
+    RootFacingStep(host, req, error, facing, limit, true, k);
+    return;
   }
 
-  // The turn arm: the class of -1 goes to the turn-stop entry; otherwise the band's turn
-  // allowance (45 degrees plus 22.5 per look-distance unit) decides the run-turn or the re-plan.
-  if (cls == -1) {
-    if (noTurn && static_cast<int>(req.U(moveword::kBandTarget)) > 0) {
-      EnterTurnStop(host, req);
-      return;
-    }
-    req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
-    const int bucket = AngleBucket(host.AngleBuckets(), bearing, 10, false);
-    req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(bucket));
+  // 0x1406be7a4..: the gates after the first hit tick.
+  const bool bodyClose = elapsed >= end || absBodyTurn < s.deg45;  // bVar6
+  const auto stopCommon = [&]() {                                  // 0x1406beddd
+    req.SetU(kPrevBucket, req.U(kLiveBucket));
+    req.SetU(kLiveBucket, static_cast<uint32_t>(angleBucket(bodyTurn)));
     EnterStop(host, req);
-    return;
-  }
-  const float lookDist = req.F(moveword::kDistToLook);
-  float allowance = one;
-  if (k.speed2 < lookDist) {
-    allowance = (lookDist < k.speed4) ? (lookDist - k.speed2) * half : one;
-  } else {
-    allowance = 0.0f;
-  }
-  const float bandAllowance = allowance * k.deg45 + k.deg45;
-  if (bandAllowance <= bearing || fastTurnLocked) {
-    const float ceiling = host.RateCeiling();
-    req.SetF(moveword::kRate, k.rate06);
-    const float speed = host.CurrentSpeedKmh();
-    if (k.kmh8 <= speed) {
-      if (k.kmh135 <= speed) {
-        if (k.kmh22 < speed) {
-          req.SetF(moveword::kRate, ceiling);
-        }
-      } else {
-        req.SetF(moveword::kRate, k.blend3);
-      }
-    } else {
-      req.SetF(moveword::kRate, k.rate05);
+  };
+  if (commandClass == -1) {
+    if (!bodyClose || prevBand < 1) {
+      stopCommon();
+      return;
     }
-    req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(ClassForRateFor(req.F(moveword::kRate), t)));
-    req.SetF(moveword::kDesiredSpeedKmh, RateToSpeedFor(req.F(moveword::kRate), host.PhysiqueG(), t, k.rampSlope) * k.speed3600);
-    if (EnterRunTurnStep(host, req, (ceiling - k.rate06) * half)) return;
-    // PES's GOTO exit ends in the +0xac0 vt+0 call (FUN_1406bdf10 line 630): the run entry picks the style's motion row, the
-    // mirror and the 0.1 dwell limit, and requests RUN_LOOP. The dispatcher's tail issues the clip.
-    EnterRun(host, req, host.FootBand(), false);
+    EnterTurnStop(host, req);  // FUN_1406d2590
     return;
   }
 
-  // The straight-ahead re-plan: the speed bands and the quota share decide the class, then the
-  // run continues with the body turned toward the AI target (the 180/112.5-degree guards).
-  int quota = clipTotal + hit0 * 2;
-  int share = quota / 3;
-  if (turnFamily) {
-    const float a = req.F(moveword::kTurn) < 0.0f ? neg : one;
-    const float b = req.F(moveword::kLookDelta) <= 0.0f && req.F(moveword::kLookDelta) != 0.0f ? neg : one;
-    if (a != b) share = hit0 * 75 / 100;
-  }
-  if (hit0 <= clipLen || (hit0 <= clipLen && share <= clipLen && k.turn16875 < bearing)) {
-    const float facing = FoldFull(req.F(moveword::kFacing), k);
-    const float heading = FoldFull(req.F(moveword::kHeading), k);
-    float aim = InlineDiffDeg(heading, facing, k);
-    if (k.deg1125b <= aim) return;
-    float turnLimit = k.half_turn;
-    if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
-    // ponytail: PES's speed-for-turn source is not decoded (no FUN_140a92950 call here); the heading stands, as the stub had it.
-    const float speedForTurn = req.F(moveword::kHeading);
-    const float speed = InlineDiffDeg(speedForTurn, req.F(moveword::kFacing), k);
-    if (k.kmh135 < speed) turnLimit = k.deg1125b;
-    if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
-    float clamped = turnLimit;
-    if (aim <= turnLimit && -turnLimit <= aim) clamped = aim;
-    const float newHeading = FoldFull(facing + clamped, k);
-    req.SetByte(moveword::kRootFacing, 1);
-    req.SetF(moveword::kRootFacingAngle, newHeading);
-    if (hit0 <= clipLen) req.SetF(moveword::kRecordStampC, newHeading);
-    host.SetRecordF0bec(newHeading);
+  const float dist = req.F(kDistToLook);
+  float share = 0.0f;
+  if (s.two < dist) share = dist < s.four ? (dist - s.two) * s.half : s.one;
+  if (s.deg45 * share + s.deg45 <= absStampTurn || fastTurn) {
+    if (!bodyClose) {
+      // 0x1406bed3b: not facing the target yet; the ground speed picks the class, then the step-turn entry.
+      const float speed = GroundSpeedKmh(host, k);
+      if (speed < s.kmh5) {
+        req.SetF(kStopSpeedWord, s.kmh5);
+        req.SetU(kClassWord, 0);
+      } else if (speed < s.kmh11) {
+        req.SetU(kClassWord, 1);
+        req.SetF(kStopSpeedWord, s.kmh11);
+      } else {
+        req.SetU(kClassWord, 2);
+        req.SetF(kStopSpeedWord, s.kmh16);
+      }
+      if (EnterStepTurnRun(host, req)) return;
+      stopCommon();
+      return;
+    }
+    // 0x1406bee16: the run-turn-step entry, or the run-turn-run entry.
+    const bool turnStep = (req.U(kPrecise) == 1u && std::fabs(PesAngleDiff(req.F(kHeading), req.F(kLookHeading), k)) > s.deg45) ||
+                          (s.dist3 > dist && std::fabs(req.F(kTurn)) < s.deg112p5) || s.one > dist;
+    if (turnStep) {
+      const float ceiling = host.RateCeiling();  // vt+0x18 of +0xac0
+      req.SetF(kRate, s.s0p6);
+      const float speed = GroundSpeedKmh(host, k);
+      if (speed < s.kmh8) {
+        req.SetF(kRate, s.s0p15);
+      } else if (speed < s.kmh13p5) {
+        req.SetF(kRate, s.s0p3);
+      } else if (speed > s.kmh22) {
+        req.SetF(kRate, ceiling);
+      }
+      req.SetU(kClassWord, static_cast<uint32_t>(ClassForRateFor(req.F(kRate), rt)));
+      req.SetF(kStopSpeedWord, RateToSpeedFor(req.F(kRate), host.PhysiqueG(), rt, k.rampSlope) * s.kmh3p6);
+      if (EnterRunTurnStep(host, req, (ceiling - s.s0p6) * s.half)) return;
+      const int foot = host.FootBand();  // vt+0x78
+      req.SetU(kDwellLimit, 0);
+      req.SetU(kDwellLimit2, 0);
+      req.SetByte(kStyle, 0);
+      req.SetByte(kFootFlag, static_cast<uint32_t>(foot) - 1u < 2u ? 1 : 0);
+      EnterRun(host, req, foot, false);
+      return;
+    }
+    const float forward = DisplacementForwardKmh(host, host.MoveTurnConstantsView());
+    if (forward < s.kmh8) {
+      req.SetF(kStopSpeedWord, s.kmh5);
+      req.SetU(kClassWord, 0);
+      EnterGotoRun(host, req, false);
+      return;
+    }
+    if (forward < s.kmh11) {
+      req.SetU(kClassWord, 1);
+      req.SetF(kStopSpeedWord, s.kmh11);
+    } else {
+      req.SetU(kClassWord, 2);
+      req.SetF(kStopSpeedWord, s.kmh16);
+    }
+    EnterRunTurnRun(host, req);
     return;
   }
-  req.SetByte(moveword::kStyle, 9);
-  const int foot = host.FootBand();
-  req.SetByte(moveword::kMirror, static_cast<uint32_t>(foot - 1) < 2u ? 1 : 0);
-  req.SetF(moveword::kDwellLimit, 0.0f);
-  req.SetF(moveword::kDwellLimit2, 0.0f);
-  // FUN_1406bdf10's rate ladder (param_2[0x24], param_2[0x1f]): band target 2 or rate band 2 runs at 0.5.
-  if (static_cast<int>(req.U(moveword::kBandTarget)) == 2 || static_cast<int>(req.U(moveword::kRateBand)) == 2) {
-    req.SetF(moveword::kRate, k.half);
-  } else if (static_cast<int>(req.U(moveword::kBandTarget)) == 1) {
-    req.SetF(moveword::kRate, k.blend3);
-  } else {
-    float r = RequestedRate(host, req, t);
-    const float ceiling = host.RateCeiling();
-    if (r <= ceiling && 0.0f <= r) {
-      // in range
-    } else {
-      r = 0.0f;
-    }
-    req.SetF(moveword::kRate, r);
+
+  // 0x1406be83f..0x1406beabd: the hit threshold, then the second root-facing step.
+  int threshold = (rotStart + end * 2) / 3;
+  if (MotionIsInThresholdSwitch(motion)) {
+    const float offsetSide = signedLen < 0.0f ? s.negOne : s.one;
+    const float lookSide = req.F(kLookDelta) < 0.0f ? s.negOne : s.one;
+    threshold = offsetSide == lookSide ? end : (end * 75) / 100;
   }
-  const int bucket = AngleBucket(host.AngleBuckets(), bearing, 10, false);
-  // LAB_1406bec79: the run entry through the +0xac0 interface's slot 0 (FUN_1406d2030), which requests RUN_LOOP.
+  if (elapsed >= end || (elapsed >= hit0 && elapsed >= threshold && absStampTurn > s.deg16p875)) {
+    req.SetByte(kTurnLockFlag, 0);
+    float facing = 0.0f;
+    const float error = FacingToHeadingError(host, req, k, s, &facing);
+    if (std::fabs(error) < s.deg112p5) {
+      float limit = k.deg1575 / fps;
+      if (DisplacementForwardKmh(host, host.MoveTurnConstantsView()) > s.kmh13p5) limit = s.deg112p5 / fps;
+      if (stepOut || motion == kStandMotion || turnClip) limit = s.deg135 / fps;
+      RootFacingStep(host, req, error, facing, limit, elapsed >= end, k);
+    }
+  }
+
+  // 0x1406beac7..0x1406bec79: whether the run entry is due (BL), and which tail checks it.
+  bool due = false;
+  enum class Tail { kB5e, kB59, kB72 };
+  Tail tail = Tail::kB5e;
+  if (commandClass > 2 && motion != kStandMotion && !turnClip) {
+    if (prevBand < 3 || (elapsed >= hit2 && motion == 0xc68) || (elapsed >= hit1 && motion == 0x8c8)) due = true;
+  } else if (prevBand > 2 && elapsed >= hit1 && elapsed >= end && !(motion == kStandMotion && commandClass >= 0) &&
+             !(turnClip && commandClass >= 0)) {
+    due = true;
+    tail = Tail::kB59;
+  } else if (static_cast<uint32_t>(prevBand - 1) <= 1u && commandClass > 1 && elapsed >= hit1 && elapsed >= end &&
+             motion != kStandMotion && !turnClip) {
+    due = true;
+  } else if (prevBand == 0) {
+    if (commandClass > 0 && motion != kStandMotion && !turnClip) {
+      due = true;
+    } else {
+      tail = Tail::kB59;
+    }
+  } else if (prevBand < 0) {
+    tail = Tail::kB59;
+  } else if (commandClass != 0 || elapsed < hit0) {
+    tail = Tail::kB59;
+  } else {
+    const bool early = elapsed < end && (elapsed < (end * 8) / 10 || !(s.deg45 > std::fabs(req.F(kTurn))));
+    if (early || motion == kStandMotion) {
+      tail = Tail::kB59;
+    } else if (turnClip) {
+      tail = Tail::kB72;
+    } else {
+      due = true;
+    }
+  }
+  if (tail == Tail::kB59) tail = turnClip ? Tail::kB72 : Tail::kB5e;
+  if (tail == Tail::kB5e && static_cast<int>(req.U(kClassWord)) == 2 && commandClass == 3) tail = Tail::kB72;
+  if (tail == Tail::kB72 && elapsed >= lastHit && EnterAccelerate(host, req)) return;  // FUN_1406ccd00
+  if (elapsed < lastHit) {                                                              // 0x1406bec55
+    if (elapsed < hit1) {
+      if (!bodyClose) return;
+      if (elapsed < hit0) return;
+    }
+    if (!due) return;
+  }
+
+  // 0x1406bec79: the run entry.
+  req.SetByte(kStyle, kRunStyleNine);
+  const int foot = host.FootBand();  // vt+0x78
+  req.SetByte(kFootFlag, static_cast<uint32_t>(foot) - 1u < 2u ? 1 : 0);
+  req.SetU(kDwellLimit, 0);
+  req.SetU(kDwellLimit2, 0);
+  if (prevBand == 2 || static_cast<int>(req.U(kClassWord)) == 2) {
+    req.SetF(kRate, s.half);
+  } else if (prevBand == 1) {
+    req.SetF(kRate, s.s0p3);
+  } else {
+    float rate = RequestedRateFor(host, req.Flag(kUseClassRate), static_cast<int>(req.U(kClassWord)), static_cast<int>(req.U(kKind)),
+                                  req.F(kStopSpeedWord), rt);
+    const float ceiling = host.RateCeiling();
+    if (!(rate <= ceiling)) {
+      rate = ceiling;
+    } else if (!(0.0f <= rate)) {
+      rate = 0.0f;
+    }
+    req.SetF(kRate, rate);
+  }
   EnterRun(host, req, foot, false);
-  (void)bucket;
 }
 
 

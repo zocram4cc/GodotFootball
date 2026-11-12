@@ -300,7 +300,11 @@ class RowHost : public movestep_test::UnboundHost {
         mirror = true;
         break;
       }
-    EXPECT_TRUE(motion && mirror) << "no cell call for row " << std::hex << row << " column " << column;
+    if (!(motion && mirror)) {
+      std::ostringstream what;
+      what << "no cell call for row " << std::hex << row << " column " << column;
+      throw movestep_test::UnboundRead(what.str());
+    }
     return cell;
   }
   // FUN_1406e7730 (the hit distance) is computed by the port from the install's own motion records (Motion() below); its
