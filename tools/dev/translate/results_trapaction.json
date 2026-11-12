@@ -1322,7 +1322,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1: 1 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble action tick (action-4 vtable 0x1425E2440 +0x20): 1 REAL in-dribble call (sub-state 6 -> 0x1407B05F0), no ball write on this path",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1 REAL captured call (live2/pid1270903/seq282, sub-state 6 -> 0x1407B05F0; no ball write on this path). The layer additionally holds the static 738-member closure of the tick + ball kick application 0x140870A40 + touch gate 0x1407EB630 (closure_dribbletick.json): members beyond the replay-entered set are translated from the image but NOT replay-verified (translated-not-replayed); the runner's survey adds real sub-states as they land. Calls outside the 738 abort loudly.",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
