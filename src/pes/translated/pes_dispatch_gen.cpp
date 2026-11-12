@@ -8030,6 +8030,7 @@ void pes_fn_1415BA830(PesState& s);
 void pes_fn_1415BAC30(PesState& s);
 void pes_fn_1415BB020(PesState& s);
 void pes_fn_1415BB0A0(PesState& s);
+void pes_fn_1415BB1C0(PesState& s);
 void pes_fn_1415BB270(PesState& s);
 void pes_fn_1415BB350(PesState& s);
 void pes_fn_1415BB730(PesState& s);
@@ -17773,6 +17774,7 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x1415BAC30ULL: return {pes_fn_1415BAC30};
     case 0x1415BB020ULL: return {pes_fn_1415BB020};
     case 0x1415BB0A0ULL: return {pes_fn_1415BB0A0};
+    case 0x1415BB1C0ULL: return {pes_fn_1415BB1C0};
     case 0x1415BB270ULL: return {pes_fn_1415BB270};
     case 0x1415BB350ULL: return {pes_fn_1415BB350};
     case 0x1415BB730ULL: return {pes_fn_1415BB730};

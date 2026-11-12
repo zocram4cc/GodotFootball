@@ -8027,6 +8027,7 @@ void pes_fn_1415BA830(PesState& s);
 void pes_fn_1415BAC30(PesState& s);
 void pes_fn_1415BB020(PesState& s);
 void pes_fn_1415BB0A0(PesState& s);
+void pes_fn_1415BB1C0(PesState& s);
 void pes_fn_1415BB270(PesState& s);
 void pes_fn_1415BB350(PesState& s);
 void pes_fn_1415BB730(PesState& s);
