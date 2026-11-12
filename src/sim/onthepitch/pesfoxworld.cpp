@@ -353,6 +353,9 @@ bool PesFoxWorld::LoadBody(std::string* error) {
   if (!owner) throw std::runtime_error("fox world: the arena is full");
   Call(::pes_fn_141EC9AF0, {owner});
   if (!PumpUntilIdle(error)) return false;
+  // The list's completion callback (FUN_141EC9AB0) runs the FixDemo project's setup, which registers "fixdemo" (FUN_141EBCB10 looks it up
+  // and fills the joint-id tables DAT_1437F4E60 from it) before the body's own setup.
+  Call(::pes_fn_141ECA210, {owner});
   Call(::pes_fn_141ECA500, {owner});
   return true;
 }
