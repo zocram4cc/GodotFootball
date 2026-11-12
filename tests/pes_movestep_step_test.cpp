@@ -1153,44 +1153,6 @@ TEST(StepLoop, TheStepTurnRunArmCarriesTheClassAndTheRowOver) {
   EXPECT_EQ(req.U(0x20), 0u);
 }
 
-// PES's STEP_TURN_RUN arm writes the root facing (0x1406C5EDF-0x1406C5F31 and the block
-// after it): the turn to the body's own direction, clamped against the clock's draw
-// (180 / the frame rate, 54.0), is added to the player's facing, and that becomes req[0x3b].
-// The port computed the values and discarded them, so the facing never moved.
-TEST(StepLoop, TheStepTurnRunArmWritesTheRootFacing) {
-  FakeHost host;
-  MoveReq req;
-  req.SetU(pes::moveword::kKind, 2);
-  req.SetU(pes::moveword::kCommandSpeedClass, 3);
-  req.SetU(pes::moveword::kPrecise, 0u);
-  req.SetU(pes::moveword::kClassWord, 3);
-  req.SetU(0x20, 3u);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 190.0f);
-  req.SetF(pes::moveword::kLookHeading, 0.0f);
-  // The body direction is 10 degrees below the heading, so the turn is -10, clamped against the draw (3.33): the facing lands
-  // on 356.67.
-  req.SetF(pes::moveword::kBodyDirection, 180.0f);
-  req.SetF(pes::moveword::kTurn, 100.0f);  // |turn + body (180)| > 112.5 and |turn| > 67.5: the STEP_TO_RUN arm stays closed
-  req.SetF(pes::moveword::kLookDelta, 0.0f);
-  req.SetF(pes::moveword::kFacingError, 0.0f);
-  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
-  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
-  req.SetF(pes::moveword::kDwellLimit, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
-  req.SetU(pes::moveword::kMoveBucket, 5);  // 135 degrees: the body turn (190 - 135 = 55) moves the bucket without the wide-turn band drop
-  req.SetU(pes::moveword::kBucketPrev, 5);
-  req.SetF(pes::moveword::kDistToTarget, 9.0f);
-  host.displacement[0] = 0.0f;
-  host.displacement[1] = 0.0f;
-  host.displacement[2] = 0.02f;
-  StepLoop(host, req);
-  // The root facing is the player's own facing (0) plus the delta.
-  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
-  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 356.66666f, 0.01f);
-}
-
 // PES's STEP_TURN_RUN gate (0x1406c59b0..0x1406c5a21): the stop-row arm 0x1406c5a27 needs the row bucket in {3, 4, 8, 9} (an
 // UNSIGNED `LEA EAX,[RCX-3]; CMP EAX,1; JBE`, so rows 0..2 wrap high and issue the clip), the heading turn |req[1] - req[2]|
 // past 112.5 (XMM11 against DAT_1425cb30c) and the body-to-target term inside 45 + 22.5 * the distance factor. The port tested
@@ -1257,6 +1219,132 @@ TEST(StepLoop, TheClipIssueStoresTheBlendAsTheDwellLimit) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed), 0.0f);
   EXPECT_GT(req.F(pes::moveword::kDwellLimit), 0.1f);
   EXPECT_LT(req.F(pes::moveword::kDwellLimit), 0.25f);
+}
+
+namespace {
+// The premise of TheStepTurnRunArmCarriesTheClassAndTheRowOver: the gate is closed (row 3, heading turn 170), so PES runs its
+// else arm 0x1406c5a27..0x1406c5d3a.
+MoveReq TurnRunArmRequest() {
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(0x20, 3u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 200.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 190.0f);
+  req.SetF(pes::moveword::kTurn, 100.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 5);
+  req.SetU(pes::moveword::kBucketPrev, 5);
+  req.SetF(pes::moveword::kDistToTarget, 9.0f);
+  return req;
+}
+}  // namespace
+
+// PES's else arm (0x1406c5a27..0x1406c5bd9): the row is 0x639 when req[0x20] is 3 or 8, else 0x631; the column is 9 - the mirror;
+// the mirror is the sign of the ball sample's bearing from the facing when the heading turn is past 146.25 degrees and that
+// bearing is past 33.75; req[0x26] (the foot flag) is the mirror. The port took the row from the NEW bucket, the column from
+// the bucket's table and the mirror from req[6].
+TEST(StepLoop, TheStepTurnRunArmPicksTheMirrorFromTheBallBearing) {
+  FakeHost host;
+  host.ballHeadingDeg = 100.0f;  // the bearing from the facing (10 here) is +90: past 33.75, not a left turn
+  MoveReq req = TurnRunArmRequest();
+  StepLoop(host, req);
+  ASSERT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepTurnRun));
+  EXPECT_EQ(host.lastRow, 0x639);
+  EXPECT_EQ(host.lastColumn, 9);
+  EXPECT_FALSE(req.Flag(pes::moveword::kFootFlag));
+
+  FakeHost left;
+  left.ballHeadingDeg = -100.0f;  // -110 from the facing: a left turn
+  MoveReq leftReq = TurnRunArmRequest();
+  StepLoop(left, leftReq);
+  EXPECT_EQ(left.lastRow, 0x639);
+  EXPECT_EQ(left.lastColumn, 8);
+  EXPECT_TRUE(leftReq.Flag(pes::moveword::kFootFlag));
+}
+
+TEST(StepLoop, TheStepTurnRunArmTakesTheRowFromTheOldBucketAndTheSpeedClampedToFiveToSixteen) {
+  FakeHost host;
+  MoveReq req = TurnRunArmRequest();
+  req.SetU(0x20, 4u);  // the gate's row test still opens the arm on 4; the stop row is the even one
+  StepLoop(host, req);
+  ASSERT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepTurnRun));
+  EXPECT_EQ(host.lastRow, 0x631);
+  // clamp(req[10], 5, 16): the desired 12 km/h stays 12 (the port read "at most 16 gives 5").
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 12.0f);
+  // d_1406c4c10.c: the arm stamps req[0x17] = wrap(req[1] - bucketDeg - facing) and req[0x18] = req[1], and writes no root facing.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRecordStampB), 200.0f);
+  EXPECT_FALSE(req.Flag(pes::moveword::kRootFacing));
+}
+
+// PES's keep tick LAB_1406c5eba (0x1406c5eba..0x1406c6415): when nothing moved (no bucket re-pick, no wide body turn, no
+// wide-turn band drop) the tick is kept, req[0x3c] clears, and the root facing is blended towards the body direction:
+// faced = fold(req[2] + clamp(wrap(req[1] - req[4]), -180/tps, 180/tps)), req[0x3a] = 1, req[0x3b] = faced. The band, the bucket
+// and the speed words are NOT written (the port wrote them on every keep, and wrote the root facing only in the else arm).
+MoveReq KeepTickRequest(float heading, float bodyDirection, float look, uint32_t precise) {
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, precise);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(0x20, 3u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, heading);
+  req.SetF(pes::moveword::kLookHeading, look);
+  req.SetF(pes::moveword::kBodyDirection, bodyDirection);
+  req.SetF(pes::moveword::kTurn, 120.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  req.SetF(pes::moveword::kDistToTarget, 9.0f);
+  return req;
+}
+
+TEST(StepLoop, TheKeepTickBlendsTheRootFacingTowardsTheBodyDirection) {
+  FakeHost host;
+  MoveReq req = KeepTickRequest(10.0f, 40.0f, 0.0f, 0u);  // wrap(10 - 40) = -30, clamped to -180/54 = -3.33
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 0u);  // no state change
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 356.66666f, 0.01f);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 3u);   // the keep does not walk the band
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);  // nor the bucket
+}
+
+// 0x1406c637d..0x1406c63f6: the sign test compares sign(wrap(req[2] - req[3])) with sign(fold(req[2]) - faced, wrapped); when
+// they differ and req[0xe] is set the tick ends WITHOUT the root-facing write. The port took the first term the other way round.
+TEST(StepLoop, TheKeepTickSignTestEndsTheTickWithoutTheRootFacingOnAPreciseStep) {
+  FakeHost host;
+  host.displacement[2] = 0.02f;
+  // facing 0, heading 30 and body direction 0 give faced +3.33; the look heading 340 leaves a residual of 23.3 (in 22.5..135);
+  // wrap(0 - 340) = +20 is positive and fold(0) - faced is negative, so the signs differ.
+  MoveReq precise = KeepTickRequest(30.0f, 0.0f, 340.0f, 1u);
+  StepLoop(host, precise);
+  EXPECT_FALSE(precise.Flag(pes::moveword::kRootFacing));
+  // The same request that is not precise writes it.
+  FakeHost host2;
+  host2.displacement[2] = 0.02f;
+  MoveReq loose = KeepTickRequest(30.0f, 0.0f, 340.0f, 0u);
+  StepLoop(host2, loose);
+  EXPECT_TRUE(loose.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(loose.F(pes::moveword::kRootFacingAngle), 3.33333f, 0.01f);
 }
 
 // -------------------------------------------------------------------------------------

@@ -25,7 +25,8 @@ namespace movestep {
 namespace {
 
 // The keep-tick tail of STEP_LOOP (PES's LAB_1406c5b79 fall-through), defined after StepLoop.
-void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn);
+void StepLoopKeepsTick(MoveHost& host, MoveReq& req);
+void StepLoopTurnRunArm(MoveHost& host, MoveReq& req, int bucket);
 
 // FUN_14043a0a0(a, b): the difference of two angles folded into (-180, 180].
 float Wrap180(float delta) {
@@ -598,7 +599,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   }
 
   // 6. The bucket follows the body turn; a wide turn lowers the band to 1.
-  bool bucketMoved = false;
+  // PES keeps three flags the keep test reads (d_1406c4c10.c 505): local_res8 ([RSP+0x170], the body turn is wide: set when its
+  // square passes DAT_1425ddfd4), bVar20 ([RSP+0x58], the bucket was re-picked) and bVar19 (the wide turn lowered the band).
+  bool bucketMoved = false;  // bVar20
+  bool driftTaken = false;   // local_res8
   bool slowTurn = false;
   const float bucketAngle = tables.bucketDegrees[int(req.U(moveword::kMoveBucket))];
   float turned = bucketAngle + facing;
@@ -616,7 +620,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     bodyTurn = k.neg90;
   }
   if (k.sq1139 < bodyTurn * bodyTurn) {
-    bucketMoved = true;
+    driftTaken = true;
     if (k.sq8100 <= bodyTurn * bodyTurn && 1 < nextBand) {
       const int lower = nextBand - 1;
       nextBand = 1;
@@ -846,25 +850,29 @@ void StepLoop(MoveHost& host, MoveReq& req) {
       ((rowBucket - 3u > 1u && rowBucket - 8u > 1u) ||
        (std::fabs(headTurn) <= k.deg112p5 ||
         distanceFactor * k.deg22p5 + k.deg45 <= std::fabs(bodyToTarget)));
-  if (!bucketMoved && !req.FlagAtByte(0x3f) && !slowTurn) {
-    // LAB_1406c5eba: keep the tick, record only the band and the bucket.
-    req.SetU(moveword::kPrevClassWord, uint32_t(liveBand));
-    req.SetU(moveword::kBandSpeedCopy, uint32_t(blendedSpeed));
-    req.SetU(moveword::kClassWord, uint32_t(nextBand));
-    req.SetU(moveword::kMoveBucket, uint32_t(bucket));
+  // d_1406c4c10.c 505: `if (!bVar20 && local_res8 == 0 && !bVar19) goto LAB_1406c5eba`, the keep tick (asm 0x1406c5940..0x1406c5951
+  // for the precise form of the same test). The port wrote the band and the bucket here and tested a byte of the request.
+  if (!bucketMoved && !driftTaken && !slowTurn) {
+    StepLoopKeepsTick(host, req);
     return;
   }
   if (gateA) {
+    // 0x1406c5d3f..0x1406c5d58: the dwell has not run a quarter of its limit, so the tick is kept.
     if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit) * k.s0p25) {
-      req.SetU(moveword::kPrevClassWord, uint32_t(liveBand));
-      req.SetU(moveword::kBandSpeedCopy, uint32_t(blendedSpeed));
-      req.SetU(moveword::kClassWord, uint32_t(nextBand));
-      req.SetU(moveword::kMoveBucket, uint32_t(bucket));
+      StepLoopKeepsTick(host, req);
       return;
     }
     if (!precise && int(req.U(moveword::kClassWord)) > 0) req.SetU(moveword::kKind, 3);
   } else {
-    StepLoopKeepsTick(host, req, bucket, turn);
+    StepLoopTurnRunArm(host, req, bucket);
+    return;
+  }
+  // 0x1406c5e8a..0x1406c5eb7: the clip about to be issued is the clip playing (vt+0x18 == the cell's motion) with the mirror it
+  // plays in (vt+0x30): the speed word and the band are recorded and the tick is kept; the clip is not issued again.
+  if (host.CurrentMotion() == motion && host.ClipFlag() == host.BucketIsLeft(bucket)) {
+    req.SetF(moveword::kBandSpeed, blendedSpeed);
+    req.SetU(moveword::kClassWord, uint32_t(nextBand));
+    StepLoopKeepsTick(host, req);
     return;
   }
 
@@ -921,95 +929,107 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   req.SetByte(moveword::kTurnLockFlag, 0);  // word 0x3c (d_1406c4c10.c:894), not the motion-pending byte WriteIssue set
 }
 
-// The keep-tick tail PES runs when the band gate fails (LAB_1406c5b79's fall-through): the
-// request keeps its headings, the drift is re-blended, the row is the stop row, and the state
-// asks for STEP_TURN_RUN (req[0x39] = 0xf).
 namespace {
-void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn) {
+// The stop rows the else arm issues (0x1406c5b8c..0x1406c5ba4): 0x639 when req[0x20] is 3 or 8, else 0x631; the cell's column is
+// 9, or 8 for the left (the mirror) (0x1406c5bc5..0x1406c5bcd).
+constexpr int kStopRowSide = 0x639, kStopRowEven = 0x631;
+constexpr int kStopColumnRight = 9, kStopColumnLeft = 8;
+constexpr uint32_t kStopRowBucketA = 3, kStopRowBucketB = 8;
+// The slot split of the roster: slots 0..10 are the home side, 11..21 the away side (the tests at 0x1406c5af1..0x1406c5b08).
+constexpr int kAwayFirstSlot = 11;
+constexpr uint32_t kRosterSlots = 0x16;
+
+// LAB_1406c5eba (asm 0x1406c5eba..0x1406c6415, d_1406c4c10.c 572-657): the tick is kept. The turn-lock byte clears, the adjuster
+// is applied (P+0x4d0 vt+8: the host's ApplyBodyTail), and the root facing is blended towards the body direction: the turn
+// wrap(req[1] - req[4]) is clamped to +-180 / the tick rate and added to the facing (folded into 0..360); when the folded facing
+// lies 22.5..135 degrees off the folded look heading and the look heading's side (wrap(req[2] - req[3])) differs from the side the
+// facing moved to, a precise request ends the tick without the write. Otherwise req[0x3a] = 1 and req[0x3b] = the new facing.
+// The band, the bucket and the speed words are not touched: only the same-clip keep writes req[0x1d] and req[0x1f] first.
+void StepLoopKeepsTick(MoveHost& host, MoveReq& req) {
   const StepScalars& k = host.StepConstants();
-  const StepTables& tables = host.StepTablesView();
-  // ponytail: PES samples the match's ball-position list (ctx+0x40 through FUN_140a6cf70) for
-  // the drift's heading, and reads the team's offside line (ctx T+0x255) to widen the two
-  // windows below; neither is ported, so the port uses the player's own displacement and leaves
-  // the windows at their default.
-  const float ballHeading = DisplacementHeading(host);
-  const float turnToBall = Wrap180(req.F(moveword::kFacing) - ballHeading);
-  const float lookError =
-      Wrap180(req.F(moveword::kFacing) - tables.bucketDegrees[bucket]);
-  float wide = k.deg33p75, narrow = k.deg146p25;
-  if (turn <= narrow) {
-    if (turn <= k.deg168p75) {
-      // the look bucket decides which of the two errors the mirror uses
-    } else {
-      narrow = k.deg140p625;
-    }
-  }
-  (void)turnToBall;
-  (void)lookError;
-  (void)wide;
-  (void)narrow;
-  // PES's root-facing write (0x1406C5EDF-0x1406C5F31 and the block after it): the turn to the
-  // body's own direction, clamped against the clock's draw (180 / the frame rate, 54.0), is
-  // added to the player's facing, and that becomes req[0x3b] with req[0x3a] set.
-  const float bodyTurn = Wrap180(req.F(moveword::kBodyDirection) - req.F(moveword::kHeading));
+  const RunConstants& rk = host.RunConstantsView();
+  req.SetByte(moveword::kTurnLockFlag, 0);
+  const float toBody = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kBodyDirection));
   const float draw = k.halfTurn / host.TicksPerSecond();
-  float delta = draw;
-  if (bodyTurn <= draw) {
-    delta = -draw;
-    if (bodyTurn > delta) delta = bodyTurn;
-  }
-  float faced = FoldFull(req.F(moveword::kFacing) + delta, host.RunConstantsView());
-  // The residual against the look heading, and the sign test that can end the tick.
-  const float lookFolded = FoldFull(req.F(moveword::kLookHeading), host.RunConstantsView());
-  float residual = faced - lookFolded;
-  if (k.halfTurn < std::fabs(residual)) {
-    residual -= (residual < 0.0f ? k.negOne : k.one) * k.full;
-  }
-  if (k.deg22p5 <= residual && residual <= k.deg135) {
-    // The facing's own turn against the look heading, and the sign test.
-    const float toLook = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kFacing));
-    const float toFacing = FoldFull(req.F(moveword::kFacing), host.RunConstantsView()) - faced;
-    float toFacingWrapped = toFacing;
-    if (k.halfTurn < std::fabs(toFacingWrapped)) {
-      toFacingWrapped -= (toFacingWrapped < 0.0f ? k.negOne : k.one) * k.full;
-    }
-    const bool signToLook = toLook < 0.0f;
-    const bool signToFacing = toFacingWrapped < 0.0f;
-    if (signToLook != signToFacing && req.U(moveword::kPrecise) != 0u) return;
+  const float delta = toBody > draw ? draw : std::max(-draw, toBody);
+  const float faced = FoldFull(req.F(moveword::kFacing) + delta, rk);
+  float residual = faced - FoldFull(req.F(moveword::kLookHeading), rk);
+  if (k.halfTurn < std::fabs(residual)) residual -= (residual < 0.0f ? k.negOne : k.one) * k.full;
+  const float off = std::fabs(residual);
+  if (k.deg22p5 <= off && off <= k.deg135) {
+    const float lookSide = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kLookHeading));
+    float moved = FoldFull(req.F(moveword::kFacing), rk) - faced;
+    if (k.halfTurn < std::fabs(moved)) moved -= (moved < 0.0f ? k.negOne : k.one) * k.full;
+    if ((lookSide < 0.0f) != (moved < 0.0f) && req.U(moveword::kPrecise) != 0u) return;
   }
   req.SetByte(moveword::kRootFacing, 1);
   req.SetF(moveword::kRootFacingAngle, faced);
-  // The row: the stop row for this bucket, and the mirror from the sameness of the two errors.
-  const int row = bucket == 3 || bucket == 8 ? 0x639 : 0x631;
-  const MoveCell cell = host.Cell(row, int(tables.bucketColumn[bucket]), false);
-  const int motion = cell.found ? cell.motionNo : row;
-  const bool mirror = turn <= 0.0f;
-  RequestState(req, MoveState::kStepTurnRun);
-  // PES 0x1406c5c34..0x1406c5c7e (decompile 859-862): req[0x35] = vt+0x50(vt+0x30(match-up flag)), then
-  // vt+0x10(req, motion, mirror, 0, DAT_1425ddf50, req[0x35], 0), which leaves the request due for the tail.
-  // ponytail: the row's bucket word, the column 9 - mirror and the mirror's sign source (decompile 814-846, the offside-line
-  // windows of 798-813) are not ported; the port's row/mirror above stand in until FUN_140a6cf70 and the line are read.
-  req.SetF(moveword::kPlayback, EntryPlayback(host));
-  WriteIssue(host, req, pes::MotionRequest{motion, mirror, 0, k.s0p1667, req.F(moveword::kPlayback), 0.0f});
-  // PES's tail (0x1406C5CFE-0x1406C5D2B): the class is clamp(req[0x09], 0, 2), the speed band
-  // is the desired speed clamped into [5, 11] (or 5 when it is already at or below 16), the
-  // class word and its speed are carried over, the row's own word 0x20 becomes 0, and the live
-  // kind is the request's own.
-  const int classArm = std::clamp(int(req.U(moveword::kCommandSpeedClass)), 0, 2);
-  float speedArm = req.F(moveword::kDesiredSpeedKmh);
-  if (speedArm <= k.kmh16) {
-    speedArm = k.kmh5;
-  } else {
-    speedArm = std::max(speedArm, k.kmh11);
+}
+
+// The gate's else arm (asm 0x1406c5a27..0x1406c5d3a, d_1406c4c10.c 786-893): the step turns into the run (STEP_TURN_RUN). The
+// heading stamps are written, the mirror is picked from the heading turn, the ball sample's bearing and the look point's bearing,
+// the stop row of the OLD row bucket is issued in the column the mirror names, and the class, speed band, rate and the
+// previous-class words follow. No root facing is written.
+void StepLoopTurnRunArm(MoveHost& host, MoveReq& req, int bucket) {
+  const StepScalars& k = host.StepConstants();
+  const StepTables& tables = host.StepTablesView();
+  const RunConstants& rk = host.RunConstantsView();
+  const float facing = req.F(moveword::kFacing);
+  const float heading = req.F(moveword::kHeading);
+  req.SetF(moveword::kRecordStampA, Wrap180(heading - tables.bucketDegrees[bucket] - facing));  // 0x1406c5a2c: XMM14
+  req.SetF(moveword::kRecordStampB, heading);                                                    // 0x1406c5a32
+  const float headTurn = Wrap180(heading - facing);                    // XMM11
+  const float lookTurn = Wrap180(req.F(moveword::kLookHeading) - facing);  // XMM10
+  float ball[3];
+  host.BallSample(static_cast<int>(host.TicksPerSecond() * rk.reserveLow / rk.kmh60 + rk.half), ball);  // 0x1406c5a61..0x1406c5a81
+  const float ballTurn = Wrap180(host.HeadingToPointDeg(ball) - facing);                                  // XMM8, 0x1406c5a99
+  // 0x1406c5ac5..0x1406c5b24: the gates, narrowed when the ball carrier is on the other side of the roster from this man.
+  float headGate = k.deg146p25, ballGate = k.deg33p75;
+  const int carrier = host.CarrierSlot();
+  if (static_cast<uint32_t>(carrier) < kRosterSlots) {
+    const int own = host.ActionIndex();
+    const bool ownAway = own >= kAwayFirstSlot && static_cast<uint32_t>(own) < kRosterSlots;
+    if (ownAway != (carrier >= kAwayFirstSlot)) {
+      headGate = k.deg140p625;
+      ballGate = k.deg11p25;
+    }
   }
+  // 0x1406c5b2c..0x1406c5b8c: which bearing names the left.
+  const float headMag = std::fabs(headTurn);
+  bool left;
+  if (headMag > headGate && std::fabs(ballTurn) > ballGate) {
+    left = ballTurn < 0.0f;
+  } else if (headMag > headGate && std::fabs(lookTurn) > k.deg22p5) {
+    left = lookTurn < 0.0f;
+  } else {
+    left = (headMag > k.deg168p75 ? ballTurn : headTurn) < 0.0f;
+  }
+  const uint32_t oldRow = req.U(0x20);
+  const int row = (oldRow == kStopRowBucketA || oldRow == kStopRowBucketB) ? kStopRowSide : kStopRowEven;
+  const MoveCell cell = host.Cell(row, left ? kStopColumnLeft : kStopColumnRight, false);  // 0x1406c5bd9: FUN_1406abb30
+  const int motion = cell.found ? cell.motionNo : row;
+  req.SetByte(moveword::kFootFlag, left ? 1 : 0);  // 0x1406c5bde
+  // 0x1406c5c34..0x1406c5c7e (decompile 859-862): req[0x35] = vt+0x50(vt+0x30(match-up flag)), then
+  // vt+0x10(req, motion, mirror, 0, DAT_1425ddf50, req[0x35], 0), which leaves the request due for the tail.
+  req.SetF(moveword::kPlayback, EntryPlayback(host));
+  WriteIssue(host, req, pes::MotionRequest{motion, left, 0, k.s0p1667, req.F(moveword::kPlayback), 0.0f});
+  // 0x1406c5c81..0x1406c5d3a: the class is clamp(req[9], 0, 2), the speed band clamp(req[10], 5, 16), the rate that pair's, held
+  // in [0, ceiling]; the previous class, speed and row words are saved and the class, speed and live kind carried.
+  const int cls = std::clamp(static_cast<int>(req.U(moveword::kCommandSpeedClass)), 0, 2);
+  const float desired = req.F(moveword::kDesiredSpeedKmh);
+  const float speed = desired <= k.kmh16 ? std::max(desired, k.kmh5) : k.kmh16;
+  const float rate = RateFor(host, req.Flag(moveword::kUseClassRate), speed, cls, static_cast<int>(req.U(moveword::kKind)));
+  const float ceiling = host.RateCeiling();
+  req.SetF(moveword::kRate, rate > ceiling ? ceiling : std::max(0.0f, rate));
   req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
-  req.SetU(moveword::kBandSpeedCopy, req.U(moveword::kSpeedWord));
-  req.SetU(moveword::kBucketPrev, req.U(0x20));
-  req.SetU(moveword::kClassWord, static_cast<uint32_t>(classArm));
-  req.SetF(moveword::kSpeedWord, speedArm);
+  req.SetU(moveword::kBandSpeedCopy, req.U(moveword::kBandSpeed));
+  req.SetU(moveword::kBucketPrev, oldRow);
   req.SetU(0x20, 0u);
+  req.SetF(moveword::kBandSpeed, speed);
+  req.SetU(moveword::kClassWord, static_cast<uint32_t>(cls));
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
-  req.SetByte(moveword::kTurnLockFlag, 0);  // 0x1406c62c..: word 0x3c (d_1406c4c10.c:894)
+  RequestState(req, MoveState::kStepTurnRun);
+  req.SetByte(moveword::kTurnLockFlag, 0);  // 0x1406c62cb
 }
 }  // namespace
 // -------------------------------------------------------------------------------------------------
