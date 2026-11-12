@@ -204,7 +204,7 @@ class GfClipProbe : public pestest::Probe {
       : Probe("PesStallGfClip", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
   long manTicks = 0;      // active men, ticks
   long gfClipTicks = 0;   // those on a GF-native clip
-  long loopClipsLost = 0;  // a locomotion clip PES issued in IDLE, RUN_LOOP or STEP_LOOP that GF's end-of-clip switch replaced by a GF clip
+  long loopClipsLost = 0;  // a locomotion clip PES issued in IDLE that GF's end-of-clip switch replaced by a GF clip
   long placements = 0;     // placements of a man after the first (HumanoidBase::ResetPosition)
   long unconvertedPlacements = 0;  // of those, men still on a Movement clip of GF's own kStandTicks after it (a restart taker is in his own action, not MOVE)
   long locomotionNotMove = 0;      // ticks a man held a MOVESTEP locomotion clip for two ticks while his record named another action than MOVE
@@ -240,7 +240,7 @@ class GfClipProbe : public pestest::Probe {
         }
         if (name != seen.name || clip->frameNum < seen.frame) {
           const pes::MoveState now = player->GetMoveStep().state;  // the state MOVESTEP left him in this tick, before the humanoid's switch
-          const bool nowLooping = now == pes::MoveState::kIdle || now == pes::MoveState::kRunLoop || now == pes::MoveState::kStepLoop;
+          const bool nowLooping = now == pes::MoveState::kIdle;
           if (gf && seen.locomotion && nowLooping && clip->originatingInterrupt == e_InterruptAnim_Switch) {
             loopClipsLost++;
             byLoss["to fn" + std::to_string(int(clip->functionType)) + " " + Folder(name) + " | movestep " +
@@ -258,8 +258,7 @@ class GfClipProbe : public pestest::Probe {
         seen.gf = gf;
         seen.function = int(clip->functionType);
         seen.locomotion = body->OnPesLocomotion();
-        seen.looping = body->OnPesLocomotion() && (state == pes::MoveState::kIdle || state == pes::MoveState::kRunLoop ||
-                                                    state == pes::MoveState::kStepLoop);
+        seen.looping = body->OnPesLocomotion() && state == pes::MoveState::kIdle;
       }
     }
   }
@@ -316,7 +315,7 @@ TEST(PesStall, NoPesLoopManPlaysAClipOfGfsOwn) {
                                          << " man-ticks were on a clip of GF's own";
 }
 
-// The clip a MOVESTEP handler issued in IDLE, RUN_LOOP or STEP_LOOP is one PES's anime player loops (the handlers issue again only when
+// The clip a MOVESTEP handler issued in IDLE is one PES's anime player loops (the handler issues again only when
 // the request changes), so GF's end-of-clip switch must not put a clip of GF's own over it. Each such replacement is counted.
 TEST(PesStall, ALoopingLocomotionClipIsNeverReplacedByAGfClip) {
   pestest::Run(gfClipCensus);

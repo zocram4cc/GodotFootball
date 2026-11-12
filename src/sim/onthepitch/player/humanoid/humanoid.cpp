@@ -306,18 +306,19 @@ void Humanoid::Process() {
     }
   */
 
-  // IDLE, RUN_LOOP and STEP_LOOP hold a clip PES's anime player loops: their handlers issue a clip only when the request changes (the
-  // IDLE handler FUN_1406BF... compares the live kind first and leaves the clip running; pes-re-anim-blend.md 5.2, "loop clips the
-  // player holds"), so the motion the FSM issued is still playing when its last frame passes. GF's end-of-clip switch put one of GF's
-  // own clips on the body there, the FSM's live kind still named the idle it had issued, nothing issued again, and the man stayed on GF
-  // clips for good: 142,501 of 872,388 man-ticks of the seed-7 match were a man in IDLE on a GF idle clip. The motion starts again from
-  // its first frame, as PlayIssuedClip's re-issue of a finished clip does. The turn and stop states end their clip themselves
-  // (cancel points, FUN_1406C14C0 and the others) and keep GF's switch until their exits are complete (docs/ports/pes-port-ClipOwner.md).
+  // IDLE holds a clip PES's anime player loops: its handler issues a clip only when the request changes (it compares the live kind
+  // first and leaves the clip running, `Idle` in movestep_group_a.cpp; pes-re-anim-blend.md 5.2, "loop clips the player holds"), so
+  // the motion the FSM issued is still playing when its last frame passes. GF's end-of-clip switch put one of GF's own clips on the
+  // body there, the FSM's live kind still named the idle it had issued, nothing issued again, and the man stayed on GF clips for good:
+  // 142,501 of 872,388 man-ticks of the seed-7 match were a man in IDLE on a GF idle clip. The motion starts again from its first
+  // frame, as PlayIssuedClip's re-issue of a finished clip does (an idle clip has no root travel to lose). The running, turning and
+  // stopping states keep GF's switch: a run loop restarted at frame 0 replays the clip's start (the kick-off taker stopped 0.02 m short
+  // of PES's 0.65 m reach and the RUN_LOOP jostle test lost its style change), and the turn and stop handlers end their clip
+  // themselves (cancel points, FUN_1406C14C0 and the others) once their exits are complete (docs/ports/pes-port-ClipOwner.md).
   // OPEN: PES loops through the clip's blend tail (Animation.bin blend_start); GF restarts at frame 0.
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None &&
       !PesPoseHeld(CastPlayer())) {
-    const pes::MoveState state = CastPlayer()->GetMoveStep().state;
-    const bool loops = state == pes::MoveState::kIdle || state == pes::MoveState::kRunLoop || state == pes::MoveState::kStepLoop;
+    const bool loops = CastPlayer()->GetMoveStep().state == pes::MoveState::kIdle;
     if (match->PesLoop() && OnPesLocomotion() && loops) {
       PlayIssuedClip(std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()), currentAnim->playbackRate,
                      CastPlayer()->GetIssuedClip().request.mirror);

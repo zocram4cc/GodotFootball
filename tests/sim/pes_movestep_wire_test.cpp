@@ -313,7 +313,8 @@ TEST(MoveStepWire, AnIssuedClipDrivesTheHumanoid) {
 }
 
 // A played clip advances, and a re-issue of the same motion does not restart it: while one PES
-// clip stays on the body, its frame moves on and never moves back.
+// clip stays on the body, its frame moves on and never moves back, except where an IDLE clip, which PES's anime player loops, wraps
+// from its last frame to its first (the end of the clip is not a restart by its own motion).
 TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
   Properties config;
   config.SetBool("pes_loop", true);
@@ -342,7 +343,8 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
       if (!a || !a->anim || a->anim != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
       ++sameClip;
       if (a->frameNum > frameBefore[i]) ++advanced;
-      if (a->frameNum < frameBefore[i]) ++restarted;
+      const bool wrapped = frameBefore[i] >= a->anim->GetFrameCount() - 1;
+      if (a->frameNum < frameBefore[i] && !wrapped) ++restarted;
     }
   }
   printf("[movestep-advance] same clip ticks %d, advanced %d, restarted %d\n", sameClip, advanced,
