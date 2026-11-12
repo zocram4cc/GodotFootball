@@ -1,19 +1,25 @@
 // A pes::MoveHost whose every read stops loudly. A test host derives from it and overrides only what the handler under
-// test is allowed to read, so a read the port makes that PES's call log does not contain fails the test.
+// test is allowed to read, so a read the port makes that PES's call log does not contain fails the test. The stop is a thrown
+// UnboundRead (an uncaught one fails the test with the read's name); a test that proves a handler up to a delegation (the
+// handler's tail call into another ported handler, whose own reads the rows do not carry) catches it.
 #pragma once
 
 #include <cstdio>
 #include <cstdlib>
+#include <stdexcept>
 
 #include "pes/movestep.hpp"
 
 namespace movestep_test {
 
+struct UnboundRead : std::runtime_error {
+  explicit UnboundRead(const std::string& what) : std::runtime_error(what) {}
+};
+
 class UnboundHost : public pes::MoveHost {
  public:
   [[noreturn]] static void Unbound(const char* what) {
-    std::fprintf(stderr, "UnboundHost::%s was read\n", what);
-    std::abort();
+    throw UnboundRead(std::string("UnboundHost::") + what + " was read");
   }
 
   pes::MoveCell Cell(int, int, bool) override { Unbound("Cell"); }

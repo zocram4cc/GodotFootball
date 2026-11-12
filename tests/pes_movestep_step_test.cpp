@@ -277,7 +277,7 @@ class FakeHost : public MoveHost {
   // The step tests do not reach RUN_LOOP's tail, so the sine view is never read here.
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
-  float FacingDeg() const override { return 0.0f; }
+  float FacingDeg() const override { return facingDeg; }
   float BodyDeg() const override { return bodyDeg; }
   int CarrierSlot() const override { return carrierSlot; }
   float HeadingToPointDeg(const float[3]) const override { return ballHeadingDeg; }
@@ -332,6 +332,7 @@ class FakeHost : public MoveHost {
   int cellMotion = -1;
   // SYNTHETIC: the reads of FUN_1406d2590's re-aim (P+0x28, the carrier slot, the heading to the ball sample).
   float bodyDeg = 0.0f;
+  float facingDeg = 0.0f;  // P+0x20: FUN_1406c6480's root-facing blend adds this, not req[2]
   int carrierSlot = 0x16;
   float ballHeadingDeg = 0.0f;
   pes::MotionRequest issued{};
@@ -1406,6 +1407,7 @@ TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 2);
   req.SetF(pes::moveword::kFacing, 100.0f);
+  host.facingDeg = 100.0f;
   req.SetF(pes::moveword::kHeading, 0.0f);
   req.SetF(pes::moveword::kLookHeading, 0.0f);
   req.SetF(pes::moveword::kLookHeading, 200.0f);  // the look is on the facing's far side, so the sign test (0x1406c6e22) lets the write through
@@ -1416,7 +1418,7 @@ TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
   req.SetU(pes::moveword::kClassWord, 2u);  // the band is up, so the re-plan gates stay closed
   req.SetU(pes::moveword::kPrecise, 1u);  // the precise flag keeps the non-precise arms closed
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.8f);  // past the window: 0.7 of the limit (0x1406c6c93, xmm11 reloaded at 0x1406c6b48)
   req.SetF(pes::moveword::kRecordStampA, 0.0f);
   req.SetU(pes::moveword::kMoveBucket, 1);
   req.SetU(pes::moveword::kBucketPrev, 0);
@@ -1426,6 +1428,39 @@ TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
   // degrees) is past the draw (60 / 54: the live bucket differs), so the delta IS the draw.
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
   EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 101.11111f, 1e-3f);
+}
+
+// PES at 0x1406c6b48 reloads xmm11 with 0.7 (0x14257a194); the root-facing block's window (0x1406c6c93 `mulss xmm1,xmm11`) is
+// the second limit times that, not times 0.5. The first write (the blended turn plus the man's facing) stays; the clock's draw is
+// added only once the second dwell has run 0.7 of its limit. The facing it adds is the man's own P+0x20 (`addss xmm6,[rsi+0x20]`,
+// 0x1406c6c2b), not req[2]: the two differ here. (Both read back wrong against the oracle rows of the real calls.)
+TEST(StepLoopChange, TheRootFacingWindowIsSevenTenthsOfTheLimitAndTheBlendAddsTheMansOwnFacing) {
+  for (const float elapsed : {0.6f, 0.8f}) {
+    SCOPED_TRACE(elapsed);
+    FakeHost host;
+    host.facingDeg = 100.0f;
+    MoveReq req;
+    req.SetU(pes::moveword::kKind, 2);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2);
+    req.SetF(pes::moveword::kFacing, 250.0f);  // req[2] is not what the blend reads
+    req.SetF(pes::moveword::kHeading, 0.0f);
+    req.SetF(pes::moveword::kLookHeading, 200.0f);
+    req.SetF(pes::moveword::kBodyDirection, 250.0f);
+    req.SetF(pes::moveword::kRecordStampB, 330.0f);
+    req.SetF(pes::moveword::kTurn, 0.0f);
+    req.SetU(pes::moveword::kClassWord, 2u);
+    req.SetU(pes::moveword::kPrecise, 1u);
+    req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed2, elapsed);
+    req.SetF(pes::moveword::kRecordStampA, 0.0f);
+    req.SetU(pes::moveword::kMoveBucket, 1);
+    req.SetU(pes::moveword::kBucketPrev, 0);
+    req.SetU(pes::moveword::kLiveBucket, 1);
+    StepLoopChange(host, req);
+    EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+    // The blended turn is 0, the man faces 100; the draw (60 / 54, the live bucket differs) is added past 0.7.
+    EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), elapsed < 0.7f ? 100.0f : 100.0f + 60.0f / 54.0f, 1e-3f);
+  }
 }
 
 // PES at 0x1406C6EF0: the final gate tests the FIRST dwell (req[0x1a] against req[0x1b]) -
@@ -1509,7 +1544,7 @@ TEST(StepLoopChange, TheDriftClampUsesTheDrawWhenTheTurnIsPastIt) {
   req.SetF(pes::moveword::kRecordStampB, 340.0f);
   req.SetF(pes::moveword::kTurn, 0.0f);
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.8f);
   req.SetF(pes::moveword::kRecordStampA, 0.0f);
   req.SetU(pes::moveword::kMoveBucket, 1);
   req.SetU(pes::moveword::kBucketPrev, 0);
@@ -1605,7 +1640,7 @@ TEST(StepLoopChange, TheSignTestThatEndsTheTickOnlyRunsForALookDeltaOfAtLeastSix
     req.SetF(pes::moveword::kRecordStampB, 340.0f);  // 20 degrees of turn to the target: past the draw (180 / 54)
     req.SetF(pes::moveword::kTurn, 0.0f);
     req.SetF(pes::moveword::kDwellLimit2, 1.0f);
-    req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+    req.SetF(pes::moveword::kDwellElapsed2, 0.8f);
     req.SetF(pes::moveword::kRecordStampA, 0.0f);
     req.SetU(pes::moveword::kMoveBucket, 1);
     req.SetU(pes::moveword::kBucketPrev, 0);
@@ -1638,7 +1673,7 @@ TEST(StepLoopChange, TheDrawIsNinetyOverTheFrameRateOnTheSameLiveBucketAndSixtyO
     req.SetF(pes::moveword::kBodyDirection, 0.0f);
     req.SetF(pes::moveword::kRecordStampB, 340.0f);  // a turn to the target of 20 degrees: past both draws
     req.SetF(pes::moveword::kDwellLimit2, 1.0f);
-    req.SetF(pes::moveword::kDwellElapsed2, 0.5f);   // past 0.2 and 0.5 of the limit alike
+    req.SetF(pes::moveword::kDwellElapsed2, 0.8f);   // past 0.2 and 0.7 of the limit alike
     req.SetU(pes::moveword::kLiveBucket, same ? 1 : 2);
     req.SetU(pes::moveword::kBucketPrev, 1);
     host.displacement[2] = MetresPerTick(4.0f);

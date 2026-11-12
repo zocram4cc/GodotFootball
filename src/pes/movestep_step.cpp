@@ -1294,7 +1294,9 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   const int kind = int(req.U(moveword::kKind));
   const bool precise = req.Flag(moveword::kPrecise);
   const int speedClass = int(req.U(moveword::kCommandSpeedClass));
-  const float facing = req.F(moveword::kFacing);
+  // 0x1406c6c2b: the blended root facing adds [RSI+0x20], the man's own facing P+0x20, not the request's req[2] (they coincide
+  // only while the request was just built from it).
+  const float facing = host.FacingDeg();
   const float fps = FramesPerSecond(host);
 
   // 1. The blended heading integral (0x1406c64b3..0x1406c6620). The two vt+0x38 calls at 0x1406c650d / 0x1406c6538 drop their
@@ -1439,8 +1441,9 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     req.SetF(moveword::kRecordStampA, blendedTurn);
     const float dwellLeft = req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellElapsed2);
     req.SetF(moveword::kRecordStampB, dwellLeft <= 0.0f ? 0.0f : dwellLeft);
-    // 0x1406c6bf6: the scale is 0.3 (0x142590d98) when the class fell below the previous one, else xmm11 = 0.5.
-    const float scale = int(req.U(moveword::kClassWord)) < int(req.U(moveword::kPrevClassWord)) ? k.s0p3 : k.half;
+    // 0x1406c6bf6: the scale is 0.3 (0x142590d98) when the class fell below the previous one, else xmm11 -- 0.7 (0x14257a194,
+    // reloaded at 0x1406c6b48; xmm11 holds 0.5 only until there).
+    const float scale = int(req.U(moveword::kClassWord)) < int(req.U(moveword::kPrevClassWord)) ? k.s0p3 : k.s0p7;
     if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2) * scale) {
       req.SetU(moveword::kClassWord, req.U(moveword::kPrevClassWord));
       req.SetF(moveword::kBandSpeed, req.F(moveword::kBandSpeedCopy));
@@ -1458,10 +1461,10 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   }
   req.SetF(moveword::kRootFacingAngle, drift);
   req.SetByte(moveword::kRootFacing, 1);
-  // 0x1406c6c79..0x1406c6cac: window = req[0x2e] * 0.5 (xmm11), and 0.2 with 90 degrees when req[0x20] == req[0x25]. The
-  // degrees xmm10 is 60.0 (0x1406c68a1 `movss xmm10,[14259a764]`, the ground-speed scale held in a register) when the buckets
-  // differ.
-  float window = k.half;
+  // 0x1406c6c79..0x1406c6cac: window = req[0x2e] * xmm11 = 0.7 (0x14257a194, reloaded at 0x1406c6b48), and 0.2 with 90 degrees
+  // when req[0x20] == req[0x25]. The degrees xmm10 is 60.0 (0x1406c68a1 `movss xmm10,[14259a764]`, the ground-speed scale held in
+  // a register) when the buckets differ.
+  float window = k.s0p7;
   float drawDegrees = k.ticks60;
   if (liveBucket == prevBucket) {
     window = k.s0p2;

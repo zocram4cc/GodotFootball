@@ -182,8 +182,11 @@ class RowHost : public movestep_test::UnboundHost {
   }
   const Call& Need(uint64_t target) const {
     const Call* call = First(target);
-    EXPECT_NE(call, nullptr) << "the port reads a call PES did not make: " << std::hex << target;
-    if (call == nullptr) std::abort();
+    if (call == nullptr) {
+      std::ostringstream what;
+      what << "the port reads a call PES did not make: " << std::hex << target;
+      throw movestep_test::UnboundRead(what.str());
+    }
     return *call;
   }
   std::vector<const Call*> All(uint64_t target) const {
