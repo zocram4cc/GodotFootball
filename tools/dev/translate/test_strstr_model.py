@@ -328,6 +328,12 @@ class StartupOsModels(unittest.TestCase):
         self.assertEqual(mu.reg_read(UC_X86_REG_RAX), t)
         self.assertEqual(bytes(mu.mem_read(DATA + 0x100, 8)), b"\xAB" * 8)
 
+    def test_tick_counters_return_a_nonzero_millisecond_count_and_touch_nothing_else(self):
+        for key in (("kernel32.dll", "GetTickCount"), ("winmm.dll", "timeGetTime")):
+            mu = self.run_model(key, 0x1234, 0x5678)
+            self.assertGreater(mu.reg_read(UC_X86_REG_RAX), 0, key)
+            self.assertEqual(mu.reg_read(UC_X86_REG_RCX), 0x1234, key)
+
     def test_create_mutex_returns_a_nonzero_handle(self):
         self.assertNotEqual(self.run_model(("kernel32.dll", "CreateMutexA")).reg_read(UC_X86_REG_RAX), 0)
 

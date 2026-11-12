@@ -579,6 +579,26 @@
     },
     {
       "module": "kernel32.dll",
+      "export": "GetTickCount",
+      "do": "return",
+      "value": "0x927C0",
+      "why": [
+        "DWORD GetTickCount(void): milliseconds since boot (IAT slot 0x14252F1D0), read by PES's start-up initializers.",
+        "Model: returns 600000 (ms; ten minutes of uptime). The static initializers that read it store a start stamp; the match clock does not read it. A named constant for an OS answer."
+      ]
+    },
+    {
+      "module": "winmm.dll",
+      "export": "timeGetTime",
+      "do": "return",
+      "value": "0x927C0",
+      "why": [
+        "DWORD timeGetTime(void): milliseconds since boot (IAT slot 0x14252FE88), read by PES's start-up initializers.",
+        "Model: returns 600000 (ms; ten minutes of uptime). The static initializers that read it store a start stamp; the match clock does not read it. A named constant for an OS answer."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
       "export": "GetSystemInfo",
       "do": "sysinfo",
       "code_hex": "c7410400100000c7412010000000c7412800000100c3",
