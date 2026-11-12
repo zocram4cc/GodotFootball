@@ -13,6 +13,7 @@ static constexpr uint32_t k_c14258C264_w = 0x40400000U;
 static constexpr float k_c14258C264_f = 3.0f; // 3.0;
 
 void pes_fn_1416982D0(PesState& s);
+void pes_fn_14172D220(PesState& s);
 
 void pes_fn_1416982D0(PesState& s) {
   s.gpr[4] -= 8;
@@ -72,7 +73,7 @@ void pes_fn_1416982D0(PesState& s) {
     s.cf = false; s.of = false; }
   if (!s.cond("z")) {
     s.gpr[8] = (uint64_t)(((s.gpr[3]) + (0x80ULL)));
-    /*OUT-OF-SET CALL 0x14172D220*/ pes_dispatch_missing(0x14172D220);
+    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14172D220(s); s.gpr[4] += 8; }
   }
   { unsigned __int128 _v = s.rd128(((s.gpr[3]) + (0x60ULL))); s.xmm[2][0] = (uint64_t)_v; s.xmm[2][1] = (uint64_t)(_v >> 64); }
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64)), _s = ((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::bits(PesState::lane_f32(_d, 0) * PesState::lane_f32(_s, 0))); _o = PesState::put_u32(_o, 1, PesState::bits(PesState::lane_f32(_d, 1) * PesState::lane_f32(_s, 1))); _o = PesState::put_u32(_o, 2, PesState::bits(PesState::lane_f32(_d, 2) * PesState::lane_f32(_s, 2))); _o = PesState::put_u32(_o, 3, PesState::bits(PesState::lane_f32(_d, 3) * PesState::lane_f32(_s, 3))); s.xmm[2][0] = (uint64_t)_o; s.xmm[2][1] = (uint64_t)(_o >> 64); }

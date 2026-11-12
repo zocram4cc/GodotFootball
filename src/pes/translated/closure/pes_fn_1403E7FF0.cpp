@@ -13,6 +13,15 @@ static constexpr uint8_t k_t1403E81E8_50[80] = {0x41, 0x80, 0x3E, 0x00, 0x41, 0x
 
 void pes_fn_1403E7FF0(PesState& s);
 void pes_fn_1403CF770(PesState& s);
+void pes_fn_1403E5F00(PesState& s);
+void pes_fn_1403E5F90(PesState& s);
+void pes_fn_1403E6060(PesState& s);
+void pes_fn_1403E6110(PesState& s);
+void pes_fn_1403E61D0(PesState& s);
+void pes_fn_1403E6260(PesState& s);
+void pes_fn_1403E63B0(PesState& s);
+void pes_fn_1403E6440(PesState& s);
+void pes_fn_1403E6510(PesState& s);
 void pes_fn_1403E65E0(PesState& s);
 void pes_fn_1403E7DA0(PesState& s);
 
@@ -114,7 +123,7 @@ void pes_fn_1403E7FF0(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E6510*/ pes_dispatch_missing(0x1403E6510);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E6510(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E80BD:;
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
@@ -126,13 +135,13 @@ void pes_fn_1403E7FF0(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E5F00*/ pes_dispatch_missing(0x1403E5F00);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E5F00(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E80E7:;
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E5F90*/ pes_dispatch_missing(0x1403E5F90);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E5F90(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E80FC:;
   s.gpr[6] = (uint64_t)(s.rd(((s.gpr[8]) + (0x10ULL)), 8));
@@ -163,37 +172,37 @@ void pes_fn_1403E7FF0(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E6260*/ pes_dispatch_missing(0x1403E6260);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E6260(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E8149:;
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E63B0*/ pes_dispatch_missing(0x1403E63B0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E63B0(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E815B:;
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E61D0*/ pes_dispatch_missing(0x1403E61D0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E61D0(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E816D:;
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E6060*/ pes_dispatch_missing(0x1403E6060);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E6060(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E817F:;
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E6110*/ pes_dispatch_missing(0x1403E6110);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E6110(s); s.gpr[4] += 8; }
   goto L_1403E81A1;
   L_1403E8191:;
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x1403E6440*/ pes_dispatch_missing(0x1403E6440);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403E6440(s); s.gpr[4] += 8; }
   L_1403E81A1:;
   s.gpr[2] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[5]) + (0ULL - 0xCULL)), 4)), _b = (uint64_t)((0ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
