@@ -94,16 +94,22 @@ func _process(delta: float) -> void:
 
 
 # The pose PES's anime engine left in a player's control (pes_anime_engine_test with GF_ENGINE_POSE_DUMP): per rig joint the model-space
-# position and rotation in PES axes (y up, z forward), the skeleton's own space. A bone's local rotation is its parent's model rotation
-# taken off its own; the body joint (the root) takes the engine's position.
+# position and rotation in PES axes (y up, z forward). The engine keeps each bone in a frame of its own: its rotation is GF's clip rotation
+# (the chain of the clip's locals below the body joint) times a fixed per-joint frame B_j, the dump's `bind` row (measured by the test against
+# GF's sampler on four clips). So below the body joint chain_j = R_body^-1 * R_j * B_j^-1 and a bone's local rotation is its parent's chain
+# taken off its own; the body joint takes the engine's own rotation and position.
 func _read_engine_pose(path: String, label: String) -> Dictionary:
 	var parents := PackedInt32Array()
+	var bind: Array[Quaternion] = []
 	var pose := {}
 	for line in FileAccess.get_file_as_string(path).split("\n", false):
 		var p := line.split(" ", false)
 		if p[0] == "parents":
 			for i in range(1, p.size()):
 				parents.append(int(p[i]))
+		elif p[0] == "bind":
+			for j in range((p.size() - 1) / 4):
+				bind.append(Quaternion(float(p[1 + j * 4]), float(p[2 + j * 4]), float(p[3 + j * 4]), float(p[4 + j * 4])))
 		elif p[0] == "pose" and p[1] == label:
 			var rotations: Array[Quaternion] = []
 			var root := Vector3.ZERO
@@ -112,9 +118,13 @@ func _read_engine_pose(path: String, label: String) -> Dictionary:
 				if j == 0:
 					root = Vector3(float(p[at]), float(p[at + 1]), float(p[at + 2]))
 				rotations.append(Quaternion(float(p[at + 3]), float(p[at + 4]), float(p[at + 5]), float(p[at + 6])))
+			var body := rotations[0]
+			var chain: Array[Quaternion] = []
+			for j in rotations.size():
+				chain.append(body.inverse() * rotations[j] * bind[j].inverse())
 			var local: Array[Quaternion] = []
 			for j in rotations.size():
-				local.append(rotations[j] if parents[j] < 0 else rotations[parents[j]].inverse() * rotations[j])
+				local.append(body if parents[j] < 0 else chain[parents[j]].inverse() * chain[j])
 			pose = {"root": root, "local": local}
 	return pose
 

@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
@@ -20,7 +21,11 @@
 
 #include "onthepitch/pesfoxworld.hpp"
 #include "pes/translated/translated.hpp"
+#include "pes/clips.hpp"
+#include "pes/exe.hpp"
+#include "pes/gani.hpp"
 #include "pes/vfs.hpp"
+#include "rig/clip_pose.hpp"
 #include "pes_state.hpp"
 #include "rig/rig.hpp"
 
@@ -37,6 +42,19 @@ constexpr uint64_t kAnimeOffset = 0xA08, kAnimeReadyOffset = 0xA04, kAnimeNameOf
 // A (BodyAnimControl): the AnimControl L1 at +0x88, the joint rotation array pointer at +0x20; L1: the joint position array pointer at +0x50.
 constexpr uint64_t kControlOffset = 0x88, kQuatPointerOffset = 0x20, kPosePointerOffset = 0x50;
 constexpr uint32_t kJointCount = 20;
+
+struct Q {
+  double x = 0, y = 0, z = 0, w = 1;
+};
+Q Mul(const Q& a, const Q& b) {
+  return {a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+          a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z};
+}
+Q Inv(const Q& a) { return {-a.x, -a.y, -a.z, a.w}; }
+double AngleBetween(const Q& a, const Q& b) {
+  const Q d = Mul(Inv(a), b);
+  return 2.0 * std::acos(std::min(1.0, std::abs(d.w)));
+}
 
 class AnimeEngine : public ::testing::Test {
  protected:
@@ -97,6 +115,43 @@ class AnimeEngine : public ::testing::Test {
     }
     for (int f = 0; f < frames; ++f) world_->RunFrame(p);
     return world_->ReadPose(p);
+  }
+
+  // The fixed frame B_j per joint that turns GF's clip pose into the engine's rotations (see the test that measures it): the engine plays
+  // `motion` frozen (playback 0) at clip time 0, GF's sampler gives the same clip's chain of locals (the body joint's own rotation is taken off
+  // both sides: the engine does not apply every clip's mover rotation to it), and B_j = chain_j^-1 * (R_body^-1 * R_engine,j).
+  static bool BindOf(int motion, std::vector<Q>* bind, std::string* error) {
+    const char* root = std::getenv("PES21_ROOT");
+    const auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", error);
+    if (!exe) return false;
+    const auto names = pes::MotionNames(*exe, *vfs_, error);
+    if (!names) return false;
+    const auto rig = pesrig::BuildRig(*vfs_, error);
+    if (!rig) return false;
+    const auto blob = pes::FindBodyClip(*vfs_, pes::ClipId((*names)[static_cast<std::size_t>(motion)]), error);
+    if (!blob) return false;
+    const auto clip = pes::ParseGani(*blob, error);
+    if (!clip) return false;
+    const pesrig::ClipSampler sampler(*clip, *rig);
+    const pesrig::ClipPose pose = sampler.Sample(0.0);
+    std::vector<Q> chain(kJointCount);
+    for (uint32_t j = 0; j < kJointCount; ++j) {
+      const Q local = j == 0 ? Q{} : Q{pose.local[j].x, pose.local[j].y, pose.local[j].z, pose.local[j].w};
+      chain[j] = rig->bones[j].parent < 0 ? local : Mul(chain[static_cast<std::size_t>(rig->bones[j].parent)], local);
+    }
+    const uint64_t p = NewPlayer();
+    world_->ConstructAnime(p, 0);
+    pes::MotionRequest request;
+    request.motion = motion;
+    request.playback = 0.0f;
+    world_->IssueMotion(p, request);
+    constexpr int kSettleFrames = 30;
+    for (int f = 0; f < kSettleFrames; ++f) world_->RunFrame(p);
+    const pes::PesJointPose engine = world_->ReadPose(p);
+    const auto q = [&](uint32_t j) { return Q{engine.rotation[j][0], engine.rotation[j][1], engine.rotation[j][2], engine.rotation[j][3]}; };
+    bind->assign(kJointCount, Q{});
+    for (uint32_t j = 0; j < kJointCount; ++j) (*bind)[j] = Mul(Inv(chain[j]), Mul(Inv(q(0)), q(j)));
+    return true;
   }
 
   static std::unique_ptr<pes::PesVfs> vfs_;
@@ -189,6 +244,7 @@ TEST_F(AnimeEngine, TwoPlayersBuiltAndFramedTheSameWayHoldTheSamePose) {
   EXPECT_EQ(std::memcmp(&a, &b, sizeof a), 0);
 }
 constexpr int kIssueFrames = 6;
+constexpr int kBindMotion = 0x100;  // the motion the bind frames are measured on (the test above checks three more agree)
 
 TEST_F(AnimeEngine, AMotionSetMotionDropsLeavesThePoseOfAControlNeverIssued) {
   // FUN_1406F0F70 returns at once for a motion above 0x1124: nothing reaches the control.
@@ -248,6 +304,30 @@ TEST_F(AnimeEngine, EveryThirdMotionNumberTheMotionSetterAcceptsIsServedWithAFin
   }
 }
 
+// The engine's joint rotations are not GF's clip rotations: PES keeps each bone in a frame of its own (the child offsets lie along the
+// bone's +x; GF's skeleton is world-aligned in the T-pose, src/rig/rig.cpp). If the engine's pose is the clip's pose times a FIXED per-joint
+// frame B_j, then B_j = G_clip,j^-1 * R_engine,j is the same for every motion. Measured: the engine plays motion M frozen (playback 0) at
+// clip time 0 for 30 frames, GF's sampler (the same clip file, the motion table's name for M) gives G_clip,j (the chain of its locals).
+TEST_F(AnimeEngine, TheEnginesJointRotationsAreTheClipsRotationsTimesAFixedFramePerJoint) {
+  std::string error;
+  const auto rig = pesrig::BuildRig(*vfs_, &error);
+  ASSERT_TRUE(rig.has_value()) << error;
+  std::vector<std::vector<Q>> bind;  // per motion, per joint
+  for (const int motion : {0x100, 0x400, 0x700, 0xA00}) {
+    bind.emplace_back();
+    ASSERT_TRUE(BindOf(motion, &bind.back(), &error)) << motion << ": " << error;
+  }
+  double worst = 0.0;
+  for (uint32_t j = 0; j < kJointCount; ++j) {
+    double spread = 0.0;
+    for (std::size_t m = 1; m < bind.size(); ++m) spread = std::max(spread, AngleBetween(bind[0][j], bind[m][j]));
+    std::printf("joint %2u %-15s bind (%.4f %.4f %.4f %.4f) spread %.4f rad\n", j, rig->bones[j].gfName.c_str(), bind[0][j].x, bind[0][j].y,
+                bind[0][j].z, bind[0][j].w, spread);
+    worst = std::max(worst, spread);
+  }
+  EXPECT_LT(worst, 1e-2) << "the engine's rotations are not the clip's times one fixed frame per joint";
+}
+
 TEST_F(AnimeEngine, ThePosesTheRenderCheckPlotsAreWrittenWhenAskedFor) {
   // The AGENTS.md render check: GF_ENGINE_POSE_DUMP=<file> writes the rig's parent joints and the 20 joint positions of the idle pose and of
   // every motion probed, for tools/dev/render/plot_engine_pose.py. Nothing is written (and nothing asserted) without the variable.
@@ -271,6 +351,13 @@ TEST_F(AnimeEngine, ThePosesTheRenderCheckPlotsAreWrittenWhenAskedFor) {
                    pose.rotation[j][0], pose.rotation[j][1], pose.rotation[j][2], pose.rotation[j][3]);
     std::fprintf(out, "\n");
   };
+  // The fixed frame per joint (rotation x y z w each) between GF's clip rotations and the engine's: the viewer takes it off.
+  std::vector<Q> bind;
+  ASSERT_TRUE(BindOf(kBindMotion, &bind, &error)) << error;
+  std::fprintf(out, "bind");
+  for (const Q& q : bind) std::fprintf(out, " %.7f %.7f %.7f %.7f", q.x, q.y, q.z, q.w);
+  std::fprintf(out, "\n");
+  write("constructed", PoseAfter(-1, 1.0f, 0));  // before any frame: the control's own initial arrays
   write("idle", PoseAfter(-1, 1.0f, kIssueFrames));
   for (int motion = 0x100; motion <= 0x1100; motion += 0x100) write(std::to_string(motion).c_str(), PoseAfter(motion, 1.0f, kIssueFrames));
   std::fclose(out);
