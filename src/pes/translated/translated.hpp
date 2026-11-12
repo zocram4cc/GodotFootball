@@ -9873,6 +9873,7 @@ void pes_fn_1423BA9D0(PesState& s);
 void pes_fn_1423BAE20(PesState& s);
 void pes_fn_1423BAEB0(PesState& s);
 void pes_fn_1423BB360(PesState& s);
+void pes_fn_1423BB870(PesState& s);
 void pes_fn_1423BB890(PesState& s);
 void pes_fn_1423BC840(PesState& s);
 void pes_fn_1423BE8C0(PesState& s);
