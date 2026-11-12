@@ -77,6 +77,16 @@ void RunMatch(unsigned int seed, const std::function<void(Match&)>& onTick) {
   pestest::Settle(probe);
 }
 
+// The physique PES scales a clip's ball offset by (FUN_1406E8CC0): P+0x3B18, written by FUN_1406EB210 as height_cm / 180 from the
+// setup record, x and z clamped to 0.9166..1.0833. Read from the window's P for the taker's slot, as the sim's own key reader does.
+float TakerPhysique(Match& match, const Player* taker) {
+  if (taker == nullptr) return 1.0f;
+  const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(taker));
+  float scale = 0.0f;
+  std::memcpy(&scale, p + pes::kPF3B18Offset, sizeof scale);
+  return scale > 0.0f ? scale : 1.0f;
+}
+
 // AThrowInIsReleasedFromInsideTheLine: one searched seed's two-minute match, counting its carried releases over the whole match.
 class InsideLineProbe : public pestest::Probe {
  public:
@@ -134,7 +144,7 @@ class CarriedHoldProbe : public pestest::Probe {
     const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow_);
     const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
     const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
-    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
+    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), TakerPhysique(match, b.taker), false, g);
     const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
     const float dx = heldBall_.coords[0] - heldRoot_.coords[0], dy = heldBall_.coords[1] - heldRoot_.coords[1];
     const float gap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - keyHorizontal_m);
@@ -269,7 +279,7 @@ TEST(PesThrowInRelease, ACeremonyThrowInIsReleasedFromTheHandOverTheSpot) {
       const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
       ASSERT_GT(hits.size(), 1u);
       const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), 1.0f, false, g);
+      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), TakerPhysique(match, b.taker), false, g);
       const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
       // Ball::ResetSituation seats the ball's centre one radius above the point it is given, so the held centre is the key's
       // height plus that radius; a ball left on the ground is 1.7 m from it either way.
