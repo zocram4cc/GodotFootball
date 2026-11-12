@@ -1150,3 +1150,28 @@ TEST(MoveStepWire, APesClipsMovementIsItsDisplacementPerTickTimesTheTickRate) {
   std::printf("[movestep-speed] GF m/s over displacement*54: %.4f (%.1f m moved)\n", read_m / moved_m, moved_m);
   EXPECT_NEAR(read_m / moved_m, 1.0, 0.1) << "GF's m/s over PES's displacement per tick times the tick rate";
 }
+
+// A shootout keeper reaches his save path. GF's movement requeue (turn, step) is the keeper's mover (PES moves him through its KP actions, which are not
+// translated): 2dd6d027 refused the requeue on every PES locomotion clip, the keeper stayed on MOVESTEP's idle clips and over 541 seed-7 kicks not one
+// was saved (TeamTick base: 8 kicks, 2 saved). A save is what the shootout's own verdict says: the kick ended with the keeper's touch.
+TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
+  constexpr int kMaxKicks = 60;
+  constexpr unsigned kShootoutSeed = 7;  // the seed whose 541 kicks were all goals without the exemption
+  Properties config;
+  config.SetBool("pes_loop", true);
+  config.SetBool("penalty_shootout_only", true);
+  REQUIRE_PES_MATCH_AT(config, kShootoutSeed, 5);
+  PenaltyShootoutController* shootout = match->GetPenaltyShootout();
+  int kicks = 0, saves = 0;
+  bool wasLive = false;
+  while (!shootout->IsFinished() && kicks < kMaxKicks) {
+    match->Process();
+    if (wasLive && !shootout->IsKickLive()) {
+      ++kicks;
+      if (shootout->GetState().lastOutcome == PenaltyShootout::e_Outcome_Save) ++saves;
+    }
+    wasLive = shootout->IsKickLive();
+  }
+  std::printf("[shootout-keeper] %d kicks, %d saved\n", kicks, saves);
+  EXPECT_GT(saves, 0) << "the keeper saved none of " << kicks << " kicks";
+}
