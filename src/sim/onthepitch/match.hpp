@@ -185,6 +185,10 @@ public:
   pes::ActorKey PesActorKeyOf(const Player* player);
   // The PES slot (side * 11 + squad place) of an on-pitch player: the table entries and block holding his records.
   int PesSlotOf(const Player* player);
+  // PES owns this man's body through its Dribble action: P+0xAC8 says Dribble and the body's clip is not GF's own dribble (a BallControl clip of
+  // the ball carrier that is not one of PES's dribble clips). The dribble tick's SetMotion issues are the only clips he takes; GF's movement
+  // commands do not reach him (MOVESTEP is the Move action's, FUN_1406EEBB0 switches the action when the dribble ends).
+  bool PesOwnsDribble(Player& player);
   // PES's G tables and per-player blocks (pesworldrecord.hpp), owned by the match for the whole match.
   pes::PesWorld& PesWorldOf() { return *pesWorld; }
   // Seconds since a store record's frame, on PES's game-speed frames.

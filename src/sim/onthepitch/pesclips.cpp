@@ -58,13 +58,12 @@ constexpr FamilyPrefix kFamilies[] = {
     {PesClipFamily::kLocomotion, "idle_"},
     {PesClipFamily::kLocomotion, "gkmove"},
     {PesClipFamily::kLocomotion, "dm_oop_"},
-    // The dribble family: every `dribble*` motion (dribble_, dribblerun_, dribbleslide*), the clips the Dribble action's sub-state
-    // handlers issue (0x220 dribblerun_2_3_135_in_cp, 0x248, 0x32C dribble_0_3_000_near_sole, ... in a pes-loop match).
+    // The dribble family. ponytail: the motions the Dribble action's sub-state handlers can issue are named here by prefix, from the ones a
+    // seed-7 pes-loop match issued (dribble_, dribblerun_, dribbleslide*, feint*, idle_0_3_run_, parallel_, run_; PesStall.EveryDribbleIssueIsPlayedOnTheBody
+    // names any that are missing). PES's set is the motion ids the handlers read out of their tables (FUN_1407B05F0 and the 16 sub-state handlers it
+    // dispatches, each picking a motion through FUN_1406B0xxx queries over the motion database); upgrade path: decode those tables, derive the
+    // family from them, delete this list. idle_, parallel_ and run_ are also locomotion clips under another family: the family is the body's owner.
     {PesClipFamily::kDribble, "dribble"},
-    // The other motion groups the Dribble action's handlers were seen to issue in a seed-7 match (feint_kickout_*, feint_nutmeg_*, idle_0_3_run_*,
-    // parallel_2_2_run_*, run_2_4_*, run_3_3_*; PesStall.EveryDribbleIssueIsPlayedOnTheBody names any that are missing), taken as whole groups.
-    // idle_, parallel_ and run_ are also locomotion clips under another family: the family is the body's owner, and a clip of one action must
-    // not be the other action's. OPEN: the complete set is the dribble's motion tables, not decoded.
     {PesClipFamily::kDribble, "feint"},
     {PesClipFamily::kDribble, "idle_0_3_run_"},
     {PesClipFamily::kDribble, "parallel_"},

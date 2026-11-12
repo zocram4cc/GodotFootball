@@ -71,10 +71,11 @@ inline constexpr std::size_t kPF377CScaleOffset = 0x377C;  // f32: the rate ceil
 inline constexpr std::size_t kPPtr3AC0Offset = 0x3AC0;     // pointer (read, handed on)
 inline constexpr std::size_t kPSlotPtrOffset = 0x3AD8;     // pointer into the actor's slot record (+0x15C0)
 inline constexpr std::size_t kPF3B18Offset = 0x3B18;       // f32
-// SetMotion's pending-motion cell (FUN_1406F0F70 stores 1 at 0x1406F1061, the series variant FUN_1406F14E0 stores 2 at 0x1406F18C3): no reader
-// anywhere in the image's code, so GF clears it before a tick and reads it after (RunPesDribbleTicks).
+// SetMotion's issue cell: FUN_1406F0F70 stores 1 at 0x1406F1061, its series variant FUN_1406F14E0 stores 2 at 0x1406F18C3 (the switch and the
+// reset store their own values at 0x1406EB983 / 0x1406EE87C). The image's code never reads it (scan of every [reg+0x375C] access), so GF only
+// observes the stores in a tick's write log (PesWorld::RunDribbleTick), and never writes it.
 inline constexpr std::size_t kPMotionIssuedOffset = 0x375C;
-inline constexpr uint8_t kMotionIssuedSet = 1;
+inline constexpr uint8_t kMotionIssueSingle = 1, kMotionIssueSeries = 2;
 inline constexpr std::size_t kPPlaybackOffset = 0x3758;    // f32: the playback rate SetMotion stores (FUN_1406F0F70)
 inline constexpr std::size_t kSlotPPtrTargetOffset = 0x15C0;  // the slot-record offset P+0x3AD8 names
 // The constructor FUN_1406E03D0's non-zero stores in P's tail (0x1406E0xxx stores; the member at +0x3B90 is FUN_1406E07D0's).

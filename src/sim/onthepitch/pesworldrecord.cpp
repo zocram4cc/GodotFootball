@@ -420,7 +420,7 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
 // +0x1528 + 4*8, the object with vtable 0x1425E2440), P, and the same caller frame F the trap tick takes (F+0x870 names the
 // ball record). A path no proof reached aborts in the translated dispatch, loudly. Returns P+0xAC8 after the tick so the
 // caller sees the dribble's own switch-outs (kick, tackle, re-trap).
-uint8_t PesWorld::RunDribbleTick(int slot, PesTrapExternals& ext) {
+PesWorld::DribbleTickResult PesWorld::RunDribbleTick(int slot, PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
   const std::size_t lent = LendExternals(s, ext);
   const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
@@ -440,10 +440,17 @@ uint8_t PesWorld::RunDribbleTick(int slot, PesTrapExternals& ext) {
   s.gpr[1] = action;
   s.gpr[2] = PVa(slot);
   s.gpr[8] = entry + kTickEntryFrameSlotOffset;
-  s.mem.wlog = ext.writeLog;
+  std::vector<std::pair<uint64_t, uint8_t>> log;
+  s.mem.wlog = &log;
   ::pes_fn_1407B37D0(s);
   ReturnSegments(s, ext, lent);
-  return P(slot)[kPByteAC8Offset];
+  DribbleTickResult result;
+  result.action = P(slot)[kPByteAC8Offset];
+  const uint64_t issueCell = PVa(slot) + kPMotionIssuedOffset;
+  for (const auto& [addr, value] : log)
+    if (addr == issueCell) result.issue = value;
+  if (ext.writeLog != nullptr) ext.writeLog->insert(ext.writeLog->end(), log.begin(), log.end());
+  return result;
 }
 
 // The scan's call frame: the output record sits above the entry rsp in the window's stack, zeroed as the anime driver zeroes it before

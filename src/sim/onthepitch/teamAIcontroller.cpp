@@ -3478,15 +3478,6 @@ void WritePesManMovement(Player& pl, uint8_t* man) {
 
 namespace {
 
-// GF's own Dribble: the body's clip derives the Dribble action (a BallControl clip of the carrier) and is not one of PES's dribble clips
-// (PlayIssuedClip's kDribble family, the motions the Dribble action's tick issued). Only those men's P is rewritten from the clip.
-bool GfOwnsDribble(Player& pl, bool carrier) {
-  const Anim* clip = pl.GetCurrentAnim();
-  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
-  return !pes::IsPesDribbleFamily(family) &&
-         pes::AnimeActionOfClip(pl.GetCurrentFunctionType(), family, carrier) == pes::kAnimeActionDribble;
-}
-
 // The facts P's fields are made from (pestrapactor.hpp), read from the player's own state. `p` is P's bytes as the last tick left them.
 pes::PesActorFacts TrapFactsOf(Player& pl, int slot, bool carrier, const uint8_t* p) {
   pes::PesActorFacts f;
@@ -3577,9 +3568,7 @@ void WritePesTrapActors(Match& match) {
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
       // PES-owned dribble: P says Dribble and the body's clip is not GF's own dribble (GfOwnsDribble). GF-derived Dribble stays GF's
       // (rewritten below, no runner); a PES switch (trap end -> act4 start) puts P in Dribble, and only those men get the runner.
-      facts.dribbleActive = !facts.trapActive &&
-                            match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionDribble &&
-                            !GfOwnsDribble(*p, match.GetPesHolder() == p.get());
+      facts.dribbleActive = !facts.trapActive && match.PesOwnsDribble(*p);
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
@@ -3647,21 +3636,16 @@ void RunPesDribbleTicks(Match& match) {
       ++written;
       const int slot = match.PesSlotOf(p.get());
       uint8_t* pb = world.P(slot);
-      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) continue;
-      if (GfOwnsDribble(*p, match.GetPesHolder() == p.get())) continue;
+      if (!match.PesOwnsDribble(*p)) continue;
       const Vector3 dir = p->GetDirectionVec();
       constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
-      // SetMotion (FUN_1406F0F70) stores P+0x375C = 1 with the motion in P+0xAE0 (iface vtable +0x10), the start in +0x3B54, the mirror
-      // byte in +0x2472 and the rate in +0x3758; the series variant (FUN_1406F14E0) stores 2. The cell has no reader in the image's code
-      // (a scan of every [reg+0x375C] access: four writers, no reader), so GF owns it: cleared before the tick, read after it, the dribble
-      // tick's SetMotion is the clip the body must play (the trap tick's phase-0 SetMotion is played the same way, RunPesTrapTicks).
-      pb[pes::kPMotionIssuedOffset] = 0;
-      world.RunDribbleTick(slot, match.PesTrapExternalsOf());
-      // The series variant (P+0x375C = 2, FUN_1406F14E0: a motion list the anime layer walks) is not played: it names no motion in P+0xAE0.
-      // OPEN (docs/ports/pes-port-TrapContact5.md): 3-6 of ~65 dribble issues in a seed-7 match.
-      if (pb[pes::kPMotionIssuedOffset] == pes::kMotionIssuedSet) {
+      // The dribble tick's SetMotion (FUN_1406F0F70: motion in P+0xAE0, rate P+0x3758, mirror P+0x2472) is the clip the body must play (the trap
+      // tick's phase-0 SetMotion is played the same way, RunPesTrapTicks). The series variant (FUN_1406F14E0: a motion list the anime layer
+      // walks) names no motion in P+0xAE0 and is not played: OPEN (docs/ports/pes-port-TrapContact6.md), 3-6 of ~65 dribble issues a match.
+      const pes::PesWorld::DribbleTickResult tick = world.RunDribbleTick(slot, match.PesTrapExternalsOf());
+      if (tick.issue == pes::kMotionIssueSingle) {
         uint16_t motion;
         float playback;
         std::memcpy(&motion, pb + pes::kPWordAE0Offset, sizeof motion);
@@ -3729,7 +3713,8 @@ void RunPesBodyScans(Match& match) {
       if (!p->IsActive() || written == ob::kSlots) continue;
       ++written;
       const int slot = match.PesSlotOf(p.get());
-      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      // The scan runs the current action's reach test (slot +0xB8): the Trap action's FUN_140799060 and the Dribble action's FUN_1407B7720.
+      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap && !match.PesOwnsDribble(*p)) continue;
       world.WriteJointBlock(slot, BoneFramesOf(*p, match.GetRig()), match.GetPesActorConstants().jointMask);
       const pes::PesBodyScanOut out = world.RunBodyScan(slot, match.PesTrapExternalsOf());
       if (out.TouchRequested()) match.GrantPesTouch(slot, out);

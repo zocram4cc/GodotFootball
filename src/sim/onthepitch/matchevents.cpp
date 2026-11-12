@@ -65,6 +65,16 @@ int Match::PesSlotOf(const Player* player) {
   return static_cast<int>(key.team) * pes::kSlotsPerSide + static_cast<int>(key.slot);
 }
 
+bool Match::PesOwnsDribble(Player& player) {
+  if (!PesLoop()) return false;
+  if (PesWorldOf().P(PesSlotOf(&player))[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) return false;
+  const Anim* clip = player.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  const bool gfDribble = !pes::IsPesDribbleFamily(family) &&
+                         pes::AnimeActionOfClip(player.GetCurrentFunctionType(), family, GetPesHolder() == &player) == pes::kAnimeActionDribble;
+  return !gfDribble;
+}
+
 Player* Match::GetPesActorPlayer(const pes::ActorKey& key) {
   if (!key.Valid()) return nullptr;
   const auto& squad = GetTeam(static_cast<int>(key.team))->GetAllPlayers();
