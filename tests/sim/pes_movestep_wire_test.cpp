@@ -276,6 +276,19 @@ TEST(MoveStepWire, ABearingToAGroundPointIsTakenOnPesZ) {
       << "a point at GF +coords[0] is PES +x: bearing 90";
 }
 
+// FUN_14046f260 (the body of 0x14046f230) and FUN_140439e50, the two heading helpers MOVESTEP reads, both open with
+// `if (to.z == from.z && to.x == from.x) { *out = 0; return; }`: two coincident points have bearing 0. atan2(+0, -(+0)) is 180,
+// so a ball held at the man's root read 180: StayDecision (FUN_1406b6bb0) then took its 180-degree gate against a look point
+// directly behind him and sent a throw-in carrier through IDLE -> GOTO_RUN -> STEP_LOOP -> STOP forever (stalled seed 7 pes-loop).
+TEST(MoveStepWire, ABearingBetweenCoincidentPointsIsZero) {
+  pes::RunConstants k{};
+  k.full = 360.0f;
+  k.half_turn = 180.0f;
+  k.wrapFull = -360.0f;
+  EXPECT_EQ(pesmovestep::PesBearingDeg(k, 0.0f, 0.0f), 0.0f);
+  EXPECT_EQ(pesmovestep::PesBearingDeg(k, -0.0f, -0.0f), 0.0f);
+}
+
 // StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
 // Built on main, nothing stores it, so the ceiling reads zero.
 TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {

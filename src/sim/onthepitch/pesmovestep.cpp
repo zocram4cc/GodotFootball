@@ -531,8 +531,10 @@ void PesFrame(float gfX, float gfY, float gfZ, float out[3]) {
   out[1] = gfZ;
   out[2] = 0.0f - gfY;
 }
-
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ) {
+  // FUN_14046f260 (the body of 0x14046f230) and FUN_140439e50 both open with `if (to.z == from.z && to.x == from.x) { *out = 0; return; }`:
+  // two coincident points have bearing 0, not atan2's 180 for a negated zero.
+  if (gfX == 0.0f && gfZ == 0.0f) return 0.0f;
   return pes::FoldFull(std::atan2(gfX, -gfZ) * kDegPerRad, k);  // PES z = -coords[1]
 }
 
