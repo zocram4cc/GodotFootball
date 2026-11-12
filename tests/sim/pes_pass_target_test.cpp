@@ -2,6 +2,9 @@
 
 #include "pes_match_constants.hpp"
 
+#include <algorithm>
+#include <array>
+#include <vector>
 #include <cstdlib>
 #include <functional>
 #include <memory>
@@ -78,6 +81,7 @@ struct PassStats {
   unsigned long foreignReceiverTicks = 0;  // ticks a side's receiver was not on that side
   unsigned long foreignNamedTicks = 0;     // receiver ticks on which the side's T+0x78 was rewritten to the other side's man for one query
   unsigned long foreignAcceptedTicks = 0;  // of those, the ticks the side still answered a receiver
+  std::vector<double> episodes_s;          // each PASS_GET episode: consecutive ticks one man was his side's PassGetReceiver()
   bool ran = false;
 };
 
@@ -85,6 +89,9 @@ class PesPassTarget : public ::testing::Test {
  protected:
   static void SetUpTestSuite() {
     double restingSinceTargetSet_s = 0.0;
+    std::array<const Player*, 2> episodeMan{nullptr, nullptr};
+    std::array<double, 2> episode_s{0.0, 0.0};
+    stats_.episodes_s.clear();
     stats_.ran = false;
     RunPesLoopMatch([&](Match& match) {
       stats_.ran = true;
@@ -98,6 +105,12 @@ class PesPassTarget : public ::testing::Test {
         const Player* receiver = match.GetTeam(side)->PassGetReceiver();
         stats_.receiverTicks += receiver != nullptr ? 1 : 0;
         stats_.foreignReceiverTicks += receiver != nullptr && receiver->GetTeamID() != side ? 1 : 0;
+        if (receiver != episodeMan[side]) {
+          if (episodeMan[side] != nullptr) stats_.episodes_s.push_back(episode_s[side]);
+          episodeMan[side] = receiver;
+          episode_s[side] = 0.0;
+        }
+        if (receiver != nullptr) episode_s[side] += tick_s;
         if (receiver == nullptr) continue;
         // The pass has its own side's receiver. Rewrite the record T+0x78 to name a man of the OTHER side for the one query (the writer
         // never does, PES's own record always names the side's own man) and see whether the receiver read follows it; restore at once.
@@ -138,4 +151,20 @@ TEST_F(PesPassTarget, EveryPassInFlightHasItsOwnSidesReceiver) {
   EXPECT_EQ(stats_.foreignReceiverTicks, 0ul) << "a side's receiver was a man of the other side";
   EXPECT_GT(stats_.foreignNamedTicks, 0ul) << "no pass in flight to rewrite the record under";
   EXPECT_EQ(stats_.foreignAcceptedTicks, 0ul) << "a record naming the other side's man still produced a receiver";
+}
+
+// PES's PASS_GET episodes (a man named the receiver by T+0x78 and walking to the ball) last 0.02 to 2.94 s in live play
+// (docs/re/pes-re-receiving.md 5.2, 40 live episodes). Every episode of the seed-7 match must fall in that range: a longer one is a
+// receiver who arrives late or never plays the ball (the idle stalls of docs/ports/pes-port-PassReceiver.md section 3).
+TEST_F(PesPassTarget, EveryPassGetEpisodeIsWithinPesLiveRange) {
+  if (!stats_.ran) GTEST_SKIP() << "no match ran";
+  ASSERT_FALSE(stats_.episodes_s.empty()) << "no PASS_GET episode in the match";
+  std::vector<double> sorted = stats_.episodes_s;
+  std::sort(sorted.begin(), sorted.end());
+  const double median = sorted[sorted.size() / 2];
+  const long over = std::count_if(sorted.begin(), sorted.end(), [](double e) { return e > kPesPassTargetMaxLive_s; });
+  RecordProperty("episodes", static_cast<int>(sorted.size()));
+  RecordProperty("median_s", std::to_string(median));
+  EXPECT_EQ(over, 0) << over << " of " << sorted.size() << " PASS_GET episodes exceeded " << kPesPassTargetMaxLive_s
+                     << " s; longest " << sorted.back() << " s, median " << median << " s";
 }
