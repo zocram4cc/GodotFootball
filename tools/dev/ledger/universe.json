@@ -222724,6 +222724,48 @@
    "vtables": [],
    "walked": true
   },
+  "1406EAB00": {
+   "boundary": null,
+   "callees": {
+    "140A489F0": "direct",
+    "140A48A10": "direct",
+    "140A581C0": "direct",
+    "14124DAD0": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406EAB98",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1406EABCA",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1406EACBD",
+     "text": "call qword ptr [rax]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406eab00",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribbletick"
+   ],
+   "scope": "in",
+   "size": 126,
+   "source": "pdata",
+   "subsystem": "dribbletick",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406EAD40": {
    "boundary": null,
    "callees": {
@@ -1312836,14 +1312878,15 @@
     ]
    },
    "dribbletick": {
-    "members": 773,
+    "members": 774,
     "roots": [
      "0x1407B37D0",
      "0x140870A40",
      "0x1407EB630",
      "0x1406EA750",
      "0x1407EB8A0",
-     "0x1407EBBC0"
+     "0x1407EBBC0",
+     "0x1406EAB00"
     ]
    },
    "endclear": {

@@ -1,5 +1,5 @@
 {
- "note": "the static 773-member closure of dribble tick 0x1407B37D0 + ball kick application 0x140870A40 + touch gate 0x1407EB630 + 0x1406EA750 + 0x1407EB8A0 + 0x1407EBBC0 (closure.py --tag dribbletick). Bit-exact REPLAY proof covers the members real captures entered (1 REAL: live2/pid1270903/seq282, sub-state 6); the rest are translated-not-replayed. Unlisted callees abort loudly.",
+ "note": "the static 774-member closure of dribble tick 0x1407B37D0 + ball kick application 0x140870A40 + touch gate 0x1407EB630 + 0x1406EA750 + 0x1407EB8A0 + 0x1407EBBC0 + 0x1406EAB00 (closure.py --tag dribbletick). Bit-exact REPLAY proof covers the members real captures entered (1 REAL: live2/pid1270903/seq282, sub-state 6); the rest are translated-not-replayed. Unlisted callees abort loudly.",
  "root": "0x1407B37D0",
  "members": [
   "0x140227920",
@@ -366,6 +366,7 @@
   "0x1406EA7B0",
   "0x1406EA820",
   "0x1406EA840",
+  "0x1406EAB00",
   "0x1406EAD40",
   "0x1406EB100",
   "0x1406EB440",
