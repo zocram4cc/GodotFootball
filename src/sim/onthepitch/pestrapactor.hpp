@@ -179,4 +179,9 @@ bool IsActionTablePointer(std::size_t pOffset);
 // written by the chain; from here the tick owns the ids (PesActorFacts::trapActive).
 void StartTrapAction(PesWorld& world, int slot);
 
+// FUN_1406F6790's counter block (0x1406F67C4..0x1406F685F), the one part of the per-man anime update inside the translated set: every
+// saturating tick counter P+0x2814..0x281A counts one tick (stops at 0xFF) and the u16 cooldown P+0x2824 counts down to 0. PES runs
+// it once per man per tick (FUN_1406E5FC0 at 0x1406E60F8), after the action tick (slot 4, 0x1406E60CA).
+void AdvanceActorTickCounters(uint8_t* p);
+
 }  // namespace pes

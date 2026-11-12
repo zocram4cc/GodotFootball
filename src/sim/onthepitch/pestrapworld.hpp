@@ -59,6 +59,13 @@ inline constexpr std::size_t kPByteB08Offset = 0xB08;
 inline constexpr std::size_t kPByte2458Offset = 0x2458;
 inline constexpr std::size_t kPPhaseOffset = 0x245C;      // u8: the locomotion phase (class table index; not read by the chain)
 inline constexpr std::size_t kPPrevActionOffset = 0xACA;  // u8: the previous action id; +0xACB its sub id
+// The per-man anime update FUN_1406F6790's counter block (0x1406F67C4..0x1406F685F): saturating tick counters P+0x2814..0x2819 and +0x281A
+// (each `if (b != 0xFF) ++b`), and the u16 P+0x2824 (`if (w != 0) --w`). +0x2818 is the ticks since the last action change (the switch's
+// clearer 0x1406EB5FF zeroes it; the reset 0x1406EE769 sets +0x2818/+0x2819 to 0xFF); the dribble's touch gate 0x1407EB8A0 reads it.
+inline constexpr std::size_t kPTickCounterFirstOffset = 0x2814;
+inline constexpr std::size_t kPTickCounterCount = 6;           // +0x2814..+0x2819
+inline constexpr std::size_t kPTickCounter281AOffset = 0x281A;  // incremented after +0x2818, before +0x2819: independent bytes, order immaterial
+inline constexpr std::size_t kPCooldown2824Offset = 0x2824;     // u16, counts down to 0
 inline constexpr std::size_t kPWord277COffset = 0x277C;   // f32; +0x2780 the next f32: the class writer's phase-1 test
 inline constexpr std::size_t kPF377CScaleOffset = 0x377C;  // f32: the rate ceiling FUN_1406F99F0 stores (0x1406F9B4C)
 inline constexpr std::size_t kPPtr3AC0Offset = 0x3AC0;     // pointer (read, handed on)

@@ -703,3 +703,42 @@ TEST(PesTrapRequest, TheCommittedClipIsTheActionObjectsWordAtPlusEight) {
   p[pes::kPActionOffset + 7] = 0xFF;
   EXPECT_EQ(pes::CommittedTrapClip(p.data()), 0xB86);
 }
+
+// FUN_1406F6790's counter block (0x1406F67C4..0x1406F685F): every tick counter P+0x2814..0x281A counts one tick and stops at 0xFF; the u16
+// cooldown P+0x2824 counts down to 0. The dribble's touch gate 0x1407EB8A0 reads P+0x2818 (ticks since the action change).
+TEST(PesActorCounters, EachCounterCountsOneTickAndStopsAt255) {
+  std::vector<uint8_t> p(0x2900, 0);
+  p[0x2814] = 0;
+  p[0x2815] = 7;
+  p[0x2816] = 254;
+  p[0x2817] = 255;
+  p[0x2818] = 161;
+  p[0x2819] = 0;
+  p[0x281A] = 16;
+  pes::AdvanceActorTickCounters(p.data());
+  EXPECT_EQ(p[0x2814], 1);
+  EXPECT_EQ(p[0x2815], 8);
+  EXPECT_EQ(p[0x2816], 255);
+  EXPECT_EQ(p[0x2817], 255) << "a saturated counter stays at 255";
+  EXPECT_EQ(p[0x2818], 162);
+  EXPECT_EQ(p[0x2819], 1);
+  EXPECT_EQ(p[0x281A], 17);
+  EXPECT_EQ(p[0x2813], 0) << "the byte before the block is untouched";
+  EXPECT_EQ(p[0x281B], 0) << "the byte after the block is untouched";
+}
+
+TEST(PesActorCounters, TheCooldownCountsDownToZeroAndStays) {
+  std::vector<uint8_t> p(0x2900, 0);
+  p[0x2824] = 0x00;
+  p[0x2825] = 0x01;  // 256: the borrow crosses the byte
+  pes::AdvanceActorTickCounters(p.data());
+  EXPECT_EQ(p[0x2824], 0xFF);
+  EXPECT_EQ(p[0x2825], 0x00);
+  p[0x2824] = 1;
+  p[0x2825] = 0;
+  pes::AdvanceActorTickCounters(p.data());
+  EXPECT_EQ(p[0x2824], 0);
+  pes::AdvanceActorTickCounters(p.data());
+  EXPECT_EQ(p[0x2824], 0) << "a cooldown at 0 stays 0";
+  EXPECT_EQ(p[0x2825], 0);
+}

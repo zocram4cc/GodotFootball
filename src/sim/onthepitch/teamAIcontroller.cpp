@@ -3648,11 +3648,20 @@ void RunPesDribbleTicks(Match& match) {
       constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
-      const uint8_t before = pb[pes::kPByteAC8Offset];
       world.RunDribbleTick(slot, match.PesTrapExternalsOf());
-      if (std::getenv("TC_DIAG4") && pb[pes::kPByteAC8Offset] != before)  // TC_DIAG4 (temporary)
-        printf("TCDRIB t=%lu %s ac8 %d->%d\n", match.GetActualTime_ms(), p->GetPlayerData()->GetLastName().c_str(), before,
-               pb[pes::kPByteAC8Offset]);
+    }
+  }
+}
+
+// Every active man's tick counters count one tick, after the action ticks (FUN_1406E5FC0 calls FUN_1406F6790 at 0x1406E60F8 after the
+// action's slot 4): the dribble's touch gate reads the ticks since the last action change (P+0x2818).
+void RunPesActorCounters(Match& match) {
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      pes::AdvanceActorTickCounters(match.PesWorldOf().P(match.PesSlotOf(p.get())));
     }
   }
 }

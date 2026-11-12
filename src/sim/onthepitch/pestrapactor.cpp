@@ -292,6 +292,20 @@ bool IsMemberStateCell(std::size_t pOffset) {
   return false;
 }
 
+void AdvanceActorTickCounters(uint8_t* p) {
+  const auto saturatingIncrement = [p](std::size_t at) {
+    if (p[at] != 0xFF) ++p[at];  // 0x1406F67C4..: movzx eax, byte; cmp al, 0xFF; jnc skip; inc al; mov byte, al
+  };
+  for (std::size_t k = 0; k < kPTickCounterCount; ++k) saturatingIncrement(kPTickCounterFirstOffset + k);
+  saturatingIncrement(kPTickCounter281AOffset);
+  const uint16_t cooldown = static_cast<uint16_t>(p[kPCooldown2824Offset] | (p[kPCooldown2824Offset + 1] << 8));
+  if (cooldown != 0) {  // 0x1406F6849: movzx eax, word; test ax, ax; jz skip; dec ax; mov word, ax
+    const uint16_t next = static_cast<uint16_t>(cooldown - 1);
+    p[kPCooldown2824Offset] = static_cast<uint8_t>(next & 0xFF);
+    p[kPCooldown2824Offset + 1] = static_cast<uint8_t>(next >> 8);
+  }
+}
+
 void StartTrapAction(PesWorld& world, int slot) {
   uint8_t* p = world.P(slot);
   p[kPPrevActionOffset] = p[kPByteAC8Offset];

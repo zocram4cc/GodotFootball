@@ -472,6 +472,9 @@ void WritePesMaHolders(Match& match);
 void RunPesTrapTicks(Match& match);
 // Every man PES owns in the Dribble action runs PES's dribble tick (after RunPesTrapTicks: a trap end can switch mid-block).
 void RunPesDribbleTicks(Match& match);
+// Every active man's saturating tick counters P+0x2814..0x281A and cooldown P+0x2824 count one tick (pes::AdvanceActorTickCounters),
+// after the action ticks.
+void RunPesActorCounters(Match& match);
 // Every man in the Trap action runs PES's body contact scan (pesbodyscan.hpp) after his action tick: a touch request grants his body the
 // touch (Match::TakePesTouch).
 void RunPesBodyScans(Match& match);
