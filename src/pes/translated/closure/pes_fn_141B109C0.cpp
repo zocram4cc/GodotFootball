@@ -10,6 +10,7 @@
 
 
 void pes_fn_141B109C0(PesState& s);
+void pes_fn_141B10B20(PesState& s);
 void pes_fn_1422B3350(PesState& s);
 
 void pes_fn_141B109C0(PesState& s) {
@@ -232,7 +233,7 @@ void pes_fn_141B109C0(PesState& s) {
   /*OUT-OF-RANGE JMP 0x141B10CC0*/ pes_dispatch_missing(0x141B10CC0);
   return;
   L_141B10B0C:;
-  /*OUT-OF-SET CALL 0x141B10B20*/ pes_dispatch_missing(0x141B10B20);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_141B10B20(s); s.gpr[4] += 8; }
   L_141B10B11:;
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((56ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
