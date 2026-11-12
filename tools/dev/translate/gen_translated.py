@@ -239,6 +239,16 @@ def build(image):
         closure_of[va] = seen
     if conflicts:
         raise SystemExit("gen_translated: %d conflicts:\n  %s" % (len(conflicts), "\n  ".join(conflicts[:30])))
+    # A function kept as the variant that links more (choose_variant) calls callees its own set's universe lacked: every closure
+    # holding it holds those callees too (their texts were translated under the set that has them).
+    for va, seen in closure_of.items():
+        queue = sorted(seen)
+        while queue:
+            for c in CALLEE.findall(texts[queue.pop()]):
+                cv = "0x" + c.upper()
+                if cv in texts and cv not in seen:
+                    seen.add(cv)
+                    queue.append(cv)
     # Never ship a callee the harness recorded as mistranslated: a recorded function whose closure reaches one is left
     # out of the layer (listed), though its own diff passed, since its cases never took the callee's bad path.
     bad = {v for v in texts if v not in bit_vas and status.get(v) == "translator bug"}
