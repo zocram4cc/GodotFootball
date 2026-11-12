@@ -239,7 +239,9 @@ class GfClipProbe : public pestest::Probe {
                  std::to_string(int(player->GetMoveStep().state))]++;
         }
         if (name != seen.name || clip->frameNum < seen.frame) {
-          if (gf && seen.looping && clip->originatingInterrupt == e_InterruptAnim_Switch) {
+          const pes::MoveState now = player->GetMoveStep().state;  // the state MOVESTEP left him in this tick, before the humanoid's switch
+          const bool nowLooping = now == pes::MoveState::kIdle || now == pes::MoveState::kRunLoop || now == pes::MoveState::kStepLoop;
+          if (gf && seen.locomotion && nowLooping && clip->originatingInterrupt == e_InterruptAnim_Switch) {
             loopClipsLost++;
             byLoss["to fn" + std::to_string(int(clip->functionType)) + " " + Folder(name) + " | movestep " +
                    std::to_string(int(player->GetMoveStep().state)) + " from " + seen.name]++;
