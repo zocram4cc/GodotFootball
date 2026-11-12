@@ -38,7 +38,7 @@ int main() {
   PesState s;
   s.mem.segs.push_back({0x10000, std::vector<uint8_t>(0x100, 0)});
   s.gpr[4] = 0x10080;
-  s.wr(s.gpr[4], 0, 8);  // the caller's return slot, as every translated call leaves it
+  s.wr(s.gpr[4], %(stale)s, 8);  // the caller's return slot: 0 as every translated call leaves it, or a stale word after a root call from GF
   s.gpr[0] = 1;
   pes_fn_%(va)s(s);
   std::printf("%%llx %%llx\n", (unsigned long long)s.gpr[0], (unsigned long long)(s.gpr[4] - 0x10080));
@@ -46,7 +46,10 @@ int main() {
 """
 
 
-def run(ranges):
+ORDINARY = bytes([0xC3])  # ret at the entry depth
+
+
+def run(ranges, code=CODE, stale=0):
     pdata.KNOWN = frozenset()
     saved = list(xlate.COMPUTED_RET_RANGES)
     xlate.COMPUTED_RET_RANGES[:] = ranges
@@ -57,13 +60,13 @@ def run(ranges):
             raw = bytearray(open(img, "rb").read())
             n = struct.unpack_from("<I", raw, 0x98 + 112 + 24 + 4)[0] // 12
             struct.pack_into("<I", raw, 0x98 + 112 + 24 + 4, 12 * (n + 1))
-            struct.pack_into("<III", raw, 0x400 + 12 * n, 0x1600, 0x1600 + len(CODE), 0x600)
-            raw[0x1600:0x1600 + len(CODE)] = CODE
+            struct.pack_into("<III", raw, 0x400 + 12 * n, 0x1600, 0x1600 + len(code), 0x600)
+            raw[0x1600:0x1600 + len(code)] = code
             open(img, "wb").write(raw)
             va = "0x%X" % F
             src, _ = xlate.translate_one(img, "", va, set())
             open(os.path.join(d, "f.cpp"), "w").write("\n".join(src) + "\n")
-            open(os.path.join(d, "m.cpp"), "w").write(MAIN % {"va": va[2:]})
+            open(os.path.join(d, "m.cpp"), "w").write(MAIN % {"va": va[2:], "stale": "0x%XULL" % stale})
             exe = os.path.join(d, "t")
             r = subprocess.run(["g++", "-std=c++20", "-I", RT, "-o", exe, os.path.join(d, "m.cpp"), os.path.join(d, "f.cpp")],
                                capture_output=True, text=True)
@@ -79,6 +82,11 @@ class ComputedRet(unittest.TestCase):
 
     def test_outside_it_ret_just_returns_and_the_pushed_word_stays(self):
         self.assertEqual(run([]), ["1", "fffffffffffffff8"])  # rsp stays 8 below where it started: nothing popped the pushed word
+
+    def test_a_ret_at_the_entry_depth_is_an_ordinary_return_even_with_a_stale_nonzero_slot(self):
+        # 0x143F546F0 (the referee's judge chain, in .impdata) ends `pop rdi; ret`: called from GF the return slot holds a stale word
+        # (0x20022 on the pes-loop seed-7 run), which the computed-ret rule entered through the dispatch table and aborted.
+        self.assertEqual(run([(F, F + 0x100)], ORDINARY, stale=TARGET), ["1", "0"])
 
 
 if __name__ == "__main__":

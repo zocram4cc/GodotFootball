@@ -2092,11 +2092,12 @@ class Emitter:
         if m == "RET":
             if any(lo <= addr < hi for lo, hi in COMPUTED_RET_RANGES):
                 # The packer's obfuscated code (.impdata) uses `push target; ... ret` as a jump: the word at [rsp] is the target, not the caller's
-                # return slot (which holds 0 here, as every translated call pushes). A nonzero word is popped and entered through the dispatch table
-                # (an untranslated target is the loud abort naming its VA); the entered function returns to the slot below it, which is the
-                # caller's, so this function then returns too (a tail jump).
+                # return slot. The return slot is the one rsp had at the function's entry (_entry_rsp): a `ret` at any other depth pops a word
+                # the function pushed, which is entered through the dispatch table (an untranslated target is the loud abort naming its VA); the
+                # entered function returns to the slot below it, which is the caller's, so this function then returns too (a tail jump). A
+                # `ret` at the entry depth is an ordinary return whatever the slot holds (a root call from GF leaves a stale word there).
                 return ["{ uint64_t _t = s.rd(s.gpr[4], 8);",
-                        "  if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);",
+                        "  if (s.gpr[4] != _entry_rsp && _t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);",
                         "    if (_d.fn == 0) pes_dispatch_missing(_t);",
                         "    else _d.fn(s); } }",
                         "return;"]
@@ -2680,7 +2681,8 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
     body = flow.structure_lines(["  " + l for l in flat])
     if body is None:
         body = ["  " + l for l in flat]
-    src = head + ["", "void pes_fn_%s(PesState& s) {" % va[2:]] + body + ["}"]
+    entry = ["  const uint64_t _entry_rsp = s.gpr[4];"] if any("_entry_rsp" in l for l in body) else []
+    src = head + ["", "void pes_fn_%s(PesState& s) {" % va[2:]] + entry + body + ["}"]
     return src, []
 
 
