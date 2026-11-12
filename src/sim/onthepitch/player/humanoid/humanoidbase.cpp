@@ -473,6 +473,16 @@ bool HumanoidBase::OnPesTrap() const {
              static_cast<int>(pes::PesClipFamily::kTrap);
 }
 
+bool HumanoidBase::OnPesClip() const {
+  if (!currentAnim->anim || currentAnim->functionType != e_FunctionType_Special) return false;
+  const int family = std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str());
+  return pes::IsPesClipFamily(family) || pes::IsPesLocomotionFamily(family) || pes::IsPesTrapFamily(family);
+}
+
+float HumanoidBase::ClipFramesPerTick() const {
+  return OnPesClip() ? static_cast<float>(Match::kTick_ms / 1000.0 / pes::kGfAnimFrame_s) : 1.0f;
+}
+
 bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family) {
   const bool onLocomotion = OnPesLocomotion();
   const bool onFamily = family == pes::PesClipFamily::kTrap ? OnPesTrap() : onLocomotion;
@@ -1363,7 +1373,11 @@ void HumanoidBase::CalculateSpatialState() {
   assert(currentAnim->movementSmuggleOffset.coords[2] == 0.0f);
   assert(position.coords[2] == 0.0f);
 
-  spatialState.actualMovement = (position - previousPosition2D) * 100.0f;
+  // m/s of the step this tick took. A GF clip advances one 10 ms frame per tick, so its step times 100 is the clip's speed; a PES clip
+  // advances a tick of real time, so its step times the tick rate is.
+  const float stepToMetresPerSecond =
+      OnPesClip() ? static_cast<float>(1000.0 / Match::kTick_ms) : static_cast<float>(1.0 / pes::kGfAnimFrame_s);
+  spatialState.actualMovement = (position - previousPosition2D) * stepToMetresPerSecond;
   float positionOffsetMovementIgnoreFactor = 0.5f;
   spatialState.physicsMovement =
       spatialState.actualMovement - (spatialState.actionSmuggleMovement) -

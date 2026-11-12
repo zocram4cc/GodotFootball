@@ -361,6 +361,44 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
   EXPECT_EQ(restarted, 0);
 }
 
+// PES's anime engine steps a motion's clock by one tick of real time per tick at rate 1 (FUN_141AF7A90 sets the step `tick * 300` units of
+// 1/300 s, FUN_141AF3100 reads seconds back with 1/300; SetSpeed's real calls hold rate 1.0), so an issued clip of L seconds ends after
+// L * 54 / rate ticks. GF's clip frames are 10 ms and the tick is 1000/54 ms: a clip must advance 1.852 frames per tick at rate 1. On the
+// base it advanced ONE frame per tick (0.54 of PES's speed: a trap's contact frame came at tick 29.5 against PES's 17).
+TEST(MoveStepWire, APesClipAdvancesATickOfRealTimePerTick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr double kFramesPerTick = 1000.0 / 54.0 / 10.0;  // the 10 ms engine frame in ticks of 1/54 s
+  constexpr double kTolerance = 0.03;
+  double framesAdvanced = 0.0, ticksCounted = 0.0;
+  for (int t = 0; t < kTicks; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<const Animation*> before;
+    std::vector<int> frameBefore, placementBefore;
+    for (Player* p : ps) {
+      const Anim* a = p->GetCurrentAnim();
+      before.push_back(a ? a->anim : nullptr);
+      frameBefore.push_back(a ? a->frameNum : 0);
+      placementBefore.push_back(p->CastHumanoid()->GetPlacementCount());
+    }
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      const Anim* a = ps[i]->GetCurrentAnim();
+      if (ps[i]->CastHumanoid()->GetPlacementCount() != placementBefore[i]) continue;
+      if (!a || !a->anim || a->anim != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
+      // A clip that ran into its last frame is clamped there: only ticks that stayed clear of the end say what the rate is.
+      if (a->frameNum <= frameBefore[i] || a->frameNum >= a->anim->GetFrameCount() - 1) continue;
+      framesAdvanced += a->frameNum - frameBefore[i];
+      ticksCounted += a->playbackRate;  // the clip's rate this tick: PES's rate is a factor on the real-time step
+    }
+  }
+  ASSERT_GT(ticksCounted, 200.0) << "no PES clip played long enough";
+  EXPECT_NEAR(framesAdvanced / ticksCounted, kFramesPerTick, kFramesPerTick * kTolerance)
+      << "frames per tick at rate 1 (PES: a tick of real time, 1.852 frames of 10 ms)";
+}
+
 // A re-issue of the motion the body already plays changes its rate only (humanoidbase.cpp's hold). Built
 // without the hold, the re-issue selects the clip again and restarts it from frame 0.
 TEST(MoveStepWire, AReIssueOfThePlayedMotionDoesNotRestartTheClip) {

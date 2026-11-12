@@ -289,7 +289,7 @@ void Humanoid::Process() {
   // PES plays contact clips at a Balance-dependent rate (pes-re-contact.md
   // 4.3): the frame advances by the accumulated rate, never past the clip's
   // last frame, so the end-of-clip switch below still sees it.
-  currentAnim->framePhase += currentAnim->playbackRate;
+  currentAnim->framePhase += currentAnim->playbackRate * ClipFramesPerTick();
   const int steps = static_cast<int>(currentAnim->framePhase);
   currentAnim->framePhase -= steps;
   currentAnim->frameNum =

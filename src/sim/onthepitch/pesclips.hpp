@@ -48,6 +48,9 @@ struct PesClipSet {
 // can commit).
 std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, std::string* error);
 
+// The engine's animation frame (s): PesClipAnimText samples a PES clip every 10 ms and PesTouchAnimFrame counts in the same frames.
+inline constexpr double kGfAnimFrame_s = 0.01;
+
 // One clip as engine .anim text (the format Animation::LoadText reads), at the
 // engine's 10 ms frame.
 std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig);
