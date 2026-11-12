@@ -43,6 +43,7 @@ uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier
       if (specialVar1 == static_cast<int>(PesClipFamily::kTackle)) return kAnimeActionTackle;
       if (IsPesLocomotionFamily(specialVar1)) return kAnimeActionMove;
       if (IsPesTrapFamily(specialVar1)) return kAnimeActionTrap;
+      if (IsPesDribbleFamily(specialVar1)) return kAnimeActionDribble;
       return kAnimeActionNothing;  // GF's own celebrations, cards and feints: no PES action
     case e_FunctionType_None:
       break;

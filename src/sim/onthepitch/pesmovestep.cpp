@@ -622,11 +622,13 @@ void RequestStop(Player& player, Match& match) {
 
 int CurrentMotionOf(Player& player) {
   // The PES motion number of the clip the humanoid plays: its specialvar2 when the clip carries a PES
-  // family (dodge, tackle, locomotion or trap), -1 when the AI's own clip plays (no PES numbering).
+  // family (dodge, tackle, locomotion, trap or dribble), -1 when the AI's own clip plays (no PES numbering).
   const Anim* anim = player.GetCurrentAnim();
   if (!anim || !anim->anim) return -1;
   const int family = std::atoi(anim->anim->GetVariable("specialvar1").c_str());
-  if (!pes::IsPesClipFamily(family) && !pes::IsPesLocomotionFamily(family) && !pes::IsPesTrapFamily(family)) return -1;
+  if (!pes::IsPesClipFamily(family) && !pes::IsPesLocomotionFamily(family) && !pes::IsPesTrapFamily(family) &&
+      !pes::IsPesDribbleFamily(family))
+    return -1;
   return std::atoi(anim->anim->GetVariable("specialvar2").c_str());
 }
 

@@ -26,7 +26,7 @@ namespace pes {
 
 // The specialvar1 families imported clips carry. Celebrations and cards use
 // 1..3 (gamedefines.hpp), so imported families start well clear of them.
-enum class PesClipFamily : int { kDodge = 100, kTackle = 101, kLocomotion = 102, kTrap = 103 };
+enum class PesClipFamily : int { kDodge = 100, kTackle = 101, kLocomotion = 102, kTrap = 103, kDribble = 104 };
 
 struct PesClip {
   std::string name;
@@ -72,8 +72,10 @@ inline bool IsPesLocomotionFamily(int specialVar1) {
   return specialVar1 == int(PesClipFamily::kLocomotion);
 }
 inline bool IsPesTrapFamily(int specialVar1) { return specialVar1 == int(PesClipFamily::kTrap); }
+// The Dribble action's clips (the motions its sub-state handlers issue through SetMotion, FUN_1406F0F70): `dribble*` in the exe's table.
+inline bool IsPesDribbleFamily(int specialVar1) { return specialVar1 == int(PesClipFamily::kDribble); }
 inline bool PesFamilyPoseMatched(int specialVar1) {
-  return !IsPesLocomotionFamily(specialVar1) && !IsPesTrapFamily(specialVar1);
+  return !IsPesLocomotionFamily(specialVar1) && !IsPesTrapFamily(specialVar1) && !IsPesDribbleFamily(specialVar1);
 }
 
 inline ContactAction SpecialClipAction(int specialVar1, ContactAction challenge) {

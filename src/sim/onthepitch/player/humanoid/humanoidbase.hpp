@@ -256,6 +256,8 @@ public:
   bool OnPesLocomotion() const;
   // A PES trap clip: a Special clip of the trap family, whose contact frame is a trap touch.
   bool OnPesTrap() const;
+  // A PES dribble clip: a Special clip of the dribble family, the motion the Dribble action's sub-state handlers issued.
+  bool OnPesDribble() const;
   bool IsMovementClip() const {
     return currentAnim->functionType == e_FunctionType_Movement || OnPesLocomotion();
   }

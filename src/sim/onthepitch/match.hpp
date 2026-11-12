@@ -313,6 +313,11 @@ public:
   }
   // How many grants slot's body has taken in this match (the tests' witness that a touch was a grant).
   unsigned PesTouchesTaken(int slot) const { return pesTouchesTaken[slot]; }
+  // The dribble tick's SetMotion issues (RunPesDribbleTicks) and the ones the body could not play, by motion number (the tests' witness
+  // that PES's issue reached the body).
+  void NotePesDribbleIssue(int motion, bool played) { ++pesDribbleIssues; if (!played) ++pesDribbleIssuesUnplayed[motion]; }
+  unsigned PesDribbleIssues() const { return pesDribbleIssues; }
+  const std::map<int, unsigned>& PesDribbleIssuesUnplayed() const { return pesDribbleIssuesUnplayed; }
   // A grant lives for the tick that made it (the bodies take it in the same tick's team stage): RunPesBodyScans clears the last tick's.
   void ClearPesTouches() { pesTouchGranted.fill(false); }
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
@@ -768,6 +773,8 @@ protected:
   pes::PesActorConstants pesActorConstants{};
   std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
   std::array<unsigned, pes::kSlotCount> pesTouchesTaken{};
+  unsigned pesDribbleIssues = 0;
+  std::map<int, unsigned> pesDribbleIssuesUnplayed;
   std::array<pes::PesBodyScanOut, pes::kSlotCount> pesTouch{};
   std::array<bool, pes::kSlotCount> pesTouchGranted{};
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;

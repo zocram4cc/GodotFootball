@@ -22,6 +22,9 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <string>
+#include <vector>
+#include <cstdio>
 #include <cstring>
 #include <map>
 #include <utility>
@@ -3475,6 +3478,15 @@ void WritePesManMovement(Player& pl, uint8_t* man) {
 
 namespace {
 
+// GF's own Dribble: the body's clip derives the Dribble action (a BallControl clip of the carrier) and is not one of PES's dribble clips
+// (PlayIssuedClip's kDribble family, the motions the Dribble action's tick issued). Only those men's P is rewritten from the clip.
+bool GfOwnsDribble(Player& pl, bool carrier) {
+  const Anim* clip = pl.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  return !pes::IsPesDribbleFamily(family) &&
+         pes::AnimeActionOfClip(pl.GetCurrentFunctionType(), family, carrier) == pes::kAnimeActionDribble;
+}
+
 // The facts P's fields are made from (pestrapactor.hpp), read from the player's own state. `p` is P's bytes as the last tick left them.
 pes::PesActorFacts TrapFactsOf(Player& pl, int slot, bool carrier, const uint8_t* p) {
   pes::PesActorFacts f;
@@ -3504,7 +3516,10 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot, bool carrier, const uint8_t
   constexpr float kGfAnimFrame_s = 0.01f;
   if (motion >= 0) {
     const Anim* clip = pl.GetCurrentAnim();
-    if (pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
+    // A finished dribble clip stays listed at its last frame: the Dribble action leaves a clip only through its frame count (FUN_1407B9280's
+    // `iVar4 <= iVar5` arm, the frame the table lists), and PES's anime layer holds a finished non-looping motion. INF: no capture of a
+    // dribble clip's end.
+    if (pes::IsPesDribbleFamily(family) || pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
       f.playing[0].id = static_cast<uint16_t>(motion);
       f.playing[0].seconds = static_cast<float>(pl.GetFrameNum()) * kGfAnimFrame_s;
       f.playingCount = 1;
@@ -3560,17 +3575,11 @@ void WritePesTrapActors(Match& match) {
                     pes::kVelocityRingEntryBytes);
       pes::PesActorFacts facts = TrapFactsOf(*p, slot, match.GetPesHolder() == p.get(), match.PesWorldOf().P(slot));
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
-      // PES-owned dribble: P says Dribble but the body's clip does not derive it (TrapFactsOf derives Dribble only for a
-      // BallControl clip of the carrier). GF-derived Dribble stays GF's (rewritten below, no runner); only a PES switch
-      // (trap end -> act4 start) puts P in Dribble against the clip, and only those men get the dribble runner.
-      const Anim* bodyClip = p->GetCurrentAnim();
-      const int bodyFamily = bodyClip && bodyClip->anim ? std::atoi(bodyClip->anim->GetVariable("specialvar1").c_str()) : 0;
-      const bool clipDerivesDribble =
-          pes::AnimeActionOfClip(p->GetCurrentFunctionType(), bodyFamily, match.GetPesHolder() == p.get()) ==
-          pes::kAnimeActionDribble;
+      // PES-owned dribble: P says Dribble and the body's clip is not GF's own dribble (GfOwnsDribble). GF-derived Dribble stays GF's
+      // (rewritten below, no runner); a PES switch (trap end -> act4 start) puts P in Dribble, and only those men get the runner.
       facts.dribbleActive = !facts.trapActive &&
                             match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionDribble &&
-                            !clipDerivesDribble;
+                            !GfOwnsDribble(*p, match.GetPesHolder() == p.get());
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
@@ -3639,16 +3648,26 @@ void RunPesDribbleTicks(Match& match) {
       const int slot = match.PesSlotOf(p.get());
       uint8_t* pb = world.P(slot);
       if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) continue;
-      const Anim* bodyClip = p->GetCurrentAnim();
-      const int bodyFamily = bodyClip && bodyClip->anim ? std::atoi(bodyClip->anim->GetVariable("specialvar1").c_str()) : 0;
-      if (pes::AnimeActionOfClip(p->GetCurrentFunctionType(), bodyFamily, match.GetPesHolder() == p.get()) ==
-          pes::kAnimeActionDribble)
-        continue;
+      if (GfOwnsDribble(*p, match.GetPesHolder() == p.get())) continue;
       const Vector3 dir = p->GetDirectionVec();
       constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      // SetMotion (FUN_1406F0F70) stores P+0x375C = 1 with the motion in P+0xAE0 (iface vtable +0x10), the start in +0x3B54, the mirror
+      // byte in +0x2472 and the rate in +0x3758; the series variant (FUN_1406F14E0) stores 2. The cell has no reader in the image's code
+      // (a scan of every [reg+0x375C] access: four writers, no reader), so GF owns it: cleared before the tick, read after it, the dribble
+      // tick's SetMotion is the clip the body must play (the trap tick's phase-0 SetMotion is played the same way, RunPesTrapTicks).
+      pb[pes::kPMotionIssuedOffset] = 0;
       world.RunDribbleTick(slot, match.PesTrapExternalsOf());
+      // The series variant (P+0x375C = 2, FUN_1406F14E0: a motion list the anime layer walks) is not played: it names no motion in P+0xAE0.
+      // OPEN (docs/ports/pes-port-TrapContact5.md): 3-6 of ~65 dribble issues in a seed-7 match.
+      if (pb[pes::kPMotionIssuedOffset] == pes::kMotionIssuedSet) {
+        uint16_t motion;
+        float playback;
+        std::memcpy(&motion, pb + pes::kPWordAE0Offset, sizeof motion);
+        std::memcpy(&playback, pb + pes::kPPlaybackOffset, sizeof playback);
+        match.NotePesDribbleIssue(motion, p->CastHumanoid()->PlayIssuedClip(motion, playback, pb[pes::kPMirrorOffset] != 0, pes::PesClipFamily::kDribble));
+      }
     }
   }
 }

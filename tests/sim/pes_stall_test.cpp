@@ -132,11 +132,20 @@ class TrapContactProbe : public pestest::Probe {
   // resting ball is the post-touch chain never running (end handler 0x14079E5C0 -> switch 0x1406EEBB0 -> act4 start 0x1407A38E0).
   static constexpr long kDribbleEngageTicks = 150;  // ~2.8 s: the trap clip's tail past its contact frame plus the end chain
   long strandedTrappers = 0;  // granted resting touches with no dribble inside the window
+  // A man in PES's Dribble action whose P+0xAE0 names a motion (the one the dribble tick's SetMotion issued) must have that motion on the
+  // anime player's list (the table P+0x354, rebuilt each tick from the clip the body plays): the dribble's frame tests (iface +0x38 =
+  // FUN_1406E68C0, the contact test FUN_1406EC260, the leave test FUN_1407B9280) all read the motion's frame from that table and answer 0
+  // for a motion that is not on it. A tick of such a man with his motion off the table is the body not playing what PES issued.
+  long pesDribbleTicks = 0;
+  unsigned dribbleIssues = 0;                        // the dribble tick's SetMotion issues (Match::PesDribbleIssues)
+  std::map<int, unsigned> unplayedDribbleIssues;   // those the body could not play, by motion
+  long dribbleMotionNotOnTable = 0;
   long neverEngagedTrappers = 0;  // granted resting touches whose man was in PES's dribble at no tick of the window (the chain never ran)
-  // PES's per-man counter block (FUN_1406F6790, 0x1406F67C4..) counts P+0x2814 one tick at a time up to 255 and nothing in GF's window
-  // clears it: after kCounterWarmupTicks every active man's byte is saturated.
-  static constexpr long kCounterWarmupTicks = 300;
-  long unsaturatedCounters = 0;
+  // PES's per-man counter block (FUN_1406F6790, 0x1406F67C4..) counts P+0x2814 one tick at a time up to 255; PES's own writers reset it
+  // (0x1406EB639, 0x1406EB83E, 0x1406EE75F, in the switch / reset), so a man's byte is either 255, or one more than last tick's, or a reset
+  // to a smaller value. A byte below 255 that did not move, or that moved by anything but one, is the counter not counting.
+  long counterNotCounting = 0;
+  std::string counterSamples;  // the first violations: last->now@slot/action
   // Match::Process advances the clock at its end (match.cpp, `actualTime_ms += kTick_ms`), after the bodies stamped this tick's
   // touches, so a touch made on the tick that just ran carries the clock as it stood when the tick began.
   void OnStart(Match& match) override { tickStart_ms_ = match.GetActualTime_ms(); }
@@ -144,10 +153,17 @@ class TrapContactProbe : public pestest::Probe {
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
-        const long onPitch = ++onPitchTicks_[player.get()];
-        if (onPitch > kCounterWarmupTicks &&
-            match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPTickCounterFirstOffset] != 0xFF)
-          ++unsaturatedCounters;
+        const uint8_t byte = match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPTickCounterFirstOffset];
+        uint16_t& last = lastCounter_.emplace(player.get(), kNoCounter).first->second;
+        const bool upByOther = last != kNoCounter && byte != 0xFF && byte != last + 1 && byte > last;  // moved up by other than one
+        // Below 255 and not moving. A man PES's switch resets every tick (the writers above) reads reset-then-count = 1 each tick, which is
+        // the counter counting: only a byte stuck at another value (0 = the counter block never ran) is not.
+        const bool stuck = last != kNoCounter && byte != 0xFF && byte == last && byte != 1;
+        if (upByOther || stuck) {
+          ++counterNotCounting;
+          if (counterSamples.size() < 12) counterSamples += (upByOther ? " up " : " stuck ") + std::to_string(last) + "->" + std::to_string(byte) + "@" + std::to_string(match.PesSlotOf(player.get())) + "/ac8=" + std::to_string(match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset]);
+        }
+        last = byte;
       }
     }
     const float restingSpeed_mps = 1.0f;
@@ -174,9 +190,33 @@ class TrapContactProbe : public pestest::Probe {
     }
     previousSpeed_ = speed;
     tickStart_ms_ = match.GetActualTime_ms();
+    dribbleIssues = match.PesDribbleIssues();
+    unplayedDribbleIssues = match.PesDribbleIssuesUnplayed();
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
+        {
+          const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player.get()));
+          uint16_t motion;
+          std::memcpy(&motion, p + pes::kPWordAE0Offset, sizeof motion);
+          uint16_t& before = lastMotion_[player.get()];
+          // A motion issued this tick reaches the list in the next tick's rebuild (the anime update follows the action tick): only a
+          // motion that has been the man's for a tick is held to it.
+          const bool settled = before == motion;
+          before = motion;
+          if (settled && p[pes::kPByteAC8Offset] == pes::kAnimeActionDribble && motion != pes::kPNoMotion) {
+            ++pesDribbleTicks;
+            uint32_t count;
+            std::memcpy(&count, p + pes::kPMotionCountOffset, sizeof count);
+            bool listed = false;
+            for (uint32_t k = 0; k < count && k < pes::kPMotionTableMax; ++k) {
+              uint32_t id;
+              std::memcpy(&id, p + pes::kPMotionTableOffset + k * pes::kPMotionEntryBytes, sizeof id);
+              listed = listed || id == motion;
+            }
+            if (!listed) ++dribbleMotionNotOnTable;
+          }
+        }
         auto& w = waiting_[player.get()];
         if (w.restLeft > 0 && match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset] == pes::kAnimeActionDribble)
           w.sawDribble = true;
@@ -196,7 +236,9 @@ class TrapContactProbe : public pestest::Probe {
     bool sawDribble = false;
   };
   std::map<const Player*, Wait> waiting_;
-  std::map<const Player*, long> onPitchTicks_;
+  static constexpr uint16_t kNoCounter = 0x100;
+  std::map<const Player*, uint16_t> lastCounter_;
+  std::map<const Player*, uint16_t> lastMotion_;
   std::map<int, unsigned> taken_;
   float previousSpeed_ = 0.0f;
   unsigned long tickStart_ms_ = 0;
@@ -327,15 +369,15 @@ TEST(PesStall, ATrapTouchIsTheBodyScansGrantAndNothingElse) {
       << contactCensus.grantsWithoutTouch << " of " << contactCensus.grants << " grants did not touch the ball";
 }
 
-// PES's per-man counter block counts P+0x2814 up to 255 (FUN_1406F6790, 0x1406F67C4..0x1406F6806) and GF's window never clears it, so a
-// man who has been on the pitch for kCounterWarmupTicks has it saturated. The dribble chain reads the sibling P+0x2818 the same way.
+// PES's per-man counter block counts P+0x2814 up to 255 (FUN_1406F6790, 0x1406F67C4..0x1406F6806) and PES's switch resets it: every tick
+// of every man on the pitch it is 255, one more than last tick, or a reset. The dribble chain reads the sibling P+0x2818 the same way.
 TEST(PesStall, EveryManOnThePitchHasPesTickCountersCounting) {
   pestest::Run(contactCensus);
   if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
   ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
   pestest::Settle(contactCensus);
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
-  EXPECT_EQ(contactCensus.unsaturatedCounters, 0) << contactCensus.unsaturatedCounters << " man-ticks with P+0x2814 below 255 after warm-up";
+  EXPECT_EQ(contactCensus.counterNotCounting, 0) << contactCensus.counterNotCounting << " man-ticks with P+0x2814 below 255 that did not count by one:" << contactCensus.counterSamples;
 }
 
 // A resting ball a trapping man reaches is the case PES's reach test decides and GF's distance gate used to refuse (the loose-ball
@@ -376,4 +418,33 @@ TEST(PesStall, AGrantedRestingTouchReachesPesDribbleWithinTheWindow) {
   EXPECT_EQ(contactCensus.neverEngagedTrappers, 0)
       << contactCensus.neverEngagedTrappers << " of " << contactCensus.restingGrants
       << " granted resting touches never reached PES's dribble in the window";
+}
+
+// The first link of a PES dribbler's touch chain: the body plays the motion the Dribble action issued (SetMotion, P+0xAE0). Without it
+// the dribble's frame tests read 0 and the contact-pending bit (0x1407A7085, FUN_1407A6F30) is never raised: no scan, no touch.
+TEST(PesStall, APesDribblerPlaysTheMotionItIssued) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(contactCensus.pesDribbleTicks, 0) << "no man was in PES's Dribble action with a motion issued in the whole match";
+  EXPECT_EQ(contactCensus.dribbleMotionNotOnTable, 0)
+      << contactCensus.dribbleMotionNotOnTable << " of " << contactCensus.pesDribbleTicks
+      << " PES-dribbler ticks had the issued motion off the anime player's list";
+}
+
+// Every SetMotion the Dribble action's tick makes reaches the body: PES's issue is the clip the man plays (RunPesDribbleTicks), so a motion
+// the body could not play (no clip of the dribble family, or the body refused it) is PES's behaviour not reproduced. Killing the dribble
+// runner leaves no issue at all, which the first assertion catches.
+TEST(PesStall, EveryDribbleIssueIsPlayedOnTheBody) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(contactCensus.dribbleIssues, 0u) << "the Dribble action's tick issued no motion in the whole match";
+  std::string unplayed;
+  for (const auto& [motion, count] : contactCensus.unplayedDribbleIssues) unplayed += " " + std::to_string(motion) + "x" + std::to_string(count);
+  EXPECT_TRUE(contactCensus.unplayedDribbleIssues.empty()) << "unplayable dribble issues (motion x count):" << unplayed;
 }

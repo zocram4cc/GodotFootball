@@ -2337,7 +2337,8 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   // Passes fall on every seed. Decide again once the roster-slot term is ported.
   const bool pesClip = command.useSpecialVar1 && (pes::IsPesClipFamily(command.specialVar1) ||
                                                   pes::IsPesLocomotionFamily(command.specialVar1) ||
-                                                  pes::IsPesTrapFamily(command.specialVar1));
+                                                  pes::IsPesTrapFamily(command.specialVar1) ||
+                                                  pes::IsPesDribbleFamily(command.specialVar1));
   if (command.useSpecialVar1)
     query.properties.Set("specialvar1", command.specialVar1);
   if (command.useSpecialVar2)
