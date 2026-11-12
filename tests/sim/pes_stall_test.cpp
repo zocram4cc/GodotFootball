@@ -195,7 +195,9 @@ class GfClipProbe : public pestest::Probe {
       : Probe("PesStallGfClip", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
   long manTicks = 0;      // active men, ticks
   long gfClipTicks = 0;   // those on a GF-native clip
-  long loopClipsLost = 0;  // a locomotion clip PES issued in IDLE, RUN_LOOP or STEP_LOOP replaced by a GF clip
+  long loopClipsLost = 0;  // a locomotion clip PES issued in IDLE, RUN_LOOP or STEP_LOOP that GF's end-of-clip switch replaced by a GF clip
+  long placements = 0;     // placements of a man after the first (HumanoidBase::ResetPosition)
+  long unconvertedPlacements = 0;  // of those, men still on a Movement clip of GF's own kStandTicks after it
   std::map<std::string, long> byClip;    // "fn / folder": ticks
   std::map<std::string, long> byEntry;   // "from -> to (interrupt, command)": clip starts
   void OnTick(Match& match) override {
@@ -203,10 +205,19 @@ class GfClipProbe : public pestest::Probe {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
         Humanoid* body = player->CastHumanoid();
+        Seen& seen = seen_[player.get()];
+        if (body->GetPlacementCount() != seen.placementCount) {
+          if (seen.placementCount != 0) {
+            placements++;
+            seen.standCheckIn = kStandTicks;
+          }
+          seen.placementCount = body->GetPlacementCount();
+        }
         const Anim* clip = body->GetCurrentAnim();
         const bool gf = pesmovestep::CurrentMotionOf(*player) < 0;
         const std::string name = clip->anim ? clip->anim->GetName() : "-";
-        Seen& seen = seen_[player.get()];
+        if (seen.standCheckIn > 0 && --seen.standCheckIn == 0 && gf && clip->functionType == e_FunctionType_Movement)
+          unconvertedPlacements++;
         manTicks++;
         if (gf) {
           gfClipTicks++;
@@ -214,7 +225,7 @@ class GfClipProbe : public pestest::Probe {
                  std::to_string(int(player->GetMoveStep().state))]++;
         }
         if (name != seen.name || clip->frameNum < seen.frame) {
-          if (gf && seen.looping) loopClipsLost++;
+          if (gf && seen.looping && clip->originatingInterrupt == e_InterruptAnim_Switch) loopClipsLost++;
           if (gf)
             byEntry[std::string(seen.gf ? "GF " : "PES ") + "fn" + std::to_string(seen.function) + " -> fn" +
                     std::to_string(int(clip->functionType)) + " " + Folder(name) + " (interrupt " +
@@ -222,20 +233,26 @@ class GfClipProbe : public pestest::Probe {
                     std::to_string(int(clip->originatingCommand.desiredFunctionType)) + ")"]++;
         }
         const pes::MoveState state = player->GetMoveStep().state;
-        seen = {name, clip->frameNum, gf, int(clip->functionType),
-                body->OnPesLocomotion() && (state == pes::MoveState::kIdle || state == pes::MoveState::kRunLoop ||
-                                            state == pes::MoveState::kStepLoop)};
+        seen.name = name;
+        seen.frame = clip->frameNum;
+        seen.gf = gf;
+        seen.function = int(clip->functionType);
+        seen.looping = body->OnPesLocomotion() && (state == pes::MoveState::kIdle || state == pes::MoveState::kRunLoop ||
+                                                    state == pes::MoveState::kStepLoop);
       }
     }
   }
 
  private:
+  static constexpr int kStandTicks = 10;  // ticks MOVESTEP has to issue its first clip after a placement (INIT issues on the first dispatch)
   struct Seen {
     std::string name;
     int frame = 0;
     bool gf = false;
     int function = 0;
     bool looping = false;  // a MOVESTEP locomotion clip in a state whose clip PES's anime player loops
+    int placementCount = 0;
+    int standCheckIn = 0;
   };
   // The clip's folder under gf_anims, its first three components ("movement/idle/135_accel.anim" -> "movement/idle"); autogen blends have none.
   static std::string Folder(const std::string& name) {
@@ -286,6 +303,20 @@ TEST(PesStall, ALoopingLocomotionClipIsNeverReplacedByAGfClip) {
   pestest::Settle(gfClipCensus);
   ASSERT_TRUE(gfClipCensus.stop.gameOver) << "the match did not reach full time";
   EXPECT_EQ(gfClipCensus.loopClipsLost, 0) << gfClipCensus.loopClipsLost << " looping PES locomotion clips were replaced by a GF clip";
+}
+
+// A placement is PES's reset (FUN_1406EE6A0: exit the action) and the next MOVE entry starts MOVESTEP in INIT (FUN_1406EB440 clears the
+// phase), whose handler issues the man's first clip: a placed man is on a motion of PES's Animetable within a few ticks, not on the idle
+// clip GF's placement left on him.
+TEST(PesStall, APlacedManPlaysAPesIdleWithinTenTicks) {
+  pestest::Run(gfClipCensus);
+  if (gfClipCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(gfClipCensus.setupError.empty()) << gfClipCensus.setupError;
+  pestest::Settle(gfClipCensus);
+  ASSERT_TRUE(gfClipCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(gfClipCensus.placements, 0) << "no man was placed after the first placement";
+  EXPECT_EQ(gfClipCensus.unconvertedPlacements, 0) << gfClipCensus.unconvertedPlacements << " of " << gfClipCensus.placements
+                                                   << " placed men were still on a Movement clip of GF's own after " << 10 << " ticks";
 }
 
 // PES's reaction entry 3 refuses the carrier (MA+0x2601C) unless he is in stagger, dodge or the keeper's drop (FUN_1409fa400 at

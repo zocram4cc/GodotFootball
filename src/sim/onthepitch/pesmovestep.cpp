@@ -384,8 +384,10 @@ class MoveHostAdapter final : public pes::MoveHost {
   int CurrentMotion() const override { return pesmovestep::CurrentMotionOf(player_); }
   int CurrentClipFrames() const override { return player_.GetFrameNum(); }
   int AnimeState() const override {
-    // ponytail: vt+0x28 of the +0xab8 interface; GF answers the MOVE action (2) for
-    // movement-like functions, else the 0 stub (never the 0x4a replay action).
+    // ponytail: vt+0x28 of the +0xab8 interface; GF answers the MOVE action (2) for movement-like functions and for the locomotion
+    // clips MOVESTEP issued (a Special clip of the PES locomotion family: the body is in MOVE), else the 0 stub (never the 0x4a replay
+    // action).
+    if (player_.CastHumanoid()->OnPesLocomotion()) return 2;
     switch (player_.GetCurrentFunctionType()) {
       case e_FunctionType_Movement:
       case e_FunctionType_BallControl:
@@ -574,9 +576,17 @@ void ProcessMoveStep(Player& player, Match& match) {
   // FUN_1406eebb0's stores at action entry, where AnimeState changes (a new action, P+0xac8): the speed class
   // (P+0x245a, FUN_14081e340 of the command's speed at the turn) and the foot band (P+0x245b, anime vt+0x78).
   // GF has no foot sensor; the band stands at the side of the last displacement against the facing.
+  // The action entry also calls FUN_1406eb440, which clears the phase (P+0x245d = P+0x245c; P+0x245c = 0, docs/re/pes-re-gaps-anime.md
+  // 387): the MOVE action starts in INIT, whose handler issues the first clip. A placement (HumanoidBase::ResetPosition, PES's
+  // FUN_1406ee6a0 reset: exit the current action) is an action entry too: the body stands on GF's idle clip, and a record left in IDLE
+  // with its live kind set issued nothing, so the man kept GF's clip for good.
   const int anime = host.AnimeState();
-  if (anime != rec.actionAnime) {
+  const int placements = player.CastHumanoid()->GetPlacementCount();
+  if (anime != rec.actionAnime || placements != rec.placementsSeen) {
+    const bool intoMove = anime == 2;
     rec.actionAnime = anime;
+    rec.placementsSeen = placements;
+    if (intoMove) rec.EnterInit();
     host.StoreSpeedClass(host.CommandSpeedKmh(), host.DisplacementTurnDeg());
     host.StoreFootBand(host.DisplacementTurnDeg());
   }
