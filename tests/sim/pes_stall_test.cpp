@@ -132,10 +132,24 @@ class TrapContactProbe : public pestest::Probe {
   // resting ball is the post-touch chain never running (end handler 0x14079E5C0 -> switch 0x1406EEBB0 -> act4 start 0x1407A38E0).
   static constexpr long kDribbleEngageTicks = 150;  // ~2.8 s: the trap clip's tail past its contact frame plus the end chain
   long strandedTrappers = 0;  // granted resting touches with no dribble inside the window
+  long neverEngagedTrappers = 0;  // granted resting touches whose man was in PES's dribble at no tick of the window (the chain never ran)
+  // PES's per-man counter block (FUN_1406F6790, 0x1406F67C4..) counts P+0x2814 one tick at a time up to 255 and nothing in GF's window
+  // clears it: after kCounterWarmupTicks every active man's byte is saturated.
+  static constexpr long kCounterWarmupTicks = 300;
+  long unsaturatedCounters = 0;
   // Match::Process advances the clock at its end (match.cpp, `actualTime_ms += kTick_ms`), after the bodies stamped this tick's
   // touches, so a touch made on the tick that just ran carries the clock as it stood when the tick began.
   void OnStart(Match& match) override { tickStart_ms_ = match.GetActualTime_ms(); }
   void OnTick(Match& match) override {
+    for (int team = 0; team < 2; ++team) {
+      for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
+        if (!player->IsActive()) continue;
+        const long onPitch = ++onPitchTicks_[player.get()];
+        if (onPitch > kCounterWarmupTicks &&
+            match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPTickCounterFirstOffset] != 0xFF)
+          ++unsaturatedCounters;
+      }
+    }
     const float restingSpeed_mps = 1.0f;
     const float speed = match.GetBall()->GetMovement().GetLength();
     for (int team = 0; team < 2; ++team) {
@@ -164,9 +178,13 @@ class TrapContactProbe : public pestest::Probe {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
         auto& w = waiting_[player.get()];
+        if (w.restLeft > 0 && match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset] == pes::kAnimeActionDribble)
+          w.sawDribble = true;
         if (w.restLeft > 0 && --w.restLeft == 0) {
           const int slot = match.PesSlotOf(player.get());
           if (match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) strandedTrappers++;
+          if (!w.sawDribble) neverEngagedTrappers++;
+          w.sawDribble = false;
         }
       }
     }
@@ -175,8 +193,10 @@ class TrapContactProbe : public pestest::Probe {
  private:
   struct Wait {
     long restLeft = 0;
+    bool sawDribble = false;
   };
   std::map<const Player*, Wait> waiting_;
+  std::map<const Player*, long> onPitchTicks_;
   std::map<int, unsigned> taken_;
   float previousSpeed_ = 0.0f;
   unsigned long tickStart_ms_ = 0;
@@ -307,6 +327,17 @@ TEST(PesStall, ATrapTouchIsTheBodyScansGrantAndNothingElse) {
       << contactCensus.grantsWithoutTouch << " of " << contactCensus.grants << " grants did not touch the ball";
 }
 
+// PES's per-man counter block counts P+0x2814 up to 255 (FUN_1406F6790, 0x1406F67C4..0x1406F6806) and GF's window never clears it, so a
+// man who has been on the pitch for kCounterWarmupTicks has it saturated. The dribble chain reads the sibling P+0x2818 the same way.
+TEST(PesStall, EveryManOnThePitchHasPesTickCountersCounting) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(contactCensus.unsaturatedCounters, 0) << contactCensus.unsaturatedCounters << " man-ticks with P+0x2814 below 255 after warm-up";
+}
+
 // A resting ball a trapping man reaches is the case PES's reach test decides and GF's distance gate used to refuse (the loose-ball
 // stalls: men 0.4 to 2.7 m from a ball at rest who never play it): at least one grant is a touch of a ball at rest.
 TEST(PesStall, ATrapReachesABallAtRest) {
@@ -330,4 +361,19 @@ TEST(PesStall, AGrantedRestingTouchStartsPesDribble) {
   EXPECT_EQ(contactCensus.strandedTrappers, 0)
       << contactCensus.strandedTrappers << " of " << contactCensus.restingGrants
       << " granted resting touches left the trapper out of PES's dribble";
+}
+
+// The cause side of the stranded count: a granted resting touch whose man was in PES's dribble at NO tick of the window is the post-touch
+// chain never running. A man who reached the dribble and left it again (the holder gate FUN_1406EC5F0 went false because another man
+// touched the ball, or the dribble's own exit) is PES's outcome, not a stall.
+TEST(PesStall, AGrantedRestingTouchReachesPesDribbleWithinTheWindow) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(contactCensus.restingGrants, 0) << "no trap touched a ball at rest in the whole match";
+  EXPECT_EQ(contactCensus.neverEngagedTrappers, 0)
+      << contactCensus.neverEngagedTrappers << " of " << contactCensus.restingGrants
+      << " granted resting touches never reached PES's dribble in the window";
 }
