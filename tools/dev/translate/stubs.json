@@ -4008,6 +4008,40 @@
     "op": "packer_lua_setallocf",
     "effect": "G = [rcx+0x20]; [G+0x10] = rdx; [G+0x18] = r8; rax = G"
    }
+  },
+ {
+   "va": "1444CE440",
+   "callers": [
+    "140EC2190"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0; obfuscated blocks in .impdata, no .pdata, not translatable): the constructor of an array of 16 small polymorphic objects (0x18 bytes each) at 0x1436FBA80, called by the static initializer FUN_1401DA710 (`lea rcx,[0x1436FBA80]; call` through the jmp thunk FUN_140EC2190); the initializer then registers FUN_14251CD70 with atexit, which resets each object's vtable word to 0x1427DCA80.",
+    "EFFECT READ FROM PES'S OWN BYTES on real states, NOT emulated (unicorn over the virtualized body faulted on the object page, a tool issue): each object is {vtable, 0xFFFF0000, 0}; the 16 vtable words, all distinct pointers into .rdata 0x1427DB688..0x1427DC4B8, are identical in the boot capture live2/pid974668/seq001 (taken at the scripting-init entry, before any game code ran: the initializers had run, no runtime mutation yet) and in the running game live2/pid4152866/seq002, and equal the dump pes_full.bin. The destructor FUN_14251CD70 (0x14251CD70..) resets the 16 vtable words and nothing else, so the vtable is the constructor's output, the other two words its constants. The pre-state (the cleared tail) holds zeros there.",
+    "Not covered: registers (the caller's next code is `lea rcx; jmp atexit`; nothing reads rax), the stack scratch below rsp, and the per-object vtable derivation inside the constructor (the table is data read from the state, not computed)."
+   ],
+   "model": {
+    "op": "packer_array_ctor_a",
+    "effect": "for k in 0..15: [rcx+0x18k] = vtable_k; [rcx+0x18k+8] = 0xFFFF0000; [rcx+0x18k+16] = 0; vtables: 0x1427dbb38, 0x1427dbbd8, 0x1427dbc78, 0x1427dbd48, 0x1427dbdc0, 0x1427dbe60, 0x1427dbeb0, 0x1427dbf50, 0x1427dbfc8, 0x1427dc068, 0x1427dc108, 0x1427dc180, 0x1427dc240, 0x1427dc338, 0x1427dc418, 0x1427dc4b8"
+   }
+  },
+  {
+   "va": "1444C7960",
+   "callers": [
+    "140EC1130"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0; obfuscated blocks in .impdata, no .pdata, not translatable): the constructor of an array of 20 small polymorphic objects (0x18 bytes each) at 0x1436FC390, called by the static initializer FUN_1401DA690 (`lea rcx,[0x1436FC390]; call` through the jmp thunk FUN_140EC1130); the initializer then registers FUN_14251C800 with atexit, which resets each object's vtable word to 0x1427DCA80.",
+    "EFFECT READ FROM PES'S OWN BYTES on real states, NOT emulated (unicorn over the virtualized body faulted on the object page, a tool issue): each object is {vtable, 0xFFFF0000, 0}; the 20 vtable words, all distinct pointers into .rdata 0x1427DB688..0x1427DC4B8, are identical in the boot capture live2/pid974668/seq001 (taken at the scripting-init entry, before any game code ran: the initializers had run, no runtime mutation yet) and in the running game live2/pid4152866/seq002, and equal the dump pes_full.bin. The destructor FUN_14251C800 (0x14251C800..) resets the 20 vtable words and nothing else, so the vtable is the constructor's output, the other two words its constants. The pre-state (the cleared tail) holds zeros there.",
+    "Not covered: registers (the caller's next code is `lea rcx; jmp atexit`; nothing reads rax), the stack scratch below rsp, and the per-object vtable derivation inside the constructor (the table is data read from the state, not computed)."
+   ],
+   "model": {
+    "op": "packer_array_ctor_b",
+    "effect": "for k in 0..19: [rcx+0x18k] = vtable_k; [rcx+0x18k+8] = 0xFFFF0000; [rcx+0x18k+16] = 0; vtables: 0x1427db688, 0x1427db700, 0x1427db778, 0x1427db7f0, 0x1427db868, 0x1427db8e0, 0x1427db958, 0x1427db9d0, 0x1427dba48, 0x1427dbac0, 0x1427dbb60, 0x1427dbc00, 0x1427dbc50, 0x1427dbd70, 0x1427dbde8, 0x1427dbe38, 0x1427dbed8, 0x1427dbf28, 0x1427dbff0, 0x1427dc090"
+   }
   }
  ]
 }

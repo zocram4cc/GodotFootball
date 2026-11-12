@@ -311,3 +311,34 @@ void pes_service_packer_lua_setallocf(PesState& s) {
   s.wr(g + kLuaGlobalAllocUdOff, s.gpr[8], 8);
   s.gpr[0] = g;
 }
+
+// 0x1444CE440(array) and 0x1444C7960(array): the constructors of two arrays of small polymorphic objects (0x18 bytes: vtable, 0xFFFF0000, 0).
+// The vtables are read from the boot capture and the running game (stubs.json entries); the translated code never sees the constructors' bodies.
+namespace {
+constexpr uint64_t kPackerObjectBytes = 0x18, kPackerObjectFlagsOff = 8, kPackerObjectFlags = 0xFFFF0000;
+constexpr uint64_t kArrayAVtables[] = {
+    0x1427DBB38, 0x1427DBBD8, 0x1427DBC78, 0x1427DBD48,
+    0x1427DBDC0, 0x1427DBE60, 0x1427DBEB0, 0x1427DBF50,
+    0x1427DBFC8, 0x1427DC068, 0x1427DC108, 0x1427DC180,
+    0x1427DC240, 0x1427DC338, 0x1427DC418, 0x1427DC4B8,
+};
+constexpr uint64_t kArrayBVtables[] = {
+    0x1427DB688, 0x1427DB700, 0x1427DB778, 0x1427DB7F0,
+    0x1427DB868, 0x1427DB8E0, 0x1427DB958, 0x1427DB9D0,
+    0x1427DBA48, 0x1427DBAC0, 0x1427DBB60, 0x1427DBC00,
+    0x1427DBC50, 0x1427DBD70, 0x1427DBDE8, 0x1427DBE38,
+    0x1427DBED8, 0x1427DBF28, 0x1427DBFF0, 0x1427DC090,
+};
+template <size_t N>
+void StoreObjectArray(PesState& s, uint64_t array, const uint64_t (&vtables)[N]) {
+  for (size_t k = 0; k < N; ++k) {
+    const uint64_t object = array + k * kPackerObjectBytes;
+    s.wr(object, vtables[k], 8);
+    s.wr(object + kPackerObjectFlagsOff, kPackerObjectFlags, 8);
+    s.wr(object + 2 * kPackerObjectFlagsOff, 0, 8);
+  }
+}
+}  // namespace
+
+void pes_service_packer_array_ctor_a(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayAVtables); }
+void pes_service_packer_array_ctor_b(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayBVtables); }

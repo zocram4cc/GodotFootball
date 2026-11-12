@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -276,6 +277,42 @@ TEST(PackerStandIns, LuaSetAllocFStoresTheAllocatorAndItsUserDataInTheGlobalStat
   std::vector<uint8_t> after = s.Bytes();
   for (uint64_t i = 0; i < 16; ++i) after[L + 0xC8 - ObjectState::kBase + i] = before[L + 0xC8 - ObjectState::kBase + i];
   EXPECT_EQ(after, before) << "a byte outside the two stores changed";
+}
+
+// The two array constructors (0x1444CE440: 16 objects, 0x1444C7960: 20): each object is {vtable, 0xFFFF0000, 0} at stride 0x18, the vtables
+// are the capture's (distinct). Checked: the first and last vtable of each array as the
+// captures hold them, the other two words of every object, the stride, the count (the word after the array is untouched) and that nothing
+// before the array moved.
+struct ArrayCase {
+  void (*ctor)(PesState&);
+  size_t count;
+  uint64_t firstVtable, lastVtable;
+};
+
+TEST(PackerStandIns, TheArrayConstructorsStoreTheCapturedObjectsAndNothingElse) {
+  const ArrayCase cases[] = {{pes_service_packer_array_ctor_a, 16, 0x1427DBB38, 0x1427DC4B8},
+                             {pes_service_packer_array_ctor_b, 20, 0x1427DB688, 0x1427DC090}};
+  constexpr uint64_t kObjectBytes = 0x18, kFlags = 0xFFFF0000;
+  for (const ArrayCase& c : cases) {
+    ObjectState s;
+    const uint64_t array = ObjectState::kBase + 0x40, end = array + c.count * kObjectBytes;
+    const std::vector<uint8_t> before = s.Bytes();
+    s.gpr[1] = array;
+    c.ctor(s);
+    EXPECT_EQ(s.rd(array, 8), c.firstVtable);
+    EXPECT_EQ(s.rd(end - kObjectBytes, 8), c.lastVtable);
+    std::set<uint64_t> vtables;
+    for (size_t k = 0; k < c.count; ++k) {
+      const uint64_t object = array + k * kObjectBytes;
+      vtables.insert(s.rd(object, 8));
+      EXPECT_EQ(s.rd(object + 8, 8), kFlags) << k;
+      EXPECT_EQ(s.rd(object + 16, 8), 0u) << k;
+    }
+    EXPECT_EQ(vtables.size(), c.count) << "the objects' vtables are distinct";
+    std::vector<uint8_t> after = s.Bytes();
+    for (uint64_t i = array - ObjectState::kBase; i < end - ObjectState::kBase; ++i) after[i] = before[i];
+    EXPECT_EQ(after, before) << "a byte outside the array changed";
+  }
 }
 
 }  // namespace
