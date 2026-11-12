@@ -2073,7 +2073,15 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     // The Move action's movement is MOVESTEP's alone (PES has no other mover): a requeue of GF's own movement clip on top of a PES
     // locomotion clip throws away the clip the FSM just issued, and the FSM's next tick issues it again at frame 0. A designated man
     // within 3 m of the ball requeues every second tick, so the keeper of a ball at rest never left his first frame.
-    if (OnPesLocomotion() && command.desiredFunctionType == e_FunctionType_Movement)
+    // The exception is the goalkeeper's own movement: GF's requeue is what turns and steps him toward the shot (a stand-still Movement
+    // command that looks at the ball), and without it a shoot-out keeper kept MOVESTEP's idle clips and saved none of 541 kicks (seed 7).
+    // The thrash above is a designated man beside a ball at rest, so a keeper in that case stays refused.
+    // ponytail: PES moves its keepers through the KP actions (KP_PRESS action 0x3e and the keeper decider ticks, docs/re/pes-re-goalkeeper.md),
+    // none of which is translated; this requeue stands in for them. Translate the KP action ticks and delete this exception.
+    const bool keeperMovesItself = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK &&
+                                   !(match->GetDesignatedPossessionPlayer() == CastPlayer() &&
+                                     match->GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms);
+    if (OnPesLocomotion() && command.desiredFunctionType == e_FunctionType_Movement && !keeperMovesItself)
       return false;
     if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement &&
