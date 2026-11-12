@@ -10,9 +10,9 @@
 
 
 void pes_fn_1419B7CD0(PesState& s);
+void pes_fn_1419B7CE0(PesState& s);
 
 void pes_fn_1419B7CD0(PesState& s) {
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[1]) + (0x8ULL)), 8));
-  /*OUT-OF-RANGE JMP 0x1419B7CE0*/ pes_dispatch_missing(0x1419B7CE0);
-  return;
+  { pes_fn_1419B7CE0(s); return; }
 }
