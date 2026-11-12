@@ -287,6 +287,35 @@ TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {
   EXPECT_LE(ceiling, 1.0f);
 }
 
+// The anime interface answers the elapsed ticks of the playing motion (FUN_1406E6960 -> FUN_1406E68C0): (int)(tick rate * seconds
+// played + 0.5) for a motion in the player's table, 0 for none. A man on a clip of GF's own has no PES motion, so he has played 0
+// ticks; a man on a MOVESTEP clip has played his frames at 10 ms of clip time each (the clock the clip was written on).
+TEST(MoveStepWire, TheElapsedTicksAreThePlayedSecondsInTicksAndZeroForAGfClip) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr float kHalf = 0.5f;
+  int pesChecked = 0, gfChecked = 0;
+  for (int t = 0; t < kTicks && (pesChecked < 20 || gfChecked < 20); ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Anim* a = p->GetCurrentAnim();
+      if (!a || !a->anim) continue;
+      const int ticks = pesmovestep::ElapsedTicksOf(*p, static_cast<float>(Match::kFramesPerSecond), kHalf);
+      if (pesmovestep::CurrentMotionOf(*p) < 0) {
+        EXPECT_EQ(ticks, 0) << "a clip of GF's own is in no motion table";
+        ++gfChecked;
+      } else {
+        EXPECT_EQ(ticks, static_cast<int>(Match::kFramesPerSecond * a->frameNum * pes::kGfAnimFrame_s + kHalf));
+        ++pesChecked;
+      }
+    }
+  }
+  EXPECT_GE(pesChecked, 20);
+  EXPECT_GE(gfChecked, 20);
+}
+
 // An issued clip drives the humanoid: on each tick where the FSM issues, the body plays a PES
 // locomotion clip. Built on main, Issue only records the clip for the viewer, so the body keeps
 // the AI's own clip.

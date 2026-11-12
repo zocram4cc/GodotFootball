@@ -207,6 +207,7 @@ class GfClipProbe : public pestest::Probe {
   long loopClipsLost = 0;  // a locomotion clip PES issued in IDLE that GF's end-of-clip switch replaced by a GF clip
   long turnClipsLost = 0;  // the same for a clip issued in any other state (turns, stops, runs): the state's own exit decides, not GF's switch
   long stuckAtEnd = 0;     // men who held the last frame of a MOVESTEP clip for kStuckTicks ticks: a state that never leaves it
+  std::map<std::string, long> byStuck;   // those, by state and clip
   long placements = 0;     // placements of a man after the first (HumanoidBase::ResetPosition)
   long unconvertedPlacements = 0;  // of those, men still on a Movement clip of GF's own kStandTicks after it (a restart taker is in his own action, not MOVE)
   long locomotionNotMove = 0;      // ticks a man held a MOVESTEP locomotion clip for two ticks while his record named another action than MOVE
@@ -257,7 +258,12 @@ class GfClipProbe : public pestest::Probe {
         }
         const bool atEnd = body->OnPesLocomotion() && clip->frameNum >= clip->anim->GetFrameCount() - 1;
         seen.atEndTicks = atEnd ? seen.atEndTicks + 1 : 0;
-        if (seen.atEndTicks == kStuckTicks) stuckAtEnd++;
+        if (seen.atEndTicks == kStuckTicks) {
+          stuckAtEnd++;
+          byStuck["state " + std::to_string(int(player->GetMoveStep().state)) + " prev " + std::to_string(int(player->GetMoveStep().previous)) +
+                  " " + name + " elapsed " + std::to_string(pesmovestep::ElapsedTicksOf(*player, 54.0f, 0.5f)) + " rate " +
+                  std::to_string(clip->playbackRate)]++;
+        }
         const pes::MoveState state = player->GetMoveStep().state;
         seen.name = name;
         seen.frame = clip->frameNum;
@@ -316,6 +322,7 @@ TEST(PesStall, NoPesLoopManPlaysAClipOfGfsOwn) {
   if (gfClipCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
   ASSERT_TRUE(gfClipCensus.setupError.empty()) << gfClipCensus.setupError;
   pestest::Settle(gfClipCensus);
+  for (const auto& [key, n] : gfClipCensus.byStuck) std::fprintf(stderr, "[stuck] %5ld  %s\n", n, key.c_str());
   for (const auto& [key, ticks] : gfClipCensus.byClip) std::fprintf(stderr, "[gfclip] %8ld ticks  %s\n", ticks, key.c_str());
   for (const auto& [key, starts] : gfClipCensus.byEntry) std::fprintf(stderr, "[gfclip-start] %6ld starts  %s\n", starts, key.c_str());
   ASSERT_TRUE(gfClipCensus.stop.gameOver) << "the match did not reach full time";

@@ -316,16 +316,15 @@ void Humanoid::Process() {
   // of PES's 0.65 m reach and the RUN_LOOP jostle test lost its style change), and the turn and stop handlers end their clip
   // themselves (cancel points, FUN_1406C14C0 and the others) once their exits are complete (docs/ports/pes-port-ClipOwner.md).
   // OPEN: PES loops through the clip's blend tail (Animation.bin blend_start); GF restarts at frame 0.
-  // A MOVESTEP locomotion clip's end belongs to its state on the PES path. IDLE loops the clip; every other state's handler reads the
-  // motion's elapsed ticks (CurrentClipFrames = FUN_1406E6960, ElapsedTicksOf) against the clip's cancel and end ticks and issues the
-  // next clip or leaves the state itself, so GF's own switch must not put a clip of GF's own over it: the clip holds its last frame
-  // until the state issues (PlayIssuedClip restarts a finished clip). docs/ports/pes-port-ClipOwner.md.
+  // Holding the last frame in the other states (no switch, the handlers reading the elapsed ticks, ElapsedTicksOf) was tried and stalled
+  // the seed-7 match: the exits of RUN_LOOP after ACCELERATE's clip (idle_0_3_run_*), IDLE_TURN, STEP_LOOP, RUN_TURN_RUN and GOTO_RUN
+  // never fire on a clip that has ended (PesStall.NoMovestepClipHoldsItsLastFrameForASecond; docs/ports/pes-port-ClipOwner.md section 8).
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None &&
       !PesPoseHeld(CastPlayer())) {
-    if (match->PesLoop() && OnPesLocomotion()) {
-      if (CastPlayer()->GetMoveStep().state == pes::MoveState::kIdle)
-        PlayIssuedClip(std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()), currentAnim->playbackRate,
-                       CastPlayer()->GetIssuedClip().request.mirror);
+    const bool loops = CastPlayer()->GetMoveStep().state == pes::MoveState::kIdle;
+    if (match->PesLoop() && OnPesLocomotion() && loops) {
+      PlayIssuedClip(std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()), currentAnim->playbackRate,
+                     CastPlayer()->GetIssuedClip().request.mirror);
     } else {
       interruptAnim = e_InterruptAnim_Switch;
     }
