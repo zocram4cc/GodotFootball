@@ -518,6 +518,36 @@
       ]
     },
     {
+      "module": "ucrtbase.dll",
+      "export": "_time64",
+      "do": "time64",
+      "code_hex": "48b8c565f16a000000004885c97403488901c3",
+      "why": [
+        "__time64_t _time64(__time64_t* out): the seconds since the epoch, also stored at *out when out is nonnull. PES's start-up initializers read it (RNG seeds, a session stamp).",
+        "Model: returns 1794205125 (the capture time of the live rig's pid4152866 snapshot, live2/pid4152866/seq002 index.json taken_unix: a real time_t of the running game) and stores it at *rcx when rcx != 0. A named constant for an OS answer: the match clock does not read it."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "CreateMutexA",
+      "do": "return",
+      "value": "0x1D0",
+      "why": [
+        "HANDLE CreateMutexA(attrs, initialOwner, name): the single-instance mutex PES's start-up creates; a nonzero handle is success, and GetLastError (the tebread model, TEB.LastErrorValue 0) then reads not-already-exists.",
+        "Model: returns the handle value 0x1D0 (any nonzero; nothing here uses it). A named constant for an OS answer."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "GetCurrentDirectoryW",
+      "do": "cwd_w",
+      "code_hex": "48b843003a005c000000488902b803000000c3",
+      "why": [
+        "DWORD GetCurrentDirectoryW(DWORD size, LPWSTR buf): PES's start-up initializers read the working directory (a path string kept in a static).",
+        "Model: writes L\"C:\\\" (3 wide chars and the terminator, 8 bytes at rdx) and returns 3. The real directory is the install's; the translated code keeps the string only. A named stand-in for an OS answer."
+      ]
+    },
+    {
       "module": "kernel32.dll",
       "export": "GetSystemInfo",
       "do": "sysinfo",

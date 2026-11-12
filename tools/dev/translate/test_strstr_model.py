@@ -298,5 +298,47 @@ class ModuleFileNameAndIobModels(unittest.TestCase):
         self.assertEqual(len(set(ptrs)), 3)
         self.assertEqual(ptrs, [self.run_model(("ucrtbase.dll", "__acrt_iob_func"), i).reg_read(UC_X86_REG_RAX) for i in (0, 1, 2)])
 
+
+class StartupOsModels(unittest.TestCase):
+    """_time64, CreateMutexA and GetCurrentDirectoryW as PES's start-up initializers call them."""
+
+    def run_model(self, key, rcx=0, rdx=0):
+        model = ft.load_import_models()[key]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, model)
+        mu.mem_map(DATA, 0x1000)
+        mu.mem_write(DATA + 0x100, b"\xAB" * 0x40)
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.reg_write(UC_X86_REG_RCX, rcx)
+        mu.reg_write(UC_X86_REG_RDX, rdx)
+        mu.emu_start(CODE, RET, count=100)
+        return mu
+
+    def test_time64_returns_the_time_and_stores_it_only_through_a_nonnull_pointer(self):
+        mu = self.run_model(("ucrtbase.dll", "_time64"), DATA + 0x100)
+        t = mu.reg_read(UC_X86_REG_RAX)
+        self.assertGreater(t, 0)
+        self.assertEqual(struct.unpack("<Q", bytes(mu.mem_read(DATA + 0x100, 8)))[0], t)
+        self.assertEqual(bytes(mu.mem_read(DATA + 0x108, 8)), b"\xAB" * 8)
+        mu = self.run_model(("ucrtbase.dll", "_time64"), 0)
+        self.assertEqual(mu.reg_read(UC_X86_REG_RAX), t)
+        self.assertEqual(bytes(mu.mem_read(DATA + 0x100, 8)), b"\xAB" * 8)
+
+    def test_create_mutex_returns_a_nonzero_handle(self):
+        self.assertNotEqual(self.run_model(("kernel32.dll", "CreateMutexA")).reg_read(UC_X86_REG_RAX), 0)
+
+    def test_current_directory_writes_a_terminated_wide_string_and_returns_its_length(self):
+        mu = self.run_model(("kernel32.dll", "GetCurrentDirectoryW"), 0x105, DATA + 0x100)
+        n = mu.reg_read(UC_X86_REG_RAX)
+        raw = bytes(mu.mem_read(DATA + 0x100, 0x40))
+        self.assertGreater(n, 0)
+        self.assertEqual(raw[2 * n:2 * n + 2], b"\x00\x00")
+        self.assertEqual(raw[2 * n + 2:], b"\xAB" * (0x40 - 2 * n - 2))
+
+
 if __name__ == "__main__":
     unittest.main()

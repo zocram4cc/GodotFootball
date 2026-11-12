@@ -263,11 +263,11 @@ void PesFoxWorld::Boot() {
   // The thread-safe static guards (_Init_thread_header) read the thread's TLS block (epoch at +0x84): it exists before the first one runs.
   InstallScratchArena();
   Call(::pes_fn_14038EE80, {});  // malloc_init_hard, as PES's first allocation runs it (FUN_14038E3E0 tests its flag at 0x1436DCEE0)
-  RunStaticInitializers();
   for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
                       kPumpCountBVa, kResManagerVa, kRegistryVa})
     Write64(va, 0);
   for (uint64_t va : kLazySingletonCells) Write64(va, 0);
+  RunStaticInitializers();  // after the singleton cells are clear (PES's start: .bss is zero), as the initializers may build on them
   {
     PesState s = NewCall();
     s.wr(kRegistrarFlagVa, 0, 1);
