@@ -4044,14 +4044,14 @@
    }
   },
  {
-  "va": "141957C60",
+  "va": "141957C50",
   "callers": [
    "1423D4A80"
   ],
   "used_by_closure": true,
   "kind": "gf-service",
   "why": [
-   "GF SERVICE for the graphics device's allocator (not a model of a PES effect: GF has no graphics device; GF is the other side of the seam, as the file layer's reads are). FUN_141957C60(size) = `(*(*DAT_1437C9238)->vtable[0x20])(*DAT_1437C9238, size)`: DAT_1437C9238 is the render system object FUN_141957E30 makes (called from the process-start init FUN_140400410 with the graphics config: its first member is the refcounted DEVICE object, whose method +0x20 allocates a command block). On the clean boot no device exists (DAT_1437C9238 = 0, the call target reads 0).",
+   "GF SERVICE for the graphics device's allocator, at the jmp thunk FUN_141957C50 (thunk_FUN_141957c60: `jmp 0x141957C60`; the call site in FUN_1423D4A80 calls the thunk) (not a model of a PES effect: GF has no graphics device; GF is the other side of the seam, as the file layer's reads are). FUN_141957C60(size) = `(*(*DAT_1437C9238)->vtable[0x20])(*DAT_1437C9238, size)`: DAT_1437C9238 is the render system object FUN_141957E30 makes (called from the process-start init FUN_140400410 with the graphics config: its first member is the refcounted DEVICE object, whose method +0x20 allocates a command block). On the clean boot no device exists (DAT_1437C9238 = 0, the call target reads 0).",
    "Answer: 0, the allocation-failed result. The one translated caller on the anime path, FUN_1423D4A80 (reached from the FixDemo setup FUN_141EB8770), tests its result (`if (puVar2 != 0) {queue the command...}`) and on 0 runs its own cleanup path through the object it was given; GF's engine world queues no render commands.",
    "Not covered: any caller that needs a real block (none on the engine world's path: the survey names this function only through FUN_1423D4A80); the graphics device itself."
   ],
