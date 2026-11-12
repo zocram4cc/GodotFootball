@@ -122,6 +122,7 @@ constexpr uint32_t kLookBucketFront = 9;
 constexpr uint32_t kLastPlayerSlot = 0x15;
 constexpr int kReplayIdleRow = 0x54c;
 constexpr uint32_t kIdleTurnDwellBits = 0x3e2aaaab;
+constexpr uint32_t kIdleIssueBlendBits = 0x3e4ccccd;  // FUN_1406bfe70's IDLE issue: 0.2 s for req[0x32] and req[0x2e]
 }  // namespace
 
 // FUN_1406d1390: the idle family's turn exit into IDLE_TURN (0x1406d1390..0x1406d175a). In the match phase (match+0x116c == 1)
@@ -362,65 +363,65 @@ void Idle(MoveHost& host, MoveReq& req) {
   RootFacingTail(host, req);
 }
 
-// FUN_1406bfe70: IDLE_TURN.
+// FUN_1406bfe70: IDLE_TURN (d_1406bfe70.c). The toe-off turn lock while the facing adjuster is idle (FUN_141eb3320 of P+0x4d0), the
+// class word -1, then the stay decision (FUN_1406b6bb0): refused, past the clip's end or its fixed tick, a turn candidate
+// re-enters IDLE_TURN (FUN_1406d1390) and anything else issues the IDLE clip once the fixed tick is reached; accepted, GOTO_RUN
+// is entered with the precise flag (req[0xe] == 1, an integer).
 void IdleTurn(MoveHost& host, MoveReq& req) {
+  using namespace moveword;
   const RunConstants& k = host.RunConstantsView();
   const int motion = host.CurrentMotion();
   const int start = host.ClipTicks(pes::ClipReader::kRotStart, motion, k.one, 0);  // FUN_1406b1f00
   const int total = host.ClipTicks(pes::ClipReader::kRotEnd, motion, k.one, 0);    // FUN_1406b1d00
   const int fixed = host.ClipTicks(pes::ClipReader::kBlend, motion, k.one, 0);     // FUN_1406af620
   const int current = host.CurrentClipFrames();
-  if (!host.IsReplay() && start <= current) {
+  if (!host.FacingAdjusterBusy() && start <= current) {
     const int span = start + total * 2;
     if (current < span / 3) {
       const int ticks = static_cast<int>(static_cast<float>(total - current) / host.RecordF2468() + k.half);
       // FUN_14043a0a0(req[2], req[0x18]): the facing against the stamp (0x1406BFF72), per tick.
-      const float turn = std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kRecordStampB), k)) /
-                         static_cast<float>(ticks);
+      const float turn = std::fabs(PesAngleDiff(req.F(kFacing), req.F(kRecordStampB), k)) / static_cast<float>(ticks);
       if (turn < k.deg45) {
-        req.SetU(moveword::kTurnLockStamp, req.U(moveword::kRecordStampB));
-        req.SetByte(moveword::kTurnLockFlag, 1);
-        req.SetU(moveword::kTurnLockTicks, static_cast<uint32_t>(ticks));
-        req.SetByte(moveword::kTurnLockDir, 0);
+        req.SetU(kTurnLockStamp, req.U(kRecordStampB));
+        req.SetByte(kTurnLockFlag, 1);
+        req.SetU(kTurnLockTicks, static_cast<uint32_t>(ticks));
+        req.SetByte(kTurnLockDir, 0);
       }
     }
   }
   req.SetU(kWordClass, 0xffffffffu);
   req.SetF(kWordSpeed, 0.0f);
-  if (!StayDecision(host, req)) {
-    if (total <= current || fixed <= current) {
-      const float error = std::fabs(req.F(moveword::kFacingError));
-      const bool turnCandidate =
-          req.U(moveword::kLookBucketAlt) != 0 && req.U(moveword::kLookBucketAlt) != 5 &&
-          k.deg3375 <= error && req.U(moveword::kCommandId) != 0x79;
-      if (fixed <= current || turnCandidate) {
-        if (!turnCandidate) {
-          const int kind = static_cast<int>(req.U(moveword::kKind));
-          const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
-          const MoveCell cell = host.Cell(row, 9, false);
-          bool mirror = false;
-          if (kind == 3 || kind == 6) {
-            mirror = host.Percent(0x32);
-          } else {
-            const int column = (k.negHalf < req.F(moveword::kFacingError)) ? 9 : 8;
-            mirror = host.Cell(row, column, false).mirror;
-          }
-          req.SetU(moveword::kMotion, static_cast<uint32_t>(cell.motionNo));
-          req.SetByte(moveword::kMirror, mirror ? 1 : 0);
-          req.SetF(moveword::kDuration, 0.05f);
-          req.SetU(moveword::kStartTime, 0);
-          req.SetF(moveword::kPlayback, k.one);
-          ResetDwell(req, 0.0f, 0.0f, 0.0f, 0.05f);
-          req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
-          RequestState(req, MoveState::kIdle);
-        } else {
-          EnterIdleTurn(host, req);
-        }
-      }
-    }
+  if (StayDecision(host, req)) {
+    EnterGotoRun(host, req, req.U(kPrecise) == 1u);
     return;
   }
-  EnterGotoRun(host, req, req.F(moveword::kPrecise) == 1.0f);
+  if (current < total && current < fixed) return;
+  const bool turnCandidate = req.U(kLookBucketAlt) != 0 && req.U(kLookBucketAlt) != 5 &&
+                             !(std::fabs(req.F(kFacingError)) < k.deg3375) && req.U(kCommandId) != 0x79;
+  if (turnCandidate) {
+    EnterIdleTurn(host, req);
+    return;
+  }
+  if (current < fixed) return;
+  // The IDLE issue: the row's cell in column 9, FUN_1406ebf30(P, 0x32) drawn for every kind, and for kinds other than 3 and 6
+  // the mirror of the cell in column 9 or 8 by the facing error's side; blend and second dwell 0.2 (immediates 0x3e4ccccd).
+  req.SetByte(kMotionPending, 1);
+  const int kind = static_cast<int>(req.U(kKind));
+  const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
+  const MoveCell cell = host.Cell(row, 9, false);
+  bool mirror = host.Percent(0x32);
+  if (kind != 3 && kind != 6) mirror = host.Cell(row, k.negHalf < req.F(kFacingError) ? 9 : 8, false).mirror;
+  req.SetU(kMotion, static_cast<uint32_t>(cell.motionNo));
+  req.SetByte(kMirror, mirror ? 1 : 0);
+  req.SetU(kDuration, kIdleIssueBlendBits);
+  req.SetU(kStartTime, 0);
+  req.SetF(kPlayback, k.one);
+  req.SetU(kDwellElapsed, 0);
+  req.SetU(kDwellLimit, 0);
+  req.SetU(kDwellElapsed2, 0);
+  req.SetU(kDwellLimit2, kIdleIssueBlendBits);
+  req.SetU(kLiveKind, static_cast<uint32_t>(kind));
+  RequestState(req, MoveState::kIdle);
 }
 
 // FUN_1406bf7f0: IDLE_OTHER.

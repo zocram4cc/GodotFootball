@@ -324,7 +324,8 @@ class RateHost : public pes::MoveHost {
     return c;
   }
   int PickN(int) override { return 0; }
-  bool Percent(int) override { return false; }
+  bool Percent(int) override { ++percentDraws; return false; }
+  int percentDraws = 0;
   int CommandSpeedClass() const override { return 0; }
   float RateCeiling() const override { return 1.0f; }
   float CommandSpeedKmh() const override { return 0.0f; }
@@ -675,6 +676,28 @@ TEST(IdleTurn, WritesTheTurnLockInsideTheReorientWindow) {
   pes::movestep::IdleTurn(host, req);
   EXPECT_EQ(req.U(0x3c) & 0xffu, 1u);
   EXPECT_EQ(req.U(0x3e), 3u);
+}
+
+// FUN_1406bfe70's idle issue (d_1406bfe70.c: `if (iVar9 <= iVar6)` block): past the clip's fixed tick, with no turn candidate, the
+// IDLE clip is DUE (byte req[0x2f] = 1), its blend is 0.2 (req[0x32] = 0x3e4ccccd), the second dwell limit is 0.2 (req[0x2e]),
+// and FUN_1406ebf30(P, 0x32) is drawn for every kind (kinds other than 3 and 6 then take the cell's mirror). The port wrote 0.05
+// for both, drew only for kinds 3 and 6, and never raised the due byte: the IDLE clip was not issued, so a body held on the
+// finished turn clip (HoldsBodyPose) stayed on it while the FSM ran IDLE.
+TEST(IdleTurn, TheIdleIssuePastTheFixedTickIsDueWithATwoTenthsBlendAndDwell) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  req.SetU(pes::moveword::kLookBucketAlt, 0);  // no turn candidate
+  host.currentMotion = 0x100;
+  host.record.rot = {pes::RotRecord{/*offset*/ 0, /*start*/ 0, /*end*/ 2}};
+  host.record.blend = {1};  // 2 frames
+  host.currentClipFrames = 10;
+  pes::movestep::IdleTurn(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kMotionPending) & 0xffu, 1u) << "the IDLE clip is due";
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.2f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.2f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), 1.0f);
+  EXPECT_EQ(host.percentDraws, 1) << "FUN_1406ebf30(P, 0x32) is drawn for every kind";
 }
 
 // IDLE_TURN's turn-lock test (0x1406BFF72..0x1406BFFA1): FUN_14043a0a0(req[2], req[0x18]), the facing against the stamp, over the
