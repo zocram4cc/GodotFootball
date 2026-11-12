@@ -175,7 +175,9 @@ constexpr float STOP_DWELL = 0.1f;    // FUN_1406d5d60's first arm stores 0x3dcc
 constexpr float SLOW_DWELL = 0.03f;   // 0x3cf5c28f (0.03 s): the slow-stop first dwell
 constexpr float SECOND_DWELL = 0.35f;  // 0x3eb33333 (0.35 s) at req[0x2e]
 
-
+// FUN_140a6e290 / FUN_140a6e2e0 on the playing clip's motion: the running set or the halted set. The handlers read both and
+// treat an answer from either alike (d_1406bb570.c 207-213, 515-522, 596-599; d_1406bcd20.c 144-153, 432-437).
+bool MotionPredicateSet(int motion) { return movestep::MotionIsRunning(motion) || movestep::MotionIsHalted(motion); }
 // ---------------------------------------------------------------------------------------------
 // The interface functions, ported from the pointer table at 0x1425e35d0.
 // ---------------------------------------------------------------------------------------------
@@ -1633,10 +1635,10 @@ void Accelerate(MoveHost& host, MoveReq& req) {
   if (static_cast<int>(clip.blend) < static_cast<int>(remain)) remain = static_cast<float>(clip.blend);
   const int remainFrames = static_cast<int>(remain);
 
-  // PES 148-194: the turn-lock block. Its outer gate: the re-orient object's flag clear (FUN_141eb3320 of P+0x4d0, held clear as
-  // ponytail: the re-orient object is the foundation's), the clip past its first hit tick (total <= live), the live frame in the
-  // first half of the remainder ((remain + total) / 2), and a signed hit.
-  const bool reorientClear = true;
+  // PES 148-194: the turn-lock block. Its outer gate: the facing adjuster not busy (FUN_141eb3320 of P+0x4d0, the host's read), the
+  // clip past its first hit tick (total <= live), the live frame in the first half of the remainder ((remain + total) / 2), and a
+  // signed hit.
+  const bool reorientClear = !host.FacingAdjusterBusy();
   if (reorientClear && total <= liveFrame && liveFrame <= (remainFrames + total) / 2 && hitSigned != 0.0f) {
     // PES 155-156: the stamp (word 0x18) is the base, and the ticks are (remain - live) / F2468 + 0.5, truncated.
     const float stamp = req.F(moveword::kRecordStampB);
@@ -1680,10 +1682,10 @@ void Accelerate(MoveHost& host, MoveReq& req) {
 
   // PES 206-222: the predicate block and its frame gate. The drawn tick is ticks * 6 / 60 + 0.5 (DAT_14259bdec, DAT_14259a764,
   // DAT_142565600), where ticks is FUN_141e532d0 (the match's ticks per second, the operand GroundSpeedKmh reads).
-  // ponytail: the motion's two predicates (FUN_140a6e290 / FUN_140a6e2e0) are held at their clear answers.
+  // d_1406bb570.c 207-213: FUN_140a6e290 / FUN_140a6e2e0 on the playing clip's motion (vt+0x18); both must answer clear.
   const float drawn = static_cast<float>(host.TicksPerSecond()) * k.ramp6 / k.kmh60 + k.half;
   const int drawnTick = static_cast<int>(drawn);
-  const bool predicatesClear = true;
+  const bool predicatesClear = !MotionPredicateSet(motion);
   const bool frameGate = (liveFrame <= total + 1 && liveFrame < drawnTick) ||
                          static_cast<float>(liveFrame) < static_cast<float>(static_cast<int>(hit0)) * k.frameGate01 ||
                          (liveFrame < drawnTick && motion == 0xbea);
@@ -1829,10 +1831,9 @@ void Accelerate(MoveHost& host, MoveReq& req) {
       if (armed && remainFrames <= liveFrame && static_cast<int>(hit1) <= liveFrame && k.kmh1475 < ground) {
         rate = k.deg135;
       }
-      // PES 514-526: the anime predicates (FUN_140a6e290 / FUN_140a6e2e0) are held clear, as the port's other arms hold them.
-      // ponytail: with them set, the rate is 22.5 degrees while the live frame is short of the remain.
-      const bool motionPredicates = false;
-      if (motionPredicates && liveFrame < remainFrames) rate = k.deg225;
+      // PES 514-526 (d_1406bb570.c 515-522): either motion predicate (FUN_140a6e290 / FUN_140a6e2e0 on the playing clip) drops the
+      // rate to 22.5 degrees a second while the live frame is short of the remain.
+      if (MotionPredicateSet(motion) && liveFrame < remainFrames) rate = k.deg225;
       // PES 527-539: while the hit tick is ahead and the hit offset is signed, a sign mismatch with the look delta damps the rate
       // to a quarter (DAT_142592228).
       if (liveFrame < static_cast<int>(hit1) && hitSigned != 0.0f && signHit != signLook) {
@@ -1874,8 +1875,7 @@ void Accelerate(MoveHost& host, MoveReq& req) {
         return;
       }
       const float span = 1 < bandNow ? k.deg225 : k.deg45;  // PES 590-593 (fVar36)
-      if (bandNow < cmdClass) {                              // PES 594-605
-        // ponytail: FUN_140a6e290 and FUN_140a6e2e0 (the motion predicates) are held clear, as predicatesClear is above.
+      if (bandNow < cmdClass && !MotionPredicateSet(motion)) {  // PES 594-605 (d_1406bb570.c 596-599: both predicates clear)
         if (std::fabs(req.F(moveword::kTurn)) < span || k.deg675 < turnAbs) flag = true;  // PES 599-604: fVar27 is |turn|
       }
     }
@@ -1980,8 +1980,8 @@ void Decelerate(MoveHost& host, MoveReq& req) {
     hitEnd = hit0;
   }
   if (static_cast<int>(hit0) < static_cast<int>(hitEnd)) hitEnd = hit0;
-  // ponytail: the +0x4d0 interface's flag (P-KIN) is what clears this arm.
-  const bool reorientClear = true;
+  // The +0x4d0 adjuster's busy state (FUN_141eb3320) is what closes this arm.
+  const bool reorientClear = !host.FacingAdjusterBusy();
   const float distance = (hitEnd - static_cast<float>(liveFrame)) / f2468 + k.half;
   const float firstBearing = InlineDiffDeg(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
   if (reorientClear && hitTotal <= liveFrame && liveFrame <= (static_cast<int>(hitEnd) + hitTotal) / 2) {
@@ -2023,8 +2023,8 @@ void Decelerate(MoveHost& host, MoveReq& req) {
       static_cast<int>(static_cast<float>(host.TicksPerSecond()) * k.ramp6 / k.kmh60 + k.half);
   const bool frameGate = (hitTotal + 1 <= liveFrame && liveFrame < drawnTick) ||
                          static_cast<float>(liveFrame) < static_cast<float>(hit0) * k.rate01;
-  // ponytail: FUN_140a6e290/FUN_140a6e2e0 are the anime player's own; held at "clear".
-  const bool motionPredicatesClear = true;
+  // d_1406bcd20.c 144-153: FUN_140a6e290 / FUN_140a6e2e0 on the playing clip's motion (vt+0x18); either set jumps over the pre-empt.
+  const bool motionPredicatesClear = !MotionPredicateSet(motion);
   const bool preemptGate =
       req.U(moveword::kCommandId) != 0x11u &&
       (host.AnimeState() != 0x4a || req.U(moveword::kCommandId) != 0x72u) && !slowMotion &&

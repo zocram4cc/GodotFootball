@@ -47,6 +47,7 @@ class UnboundHost : public pes::MoveHost {
   int ClipTicks(pes::ClipReader, int, float, int) const override { Unbound("ClipTicks"); }
   const pes::MotionRecord& Motion(int) const override { Unbound("Motion"); }
   bool ClipFlag() const override { Unbound("ClipFlag"); }
+  bool FacingAdjusterBusy() const override { Unbound("FacingAdjusterBusy"); }
   int AbilityByte(int) const override { Unbound("AbilityByte"); }
   bool EntryAimFlag() const override { Unbound("EntryAimFlag"); }
   const pes::MoveConstants& MoveConstantsView() const override { Unbound("MoveConstantsView"); }

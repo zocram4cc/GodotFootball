@@ -147,6 +147,8 @@ class SyntheticHost : public pes::MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return clipFlag; }
+  bool FacingAdjusterBusy() const override { return facingAdjusterBusy; }
+  bool facingAdjusterBusy = false;  // FUN_141eb3320: the yaw adjuster's state word == 2
   // SYNTHETIC answers for the reads of FUN_1406ce820 (EnterGotoRun); every test states the ones its branch reads.
   const pes::TurnEntryTables& TurnEntryTablesView() const override { return turnEntry; }
   int CarrierSlot() const override { return carrier; }
@@ -2922,4 +2924,161 @@ TEST(ClipHitDistance, ACancelRecordReplacesTheBlendOffsetAndTheIndexClampsToTheL
   h.record.cancelRoot.clear();
   EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 0), 5.0f * 2.0f) << "no cancel record: the blend record's offset";
   EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 0x1125, 2.0f, 0), 0.0f) << "a motion at or past the table has no hit record";
+}
+
+// FUN_140a6e290 / FUN_140a6e2e0 on the playing clip's motion (vt+0x18 of +0xab8): the running set (0xbe7, 0x8c7, 0x8cb, 0xb4f, 0xbe5,
+// 0xbe9, 0xc08, 0xc0f) and the halted set (0xc09, 0xc0d, 0xc0e, 0xc11, 0xc12). The ACCELERATE and DECELERATE handlers read them at
+// five sites (d_1406bb570.c 210-213, 515-518, 596-599; d_1406bcd20.c 149-152, 432-435). The port held them clear.
+
+static bool SameRequestWords(const pes::MoveReq& a, const pes::MoveReq& b) {
+  for (int w = 0; w < pes::kMoveReqWords; ++w)
+    if (a.U(w) != b.U(w)) return false;
+  return true;
+}
+
+// d_1406bb570.c 207-213: the pre-empt gate needs BOTH predicates clear. The motion 0x8bb is in neither set, 0xc08 is running and
+// 0xc09 is halted.
+TEST(Accelerate, ThePreEmptGateIsShutWhileTheClipIsInTheRunningOrHaltedSet) {
+  // The premise of TakesTheRunTurnRunEntryThroughTheClassThreeGate: through the open pre-empt the class-3 gate enters RUN_TURN_RUN.
+  const auto runTurnRunCalls = [](int motion) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentKmh = 0.0f;
+    h.currentMotion = motion;
+    h.currentClipFrames = 2;
+    pes::RotRecord rot;
+    rot.start = 30;
+    h.record.rot.push_back(rot);
+    h.rateCeiling = 1.0f;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+    req.SetU(pes::moveword::kRateBand, 1u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 70.0f);
+    req.SetF(pes::moveword::kRecordStampB, 75.0f);
+    req.SetF(pes::moveword::kLookHeading, 0.0f);
+    req.SetF(pes::moveword::kLookDelta, 100.0f);
+    req.SetF(pes::moveword::kTurn, 2.0f);
+    req.SetF(pes::moveword::kFacingError, 2.0f);
+    req.SetF(pes::moveword::kRate, 0.6f);
+    req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+    req.SetF(pes::moveword::kDwellLimit, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+    pes::probe::Reset();
+    pes::movestep::Accelerate(h, req);
+    return pes::probe::runTurnRunCalls;
+  };
+  ASSERT_GE(runTurnRunCalls(0x8bb), 1);
+  for (const int motion : {0xc08, 0xc09}) EXPECT_EQ(runTurnRunCalls(motion), 0) << "motion " << std::hex << motion;
+}
+
+// d_1406bb570.c 515-526: while the playing clip is in either set and the live frame is short of the remain, the yaw step's rate is
+// 22.5 degrees a second (DAT_14259d618), not the cap. The premise of TheMidTickAndTheTriggerBearingsAreTheRemainAndTheTurnAndBodyError
+// (remain 7 ticks, live frame 5), whose rate is the cap 180 / 54; here it is 22.5 / 54 a tick.
+TEST(ArmH, TheRateDropsToTwentyTwoAndAHalfWhileARunningOrHaltedClipIsShortOfTheRemain) {
+  for (const int motion : {0xc08, 0xc09}) {
+    SyntheticHost h;
+    ArmHSetUp(h);
+    h.currentMotion = motion;
+    pes::RotRecord rot;
+    rot.start = 0;
+    rot.end = 10;
+    rot.offset = 1;
+    h.record.rot = {rot};
+    h.record.blend = {4};
+    h.record.cancel = {0, 0, 0};
+    pes::MoveReq req = ArmHRequest(10.0f);
+    req.SetF(pes::moveword::kRecordStampB, 40.0f);
+    req.SetF(pes::moveword::kLookHeading, 40.0f);
+    pes::movestep::Accelerate(h, req);
+    EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 22.5f / 54.0f, 1e-3f) << "motion " << std::hex << motion;
+  }
+}
+
+// d_1406bb570.c 594-602: the band below the command class (the arm after the GOTO_RUN exit) sets the flag only while both motion
+// predicates are clear; the turn is under the span (45 degrees at band 1).
+TEST(Accelerate, TheFlagArmFlagNeedsBothMotionPredicatesClear) {
+  const auto run = [](int motion) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentMotion = motion;
+    h.currentClipFrames = 0;
+    h.record.blend = {100};
+    h.record.cancel = {0, 0, 0};
+    h.commandClass = 2;
+    h.commandKmh = 10.0f;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetU(pes::moveword::kRateBand, 1u);
+    pes::movestep::Accelerate(h, req);
+    return req;
+  };
+  // The flag ends the clip, the exit runs the run entry and requests RUN_LOOP.
+  ASSERT_EQ(run(0x8bb).U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
+  for (const int motion : {0xc08, 0xc09}) {
+    EXPECT_NE(run(motion).U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop)) << "motion " << std::hex << motion;
+  }
+}
+
+// d_1406bcd20.c 144-153: DECELERATE's pre-empt gate also needs both motion predicates clear (a running-set clip jumps over it to the
+// LAB_1406bd3a0 block, the halted set does the same).
+TEST(Decelerate, ThePreEmptGateIsShutWhileTheClipIsInTheRunningOrHaltedSet) {
+  // Through the open pre-empt a small turn (under 56.25 degrees) with a look delta past 90, band under 2 and class 3 enters RUN_TURN_RUN.
+  const auto runTurnRunCalls = [](int motion) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentKmh = 0.0f;
+    h.currentMotion = motion;
+    h.currentClipFrames = 2;
+    pes::RotRecord rot;
+    rot.start = 0;  // DECELERATE's frame gate is `hitTotal + 1 <= live < ticks * 6 / 60 + 0.5`
+    h.record.rot.push_back(rot);
+    h.rateCeiling = 1.0f;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+    req.SetU(pes::moveword::kRateBand, 1u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 12.0f);  // the first bearing |heading - facing| is 2 degrees, under 5.625
+    req.SetF(pes::moveword::kRecordStampB, 75.0f);
+    req.SetF(pes::moveword::kLookHeading, 0.0f);
+    req.SetF(pes::moveword::kLookDelta, 100.0f);
+    req.SetF(pes::moveword::kTurn, 2.0f);
+    req.SetF(pes::moveword::kFacingError, 2.0f);
+    req.SetF(pes::moveword::kRate, 0.6f);
+    req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+    req.SetF(pes::moveword::kDwellLimit, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+    pes::probe::Reset();
+    pes::movestep::Decelerate(h, req);
+    return pes::probe::runTurnRunCalls;
+  };
+  ASSERT_GE(runTurnRunCalls(0x8bb), 1);
+  for (const int motion : {0xc08, 0xc09}) EXPECT_EQ(runTurnRunCalls(motion), 0) << "motion " << std::hex << motion;
+}
+
+// d_1406bb570.c 148-194 and d_1406bcd20.c's turn lock: FUN_141eb3320(P+0x4d0) (the yaw adjuster's state word == 2) closes the lock
+// while the adjuster is running. The port held it idle whatever the host said.
+TEST(TurnLock, ABusyFacingAdjusterClosesTheLockInAccelerateAndDecelerate) {
+  for (const bool busy : {false, true}) {
+    SyntheticHost a;
+    LockSetUp(a, 1, 8, 5);
+    a.facingAdjusterBusy = busy;
+    pes::MoveReq accelerate = LockRequest(60.0f, 0.0f, 0.0f);
+    pes::movestep::Accelerate(a, accelerate);
+    EXPECT_EQ(accelerate.U(pes::moveword::kReorientFlag) & 0xffu, busy ? 0u : 1u) << "Accelerate busy " << busy;
+
+    SyntheticHost d;
+    LockSetUp(d, 1, 8, 5);
+    d.record.cancel = {40, 40, 40};
+    d.facingAdjusterBusy = busy;
+    pes::MoveReq decelerate = LockRequest(60.0f, 0.0f, 0.0f);
+    pes::movestep::Decelerate(d, decelerate);
+    EXPECT_EQ(decelerate.U(pes::moveword::kReorientFlag) & 0xffu, busy ? 0u : 1u) << "Decelerate busy " << busy;
+  }
 }

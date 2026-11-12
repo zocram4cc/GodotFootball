@@ -763,6 +763,10 @@ class MoveHost {
   // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
   virtual void Issue(const MotionRequest& request) = 0;
 
+  // FUN_141eb3320(P+0x4d0): the facing (yaw) adjuster is running, its state word (+8) == 2. The turn handlers' windows and the
+  // ACCELERATE / DECELERATE turn lock read it (`!busy` opens them).
+  virtual bool FacingAdjusterBusy() const { MoveHostUnbound("FacingAdjusterBusy"); }
+
   // The reads of the GOTO_RUN turn entry FUN_1406d01d0 (movestep_turn_entry.hpp). Each names the PES call it stands for;
   // a host that does not bind one stops loudly (MoveHostUnbound), it never answers a made-up value.
   virtual const TurnEntryTables& TurnEntryTablesView() const { MoveHostUnbound("TurnEntryTablesView"); }

@@ -369,6 +369,7 @@ class RateHost : public pes::MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  bool FacingAdjusterBusy() const override { return false; }
   int AbilityByte(int) const override { return abilityByte; }
   bool EntryAimFlag() const override { return entryAim; }
   int abilityByte = 50;   // FUN_1406e6660's answer

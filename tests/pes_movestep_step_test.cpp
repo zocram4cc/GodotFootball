@@ -270,6 +270,7 @@ class FakeHost : public MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  bool FacingAdjusterBusy() const override { return false; }  // the step tests do not run the turn windows
   int AbilityByte(int) const override { return 50; }
   bool EntryAimFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }

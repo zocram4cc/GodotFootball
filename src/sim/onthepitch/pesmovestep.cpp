@@ -419,6 +419,10 @@ class MoveHostAdapter final : public pes::MoveHost {
   // P+0x2472 (vt+0x30 of the anime interface): FUN_1406b8340's tail stores the issued request's mirror there at every issue
   // (0x1406b8..: `*(P+0x2472) = local_694`); the issued clip's record holds the same bit.
   bool ClipFlag() const override { return player_.GetIssuedClip().request.mirror; }
+  // FUN_141eb3320(P+0x4d0): the yaw adjuster's state word == 2.
+  // ponytail: MoveStepCell has no adjuster (RootMotion's PesWorld::StepAdjusters owns P+0x4d0); idle stands in. Batch BK replaces it
+  // with the window's state word at kPYawAdjusterOffset + kAdjStateOffset == kAdjRunning.
+  bool FacingAdjusterBusy() const override { return false; }
   // ponytail: FUN_140a71540(MA, *(FUN_140a48a30(G, side)+0x254)) is the team record's anchor heading; GF has no such record, so
   // the own facing stands in (a zero turn). Removed by TeamTick's team record.
   float TeamAnchorHeading(bool) const override { return FacingDeg(); }

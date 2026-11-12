@@ -332,6 +332,9 @@ class RowHost : public movestep_test::UnboundHost {
   const Extra* extra = nullptr;
   bool EntryAimFlag() const override { return (Need(kAim).rax & 0xff) != 0; }
   bool ClipFlag() const override { return (Need(kClipMirror).rax & 0xff) != 0; }
+  // ponytail: the oracle rows capture no adjuster state; the replayed handlers run with the adjuster idle, as they did while the read
+  // was a stub.
+  bool FacingAdjusterBusy() const override { return false; }
   float MotionStartTime(int motion) const override {
     const Call& call = Need(kStartTime);
     EXPECT_EQ(motion, static_cast<uint16_t>(call.reg[0]));

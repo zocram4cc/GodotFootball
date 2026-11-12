@@ -129,9 +129,8 @@ bool IsRunningMotion(int motion) {
 // FUN_140a6e2e0(motion): the halted set, 0xc09 and the motions whose id less 0xc0d has no bit outside 0b101 (0xc0d, 0xc0e,
 // 0xc11, 0xc12) (0x140a6e2e0; oracle: pes_fn_140A6E2E0).
 bool IsHaltedMotion(int motion) { return motion == 0xc09 || (motion >= 0xc0d && ((motion - 0xc0d) & ~5) == 0); }
-// FUN_141eb3320(P+0x4d0): the AdjustAngle adjuster is busy. ponytail: GF has no adjuster object; its writers are the tail of
-// FUN_1406b8340 (FUN_141eb35a0 / FUN_141eb3ae0), which the anime layer owns; idle stands in until it lands.
-bool FacingAdjusterBusy(const MoveHost&) { return false; }
+// FUN_141eb3320(P+0x4d0): the facing adjuster is busy (its state word == 2); the host's read.
+bool FacingAdjusterBusy(const MoveHost& host) { return host.FacingAdjusterBusy(); }
 // FUN_140a6e4f0(motion): the fading-clip set, a pure test of the u16 motion id (decompile of 0x140a6e4f0; the translated
 // pes_fn_140A6E4F0 is the oracle in pes_movestep_wire_test). Below 0xc71: 0xc6e, 0xc70 and the even ids 0x3c..0x42 (bit mask 0x55
 // over id - 0x3c, an unsigned compare); above: 0xc73, 0xc76, 0xc78, 0xf39.

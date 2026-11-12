@@ -270,6 +270,8 @@ class FakeHost : public MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  bool FacingAdjusterBusy() const override { return facingAdjusterBusy; }
+  bool facingAdjusterBusy = false;  // FUN_141eb3320: the yaw adjuster's state word == 2
   int AbilityByte(int id) const override { return id == 0x29 ? abilityByte : 0; }
   bool EntryAimFlag() const override { return entryAim; }
   void CountAnalyserEvent(bool flag, int motion) override { analyserCalls.push_back({flag, motion}); }
@@ -2298,4 +2300,82 @@ TEST(StepTurnStep, PastTheLiveEndTheBucketArgumentIsTheTableAngleAtTheBackBucket
   EXPECT_NE(req.U(0x20), static_cast<uint32_t>(pes::movestep::AngleBucket(host.buckets, 170.0f, 10, false)));
   EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 9u);
   EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepLoop));
+}
+
+// FUN_141eb3320(P+0x4d0): each turn handler's reorient window needs the yaw adjuster NOT busy (its state word != 2): 0x1406c180f
+// (RUN_TURN_RUN), 0x1406c3... (RUN_TURN_STEP), 0x1406c8... (STEP_TURN_RUN), 0x1406c8fe5 (STEP_TURN_STEP). The port held the read idle.
+// Each test is the premise of the handler's window test with the adjuster busy: no reorientation is written.
+TEST(RunTurnRun, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 80.0f);
+  req.SetF(pes::moveword::kTurnedRow, 70.0f);
+  host.record = TurnRecordWithFrames();
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 1;
+  host.facingAdjusterBusy = true;
+  RunTurnRun(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 0u);
+}
+
+TEST(RunTurnStep, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  host.record = TurnRecordWithOffset();
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 45;
+  host.facingAdjusterBusy = true;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kHeading, 150.0f);
+  req.SetF(pes::moveword::kFacing, 20.0f);
+  req.SetF(0x17, 10.0f);
+  req.SetU(0x20, 3);
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kReorientFlag) & 0xffu, 0u);
+}
+
+TEST(StepTurnRun, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithFrames();
+  host.currentClipFrames = 2;
+  host.facingAdjusterBusy = true;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurnedRow, 10.0f);
+  req.SetF(pes::moveword::kRowAngle, 10.0f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  host.displacement[0] = 3.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 4.0f;
+  StepTurnRun(host, req, SyntheticTurn());
+  EXPECT_FALSE(req.Flag(pes::moveword::kReorientFlag));
+}
+
+TEST(StepTurnStep, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 45;
+  host.facingAdjusterBusy = true;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 100.0f);
+  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(0x17, 0.0f);
+  req.SetU(0x20, 0u);
+  req.SetU(pes::moveword::kMoveBucket, 2);
+  StepTurnStep(host, req, SyntheticTurn());
+  EXPECT_FALSE(req.Flag(pes::moveword::kReorientFlag));
 }
