@@ -16,7 +16,7 @@ namespace pes {
 namespace {
 
 // The engine's animation frame.
-constexpr double kGfFrame_s = kGfAnimFrame_s;
+constexpr double kGfFrame_s = 0.01;
 // A clip needs at least two frames for the engine's start/end bookkeeping.
 constexpr int kMinFrames = 2;
 

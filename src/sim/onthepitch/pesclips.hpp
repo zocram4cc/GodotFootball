@@ -48,9 +48,6 @@ struct PesClipSet {
 // can commit).
 std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, std::string* error);
 
-// The engine's animation frame (s): PesClipAnimText samples a PES clip every 10 ms and PesTouchAnimFrame counts in the same frames.
-inline constexpr double kGfAnimFrame_s = 0.01;
-
 // One clip as engine .anim text (the format Animation::LoadText reads), at the
 // engine's 10 ms frame.
 std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig);
@@ -58,6 +55,9 @@ std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig);
 // The engine frame (10 ms) a HitData frame lands on. A hit's frame counts gani frames at 30 Hz (pesrig::PES_FRAME_S),
 // the same clock PesClipAnimText samples the clip on, so the touch and the clip's pose agree.
 int PesTouchAnimFrame(int hitFrame);
+
+// The clip time one engine frame of an imported clip stands for (PesClipAnimText writes a clip at 10 ms per frame).
+inline constexpr float kGfAnimFrame_s = 0.01f;
 
 // The contact action of a player whose current clip is a Special command:
 // a PES clip is the action its family names (the player carries which one in
