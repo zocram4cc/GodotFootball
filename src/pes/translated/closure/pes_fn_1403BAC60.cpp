@@ -8,9 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x14252F330 (8 bytes)
-static constexpr uint64_t k_c14252F330_q = 0x00006FFFFF9CE21CULL;
-static constexpr double k_c14252F330_d = 6.0841860109246e-310; // 6.0841860109246e-310
 
 void pes_fn_1403BAC60(PesState& s);
 void pes_fn_14037FA20(PesState& s);
@@ -41,10 +38,7 @@ void pes_fn_1403BAC60(PesState& s) {
     s.cf = false; s.of = false;
     s.gpr[1] = (uint64_t)(uint32_t)(_r);
   }
-  { uint64_t _t = (uint64_t)(k_c14252F330_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.wr(s.gpr[2], 0x5C003A0043ULL, 8); s.gpr[0] = 3ULL; s.gpr[4] += 8; }
   s.gpr[3] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x28ULL)));
@@ -53,10 +47,7 @@ void pes_fn_1403BAC60(PesState& s) {
   s.gpr[7] = (uint64_t)(s.rd(((s.gpr[4]) + (0x28ULL)), 8));
   s.gpr[2] = (uint64_t)(s.gpr[7]);
   s.gpr[1] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3]));
-  { uint64_t _t = (uint64_t)(k_c14252F330_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.wr(s.gpr[2], 0x5C003A0043ULL, 8); s.gpr[0] = 3ULL; s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false; }

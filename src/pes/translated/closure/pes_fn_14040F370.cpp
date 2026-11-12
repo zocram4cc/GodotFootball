@@ -8,9 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x14252F238 (8 bytes)
-static constexpr uint64_t k_c14252F238_q = 0x00006FFFFF9CD1FCULL;
-static constexpr double k_c14252F238_d = 6.08418601072067e-310; // 6.08418601072067e-310
 // image constant @ 0x142530380 (8 bytes)
 static constexpr uint64_t k_c142530380_q = 0x00006FFFFECC84E0ULL;
 static constexpr double k_c142530380_d = 6.0841853362604e-310; // 6.0841853362604e-310
@@ -104,10 +101,7 @@ void pes_fn_14040F370(PesState& s) {
     s.cf = false; s.of = false;
     s.gpr[1] = (uint64_t)(uint32_t)(_r);
   }
-  { uint64_t _t = (uint64_t)(k_c14252F238_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 464ULL; s.gpr[4] += 8; }
   s.wr(((s.gpr[3])), (uint64_t)(s.gpr[0]), 8);
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
