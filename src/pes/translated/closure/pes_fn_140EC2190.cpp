@@ -10,8 +10,8 @@
 
 
 void pes_fn_140EC2190(PesState& s);
-void pes_fn_1444CE440(PesState& s);
 
 void pes_fn_140EC2190(PesState& s) {
-  { pes_fn_1444CE440(s); return; }
+  pes_service_packer_array_ctor_a(s);
+  return;
 }
