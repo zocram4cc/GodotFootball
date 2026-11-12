@@ -1295,9 +1295,10 @@ TEST(StepLoop, TheStepTurnRunArmTakesTheRowFromTheOldBucketAndTheSpeedClampedToF
 MoveReq KeepTickRequest(float heading, float bodyDirection, float look, uint32_t precise) {
   MoveReq req;
   req.SetU(pes::moveword::kKind, 2);
-  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kLiveKind, 2);  // the live kind and band equal this tick's: the cell-changed flag (0x1406c553c) stays clear
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
   req.SetU(pes::moveword::kPrecise, precise);
-  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
   req.SetU(0x20, 3u);
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, heading);
@@ -1325,8 +1326,51 @@ TEST(StepLoop, TheKeepTickBlendsTheRootFacingTowardsTheBodyDirection) {
   EXPECT_EQ(req.U(pes::moveword::kNextState), 0u);  // no state change
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
   EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 356.66666f, 0.01f);
-  EXPECT_EQ(req.U(pes::moveword::kClassWord), 3u);   // the keep does not walk the band
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 2u);   // the keep does not walk the band
   EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);  // nor the bucket
+}
+
+// d_1406c4c10.c 367-385 and 505 (asm 0x1406c553c..0x1406c559d, 0x1406c5940..0x1406c5951): the keep test's third term is the
+// cell-changed flag (the live band or kind differs from this tick's), not the wide-turn band drop the port tested. With the live kind
+// not this tick's the tick is NOT kept: no root-facing blend, the arms below run.
+TEST(StepLoop, ADifferentLiveKindIsACellChangeAndTheTickIsNotKept) {
+  FakeHost host;
+  host.displacement[2] = 0.02f;
+  MoveReq req = KeepTickRequest(10.0f, 40.0f, 0.0f, 0u);
+  ASSERT_TRUE([&] { FakeHost kept; kept.displacement[2] = 0.02f; MoveReq r = KeepTickRequest(10.0f, 40.0f, 0.0f, 0u); StepLoop(kept, r); return r.Flag(pes::moveword::kRootFacing); }());
+  req.SetU(pes::moveword::kLiveKind, 3);
+  StepLoop(host, req);
+  EXPECT_FALSE(req.Flag(pes::moveword::kRootFacing));
+}
+
+// d_1406c4c10.c 658-669 (asm 0x1406c5f5d..0x1406c5fbd): the clip's blend is DAT_1425ddf4c (0.1333) unless nothing moved or the bucket
+// moved; a 100-degree look delta on a non-precise step is 0.2 only on that path. Here the cell changed (live kind 0) and the body turn
+// is a drift, so the blend stays 0.1333. The port gave 0.2 for any non-precise look delta past 67.5.
+TEST(StepLoop, TheBlendStaysAtTheDefaultWhenTheCellChangedAndTheBodyTurnDrifted) {
+  FakeHost host;
+  MoveReq req = TurnRunArmRequest();
+  req.SetU(0x20, 0u);  // row bucket 0: the gate is open and the clip issues
+  req.SetU(pes::moveword::kLiveKind, 0);
+  req.SetF(pes::moveword::kLookDelta, 100.0f);
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  ASSERT_NE(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepTurnRun));
+  EXPECT_NEAR(req.F(pes::moveword::kDwellLimit), 2.0f / 15.0f, 1e-4f);
+}
+
+// d_1406c4c10.c 693-715 (asm 0x1406c6076..0x1406c61a6): a clip whose mirror equals the playing one's, after a cell change with no
+// bucket move and no drift, blends in from 0 with transition 2; any of the other conditions starts it at FUN_1406b97d0's time with
+// transition 0. The port issued transition 0 always.
+TEST(StepLoop, ASameMirrorCellChangeBlendsInWithTransitionTwoFromZero) {
+  FakeHost host;
+  host.displacement[2] = 0.02f;
+  MoveReq req = KeepTickRequest(10.0f, 40.0f, 0.0f, 0u);
+  req.SetU(pes::moveword::kLiveKind, 3);  // the cell changed
+  req.SetU(0x20, 0u);                     // row bucket 0: the gate is open
+  StepLoop(host, req);
+  ASSERT_NE(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepTurnRun));
+  EXPECT_EQ(req.U(pes::moveword::kTransitionWord), 2u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kStartTime), 0.0f);
 }
 
 // 0x1406c637d..0x1406c63f6: the sign test compares sign(wrap(req[2] - req[3])) with sign(fold(req[2]) - faced, wrapped); when

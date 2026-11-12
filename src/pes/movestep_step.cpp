@@ -521,8 +521,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   const float fps = FramesPerSecond(host);
 
   // 1. The band walk: `if (req[0x1f] == 0 && req[0x24] == 1 && 0 < req[0x2e])` in PES.
+  bool localRes18 = true;  // d_1406c4c10.c 61-76: cleared when the band walk's gate holds
   if (int(req.U(moveword::kClassWord)) == 0 && int(req.U(moveword::kPrevClassWord)) == 1 &&
       0.0f < req.F(moveword::kDwellLimit2)) {
+    localRes18 = false;
     const float threshold = kind == 7 ? k.s0p4 : k.s0p6;
     if (req.F(moveword::kDwellLimit2) * threshold < req.F(moveword::kDwellElapsed2)) {
       req.SetF(moveword::kBandSpeed, req.F(moveword::kBandSpeedCopy));
@@ -810,11 +812,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     }
   }
 
-  // The row and its keep-variant fold, then the column's cell.
-  int row = int(tables.kindBandRow[kind + nextBand * 8]);
-  if (row == 0x52e) row = 0x530;
-  const MoveCell cell = host.Cell(row, int(tables.bucketColumn[column]), false);
-  const int motion = cell.found ? cell.motionNo : row;
+  // The row, its folds and the column's cell are read where PES reads them (the clip-issue arm below): they draw the generator.
 
   // The two tails. PES's first test is
   //     if ((!bVar20) && (local_res8[0] == 0 && !bVar19)) goto LAB_1406c5eba;
@@ -850,9 +848,21 @@ void StepLoop(MoveHost& host, MoveReq& req) {
       ((rowBucket - 3u > 1u && rowBucket - 8u > 1u) ||
        (std::fabs(headTurn) <= k.deg112p5 ||
         distanceFactor * k.deg22p5 + k.deg45 <= std::fabs(bodyToTarget)));
-  // d_1406c4c10.c 505: `if (!bVar20 && local_res8 == 0 && !bVar19) goto LAB_1406c5eba`, the keep tick (asm 0x1406c5940..0x1406c5951
-  // for the precise form of the same test). The port wrote the band and the bucket here and tested a byte of the request.
-  if (!bucketMoved && !driftTaken && !slowTurn) {
+  // d_1406c4c10.c 367-385 (asm 0x1406c553c..0x1406c559d): the cell-changed flag (local_res10, the decompile's reused bVar19): it needs
+  // the band walk not to have applied, and is set when the live band or kind differs from this tick's, or when both are band 0 / kind 3
+  // and the clip's blend, in seconds, is shorter than the dwell it has run.
+  bool cellChanged = false;
+  if (localRes18) {
+    if (int(req.U(moveword::kClassWord)) != nextBand || int(req.U(moveword::kLiveKind)) != kind) {
+      cellChanged = true;
+    } else if (nextBand == 0 && kind == 3) {
+      const int blendTicks = host.ClipTicks(pes::ClipReader::kBlend, host.CurrentMotion(), k.one, 0);
+      cellChanged = static_cast<float>(blendTicks) / host.TicksPerSecond() < req.F(moveword::kDwellElapsed);
+    }
+  }
+  // d_1406c4c10.c 505: `if (!bVar20 && local_res8 == 0 && !bVar19) goto LAB_1406c5eba`, the keep tick (asm 0x1406c5940..0x1406c5951):
+  // bVar19 there is the cell-changed flag above, no longer the wide-turn band drop (`slowTurn`), which only shapes the band and bucket.
+  if (!bucketMoved && !driftTaken && !cellChanged) {
     StepLoopKeepsTick(host, req);
     return;
   }
@@ -867,34 +877,75 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     StepLoopTurnRunArm(host, req, bucket);
     return;
   }
+  // d_1406c4c10.c 536-563 (asm 0x1406c5d3f..0x1406c5e6e): the row of the kind PES re-reads (after the kind-3 store above) and the
+  // band, its folds, the column's cell and its mirror bit (FUN_1406abd60). The folds draw the generator, so they run only on this path.
+  const int kindNow = int(req.U(moveword::kKind));
+  const int col = int(tables.bucketColumn[column]);
+  int row = int(tables.kindBandRow[kindNow + nextBand * 8]);
+  constexpr int kSwingColumn = 0x11;                          // 0x1406c5d96: the columns 0 and 0x11 hold the two keep rows
+  constexpr int kRowHoldA = 0x53a, kRowHoldAFold = 0x53b;     // 0x1406c5da1, 0x1406c5dba
+  constexpr int kRowHoldB = 0x542, kRowHoldBFold = 0x543;     // 0x1406c5dc1, 0x1406c5dda
+  constexpr int kRowStart = 0x52e, kRowStartFold = 0x530;     // 0x1406c5de1, 0x1406c5e1f
+  constexpr int kPercentHoldA = 0x32, kPercentHoldB = 0x14;   // 0x1406c5da9, 0x1406c5dc9, 0x1406c5dfa
+  constexpr uint32_t kCommandStart = 5;                       // 0x1406c5e0b: req[0x16] == 5
+  const bool swingColumn = col == kSwingColumn || col == 0;
+  if (swingColumn && row == kRowHoldA) {
+    if (host.Percent(kPercentHoldA)) row = kRowHoldAFold;
+  } else if (swingColumn && row == kRowHoldB) {
+    if (host.Percent(kPercentHoldB)) row = kRowHoldBFold;
+  } else if (row == kRowStart) {
+    if (bucketMoved || driftTaken || host.Percent(kPercentHoldA)) row = kRowStartFold;
+  }
+  if (req.U(moveword::kCommandId) == kCommandStart && nextBand == 0 && static_cast<uint32_t>(kindNow) - 2u < 2u) row = kRowStartFold;
+  const MoveCell cell = host.Cell(row, col, false);
+  const int motion = cell.found ? cell.motionNo : row;
+  const bool mirror = cell.mirror;
   // 0x1406c5e8a..0x1406c5eb7: the clip about to be issued is the clip playing (vt+0x18 == the cell's motion) with the mirror it
   // plays in (vt+0x30): the speed word and the band are recorded and the tick is kept; the clip is not issued again.
-  if (host.CurrentMotion() == motion && host.ClipFlag() == host.BucketIsLeft(bucket)) {
+  if (host.CurrentMotion() == motion && host.ClipFlag() == mirror) {
     req.SetF(moveword::kBandSpeed, blendedSpeed);
     req.SetU(moveword::kClassWord, uint32_t(nextBand));
     StepLoopKeepsTick(host, req);
     return;
   }
 
-  // The clip tail. PES's own order: FUN_1406b97d0's start time and the mirror from FUN_1406abd60,
-  // the request words 0x17/0x18 the headings, the table's motion, the blend, the playback, the
-  // dwell reset, the rate walk, the recorded band and bucket, and STEP_LOOP_CHANGE (req[0x39] = 5).
-  // The mirror PES reads back from the interface's own choice (vt+0x30), which the port stands
-  // in with the table's left flag.
-  const float startTime = host.MotionStartTime(motion);
-  const float clipBlend =
-      (!precise && req.F(moveword::kLookDelta) <= k.deg11p25) ||
-              (k.deg67p5 < req.F(moveword::kLookDelta) && !precise)
-          ? k.s0p2
-          : k.s0p1333;
-  // PES 0x1406c6074..0x1406c61f1: WriteIssue(motion, mirror, transition, blend, req[0x35], start); the style arm above is the only
-  // writer of req[0x37], so this tail is a SetMotion unless that arm ran.
-  // ponytail: PES's transition is 2 (and the start 0) when the clip's mirror already equals the interface's own (vt+0x30,
-  // 0x1406c60b3..0x1406c60cf), and the start is the foot record's own time (FUN_1406afe20/FUN_1406afe70, 0x1406c6104..0x1406c61a6)
-  // for the 0x2a015 kinds; the port keeps transition 0 and FUN_1406b97d0's start until those records are read.
+  // The clip tail. PES's own order: the blend, the foot start and transition, the request words 0x17/0x18 the headings, the playback,
+  // the issue, the dwell reset, the rate walk, the recorded band and bucket, and STEP_LOOP_CHANGE (req[0x39] = 5).
+  // 0x1406c5f5d..0x1406c5fbd: the blend is DAT_1425ddf4c, or DAT_1425ddf50 when nothing moved (no cell change, no drift) or the bucket
+  // moved, and the look delta is past 11.25 degrees or the request is not precise; DAT_142598578 (0.2) past 67.5 degrees.
+  const float lookDeltaAbs = std::fabs(req.F(moveword::kLookDelta));
+  float clipBlend = k.s0p1333;
+  if (((!cellChanged && !driftTaken) || bucketMoved) && (k.deg11p25 <= lookDeltaAbs || !precise)) {
+    clipBlend = k.deg67p5 < lookDeltaAbs ? k.s0p2 : k.s0p1667;
+  }
+  // 0x1406c6076..0x1406c61a6: the clip starts at FUN_1406b97d0's time and plays with transition 0 when the mirror differs from the
+  // playing one, the bucket moved, the drift was taken, the cell did not change, or the column is in the foot set (mask 0x2a015, which
+  // starts the clip at the frame of the foot record that matches the anime's foot band); otherwise it blends from 0 with transition 2.
+  constexpr uint32_t kFootColumnMask = 0x2a015u;  // 0x1406c6076: R8D
+  constexpr uint32_t kFootColumnLimit = 0x12;     // 0x1406c609b: CMP R15D,0x11 / JA
+  const bool footColumn = static_cast<uint32_t>(col) < kFootColumnLimit && ((kFootColumnMask >> col) & 1u) != 0u;
+  float startTime = 0.0f;
+  int transition = 2;
+  if (mirror != host.ClipFlag() || bucketMoved || driftTaken || !cellChanged || footColumn) {
+    transition = 0;
+    startTime = host.MotionStartTime(motion);
+    if (footColumn) {
+      const int footNow = host.FootBand();
+      const int subCount = host.Motion(motion).FootCount();
+      for (int i = 0; i < subCount; ++i) {
+        int sub = host.Motion(motion).FootPair(i);
+        if (mirror) sub = sub == 0 ? 2 : sub == 1 ? 3 : sub == 2 ? 0 : sub == 3 ? 1 : sub;  // the pair's sides swap with the mirror
+        if (footNow == sub) {
+          startTime = static_cast<float>(host.ClipTicks(pes::ClipReader::kCancel, motion, k.one, i) + 1) / host.TicksPerSecond();
+          break;
+        }
+      }
+    }
+  }
   pes::MotionRequest request;
   request.motion = motion;
-  request.mirror = host.BucketIsLeft(bucket);
+  request.mirror = mirror;
+  request.transition = transition;
   request.duration = clipBlend;
   request.playback = StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView());
   request.startTime = startTime;
@@ -908,7 +959,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetF(moveword::kDwellLimit, precise ? 0.0f : clipBlend);  // d_1406c4c10.c after the vt+0x10 issue: req[0x1a] = 0, req[0x1b] = req[0xe] == 0 ? the blend (a float) : 0
   const float rateTarget = RateFor(host, req.Flag(moveword::kUseClassRate), blendedSpeed,
-                                   nextBand, kind);
+                                   nextBand, kindNow);
   if (req.F(moveword::kRate) <= rateTarget) {
     const float raised = req.F(moveword::kRate) + k.step0p05;
     req.SetF(moveword::kRate, (raised <= rateTarget && 0.0f <= raised) ? raised : 0.0f);
