@@ -1422,13 +1422,24 @@ Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
 namespace {
 
 // PES's throw-in key clip (ThrowinLoop's SetKick and release clip, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1): the
-// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1).
-// ponytail: the body scale (PES's player +0x3B18) is taken as 1.
+// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1), scaled by the taker's own
+// physique P+0x3B18 (PesBodyScaleOf below).
 constexpr int kThrowInKeyMotion = 0xcfa;
-pes::Vec3 ThrowInKeyOffset(Match& match) {
+// PES's player physique scale: FUN_1406EB210 (0x1406EB23E) writes P+0x3B18 = height_cm / DAT_142598580 (180.0) from the setup
+// record's height, and FUN_1406E8CC0 scales a clip's ball offset by it (x and z clamped to DAT_1425DDF78..DAT_1425DDF80 = 0.9166..
+// 1.0833, y not clamped). Read the way PES reads it: the window's P for the man's slot (the actor writer stores the same value there).
+float PesBodyScaleOf(Match& match, const Player* player) {
+  if (player == nullptr) return 1.0f;
+  const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player));
+  float scale = 0.0f;
+  std::memcpy(&scale, p + pes::kPF3B18Offset, sizeof scale);
+  return scale > 0.0f ? scale : 1.0f;  // 0: the window's P was not written this tick
+}
+
+pes::Vec3 ThrowInKeyOffset(Match& match, const Player* taker) {
   const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
   const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
-  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
+  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), PesBodyScaleOf(match, taker), false,
                                pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
 }
 
@@ -1449,14 +1460,14 @@ void TeamAIController::PinBallAtRelease() {
       pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
                                                     match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
     }
-    constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
+    const float kPhysique = PesBodyScaleOf(*match, taker);  // PES's +0x3B18 (height_cm / 180), read from the window's P
     constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
     const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
     const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
     const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
     offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   } else {
-    offset = ThrowInKeyOffset(*match);
+    offset = ThrowInKeyOffset(*match, taker);
   }
   const Vector3 pos = taker->GetPosition();
   const Vector3 facing = taker->GetDirectionVec();
@@ -1494,8 +1505,8 @@ int CeremonyRoleClass(e_PlayerRole role) {
 
 // A placed throw-in taker's stand point (PES's ThrowinLoop SetKick, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1):
 // the release key's horizontal length outside the touchline over the restart point.
-float ThrowInStandLength_m(Match& match) {
-  const pes::Vec3 offset = ThrowInKeyOffset(match);
+float ThrowInStandLength_m(Match& match, const Player* taker) {
+  const pes::Vec3 offset = ThrowInKeyOffset(match, taker);
   return std::hypot(offset.x, offset.z);
 }
 
@@ -2136,7 +2147,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       if (!seamlessRestart && taker) {
         const Vector3 restart = match->GetReferee()->GetBuffer().restartPos;
         const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
-        const float standIn_m = ThrowInStandLength_m(*match);
+        const float standIn_m = ThrowInStandLength_m(*match, taker);
         taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * standIn_m, 0.0f), ballPos);
         pieceHeld = true;
       }
