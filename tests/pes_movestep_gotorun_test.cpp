@@ -14,16 +14,27 @@ namespace {
 
 constexpr uint64_t kAdjusterBusy = 0x141eb3320;  // FUN_141eb3320(P+0x4d0): the facing adjuster's state == 2
 constexpr uint64_t kDelegates[] = {0x1406ce820, 0x1406d01d0, 0x1406d5d60, 0x1406d2590, 0x1406ccd00, 0x1406d38d0, 0x1406d2f60};
+constexpr uint64_t kFootBand = 0x1406e80b0;
+constexpr uint64_t kRateCeiling = 0x1406eadf0;
 
 class GotoRunHost : public RowHost {
  public:
-  GotoRunHost(const Case& c, const Install& in) : RowHost(c, in.run, in.tables, in.playback, in.buckets, in.move, in.turn, *in.mbinfo) {}
+  GotoRunHost(const Case& c, const Install& in)
+      : RowHost(c, in.run, in.tables, in.playback, in.buckets, in.move, in.turn, *in.mbinfo), c_(c) {}
   bool FacingAdjusterBusy() const override { return (Need(kAdjusterBusy).rax & 0xff) != 0; }
+  // P+0x245d, the state before the current one: the probe the rows carry (the handler reads it directly, 0x1406be573).
+  int MoveStatePrevious() const override { return Le<uint8_t>(c_.probe.at("prev")); }
+  // vt+0x78 of +0xac0 (FUN_1406e80b0, 0x1406bec86): the foot band; vt+0x?? 1406eadf0 is movss xmm0,[P+0x2cbc], the rate ceiling.
+  int FootBand() const override { return static_cast<int32_t>(Need(kFootBand).rax); }
+  float RateCeiling() const override { return F32(Need(kRateCeiling).xmm0); }
   bool Delegates() const {
     for (const uint64_t target : kDelegates)
       if (First(target) != nullptr) return true;
     return false;
   }
+
+ private:
+  const Case& c_;
 };
 
 }  // namespace

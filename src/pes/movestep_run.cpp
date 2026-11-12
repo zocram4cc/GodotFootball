@@ -725,7 +725,7 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   const float turn = req.F(moveword::kTurn);
   if (static_cast<int>(req.U(moveword::kRateBand)) < 1 &&
       static_cast<int>(req.U(moveword::kBandTarget)) < 1 && cls > 1 &&
-      clipLen < hit0 && host.MatchPhase() != 0x4a &&
+      clipLen < hit0 && host.AnimeState() != kReplayAnimeState &&
       (k.deg45 < turn || k.deg45 < req.F(moveword::kFacingError) ||
        req.Flag(moveword::kMirrorFlag))) {
     EnterGotoRun(host, req, false);
@@ -751,17 +751,14 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     if (clipLen < hit2) fastTurnLocked = false;
   }
 
-  // The turn-lock test arm (FUN_1406d01d0's call) and the no-op class read.
+  // The turn-lock test arm (FUN_1406d01d0's call). PES's other branch (0x1406be4c9) reads the anime state (vt+0x28) and drops it.
   if ((static_cast<uint32_t>(static_cast<int>(req.U(moveword::kBandTarget)) - 1) < 2u) && cls > 2) {
     if (req.U(moveword::kPrecise) == 0u) {
-      const bool keeper = host.MatchPhase() == 0x4a;
+      const bool keeper = host.AnimeState() == kReplayAnimeState;
       if (bearing < k.deg45 && !keeper && motion != 0x8d1 && !turnFamily && EnterGotoTurn(host, req)) {
         return;
       }
     }
-  } else if (req.U(moveword::kPrecise) == 0u && req.U(moveword::kCommandSpeedClass) != 0xffffffffu &&
-             bearing < k.deg675) {
-    host.CommandSpeedClass();
   }
 
   // The stop arm (FUN_1406bdf10 lines 215-217): it runs when the state before the current one is not IDLE, or the second
