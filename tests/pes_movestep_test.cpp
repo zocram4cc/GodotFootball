@@ -649,6 +649,19 @@ TEST(Idle, IssuesTheIdleClipWhenTheStayDecisionRefuses) {
   EXPECT_EQ(req.U(pes::moveword::kLiveKind) & 0xffu, 0u);
 }
 
+// The pose hold (HoldsBodyPose): a state whose exit is decoded and oracle-checked waits on the finished clip instead of letting the
+// body hand off. GOTO_RUN's exit (FUN_1406bdf10) waits for the clip's blend-or-last tick (0x1406bec55 `elapsed < local_104`); on a
+// body that switched away the frame never gets there: the pes-loop smoke (seed 7) stalled the restart taker (no restart within
+// 1758 ticks) with GOTO_RUN released at the clip's end.
+TEST(PoseHold, TheStatesWhoseExitWaitsOnTheFinishedClipHoldTheBody) {
+  for (int s = 0; s < pes::kMoveStateCount; ++s) {
+    const auto state = static_cast<pes::MoveState>(s);
+    const bool held = state == pes::MoveState::kStop || state == pes::MoveState::kAccelerate ||
+                      state == pes::MoveState::kRunTurnRun || state == pes::MoveState::kGotoRun;
+    EXPECT_EQ(pes::HoldsBodyPose(state), held) << "state " << s;
+  }
+}
+
 TEST(IdleTurn, WritesTheTurnLockInsideTheReorientWindow) {
   RateHost host = IdleHost();
   pes::MoveReq req = StayRefused();
