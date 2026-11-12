@@ -342,3 +342,6 @@ void StoreObjectArray(PesState& s, uint64_t array, const uint64_t (&vtables)[N])
 
 void pes_service_packer_array_ctor_a(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayAVtables); }
 void pes_service_packer_array_ctor_b(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayBVtables); }
+
+// 0x141957C60(size): the graphics device's allocator; GF has no device, so the allocation fails (rax = 0) and the caller's own failure path runs.
+void pes_service_gfx_device_alloc(PesState& s) { s.gpr[0] = 0; }

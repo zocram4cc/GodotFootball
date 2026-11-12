@@ -4042,6 +4042,23 @@
     "op": "packer_array_ctor_b",
     "effect": "for k in 0..19: [rcx+0x18k] = vtable_k; [rcx+0x18k+8] = 0xFFFF0000; [rcx+0x18k+16] = 0; vtables: 0x1427db688, 0x1427db700, 0x1427db778, 0x1427db7f0, 0x1427db868, 0x1427db8e0, 0x1427db958, 0x1427db9d0, 0x1427dba48, 0x1427dbac0, 0x1427dbb60, 0x1427dbc00, 0x1427dbc50, 0x1427dbd70, 0x1427dbde8, 0x1427dbe38, 0x1427dbed8, 0x1427dbf28, 0x1427dbff0, 0x1427dc090"
    }
+  },
+ {
+  "va": "141957C60",
+  "callers": [
+   "1423D4A80"
+  ],
+  "used_by_closure": true,
+  "kind": "gf-service",
+  "why": [
+   "GF SERVICE for the graphics device's allocator (not a model of a PES effect: GF has no graphics device; GF is the other side of the seam, as the file layer's reads are). FUN_141957C60(size) = `(*(*DAT_1437C9238)->vtable[0x20])(*DAT_1437C9238, size)`: DAT_1437C9238 is the render system object FUN_141957E30 makes (called from the process-start init FUN_140400410 with the graphics config: its first member is the refcounted DEVICE object, whose method +0x20 allocates a command block). On the clean boot no device exists (DAT_1437C9238 = 0, the call target reads 0).",
+   "Answer: 0, the allocation-failed result. The one translated caller on the anime path, FUN_1423D4A80 (reached from the FixDemo setup FUN_141EB8770), tests its result (`if (puVar2 != 0) {queue the command...}`) and on 0 runs its own cleanup path through the object it was given; GF's engine world queues no render commands.",
+   "Not covered: any caller that needs a real block (none on the engine world's path: the survey names this function only through FUN_1423D4A80); the graphics device itself."
+  ],
+  "model": {
+   "op": "gfx_device_alloc",
+   "effect": "rax = 0 (no device: the allocation fails)"
   }
+ }
  ]
 }

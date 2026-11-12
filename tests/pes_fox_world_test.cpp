@@ -315,4 +315,17 @@ TEST(PackerStandIns, TheArrayConstructorsStoreTheCapturedObjectsAndNothingElse) 
   }
 }
 
+
+// The graphics device's allocator (0x141957C60): GF has no device, so the call answers 0 (the allocation failed) and changes nothing else.
+TEST(PackerStandIns, TheGraphicsDeviceAllocatorAnswersAFailedAllocationAndTouchesNoMemory) {
+  ObjectState s;
+  const std::vector<uint8_t> before = s.Bytes();
+  s.gpr[0] = 0x1234;
+  s.gpr[1] = ObjectState::kBase + 0x40;
+  s.gpr[2] = 0x40;
+  pes_service_gfx_device_alloc(s);
+  EXPECT_EQ(s.gpr[0], 0u);
+  EXPECT_EQ(s.Bytes(), before);
+}
+
 }  // namespace

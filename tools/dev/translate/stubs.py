@@ -43,7 +43,7 @@ DO_BY_KIND = {
     "run-real-closure": {None: None},
     "unmodellable": {None: "unmodellable"},
     "gf-service": {op: "service_" + op for op in ("fs_stat", "fs_op_create", "fs_op_callback", "fs_op_read", "fs_op_status",
-                                                  "fs_op_destroy", "packer_pool_set_max", "packer_lua_atpanic", "packer_lua_setallocf", "packer_array_ctor_a", "packer_array_ctor_b")},
+                                                  "fs_op_destroy", "packer_pool_set_max", "packer_lua_atpanic", "packer_lua_setallocf", "packer_array_ctor_a", "packer_array_ctor_b", "gfx_device_alloc")},
 }
 # GF services (kind "gf-service"; also the named stand-ins for the packer's virtualized functions, ops packer_*): a direct call to the PES function runs GF's pes_service_<op> (pes_native.cpp) over the same registers and
 # stack, in place of the call. Not a model of a PES effect: GF is the other side of a seam (the file layer's reads). The harness runs PES's
