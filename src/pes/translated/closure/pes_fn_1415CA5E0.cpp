@@ -85,6 +85,7 @@ static constexpr unsigned __int128 k_c1429DC120 = ((unsigned __int128)0x3F800000
 static constexpr unsigned __int128 k_c1429DC130 = ((unsigned __int128)0xBF800000C0000000ULL << 64) | 0x40400000C0400000ULL;
 
 void pes_fn_1415CA5E0(PesState& s);
+void pes_fn_1415CA3F0(PesState& s);
 
 void pes_fn_1415CA5E0(PesState& s) {
   s.gpr[0] = (uint64_t)(s.gpr[4]);
@@ -2964,7 +2965,7 @@ void pes_fn_1415CA5E0(PesState& s) {
       s.wrf(((s.gpr[4]) + (0x28ULL)), s.x_f32(0));
       s.wr128(((s.gpr[5]) + (0xB0ULL)), ((unsigned __int128)s.xmm[1][1] << 64) | s.xmm[1][0]);
       s.wr(((s.gpr[4]) + (0x20ULL)), (uint64_t)(s.gpr[0]), 8);
-      /*OUT-OF-SET CALL 0x1415CA3F0*/ pes_dispatch_missing(0x1415CA3F0);
+      { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1415CA3F0(s); s.gpr[4] += 8; }
       { unsigned __int128 _v = s.rd128(((s.gpr[5]) + (0xC0ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
       s.wr128(((s.gpr[3]) + (0xA0ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
     }
