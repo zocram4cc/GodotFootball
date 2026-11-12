@@ -1,5 +1,19 @@
 # ForfeitOrder: does PES award the 3-0 forfeit before the level-score decision?
 
+## Resume list (read first)
+
+Status: item 5 BLOCKED. Item B NOT FOUND, with the E-location premise flagged for re-verification. FUN_140A23380 OPEN. Nothing ported, no code changed, nothing pushed (ForfeitOrder at a4689f71).
+
+1. Item 5 (on-pitch record / lineup), resume from:
+- the writer of team+0x0C (uint32 table at team+0x0C..0x1C). First-kick change: team0 [9,9,9,1,9] to [2,255,2,255,2]; team1 [21,21,21,14,21] to all 255. FUN_141FC1590 is not it: its table at side+0x8E08 is unchanged in both frames.
+- the five writers of DRV+0x1AF00 (4-byte lineup context): 0x141FB0766, 0x141FBAA76 (reset to 0), 0x141FCF5EF, 0x141FCF8A7 (near FUN_141FCF130; boundary unchecked), 0x141FD6757. None is traced to the first kick.
+- the roster (roster+0x44, +0x8204) is not in the captures: no 8- or 4-byte pointer to MI (0x1BC04608) or to the teams exists in any captured region. DRV needs another anchor.
+2. Item B (E flags), NOT FOUND:
+- E's real location (PREMISE FLAGGED): E = *(G+0x2C0) is unverified. g.bin (G = 0x2C0C3390 per live.json) reads 0 at +0x2C0 in both shoot-out captures (t031, t034). Either E is not at G+0x2C0 in this build, or g.bin is not based at G.
+- E's constructor: not located. Disp32 0x2C0 has 12,985 hits and 3,125 store sites (unbounded). E readers FUN_1404493D0 and FUN_1404499D0 are called only from FUN_1404494E0 (the whistle writer).
+3. FUN_140A23380 (OPEN): the two docs disagree on its gate. pes-re-missing-systems.md:446 says player+0x14 == 1 or player+0x18 == 1; pes-re-port-audit-5.md:21 says player+0x1C / +0x20. Not traced.
+---
+
 Question (Main, 12-11-26): `PesForfeitMatch.AYellowThenRedStillOnThePitchAtFullTimeForfeitsThreeNil` fails on `MoveStepCell` `aea2e6ce` and passes on `7954923d`. Does PES evaluate the forfeit before the level decision at the end of regulation, and does a forfeit stop extra time and penalties?
 
 Setup: worktree `<workdrive>/gf-ForfeitOrder`, branch `ForfeitOrder` at `origin/main` `a4689f71` (no commits; `extern/godot-cpp` symlinked). No code change. No sim run (none needed for the asm answer). `GF_PES_SURVEY` empty at start.
