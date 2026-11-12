@@ -147,13 +147,14 @@ def linked_callees(text):
 def choose_variant(old, new):
     """Two translations of one function under different sets' universes: the one with fewer gaps (a callee one set lacks
     becomes an abort there; the layer keeps the variant that links more of what PES runs). With as many gaps, the one that
-    links more callees: a tail call into a function one set holds is dropped (no marker) from the translation of a set
-    without it. None when they differ with as many gaps and as many links: a real conflict."""
+    links fewer callees: a set whose universe holds a tail target the other lacks keeps the call behind a trap (a path the
+    other set's recorded cases never took), and linking it would pull that target's whole closure into every set holding the
+    function. None when they differ with as many gaps and as many links: a real conflict."""
     a, b = gap_count(old), gap_count(new)
     if a != b:
         return new if b < a else old
     la, lb = linked_callees(old), linked_callees(new)
-    return new if lb > la else old if la > lb else None
+    return new if lb < la else old if la < lb else None
 
 
 TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
@@ -239,16 +240,6 @@ def build(image):
         closure_of[va] = seen
     if conflicts:
         raise SystemExit("gen_translated: %d conflicts:\n  %s" % (len(conflicts), "\n  ".join(conflicts[:30])))
-    # A function kept as the variant that links more (choose_variant) calls callees its own set's universe lacked: every closure
-    # holding it holds those callees too (their texts were translated under the set that has them).
-    for va, seen in closure_of.items():
-        queue = sorted(seen)
-        while queue:
-            for c in CALLEE.findall(texts[queue.pop()]):
-                cv = "0x" + c.upper()
-                if cv in texts and cv not in seen:
-                    seen.add(cv)
-                    queue.append(cv)
     # Never ship a callee the harness recorded as mistranslated: a recorded function whose closure reaches one is left
     # out of the layer (listed), though its own diff passed, since its cases never took the callee's bad path.
     bad = {v for v in texts if v not in bit_vas and status.get(v) == "translator bug"}
