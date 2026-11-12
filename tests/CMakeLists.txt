@@ -188,6 +188,10 @@ add_executable(pes_movestep_stepchange_entry_test pes_movestep_stepchange_entry_
 target_link_libraries(pes_movestep_stepchange_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
 gtest_discover_tests(pes_movestep_stepchange_entry_test)
 
+add_executable(pes_movestep_idleturn_entry_test pes_movestep_idleturn_entry_test.cpp)
+target_link_libraries(pes_movestep_idleturn_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_idleturn_entry_test)
+
 add_executable(pes_movestep_run_test pes_movestep_run_test.cpp movestep_probe_stubs.cpp)
 target_link_libraries(pes_movestep_run_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_run_test)

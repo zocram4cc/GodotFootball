@@ -2254,6 +2254,33 @@ TEST(TurnStop, TheStopEntersTheRunWhenTheHeadingIsInsideFortyFiveDegreesOfTheBod
   }
 }
 
+// 0x1406cb8e6..0x1406cb8ee: the stop that cannot stay (StayDecision clear) with a look bucket other than 0 and 5, a facing error of
+// at least 33.75 degrees (0x1425cc688) and a command other than 0x79 calls FUN_1406d1390 (IDLE_TURN's entry) and leaves
+// through the epilogue; the port had no entry to call and kept the tick.
+TEST(TurnStop, AStopThatCannotStayWithTheFacingFarOffExitsThroughTheIdleTurnEntry) {
+  for (const bool farOff : {true, false}) {
+    SCOPED_TRACE(farOff);
+    FakeHost host;
+    MoveReq req;
+    req.SetU(pes::moveword::kKind, 2);
+    req.SetU(pes::moveword::kCommandSpeedClass, 0);
+    req.SetU(pes::moveword::kClassWord, 2);
+    req.SetU(pes::moveword::kPrecise, 0);
+    req.SetU(pes::moveword::kLookBucketAlt, 3);
+    req.SetU(pes::moveword::kCommandId, 0x77);
+    req.SetF(pes::moveword::kFacingError, farOff ? 40.0f : 20.0f);
+    req.SetF(pes::moveword::kDwellLimit, 100.0f);
+    req.SetF(pes::moveword::kDwellElapsed, 100.0f);  // the first dwell has run out: `elapsed < dwell` keeps the tick
+    req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+    requested = MoveState::kInit;
+    stayDecision = false;
+    TurnStop(host, req);
+    if (farOff) EXPECT_EQ(requested, MoveState::kIdleTurn);
+    else EXPECT_NE(requested, MoveState::kIdleTurn);
+  }
+}
+
 // The dwell gate: with the second dwell unfinished the handler returns without a state change.
 TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
   FakeHost host;
@@ -2476,6 +2503,7 @@ bool OutOfPlayPreempt(MoveHost&, MoveReq&) { return false; }
 bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) { requested = MoveState::kGotoRun; }
 void EnterStop(MoveHost&, MoveReq&) { requested = MoveState::kStop; }
+void EnterIdleTurn(MoveHost&, MoveReq&) { requested = MoveState::kIdleTurn; }
 void EnterRunTurnRun(MoveHost&, MoveReq&) { requested = MoveState::kRunTurnRun; }
 bool EnterRunTurnStep(MoveHost&, MoveReq&, float threshold) {
   lastRunTurnStepThreshold = threshold;

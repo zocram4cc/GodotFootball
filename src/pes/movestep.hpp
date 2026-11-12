@@ -454,6 +454,8 @@ struct StepTables {
   std::array<int32_t, 10> bucketColumn;  // 0x1425dd988: bucket -> Animetable column
   std::array<int32_t, 64> kindBandRow;  // 0x1425dd9b0: kind + band * 8 -> Animetable row; 8 bands x 8 kinds (verified: 64 rows, 1325..1385)
   std::array<float, 10> bucketDegrees;   // 0x1425dd960: bucket -> degrees (TURN_STOP entry)
+  // FUN_1406d1390's row per kind (0x1425dda30, read at 0x1406d15f8..0x1406d1690): kinds 0..8, the Animetable row of the IDLE_TURN clip.
+  std::array<int32_t, 9> idleTurnRow;
   // The representative motion per style and band (0x1425ddcf0) is RunTables::styleGroup: the
   // same table, read at the style * 4 + band stride.
   // FUN_1406b70d0's distance rows, four floats each by class: the near bucket (0x1425dde70), the far bucket (0x1425dde80)
@@ -475,6 +477,7 @@ struct StepScalars {
   float kmh8, kmh11, kmh13p5, kmh16, kmh20, kmh22, kmh3p6;
   float deg5p625, deg10, deg11p25, deg16p875, deg22p5, deg28p125, deg31p64, deg33p75;
   float deg45, deg67p5, deg78p75, deg90, deg112p5, deg135, deg140p625, deg146p25, deg168p75;
+  float deg167p5, neg167p5;  // 0x1425ddfc8 / 0x1425ddff8: FUN_1406d1390's turn-back step and its negation (the pre-step and FUN_140a92950's clamp)
   float deg174p375, deg175, deg270;
   float neg45, neg67p5, neg90, neg112p5, neg180;
   float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, s0p7;
@@ -794,6 +797,9 @@ class MoveHost {
   virtual float BodyDeg() const { MoveHostUnbound("BodyDeg"); }
   // The match object at G+0x2c0: its byte +0x85 when its mode byte +0x12 is 1 or 2, else 0 (FUN_140a3f560).
   virtual bool MatchObjectFlag2c0() const { MoveHostUnbound("MatchObjectFlag2c0"); }
+  // The route flag, *(byte*)(G + 0x25930) with G = *(*(P+0x3ac0)+0x18) (the +0xab8 interface's vt+0 object's world record):
+  // FUN_1406d1390 reads it for a kind-3 request outside the replay phase (docs/re/pes-re-walk-speed.md names it).
+  virtual bool RouteFlag() const { MoveHostUnbound("RouteFlag"); }
   // FUN_140439e50(P+8, point): the heading in [0, 360) from the own position to `point` (PES order x, height, z).
   virtual float HeadingToPointDeg(const float[3]) const { MoveHostUnbound("HeadingToPointDeg"); }
   // FUN_1406cba60(P, flag, motion) -> FUN_1406e2c30(P, row): counts the issued motion in the analyser record (P+0x3AD8). INF: the

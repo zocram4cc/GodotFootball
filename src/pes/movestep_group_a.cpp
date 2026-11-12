@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "pes/movestep.hpp"
+#include "pes/movestep_issue.hpp"
 #include "pes/movestep_run.hpp"
 
 namespace pes {
@@ -111,19 +112,80 @@ float DisplacementKmh(const MoveHost& host, const RunConstants& k) {
 
 }  // namespace
 
-// FUN_1406d1390: the idle family's turn exit into IDLE_TURN. PES's row table at 0x1425dda30 is
-// not decoded; the shared IdleRow is the port's stand-in until it lands.
-// ponytail: 0x1425dda30's row table removes this stand-in.
+namespace {
+// FUN_1406d1390's constants (instruction operands): the match phases it tests, the look buckets it flips between, the carrier
+// slot past which no player carries, the replay row and the second dwell's immediate (1/6 s as a float: 0x3e2aaaab).
+constexpr int kInPlayPhase = 1;
+constexpr int kReplayPhase = 2;
+constexpr uint32_t kLookBucketBack = 4;
+constexpr uint32_t kLookBucketFront = 9;
+constexpr uint32_t kLastPlayerSlot = 0x15;
+constexpr int kReplayIdleRow = 0x54c;
+constexpr uint32_t kIdleTurnDwellBits = 0x3e2aaaab;
+}  // namespace
+
+// FUN_1406d1390: the idle family's turn exit into IDLE_TURN (0x1406d1390..0x1406d175a). In the match phase (match+0x116c == 1)
+// with a look bucket of 4 or 9 and a facing error past 168.75 degrees, the pre-step (0x1406d1415..0x1406d15d4) turns the error
+// back to the other side when the heading to the ball sample disagrees with it; FUN_140a92950 then steps the look heading
+// toward the facing by at most 167.5 degrees, the row is the kind's (0x1425dda30) in the bucket's column (0x1425dd988) or the
+// replay row 0x54c, and the clip issues through vt+0x10 of +0xac0.
 void EnterIdleTurn(MoveHost& host, MoveReq& req) {
+  using namespace moveword;
   const RunConstants& k = host.RunConstantsView();
-  const int kind = static_cast<int>(req.U(moveword::kKind));
-  const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
-  SetIdleClip(host, req, row, k.blend1667, 0.1667f);
-  req.SetF(moveword::kDwellLimit2, 0.1667f);
-  req.SetF(moveword::kDwellElapsed2, 0.0f);
-  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
+  const StepScalars& s = host.StepConstants();
+  const StepTables& t = host.StepTablesView();
+  const int kind = static_cast<int>(req.U(kKind));
+  const uint32_t bucket = req.U(kLookBucketAlt);
+  const int phase = host.MatchPhase();
+
+  // 0x1406d13f6..0x1406d15d4: the pre-step.
+  if (phase == kInPlayPhase && (bucket == kLookBucketBack || bucket == kLookBucketFront) &&
+      s.deg168p75 < std::fabs(req.F(kFacingError))) {
+    // 0x1406d1464..0x1406d149c: the ball sample 20 / 60 s ahead (rounded), and the heading to it from the own position.
+    const int sample = static_cast<int>(host.TicksPerSecond() * s.kmh20 / s.ticks60 + s.half);
+    float ball[3];
+    host.BallSample(sample, ball);
+    float toBall = host.HeadingToPointDeg(ball);
+    const uint32_t carrier = static_cast<uint32_t>(host.CarrierSlot());
+    const float look = req.F(kLookHeading);
+    const float lookGap = std::fabs(PesAngleDiff(req.F(kFacing), look, k));
+    // 0x1406d14f1..0x1406d151b: with no player carrying (a slot past the last) and the look 22.5..157.5 degrees off the facing,
+    // the look heading folded into [0, 360) replaces the ball's.
+    if (kLastPlayerSlot < carrier && s.deg22p5 < lookGap && lookGap < k.deg1575) toBall = FoldFull(look, k);
+    float error = toBall - host.FacingDeg();  // 0x1406d1524: against P+0x20
+    if (s.halfTurn < std::fabs(error)) error -= (error < 0.0f ? s.negOne : s.one) * s.full;
+    if (s.deg22p5 < std::fabs(error) && std::fabs(error) < k.deg1575) {
+      const float requestSide = req.F(kFacingError) < 0.0f ? s.negOne : s.one;  // 0x1406d1572: `0 > err` is -1
+      const float ballSide = error < 0.0f ? s.negOne : s.one;                    // 0x1406d1582: `0 > error` is -1
+      if (requestSide != ballSide) {
+        const uint32_t next = bucket == kLookBucketBack ? kLookBucketFront : kLookBucketBack;
+        req.SetU(kLookBucketAlt, next);
+        req.SetF(kFacingError, next == kLookBucketBack ? s.neg167p5 : s.deg167p5);
+        req.SetF(kLookHeading, next == kLookBucketBack ? req.F(kFacing) + s.deg167p5 : req.F(kFacing) - s.deg167p5);
+      }
+    }
+  }
+
+  // 0x1406d15ea..0x1406d15fd: the look heading, stepped toward the facing by at most 167.5 degrees.
+  req.SetF(kLookHeading, StepHeading(req.F(kFacing), req.F(kLookHeading), s.deg167p5, k));
+
+  // 0x1406d1607..0x1406d1666: the row; a replay, or a kind-3 request in the replay phase or on a route, takes the replay row.
+  int row = t.idleTurnRow.at(static_cast<size_t>(kind));
+  const int column = t.bucketColumn.at(req.U(kLookBucketAlt));
+  const bool replay = host.AnimeState() == kReplayAnimeState;
+  if (replay || (kind == 3 && (phase == kReplayPhase || host.RouteFlag()))) row = kReplayIdleRow;
+  const MoveCell cell = host.Cell(row, column, false);
+  // 0x1406d16f5: vt+0x10 of +0xac0 (motion, mirror, foot 0, blend 1/6, playback 1.0, start 0).
+  WriteIssue(host, req, MotionRequest{cell.motionNo, cell.mirror, 0, s.s0p1667, s.one, 0.0f});
+  // 0x1406d16f9..0x1406d172c: the stamp, the second dwell (its limit an immediate, 1/6 s), the state request, the live kind.
+  req.SetU(kRecordStampB, req.U(kLookHeading));
+  req.SetU(kDwellElapsed2, 0);
+  req.SetU(kDwellLimit2, kIdleTurnDwellBits);
   RequestState(req, MoveState::kIdleTurn);
-  req.SetByte(moveword::kTurnLockFlag, 0);
+  req.SetU(kLiveKind, static_cast<uint32_t>(kind));
+  req.SetByte(kTurnLockFlag, 0);
+  // ponytail: 0x1406d175a tail-jumps to vt+0x08 of +0x4d0 (the AdjustAngle adjuster's apply, AdjustAngleApply in movestep_turn.cpp)
+  // with P+0xa08: a no-op in this port, as at the other entries (RootMotion's PesWorld adjuster removes it).
 }
 
 // FUN_1406ba900's case 0: INIT. Its stay arm takes the idle path; the run/step arm is the

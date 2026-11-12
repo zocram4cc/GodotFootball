@@ -480,6 +480,9 @@ class MoveHostAdapter final : public pes::MoveHost {
   int RecordTicks(int) const override { return 0; }
   // ponytail: *(G+0x2c0)+0x85 (FUN_140a3f560) is the match object's flag; GF has none.
   bool MatchObjectFlag2c0() const override { return false; }
+  // ponytail: *(G+0x25930), the route flag (docs/re/pes-re-walk-speed.md), has no GF record: clear. Removed by the player-record
+  // writer that sets the route (FUN_140479470's route/collision test is its reader).
+  bool RouteFlag() const override { return false; }
   // FUN_1406e7730 is pes::ClipHitDistance (movestep_turn_entry.hpp), computed over Motion()'s root offsets.
   // FUN_140439e50(P+8, point): 0 when the point is the own position, else the bearing folded into [0, 360).
   float HeadingToPointDeg(const float point[3]) const override {

@@ -1808,7 +1808,8 @@ void TurnStop(MoveHost& host, MoveReq& req) {
             int(req.U(moveword::kLookBucketAlt)) != 5 &&
             k.deg33p75 <= std::fabs(req.F(moveword::kFacingError)) &&
             int(req.U(moveword::kCommandId)) != 0x79) {
-          return;  // ponytail: FUN_1406d1390 (0x1406cb8e9) is not translated; the handler keeps the tick.
+          EnterIdleTurn(host, req);  // 0x1406cb8e9 CALL FUN_1406d1390, then JMP 0x1406cba0b (the epilogue)
+          return;
         }
         if (elapsed < blend) return;  // 0x1406CB8F3 CMP R14D,R15D / JL: the clip has not reached its blend tick
         // The idle row: 0x1406cb8fc..0x1406cb9f6.
