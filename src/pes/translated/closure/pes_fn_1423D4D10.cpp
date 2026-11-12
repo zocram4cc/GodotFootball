@@ -13,7 +13,6 @@ void pes_fn_1423D4D10(PesState& s);
 void pes_fn_1403DB240(PesState& s);
 void pes_fn_1403DB250(PesState& s);
 void pes_fn_1403DB280(PesState& s);
-void pes_fn_141957C50(PesState& s);
 
 void pes_fn_1423D4D10(PesState& s) {
   s.wr(((s.gpr[4]) + (0x10ULL)), (uint64_t)(s.gpr[3]), 8);
@@ -44,7 +43,7 @@ void pes_fn_1423D4D10(PesState& s) {
     { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403DB250(s); s.gpr[4] += 8; }
   }
   s.gpr[1] = (uint64_t)(uint32_t)(((s.gpr[7]) + (0x20ULL)));
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_141957C50(s); s.gpr[4] += 8; }
+  pes_service_gfx_device_alloc(s);
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)(s.gpr[0]), 8);
   s.gpr[8] = (uint64_t)(s.gpr[0]);
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;

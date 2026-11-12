@@ -207,6 +207,22 @@ TEST_F(AnimeEngine, AnIssuedMotionMovesThePoseOffTheIdleOneAndTheSameIssueMovesI
   EXPECT_TRUE(moved) << "no issued motion left the idle pose";
 }
 
+TEST_F(AnimeEngine, AnIssuedClipAdvancesThePoseFromFrameToFrameAndSetSpeedChangesHowFast) {
+  // The first motion that leaves the idle pose: issued, then framed more times, the pose keeps moving (the clip plays); at half the playback
+  // rate (FUN_141AF6E40) the same number of frames reaches a different pose than at the full rate.
+  const pes::PesJointPose idle = PoseAfter(-1, 1.0f, kIssueFrames);
+  int motion = -1;
+  for (int m = 0x100; m <= 0x1100 && motion < 0; m += 0x100) {
+    const pes::PesJointPose p = PoseAfter(m, 1.0f, kIssueFrames);
+    if (std::memcmp(&idle, &p, sizeof idle) != 0) motion = m;
+  }
+  ASSERT_GE(motion, 0) << "no issued motion left the idle pose";
+  const pes::PesJointPose early = PoseAfter(motion, 1.0f, kIssueFrames), later = PoseAfter(motion, 1.0f, 3 * kIssueFrames),
+                          slow = PoseAfter(motion, 0.5f, kIssueFrames);
+  EXPECT_NE(std::memcmp(&early, &later, sizeof early), 0) << "motion " << motion << ": more frames left the same pose (the clip did not advance)";
+  EXPECT_NE(std::memcmp(&early, &slow, sizeof early), 0) << "motion " << motion << ": half the playback rate left the same pose";
+}
+
 TEST_F(AnimeEngine, ThePosesTheRenderCheckPlotsAreWrittenWhenAskedFor) {
   // The AGENTS.md render check: GF_ENGINE_POSE_DUMP=<file> writes the rig's parent joints and the 20 joint positions of the idle pose and of
   // every motion probed, for tools/dev/render/plot_engine_pose.py. Nothing is written (and nothing asserted) without the variable.
