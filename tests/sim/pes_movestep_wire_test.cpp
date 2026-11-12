@@ -1108,3 +1108,45 @@ TEST(MoveStepWire, TheFadingMotionSetAgreesWithTheTranslatedFunction) {
   }
   EXPECT_GT(members, 0);
 }
+
+
+// PES reads a root's speed as the root's displacement of the tick times the tick rate (FUN_1406EA110: `|dxz| * 54 * 3.6` km/h from the
+// root history P+8 / P+0x14; PES's one-tick root displacement along a clip equals the clip's root track over rate/54 s: seq077 of live2
+// pid3332804, motion 31 backslant_1_1_relax at 0.5847 s, rate 1.0250: capture 0.03323 m, clip track 0.03333 m). GF's m/s of a man on a
+// PES clip must therefore be his displacement per tick times 54: PositionAt hands PES `GetMovement() / 54` as the displacement of a tick.
+// With the old x100 (a 10 ms frame's m/s) on a tick that advances 1.852 frames, GF read every speed 1.85 times too high.
+TEST(MoveStepWire, APesClipsMovementIsItsDisplacementPerTickTimesTheTickRate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr double kTickRate = 54.0;
+  double read_m = 0.0, moved_m = 0.0;
+  std::map<Player*, Vector3> last;
+  std::map<Player*, int> placements;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Vector3 pos = p->GetPosition();
+      const auto it = last.find(p);
+      const int placed = p->CastHumanoid()->GetPlacementCount();
+      const bool replaced = placements.count(p) && placements[p] != placed;
+      placements[p] = placed;
+      const Anim* a = p->GetCurrentAnim();
+      const bool pesClip = a && a->anim && PlayedOf(p).family == LocomotionFamily();
+      if (it != last.end() && pesClip && !replaced) {
+        const Vector3 step = (pos - it->second).Get2D();
+        const double moved = step.GetLength();
+        // A man the engine moved (a restart, a collision push) is not on his clip's path: only steps near the clip's own count.
+        if (moved < 0.2) {
+          moved_m += moved;
+          read_m += p->GetMovement().Get2D().GetLength() / kTickRate;
+        }
+      }
+      last[p] = pos;
+    }
+  }
+  ASSERT_GT(moved_m, 50.0) << "no PES clip moved a man";
+  std::printf("[movestep-speed] GF m/s over displacement*54: %.4f (%.1f m moved)\n", read_m / moved_m, moved_m);
+  EXPECT_NEAR(read_m / moved_m, 1.0, 0.1) << "GF's m/s over PES's displacement per tick times the tick rate";
+}
