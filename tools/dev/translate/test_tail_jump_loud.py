@@ -139,6 +139,12 @@ class VariantChoice(unittest.TestCase):
         self.assertIsNone(gen_translated.choose_variant("a\n" + self.GAP, "b\n" + self.GAP))
         self.assertIsNone(gen_translated.choose_variant("a\n", "b\n"))
 
+    def test_with_as_many_gaps_the_variant_that_links_more_callees_wins(self):
+        bare = "void f() {\n  a();\n}\n"
+        linked = "void pes_fn_14038D260(PesState& s);\nvoid f() {\n  a();\n  pes_fn_14038D260(s);\n}\n"
+        self.assertEqual(gen_translated.choose_variant(bare, linked), linked)
+        self.assertEqual(gen_translated.choose_variant(linked, bare), linked)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

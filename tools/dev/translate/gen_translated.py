@@ -140,12 +140,20 @@ def gap_count(text):
     return sum(text.count(m) for m in GAP_MARKERS)
 
 
+def linked_callees(text):
+    return len(set(CALLEE.findall(text)))
+
+
 def choose_variant(old, new):
     """Two translations of one function under different sets' universes: the one with fewer gaps (a callee one set lacks
-    becomes an abort there; the layer keeps the variant that links more of what PES runs). None when they differ with as
-    many gaps: a real conflict."""
+    becomes an abort there; the layer keeps the variant that links more of what PES runs). With as many gaps, the one that
+    links more callees: a tail call into a function one set holds is dropped (no marker) from the translation of a set
+    without it. None when they differ with as many gaps and as many links: a real conflict."""
     a, b = gap_count(old), gap_count(new)
-    return new if b < a else old if a < b else None
+    if a != b:
+        return new if b < a else old
+    la, lb = linked_callees(old), linked_callees(new)
+    return new if lb > la else old if la > lb else None
 
 
 TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
