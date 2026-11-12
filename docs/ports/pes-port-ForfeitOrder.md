@@ -46,3 +46,53 @@ Setup: worktree `<workdrive>/gf-ForfeitOrder`, branch `ForfeitOrder` at `origin/
 - Writer 1's cadence: the event-store contents and brain state `MB+0x2048` in the post-match period.
 - Other restart builders that carry step `0x13` or `0x1C` (not enumerated).
 - Consumer of the abandon result `flow+0x2AA8` / `+0x2AAC` (not traced).
+
+## Round 2: item 5 bounded pass and item B
+
+Status: item 5 STOPPED (writer not found). Item B: writer not found. No code changed. Nothing pushed.
+
+### Item 5: on-pitch record (MI+0x1748)
+
+- Threshold path is fed only from cfg. Roster +0x3C/+0x40 (read by FUN_140A597C0) is written only by FUN_140A5A300. Its four call sites are FUN_141FCDA30 (two) and FUN_141FBA600 (two). Each passes cfg+0x3F320 (side 0) or cfg+0x3F324 (side 1) unchanged, with cfg = *(FUN_1414B6A60()+0x50).
+- FUN_141FCDA30 reads the mode cfg+0x3F30C only in a switch (0..6) that sets a changed-flag. It does not alter the thresholds.
+- The cfg thresholds are menu values. FUN_1404CB2F0 (options screen) shows them as 11-choice and 8-choice entries and copies them into the menu object (+0x9C/+0xA0).
+- Static scan of pes_full.bin (capstone). disp32 0x3F320 and 0x3F324 each have three reads (instructions 0x1404CB629, 0x141FBA9D0, 0x141FCDB91 and 0x1404CB636, 0x141FBA9E1, 0x141FCDBAA) and one coincidental immediate match. No store at a disp32 offset.
+- Conclusion: through the match flow a roster threshold cannot drop at the shoot-out. My inference "threshold 1 per side at the shoot-out", stated in the last message to Main, is WITHDRAWN. The captured change (t031 all 22 on; t034 {0,2,11}) must come from another input of the predicate: lineup membership FUN_140A40CA0 (roster+0x44 / +0x8204, used by FUN_140A59CA0), or the arguments of FUN_141FCDA30 (param_2 goes to FUN_14050D250 and FUN_140A5A3A0; param_3 goes to FUN_140A59F90). Those come from FUN_141FCF130, called only by FUN_141FCEAD0 (call at 0x141FCEB61). Not traced.
+- Also checked: FUN_141FE3590 (match build) calls FUN_141FBA600 and copies a block; it writes no threshold.
+- Not ported. The predicate would have no shoot-out driver to feed, so porting it would not change any shoot-out result. Deferred until the lineup source is found.
+
+### Item B: E+0x66 and E+0x67
+
+- setup+0xC31B (knockout byte, read by FUN_141FE8A10), and setup+0xC31A / C31C / C324 / 6284: disp32 scans find reads only (C31B: 10 sites; C31C: 3; C324: 1; 6284: 13). No store.
+- No store to +0x66 or +0x67 within 240 bytes after any of the 10 C31B reads.
+- Mask chain: FUN_141FE8A10 builds a competition-type bitmask from setup+0xC31B, FUN_144948E00, the stage FUN_140A7F0D0, and FUN_14149F4F0 == 0x13 (gives 0x2000). Its only caller is FUN_141FE8E20 (0x141FE8F83), which passes the mask to FUN_1414826E0. FUN_1414826E0 is the match-start sound and presentation setup (Def_Sound_Sys_Match_*, MatchInfo_*, Country). It does not write E, so it is not the E writer.
+- Next leads: callers of the E readers FUN_1404493D0 and FUN_1404499D0; the constructor of E at G+0x2C0; the settings loader for E+0x17.
+
+### Second writer FUN_140A23380 (OPEN)
+
+- The two RE docs disagree on its gate. pes-re-missing-systems.md:446 gives player+0x14 == 1 or player+0x18 == 1. pes-re-port-audit-5.md:21 gives player+0x1C / +0x20 for the score. Neither is verified, and it is not traced in this round.
+
+## Round 3: item 5 lineup pass (BLOCKED) and item B pass (NOT FOUND)
+
+Status: item 5 BLOCKED (the removal rule is not isolated). Item B NOT FOUND. No code changed, nothing pushed. The Round 2 "threshold 1 per side" inference stays withdrawn.
+
+### Item 5: lineup source
+
+- Scene sync chain: FUN_141FCEAD0 gates on DRV+0xD9 and the state calls FUN_140DE41A0 / FUN_14149A470, then calls FUN_141FCF130. FUN_141FCF130 sets local_160[0] = DRV+0x1AE68 and local_160[1] = DRV+0x1AE90 (the two team objects; live.json teams 0x1BC71E04, 0x1BC8FF14), and local_160[2] = DRV+0x1AF00. It then runs FUN_141FC1590 per side, then FUN_141FCDA30 (thresholds; lineup via FUN_14050D250 and FUN_140A5A3A0).
+- FUN_141FC1590 writes a per-slot table at side+0x8E08 (default value 0xFF). That table is identical in t031 and t034 (no 0xFF in 0x100 bytes at +0x8E08). It does not show the first-kick change, so it is not the first-kick writer.
+- Captures, t031 to t034 (first kick): the team+0x0C uint32 table changes. team0 [9,9,9,1,9] to [2,255,2,255,2] (indices 3 to 7); team1 [21,21,21,14,21] to [255,255,255,255,255]. Indices 0 to 2 are unchanged. team+0x3FB8 is identical in both frames.
+- Roster/driver: no 8-byte or 4-byte pointer to MI (0x1BC04608) or to the team objects exists in any t031 region. The roster lineup (roster+0x44, +0x8204) cannot be read from these captures.
+- DRV+0x1AF00 (lineup context; stored as 4 bytes, read as 8 in FUN_141FCF130) has five writers: 0x141FB0766, 0x141FBAA76 (reset to 0), 0x141FCF5EF and 0x141FCF8A7 (near FUN_141FCF130; boundary not checked), 0x141FD6757. None is traced to the first kick.
+- FUN_140A40CA0 reads param_1+0x3FB8 (11 uint32) and param_1+(0x4E3+k)*0xc. The team objects hold 0xBF800000 (float -1.0) there, so a team object is not its argument (inference from the values). Its caller is not verified.
+- Blocked: the rule that clears non-takers at the first kick, and the writer of team+0x0C, are not isolated. A port needs FUN_141FC1590 (about 400 lines) and its helpers, and the roster is not in the captures. Not ported.
+
+### Item B: E readers and constructor
+
+- Callers of the E readers: FUN_1404493D0 and FUN_1404499D0 are called only from FUN_1404494E0 (the whistle period writer; xrefs at 0x14044991C and 0x140449909).
+- E constructor: not located. Disp32 0x2C0 has 12,985 hits and 3,125 store sites; the scan is not bounded.
+- Premise check: g.bin (G = 0x2C0C3390, live.json g) holds 0 at +0x2C0 in both shoot-out frames. So E is not stored at G+0x2C0 there, or g.bin is not based at G. Unverified; re-check before any E-based design.
+- Not found: stop.
+
+### FUN_140A23380 (OPEN)
+
+- Still open. The two docs' gates conflict (see Round 2). Not traced in this round.
