@@ -3648,7 +3648,11 @@ void RunPesDribbleTicks(Match& match) {
       constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      const uint8_t before = pb[pes::kPByteAC8Offset];
       world.RunDribbleTick(slot, match.PesTrapExternalsOf());
+      if (std::getenv("TC_DIAG4") && pb[pes::kPByteAC8Offset] != before)  // TC_DIAG4 (temporary)
+        printf("TCDRIB t=%lu %s ac8 %d->%d\n", match.GetActualTime_ms(), p->GetPlayerData()->GetLastName().c_str(), before,
+               pb[pes::kPByteAC8Offset]);
     }
   }
 }

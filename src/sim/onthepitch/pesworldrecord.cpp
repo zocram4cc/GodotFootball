@@ -440,9 +440,18 @@ uint8_t PesWorld::RunDribbleTick(int slot, PesTrapExternals& ext) {
   s.gpr[1] = action;
   s.gpr[2] = PVa(slot);
   s.gpr[8] = entry + kTickEntryFrameSlotOffset;
-  s.mem.wlog = ext.writeLog;
+  std::vector<std::pair<uint64_t, uint8_t>> diagLog;  // TC_DIAG3 (temporary)
+  s.mem.wlog = (std::getenv("TC_DIAG3") != nullptr) ? &diagLog : ext.writeLog;
   ::pes_fn_1407B37D0(s);
   ReturnSegments(s, ext, lent);
+  if (std::getenv("TC_DIAG3")) {  // TC_DIAG3 (temporary): ball-record bytes the dribble tick wrote this frame
+    const uint64_t bva = BallVa();
+    for (const auto& w : diagLog) {
+      if (w.first >= bva && w.first < bva + kBallRecordBytes)
+        printf("TCBALL %d ball+%llx=%02x\n", slot, (unsigned long long)(w.first - bva), w.second);
+    }
+    fflush(stdout);
+  }
   return P(slot)[kPByteAC8Offset];
 }
 
