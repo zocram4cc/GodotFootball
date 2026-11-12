@@ -28,6 +28,9 @@ constexpr std::size_t kVtableLoaderSlotOffset = 0x10;
 // constant::Ball (registry id 4: object 4 of constant_match.bin, ball.o): vtable, slot 2 loader FUN_141E73720.
 constexpr uint64_t kBallVtableVa = 0x142B57448ULL;
 constexpr uint64_t kBallLoaderFnVa = 0x141E73720ULL;
+// constant::PassGet (registry id 0x35, passget.o of constant_player.bin): vtable, slot 2 loader FUN_141E6CDC0.
+constexpr uint64_t kPassGetVtableVa = 0x142B547A8ULL;
+constexpr uint64_t kPassGetLoaderFnVa = 0x141E6CDC0ULL;
 // The pad manager's class: vtable slot +0x68 is the mask reader FUN_141B52340. Checked against the exe likewise.
 constexpr uint64_t kPadVtableVa = 0x142AC5B68ULL;
 constexpr uint64_t kPadMaskFnVa = 0x141B52340ULL;
@@ -57,6 +60,9 @@ constexpr TrapField kTrapFields[] = {
 };
 constexpr TrapField kBallFields[] = {
 #include "onthepitch/pesballconstant_fields.inc"
+};
+constexpr TrapField kPassGetFields[] = {
+#include "onthepitch/pespassgetconstant_fields.inc"
 };
 
 template <typename T>
@@ -148,6 +154,13 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   if (!animetable) return std::nullopt;
   std::vector<uint8_t> trap;
   if (!ReadConstantPlayerObject(vfs, "trap.o", &trap, error)) return std::nullopt;
+  const auto passGetLoader = exe.ReadU64(kPassGetVtableVa + kVtableLoaderSlotOffset);
+  if (!passGetLoader || *passGetLoader != kPassGetLoaderFnVa) {
+    *error = "passget: constant::PassGet's loader slot is not FUN_141E6CDC0 in this exe";
+    return std::nullopt;
+  }
+  std::vector<uint8_t> passGet;
+  if (!ReadConstantPlayerObject(vfs, "passget.o", &passGet, error)) return std::nullopt;
 
   std::vector<std::vector<uint8_t>> files;
   std::vector<uint32_t> caps;
@@ -177,6 +190,7 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   const std::size_t eyesObject = arena.Alloc(kEyesObjectBytes), eyesTable = arena.Alloc(kEyesTargetTableBytes);
   const std::size_t pad = arena.Alloc(kPadObjectBytes);
   const std::size_t ballEntry = arena.Alloc(kEntryBytes), ballObject = arena.Alloc(kBallRuntimeBytes);
+  const std::size_t passGetEntry = arena.Alloc(kEntryBytes), passGetObject = arena.Alloc(kPassGetRuntimeBytes);
   Store64(arena.At(pad), kPadVtableVa);
   arena.At(pad)[kPadLockOffset + kPadLockFlagOffset] = 1;  // FUN_1403FF3E0: set when the critical section initialised (always, on the live game)
   std::memcpy(arena.At(eyesTable), eyes->data(), eyes->size());  // FUN_1415A1708: the file's bytes, in once
@@ -218,6 +232,9 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   // constant::Ball (registry id 4): the class's vtable, then its slot-2 loader's stores, from ball.o.
   Store64(arena.At(ballObject), kBallVtableVa);
   if (!BuildConstantObject(ball, kBallFields, "ball.o", arena.At(ballObject), error)) return std::nullopt;
+  // constant::PassGet (registry id 0x35): the class's vtable, then its slot-2 loader's stores, from passget.o.
+  Store64(arena.At(passGetObject), kPassGetVtableVa);
+  if (!BuildConstantObject(passGet, kPassGetFields, "passget.o", arena.At(passGetObject), error)) return std::nullopt;
 
   // The objects between the globals and the data.
   Store64(arena.At(table), arena.Va(records));
@@ -229,11 +246,14 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   Store64(arena.At(entry) + kEntryPayloadOffset, arena.Va(object));
   Store64(arena.At(array) + 8 * kBallRegistryId, arena.Va(ballEntry));
   Store64(arena.At(ballEntry) + kEntryPayloadOffset, arena.Va(ballObject));
+  Store64(arena.At(array) + 8 * kPassGetRegistryId, arena.Va(passGetEntry));
+  Store64(arena.At(passGetEntry) + kEntryPayloadOffset, arena.Va(passGetObject));
 
   PesTrapLoaderData out;
   out.motionTableVa = arena.Va(table), out.motionRecordsVa = arena.Va(records), out.animeManagerVa = arena.Va(manager);
   out.animetableVa = arena.Va(cells), out.registryVa = arena.Va(registry), out.trapVa = arena.Va(object);
   out.ballVa = arena.Va(ballObject);
+  out.passGetVa = arena.Va(passGetObject);
   out.globals = {{kMotionTableGlobalVa, out.motionTableVa},
                  {kAnimeManagerGlobalVa, out.animeManagerVa},
                  {kRegistryGlobalVa, out.registryVa},

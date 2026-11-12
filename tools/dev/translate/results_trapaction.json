@@ -1101,6 +1101,43 @@
    "va": "0x141EB56D0",
    "synthetic": true,
    "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_passget_all.json",
+   "coverage": {
+    "0x14094E0E0": {
+     "reached": 30,
+     "total": 47,
+     "fraction": 0.6383
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 24 of 24: 24 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL:pid480109_passget_tick_captures",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 24,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 30,
+     "total": 47,
+     "fraction": 0.6383
+    },
+    "replayed": 24,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14094E0E0"
   }
  ]
 }
