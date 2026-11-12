@@ -15,6 +15,7 @@ static constexpr float k_c14810F532_f = 135329.609375f; // 135329.609375;
 void pes_fn_1444C8A60(PesState& s);
 
 void pes_fn_1444C8A60(PesState& s) {
+  const uint64_t _entry_rsp = s.gpr[4];
   s.gpr[2] = (uint64_t)(uint32_t)(k_c14810F532_w);
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) ^ (uint64_t)((3086690407ULL))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -98,7 +99,7 @@ void pes_fn_1444C8A60(PesState& s) {
   s.wr(((s.gpr[1]) + (0x144ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0))), 1);
   s.wr(((s.gpr[1]) + (0x148ULL)), (uint64_t)(s.gpr[2]), 8);
   { uint64_t _t = s.rd(s.gpr[4], 8);
-    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+    if (s.gpr[4] != _entry_rsp && _t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
       if (_d.fn == 0) pes_dispatch_missing(_t);
       else _d.fn(s); } }
   return;

@@ -15,6 +15,7 @@ static constexpr float k_c153F740B0_f = -1.0961322806387284e+25f; // -1.09613228
 void pes_fn_144293D10(PesState& s);
 
 void pes_fn_144293D10(PesState& s) {
+  const uint64_t _entry_rsp = s.gpr[4];
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[2])), 1));
   s.gpr[8] = (uint64_t)(((s.gpr[1]) + (0x10ULL)));
   s.gpr[9] = (uint64_t)(s.gpr[2]);
@@ -224,7 +225,7 @@ void pes_fn_144293D10(PesState& s) {
   L_144293E94:;
   s.gpr[0] = (uint64_t)(s.gpr[10]);
   { uint64_t _t = s.rd(s.gpr[4], 8);
-    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+    if (s.gpr[4] != _entry_rsp && _t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
       if (_d.fn == 0) pes_dispatch_missing(_t);
       else _d.fn(s); } }
   return;

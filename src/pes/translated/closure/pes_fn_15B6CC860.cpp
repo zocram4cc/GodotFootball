@@ -12,6 +12,7 @@
 void pes_fn_15B6CC860(PesState& s);
 
 void pes_fn_15B6CC860(PesState& s) {
+  const uint64_t _entry_rsp = s.gpr[4];
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[8])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[8]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;
@@ -68,7 +69,7 @@ void pes_fn_15B6CC860(PesState& s) {
   }
   if (s.cond("nz")) goto L_15B6CC8B0;
   { uint64_t _t = s.rd(s.gpr[4], 8);
-    if (_t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
+    if (s.gpr[4] != _entry_rsp && _t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);
       if (_d.fn == 0) pes_dispatch_missing(_t);
       else _d.fn(s); } }
   return;
