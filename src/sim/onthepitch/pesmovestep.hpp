@@ -37,6 +37,11 @@ void PesFrame(float gfX, float gfY, float gfZ, float out[3]);
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ);
 // The PES motion number the humanoid plays (movestep.hpp's CurrentMotion), or -1 when the AI's own clip plays.
 int CurrentMotionOf(Player& player);
+// The elapsed ticks of the motion the humanoid plays, as PES's anime interface answers them (FUN_1406E68C0, read through vt+0x38):
+// (int)(tickRate * seconds played + 0.5) from the motion's entry in the motion table P+0x354, and 0 when the motion is not in it. A
+// clip of GF's own is in no table (CurrentMotionOf < 0), so it has played no ticks; a PES clip has played its GF frames at 10 ms
+// of clip time (pes::kGfAnimFrame_s, the clock PesClipAnimText wrote it on). `half` is DAT_142565600 (0.5).
+int ElapsedTicksOf(Player& player, float tickRate, float half);
 // MOVESTEP's decision: the first queued command that is movement. Ball actions ride the pending ball request the kick dispatcher
 // consumes (docs/re/pes-re-decision-read.md 1 and 3), so MOVESTEP steers by the movement command. A keeper's Deflect is a hand
 // action with no move target, and a BallControl is the carrier's dribble ("ball control belongs to the man who has the ball",

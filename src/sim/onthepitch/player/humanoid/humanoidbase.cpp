@@ -11,6 +11,7 @@
 #include "../../AIsupport/AIfunctions.hpp"
 #include "../../match.hpp"
 #include "../playerbase.hpp"
+#include "../player.hpp"
 #include "humanoid.hpp"
 #include "humanoid_utils.hpp"
 #include "utils/animationextensions/footballanimationextension.hpp"
@@ -551,6 +552,10 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::
 
 void HumanoidBase::ResetPosition(const Vector3& newPos, const Vector3& focusPos) {
   ++placementCount;
+  // PES's reset (FUN_1406ee6a0: exit the current action) and the MOVE entry after it (FUN_1406eb440 clears the phase) start MOVESTEP in
+  // INIT, whose handler issues the man's first clip. The body stands on GF's idle clip after a placement, and a record left in IDLE with
+  // its live kind set issued nothing, so the man kept GF's clip for good (docs/ports/pes-port-ClipOwner.md). Officials have no record.
+  if (Player* placed = dynamic_cast<Player*>(player)) placed->GetMoveStep().EnterInit();
   startPos = newPos;
   startAngle = FixAngle((focusPos - newPos).GetNormalized(Vector3(0, -1, 0)).GetAngle2D());
   nextStartPos = startPos;

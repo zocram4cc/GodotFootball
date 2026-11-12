@@ -343,7 +343,9 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
       if (!a || !a->anim || a->anim != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
       ++sameClip;
       if (a->frameNum > frameBefore[i]) ++advanced;
-      const bool wrapped = frameBefore[i] >= a->anim->GetFrameCount() - 1;
+      // One tick advances the frame by the playback rate: a clip whose frame was within one step of its last frame reaches the end
+      // during the tick, and the IDLE loop starts it again in that same tick.
+      const bool wrapped = frameBefore[i] + static_cast<int>(std::ceil(a->playbackRate)) >= a->anim->GetFrameCount() - 1;
       if (a->frameNum < frameBefore[i] && !wrapped) ++restarted;
     }
   }

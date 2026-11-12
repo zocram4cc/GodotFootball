@@ -382,7 +382,8 @@ class MoveHostAdapter final : public pes::MoveHost {
 
   // movestep.hpp's CurrentMotion: the PES motion the body plays, -1 when the AI's own clip plays.
   int CurrentMotion() const override { return pesmovestep::CurrentMotionOf(player_); }
-  int CurrentClipFrames() const override { return player_.GetFrameNum(); }
+  // The anime interface's vt+0x38 (FUN_1406E6960 -> FUN_1406E68C0): the elapsed ticks of the playing motion, not GF's frame number.
+  int CurrentClipFrames() const override { return pesmovestep::ElapsedTicksOf(player_, TicksPerSecond(), c_.run.half); }
   int AnimeState() const override {
     // ponytail: vt+0x28 of the +0xab8 interface; GF answers the MOVE action (2) for movement-like functions and for the locomotion
     // clips MOVESTEP issued (a Special clip of the PES locomotion family: the body is in MOVE), else the 0 stub (never the 0x4a replay
@@ -577,15 +578,12 @@ void ProcessMoveStep(Player& player, Match& match) {
   // (P+0x245a, FUN_14081e340 of the command's speed at the turn) and the foot band (P+0x245b, anime vt+0x78).
   // GF has no foot sensor; the band stands at the side of the last displacement against the facing.
   // The action entry also calls FUN_1406eb440, which clears the phase (P+0x245d = P+0x245c; P+0x245c = 0, docs/re/pes-re-gaps-anime.md
-  // 387): the MOVE action starts in INIT, whose handler issues the first clip. A placement (HumanoidBase::ResetPosition, PES's
-  // FUN_1406ee6a0 reset: exit the current action) is an action entry too: the body stands on GF's idle clip, and a record left in IDLE
-  // with its live kind set issued nothing, so the man kept GF's clip for good.
+  // 387): the MOVE action starts in INIT, whose handler issues the first clip. (A placement is the same entry for the record:
+  // HumanoidBase::ResetPosition drops it to INIT, PES's reset FUN_1406ee6a0.)
   const int anime = host.AnimeState();
-  const int placements = player.CastHumanoid()->GetPlacementCount();
-  if (anime != rec.actionAnime || placements != rec.placementsSeen) {
+  if (anime != rec.actionAnime) {
     const bool intoMove = anime == 2;
     rec.actionAnime = anime;
-    rec.placementsSeen = placements;
     if (intoMove) rec.EnterInit();
     host.StoreSpeedClass(host.CommandSpeedKmh(), host.DisplacementTurnDeg());
     host.StoreFootBand(host.DisplacementTurnDeg());
@@ -638,6 +636,15 @@ int CurrentMotionOf(Player& player) {
   const int family = std::atoi(anim->anim->GetVariable("specialvar1").c_str());
   if (!pes::IsPesClipFamily(family) && !pes::IsPesLocomotionFamily(family) && !pes::IsPesTrapFamily(family)) return -1;
   return std::atoi(anim->anim->GetVariable("specialvar2").c_str());
+}
+
+int ElapsedTicksOf(Player& player, float tickRate, float half) {
+  // FUN_1406E68C0(P, motion): a motion below 0x1125 that is in the table P+0x354 answers (int)(tickRate * seconds + 0.5), else 0
+  // (0x1406E68C0..: the loop over the table's count, the entry's seconds at +0x8, FUN_141E532D0 the tick rate, DAT_142565600 the 0.5).
+  const int motion = CurrentMotionOf(player);
+  if (motion < 0) return 0;
+  const float seconds = static_cast<float>(player.GetFrameNum()) * pes::kGfAnimFrame_s;
+  return static_cast<int>(tickRate * seconds + half);
 }
 
 // MOVESTEP's decision: the first queued command that is movement (pes-re-decision-read.md 1 and 3). The keeper's Deflect carries

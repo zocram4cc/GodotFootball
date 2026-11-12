@@ -78,7 +78,6 @@ struct MoveStepRecord {
   uint8_t speedClass = 0;                 // P+0x245a: the action's speed class 0..4 (A-AN6)
   uint8_t footBand = 0;                   // P+0x245b: foot / start band (A-AN6)
   int actionAnime = 0;                    // P+0xac8: the anime action the record last ran in; a change is FUN_1406eebb0's entry
-  int placementsSeen = 0;                 // HumanoidBase placements the record has entered the action for (the reset FUN_1406ee6a0)
   uint8_t liveKind = 0;                   // req[0x1e]: the live clip's kind, carried tick to tick (FUN_1406d5d60 writes it)
   float rateCeiling = 0.0f;               // P+0x377c: top running rate (FUN_1406f99f0)
   int rateStamp = 0;                      // P+0x3778: match tick the ceiling was computed on
