@@ -3,6 +3,7 @@
 // Constants baked from the user's image at generation time (VA-cited).
 // Committed under src/pes/translated; regenerate with tools/dev/translate/gen_translated.py.
 #include "pes_state.hpp"
+#include <cstdio>
 #include "pes_dispatch.hpp"
 #include "pes_cond.inl"
 #include "pes_stubs.hpp"

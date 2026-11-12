@@ -11857,11 +11857,14 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
   }
 }
 void (*pes_dispatch_missing_handler)(uint64_t) = nullptr;
+void (*pes_dispatch_throw_handler)(uint64_t) = nullptr;  // THROW_DISPATCH: a C++ throw instead of abort (tests)
+
 void pes_dispatch_missing(uint64_t t) {
   if (pes_survey_armed()) pes_survey_note(t, __builtin_return_address(0));
-  if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(t);
+  if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(t);  // a recovery: must not return (the FixDemo rig longjmps)
   if (pes_survey_armed()) return;
   std::fprintf(stderr, "PES_DISPATCH_UNTRANSLATED: %#llx\n",
                (unsigned long long)t);
+  if (pes_dispatch_throw_handler) throw PesDispatchMissing{t};  // THROW_DISPATCH: callers own the abort
   std::abort();
 }

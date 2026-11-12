@@ -137,20 +137,21 @@ namespace pes_oracle {
 // a builder-shaped call: bp = r8 - 0x1C, ctx = rdx), for tests that run a PES writer on the window and compare its output to the
 // capture's bytes (a live-in manifest holds only what the capture's own call read; a longer chain reads more). The window's own ctx
 // pointers to MA and E stay.
-inline void CopyRecords(const Oracle& o, Built& b, bool walk);
+inline void CopyRecords(const Oracle& o, Built& b, bool walk, int sideOverride = -1);
 inline void BuildFull(const Oracle& o, Built& b) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
   w.BindImageTables(InstallTables());
   b.side = static_cast<int>(Read(o, o.regs.at("rcx") + pes::kBpUnitInfoOffset + pes::kUnitSideOffset, 4));
-  CopyRecords(o, b, true);
+  CopyRecords(o, b, true, -1);
 }
 
-inline void CopyRecords(const Oracle& o, Built& b, bool walk) {
+inline void CopyRecords(const Oracle& o, Built& b, bool walk, int sideOverride) {
   pes::PesWorld& w = *b.world;
+  const int side = sideOverride >= 0 ? sideOverride : b.side;
   const uint64_t g = Read(o, kImageG, 8);
   const auto copy = [&](const char* kind, int idx, size_t bytes, size_t skipLo = 0, size_t skipHi = 0) {
-    uint8_t* dst = RecordOf(w, b.side, kind, idx);
+    uint8_t* dst = RecordOf(w, side, kind, idx);
     const uint64_t base = CapturedBase(o, g, kind, idx, walk);
     ASSERT_NE(dst, nullptr) << kind;
     if (base == 0) return;  // an official the capture's table does not hold (the fourth official has no entry)
@@ -166,8 +167,8 @@ inline void CopyRecords(const Oracle& o, Built& b, bool walk) {
   for (int k = 0; k < pes::kAnimeCount; ++k) copy("anime", k, pes::kManRecordOffset);
   for (int k = 0; k < pes::kManCount; ++k) copy("man", k, pes::kManRecordBytes);
   for (int k = 0; k < pes::kSlotCount; ++k) copy("slot", k, pes::kPlayerBlockBytes - pes::kSlotRecordOffset);
-  copy("bp", 0, pes::kBpBytes);
-  uint8_t* ctx = w.Ctx(b.side);
+  copy("bp", 0, pes::kBpBytes, 0, 0);  // side-specific callers pass sideOverride
+  uint8_t* ctx = w.Ctx(side);
   uint64_t maVa = 0, eventsVa = 0;
   std::memcpy(&maVa, ctx + pes::kCtxMaOffset, sizeof(maVa));
   std::memcpy(&eventsVa, ctx + pes::kCtxEventsOffset, sizeof(eventsVa));

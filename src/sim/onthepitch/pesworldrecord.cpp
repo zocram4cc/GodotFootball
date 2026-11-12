@@ -8,6 +8,7 @@
 
 #include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/pesball.hpp"
+#include "pes/translated/pes_dispatch.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
 
@@ -362,6 +363,48 @@ PesTrapResult PesWorld::RunTrapKind0(int slot, const PesTrapRequest& request, Pe
   result.issued = (s.gpr[0] & 0xFF) != 0;
   result.out = static_cast<uint32_t>(s.mem.rd(entry + kFrameOutWordOffset, 4));
   return result;
+}
+
+// The ActionPassGet tick's window state: the constructed object's rows, built once per slot from
+// pespassgetobject_stores.inc (PES's constructor 0x14091DAB0, gen_passgetobject.py). The tick keeps its route state in the
+// object between calls, so a replay's overlay (the capture's object bytes) must be applied on a constructed object, not over
+// zero bytes: an overlay-only run would lose the vtable cells and every pointer into the object.
+namespace {
+void BuildPassGetObject(pes::PesWorld& world, int slot) {
+  uint8_t* object = world.PassGetObject(slot);
+  for (const PassGetStore& row : kPassGetObjectStores) {
+    // kind 1: a pointer into the object itself (the route objects' vtable cells); PES's constructor wrote its own VA there.
+    const uint64_t value = row.kind == 1 ? pes::PesWorld::PassGetVa(slot) + row.value : row.value;
+    std::memcpy(object + row.offset, &value, sizeof value);
+  }
+}
+}  // namespace
+
+void PesWorld::SetDispatchThrowStatic(bool on) { pes_dispatch_throw_handler = on ? [](uint64_t) {} : nullptr; }
+
+// The tick on the window for `slot`: rcx = the object, rdx = pc, r8 = R, r9 = the u32 the caller passes by pointer.
+// The per-slot objects are constructed once (BuildPassGetObject over the slot's bytes); every run after that reuses the object's state.
+void PesWorld::ConstructPassGetObject(int slot) { BuildPassGetObject(*this, slot); }
+void PesWorld::AttachImageRun(uint64_t va, std::vector<uint8_t> bytes) {
+  imageRuns_.push_back({va, std::move(bytes)});
+}
+
+
+void PesWorld::RunPassGetTick(int slot, PesTrapExternals& ext) {
+  if (LoadU64(PassGetObject(slot), 0) == 0) BuildPassGetObject(*this, slot);  // the vtable word is the constructor's first store
+  PesState s = NewCall(Bytes());
+  for (const ImageRun& run : imageRuns_) s.mem.img.push_back({run.va, run.bytes});
+  const std::size_t lent = LendExternals(s, ext);
+  const std::size_t entry = kStackVa + kStackBytes - 0x40;  // the call's frame: the return address slot
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = PassGetVa(slot);  // rcx: the action object
+  s.gpr[2] = PassGetPcVa(slot);  // rdx: pc
+  s.gpr[8] = PassGetRVa(slot);  // r8: the command record R
+  s.gpr[9] = PassGetArgVa(slot);  // r9: the u32 the caller passes by pointer
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_14094E0E0(s);
+  ReturnSegments(s, ext, lent);
 }
 
 uint8_t PesWorld::RunAbilityByte(int slot, uint32_t id) {

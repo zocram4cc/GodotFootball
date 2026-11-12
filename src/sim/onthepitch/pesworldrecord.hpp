@@ -19,6 +19,7 @@
 #include "pesclock.hpp"
 #include "pesevents.hpp"
 #include "pestrapworld.hpp"
+#include "pespassgetworld.hpp"
 #include "pesimagetables.hpp"
 #include "pes_native.hpp"
 #include "pesbodyscan.hpp"
@@ -704,8 +705,8 @@ struct PesWorldImage {
   PesRosterBlock roster{};                             // G+0x180's roster block
   PesSkipRecord skip{};                                // G+0x3B0's skip object
   std::array<PesAiRecord, kSideCount> ai{};            // each side's AI object and context array (the arrival-list writer's rcx)
-};
-static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
+  std::array<PesPassGetImage, kSlotCount> passGet{};   // each man's ActionPassGet object, pc and command record R (pespassgetworld.hpp)
+};static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
 static_assert(offsetof(PesWorldImage, sides) == kSidesOffset);
 static_assert(offsetof(PesWorldImage, teamInfos) == kTeamInfosOffset);
@@ -732,6 +733,9 @@ static_assert(offsetof(PesWorldImage, roster) == kRosterOffset);
 static_assert(offsetof(PesWorldImage, skip) == kSkipOffset);
 inline constexpr std::size_t kAiOffset = kSkipOffset + sizeof(PesSkipRecord);
 static_assert(offsetof(PesWorldImage, ai) == kAiOffset);
+inline constexpr std::size_t kPassGetOffset = kAiOffset + static_cast<std::size_t>(kSideCount) * kAiBytes;
+static_assert(offsetof(PesWorldImage, passGet) == kPassGetOffset);
+
 // The ball record's active byte (FUN_140A57940 answers it): PES's ball constructor sets it (0x140A572B4: mov byte [rbx+0x2928], 1) and
 // only the FixDemo scene state machine clears it (0x141FD00BD through the setter 0x140A57990); GF never hides the ball record.
 inline constexpr std::size_t kBallActiveOffset = 0x2928;
@@ -811,6 +815,15 @@ class PesWorld {
   static constexpr uint64_t SkipVa() { return kWorldWindowVa + kSkipOffset; }
   static constexpr uint64_t AiVa(int side) { return kWorldWindowVa + kAiOffset + static_cast<uint64_t>(side) * kAiBytes; }
   uint8_t* Ai(int side) { return image_->ai[side].bytes.data(); }
+
+  // The ActionPassGet records of `slot` (pespassgetworld.hpp): the object (rcx), pc (rdx), command record R (r8) and the u32 r9 points at.
+  static constexpr uint64_t PassGetVa(int slot) { return kWorldWindowVa + kPassGetOffset + static_cast<uint64_t>(slot) * sizeof(PesPassGetImage); }
+  static constexpr uint64_t PassGetPcVa(int slot) { return PassGetVa(slot) + offsetof(PesPassGetImage, pc); }
+  static constexpr uint64_t PassGetRVa(int slot) { return PassGetVa(slot) + offsetof(PesPassGetImage, r); }
+  static constexpr uint64_t PassGetArgVa(int slot) { return PassGetVa(slot) + offsetof(PesPassGetImage, arg); }
+  uint8_t* PassGetObject(int slot) { return image_->passGet[slot].object.data(); }
+  uint8_t* PassGetPc(int slot) { return image_->passGet[slot].pc.data(); }
+  uint8_t* PassGetR(int slot) { return image_->passGet[slot].r.data(); }
   uint8_t* Brain(int side) { return image_->brain[side].bytes.data(); }
   // The team record's pass target T+0x78 (a slot id, kNoPassTarget when none): written by PES's selector, RunPassTarget.
   uint32_t PassTarget(int side) { return LoadU32(SideRecord(side), kSidePassTargetOffset); }
@@ -938,6 +951,25 @@ class PesWorld {
   // phase machine the action runs each logic frame. `ext` is the chain's (the loader data and the image). A path no capture
   // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
   PesTickResult RunTrapTick(int slot, PesTrapExternals& ext);
+  // PES's ActionPassGet tick 0x14094E0E0 on the window for `slot`'s records (rcx = the object, rdx = pc, r8 = R, r9 = the action id's
+  // cell), the loader data it reads lent as in the trap runs (`ext`: the registry's PassGet entry, the motion records, the image).
+  // The route state it keeps lives in the object between calls. `writeLog` (ext) records every byte the call writes. A path no real call
+  // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
+  // `ext.globals`: the entries whose caller stores a value in the image's writable globals, per call (e.g. the registry pointer
+  // 0x1437F4808 holds its runtime value, not the file's): (VA, value) pairs, written before the run.
+  // `ext.segments`: the run's call-out replies (each a PesTrapSegment: VA and bytes), moved in and returned like the trap runs.
+  void RunPassGetTick(int slot, PesTrapExternals& ext);  // The image sections a window run reads at fixed VAs (the .rdata block 0x14252F000, the .data block 0x14339B000): the
+  // FixDemo rig's own memory layout, shared by every run that dispatches on an image vtable cell (tests). The run's memory
+  // keeps them whole (no overlay): the bytes are the file's, which is what PES's own run read there.
+  void AttachImageRun(uint64_t va, std::vector<uint8_t> bytes);
+
+  // A THROW_DISPATCH hook (tests): pes_dispatch_missing throws `PesDispatchMissing` while it is set, so a missing
+  // translation is a loud failure a test can message instead of aborting the process. Never set in production code.
+  static void SetDispatchThrowStatic(bool on);
+  // The constructor rows only (BuildPassGetObject): the window's object state without running PES's bytes. Tests overlay a
+  // captured object's bytes on it (the capture holds PES's heap pointers for the route cells, which must be re-pinned to the
+  // window's own VAs afterwards).
+  void ConstructPassGetObject(int slot);
   // PES's body contact scan 0x1406EDCE0 on the window for `slot`'s P (rcx = P, rdx = the driver's output record, zeroed in the call's
   // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
   // touched bit (kPFlagTouched) is the reach test's answer.
@@ -1203,6 +1235,8 @@ class PesWorld {
 
   std::unique_ptr<PesWorldImage> image_;
   std::array<TickPlan, kSlotCount> tickPlan_{};
+  struct ImageRun { uint64_t va = 0; std::vector<uint8_t> bytes{}; };
+  std::vector<ImageRun> imageRuns_;  // the image sections a window run reads at fixed VAs (AttachImageRun; RunPassGetTick lends them)
   std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
   std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)

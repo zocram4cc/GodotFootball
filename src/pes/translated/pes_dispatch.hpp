@@ -19,3 +19,6 @@ PesDispatch pes_dispatch_lookup(uint64_t t);
 // Returns only in a GF_PES_SURVEY run (pes_survey.hpp); otherwise it aborts.
 void pes_dispatch_missing(uint64_t t);
 extern void (*pes_dispatch_missing_handler)(uint64_t);
+// THROW_DISPATCH: pes_dispatch_missing throws `PesDispatchMissing` while a handler is set (tests); never set in production.
+struct PesDispatchMissing { uint64_t target = 0; explicit PesDispatchMissing(uint64_t t) : target(t) {} };
+extern void (*pes_dispatch_throw_handler)(uint64_t);

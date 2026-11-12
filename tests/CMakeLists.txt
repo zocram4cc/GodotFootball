@@ -90,6 +90,11 @@ add_executable(pes_teampass_oracle_test pes_teampass_oracle_test.cpp)
 target_link_libraries(pes_teampass_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_teampass_oracle_test)
 
+add_executable(pes_passget_oracle_test pes_passget_oracle_test.cpp)
+target_include_directories(pes_passget_oracle_test PRIVATE ${CMAKE_SOURCE_DIR}/tests/sim)
+target_link_libraries(pes_passget_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_passget_oracle_test)
+
 add_executable(pes_dribble_oracle_test pes_dribble_oracle_test.cpp)
 target_link_libraries(pes_dribble_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_dribble_oracle_test)
