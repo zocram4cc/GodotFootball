@@ -558,6 +558,26 @@
       ]
     },
     {
+      "module": "ucrtbase.dll",
+      "export": "_register_onexit_function",
+      "do": "return",
+      "value": "0x0",
+      "why": [
+        "int _register_onexit_function(_onexit_table_t*, _onexit_t fn): the CRT's atexit registration, reached by the static initializers' `atexit(handler)` (FUN_14159F6C0 -> _onexit -> FUN_14159F670 -> through the IAT slot 0x142530318 and its .tls$ copy 0x15B960400).",
+        "Model: returns 0 (success) and records nothing: the exit handlers GF never runs (the world is dropped, not shut down). Same as the _crt_atexit model."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "_initialize_onexit_table",
+      "do": "return",
+      "value": "0x0",
+      "why": [
+        "int _initialize_onexit_table(_onexit_table_t*): the CRT's exit-handler table init (IAT slot 0x1425303D8).",
+        "Model: returns 0 (success) and records nothing: the exit handlers GF never runs (the world is dropped, not shut down). Same as the _crt_atexit model."
+      ]
+    },
+    {
       "module": "kernel32.dll",
       "export": "GetSystemInfo",
       "do": "sysinfo",

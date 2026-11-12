@@ -378,5 +378,25 @@ class WideCharToMultiByteModel(unittest.TestCase):
         self.assertEqual(self.call("abc", -1, 3), (0, b"\xAB" * 0x40))
 
 
+class OnexitModels(unittest.TestCase):
+    """ucrtbase's exit-handler registration models answer success (0) and touch no register but rax."""
+
+    def test_register_and_initialize_return_zero(self):
+        for name in ("_register_onexit_function", "_initialize_onexit_table"):
+            model = ft.load_import_models()[("ucrtbase.dll", name)]
+            mu = Uc(UC_ARCH_X86, UC_MODE_64)
+            mu.mem_map(CODE, 0x1000)
+            mu.mem_write(CODE, model)
+            mu.mem_map(STACK, 0x1000)
+            rsp = STACK + 0x800
+            mu.mem_write(rsp, struct.pack("<Q", RET))
+            mu.reg_write(UC_X86_REG_RSP, rsp)
+            mu.reg_write(UC_X86_REG_RAX, 0x55)
+            mu.reg_write(UC_X86_REG_RCX, 0x1234)
+            mu.emu_start(CODE, RET, count=100)
+            self.assertEqual(mu.reg_read(UC_X86_REG_RAX), 0, name)
+            self.assertEqual(mu.reg_read(UC_X86_REG_RCX), 0x1234, name)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -70,6 +70,8 @@ class PesFoxWorld final : public PesFileSource {
   void ResetStaticInitState();
   // The constant-initialized statics whose dump bytes are runtime state, restored from the install's own exe (PeImage). Boot calls it first.
   void RestoreInitialData();
+  // The zero-initialised tail of .data (0x1436CF800..0x143AC5000), as the loader maps it at process start. Boot calls it first.
+  void ZeroInitializedData();
   // PES's C++ static initializers the layer holds, run in the table's order over the world's heap: the objects they build (std::map head
   // nodes, hash tables) replace the dump's, which point into the dead game's heap. Boot calls it after the allocator's init.
   void RunStaticInitializers();
