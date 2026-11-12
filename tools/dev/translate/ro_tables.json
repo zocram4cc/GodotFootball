@@ -66,5 +66,6 @@
   {"va": "0x14257D960", "bytes": "0xC", "evidence": "CONFIRMED 0x14039C530: liolib's seek whence table, dwords {SEEK_SET, SEEK_CUR, SEEK_END} [rdx + rbx*4], rbx from luaL_checkoption over three names: 3 dwords"},
   {"va": "0x14257D990", "bytes": "0xC", "evidence": "CONFIRMED 0x14039C630: liolib's setvbuf mode table, dwords {4 (_IONBF), 0 (_IOFBF), 0x40 (_IOLBF)} [rcx + rbx*4], rbx from luaL_checkoption over three names: 3 dwords"},
   {"va": "0x14257DB20", "bytes": "0x18", "evidence": "CONFIRMED 0x14039DB60: loslib's setlocale category table, dwords {LC_ALL .. LC_TIME} = 0..5 [r8 + rcx*4], rcx from luaL_checkoption over six names: 6 dwords"},
-  {"va": "0x14039E458", "bytes": "0x34", "evidence": "CONFIRMED 0x14039E110: a byte index table [rax + r13 + 0x39E458] in code, rax = (format char - 0x45) bounded by `cmp eax,0x33; ja` at 0x14039E230: 0x34 bytes; it selects a row of the dword jump table at 0x14039E43C"}
+  {"va": "0x14039E458", "bytes": "0x34", "evidence": "CONFIRMED 0x14039E110: a byte index table [rax + r13 + 0x39E458] in code, rax = (format char - 0x45) bounded by `cmp eax,0x33; ja` at 0x14039E230: 0x34 bytes; it selects a row of the dword jump table at 0x14039E43C"},
+ {"va": "0x142A8F990", "bytes": "0x6", "evidence": "CONFIRMED 0x1419B7E90 (the render-driver name builder): a 5-iteration loop copies bytes of the string literal \"win32\" (0x1419B7FAD / 0x1419B8018 `movzx ecx, byte [rsi+rdi]` / `[rdi]` with rdi stepping over the literal): 6 bytes with the NUL, in .rdata after \"RenderDriver\""}
 ]
