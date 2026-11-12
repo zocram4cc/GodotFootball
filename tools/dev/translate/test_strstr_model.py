@@ -12,7 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import frame_trace as ft  # noqa: E402
 from unicorn import Uc, UC_ARCH_X86, UC_MODE_64  # noqa: E402
-from unicorn.x86_const import UC_X86_REG_GS_BASE, UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_R8, UC_X86_REG_RSP  # noqa: E402
+from unicorn.x86_const import UC_X86_REG_GS_BASE, UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_R8, UC_X86_REG_R9, UC_X86_REG_RSP  # noqa: E402
 
 CODE, DATA, STACK = 0x10000, 0x20000, 0x30000
 RET = CODE + 0x800
@@ -338,6 +338,44 @@ class StartupOsModels(unittest.TestCase):
         self.assertGreater(n, 0)
         self.assertEqual(raw[2 * n:2 * n + 2], b"\x00\x00")
         self.assertEqual(raw[2 * n + 2:], b"\xAB" * (0x40 - 2 * n - 2))
+
+
+class WideCharToMultiByteModel(unittest.TestCase):
+    """KERNEL32 WideCharToMultiByte over ASCII text: counts, copies, refuses a short buffer, and writes nothing else."""
+
+    WIDE, OUT = DATA + 0x100, DATA + 0x400
+
+    def call(self, text, cch, cb):
+        model = ft.load_import_models()[("kernel32.dll", "WideCharToMultiByte")]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, model)
+        mu.mem_map(DATA, 0x1000)
+        mu.mem_write(self.WIDE, text.encode("utf-16-le") + b"\x00\x00")
+        mu.mem_write(self.OUT, b"\xAB" * 0x40)
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.mem_write(rsp + 0x28, struct.pack("<QQ", self.OUT, cb))
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.reg_write(UC_X86_REG_R8, self.WIDE)
+        mu.reg_write(UC_X86_REG_R9, cch & 0xFFFFFFFF)
+        mu.emu_start(CODE, RET, count=1000)
+        return mu.reg_read(UC_X86_REG_RAX) & 0xFFFFFFFF, bytes(mu.mem_read(self.OUT, 0x40))
+
+    def test_a_zero_buffer_size_returns_the_length_with_the_terminator_and_writes_nothing(self):
+        self.assertEqual(self.call("abc", -1, 0), (4, b"\xAB" * 0x40))
+
+    def test_the_text_and_its_terminator_are_copied_and_the_length_returned(self):
+        n, out = self.call("abc", -1, 0x20)
+        self.assertEqual((n, out[:4], out[4:]), (4, b"abc\x00", b"\xAB" * 0x3C))
+
+    def test_an_explicit_count_copies_exactly_that_many_characters(self):
+        n, out = self.call("abcdef", 2, 0x20)
+        self.assertEqual((n, out[:2], out[2:]), (2, b"ab", b"\xAB" * 0x3E))
+
+    def test_a_buffer_shorter_than_the_text_returns_zero_and_writes_nothing(self):
+        self.assertEqual(self.call("abc", -1, 3), (0, b"\xAB" * 0x40))
 
 
 if __name__ == "__main__":

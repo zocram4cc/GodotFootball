@@ -573,6 +573,14 @@ def import_model_lines(op, jump):
         # SetLastError(ecx), the code_hex model register for register: rax = the thread block's self pointer (gs:[0x30]), TEB.LastErrorValue
         # (+0x68) = ecx, no flag touched.
         return ["{ " + push_ret + " s.gpr[0] = s.rd(s.gs_base + 0x30ULL, 8); s.wr(s.gpr[0] + 0x68ULL, s.gpr[1], 4);%s }" % pop_ret]
+    if e["do"] == "wc2mb":
+        # WideCharToMultiByte, ASCII narrowing: the code_hex model register for register (r10 = out, r11 = cbOut, rax = n or 0, and on a copy rcx = n, dl = last byte).
+        return ["{ " + push_ret + " uint64_t _o = s.rd(s.gpr[4] + 0x28ULL, 8); uint32_t _cb = (uint32_t)s.rd(s.gpr[4] + 0x30ULL, 4); uint32_t _n = (uint32_t)s.gpr[9];"
+                " if (_n == 0xFFFFFFFFu) { _n = 0; while (s.rd(s.gpr[8] + 2ULL * _n, 2) != 0) ++_n; ++_n; }"
+                " s.gpr[10] = _o; s.gpr[11] = _cb; s.gpr[0] = _n;"
+                " if (_cb != 0) { if (_cb < _n) { s.gpr[0] = 0; } else { uint32_t _i = 0; uint8_t _b = (uint8_t)s.gpr[2];"
+                " for (; _i < _n; ++_i) { _b = (uint8_t)s.rd(s.gpr[8] + 2ULL * _i, 1); s.wr(_o + _i, _b, 1); }"
+                " s.gpr[1] = _i; s.gpr[2] = (s.gpr[2] & ~0xFFULL) | _b; } }%s }" % pop_ret]
     if e["do"] == "time64":
         # _time64(rcx = out): rax = the model's time; stored at *rcx when rcx != 0 (the code_hex model register for register).
         return ["{ " + push_ret + " s.gpr[0] = 1794205125ULL; if (s.gpr[1] != 0) s.wr(s.gpr[1], 1794205125ULL, 8);%s }" % pop_ret]

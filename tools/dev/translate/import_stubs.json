@@ -549,6 +549,16 @@
     },
     {
       "module": "kernel32.dll",
+      "export": "WideCharToMultiByte",
+      "do": "wc2mb",
+      "code_hex": "4c8b542428448b5c24304489c883f8ff751031c06641833c40007404ffc0ebf4ffc04585db74194139c3721231c939c1730e418a14484188140affc1ebf031c0c3",
+      "why": [
+        "int WideCharToMultiByte(codepage, flags, wide, cchWide, narrow, cbNarrow, defaultChar, usedDefault): reached from PES's start-up initializers (path strings the engine keeps narrow).",
+        "Model (ASCII narrowing, the only text these initializers pass): n = cchWide, or the length with the terminator when cchWide is -1; cbNarrow == 0 returns n; cbNarrow < n returns 0 (the buffer untouched); else the low byte of each of the n wide characters is stored and n returned. Registers: r10 = the output pointer, r11 = cbNarrow, rcx = n and dl = the last byte stored when the copy ran. The real call converts by the code page; a non-ASCII character is not modelled (a loud gap would need the code page tables)."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
       "export": "GetSystemInfo",
       "do": "sysinfo",
       "code_hex": "c7410400100000c7412010000000c7412800000100c3",
