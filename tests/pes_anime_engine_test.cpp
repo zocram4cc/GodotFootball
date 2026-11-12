@@ -223,6 +223,31 @@ TEST_F(AnimeEngine, AnIssuedClipAdvancesThePoseFromFrameToFrameAndSetSpeedChange
   EXPECT_NE(std::memcmp(&early, &slow, sizeof early), 0) << "motion " << motion << ": half the playback rate left the same pose";
 }
 
+TEST_F(AnimeEngine, EveryThirdMotionNumberTheMotionSetterAcceptsIsServedWithAFinitePose) {
+  // One man, re-issued: SetMotion's accepted range 0..0x1124 in steps of kSweepStep, two frames each; every pose is finite with unit rotations
+  // (a motion class the layer does not translate aborts in the dispatch: the survey names it).
+  constexpr int kSweepStep = 3;
+  const uint64_t p = NewPlayer();
+  world_->ConstructAnime(p, 0);
+  for (int motion = 0; motion <= 0x1124; motion += kSweepStep) {
+    pes::MotionRequest request;
+    request.motion = motion;
+    world_->IssueMotion(p, request);
+    world_->RunFrame(p);
+    world_->RunFrame(p);
+    const pes::PesJointPose pose = world_->ReadPose(p);
+    for (uint32_t j = 0; j < kJointCount; ++j) {
+      float n = 0.0f;
+      for (int k = 0; k < 4; ++k) {
+        ASSERT_TRUE(std::isfinite(pose.position[j][k])) << "motion " << motion << " joint " << j;
+        ASSERT_TRUE(std::isfinite(pose.rotation[j][k])) << "motion " << motion << " joint " << j;
+        n += pose.rotation[j][k] * pose.rotation[j][k];
+      }
+      ASSERT_NEAR(n, 1.0f, 1e-3f) << "motion " << motion << " joint " << j;
+    }
+  }
+}
+
 TEST_F(AnimeEngine, ThePosesTheRenderCheckPlotsAreWrittenWhenAskedFor) {
   // The AGENTS.md render check: GF_ENGINE_POSE_DUMP=<file> writes the rig's parent joints and the 20 joint positions of the idle pose and of
   // every motion probed, for tools/dev/render/plot_engine_pose.py. Nothing is written (and nothing asserted) without the variable.
