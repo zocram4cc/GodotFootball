@@ -70,6 +70,10 @@ class PesFoxWorld final : public PesFileSource {
   void ResetStaticInitState();
   // The constant-initialized statics whose dump bytes are runtime state, restored from the install's own exe (PeImage). Boot calls it first.
   void RestoreInitialData();
+  // PES's C++ static initializers the layer holds, run in the table's order over the world's heap: the objects they build (std::map head
+  // nodes, hash tables) replace the dump's, which point into the dead game's heap. Boot calls it after the allocator's init.
+  void RunStaticInitializers();
+  uint64_t InitializersRun() const { return initializersRun_; }
   // The job pump FUN_141EA8430 and the worker stages it waits on, run until the pending list is empty and the finished resources have
   // moved into the ResManager (the pump drains them when the list empties). False (error set) when a job never completes.
   bool PumpUntilIdle(std::string* error);
@@ -106,6 +110,7 @@ class PesFoxWorld final : public PesFileSource {
   struct Impl;
   std::unique_ptr<Impl> impl_;
   uint64_t serves_ = 0;
+  uint64_t initializersRun_ = 0;
 };
 
 }  // namespace pes

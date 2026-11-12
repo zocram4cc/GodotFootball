@@ -1,6 +1,7 @@
 #include "onthepitch/pesfoxworld.hpp"
 
 #include "pes/exe.hpp"
+#include "pes/translated/pes_dispatch.hpp"
 #include "pes/translated/translated.hpp"
 
 #include <fcntl.h>
@@ -204,6 +205,11 @@ constexpr uint64_t kLeaBytes = 7, kCallBytes = 5;
 // is the section's raw size (the section table: 0x14339B000, 0x334800 bytes); the install's own exe supplies the bytes (PeImage::ReadVa).
 constexpr uint64_t kInitializedDataVa = 0x14339B000, kInitializedDataBytes = 0x334800;
 constexpr uint64_t kEmptyHashMap[6] = {0, ~0ull, 0xFFFFFFFFull, 0, 0, 0};
+// PES's process start runs the table of C++ static initializers (the `.CRT$XCU` entries: one run of code pointers, 0x142530868.., 6,868 slots,
+// 6,849 of them set; tools/dev/translate/select_initializers.py). The dump holds their results with the dead game's runtime mutations on top
+// (a std::map's head node in a heap that does not exist here), so Boot runs, in table order, the initializers the layer holds: the ones that
+// store to a global a translated function names.
+constexpr uint64_t kInitializerTableVa = 0x142530868, kInitializerEntries = 6868;
 // FUN_14029E940's config block: it reads only the dword at +4 (the pool size, 0 = default).
 constexpr uint64_t kScriptConfigBytes = 0x10;
 // The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
@@ -257,6 +263,7 @@ void PesFoxWorld::Boot() {
   // The thread-safe static guards (_Init_thread_header) read the thread's TLS block (epoch at +0x84): it exists before the first one runs.
   InstallScratchArena();
   Call(::pes_fn_14038EE80, {});  // malloc_init_hard, as PES's first allocation runs it (FUN_14038E3E0 tests its flag at 0x1436DCEE0)
+  RunStaticInitializers();
   for (uint64_t va : {kFileManagerVa, kRequestManagerAVa, kRequestManagerBVa, kFileSystemVa, kPumpListAVa, kPumpCountAVa, kPumpListBVa,
                       kPumpCountBVa, kResManagerVa, kRegistryVa})
     Write64(va, 0);
@@ -295,6 +302,19 @@ void PesFoxWorld::InstallScratchArena() {
   Write32(block + kTlsInitEpochOffset, kInitEpochStart);
   Write64(tlsArray + 8 * static_cast<uint64_t>(Read32(kTlsIndexVa)), block);
   Write64(kTebVa + kTebTlsPointerOffset, tlsArray);
+}
+
+void PesFoxWorld::RunStaticInitializers() {
+  for (uint64_t k = 0; k < kInitializerEntries; ++k) {
+    uint64_t entry;
+    std::memcpy(&entry, impl_->image + (kInitializerTableVa - kImageBase) + k * sizeof entry, sizeof entry);
+    if (entry == 0) continue;
+    const PesDispatch target = pes_dispatch_lookup(entry);
+    if (target.fn) {
+      Call(target.fn, {});
+      ++initializersRun_;
+    }
+  }
 }
 
 void PesFoxWorld::RestoreInitialData() {
