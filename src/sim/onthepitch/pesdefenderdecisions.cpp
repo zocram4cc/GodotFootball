@@ -72,6 +72,23 @@ bool ReadConstantPlayerObject(const PesVfs& vfs, const char* name, std::vector<u
   return true;
 }
 
+bool ReadConstantPlayerObject(const PesVfs& vfs, const char* name, std::vector<uint8_t>* rec,
+                              std::string* error, std::size_t* root) {
+  auto blob = vfs.Read(kConstantPlayerPath, error);
+  if (!blob) return false;
+  auto table = ParseUniformTable(*blob, error);
+  if (!table) return false;
+  for (const auto& e : table->entries)
+    if (e.name == name) {
+      auto span = std::span<const uint8_t>(table->data).subspan(e.offset, e.size);
+      rec->assign(span.begin(), span.end());
+      if (root) *root = e.offset;
+      return true;
+    }
+  *error = std::string(name) + " missing from " + kConstantPlayerPath;
+  return false;
+}
+
 std::optional<DefenderDecisionConstants> LoadDefenderDecisionConstants(
     const PeImage& exe, const PesVfs& vfs, std::string* error) {
   DefenderDecisionConstants c;

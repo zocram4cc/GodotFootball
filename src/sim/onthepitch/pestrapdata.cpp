@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <cstring>
+#include <cstdio>
 
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "pes/animetable.hpp"
@@ -102,6 +103,51 @@ bool Child(const std::vector<uint8_t>& blob, std::size_t at, uint32_t index, std
   return true;
 }
 
+// The passget loader's tree words are offsets from the RECORD's start (FUN_141E823E0(word, record)), which reach past
+// the record into the container (passget.o is 0xF0, a chain word 0x101): the walk keeps the record base.
+bool ChildAt(const std::vector<uint8_t>& blob, std::size_t root, std::size_t off, uint32_t index, std::size_t* out) {
+  const std::size_t word = root + off + 4 * std::size_t(index);
+  if (word + 4 > blob.size()) return false;
+  const uint32_t offset = Load<uint32_t>(&blob[word]);
+  if (offset == 0) return false;
+  *out = offset;  // record-relative: the leaf is read at root + off later
+  return true;
+}
+
+template <std::size_t N>
+bool BuildConstantObjectAt(const std::vector<uint8_t>& blob, std::size_t root, const TrapField (&fields)[N],
+                           const char* what, uint8_t* object, std::string* error) {
+  for (const TrapField& f : fields) {
+    std::size_t off = 0;
+    for (int d = 0; d < f.depth; ++d) {
+      if (!ChildAt(blob, root, off, f.chain[d], &off)) {
+        std::fprintf(stderr, "PESTRAPDBG %s dst=%u hop=%d root=%zx off=%zx blob=%zx\n", what,
+                     static_cast<unsigned>(f.dst), d, root, off, blob.size());
+        *error = std::string(what) + ": offset chain of runtime +0x" + std::to_string(f.dst) + " leaves the object";
+        return false;
+      }
+    }
+    if (off + f.leaf + f.bytes > blob.size()) {
+      *error = std::string(what) + ": leaf of runtime +" + std::to_string(f.dst) + " is past the end";
+      return false;
+    }
+    std::memcpy(object + f.dst, &blob[off + f.leaf], f.bytes);
+  }
+  return true;
+}
+
+// The whole constant file (the WESYS container unwrapped): the container is one blob and a record's loader tree can
+// point past the record's own bytes (passget.o: the record is 0xF0, a chain word 0x101 reaches 0x1333b, inside the
+// container), so a loader whose rows were checked against the capture builds from the whole file.
+bool ReadConstantPlayerBlob(const PesVfs& vfs, std::vector<uint8_t>* blob, std::string* error) {
+  auto whole = vfs.Read(kConstantPlayerPath, error);
+  if (!whole) return false;
+  auto table = ParseUniformTable(*whole, error);
+  if (!table) return false;
+  *blob = std::move(table->data);
+  return true;
+}
+
 template <std::size_t N>
 bool BuildConstantObject(const std::vector<uint8_t>& blob, const TrapField (&fields)[N], const char* what, uint8_t* object,
                          std::string* error) {
@@ -160,7 +206,13 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
     return std::nullopt;
   }
   std::vector<uint8_t> passGet;
-  if (!ReadConstantPlayerObject(vfs, "passget.o", &passGet, error)) return std::nullopt;
+  std::size_t passGetRoot = 0;  // the record's first byte inside the container (the tree words are offsets from it)
+  if (!ReadConstantPlayerObject(vfs, "passget.o", &passGet, error, &passGetRoot)) return std::nullopt;
+  // The passget loader's tree nodes point past the record's own bytes (the disk record is 0xF0 but a chain word is
+  // 0x101): the container is one blob and the offsets are from the record's start into it, so the rows are built from
+  // the WHOLE container with the chain rooted at the record's first byte (BuildConstantObjectAt).
+  std::vector<uint8_t> passGetBlob;
+  if (!ReadConstantPlayerBlob(vfs, &passGetBlob, error)) return std::nullopt;
 
   std::vector<std::vector<uint8_t>> files;
   std::vector<uint32_t> caps;
@@ -234,7 +286,8 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   if (!BuildConstantObject(ball, kBallFields, "ball.o", arena.At(ballObject), error)) return std::nullopt;
   // constant::PassGet (registry id 0x35): the class's vtable, then its slot-2 loader's stores, from passget.o.
   Store64(arena.At(passGetObject), kPassGetVtableVa);
-  if (!BuildConstantObject(passGet, kPassGetFields, "passget.o", arena.At(passGetObject), error)) return std::nullopt;
+  if (!BuildConstantObjectAt(passGetBlob, passGetRoot, kPassGetFields, "passget.o", arena.At(passGetObject), error))
+    return std::nullopt;
 
   // The objects between the globals and the data.
   Store64(arena.At(table), arena.Va(records));

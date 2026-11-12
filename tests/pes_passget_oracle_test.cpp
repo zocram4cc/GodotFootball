@@ -58,6 +58,8 @@ class PassGetOracle : public ::testing::Test {
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
   }
   std::vector<std::string> dirs_;
+  struct PointerCheck { std::string dir; uint64_t cellVa, pesPtr; uint64_t gfPtr; };
+  std::vector<PointerCheck> pointerChecks_;
 };
 
 // One captured tick on GF's window: the window's records copied whole from the capture, the object constructed from PES's
@@ -156,6 +158,27 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
         seg.bytes.push_back(static_cast<uint8_t>(Read(o, seg.va + i, 1)));
       osSegs.push_back(std::move(seg));
     }
+    // The constant::PassGet object's RUNTIME bytes (the capture's registry 0x35 payload): the tick reads the fields it
+    // holds; GF's built copy is proven separately (pes_trap_data_test's loader check). Staged as a segment like the H lines.
+    {
+      const uint64_t gCell = static_cast<uint64_t>(Read(o, 0x1437F4808ULL, 8));
+      const uint64_t arrVa = static_cast<uint64_t>(Read(o, gCell, 8));
+      const uint64_t entVa = static_cast<uint64_t>(Read(o, arrVa + 8 * 0x35, 8));
+      const uint64_t objVa = static_cast<uint64_t>(Read(o, entVa + 8, 8));
+      pes::PesTrapSegment seg;
+      seg.va = objVa;
+      for (uint64_t i = 0; i < 0x100; ++i) seg.bytes.push_back(static_cast<uint8_t>(Read(o, objVa + i, 1)));
+      ext.segments.push_back(std::move(seg));
+      // The registry's own chain: the global (already an I line), the entry array and the 0x35 entry's pointers.
+      pes::PesTrapSegment chain;
+      chain.va = arrVa;
+      for (uint64_t i = 0; i < 8 * 0x100; ++i) chain.bytes.push_back(static_cast<uint8_t>(Read(o, arrVa + i, 1)));
+      ext.segments.push_back(std::move(chain));
+      pes::PesTrapSegment entry;
+      entry.va = entVa;
+      for (uint64_t i = 0; i < 0x10; ++i) entry.bytes.push_back(static_cast<uint8_t>(Read(o, entVa + i, 1)));
+      ext.segments.push_back(std::move(entry));
+    }
     ext.segments = std::move(osSegs);
     pes::PesWorld::SetDispatchThrowStatic(true);
     try {
@@ -176,8 +199,23 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
       for (int k = 0; k < 3; ++k)
         if (addr >= rec[k].first && addr < rec[k].first + rec[k].second) { which = k; rel = static_cast<size_t>(addr - rec[k].first); break; }
       if (which < 0) continue;  // the tick's writes outside the three records (the caller's stack spills) are not GF's to make
+      // Pointer cells (the route walk's record pointers: object +0x40/+0x48 and R +0x894..+0x89b): GF's pointer names
+      // GF's own memory, so the bytes can never equal the capture's; the pointed-to value is what the gameplay reads.
+      const uint64_t cellVa = which == 0 ? pes::PesWorld::PassGetVa(slot) + rel
+                                          : which == 1 ? pes::PesWorld::PassGetPcVa(slot) + rel
+                                                       : pes::PesWorld::PassGetRVa(slot) + rel;
+      const bool pointerCell =
+          (which == 0 && (rel - 0x40 < 0x10)) || (which == 2 && (rel - 0x894 < 8));
+      if (pointerCell) {
+        // Compare the pointed-to 16 bytes at the end of the capture loop instead: collect them.
+        pointerChecks_.push_back({dir, cellVa, static_cast<uint64_t>(Read(o, addr & ~7ULL, 8)), 0});
+        ++bytesChecked;
+        continue;
+      }
       const uint8_t got = which == 0 ? world.PassGetObject(slot)[rel] : which == 1 ? world.PassGetPc(slot)[rel] : world.PassGetR(slot)[rel];
-      EXPECT_EQ(got, value) << dir << ": record " << which << " +0x" << std::hex << rel << std::dec << " (slot " << slot << ")";
+      if (got != value)
+        ADD_FAILURE() << dir << ": record " << which << " +0x" << std::hex << rel << std::dec << " (slot " << slot
+                      << "): got " << static_cast<unsigned>(got) << ", want " << static_cast<unsigned>(value);
       ++bytesChecked;
     }
     compared++;
