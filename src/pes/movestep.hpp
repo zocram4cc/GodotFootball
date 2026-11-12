@@ -66,15 +66,19 @@ enum class MoveState : uint8_t {
 };
 inline constexpr int kMoveStateCount = 24;
 
-// The FSM's pose hold: while the state is STOP, ACCELERATE, GOTO_RUN or RUN_TURN_RUN the body keeps its pose. The clip's end does
-// not switch the body and the AI's movement command selects no clip (humanoid.cpp): PES's anime player keeps a finished clip as
-// the current motion until the next issue, and these handlers read that clip to exit. ponytail: the hold set is the states whose
-// exit is decoded and checked (RUN_TURN_RUN: FUN_1406C14C0 from its instruction stream; GOTO_RUN: FUN_1406bdf10 from its asm,
-// 606 oracle rows; its exit waits for the clip's blend-or-last tick, which a switched-away body never reaches); the other turn
-// states keep the old hand-off because their ports do not exit reliably yet (widening the hold to them froze a man for 2,500
-// ticks); the IDLE family is not held, since its exit to GOTO_RUN is not decoded.
+// The FSM's pose hold: while the state is STOP, ACCELERATE, GOTO_RUN, IDLE_TURN or RUN_TURN_RUN the body keeps its pose. The
+// clip's end does not switch the body and the AI's movement command selects no clip (humanoid.cpp): PES's anime player keeps a
+// finished clip as the current motion until the next issue, and these handlers read that clip to exit. ponytail: the hold set is
+// the states whose exit reads the finished clip and is decoded (RUN_TURN_RUN: FUN_1406C14C0 from its instruction stream; GOTO_RUN:
+// FUN_1406bdf10 from its asm, 606 oracle rows, its exit waits for the clip's blend-or-last tick; IDLE_TURN: its entry
+// FUN_1406d1390 is oracle-checked (1,452 rows) and now issues PES's turn row clips (0x1425dda30), whose finished clip the
+// IdleTurn exit (`total <= frame || fixed <= frame`) reads; released at the clip's end the restart takers stood in IDLE/IDLE_TURN/
+// STEP_LOOP for minutes in PesForfeitMatch.ARedCard and GoalSceneHold/PesLoop); the other turn states keep the old hand-off
+// because their ports do not exit reliably yet (widening the hold to them froze a man for 2,500 ticks). IDLE_TURN's own handler
+// (group A IdleTurn) and IDLE/IDLE_OTHER are not oracle-checked yet.
 inline bool HoldsBodyPose(MoveState s) {
-  return s == MoveState::kStop || s == MoveState::kAccelerate || s == MoveState::kRunTurnRun || s == MoveState::kGotoRun;
+  return s == MoveState::kStop || s == MoveState::kAccelerate || s == MoveState::kRunTurnRun || s == MoveState::kGotoRun ||
+         s == MoveState::kIdleTurn;
 }
 
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.

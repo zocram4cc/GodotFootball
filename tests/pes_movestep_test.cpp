@@ -652,12 +652,14 @@ TEST(Idle, IssuesTheIdleClipWhenTheStayDecisionRefuses) {
 // The pose hold (HoldsBodyPose): a state whose exit is decoded and oracle-checked waits on the finished clip instead of letting the
 // body hand off. GOTO_RUN's exit (FUN_1406bdf10) waits for the clip's blend-or-last tick (0x1406bec55 `elapsed < local_104`); on a
 // body that switched away the frame never gets there: the pes-loop smoke (seed 7) stalled the restart taker (no restart within
-// 1758 ticks) with GOTO_RUN released at the clip's end.
+// 1758 ticks) with GOTO_RUN released at the clip's end. IDLE_TURN joined after its entry took PES's turn rows: PesForfeitMatch.
+// ARedCard and GoalSceneHold/PesLoop left their takers idling for minutes with IDLE_TURN released.
 TEST(PoseHold, TheStatesWhoseExitWaitsOnTheFinishedClipHoldTheBody) {
   for (int s = 0; s < pes::kMoveStateCount; ++s) {
     const auto state = static_cast<pes::MoveState>(s);
     const bool held = state == pes::MoveState::kStop || state == pes::MoveState::kAccelerate ||
-                      state == pes::MoveState::kRunTurnRun || state == pes::MoveState::kGotoRun;
+                      state == pes::MoveState::kRunTurnRun || state == pes::MoveState::kGotoRun ||
+                      state == pes::MoveState::kIdleTurn;
     EXPECT_EQ(pes::HoldsBodyPose(state), held) << "state " << s;
   }
 }
