@@ -3560,6 +3560,17 @@ void WritePesTrapActors(Match& match) {
                     pes::kVelocityRingEntryBytes);
       pes::PesActorFacts facts = TrapFactsOf(*p, slot, match.GetPesHolder() == p.get(), match.PesWorldOf().P(slot));
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
+      // PES-owned dribble: P says Dribble but the body's clip does not derive it (TrapFactsOf derives Dribble only for a
+      // BallControl clip of the carrier). GF-derived Dribble stays GF's (rewritten below, no runner); only a PES switch
+      // (trap end -> act4 start) puts P in Dribble against the clip, and only those men get the dribble runner.
+      const Anim* bodyClip = p->GetCurrentAnim();
+      const int bodyFamily = bodyClip && bodyClip->anim ? std::atoi(bodyClip->anim->GetVariable("specialvar1").c_str()) : 0;
+      const bool clipDerivesDribble =
+          pes::AnimeActionOfClip(p->GetCurrentFunctionType(), bodyFamily, match.GetPesHolder() == p.get()) ==
+          pes::kAnimeActionDribble;
+      facts.dribbleActive = !facts.trapActive &&
+                            match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionDribble &&
+                            !clipDerivesDribble;
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
@@ -3604,17 +3615,40 @@ void RunPesTrapTicks(Match& match) {
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
-      // TC_DIAG2: did PES's tick switch the man out of Trap (end handler 0x14079E5C0 past its early return -> switch 0x1406EEBB0)?
-      if (std::getenv("TC_DIAG2") && pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap)
-        printf("TCSWITCH t=%lu %s ac8 %d->%d phase %d->%d\n", match.GetActualTime_ms(),
-               p->GetPlayerData()->GetLastName().c_str(), pes::kAnimeActionTrap, pb[pes::kPByteAC8Offset], phaseBefore,
-               pb[pes::kPPhaseOffset]);
       if (phaseBefore == 0)
         p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
       // The anime tick that follows the action tick in a PES frame steps the strike adjuster the start armed (the root's walk onto
       // the ball's predicted contact point): its frame displacement is the root moving, a warp like the throw-in's.
       const pes::PesWorld::AdjusterStep adj = world.RunTrapAdjuster(slot);
       if (adj.moved) p->CastHumanoid()->WarpRoot(Vector3(adj.x, adj.z, 0.0f), 0.0f);
+    }
+  }
+}
+// Every man PES owns in the Dribble action runs PES's dribble tick 0x1407B37D0 on his P and the world window, after the trap
+// ticks (a trap end can switch a man into Dribble mid-block). Only PES-switched men run: P says Dribble while the body's clip
+// does not derive it (same predicate as WritePesTrapActors' dribbleActive). GF-derived Dribble (a BallControl clip of the
+// carrier) stays GF's: its P was rewritten above and no dribble params were ever set up for it. A path no proof reached aborts
+// in the translated dispatch, loudly (survey first).
+void RunPesDribbleTicks(Match& match) {
+  pes::PesWorld& world = match.PesWorldOf();
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      uint8_t* pb = world.P(slot);
+      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) continue;
+      const Anim* bodyClip = p->GetCurrentAnim();
+      const int bodyFamily = bodyClip && bodyClip->anim ? std::atoi(bodyClip->anim->GetVariable("specialvar1").c_str()) : 0;
+      if (pes::AnimeActionOfClip(p->GetCurrentFunctionType(), bodyFamily, match.GetPesHolder() == p.get()) ==
+          pes::kAnimeActionDribble)
+        continue;
+      const Vector3 dir = p->GetDirectionVec();
+      constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
+      const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
+      world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      world.RunDribbleTick(slot, match.PesTrapExternalsOf());
     }
   }
 }

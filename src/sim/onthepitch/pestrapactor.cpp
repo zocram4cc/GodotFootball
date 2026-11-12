@@ -210,7 +210,8 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   p[kPByte2458Offset] = static_cast<uint8_t>(f.slot);  // FUN_1406EB670's store 0x1406EB6C1
   std::memcpy(p + kPInterfaceVtable0Offset, &c.interfaceVtable[0], sizeof(uint64_t));
   std::memcpy(p + kPInterfaceVtable1Offset, &c.interfaceVtable[1], sizeof(uint64_t));
-  if (!f.trapActive) {  // else the tick owns these (PesActorFacts::trapActive)
+  const bool pesOwned = f.trapActive || f.dribbleActive;
+  if (!pesOwned) {  // else the tick owns these (PesActorFacts::trapActive)
     p[kPPhaseOffset] = f.phase;
     p[kPByteAC8Offset] = f.action;  // FUN_1406EEBB0's stores: current id and sub, then the previous pair
     p[kPByteAC9Offset] = f.sub;
@@ -222,7 +223,7 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   StoreF32(p, kPWord277COffset, f.word277C);
   StoreF32(p, kPWord277COffset + 4, f.word2780);
   RebuildMotionTable(p, f);
-  if (!f.trapActive) p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
+  if (!pesOwned) p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
   const uint64_t slotPtr = PesWorld::SlotVa(f.slot) + kSlotPPtrTargetOffset;  // FUN_140925470: slot record + 0x15C0
   std::memcpy(p + kPSlotPtrOffset, &slotPtr, sizeof slotPtr);
   StoreF32(p, kPF3B18Offset, f.heightCm / c.heightDivisor);  // FUN_1406EB210 (0x1406EB23E)

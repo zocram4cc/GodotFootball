@@ -7,6 +7,8 @@
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
+#include "onthepitch/pestrapactor.hpp"
+#include "pes_dispatch.hpp"
 
 namespace pes {
 namespace {
@@ -413,6 +415,35 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   result.phase = p[kPPhaseOffset];
   result.playback = LoadF32(p, kPPlaybackOffset);
   return result;
+}
+// One PES frame of the Dribble action tick 0x1407B37D0 on `slot`'s P: the action object is the table's id-4 entry (P+0xC40 +
+// +0x1528 + 4*8, the object with vtable 0x1425E2440), P, and the same caller frame F the trap tick takes (F+0x870 names the
+// ball record). A path no proof reached aborts in the translated dispatch, loudly. Returns P+0xAC8 after the tick so the
+// caller sees the dribble's own switch-outs (kick, tackle, re-trap).
+uint8_t PesWorld::RunDribbleTick(int slot, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
+  uint8_t* frame = TickFrame();
+  StoreU64(frame, kFrameBallOffset, BallVa());
+  StoreU64(frame, kFrameXPtrOffset, TickFrameXVa());
+  s.wr(entry, 0, 8);
+  s.wr(entry + kTickEntryFrameSlotOffset, TickFrameVa(), 8);
+  s.gpr[4] = entry;
+  // The action object is the table's id-4 entry (built for every slot by ConstructActionTable, the object with vtable
+  // 0x1425E2440). A zero entry is a structural defect, not a state: abort loudly rather than tick with no action.
+  uint64_t action = 0;
+  std::memcpy(&action, P(slot) + kPActionTableOffset + kActionTablePointersOffset +
+                              kAnimeActionDribble * sizeof(uint64_t),
+              sizeof action);
+  if (action == 0) pes_dispatch_missing(0x1407B37D0);
+  s.gpr[1] = action;
+  s.gpr[2] = PVa(slot);
+  s.gpr[8] = entry + kTickEntryFrameSlotOffset;
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_1407B37D0(s);
+  ReturnSegments(s, ext, lent);
+  return P(slot)[kPByteAC8Offset];
 }
 
 // The scan's call frame: the output record sits above the entry rsp in the window's stack, zeroed as the anime driver zeroes it before

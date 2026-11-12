@@ -808,6 +808,10 @@ class PesWorld {
   // phase machine the action runs each logic frame. `ext` is the chain's (the loader data and the image). A path no capture
   // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
   PesTickResult RunTrapTick(int slot, PesTrapExternals& ext);
+  // One PES frame of the Dribble action tick 0x1407B37D0 on `slot`'s P (rcx = the table's id-4 action object, rdx = P, r8 = the
+  // same caller frame F the trap tick takes). A path no proof reached aborts in the translated dispatch, loudly. Returns
+  // P+0xAC8 after the tick so the caller sees the dribble's own switch-outs.
+  uint8_t RunDribbleTick(int slot, PesTrapExternals& ext);
   // PES's body contact scan 0x1406EDCE0 on the window for `slot`'s P (rcx = P, rdx = the driver's output record, zeroed in the call's
   // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
   // touched bit (kPFlagTouched) is the reach test's answer.

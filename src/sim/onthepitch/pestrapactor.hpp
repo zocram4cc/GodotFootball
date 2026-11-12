@@ -102,6 +102,10 @@ struct PesActorFacts {
   // The man is in the Trap action: the tick owns the action ids (P+0xAC8..0xACB), the phase byte (P+0x245C), the motion
   // (P+0xAE0) and the class (P+0xB08), so WriteActorP leaves them as the last tick wrote them.
   bool trapActive = false;
+  // The man is in the Dribble action with PES running it (the DribbleEngage runner): the dribble tick owns the same cells the
+  // trap tick owns for a trap man, so WriteActorP leaves them as the last tick wrote them. Set when PES's own switch enters
+  // Dribble at a trap end (act4 start 0x1407A38E0); cleared when the dribble tick switches out (RunDribbleTick's return).
+  bool dribbleActive = false;
 };
 
 // ponytail: the one PES input with no GF source. It names the PES site that removes it:
