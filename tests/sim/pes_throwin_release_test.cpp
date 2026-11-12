@@ -88,11 +88,18 @@ float TakerPhysique(Match& match, const Player* taker) {
 }
 
 // AThrowInIsReleasedFromInsideTheLine: one searched seed's two-minute match, counting its carried releases over the whole match.
-class InsideLineProbe : public pestest::Probe {
+class BehindLineProbe : public pestest::Probe {
  public:
-  explicit InsideLineProbe(unsigned int seed)
-      : Probe("AThrowInIsReleasedFromInsideTheLine", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
-  int releases = 0, outside = 0;
+  explicit BehindLineProbe(unsigned int seed)
+      : Probe("AThrowInIsReleasedFromBehindTheLine", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
+  int releases = 0, notBehind = 0;
+  // PES's pre-release rule's margin, DAT_142588200 (0.1 m), read from the image the way the sim reads its constants.
+  float handOutside_m = 0.0f;
+  void OnStart(Match& match) override {
+    const pes::PesTrapExternals& ext = match.PesTrapExternalsOf();
+    std::memcpy(&handOutside_m, ext.image + (kHandOutsideVa - ext.imageBase), sizeof handOutside_m);
+  }
+  static constexpr uint64_t kHandOutsideVa = 0x142588200;  // DAT_142588200: 0.1 m (FUN_141EB51A0's push bound)
   void OnTick(Match& match) override {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) {
@@ -103,7 +110,7 @@ class InsideLineProbe : public pestest::Probe {
       throwInTaking_ = false;
       if (!carrying_) return;
       releases++;
-      if (std::fabs(match.GetBall()->Predict(0).coords[1]) > pesFieldHalfWidth) outside++;
+      if (std::fabs(match.GetBall()->Predict(0).coords[1]) - pesFieldHalfWidth < handOutside_m) notBehind++;
     }
   }
 
@@ -193,8 +200,8 @@ class LiftProbe : public pestest::Probe {
 
 // One probe per entry of kThrowInSeeds, in the order the tests search them. The list's repeated seed is a second probe on
 // the same match: the shared run feeds it the same ticks, as the old second run of that seed saw them.
-InsideLineProbe insideLine[] = {InsideLineProbe(kThrowInSeeds[0]), InsideLineProbe(kThrowInSeeds[1]),
-                                InsideLineProbe(kThrowInSeeds[2]), InsideLineProbe(kThrowInSeeds[3])};
+BehindLineProbe behindLine[] = {BehindLineProbe(kThrowInSeeds[0]), BehindLineProbe(kThrowInSeeds[1]),
+                                 BehindLineProbe(kThrowInSeeds[2]), BehindLineProbe(kThrowInSeeds[3])};
 CarriedHoldProbe carriedHold[] = {CarriedHoldProbe(kThrowInSeeds[0]), CarriedHoldProbe(kThrowInSeeds[1]),
                                   CarriedHoldProbe(kThrowInSeeds[2]), CarriedHoldProbe(kThrowInSeeds[3])};
 LiftProbe lift[] = {LiftProbe(kThrowInSeeds[0]), LiftProbe(kThrowInSeeds[1]), LiftProbe(kThrowInSeeds[2]),
@@ -224,25 +231,28 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
   EXPECT_EQ(pes::ThrowInCarryReleaseRow(reach_m + 0.01f, reach_m), pes::kThrowInReleaseRunMid);
 }
 
-// PES releases a carried throw-in from behind the line: the release holds the ball at the hand's key offset, inside the
-// touchline, until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the
-// ball lies inside the line. Counted over the first searched two-minute match with a carried throw-in. A ceremony taker
-// (path B) is not counted: PES places him so the release key's ball is over the restart spot, 0.25 m outside the line
-// (3.3, 4.1), so his ball is outside by design (ACeremonyThrowInIsReleasedFromTheHandOverTheSpot covers him). Counting him
-// failed seed 7 once the kick scatter took PES's situation factor Q and its two minutes reached a ceremony throw-in.
-TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
+// PES releases a carried throw-in from BEHIND the line (pes-re-throwin-choreography.md 4.2): before the release the taker is pushed
+// so the hand further outside stays at least F[1] + 0.1 m (DAT_142588200) from the centre line (FUN_141EB51A0, bones 3/6): "the ball
+// is always released from behind the line". Seen live: live2/pid1482329/seq002, seq006, seq009 (hook throwin_1407951F0, one throw-in,
+// action 0x1B phase 1): the taker stands at z 35.05..35.08 m (0.99..1.02 m outside the 34.06 m touchline) and the ball in his hand is at
+// z 34.88 m, 0.82 m outside, 0.74 m up. So when the throw's touch ends the set piece, the ball is outside the line by at least the 0.1 m.
+// This test REPLACES the earlier AThrowInIsReleasedFromInsideTheLine, whose premise (the ball inside the line at the touch) was GF's
+// own and is the opposite of PES's rule; the capture above overturned it. A ceremony taker (path B) is not counted here
+// (ACeremonyThrowInIsReleasedFromTheHandOverTheSpot covers him).
+TEST(PesThrowInRelease, AThrowInIsReleasedFromBehindTheLine) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
-  int releases = 0, outside = 0;
-  for (InsideLineProbe& p : insideLine) {
+  int releases = 0, notBehind = 0;
+  for (BehindLineProbe& p : behindLine) {
     pestest::Run(p);
     ASSERT_TRUE(p.setupError.empty()) << p.setupError;
     pestest::Settle(p);
     releases += p.releases;
-    outside += p.outside;
+    notBehind += p.notBehind;
     if (releases > 0) break;
   }
   EXPECT_GT(releases, 0) << "no carried throw-in was released in any searched two-minute match";
-  EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
+  EXPECT_EQ(notBehind, 0) << notBehind << " of " << releases
+                          << " released throw-ins were not behind the touchline by PES's 0.1 m (DAT_142588200) at the touch";
 }
 
 // A ceremony taker's ball is in his hand when he releases (pes-re-throwin-choreography.md 3.1, 3.3: PES places him with the
