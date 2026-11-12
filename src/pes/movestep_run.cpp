@@ -2140,6 +2140,9 @@ void Decelerate(MoveHost& host, MoveReq& req) {
     if (delta < k.deg90) {
       float turnAllowance = k.half_turn;
       if (hitSigned == 0.0f) turnAllowance = k.deg90;
+      // 0x1406bd6a9..0x1406bd6d8 (d_1406bcd20.c 432-437): either motion predicate drops the allowance to 22.5 degrees while the live frame
+      // (EBP) is short of the clip's end (R12D = min(end, hit0), the port's hitEnd).
+      if (MotionPredicateSet(motion) && liveFrame < static_cast<int>(hitEnd)) turnAllowance = k.deg225;
       if (liveFrame < static_cast<int>(hit1) && hitSigned != 0.0f) {
         const float a = hitSigned < 0.0f ? k.neg : k.one;
         const float b = (req.F(moveword::kLookDelta) > 0.0f || req.F(moveword::kLookDelta) == 0.0f)

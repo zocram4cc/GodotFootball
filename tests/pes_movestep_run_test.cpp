@@ -117,7 +117,7 @@ class SyntheticHost : public pes::MoveHost {
   float RecordF2468() const override { return f2468; }
   int MoveStatePrevious() const override { return previousState; }
   float RecordF0bec() const override { return f0bec; }
-  void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
+  void SetRecordF0bec(float value) override { if (f0becWrites == 0) firstF0bec = value; f0bec = value; ++f0becWrites; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
   void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
@@ -227,6 +227,7 @@ class SyntheticHost : public pes::MoveHost {
   int previousState = 0;
   float f0bec = 0.0f;
   int f0becWrites = 0;
+  float firstF0bec = 0.0f;  // the first value written (later arms overwrite the yaw lock)
   pes::AngleBucketConstants buckets{};
   float positions[12][3] = {};
   int phase = 1;
@@ -3081,4 +3082,39 @@ TEST(TurnLock, ABusyFacingAdjusterClosesTheLockInAccelerateAndDecelerate) {
     pes::movestep::Decelerate(d, decelerate);
     EXPECT_EQ(decelerate.U(pes::moveword::kReorientFlag) & 0xffu, busy ? 0u : 1u) << "Decelerate busy " << busy;
   }
+}
+
+// d_1406bcd20.c 432-437 (asm 0x1406bd6a9..0x1406bd6d8): DECELERATE's bearing arm steps the record's facing by an allowance of 90 degrees
+// for an unsigned clip (180 for a signed one); while the playing clip is in the running or halted set and the live frame is short of the
+// clip's end the allowance is 22.5. The yaw lock P+0xbec takes the facing plus the allowance.
+TEST(Decelerate, TheBearingArmAllowanceDropsToTwentyTwoAndAHalfForARunningOrHaltedClip) {
+  const auto f0bec = [](int motion, float* writes) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentMotion = motion;
+    h.currentClipFrames = 8;
+    pes::RotRecord rot;
+    rot.start = 0;
+    rot.end = 10;
+    rot.offset = 0;  // an unsigned clip: no hit offset, so the allowance base is 90
+    h.record.rot = {rot};
+    h.record.blend = {100};
+    h.record.cancel = {8, 8, 8};
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetU(pes::moveword::kRateBand, 2u);
+    req.SetF(pes::moveword::kFacing, 0.0f);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kRecordStampB, 10.0f);
+    req.SetF(pes::moveword::kLookHeading, 340.0f);  // the second bearing |heading - look| is 30 degrees, past 11.25 (the sign is the port's InlineDiffDeg)
+    pes::movestep::Decelerate(h, req);
+    *writes = static_cast<float>(h.f0becWrites);
+    return h.firstF0bec;
+  };
+  float writes = 0.0f;
+  EXPECT_NEAR(f0bec(0x8bb, &writes), 90.0f, 1e-3f);
+  ASSERT_GE(writes, 1.0f);
+  for (const int motion : {0xc08, 0xc09}) EXPECT_NEAR(f0bec(motion, &writes), 22.5f, 1e-3f) << "motion " << std::hex << motion;
 }
