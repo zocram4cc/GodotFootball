@@ -2964,8 +2964,12 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   }
 
   // PES's Kick action starts on the tick its Kick start (FUN_140724CC0, PesKickStart) answers a kind with a clip; until then the AI's
-  // order stays pending and the pair runs again next tick: a none answer clears the selection. Restarts are PES's own actions (the
-  // kind stays -1 there), not a Kick start.
+  // order stays pending and the pair runs again next tick. A none answer does NOT delete GF's own selection: PES keeps its action
+  // playing while the order is pending, and on this tree the chain answers none on every try (the 2-minute pes-loop smoke: "Kick start
+  // tries 12683 none 12683", so the Kick start's clip cell never answers), so a deletion there deleted every pass selection of the match
+  // and a carried throw-in's restart never took place (0 released carried throw-ins on all four searched seeds of
+  // pes_throwin_release_test with the deletion, 6 on seed 6 without it: the same tree with the deletion disabled).
+  // Restarts are PES's own actions (the kind stays -1 there), not a Kick start.
   std::optional<pes::PesKickPick> pesKick;
   if (selectedAnimID != -1 && match->PesLoop() && match->IsInPlay() && !match->IsInSetPiece() &&
       (command.desiredFunctionType == e_FunctionType_ShortPass ||
@@ -2978,7 +2982,7 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
                            IsHeader(anims->GetAnim(selectedAnimID)->GetVariable("touch_bodypart")), command.touchInfo);
     if (!pesKick) {
       ++stats.answeredNone;
-      selectedAnimID = -1;
+      pesKick = pes::PesKickPick{pes::kKickNoKind, kPesNoBand, kPesNoBucket, 0, 0};  // counted, selection kept (see above)
     }
   }
 
