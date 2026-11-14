@@ -1,0 +1,9 @@
+{
+ "note": "the functions the capture-bounded proof of 0x14093C090 entered (prove_bounded.py). VAs only.",
+ "root": "0x14093C090",
+ "members": [
+  "0x140A48A10",
+  "0x140A57800",
+  "0x140A6CF70"
+ ]
+}
