@@ -95,6 +95,12 @@ struct MoveStepRecord {
   float yawLock = 0.0f;                    // P+0xbec: the dispatcher's yaw lock and the slip/root-facing tail
   float rate = 0.0f;                      // req[0x4a]: the ramped rate, carried from tick to tick
   uint8_t style = 0;                      // req[0x50]: P+0x27b1, the locomotion style the loop is on
+  // P+0x14 and P+8 - P+0x14 (FUN_141eb50b0 index 0 and 1, the else branch, d_1406b7560.c 143): the man's position at the last
+  // advance (PES frame: x, height, ground z) and the displacement since it. GF keeps the point (pesmovestep.cpp AdvanceDisplacement).
+  // The captures put P+8 - P+0x14 within 18 degrees of the velocity at P+0x2FC on six of seven men: P+0x14 is the earlier point.
+  float prevPos[3] = {0.0f, 0.0f, 0.0f};
+  float displacement[3] = {0.0f, 0.0f, 0.0f};
+  bool hasPrevPos = false;
   // req[0x17..0x2e]: the record stamps, the dwell clocks and the band words, carried tick to tick. FUN_1406b6a90 copies them
   // back to P+0x2770..P+0x27d4 after the dispatch, and the fill (FUN_1406b7560) copies them in before it.
   std::array<uint32_t, 24> carried{};

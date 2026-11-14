@@ -1236,3 +1236,20 @@ TEST(MoveStepWire, TheLookPointComesFromThePesWordsWhenTheCommandCarriesThem) {
   const pes::MoveReq off = pesmovestep::TickRequest(*p, *match);
   EXPECT_NEAR(off.F(pes::moveword::kLookHeading), kTargetBearingDeg, 1e-2f) << "without the words the look is GF's look-at point";
 }
+
+// PES d_1406b7560.c 143 and 252-268: in a listed phase (GOTO_RUN here) the body is the heading of the man's last-tick displacement.
+// FUN_141eb50b0(P, out, 1) takes its else branch (d_1406b7560.c 143, translated pes_fn_141EB50B0): out = P+8 - P+0x14. GF's
+// displacement is the position change since the last request, not the movement vector (the command's velocity).
+TEST(MoveStepWire, TheListedPhaseBodyIsTheLastTickDisplacement) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  // (the record learns the man's position at the next request; the movement vector is not touched by the offset)
+  pesmovestep::TickRequest(*p, *match);  // the record learns the man's position at this request
+  p->OffsetPosition(Vector3(0.2f, 0.0f, 0.0f));  // he moved 0.2 m along +x since the last request
+  p->GetMoveStep().state = pes::MoveState::kGotoRun;
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 90.0f, 1e-2f) << "atan2(0.2, 0): the displacement heading (PES 252-268)";
+}

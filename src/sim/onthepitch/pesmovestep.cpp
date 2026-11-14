@@ -352,7 +352,15 @@ class MoveHostAdapter final : public pes::MoveHost {
   // of other PES functions that the contract still routes here (movestep.hpp).
   // ponytail: those reads answer the position until each has its own source (FUN_141eb51a0's joints, FUN_140a6cf70's ball).
   void PositionAt(int index, float out[3]) const override {
-    const Vector3 v = index < 2 ? player_.GetMovement() / TicksPerSecond() : player_.GetPosition();
+    // FUN_141eb50b0 index 0 and 1: the last tick's displacement the record kept (AdvanceDisplacement), PES frame.
+    if (index < 2) {
+      const pes::MoveStepRecord& rec = player_.GetMoveStep();
+      out[0] = rec.displacement[0];
+      out[1] = rec.displacement[1];
+      out[2] = rec.displacement[2];
+      return;
+    }
+    const Vector3 v = player_.GetPosition();
     pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   // FUN_141eb50b0's ring: slot k holds the man's predicted displacement per tick over 10(k+1) ticks, slot 0 his present
@@ -569,6 +577,15 @@ void PesFrame(float gfX, float gfY, float gfZ, float out[3]) {
   out[1] = gfZ;
   out[2] = 0.0f - gfY;
 }
+// PES's last-tick displacement (FUN_141eb50b0 index 1, else branch: d_1406b7560.c 143): P+8 minus P+0x14. The man's position now
+// minus the point the record kept at the last advance; the first advance sets the point and reads zero.
+void AdvanceDisplacement(pes::MoveStepRecord& rec, const Vector3& pos) {
+  float now[3];
+  PesFrame(pos.coords[0], pos.coords[1], pos.coords[2], now);
+  for (int k = 0; k < 3; ++k) rec.displacement[k] = rec.hasPrevPos ? now[k] - rec.prevPos[k] : 0.0f;
+  for (int k = 0; k < 3; ++k) rec.prevPos[k] = now[k];
+  rec.hasPrevPos = true;
+}
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ) {
   // FUN_14046f260 (the body of 0x14046f230) and FUN_140439e50 both open with `if (to.z == from.z && to.x == from.x) { *out = 0; return; }`:
   // two coincident points have bearing 0, not atan2's 180 for a negated zero.
@@ -596,6 +613,7 @@ int MoveKindFor(bool keeper) { return keeper ? kPesMoveKindKeeperNear : kPesMove
 
 
 pes::MoveReq TickRequest(Player& player, Match& match) {
+  AdvanceDisplacement(player.GetMoveStep(), player.GetPosition());
   MoveHostAdapter host(player, match, match.GetPesMoveStepConstants());
   return host.Request();
 }
@@ -612,6 +630,8 @@ void ProcessMoveStep(Player& player, Match& match) {
   // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
   // no playback write (the contact rates of match.cpp keep theirs).
   if (!match.PesLoop()) return;
+  // The last tick's displacement is kept every frame, before the early returns below (PES's P+0x14 moves every tick).
+  AdvanceDisplacement(player.GetMoveStep(), player.GetPosition());
   // A held set-piece taker is in his standby action, and every standby but the two kick-off loops answers 1 from its slot 10,
   // which makes the default locomotion driver FUN_1406F0C20 return before any steering (call at 0x1406F0C93;
   // docs/re/pes-re-kicker-standby.md 1-2). The kick-off takers are never held (TeamAIController::pieceHeld).
