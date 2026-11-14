@@ -92,12 +92,14 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   const float toLookZ = in.lookZ - in.originZ;
   const float lookDist = std::sqrt(toLookX * toLookX + toLookZ * toLookZ);
   const float lookHeading = lookDist > 0.0f ? TargetBearingDeg(toLookX, toLookZ, k) : in.facingDeg;
-  // PES 0x1406B7E25: req[4] = wrap360(DAT_1425DD660[bucket] + facing), FoldFull's single fold. The bucket is
-  // the caller's flag (MoveTargetInput::bodyBucket); PES reads that flag from host+0x2798 (see the header).
-  // PES 236-268: the body is facing plus the centre (236-250), except in the listed actions: there it is the last-tick displacement
-  // heading with no facing added (fVar17 = fVar21, 268). The caller's flag still picks the centre (BodyBucketFlag, see the header).
-  const float body = ActionFollowsDisplacement(in.phase) ? in.displacementDeg
-                                                             : FoldFull(buckets.centre[in.bodyBucket] + in.facingDeg, k);
+  // PES 0x1406B7E25: req[4] = wrap360(DAT_1425DD660[bucket] + facing), FoldFull's single fold. The bucket is the low byte of P+0x2798,
+  // which is req[0x20] (MoveTargetInput::bodyBucket). PES 236-268: the body is facing plus the centre (236-250), except in the listed
+  // actions: there it is the last-tick displacement heading with no facing added (fVar17 = fVar21, 268).
+  // ponytail: PES reads DAT_1425DD660 past its ten entries for an index >= 10. No writer stores one (the bucket writers store 0..9),
+  // so an index outside the table takes the facing.
+  const bool centreInTable = in.bodyBucket >= 0 && static_cast<size_t>(in.bodyBucket) < buckets.centre.size();
+  const float centre = centreInTable ? buckets.centre[in.bodyBucket] : 0.0f;
+  const float body = ActionFollowsDisplacement(in.phase) ? in.displacementDeg : FoldFull(centre + in.facingDeg, k);
   const float turnToFacing = TargetTurnDeg(targetHeading - in.facingDeg, k);  // req[5]
   const float turnToBody = TargetTurnDeg(targetHeading - body, k);           // req[6]
   const float lookError = TargetTurnDeg(lookHeading - in.facingDeg, k);      // req[7]

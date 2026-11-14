@@ -1033,20 +1033,21 @@ struct MoveTargetInput {
   int commandId = 0;
   int commandSpeedClass = 0;
   bool animeStateNonzero = false;
-  int bodyBucket = 0;       // the body-bucket flag, 0 or 1 (PES host+0x2798, set at 0x1411944E6)
+  int bodyBucket = 0;       // the centre index: the low byte of P+0x2798, which is req[0x20] (the live bucket, 0..9; PES 236-241)
   // PES d_1406b7560.c 236-268: the body's phase (vt+0x20 of +0xab8: the state byte P+0x245c) and the heading of the last-tick displacement (DispHeading).
   int phase = 0;                 // the MOVESTEP phase byte: the listed phases take the displacement heading, the others the centre
   float displacementDeg = 0.0f;  // the heading of the last-tick displacement, degrees, folded as DispHeading folds it
 };
-// ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket; 0 = the facing. The flag is
-// PES's record rule (BodyBucketFlag); the record loader (0x141194330) is not ported, so GF feeds the default record's
-// 1.0. The continuous body turn (the still-turning branch at 0x1406B798C, the state-byte override at 0x1406B7CA7) is not ported.
+// ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket (the live bucket). The record loader's flag
+// (BodyBucketFlag, 0x141194330) is the carried word's initial value: 0 for the default record, the value GF's carried words start
+// with. The loader is not ported. The continuous body turn (the still-turning branch at 0x1406B798C, the state-byte override at
+// 0x1406B7CA7) is not ported.
 // ponytail: a zero-length target or look takes the facing; PES takes the ball's sample (the B and A
 // substitutions of FUN_1406b7560). ponytail: req[0x12] is req[0x11]; the cmd+0x68 point list is not ported.
 void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants& fold,
                     const AngleBucketConstants& buckets);
 // PES 0x141194330's body-bucket flag (TeamDecode, audited): 1 iff recordValue * 100 is in [0, 2^32] (100.0 at
-// 0x14253EE30, 2^32 at 0x1427341A0). The write is 0x1411944E6.
+// 0x14253EE30, 2^32 at 0x1427341A0). The write is 0x1411944E6. The adapter does not call it: the carried word starts at this value.
 int BodyBucketFlag(float recordValue);
 // The sim adapter's per-tick tail (FUN_1406b8340's P+0xbec and playback stores): after a slip,
 // P+0xbec is req[0xec]; otherwise a root-facing write is req[0x3b] when req[0x3a] is set. The

@@ -1252,3 +1252,21 @@ TEST(MoveStepWire, TheListedPhaseBodyIsTheLastTickDisplacement) {
   const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
   EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 90.0f, 1e-2f) << "atan2(0.2, 0): the displacement heading (PES 252-268)";
 }
+
+// PES d_1406b7560.c 236-241: the centre is DAT_1425DD660 at the low byte of P+0x2798, and P+0x2798 IS req[0x20] (the live
+// bucket): the tick's copy-back (FUN_1406b6a90, store 0x1406b6afc) leaves it, and the next fill copies it in. 25 of 25 unpacked
+// captures have P+0x2798 == req[0x20]. Oracle row seq3229 (phase 1, not listed): live bucket 4, facing 195.1, body 15.1 = 195.1 + 180.
+TEST(MoveStepWire, TheBodyCentreIsTheCarriedLiveBucket) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  pes::MoveStepRecord& rec = p->GetMoveStep();
+  rec.state = pes::MoveState::kIdle;  // not a listed phase: the body is facing plus the centre (PES 252-268)
+  rec.carried[pes::moveword::kLiveBucket - pes::moveword::kRecordStampA] = 4;  // req[0x20] = 4, as the copy-back left it
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  // DAT_1425DD660[4] = 180 degrees: body = facing + 180, folded to a full turn.
+  const float offset = std::remainder(req.F(pes::moveword::kBodyDirection) - req.F(pes::moveword::kFacing) - 180.0f, 360.0f);
+  EXPECT_NEAR(offset, 0.0f, 1e-2f) << "seq3229: req[0x20] = 4 gives the centre 180 deg (req[4] = 15.1 for facing 195.1)";
+}

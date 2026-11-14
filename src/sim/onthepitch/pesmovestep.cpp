@@ -246,7 +246,9 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.commandId = pesmovestep::CommandIdFor(cmd);
     in.moveKind = pesmovestep::MoveKindFor(player_.GetFormationEntry().role == e_PlayerRole_GK);
     in.animeStateNonzero = static_cast<int>(player_.GetMoveStep().state) != 0;
-    in.bodyBucket = pes::movestep::BodyBucketFlag(c_.run.one);  // OPEN: the per-player record (loader FUN_141194330, flag write 0x1411944E6); GF feeds PES's default producer value
+    // PES 236-241: the centre is DAT_1425DD660 at the low byte of P+0x2798, and P+0x2798 is req[0x20] as the tick's copy-back
+    // (FUN_1406b6a90, store 0x1406b6afc) left it (25 of 25 captures). CarryIn put the carried live bucket into req before this fill.
+    in.bodyBucket = static_cast<int>(req.U(pes::moveword::kLiveBucket) & 0xFFu);
     // PES d_1406b7560.c 252-268: the body's phase is the state byte P+0x245c (vt+0x20 of +0xab8), which picks the displacement branch.
     in.phase = CurrentState();
     in.displacementDeg = pes::movestep::DisplacementHeadingDeg(*this, c_.turn);
