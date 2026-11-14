@@ -958,7 +958,12 @@ class PesWorld {
   // `ext.globals`: the entries whose caller stores a value in the image's writable globals, per call (e.g. the registry pointer
   // 0x1437F4808 holds its runtime value, not the file's): (VA, value) pairs, written before the run.
   // `ext.segments`: the run's call-out replies (each a PesTrapSegment: VA and bytes), moved in and returned like the trap runs.
-  void RunPassGetTick(int slot, PesTrapExternals& ext);  // The image sections a window run reads at fixed VAs (the .rdata block 0x14252F000, the .data block 0x14339B000): the
+  void RunPassGetTick(int slot, PesTrapExternals& ext);
+  // The ActionPassGet tick as the match runs it for the PASS_GET receiver in `slot` (his P record and the world window are current):
+  // pc is built from the slot (id, ctx, P), the action id cell holds `actionId`, the object is constructed on first use, and the
+  // command record R keeps its state between ticks. Returns what the tick left in R (the target is flagged written only when this
+  // call stored it).
+  PesPassGetResult RunPassGetAction(int slot, uint32_t actionId, PesTrapExternals& ext);  // The image sections a window run reads at fixed VAs (the .rdata block 0x14252F000, the .data block 0x14339B000): the
   // FixDemo rig's own memory layout, shared by every run that dispatches on an image vtable cell (tests). The run's memory
   // keeps them whole (no overlay): the bytes are the file's, which is what PES's own run read there.
   void AttachImageRun(uint64_t va, std::vector<uint8_t> bytes);

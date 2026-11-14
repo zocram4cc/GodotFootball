@@ -18,8 +18,21 @@ inline constexpr std::size_t kPassGetPcBytes = 0x50;
 inline constexpr std::size_t kPassGetRBytes = 0x1A00;
 // pc: +4 the man's id (the G tables' index), +0x28 the orders pointer (a byte pointer, null when none), +0x38 the side's context.
 inline constexpr std::size_t kPcIdOffset = 0x4, kPcOrdersOffset = 0x28, kPcCtxOffset = 0x38;
+inline constexpr std::size_t kPcPOffset = 0x40;  // the man's P record (the tick reads pc +0x4, +0x28..+0x48 only)
+// What the tick leaves in the command record R (docs/re/pes-re-decision-read.md, pes-re-press-cmd.md: the ball/pass request A+0x874..0x8C4):
+// the target point (PES axes x, height, z), the speed sub-block (class A+0x8D0, use flag A+0xE39, the man's speed in km/h A+0xE3C).
+inline constexpr std::size_t kRTargetOffset = 0x894, kRSpeedClassOffset = 0x8D0, kRSpeedUseOffset = 0xE39, kRSpeedKmhOffset = 0xE3C;
 // The tick's result words in the object: +0x68 the target id, +0x6C the route result code.
 inline constexpr std::size_t kPassGetTargetIdOffset = 0x68, kPassGetResultOffset = 0x6C;
+
+struct PesPassGetResult {
+  bool targetWritten = false;  // the tick stored R's target point this call
+  float target[3] = {0, 0, 0};  // PES axes: x, height, z
+  uint32_t speedClass = 0;
+  bool speedUse = false;
+  float speedKmh = 0;
+  uint32_t routeResult = 0;  // this+0x6C: the route walk's result code
+};
 
 struct PesPassGetImage {
   std::array<uint8_t, kPassGetObjectBytes> object{};

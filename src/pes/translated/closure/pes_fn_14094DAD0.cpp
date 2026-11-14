@@ -3,7 +3,6 @@
 // Constants baked from the user's image at generation time (VA-cited).
 // Committed under src/pes/translated; regenerate with tools/dev/translate/gen_translated.py.
 #include "pes_state.hpp"
-#include <cstdio>
 #include "pes_dispatch.hpp"
 #include "pes_cond.inl"
 #include "pes_stubs.hpp"
@@ -44,7 +43,7 @@ void pes_fn_141E532D0(PesState& s);
 void pes_fn_141E5CA20(PesState& s);
 
 void pes_fn_14094DAD0(PesState& s) {
-    s.gpr[0] = (uint64_t)(s.gpr[4]);
+  s.gpr[0] = (uint64_t)(s.gpr[4]);
   s.wr(((s.gpr[0]) + (0x18ULL)), (uint64_t)(s.gpr[8]), 8);
   s.gpr[4] -= 8;
   s.wr(s.gpr[4], (uint64_t)(s.gpr[5]), 8);

@@ -129,8 +129,7 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
     copyBytes(world.PassGetPc(slot), pcVa, pes::kPassGetPcBytes);
     // The man's P record (pc+0x40) is the window's own, as in production: its capture bytes go into world.P(slot), every pointer
     // into the capture's P names the window's P again, and pc points at it. (The cache object the route reads is P+0x34F0.)
-    constexpr size_t kPcPOffset = 0x40;
-    const uint64_t capP = static_cast<uint64_t>(Read(o, pcVa + kPcPOffset, 8));
+    const uint64_t capP = static_cast<uint64_t>(Read(o, pcVa + pes::kPcPOffset, 8));
     copyBytes(world.P(slot), capP, pes::kTrapPBytes);
     const auto relocate = [&](uint8_t* bytes, size_t n, uint64_t va) {
       for (size_t i = (8 - (va & 7)) & 7; i + 8 <= n; i += 8) {
@@ -147,7 +146,7 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
     };
     relocate(world.P(slot), pes::kTrapPBytes, capP);  // P-relative words, aligned as the capture's P is
     pes::ConstructActionTable(world, slot);  // the window's own action table (its pointers name window objects), as in production
-    pes::StoreU64(world.PassGetPc(slot), kPcPOffset, pes::PesWorld::PVa(slot));
+    pes::StoreU64(world.PassGetPc(slot), pes::kPcPOffset, pes::PesWorld::PVa(slot));
     copyBytes(world.PassGetR(slot), rVa, pes::kPassGetRBytes);
     // The skip object (G+0x3B0): the tick reads it (FUN_1423E7FD0's byte +0x9C); the capture's bytes are its state.
     copyBytes(world.Skip(), Read(o, g + pes::kSkipPtrOffset, 8) ? Read(o, Read(o, g + pes::kSkipPtrOffset, 8), pes::kSkipBytes) : 0, pes::kSkipBytes);

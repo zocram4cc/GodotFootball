@@ -6,7 +6,6 @@
 #include "pes_cond.inl"
 #include "pes_stubs.hpp"
 #include <cstdlib>
-#include <cstdio>
 
 
 void pes_fn_14094E0E0(PesState& s);

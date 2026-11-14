@@ -1141,28 +1141,29 @@ pes::SlideAggressionInput ElizaController::_SlideAggression() {
 }
 
 void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
-  const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
-  // FUN_140a4d340 searches the prediction one PES frame at a time, 0..0xf9.
-  constexpr int kPredictionFrames = 0xf9;
-  const float frame_ms = pesball::kPesTick_s * 1000.0f;
-  std::vector<pes::Point2> path;
-  path.reserve(kPredictionFrames);
-  for (int f = 0; f < kPredictionFrames; ++f) {
-    const Vector3 b = _mentalImage->GetBallPrediction(static_cast<int>(f * frame_ms));
-    path.push_back({b.coords[0], b.coords[1]});
-  }
+  // PES's ActionPassGet tick (0x14094E0E0) on the world window: it leaves the target point and the speed class in the command record
+  // (docs/re/pes-re-receiving.md 4, pes-re-decision-read.md). The action id 5 is PASS_GET (R+0x874).
+  constexpr uint32_t kPassGetAction = 5;
+  const pes::PesPassGetResult r =
+      match->PesWorldOf().RunPassGetAction(match->PesSlotOf(CastPlayer()), kPassGetAction, match->PesTrapExternalsOf());
   const Vector3 me = CastPlayer()->GetPosition();
-  const pes::Point2 p =
-      pes::ReceivingPoint(k, path, {me.coords[0], me.coords[1]}, pitchHalfW, pitchHalfH);
-  const Vector3 target(p.x, p.y, 0);
+  // PES's axes (x, height, z) are GF's (x, z -> y); a tick that stored no target leaves the man where he stands.
+  const Vector3 target = r.targetWritten ? Vector3(r.target[0], r.target[2], 0) : me;
   PlayerCommand command;
   command.desiredFunctionType = e_FunctionType_Movement;
   command.useDesiredMovement = true;
   command.desiredDirection = (target - me).Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
-  // ponytail: the route's speed choice (BallFollow slots 0x58/0x60, not
-  // reduced) - GF's distance-to-velocity ramp stands in.
-  command.desiredVelocityFloat = RangeVelocity(
-      clamp((target - me).GetLength() * distanceToVelocityMultiplier, 0.0f, sprintVelocity));
+  // ponytail: the speed sub-block's consumer (cmd+0x5C = R+0x8D0 class, cmd+0x5C5 = R+0xE39 use, cmd+0x5C8 = R+0xE3C km/h) is MOVESTEP's
+  // request filler FUN_1406B7560 (pes-re-press-cmd.md); GF's command has one speed float, so the class stands for the band's cap
+  // (the press cuts, pes::PressConstants) and class 4 is uncapped. The use flag off: the man keeps the speed he has.
+  const pes::PressConstants& press = match->GetPesPressConstants();
+  float speed_ms = CastPlayer()->GetMovement().GetLength();
+  if (r.speedUse) {
+    const float cap_kmh[] = {0.0f, press.speedCut1_kmh, press.speedCut2_kmh, press.speedCut3_kmh};
+    // km/h to m/s is arithmetic (3600/1000), not a PES number.
+    speed_ms = r.speedClass < 4 ? cap_kmh[r.speedClass] / 3.6f : sprintVelocity;
+  }
+  command.desiredVelocityFloat = RangeVelocity(clamp(speed_ms, 0.0f, sprintVelocity));
   command.useDesiredLookAt = true;
   command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
   commandQueue.push_back(command);

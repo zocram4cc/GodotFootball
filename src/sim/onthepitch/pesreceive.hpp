@@ -190,11 +190,6 @@ bool WithinBallDistanceTable(const ReceiveConstants& c, float ballDistanceSq_m2)
 struct Point2 {
   float x = 0, y = 0;
 };
-// ActionPassGet's receiving point: the predicted ball point nearest the
-// receiver (FUN_140a4d340 over the prediction, one point per frame), clamped
-// onto the pitch along the line from him (FUN_14094e3a0).
-Point2 ReceivingPoint(const ReceiveConstants& c, const std::vector<Point2>& ballPath, Point2 me,
-                      float halfLength, float halfWidth);
 
 FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in, float fps);
 

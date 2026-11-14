@@ -333,27 +333,6 @@ TEST(PesReceiveGate, BallDistanceTableLimitIsTenMetres) {
   EXPECT_FALSE(pes::WithinBallDistanceTable(c, 100.1f));
 }
 
-// FUN_140a4d340 + FUN_14094e3a0: the receiving point is the ball path's
-// nearest point to the receiver, pulled back onto the pitch along the line
-// from him when it lies more than the margin outside.
-TEST(PesReceivePassGet, ReceivingPointIsTheNearestPathPointClampedIn) {
-  const auto c = Synthetic();
-  std::vector<pes::Point2> path = {{0, 0}, {5, 0}, {10, 0}, {15, 0}};
-  auto p = pes::ReceivingPoint(c, path, {9, 3}, 52.5f, 34.0f);
-  EXPECT_FLOAT_EQ(p.x, 10.0f);
-  EXPECT_FLOAT_EQ(p.y, 0.0f);
-  // A path running out over the touch line: the point is projected onto it.
-  path = {{0, 30}, {0, 35}, {0, 40}};
-  p = pes::ReceivingPoint(c, path, {2, 38}, 52.5f, 34.0f);
-  EXPECT_FLOAT_EQ(p.y, 34.0f);
-  // Along the line from him (2, 38) through (0, 40), back to y = 34.
-  EXPECT_NEAR(p.x, 6.0f, 1e-4f);
-  // Inside the 0.163 m margin: left alone.
-  path = {{0, 34.1f}};
-  p = pes::ReceivingPoint(c, path, {0, 30}, 52.5f, 34.0f);
-  EXPECT_FLOAT_EQ(p.y, 34.1f);
-}
-
 TEST(PesReceiveInstall, TheInstallCarriesTheGamesOwnReceive) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";

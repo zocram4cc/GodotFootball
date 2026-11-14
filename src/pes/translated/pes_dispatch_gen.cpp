@@ -3163,6 +3163,7 @@ void pes_fn_140939220(PesState& s);
 void pes_fn_140939380(PesState& s);
 void pes_fn_1409393A0(PesState& s);
 void pes_fn_1409393D0(PesState& s);
+void pes_fn_1409393F0(PesState& s);
 void pes_fn_140939910(PesState& s);
 void pes_fn_140939C60(PesState& s);
 void pes_fn_140939CC0(PesState& s);
@@ -3171,6 +3172,7 @@ void pes_fn_14093B470(PesState& s);
 void pes_fn_14093B530(PesState& s);
 void pes_fn_14093B900(PesState& s);
 void pes_fn_14093BEA0(PesState& s);
+void pes_fn_14093C090(PesState& s);
 void pes_fn_14093C1A0(PesState& s);
 void pes_fn_14093C5F0(PesState& s);
 void pes_fn_14093CAE0(PesState& s);
@@ -9086,6 +9088,7 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x140939380ULL: return {pes_fn_140939380};
     case 0x1409393A0ULL: return {pes_fn_1409393A0};
     case 0x1409393D0ULL: return {pes_fn_1409393D0};
+    case 0x1409393F0ULL: return {pes_fn_1409393F0};
     case 0x140939910ULL: return {pes_fn_140939910};
     case 0x140939C60ULL: return {pes_fn_140939C60};
     case 0x140939CC0ULL: return {pes_fn_140939CC0};
@@ -9094,6 +9097,7 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x14093B530ULL: return {pes_fn_14093B530};
     case 0x14093B900ULL: return {pes_fn_14093B900};
     case 0x14093BEA0ULL: return {pes_fn_14093BEA0};
+    case 0x14093C090ULL: return {pes_fn_14093C090};
     case 0x14093C1A0ULL: return {pes_fn_14093C1A0};
     case 0x14093C5F0ULL: return {pes_fn_14093C5F0};
     case 0x14093CAE0ULL: return {pes_fn_14093CAE0};
@@ -11857,8 +11861,8 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
   }
 }
 void (*pes_dispatch_missing_handler)(uint64_t) = nullptr;
+struct PesDispatchMissing { uint64_t target; };  // THROW_DISPATCH: thrown instead of abort (tests)
 void (*pes_dispatch_throw_handler)(uint64_t) = nullptr;  // THROW_DISPATCH: a C++ throw instead of abort (tests)
-
 void pes_dispatch_missing(uint64_t t) {
   if (pes_survey_armed()) pes_survey_note(t, __builtin_return_address(0));
   if (pes_dispatch_missing_handler) pes_dispatch_missing_handler(t);  // a recovery: must not return (the FixDemo rig longjmps)
