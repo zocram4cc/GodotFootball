@@ -828,6 +828,8 @@ class PesWorld {
   std::optional<SeriesFirst> SeriesFirstOf(int slot) const;
   // A block from PES's allocator on GF memory (PesHeap), for the containers PES's constructors reserve (ConstructActorP's series vectors).
   uint64_t HeapAlloc(uint64_t bytes, uint64_t align);
+  // The bytes of a block HeapAlloc returned (null when [va, va + bytes) is not in the arena).
+  uint8_t* HeapHost(uint64_t va, uint64_t bytes);
   // The ball side of one man's touch, as the ball executor 0x140425010 runs it for a single toucher: the driver's out record `rec` (what the
   // body scan filled, flags +0x10D bit 0 set) goes through the aggregator's kind dispatch (FUN_140865B80 builds its context, FUN_140865D70
   // answers the touch vector and spin), the vector takes the frame rate (0x14351AE54, 0x14042581E..), and the candidate builder FUN_140874860

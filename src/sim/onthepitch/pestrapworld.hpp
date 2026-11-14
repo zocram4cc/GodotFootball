@@ -174,6 +174,17 @@ inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clampe
 // R is a joint chain header (+0x10 -> its pointer array at +0x30, +0x18 a length, +0x20 the joint count); S (P+0x3AE8 target) is a
 // small record whose +0x14 SetMotion writes.
 inline constexpr std::size_t kAChildO1Offset = 0x118, kAChildO2Offset = 0x188;
+// The anime chain's layer-rate cell the dribble's contact window reads: FUN_141AF3330(chain = A, 0, 0) returns the rate of layer 0, or
+// -1.0 (DAT_142588218) when FUN_141AF2C20 finds no layer. Its path (CONFIRMED by the decompile and by live2/pid1270903 seq282, where the cell
+// holds 1.0286555 = P+0x3758 = the playing motion's table rate): A+0x88 -> Y, Y+0x10 -> Z, Z+0xF8 -> T (T+0x48 = the current list, T+0x4C & 3 == 1,
+// entry 0 at T: a non-null data pointer and an int count > 0 at +0xC), and A+0xF8 -> L with L+0xB8 = the layer count and L+0xC0 -> the layers,
+// 0x30 bytes each, the rate (f32) at +0x14. The anime layer writes the rate in its SetMotion (vtable +0x80/+0x88: not in GF's window); GF keeps
+// the cell equal to P+0x3758, the rate FUN_1406F0F70 stored (WriteActorP), as it keeps the physique G beside it.
+inline constexpr std::size_t kAChainYOffset = 0x88, kAChainLayerOffset = 0xF8;
+inline constexpr std::size_t kChainYZOffset = 0x10, kChainYBytes = 0x20, kChainZTableOffset = 0xF8, kChainZBytes = 0x108;
+inline constexpr std::size_t kLayerTableBytes = 0x60, kLayerTableIndexOffset = 0x48, kLayerTableKindOffset = 0x4C, kLayerTableEntryDataOffset = 0,
+                             kLayerTableEntryCountOffset = 0xC;
+inline constexpr std::size_t kLayerObjectBytes = 0xC8, kLayerCountOffset = 0xB8, kLayerDataOffset = 0xC0, kLayerBytes = 0x30, kLayerRateOffset = 0x14;
 // O1 is the AnimPlugin object FUN_141B158F0 constructs: 0x1378 bytes (nine layer objects embedded, the layer pointer array at +0xB0 pointing
 // back into it), rounded up to 0x1380. pesanimplugin_stores.inc is that constructor's output (gen_animplugin.py).
 // R is the joint chain: its 0x90-byte header is followed by the joint objects, one allocation in PES (CONFIRMED on seq1917: R+0x90 is the

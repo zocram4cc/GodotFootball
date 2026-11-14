@@ -236,7 +236,13 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   std::memcpy(p + kPScalePtrOffset, &chainA, sizeof chainA);
   std::memcpy(world.PhysiqueA(f.slot) + kPhysiqueNextOffset, &chainB, sizeof chainB);
   StoreF32(world.PhysiqueB(f.slot), kPhysiqueGOffset, g);
-  StoreF32(p, kPF377CScaleOffset, MoveTopRate(stamina, f.speedByte, f.stamina, g));  // FUN_1406F99F0 (0x1406F9B4C)
+  StoreF32(p, kPF377CScaleOffset, MoveTopRate(stamina, f.speedByte, f.stamina, g));
+  {  // layer 0's rate: the rate the last SetMotion stored (pestrapworld.hpp kAChainYOffset)
+    uint64_t layers, layerData;
+    std::memcpy(&layers, world.PhysiqueA(f.slot) + kAChainLayerOffset, sizeof layers);
+    std::memcpy(&layerData, world.HeapHost(layers, kLayerObjectBytes) + kLayerDataOffset, sizeof layerData);
+    StoreF32(world.HeapHost(layerData, kLayerBytes), kLayerRateOffset, LoadF32(p, kPPlaybackOffset));
+  }  // FUN_1406F99F0 (0x1406F9B4C)
   std::memcpy(p + kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size());
   const uint64_t ctx = PesWorld::CtxVa(f.side);  // P+0x3AC0 = PM+0x7E0: the side's AI context (+0x18 MA, +0xE0 E)
   std::memcpy(p + kPPtr3AC0Offset, &ctx, sizeof ctx);
@@ -283,6 +289,23 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
   std::memcpy(p + kPSeriesDataOffset, &seriesData, sizeof seriesData);
   StoreU32(p, kPSeriesFloatCapacityOffset, kSeriesReserve);
   std::memcpy(p + kPSeriesFloatDataOffset, &floatData, sizeof floatData);
+  // The anime chain's layer-rate path (pestrapworld.hpp kAChainYOffset): FUN_141AF3330 answers layer 0's rate instead of -1.0.
+  uint8_t* chain = world.PhysiqueA(slot);
+  const uint64_t y = world.HeapAlloc(kChainYBytes, sizeof(uint64_t)), z = world.HeapAlloc(kChainZBytes, sizeof(uint64_t)),
+                 table = world.HeapAlloc(kLayerTableBytes, sizeof(uint64_t)), tableData = world.HeapAlloc(kLayerBytes, sizeof(uint64_t)),
+                 layers = world.HeapAlloc(kLayerObjectBytes, sizeof(uint64_t)), layerData = world.HeapAlloc(kLayerBytes, sizeof(uint64_t));
+  std::memcpy(chain + kAChainYOffset, &y, sizeof y);
+  std::memcpy(world.HeapHost(y, kChainYBytes) + kChainYZOffset, &z, sizeof z);
+  std::memcpy(world.HeapHost(z, kChainZBytes) + kChainZTableOffset, &table, sizeof table);
+  uint8_t* t = world.HeapHost(table, kLayerTableBytes);
+  std::memcpy(t + kLayerTableEntryDataOffset, &tableData, sizeof tableData);
+  StoreU32(t, kLayerTableEntryCountOffset, 1);
+  StoreU32(t, kLayerTableIndexOffset, 0);
+  StoreU32(t, kLayerTableKindOffset, 1);
+  std::memcpy(chain + kAChainLayerOffset, &layers, sizeof layers);
+  uint8_t* l = world.HeapHost(layers, kLayerObjectBytes);
+  StoreU32(l, kLayerCountOffset, 1);
+  std::memcpy(l + kLayerDataOffset, &layerData, sizeof layerData);
   ConstructActionTable(world, slot);
 }
 

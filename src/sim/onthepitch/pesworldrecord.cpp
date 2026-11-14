@@ -462,6 +462,10 @@ PesWorld::DribbleTickResult PesWorld::RunDribbleTick(int slot, PesTrapExternals&
   return result;
 }
 
+uint8_t* PesWorld::HeapHost(uint64_t va, uint64_t bytes) {
+  return heap_ ? const_cast<uint8_t*>(heap_->Host(va, bytes)) : nullptr;
+}
+
 uint64_t PesWorld::HeapAlloc(uint64_t bytes, uint64_t align) {
   if (!heap_) heap_ = std::make_unique<PesHeap>();
   return heap_->Alloc(bytes, align);
