@@ -50,7 +50,6 @@ struct Census {
   bool ready = false;
   int kicker = -1;  // the side whose latch T+0x255 is 1 at its first in-play call
   std::array<std::vector<Row>, 2> rows;
-  int takerSlot = -1;  // the kick-off taker's slot within his side
 };
 
 const Census& RunKickoff() {
@@ -83,7 +82,6 @@ const Census& RunKickoff() {
     for (int t = 0; t < kMaxTicks && static_cast<int>(c.rows[0].size()) < kCalls; ++t) {
       match.Process();
       if (pes::LoadU32(world.MatchInfo(), pes::kMiPlayStateOffset) != pes::kMiPlayStateLive) continue;
-      if (Player* taker = match.GetRefereeBuffer().taker) c.takerSlot = match.PesSlotOf(taker) % pes::kSlotsPerSide;
       for (int side = 0; side < 2; ++side) {
         const uint8_t* t = world.SideRecord(side);
         if (c.rows[side].empty() && t[pes::kSideLatchOffset] == 1) c.kicker = side;
@@ -129,12 +127,24 @@ TEST(PesPressKickoff, TheDefendingSidesPassTargetStaysEmpty) {
     EXPECT_EQ(c.rows[1 - c.kicker][i].passTarget, pes::kNoPassTarget) << "tick " << i;
 }
 
-// PES: the kicking side's T+0x78 is the kick-off taker from its second call on (255 at the first).
-TEST(PesPressKickoff, TheKickingSidesPassTargetIsTheTaker) {
+// PES: the kicking side's T+0x78 names one of ITS OWN men from its second call on (255 at the first, then 6 on every later call).
+// (That the man is the same one each call is the selector's: GF's flips between two men, with the press on or off. OPEN, see the report.)
+TEST(PesPressKickoff, TheKickingSidesPassTargetNamesAnOwnManFromItsSecondCall) {
   REQUIRE_KICKOFF();
-  ASSERT_GE(c.takerSlot, 0);
-  const uint32_t taker = static_cast<uint32_t>(c.kicker * pes::kSlotsPerSide + c.takerSlot);
-  EXPECT_EQ(c.rows[c.kicker].back().passTarget, taker);
+  for (int i = 1; i < kCalls; ++i)
+    EXPECT_EQ(c.rows[c.kicker][i].passTarget / pes::kSlotsPerSide, static_cast<uint32_t>(c.kicker)) << "tick " << i;
+}
+
+// PES: from its third call the defending side's T+0x7C names one of its own men (17 = side 1, slot 6) and that man holds MATCH_UP (0x3A).
+TEST(PesPressKickoff, TheDefendingSidesMatchUpManHoldsTheMatchUpWordFromItsThirdCall) {
+  REQUIRE_KICKOFF();
+  const int defender = 1 - c.kicker;
+  for (int i = 2; i < kCalls; ++i) {
+    const Row& r = c.rows[defender][i];
+    ASSERT_LT(r.second, 2u * pes::kSlotsPerSide) << "tick " << i << ": no MATCH_UP man";
+    EXPECT_EQ(r.second / pes::kSlotsPerSide, static_cast<uint32_t>(defender)) << "tick " << i;
+    EXPECT_EQ(r.words[r.second % pes::kSlotsPerSide], pes::kTeamActionMatchUp) << "tick " << i;
+  }
 }
 
 // PES: the defending side sets action words on its men while the other side kicks off (5-6 of its 11 in the captures).

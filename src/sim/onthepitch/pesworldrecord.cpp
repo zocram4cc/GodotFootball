@@ -137,7 +137,9 @@ void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask) {
   // The walk reads the taker from G's FIRST side table (0x14210F110: FUN_140A48A30(G, side) -> +0x7C), the side record, not the
   // team-info table the skill reads go through.
   // ponytail: the designated taker is the carrier: a set-piece decider is the taker; the writer is the restart set-up, undecoded
-  StoreU32(SideRecord(side), kSideKickerOffset, slot);
+  // PES's dispatcher clears T+0x7C every tick and its MATCH_UP writer sets it for the defending side while the ball is live
+  // (RunMatchUp), so the stand-in names the taker only in a stopped state, which is the only state the walk reads it in.
+  if (LoadU32(MatchInfo(), kMiPlayStateOffset) != kMiPlayStateLive) StoreU32(SideRecord(side), kSideKickerOffset, slot);
 }
 
 // FUN_140A58F00(record, row): five 16-byte copies of row[0x00..0x50) to record +0x70..+0xC0, called by FUN_140922BC0 with the roster
