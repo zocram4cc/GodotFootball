@@ -341,6 +341,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   for (int k = 0; k < 3; ++k)
     pesWorld->AddImageSegment(pesActorConstants.memberVtable[k], pesActorConstants.memberVtableSlots[k].data(),
                               pesActorConstants.memberVtableSlots[k].size());
+  pesWorld->ConstructStats();  // PES's statistics blocks (E + 0x750D0): the cells the defence pass reads are written by their constructor
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);

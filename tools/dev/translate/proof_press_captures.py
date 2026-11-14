@@ -29,7 +29,8 @@ ROOTS = {"ai_press_writer_536FC0": ("0x140536FC0", "closure_press_writer.json", 
          "ai_press_coord_634470": ("0x140634470", "closure_press_coord.json", "the press coordinator FUN_140634470 (PRESS/SAND second presser)"),
          "press_matchup_536210": ("0x140536210", "closure_press_matchup.json", "the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word)"),
          "manthink_14092ED30": ("0x14092ED30", "closure_press_manthink.json", "the man's think FUN_14092ED30 (counters A and B of the slot record, the arrival-time estimate)"),
-         "press_dispatch_535C60": ("0x140535C60", "closure_press_dispatch.json", "the press dispatcher FUN_140535C60 (the defence passes, MATCH_UP, coordinator, reset, writer)")}
+         "press_dispatch_535C60": ("0x140535C60", "closure_press_dispatch.json", "the press dispatcher FUN_140535C60 (the defence passes, MATCH_UP, coordinator, reset, writer)"),
+         "stats_ctor_1408C6B80": ("0x1408C6B80", "closure_press_stats.json", "the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads)")}
 
 
 def captures(launches):
@@ -93,9 +94,10 @@ def main():
                     continue
                 snaps += ["--snapshot", "%s=%s" % (cdir, trace)]
                 synthetic += 1
-        if va == "0x140535C60":
+        if va in ("0x140535C60", "0x1408C6B80"):
             # the dispatcher's captures are rare (every 100th call, one side): its calls are rebuilt over real kick-off selector captures
-            # (synth_dispatch.py), each state a directory under --dispatch-states
+            # (synth_dispatch.py); the statistics constructor runs once at match load: rebuilt over a dispatcher capture (synth_stats.py).
+            # Each state is a directory under --dispatch-states (the root it belongs to is the one --only selects).
             for cdir in a.dispatch_states or []:
                 trace = os.path.join(a.work, "tr_" + os.path.basename(cdir))
                 if subprocess.call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", cdir, "--hooks", hooks, "--out", trace,
@@ -118,7 +120,10 @@ def main():
         keep = [r for r in doc["results"] if r["va"].upper() not in vas]
         new = []
         for va, closure_file, what, raw, members, used, skipped, synthetic in records:
-            if va == "0x140535C60":
+            if va == "0x1408C6B80":
+                extra = ("; %d SYNTHETIC calls rebuilt over a real dispatcher capture (synth_stats.py: rcx = each side's real statistics block; "
+                         "PES runs the constructor once at match load, before any capture window)" % synthetic) if synthetic else ""
+            elif va == "0x140535C60":
                 extra = ("; plus %d SYNTHETIC calls rebuilt over real kick-off selector captures (synth_dispatch.py: the call's operands are "
                          "fields of the capture's team-tick object)" % synthetic) if synthetic else ""
             else:
@@ -140,7 +145,7 @@ def main():
                 rec["synthetic_cases"] = synthetic
             new.append(rec)
             sp.write_closure(image, va, closure_file, members, "the proof of %s over %d real captures%s (proof_press_captures.py)" % (
-                what, len(used), " and %d SYNTHETIC states" % synthetic if synthetic else ""))
+                what, len(used), " and %d SYNTHETIC states" % synthetic if synthetic else ""), static=va != "0x1408C6B80")
         doc["results"] = keep + new
         json.dump(doc, open(sp.RESULTS, "w"), indent=1)
         open(sp.RESULTS, "a").write("\n")

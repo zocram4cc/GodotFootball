@@ -376,4 +376,19 @@ TEST_F(PesPressWorld, TheCoordinatorsPressStateStartsWithNoManNamed) {
   PesWorld world;
   for (int side = 0; side < kSideCount; ++side) EXPECT_EQ(world.PressSecond(side), kNobody);
 }
+
+// The match-statistics blocks (E + 0x750D0 + side * 0x59650) hold PES's anti-tamper cells: the reader FUN_1408C9190 re-computes a salted
+// FNV hash over a cell and aborts when it differs from the stored one, so a zero block aborts the dispatcher's defence pass
+// (FUN_140536170 -> 0x140535650 -> 0x1408C8FC0). After the constructor FUN_1408C6B80 (PesWorld::ConstructStats) every protected cell
+// (statistic 0, columns 0..8) reads 0 and the plain rows too.
+TEST_F(PesPressWorld, TheStatisticsBlocksPassPesHashCheckAfterTheirConstructor) {
+  PesWorld world;
+  world.BindImageTables(InstallTables());
+  world.ConstructStats();
+  for (int side = 0; side < kSideCount; ++side)
+    for (int col = 0; col < 9; ++col) {
+      EXPECT_EQ(world.StatsValue(side, 0, col), 0u) << "side " << side << " protected column " << col;
+      EXPECT_EQ(world.StatsValue(side, 5, col), 0u) << "side " << side << " plain row 5, column " << col;
+    }
+}
 }  // namespace

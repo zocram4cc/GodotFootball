@@ -1003,6 +1003,30 @@ void PesWorld::RunPressCoordinator(int side) {
   ::pes_fn_140634470(s);
 }
 
+namespace {
+constexpr uint64_t kStatsOffset = 0x750D0;    // FUN_140A3E8A0: E + 0x750D0
+constexpr uint64_t kStatsStride = 0x59650;    // FUN_140535650: side * 0x59650
+}  // namespace
+
+void PesWorld::ConstructStats() {
+  for (int side = 0; side < kSideCount; ++side) {
+    PesState s = NewCall(Bytes());
+    for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    s.gpr[1] = EventsVa() + kStatsOffset + static_cast<uint64_t>(side) * kStatsStride;  // rcx: the side's block
+    ::pes_fn_1408C6B80(s);
+  }
+}
+
+uint32_t PesWorld::StatsValue(int side, uint32_t stat, int col) {
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = EventsVa() + kStatsOffset + static_cast<uint64_t>(side) * kStatsStride;  // rcx: the block
+  s.gpr[2] = stat;                                                                    // edx
+  s.gpr[8] = static_cast<uint32_t>(col);                                              // r8d
+  ::pes_fn_1408C9190(s);
+  return static_cast<uint32_t>(s.gpr[0]);
+}
+
 void PesWorld::RunManThink(int slot) {
   uint8_t* u = ManAi(slot);
   // U+0x624 is the man's position (x, height, z; P+8 holds the same value: seq031 18.38, 0, -11.94 in both), U+0x698 his action word.

@@ -1285,6 +1285,12 @@ class PesWorld {
   // from his man record, then runs it on his slot record, which it leaves with counters A (+0x1430) and B (+0x1438). The think gates
   // itself (frames since the newest ball event, the cadence of his slot): a call may write nothing.
   void RunManThink(int slot);
+  // The match-statistics block of each side (E + 0x750D0 + side * 0x59650, FUN_140A3E8A0 + FUN_140535650's stride): PES's anti-tamper
+  // cells (a salted FNV hash the reader re-computes) are written by the block's constructor FUN_1408C6B80, which PES runs once at match
+  // load; ConstructStats runs the translated constructor on both blocks (2 of 2 calls bit-exact over a real capture's blocks), so the
+  // dispatcher's defence pass reads valid cells. StatsValue is the reader FUN_1408C9190 (statistic `stat`, column `col` < 9).
+  void ConstructStats();
+  uint32_t StatsValue(int side, uint32_t stat, int col);
 
   // Host bytes of a slot's block (its anime record starts at its first byte).
   uint8_t* Block(int slot) { return image_->blocks[slot].bytes.data(); }
