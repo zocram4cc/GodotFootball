@@ -306,8 +306,14 @@ void Humanoid::Process() {
     }
   */
 
+  // A man PES's Dribble action owns keeps his last dribble clip's final frame until the dribble tick issues the next motion: the clip's end
+  // does not switch the body. PES runs MOVESTEP (the AI movement decision's consumer) only from the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and
+  // DEMO_MOVE actions (pesmovestep.cpp), so while the Dribble action (anime id 4, tick 0x1407B37D0) owns the body the AI's Movement commands do not
+  // reach it and the dribble tick's SetMotion issues are its only clips. INF: that the anime layer holds a finished motion at its last frame
+  // (the dribble's leave test FUN_1407B9280 reads the frame from the motion list); no capture shows a dribble clip's end.
+  const bool pesDribbleOwned = match->PesOwnsDribble(*CastPlayer());
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 &&
-      interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer())) {
+      interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer()) && !pesDribbleOwned) {
     interruptAnim = e_InterruptAnim_Switch;
   }
 
@@ -433,6 +439,8 @@ void Humanoid::Process() {
 
       // The FSM owns the body's movement while it holds STOP: the AI's movement command reaches the body only through MOVESTEP.
       if (PesPoseHeld(CastPlayer()) && command.desiredFunctionType == e_FunctionType_Movement) continue;
+      // The same for the Dribble action: the dribble tick's issues are his movement, not the AI's command.
+      if (pesDribbleOwned && command.desiredFunctionType == e_FunctionType_Movement) continue;
       found = SelectAnim(command, interruptAnim, preferPassAndShot);
       if (found)
         break;

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <map>
 
 #include "base/log.hpp"
@@ -67,6 +68,7 @@ class TrapRestartProbe : public pestest::Probe {
       : Probe("PesStallTrap", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
   long trapClips = 0;        // trap clips that started (a tick on which a man's trap clip began)
   long restartedTraps = 0;   // those that began over a trap clip of his that had not reached its contact frame
+  std::string holderSamples;
   long holderTraps = 0;      // those that began while he was PES's holder (MA+0x2601C == him)
   long trapStarts = 0;       // PES trap starts: ticks on which a man's P+0xAC8 became the Trap action
   long refusedStarts = 0;    // those whose clip the body did not take on the next tick (the action tick's PlayIssuedClip refused it)
@@ -83,7 +85,16 @@ class TrapRestartProbe : public pestest::Probe {
         if (began) {
           trapClips++;
           if (seen.onTrap && seen.frame < seen.touchFrame) restartedTraps++;
-          if (match.GetPesHolder() == player.get()) holderTraps++;
+          // PES's reaction entry 3 refuses the carrier unless he is in stagger, dodge or the keeper's drop (0x1409FA4AD..0x1409FA4D0): a holder who
+          // left the Dodge action (P+0xACA) was admitted by PES's own rule and is not a defect. Stagger and the keeper's drop are not exempted
+          // here (their action ids are not named in pestrapactor.hpp): any such case stays counted.
+          const uint8_t leftAction = match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPPrevActionOffset];
+          if (match.GetPesHolder() == player.get() && leftAction != pes::kAnimeActionDodge) {
+            holderTraps++;
+            const uint8_t* hp = match.PesWorldOf().P(match.PesSlotOf(player.get()));
+            holderSamples += " [man left action " + std::to_string(hp[pes::kPPrevActionOffset]) + " sub " + std::to_string(hp[pes::kPPrevActionOffset + 1]) +
+                             ", was on trap clip " + std::to_string(seen.onTrap) + ", dribble-owned " + std::to_string(match.PesOwnsDribble(*player)) + "]";
+          }
         }
         const bool pesTrap = match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
         if (seen.startedLastTick && !onTrap) refusedStarts++;
@@ -142,6 +153,9 @@ class TrapContactProbe : public pestest::Probe {
   unsigned dribbleIssues = 0;                        // the dribble tick's SetMotion issues (Match::PesDribbleIssues)
   std::map<int, unsigned> unplayedDribbleIssues;   // those the body could not play, by motion
   long dribbleMotionNotOnTable = 0;
+  std::vector<std::pair<long, std::string>> ownershipStreaks;  // (length, how it began and ended), closed streaks
+  long ownedTicksOffDribbleClip = 0;  // ticks of a PES-owned dribbler whose body clip is not a dribble-family clip
+  std::map<std::string, long> dribbleClipExits;  // how a dribble clip left the body, and what took it
   // The first link of the Dribble action's chain: on the tick a man's P+0xAC8 becomes Dribble (the trap end's switch 0x1406EEBB0 ran the
   // act4 start 0x1407A38E0, whose SetMotion issued his first motion into P+0xAE0), the body must play that motion at the end of the tick.
   long dribbleEntries = 0;
@@ -157,6 +171,7 @@ class TrapContactProbe : public pestest::Probe {
   // touches, so a touch made on the tick that just ran carries the clock as it stood when the tick began.
   void OnStart(Match& match) override { tickStart_ms_ = match.GetActualTime_ms(); }
   void OnTick(Match& match) override {
+    ++tickCount_;
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
@@ -228,6 +243,51 @@ class TrapContactProbe : public pestest::Probe {
           }
         }
         {
+          // Where the issued dribble clip goes: each change of a PES-owned dribbler's body clip is filed by how the old clip left (it ran to its
+          // last frame, or something took the body earlier) and what took the body (family / function type).
+          Player* pl = player.get();
+          const Anim* clip = pl->GetCurrentAnim();
+          {
+            // The streaks of PES ownership: how each began (the body's clip and the trap tick's issue kind at the first owned tick) and how long it ran.
+            Streak& st = streak_[pl];
+            const bool owned = match.PesOwnsDribble(*pl);
+            if (owned && st.start < 0) {
+              st = {tickCount_, 0, clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : -1,
+                    clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar2").c_str()) : -1,
+                    int(match.PesTrapTickIssue(match.PesSlotOf(pl))), int(match.PesDribbleIssuedMotion(match.PesSlotOf(pl)))};
+            } else if (!owned && st.start >= 0) {
+              char line[200];
+              std::snprintf(line, sizeof line, "%ld ticks (start %ld) began on clip %d/%d, trap issue %d, issued motion %d, ended with P action %d", tickCount_ - st.start,
+                            st.start, st.family, st.motion, st.issue, st.issued, match.PesWorldOf().P(match.PesSlotOf(pl))[pes::kPByteAC8Offset]);
+              ownershipStreaks.push_back({tickCount_ - st.start, line});
+              st.start = -1;
+            }
+          }
+          if (clip && clip->anim && match.PesOwnsDribble(*pl)) {
+            const int family = std::atoi(clip->anim->GetVariable("specialvar1").c_str());
+            auto& last = lastClip_[pl];
+            if (last.id != clip->id || last.anim != clip->anim) {
+              if (last.family == int(pes::PesClipFamily::kDribble)) {
+                const bool ended = last.frame >= last.frames - 1;
+                char key[96];
+                std::snprintf(key, sizeof key, "dribble clip %s -> family %d fn %d", ended ? "ENDED" : "PREEMPTED", family, int(pl->GetCurrentFunctionType()));
+                ++dribbleClipExits[key];
+              }
+            }
+            last = {clip->id, clip->anim, family, clip->frameNum, clip->anim->GetFrameCount()};
+            if (family != int(pes::PesClipFamily::kDribble)) {
+              ++ownedTicksOffDribbleClip;
+              const uint8_t* pp = match.PesWorldOf().P(match.PesSlotOf(pl));
+              char key[120];
+              std::snprintf(key, sizeof key, "off-dribble-clip tick: body family %d fn %d | P sub-state %02x | holder %d", family,
+                            int(pl->GetCurrentFunctionType()), pp[pes::kPPhaseOffset], match.GetPesHolder() == pl);
+              ++dribbleClipExits[key];
+            }
+          } else {
+            lastClip_[pl] = {};
+          }
+        }
+        {
           const uint8_t* pp = match.PesWorldOf().P(match.PesSlotOf(player.get()));
           uint8_t& before = lastAction_.emplace(player.get(), pp[pes::kPByteAC8Offset]).first->second;
           // Only the trap end's switch is PES's entry into Dribble here: a man GF derives into it (a BallControl clip of the carrier) runs no
@@ -273,6 +333,19 @@ class TrapContactProbe : public pestest::Probe {
   std::map<const Player*, uint16_t> lastCounter_;
   std::map<const Player*, uint16_t> lastMotion_;
   std::map<const Player*, uint8_t> lastAction_;
+  struct ClipSeen {
+    int id = -1;
+    const void* anim = nullptr;
+    int family = -1, frame = 0, frames = 0;
+  };
+  std::map<const Player*, ClipSeen> lastClip_;
+  struct Streak {
+    long start = -1;
+    long pad = 0;
+    int family = -1, motion = -1, issue = 0, issued = 0;
+  };
+  std::map<const Player*, Streak> streak_;
+  long tickCount_ = 0;
   std::map<int, unsigned> taken_;
   float previousSpeed_ = 0.0f;
   unsigned long tickStart_ms_ = 0;
@@ -325,7 +398,7 @@ TEST(PesStall, AHolderIsNeverHandedANewTrap) {
   ASSERT_TRUE(trapCensus.stop.gameOver) << "the match did not reach full time";
   ASSERT_GT(trapCensus.trapClips, 0) << "no trap clip was played";
   EXPECT_EQ(trapCensus.holderTraps, 0) << trapCensus.holderTraps << " of " << trapCensus.trapClips
-                                       << " trap clips began for the man who already held the ball";
+                                       << " trap clips began for the man who already held the ball:" << trapCensus.holderSamples;
 }
 
 // PES's reaction gate 4a (the Trap action's slot +0x10, 0x14079BBE0) decides from the man's current action whether he may take a trap, and
@@ -465,7 +538,14 @@ TEST(PesStall, APesDribblerPlaysTheMotionItIssued) {
   ASSERT_GT(contactCensus.pesDribbleTicks, 0) << "no man was in PES's Dribble action with a motion issued in the whole match";
   EXPECT_EQ(contactCensus.dribbleMotionNotOnTable, 0)
       << contactCensus.dribbleMotionNotOnTable << " of " << contactCensus.pesDribbleTicks
-      << " PES-dribbler ticks had the issued motion off the anime player's list";
+      << " PES-dribbler ticks had the issued motion off the anime player's list; ticks owned but on a non-dribble clip: "
+      << contactCensus.ownedTicksOffDribbleClip << "; streaks: " << contactCensus.ownershipStreaks.size() << [&] {
+        auto v = contactCensus.ownershipStreaks;
+        std::sort(v.rbegin(), v.rend());
+        std::string o;
+        for (std::size_t i = 0; i < v.size() && i < 12; ++i) o += "\n    " + v[i].second;
+        return o;
+      }() << "; " << [&] { std::string o; for (const auto& [k, v] : contactCensus.dribbleClipExits) o += "\n    " + std::to_string(v) + " x " + k; return o; }();
 }
 
 // Every SetMotion the Dribble action's tick makes reaches the body: PES's issue is the clip the man plays (RunPesDribbleTicks), so a motion

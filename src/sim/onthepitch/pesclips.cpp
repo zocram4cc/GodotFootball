@@ -20,8 +20,6 @@ namespace {
 constexpr double kGfFrame_s = 0.01;
 // A clip needs at least two frames for the engine's start/end bookkeeping.
 constexpr int kMinFrames = 2;
-// The parametric blend table's field-player groups (Parametricblendtable.bin: 0..79 goalkeeper, 80..93 locomotion over speed, 94 throw-in turn).
-constexpr int kFirstFieldBlendGroup = 80, kLastFieldBlendGroup = 94;
 
 struct FamilyPrefix {
   PesClipFamily family;
@@ -100,28 +98,37 @@ std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, st
       set.clips.push_back({name, int(m), f.family, std::move(*gani)});
     }
   }
-  // The dribble family also holds every motion PES's parametric blend table names in its field-player groups: the Dribble action's stand/idle
-  // handlers issue the series SetMotion (FUN_1406F14E0) over a blend group of that table (walk_1_1 .. run_5_5, the relaxed/near/guard
-  // variants, group 80..93; group 94 is the throw-in turn loop), so the clips it plays are the group's members. Groups 0..79 are the
-  // goalkeeper's height blends (docs/re/pes-re-animselect.md 2.6), which no dribbler issues (INF).
+  // The dribble family also holds the motions of PES's parametric blend table that a field player plays: the Dribble action's stand/idle
+  // handlers issue the series SetMotion (FUN_1406F14E0) over a blend group of that table (walk_1_1 .. run_5_5, the relaxed/near/guard variants,
+  // the side-run and throw-in-turn groups), so the clips it plays are the group's members. The table itself separates the goalkeeper's groups only by
+  // its members' motion names (`gk*`: gkmove/gkcatch height blends; docs/re/pes-re-animselect.md 2.6), so a group is the goalkeeper's when any of its
+  // members is a `gk*` motion. INF: no dribbler issues a goalkeeper group (the keeper's own mover is KP_PRESS, not the Dribble action).
   const auto blend = LoadBlendTable(vfs, error);
   if (!blend) return std::nullopt;
+  const auto nameOf = [&](int motion) -> const std::string* {
+    return motion >= 0 && static_cast<size_t>(motion) < names->size() ? &(*names)[static_cast<size_t>(motion)] : nullptr;
+  };
+  std::set<int> keeperGroups;
+  for (const BlendMember& member : *blend) {
+    const std::string* name = nameOf(member.motionNo);
+    if (name != nullptr && name->starts_with("gk")) keeperGroups.insert(member.group);
+  }
   std::set<int> dribbleMotions;
   for (const PesClip& c : set.clips)
     if (c.family == PesClipFamily::kDribble) dribbleMotions.insert(c.motionNo);
   for (const BlendMember& member : *blend) {
-    if (member.group < kFirstFieldBlendGroup || member.group > kLastFieldBlendGroup) continue;
+    if (keeperGroups.count(member.group) != 0) continue;
     if (!dribbleMotions.insert(member.motionNo).second) continue;
-    if (static_cast<size_t>(member.motionNo) >= names->size()) {
+    const std::string* name = nameOf(member.motionNo);
+    if (name == nullptr) {
       *error = "pes clips: the blend table names motion " + std::to_string(member.motionNo) + " past the motion table";
       return std::nullopt;
     }
-    const std::string& name = (*names)[member.motionNo];
-    auto blob = FindBodyClip(vfs, StrCode32(name), error);
+    auto blob = FindBodyClip(vfs, StrCode32(*name), error);
     if (!blob) return std::nullopt;
     auto gani = ParseGani(*blob, error);
     if (!gani) return std::nullopt;
-    set.clips.push_back({name, member.motionNo, PesClipFamily::kDribble, std::move(*gani)});
+    set.clips.push_back({*name, member.motionNo, PesClipFamily::kDribble, std::move(*gani)});
   }
   // The trap family: the Trap action's kind-0 chain commits a motion number into the action object (u16 +8, pes-port-TrapCutover.md)
   // that it picked from an Animetable cell (row x column), so every motion any cell names is a clip the trap can play.

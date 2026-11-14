@@ -3640,6 +3640,8 @@ void RunPesTrapTicks(Match& match) {
       // action's first motion into P+0xAE0: that is the clip the body plays from here, as the dribble tick's own issues are.
       else if (r.action == pes::kAnimeActionDribble)
         PlayDribbleIssue(match, *p, slot, r.issue);
+      // The end handler's switch put him in the Dribble action: from here PES's dribble tick owns his body (Match::PesOwnsDribble).
+      if (r.action == pes::kAnimeActionDribble) match.SetPesDribbleSwitched(slot, true);
       // The anime tick that follows the action tick in a PES frame steps the strike adjuster the start armed (the root's walk onto
       // the ball's predicted contact point): its frame displacement is the root moving, a warp like the throw-in's.
       const pes::PesWorld::AdjusterStep adj = world.RunTrapAdjuster(slot);
@@ -3668,6 +3670,7 @@ void RunPesDribbleTicks(Match& match) {
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
       const pes::PesWorld::DribbleTickResult tick = world.RunDribbleTick(slot, match.PesTrapExternalsOf());
       PlayDribbleIssue(match, *p, slot, tick.issue);
+      if (tick.action != pes::kAnimeActionDribble) match.SetPesDribbleSwitched(slot, false);  // the dribble tick switched him out
     }
   }
 }
@@ -3740,9 +3743,13 @@ void RunPesBodyScans(Match& match) {
           // A dribbler's touch has no GF clip frame to carry it (the trap's is the humanoid's contact, TakePesTouch): PES's ball executor takes the
           // scan's record to the kick application, and the ball's new motion is what GF's ball takes (PesWorld::RunBallTouch).
           const pes::PesWorld::BallTouchResult kick = world.RunBallTouch(slot, out, match.PesTrapExternalsOf());
-          // PES's axes (x, height, z) -> GF's (x, y = PES z, z = height). ponytail: the kick's spin (kick.spin) is not applied: GF's Ball takes
-          // GF's touch spin stand-in (ball.cpp SetRotation); upgrade path = the ball integrator's own spin state from the candidate's +0x18.
+          // PES's axes (x, height, z) -> GF's (x, y = PES z, z = height). The candidate's +0x18 is the ball's raw spin (FUN_140874860 stores
+          // omega * DAT_14349f740 there; FUN_140870A40 copies it into the ball state with FUN_140731BB0): the same Fox-axes raw vector Ball::
+          // SetRotation blends toward (it takes GF's axes in units of 1/0.001 raw), so the kick's spin is applied whole (bias 1), as the
+          // candidate replaces the ball's previous spin in PES.
           match.GetBall()->Touch(Vector3(kick.velocity[0], kick.velocity[2], kick.velocity[1]));
+          constexpr float kRawToGfSpin = 1000.0f;  // Ball::SetRotation's 0.001 (raw = GF axis value * 0.001)
+          match.GetBall()->SetRotation(kick.spin[0] * kRawToGfSpin, -kick.spin[2] * kRawToGfSpin, kick.spin[1] * kRawToGfSpin, 1.0f);
           match.GetTeam(t)->SetLastTouchPlayer(p.get(), e_TouchType_Intentional_Kicked);
           match.GetMatchData()->RecordBallTouch(t);
           p->UpdatePossessionStats(false);
