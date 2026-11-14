@@ -1073,7 +1073,13 @@ class PesWorld {
   // PES's guard chain of FUN_140792E10 before the push's joint reads: the taking state (P+0x245C == 1), test A (e < AF620), then B =
   // B08A0, FUN_1406EC260 (translated, read-only; its boolean gates the A branch's bookkeeping block: the flag write P+0x2460 |= 0x80 is
   // ported, its calls need the object at P+0x3AC8), and test B (e < B). e = E68C0(P, s), s the throw-in action id (P+0xAE0). True when the
-  // push may run. A block reached with no P+0x3AC8 object is counted (BookkeepingSkips) and its calls are not run.
+  // push may run.
+  // ponytail: test B reads e from the throw-in table (entries at P+0x354, stride 0x14; count P+0x420; factor P+0x35C). PES writes that
+  // table every tick for every man: FUN_1409F1640 (the man tick) -> FUN_1409F1E70 -> FUN_1408BE100 (gated by P+0xA07/A06) ->
+  // FUN_141EB4650. GF does not run that writer, so the table is empty and e reads 0: test B stays open where PES's closes (e = 20 or 34).
+  // The writer's source is the BodyAnimControl at P+0xA08, which GF builds in the fox world (PesAnimePlayerOf), not in this trap record.
+  // Upgrade: the two-worlds item (one PES address space, the trap world on the fox mapping), then the writer runs per tick in this record.
+  // A block reached with no P+0x3AC8 object is counted (BookkeepingSkips) and its calls are not run; the count must read 0 after that port.
   bool PushGateOpen(int slot, PesTrapExternals& ext);
   // Blocks reached with no P+0x3AC8 object since the process started (the regression check: 0 once the object is built).
   static std::size_t BookkeepingSkips();

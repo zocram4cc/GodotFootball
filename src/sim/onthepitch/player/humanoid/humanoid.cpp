@@ -411,8 +411,9 @@ void Humanoid::Process() {
     }
   */
 
-  if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 &&
-      interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer())) {
+  // The throw-in taker's clip does not switch the body while PES's throw-in action owns it (the same rule as the dribble's).
+  if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer()) &&
+      !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer())) {
     interruptAnim = e_InterruptAnim_Switch;
   }
 
@@ -538,6 +539,10 @@ void Humanoid::Process() {
 
       // The FSM owns the body's movement while it holds STOP: the AI's movement command reaches the body only through MOVESTEP.
       if (PesPoseHeld(CastPlayer()) && command.desiredFunctionType == e_FunctionType_Movement) continue;
+      // PES's throw-in action owns the lifted taker's body: the AI's movement command does not reach him (the same rule as the dribble's).
+      if (CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer()) &&
+          command.desiredFunctionType == e_FunctionType_Movement)
+        continue;
       found = SelectAnim(command, interruptAnim, preferPassAndShot);
       if (found)
         break;

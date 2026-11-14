@@ -1363,6 +1363,11 @@ void TeamAIController::AdvancePieceWalk() {
       pieceWarping = true;
       pieceWarpTicks = kLiftTicks;
       pieceWarpTo = pieceCarrySpot;
+      // PES's phase-4 lift clip (throwin_seamless_liftupball, motion 0xD01, 14 frames; docs/re/pes-re-throwin-choreography.md 3.2).
+      // The body lifts the ball while the root warp moves him onto the spot; the clip's pose keeps the nearer ankle clear of the line
+      // through the warp.
+      constexpr int kLiftMotion = 0xd01;
+      taker->CastHumanoid()->PlayIssuedClip(kLiftMotion, 1.0f, false, pes::PesClipFamily::kTrap);
     }
   }
   // The root warp of the clip: an even step per tick onto the warp's end (the contact point, or the carry spot). It is the clip's
@@ -1390,6 +1395,9 @@ void TeamAIController::AdvancePieceWalk() {
     pieceWarping = false;
     if (pieceCarrying) {
       pieceLifted = true;
+      // PES's phase 5 starts the loop when the lift clip ends (docs/re/pes-re-throwin-choreography.md 3.2): the loop is issued once, here.
+      constexpr int kThrowInLoopMotion = 0xcf4;
+      taker->CastHumanoid()->PlayIssuedClip(kThrowInLoopMotion, 1.0f, false, pes::PesClipFamily::kTrap);
     } else {
       pieceCarrying = true;
       pieceWalkTarget = pieceCarrySpot;
