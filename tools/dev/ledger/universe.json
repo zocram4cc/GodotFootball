@@ -919537,6 +919537,58 @@
    "vtables": [],
    "walked": true
   },
+  "141B6E9C0": {
+   "boundary": null,
+   "callees": {
+    "141B6F220": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b6e9c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "throwin140792"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "throwin140792",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B6F220": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FF430": "direct",
+    "1403FF490": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b6f220",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "throwin140792"
+   ],
+   "scope": "in",
+   "size": 37,
+   "source": "pdata",
+   "subsystem": "throwin140792",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141B740B0": {
    "boundary": null,
    "callees": {
@@ -1414372,6 +1414424,13 @@
      "0x141ECA500"
     ]
    },
+   "ankleshove": {
+    "members": 5,
+    "roots": [
+     "0x141EB5BB0",
+     "0x141EB37B0"
+    ]
+   },
    "cardlevel": {
     "members": 93,
     "roots": [
@@ -1414518,6 +1414577,18 @@
      "0x1404FB380",
      "0x1404FB780",
      "0x1404F0E50"
+    ]
+   },
+   "throwin140792": {
+    "members": 27,
+    "roots": [
+     "0x140792E10"
+    ]
+   },
+   "throwinthunk": {
+    "members": 1,
+    "roots": [
+     "0x144232210"
     ]
    },
    "trajleaf": {

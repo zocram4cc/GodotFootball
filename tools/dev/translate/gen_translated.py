@@ -45,6 +45,7 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_kickkind.json", "kickkind"), ("results_kickshot.json", "kickkind"), ("results_kick.json", "kick"),
         ("results_kickbranch.json", "kick"), ("results_kickleaf.json", "kick"), ("results_kickgate.json", "kick"),
         ("results_kickballnear.json", "kick"), ("results_kickjoints.json", "kick"), ("results_animelayer.json", "kick"),
+        ("results_throwin.json", "kick"),
         ("results_kickroot.json", "kickroot"), ("results_kickturn.json", "kickroot"),
         ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"), ("results_teampass.json", "teampass"),
         ("results_gkdribble.json", "gkdribble"))
