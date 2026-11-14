@@ -159,6 +159,36 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
         seg.bytes.push_back(static_cast<uint8_t>(Read(o, seg.va + i, 1)));
       osSegs.push_back(std::move(seg));
     }
+    // The heap objects the tick writes and reads back inside the call (a candidate cache: the first call stores its fields, the
+    // second hits): the live-in set holds only what the call reads before writing, so a byte PES stores first is not staged. The
+    // window gives them backing: every capture byte PES stores outside the window's records and the stack joins the staged
+    // ranges (merged, bytes from the capture).
+    {
+      const WriteLog stores(o.row);
+      const uint64_t rsp = o.regs.at("rsp");
+      const std::pair<uint64_t, size_t> own[3] = {{thisVa, pes::kPassGetObjectBytes}, {pcVa, pes::kPassGetPcBytes}, {rVa, pes::kPassGetRBytes}};
+      std::vector<std::pair<uint64_t, uint64_t>> iv;
+      for (const auto& seg : osSegs) iv.push_back({seg.va, seg.va + seg.bytes.size()});
+      for (const auto& [addr, value] : stores.bytes) {
+        (void)value;
+        bool mine = addr + 0x2000 >= rsp && addr < rsp + 0x400;
+        for (const auto& [base, n] : own) mine = mine || (addr >= base && addr < base + n);
+        if (!mine) iv.push_back({addr, addr + 1});
+      }
+      std::sort(iv.begin(), iv.end());
+      std::vector<std::pair<uint64_t, uint64_t>> merged;
+      for (const auto& r : iv) {
+        if (!merged.empty() && r.first <= merged.back().second + 8) merged.back().second = std::max(merged.back().second, r.second);
+        else merged.push_back(r);
+      }
+      osSegs.clear();
+      for (const auto& [lo, hi] : merged) {
+        pes::PesTrapSegment seg;
+        seg.va = lo;
+        for (uint64_t a = lo; a < hi; ++a) seg.bytes.push_back(static_cast<uint8_t>(Read(o, a, 1)));
+        osSegs.push_back(std::move(seg));
+      }
+    }
     for (auto& seg : osSegs) ext.segments.push_back(std::move(seg));  // after the loader data AddTo staged (constant::PassGet included)
     std::vector<std::pair<uint64_t, unsigned>> reads;
     ext.readLog = &reads;
