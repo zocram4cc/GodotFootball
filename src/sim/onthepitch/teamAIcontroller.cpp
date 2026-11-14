@@ -2469,9 +2469,9 @@ bool TeamAIController::PressOrDelay(const PlayerBase* p) {
   return teamPressure;
 }
 
-// FUN_140535C60's press steps on the world window: the coordinator 0x140634470 (it calls the target eval 0x140633940), the slot
-// reset FUN_140536690, then the writer 0x140536FC0. The three PES functions decide who presses; GF stages the T fields PES's AI
-// writes elsewhere (PesWorld::StagePress), each named below with its PES writer. PES path only.
+// FUN_140535C60 on the world window (PesWorld::RunPressDispatch): the defence passes and the mark pass (T+0x558 and the MARK/COVER
+// words), the MATCH_UP step, the coordinator 0x140634470, the slot reset FUN_140536690, the writer 0x140536FC0 and the order-word loop,
+// all PES's. GF stages the T fields PES's AI writes elsewhere (PesWorld::StagePress), each named below with its PES writer. PES path only.
 void TeamAIController::PesPressTick() {
   if (!match->PesLoop()) return;
   pes::PesWorld& world = match->PesWorldOf();
@@ -2486,24 +2486,6 @@ void TeamAIController::PesPressTick() {
     const pes::ActorKey key = match->PesActorKeyOf(holder);
     if (key.Valid() && key.team < 2 && key.slot < pes::kSlotsPerSide)
       f.holder = static_cast<uint32_t>(key.team) * pes::kSlotsPerSide + key.slot;
-  }
-  // T+0x558[k]: who slot k marks. ponytail: PES's mark pass (FUN_140534A20 and the passes before it in FUN_140535C60, each slot's
-  // SetPartner 0x140A42B90) gives the man the MATCH_UP writer reads (0x140536210: the holder MA+0x2601C, else the opposing side's T+0x78)
-  // his first marker; its callees 0x1405346E0 and 0x1405350D0 and the plan mark bits T+0xB8BC are untranslated/unwritten, so the nearest
-  // active outfield man of this side marks that man. Removal: translate the two callees and run the mark pass.
-  const uint32_t marked = f.holder < 2 * pes::kSlotsPerSide ? f.holder : world.PassTarget(1 - side);
-  if (marked < 2 * pes::kSlotsPerSide && static_cast<int>(marked / pes::kSlotsPerSide) != side) {
-    const Vector3 markedAt = match->GetTeam(static_cast<int>(marked / pes::kSlotsPerSide))
-                                 ->GetAllPlayers()[marked % pes::kSlotsPerSide]->GetPosition();
-    int best = -1;
-    float bestDist = 0.0f;
-    for (int k = 1; k < pes::kSlotsPerSide && k < static_cast<int>(team->GetAllPlayers().size()); ++k) {
-      Player* p = team->GetAllPlayers()[k].get();
-      if (!p->IsActive()) continue;
-      const float d = (p->GetPosition() - markedAt).GetLength();
-      if (best < 0 || d < bestDist) { best = k; bestDist = d; }
-    }
-    if (best >= 0) f.partner[best] = marked;
   }
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   f.playState = static_cast<uint32_t>(pes::PlayStateFor(
@@ -2543,11 +2525,7 @@ void TeamAIController::PesPressTick() {
   std::array<uint8_t, pes::kSlotCount> onPitch{};
   std::memcpy(onPitch.data(), world.MatchInfo() + pes::kMiOnPitchOffset, onPitch.size());
   world.StagePress(side, f);
-  world.RunMatchUp(side);
-  world.RunPressCoordinator(side);
-  world.ResetPress(side);
-  world.RunPressWriter(side);
-  world.RunPressOrders(side);
+  world.RunPressDispatch(side);
   world.SetMaOwner(side, owner);
   for (int k = 0; k < pes::kSlotsPerSide; ++k)
     pes::StoreU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k, unitWords[k]);

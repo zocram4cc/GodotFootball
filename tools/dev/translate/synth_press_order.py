@@ -176,15 +176,19 @@ def list_entries(w, rnd, pk):
         pk.put(e + 0x68, "%02x" % rnd.choice((3, 3, 0)))
 
 
-def write_closure(image, va, closure_file, members_path, proof):
+def write_closure(image, va, closure_file, members_path, proof, static=True):
     """closure_file: the replays' members (snapdiff --bounded) plus the root's static direct-call closure (closure.py's crawl),
     the recipe of closure_press_{writer,eval,coord}.json: the static members are translated and linked, not replay-proven.
+    static=False (a capture-bounded root, results field `bounded`): the replays' members only; every call the replays never entered
+    stays a loud abort in the layer (the survey lists them).
     proof: what the replays were ("the SYNTHETIC proof of VA (synth_press_order.py)", "the proof of VA over the real captures ...")."""
     import closure  # noqa: E402  (needs capstone: the harness Python)
     replay = {int(v, 16) for v in json.load(open(members_path))}
-    universe = closure.load_universe()["functions"]
-    with open(image, "rb") as img:
-        crawled, _ = closure.crawl([int(va, 16)], universe, closure.ClosurePdata(img), "press")
+    crawled = ()
+    if static:
+        universe = closure.load_universe()["functions"]
+        with open(image, "rb") as img:
+            crawled, _ = closure.crawl([int(va, 16)], universe, closure.ClosurePdata(img), "press")
     members = replay | set(crawled)
     doc = {"note": "the functions built for %s: every function the replays entered "
                    "(snapdiff --bounded: %d) plus the root's static direct-call closure (%d members the replays did not enter: "

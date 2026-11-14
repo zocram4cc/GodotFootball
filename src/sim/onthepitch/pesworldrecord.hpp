@@ -355,6 +355,8 @@ inline constexpr std::size_t kTeamActionOffset = 0xA2A0;       // u32[11]: the s
 inline constexpr uint32_t kTeamActionPress = 0x34;             // T+0xA2A0 words: PRESS and DELAY (FUN_140A42940's setter)
 inline constexpr uint32_t kTeamActionDelay = 0x33;
 inline constexpr uint32_t kTeamActionMatchUp = 0x3A;           // the MATCH_UP word FUN_140536210 writes with T+0x7C
+inline constexpr uint32_t kTeamActionMark = 0x36;              // the mark pass's word (FUN_140534A20 via SetPartner 0x140A42B90): the man marks T+0x558[slot]
+inline constexpr uint32_t kTeamActionCover = 0x32;             // the cover word the dispatcher's passes write (kick-off captures: slot 5 from the defender's 6th call)
 inline constexpr std::size_t kTeamPressSlotsOffset = 0xA548;   // u32[4]: the men the writer enrolled (0xFF none); +0xA558 the held man
 inline constexpr std::size_t kTeamPressTimerOffset = 0xA53C;   // u8: the press timer (0 in every capture)
 inline constexpr std::size_t kTeamOrderWordOffset = 0xB748;    // u32[11]: the order word (0x24 bars the eval's candidate)
@@ -371,9 +373,8 @@ inline constexpr int kWorldListEntries = 24;
 inline constexpr std::size_t kWorldListStride = 0x74;
 inline constexpr std::size_t kWorldListIdOffset = 0x20;
 // MA+0x2601C: the press holder (the last toucher; 0xFF none).
-// The press call frames: PP = {holder, second designated X, second presser} (u32 x3 per side, the coordinator's rcx) and the
-// side argument {ctx, 0, side} (the rdx of the writer, coordinator and eval).
-inline constexpr std::size_t kPressPpBytes = 16;
+// The press call frame: the side argument {ctx, Y + 0x62B4, side u32, flag byte at +0x14} (the rdx of the dispatcher, writer, coordinator and
+// eval). PP = {holder, second designated X, second presser} is the coordinator's own state, in the brain object Y (kBrainDispatcherOffset).
 inline constexpr std::size_t kPressArgBytes = 32;
 struct PesSideRecord {
   std::array<uint8_t, kSideRecordBytes> bytes{};
@@ -469,6 +470,8 @@ inline constexpr std::size_t kBrainSideOffset = 0x8;
 inline constexpr std::size_t kBrainCtxOffset = 0x6D48;
 inline constexpr std::size_t kBrainTeamOffset = 0x6D50;
 inline constexpr std::size_t kBrainBytes = 0x6E00;
+inline constexpr std::size_t kBrainDispatcherOffset = 0x4200;  // the dispatcher's param_1 = Y + 0x4200 (FUN_1404F6C30: lea rcx,[rdi+0x4200])
+inline constexpr std::size_t kBrainSideCtxOffset = 0x62B4;     // the second word of the dispatcher's argument struct: Y + 0x62B4
 struct PesBrainRecord {
   std::array<uint8_t, kBrainBytes> bytes{};
 };
@@ -736,7 +739,8 @@ inline constexpr std::size_t kSanctionOffset = kStackOffset + kStackBytes;
 // 24-entry array G+0x180 POINTS at (the press reads `*(G+0x180)` in FUN_140536FC0 and FUN_140536690, then entry + 0x74 * i + 0x20): GF has
 // no such list, so every id reads "no man" (PesWorld's constructor).
 struct alignas(8) PesPressImage {
-  std::array<std::array<uint32_t, kPressPpBytes / sizeof(uint32_t)>, kSideCount> pp{};
+  // The selector's AL per side (RunPassTarget's result): the caller's SIL, the dispatcher call's r9 (0x1404F784E, 0x1404F793D).
+  std::array<uint8_t, kSideCount> selector{};
   std::array<std::array<uint64_t, kPressArgBytes / sizeof(uint64_t)>, kSideCount> arg{};
   std::array<uint8_t, kWorldListEntries * kWorldListStride> list{};
   // The man index the dispatcher's order-word loop hands FUN_14062AF10 by pointer (FUN_140535C60's local_res10).
@@ -857,7 +861,10 @@ class PesWorld {
       StoreU64(Ctx(side), kCtxMaOffset, MaVa(side));
       StoreU64(Ctx(side), kCtxEventsOffset, EventsVa());
     }
-    for (auto& pp : image_->press.pp) pp.fill(kTeamNoMan);  // PES's PP starts {0xFF, 0xFF, 0xFF} (coordinator captures before a first presser)
+    // PES's PP starts {0xFF, 0xFF, 0xFF} (coordinator captures before a first presser): Y + 0x4254, three words.
+    for (int side = 0; side < kSideCount; ++side)
+      for (int i = 0; i < 3; ++i)
+        StoreU32(Brain(side), kBrainDispatcherOffset + kDispatcherPpOffset + sizeof(uint32_t) * i, kTeamNoMan);
     StoreU64(Bytes(), kWorldListOffset, kWorldWindowVa + kPressOffset + offsetof(PesPressImage, list));
     for (int i = 0; i < kWorldListEntries; ++i)
       StoreU32(image_->press.list.data(), kWorldListStride * i + kWorldListIdOffset, 0xFFFFFFFFu);
@@ -1218,10 +1225,6 @@ class PesWorld {
   // records; the facts below are GF's producers of the T fields PES's AI writes elsewhere (each `ponytail:` at its use names the
   // PES writer). The press result is T+0xA2A0 (the action words), +0xA548 (the enrolled men) and PP[2] (the second presser). ----
   struct PressFacts {
-    // T+0x558[k]: the man slot k marks (global 0..21, 0xFF none); PES's mark pass writes them (FUN_140546FB0). The MATCH_UP writer
-    // 0x140536210 (RunMatchUp) picks the slot whose partner is the holder and writes T+0x7C itself.
-    std::array<uint32_t, kSlotsPerSide> partner = {kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan,
-                                                   kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan};
     uint32_t holder = kTeamNoMan;      // MA+0x2601C: the last toucher (FUN_140457070), 0xFF none
     uint32_t playState = 0;            // MI+0x116C
     uint32_t frame = 0;                // T+0x21C
@@ -1247,6 +1250,13 @@ class PesWorld {
   // writer is undecoded, pes-re-record-ids.md section 4): the own men get {0, 1} for the run and their words are put back.
   // Removal: the pair's writer.
   void RunMatchUp(int side);
+  // FUN_140535C60 whole (translated, 24 of 24 calls bit-exact over real and rebuilt captures): the defence passes, the MATCH_UP step,
+  // the coordinator, the slot reset, the writer and the order-word loop, in PES's order, on the brain object's param_1 = Y + 0x4200.
+  // `selector` is the selector's AL (RunPassTarget's result), the call's r9. Run after StagePress; it keeps its own state in Y.
+  // The anime pair stand-in of RunMatchUp applies to the writer inside it too. T+0x558 (the mark partners) is the mark pass's.
+  void RunPressDispatch(int side);
+  // Test seam: a mark partner word T+0x558[slot] (a global man id, 0xFF none), the state the mark pass leaves between calls.
+  void SetMarkPartner(int side, int slot, uint32_t who) { StoreU32(SideRecord(side), kTeamMarkPartnerOffset + sizeof(uint32_t) * slot, who); }
   // The dispatcher's order-word loop (FUN_140535C60 0x140536011-0x140536059), after the writer: a slot whose order word
   // T+0xB748+4k is 0x26 and whose action word is neither DELAY nor PRESS gets DELAY when FUN_14062AF10 finds another presser
   // with the ball on his side, else PRESS, through the setter 0x140A42940. Nothing in GF writes the order words (the concept
@@ -1254,10 +1264,11 @@ class PesWorld {
   void RunPressOrders(int side);
   // The slot's action word T+0xA2A0[slot] (0x34 PRESS, 0x33 DELAY, 0 none) and PP[2], the coordinator's second presser.
   uint32_t PressAction(int side, int slot) { return LoadU32(SideRecord(side), kTeamActionOffset + sizeof(uint32_t) * slot); }
-  uint32_t PressSecond(int side) const { return image_->press.pp[side][2]; }
-  static constexpr uint64_t PressPpVa(int side) {
-    return kWorldWindowVa + kPressOffset + offsetof(PesPressImage, pp) + static_cast<uint64_t>(side) * kPressPpBytes;
+  uint32_t PressSecond(int side) const {
+    return LoadU32(image_->brain[side].bytes.data(), kBrainDispatcherOffset + kDispatcherPpOffset + 2 * sizeof(uint32_t));
   }
+  // PP is the dispatcher's param_1 + 0x54 (param_1 = the team-tick object Y + 0x4200), so it lives in the brain object Y.
+  static constexpr uint64_t PressPpVa(int side) { return BrainVa(side) + kBrainDispatcherOffset + kDispatcherPpOffset; }
   static constexpr uint64_t PressArgVa(int side) {
     return kWorldWindowVa + kPressOffset + offsetof(PesPressImage, arg) + static_cast<uint64_t>(side) * kPressArgBytes;
   }
