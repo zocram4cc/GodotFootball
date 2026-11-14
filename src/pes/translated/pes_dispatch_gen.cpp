@@ -11861,7 +11861,6 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
   }
 }
 void (*pes_dispatch_missing_handler)(uint64_t) = nullptr;
-struct PesDispatchMissing { uint64_t target; };  // THROW_DISPATCH: thrown instead of abort (tests)
 void (*pes_dispatch_throw_handler)(uint64_t) = nullptr;  // THROW_DISPATCH: a C++ throw instead of abort (tests)
 void pes_dispatch_missing(uint64_t t) {
   if (pes_survey_armed()) pes_survey_note(t, __builtin_return_address(0));

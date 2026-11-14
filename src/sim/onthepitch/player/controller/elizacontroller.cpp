@@ -1153,17 +1153,14 @@ void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
   command.desiredFunctionType = e_FunctionType_Movement;
   command.useDesiredMovement = true;
   command.desiredDirection = (target - me).Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
-  // ponytail: the speed sub-block's consumer (cmd+0x5C = R+0x8D0 class, cmd+0x5C5 = R+0xE39 use, cmd+0x5C8 = R+0xE3C km/h) is MOVESTEP's
-  // request filler FUN_1406B7560 (pes-re-press-cmd.md); GF's command has one speed float, so the class stands for the band's cap
-  // (the press cuts, pes::PressConstants) and class 4 is uncapped. The use flag off: the man keeps the speed he has.
-  const pes::PressConstants& press = match->GetPesPressConstants();
-  float speed_ms = CastPlayer()->GetMovement().GetLength();
-  if (r.speedUse) {
-    const float cap_kmh[] = {0.0f, press.speedCut1_kmh, press.speedCut2_kmh, press.speedCut3_kmh};
-    // km/h to m/s is arithmetic (3600/1000), not a PES number.
-    speed_ms = r.speedClass < 4 ? cap_kmh[r.speedClass] / 3.6f : sprintVelocity;
-  }
-  command.desiredVelocityFloat = RangeVelocity(clamp(speed_ms, 0.0f, sprintVelocity));
+  // The command record's words as FUN_1406B7560 reads them (R+0x874.. is cmd+0): taken as PES left them, no GF class or ramp.
+  command.usePesWords = true;
+  command.pesWords = {static_cast<int>(r.commandId), static_cast<int>(r.moveKind), static_cast<int>(r.precise),
+                      static_cast<int>(r.speedClass), r.speedUse, r.speedKmh};
+  command.useDesiredTarget = r.targetWritten;
+  command.desiredTarget = target;
+  // km/h to m/s is arithmetic (3600/1000), not a PES number: GF's own readers of the command (the humanoid's velocity level) take m/s.
+  command.desiredVelocityFloat = r.speedKmh / 3.6f;
   command.useDesiredLookAt = true;
   command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
   commandQueue.push_back(command);

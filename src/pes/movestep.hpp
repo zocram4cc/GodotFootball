@@ -986,6 +986,7 @@ struct MoveTargetInput {
   int commandId = 0;
   int commandSpeedClass = 0;
   bool animeStateNonzero = false;
+  bool useClassRate = false;  // cmd+0x5C5 (req[0xb] byte): the requested rate is the class's band rate
   int bodyBucket = 0;       // the body-bucket flag, 0 or 1 (PES host+0x2798, set at 0x1411944E6)
 };
 // ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket; 0 = the facing. The flag is

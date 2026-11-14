@@ -160,6 +160,19 @@ struct PlayerCommand {
   Vector3 desiredTarget;
   // PES cmd[0x15], the precise arrival flag that stops the walk on its target (req[0xe]).
   bool preciseArrival;
+  // The command record words PES's own writer left (the ActionPassGet tick: R+0x874.. is cmd+0, docs/re/pes-re-press-live.md 4): the
+  // command id cmd[0], the move kind cmd[0x16], the precise flag cmd[0x15], the speed class cmd[0x17], the use-class-rate byte
+  // cmd+0x5C5 and the desired speed cmd[0x172] (km/h). When set, FUN_1406b7560's request takes them as they are, in place of the
+  // classes GF derives from desiredVelocityFloat.
+  bool usePesWords = false;
+  struct PesWords {
+    int id = 0;
+    int kind = 0;
+    int precise = 0;
+    int speedClass = 0;
+    bool useClassRate = false;
+    float desiredKmh = 0.0f;
+  } pesWords;
 
   TouchInfo touchInfo;
 

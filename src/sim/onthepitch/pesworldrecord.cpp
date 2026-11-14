@@ -424,6 +424,9 @@ PesPassGetResult PesWorld::RunPassGetAction(int slot, uint32_t actionId, PesTrap
   PesPassGetResult out;
   out.targetWritten = LoadU32(r, kRTargetOffset) != kUnwrittenTarget;
   for (int k = 0; k < 3; ++k) std::memcpy(&out.target[k], r + kRTargetOffset + 4 * k, sizeof(float));
+  out.commandId = LoadU32(r, kRCommandIdOffset);
+  out.moveKind = LoadU32(r, kRMoveKindOffset);
+  out.precise = LoadU32(r, kRPreciseOffset);
   out.speedClass = LoadU32(r, kRSpeedClassOffset);
   out.speedUse = r[kRSpeedUseOffset] != 0;
   std::memcpy(&out.speedKmh, r + kRSpeedKmhOffset, sizeof(float));

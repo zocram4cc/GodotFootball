@@ -21,14 +21,18 @@ inline constexpr std::size_t kPcIdOffset = 0x4, kPcOrdersOffset = 0x28, kPcCtxOf
 inline constexpr std::size_t kPcPOffset = 0x40;  // the man's P record (the tick reads pc +0x4, +0x28..+0x48 only)
 // What the tick leaves in the command record R (docs/re/pes-re-decision-read.md, pes-re-press-cmd.md: the ball/pass request A+0x874..0x8C4):
 // the target point (PES axes x, height, z), the speed sub-block (class A+0x8D0, use flag A+0xE39, the man's speed in km/h A+0xE3C).
-inline constexpr std::size_t kRTargetOffset = 0x894, kRSpeedClassOffset = 0x8D0, kRSpeedUseOffset = 0xE39, kRSpeedKmhOffset = 0xE3C;
+inline constexpr std::size_t kRTargetOffset = 0x894;
+// The command record cmd is R from +0x874 (FUN_14092A340 copies A+0x874..: cmd+k = R+0x874+k, docs/re/pes-re-press-cmd.md 2): the words
+// FUN_1406B7560 reads of it, as R offsets.
+inline constexpr std::size_t kRCommandIdOffset = 0x874, kRPreciseOffset = 0x8C8, kRMoveKindOffset = 0x8CC, kRSpeedClassOffset = 0x8D0,
+                             kRSpeedUseOffset = 0xE39, kRSpeedKmhOffset = 0xE3C;
 // The tick's result words in the object: +0x68 the target id, +0x6C the route result code.
 inline constexpr std::size_t kPassGetTargetIdOffset = 0x68, kPassGetResultOffset = 0x6C;
 
 struct PesPassGetResult {
   bool targetWritten = false;  // the tick stored R's target point this call
   float target[3] = {0, 0, 0};  // PES axes: x, height, z
-  uint32_t speedClass = 0;
+  uint32_t commandId = 0, moveKind = 0, precise = 0, speedClass = 0;
   bool speedUse = false;
   float speedKmh = 0;
   uint32_t routeResult = 0;  // this+0x6C: the route walk's result code

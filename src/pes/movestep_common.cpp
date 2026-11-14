@@ -105,6 +105,7 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   req.SetF(moveword::kDistToLook, in.lookValid ? lookDist : targetDist);  // PES FUN_1406b7560 lines 129-136: the look distance when the look block is valid, else the target distance
   req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(in.speedBand));
   req.SetF(moveword::kDesiredSpeedKmh, in.desiredKmh);
+  req.SetByte(moveword::kUseClassRate, in.useClassRate ? 1 : 0);  // PES 62/306: param_2+0xb = cmd+0x5C5
   req.SetU(moveword::kPrecise, in.precise ? 1u : 0u);
   const int kind = in.moveKind == 8 ? 2 : in.moveKind;  // PES 55-57: cmd[0x16] of 8 is written as kind 2
   req.SetU(moveword::kKind, static_cast<uint32_t>(kind));  // PES 228: *param_2 = the remapped kind

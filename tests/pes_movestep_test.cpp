@@ -1718,6 +1718,23 @@ TEST(MoveFill, SpeedBandIsTheCommandsOwnBandForTwoCommands) {
   EXPECT_EQ(static_cast<int>(b.U(pes::moveword::kCommandSpeedClass)), 3);
 }
 
+// FUN_1406b7560 line 62 and 306: req[0xb] (a byte) is cmd+0x5C5, the use-class-rate flag the PASS_GET command's R+0xE39 supplies.
+TEST(MoveFill, UseClassRateByteIsTheCommandsFlagForTwoCommands) {
+  pes::movestep::MoveTargetInput on = OriginCommand();
+  on.targetZ = 6.0f;
+  on.speedBand = 1;
+  on.useClassRate = true;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, on, FoldConstants(), SyntheticBuckets());
+  EXPECT_TRUE(a.Flag(pes::moveword::kUseClassRate));
+
+  pes::movestep::MoveTargetInput off = on;
+  off.useClassRate = false;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, off, FoldConstants(), SyntheticBuckets());
+  EXPECT_FALSE(b.Flag(pes::moveword::kUseClassRate));
+}
+
 TEST(MoveFill, PreciseWordIsTheCommandsStopFlagForTwoCommands) {
   pes::movestep::MoveTargetInput stop = OriginCommand();
   stop.targetZ = 6.0f;
