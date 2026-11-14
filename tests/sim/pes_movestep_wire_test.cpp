@@ -1246,8 +1246,7 @@ TEST(MoveStepWire, TheListedPhaseBodyIsTheLastTickDisplacement) {
   REQUIRE_PES_MATCH(config);
   match->StartPlay();
   Player* p = FirstPlayer(*match);
-  // (the record learns the man's position at the next request; the movement vector is not touched by the offset)
-  pesmovestep::TickRequest(*p, *match);  // the record learns the man's position at this request
+  pesmovestep::TickRequest(*p, *match);  // the record learns the man's position at this request; the movement vector is not touched
   p->OffsetPosition(Vector3(0.2f, 0.0f, 0.0f));  // he moved 0.2 m along +x since the last request
   p->GetMoveStep().state = pes::MoveState::kGotoRun;
   const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
