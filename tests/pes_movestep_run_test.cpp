@@ -186,6 +186,19 @@ class SyntheticHost : public pes::MoveHost {
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return speedClass; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return facingDeg; }
+  // The production adapter writes the player's facing (P+0x20) here (FUN_141EB56D0 with the angle): the same field FacingDeg reads.
+  void SetRootFacing(float angleDeg) override { facingDeg = angleDeg; }
+  // The production adapter arms PesWorld's yaw adjuster (PesWorld::ArmYaw); a unit test has no PesWorld, so it records the arm.
+  struct YawArm {
+    float fromDeg;
+    float toDeg;
+    int ticks;
+    bool overrideMode;
+  };
+  std::vector<YawArm> yawArms;
+  void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) override {
+    yawArms.push_back({fromDeg, toDeg, ticks, overrideMode});
+  }
   float BallBearingDeg() const override { return 0.0f; }
   int ActionIndex() const override { return 0; }
   int RelatedSlot() const override { return -1; }
