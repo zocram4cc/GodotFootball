@@ -379,6 +379,10 @@ set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
 add_test(NAME translate_synth_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_synth.py)
 set_tests_properties(translate_synth_test PROPERTIES TIMEOUT 120)
+# synth.py's __stdio_common_vsprintf_s model (the conversions PES's writers use, e.g. the DemoInfoRef player name PLAYER_A08). Plain python3.
+add_test(NAME translate_synth_models_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_synth_models.py)
+set_tests_properties(translate_synth_models_test PROPERTIES TIMEOUT 120)
 
 # capz.py (capture pack/unpack): a full capture round-trips byte-identical, a sparse slim one is never packed and unpacks
 # sparse. Plain python3 + zstd.
