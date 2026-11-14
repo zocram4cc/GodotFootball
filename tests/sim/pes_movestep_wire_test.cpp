@@ -993,7 +993,9 @@ TEST(MoveStepWire, AnIdleTurnFromOverAHundredDegreesGetsTheBodyUnderNinetyWithin
   struct Watch {
     bool on = false;
     int elapsed = 0;
-    int armedTicks = -1;  // the adjuster's armed tick count, read the first tick it runs
+    int armStart = -1;  // the elapsed tick of the last arm (the adjuster's state goes to armed); IDLE_TURN re-arms per re-entry
+    int armTicks = -1;  // that arm's tick count, read on its first running tick (the armed state carries none yet)
+    bool armFresh = false;  // an arm has been seen and its tick count is not yet read
   };
   std::array<Watch, kSlots> watch{};
   std::vector<int> episodes;
@@ -1008,7 +1010,7 @@ TEST(MoveStepWire, AnIdleTurnFromOverAHundredDegreesGetsTheBodyUnderNinetyWithin
       const float now = error(p, &hasLook);
       if (!w.on) {
         if (hasLook && p->GetMoveStep().state == pes::MoveState::kIdleTurn && std::fabs(now) >= kTurnFrom_deg)
-          w = {true, 0, -1};
+          w = {true, 0, -1, -1, false};
         continue;
       }
       const uint8_t* yaw = world.P(slot) + pes::kPYawAdjusterOffset;
@@ -1016,11 +1018,18 @@ TEST(MoveStepWire, AnIdleTurnFromOverAHundredDegreesGetsTheBodyUnderNinetyWithin
       int16_t ticks;
       std::memcpy(&state, yaw + pes::kAdjStateOffset, sizeof state);
       std::memcpy(&ticks, yaw + pes::kAdjTicksOffset, sizeof ticks);
-      if (state == pes::kAdjRunning && w.armedTicks < 0) w.armedTicks = ticks;
+      constexpr uint32_t kArmedState = 1;  // FUN_141EB35A0's arm (the state word at kAdjStateOffset), before FUN_141EB3AE0 runs it
+      if (state == kArmedState) {
+        w.armStart = w.elapsed;
+        w.armFresh = true;
+      } else if (state == pes::kAdjRunning && w.armFresh) {
+        w.armTicks = ticks;
+        w.armFresh = false;
+      }
       ++w.elapsed;
       if (hasLook && std::fabs(now) < kUnder_deg) {
         episodes.push_back(w.elapsed);
-        if (w.armedTicks < 0 || w.elapsed > w.armedTicks + kSlack_ticks) ++failures;
+        if (w.armStart < 0 || w.armTicks < 0 || w.elapsed - w.armStart > w.armTicks + kSlack_ticks) ++failures;
         w.on = false;
       } else if (w.elapsed >= kBudget_ticks) {
         ++failures;

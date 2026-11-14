@@ -174,7 +174,9 @@ void EnterIdleTurn(MoveHost& host, MoveReq& req) {
   int row = t.idleTurnRow.at(static_cast<size_t>(kind));
   const int column = t.bucketColumn.at(req.U(kLookBucketAlt));
   const bool replay = host.AnimeState() == kReplayAnimeState;
-  if (replay || (kind == 3 && (phase == kReplayPhase || host.RouteFlag()))) row = kReplayIdleRow;
+  // FUN_1406d1390 0x1406d1638..0x1406d1666: the replay action (vt+0x28 == 0x4a), or kind 3 in the replay phase (match+0x116c == 2) or
+  // with MA+0x25930 set (`CMP byte [RBX+0x25930],0`, RBX the team object): the replay row 0x54c.
+  if (replay || (kind == 3 && (phase == kReplayPhase || host.Team().MaFlag25930()))) row = kReplayIdleRow;
   const MoveCell cell = host.Cell(row, column, false);
   // 0x1406d16f5: vt+0x10 of +0xac0 (motion, mirror, foot 0, blend 1/6, playback 1.0, start 0).
   WriteIssue(host, req, MotionRequest{cell.motionNo, cell.mirror, 0, s.s0p1667, s.one, 0.0f});

@@ -174,6 +174,8 @@ constexpr uint64_t CURVE_SLOPE_VA = 0x1425dde60;     // FUN_1406b9aa0 0x1406b9af
 constexpr float STOP_DWELL = 0.1f;    // FUN_1406d5d60's first arm stores 0x3dcccccd (0.1 s) at req[0x1b]
 constexpr float SLOW_DWELL = 0.03f;   // 0x3cf5c28f (0.03 s): the slow-stop first dwell
 constexpr float SECOND_DWELL = 0.35f;  // 0x3eb33333 (0.35 s) at req[0x2e]
+// REQUEST BYTE offsets (not words): cmd+0x5BE..0x5C0, read by FUN_1406CE820 and FUN_1406BDF10 (RootMotion's naming, PES 0x3D..0x3F).
+constexpr int kFlagByteCmd3d = 0x3d, kFlagByteCmd3e = 0x3e, kFlagByteCmd3f = 0x3f;
 
 // FUN_140a6e290 / FUN_140a6e2e0 on the playing clip's motion: the running set or the halted set. The handlers read both and
 // treat an answer from either alike (d_1406bb570.c 207-213, 515-522, 596-599; d_1406bcd20.c 144-153, 432-437).
@@ -763,7 +765,7 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   const float absBodyTurn = std::fabs(bodyTurn);
   if (static_cast<int>(req.U(kClassWord)) < 1 && static_cast<int>(req.U(kPrevClassWord)) < 1 &&
       static_cast<int>(req.U(kCommandSpeedClass)) > 1 && elapsed < end && host.AnimeState() != kReplayAnimeState &&
-      (s.deg45 < absBodyTurn || s.deg45 < std::fabs(req.F(kTurn)) || req.FlagAtByte(0x3f))) {
+      (s.deg45 < absBodyTurn || s.deg45 < std::fabs(req.F(kTurn)) || req.FlagAtByte(kFlagByteCmd3f))) {
     EnterGotoRun(host, req, false);
     return;
   }
@@ -1358,7 +1360,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     }
 
     // Arm 2 (0x1406ceb57).
-    if (!req.FlagAtByte(0x3d) && !req.FlagAtByte(0x3e) && k.deg135 < std::fabs(req.F(kLookDelta)) &&
+    if (!req.FlagAtByte(kFlagByteCmd3d) && !req.FlagAtByte(kFlagByteCmd3e) && k.deg135 < std::fabs(req.F(kLookDelta)) &&
         static_cast<int>(req.U(kCommandSpeedClass)) > 1 && (req.U(kLookBucket) == 3u || req.U(kLookBucket) == 8u)) {
       const float turn = TurnToward(host, BallArmReference(host, req, k, true), k);
       if (k.deg45 < std::fabs(turn) && SignOf(req.F(kLookDelta)) != SignOf(turn)) {  // 0x1406cee4a, 0x1406cee54..0x1406cee75
@@ -1382,7 +1384,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     if (swing) {
       row = 0x572;
     } else {
-      if (req.FlagAtByte(0x3f)) {  // 0x1406cef83
+      if (req.FlagAtByte(kFlagByteCmd3f)) {  // 0x1406cef83
         row = 0x566;
         if (static_cast<uint32_t>(col - 8) <= 1u) col = (0.0f > req.F(kFacingError) ? 1 : 0) + 8;  // SETA R15B; ADD R15D,8
       }
@@ -1396,7 +1398,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     CellPick cell = PickCell(host, row, col);  // 0x1406cf059..0x1406cf0a1
 
     // 0x1406cf0b4..0x1406cf696: the lock arm, the carrier contest or neither.
-    const bool lock3d = req.FlagAtByte(0x3d), lock3e = req.FlagAtByte(0x3e);
+    const bool lock3d = req.FlagAtByte(kFlagByteCmd3d), lock3e = req.FlagAtByte(kFlagByteCmd3e);
     int footTable = 0;  // 0: DAT_1425dd930 (0x1406cf683), 1: DAT_1425dd940 (0x1406cf377)
     if ((lock3d || lock3e) && static_cast<int>(req.U(kCommandSpeedClass)) > 1) {  // 0x1406cf0cf, 0x1406cf0dc
       footTable = 1;

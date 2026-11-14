@@ -389,6 +389,10 @@ class RowHost : public movestep_test::UnboundHost {
   struct RowTeam : pes::TeamAi {
     explicit RowTeam(const RowHost& h) : host(h) {}
     const RowHost& host;
+    // The MA owner word (MA+kMaOwnerOffset) is not among the captured rows: an unsupported read, as the other reads here.
+    int BallOwnerSlot() const override { std::abort(); }
+    // MA+0x25930 (`CMP byte [RBX+0x25930],0`, FUN_1406D1390 0x1406D165D): the captured rows carry this byte as the route flag.
+    bool MaFlag25930() const override { return host.RouteFlag(); }
     int NearestOpponent(int) const override { std::abort(); }
     int Ability(int, int) const override { std::abort(); }
     int Condition(int) const override { return 100; }  // above 10: no penalty, the byte is solved without one

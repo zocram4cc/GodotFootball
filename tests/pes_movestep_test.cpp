@@ -351,12 +351,22 @@ class RateHost : public pes::MoveHost {
   void OwnPosition(float out[3]) const override {
     for (int i = 0; i < 3; ++i) out[i] = position[i];
   }
+  // The production adapter's heading to a ground point: FoldFull(atan2(dx, dz)) in degrees, 0 for a coincident point.
+  float HeadingToPointDeg(const float point[3]) const override {
+    constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
+    float own[3];
+    OwnPosition(own);
+    if (point[2] == own[2] && point[0] == own[0]) return 0.0f;
+    return pes::FoldFull(std::atan2(point[0] - own[0], point[2] - own[2]) * kDegPerRad, run);
+  }
   bool IsReplay() const override { return replay; }
   void Issue(const pes::MotionRequest& request) override {
     lastIssue = request;
     ++issueCalls;
   }
   const pes::StepScalars& StepConstants() const override { return step; }
+  // The carrier slot: the ball holder's slot, or -1 when nobody holds it (0xFF in the team record is nobody).
+  int CarrierSlot() const override { return team.ballOwner == 0xFF ? -1 : static_cast<int>(team.ballOwner); }
   bool MirrorChoice(bool) const override { return false; }
   int FootBand() const override { return 0; }
   const pes::RunConstants& RunConstantsView() const override { return run; }
@@ -747,6 +757,23 @@ RateHost TurnEntryHost() {
   host.style.radToDeg = 57.2957795f;
   for (int kind = 0; kind < 8; ++kind) host.tables.idleTurnRow[kind] = 0x700 + 3 * kind;
   for (int bucket = 0; bucket < 10; ++bucket) host.tables.bucketColumn[bucket] = 2 * bucket + 1;
+  // The production reads the IDLE_TURN row and column from the step tables (StepTablesView); the same PES values here.
+  for (int kind = 0; kind < 8; ++kind) host.stepTables.idleTurnRow[kind] = 0x700 + 3 * kind;
+  for (int bucket = 0; bucket < 10; ++bucket) host.stepTables.bucketColumn[bucket] = 2 * bucket + 1;
+  // The step scalars EnterIdleTurn reads (the install values): 20 km/h over 60 ticks samples the ball 18 ticks ahead, the 1/6 s blend,
+  // the +-167.5 degree clamp, the 22.5 and 168.75 gates.
+  host.step.one = 1.0f;
+  host.step.negOne = -1.0f;
+  host.step.half = 0.5f;
+  host.step.full = 360.0f;
+  host.step.halfTurn = 180.0f;
+  host.step.kmh20 = 20.0f;
+  host.step.ticks60 = 60.0f;
+  host.step.s0p1667 = 1.0f / 6.0f;
+  host.step.deg22p5 = 22.5f;
+  host.step.deg167p5 = 167.5f;
+  host.step.neg167p5 = -167.5f;
+  host.step.deg168p75 = 168.75f;
   return host;
 }
 
@@ -761,16 +788,20 @@ pes::MoveReq TurnEntryReq(uint32_t kind, uint32_t lookBucket, float facing, floa
 }
 }  // namespace
 
+// FUN_1406D1390 does not issue the clip from inside the entry: its vt+0x10 of +0xac0 writes the request (motion, mirror, the 1/6 s
+// blend, playback 1.0) and leaves it due (req[0x2f]), and FUN_1406B8340's tail issues it. This test used to assert an immediate
+// `Issue` call, which PES does not do; the PES oracle (pes_movestep_idleturn_entry_test, 1,452 rows word-for-word) pins the due flag.
 TEST(EnterIdleTurn, IssuesTheTurnRowOfTheKindAtTheColumnOfTheLookBucketAndRequestsIdleTurn) {
   RateHost host = TurnEntryHost();
   pes::MoveReq req = TurnEntryReq(5, 6, 30.0f, 40.0f, 10.0f);
   pes::movestep::EnterIdleTurn(host, req);
   EXPECT_EQ(host.lastCellRow, host.tables.idleTurnRow[5]);
   EXPECT_EQ(host.lastCellColumn, host.tables.bucketColumn[6]);
-  ASSERT_EQ(host.issueCalls, 1);
-  EXPECT_EQ(host.lastIssue.motion, 0x100 + host.tables.idleTurnRow[5]) << "the issue plays the cell the lookup answered";
-  EXPECT_FLOAT_EQ(host.lastIssue.duration, 1.0f / 6.0f);
-  EXPECT_FLOAT_EQ(host.lastIssue.playback, 1.0f);
+  EXPECT_EQ(host.issueCalls, 0) << "the entry leaves the clip due; the body tail issues it (FUN_1406B8340)";
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(0x100 + host.tables.idleTurnRow[5])) << "the due clip is the cell the lookup answered";
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 1.0f / 6.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), 1.0f);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdleTurn));
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(req.U(pes::moveword::kLiveKind), 5u);
@@ -782,7 +813,7 @@ TEST(EnterIdleTurn, IssuesTheTurnRowOfTheKindAtTheColumnOfTheLookBucketAndReques
 
 TEST(EnterIdleTurn, TheReplayActionAndAStoppedKindThreeTakeTheReplayRowEveryOtherCaseTheKindsRow) {
   RateHost replay = TurnEntryHost();
-  replay.replay = true;
+  replay.animeState = pes::kReplayAnimeState;  // PES 0x1406D1638..0x1406D1649: vt+0x28 == 0x4A is the replay action
   pes::MoveReq a = TurnEntryReq(2, 0, 0.0f, 0.0f, 0.0f);
   pes::movestep::EnterIdleTurn(replay, a);
   EXPECT_EQ(replay.lastCellRow, pes::kIdleTurnReplayRow);
