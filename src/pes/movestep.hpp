@@ -1001,6 +1001,8 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
 // FUN_1406b9b20: the 10-way angle bucket of an angle in degrees, with the hysteresis of the current
 // bucket (10 = no current bucket). narrow selects the ±10 / ±170 windows.
 int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow);
+// The heading of the last-tick displacement, folded (DispHeading, movestep_turn.cpp): the body of FUN_1406b7560's displacement branch.
+float DisplacementHeadingDeg(const MoveHost& host, const MoveTurnConstants& k);
 // FUN_1406b7560's target fill (anime-select 1.1; raw asm 0x1406b7824..0x1406b7fd8). The move target is
 // cmd+0x20 (req[1] heading, req[0x11] distance); the look point is cmd+0x14 (req[3] heading). The turns
 // are req[5] (target minus facing), req[6] (target minus body) and req[7] (look minus facing); their
@@ -1026,6 +1028,9 @@ struct MoveTargetInput {
   int commandSpeedClass = 0;
   bool animeStateNonzero = false;
   int bodyBucket = 0;       // the body-bucket flag, 0 or 1 (PES host+0x2798, set at 0x1411944E6)
+  // PES d_1406b7560.c 236-268: the body's anime action (vt+0x20 of +0xab8) and the heading of the last-tick displacement (DispHeading).
+  int animeState = 0;            // the body's action: 2 is MOVE (facing plus the centre); the listed actions take the displacement
+  float displacementDeg = 0.0f;  // the heading of the last-tick displacement, degrees, folded as DispHeading folds it
 };
 // ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket; 0 = the facing. The flag is
 // PES's record rule (BodyBucketFlag); the record loader (0x141194330) is not ported, so GF feeds the default record's

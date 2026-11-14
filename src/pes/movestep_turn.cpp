@@ -257,6 +257,10 @@ float DispSpeedKmh(const MoveHost& host, const MoveTurnConstants& k) {
 namespace pes {
 namespace movestep {
 
+// The heading of the last-tick displacement (DispHeading, in the anonymous namespace above), exported for the filler's displacement body
+// (FillCommandWords; d_1406b7560.c 252-268).
+float DisplacementHeadingDeg(const MoveHost& host, const MoveTurnConstants& k) { return DispHeading(host, k); }
+
 // The vt+0x10 clip request, in PES's argument order: (interface, req, motion, mirror, 0, blend,
 // playback, start). The clip is a SetMotion (group -1): the start is its start time in seconds.
 void IssueClip(MoveHost& host, MoveReq& req, int motion, bool mirror, float blend, float playback, float start) {

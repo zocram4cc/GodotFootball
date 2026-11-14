@@ -1766,6 +1766,7 @@ pes::movestep::MoveTargetInput OriginCommand() {
   pes::movestep::MoveTargetInput in;
   in.facingDeg = 0.0f;
   in.speedBand = 0;
+  in.animeState = 2;  // the MOVE action: the body is facing plus the centre (the displacement body has its own test)
   in.desiredKmh = 5.0f;
   return in;
 }
@@ -1817,6 +1818,32 @@ TEST(MoveFill, TheLookWordIsTheLookDistanceWhenTheCommandHasALookPoint) {
   pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
   EXPECT_NEAR(req.F(pes::moveword::kDistToTarget), 8.0f, 1e-4f);
   EXPECT_NEAR(req.F(pes::moveword::kDistToLook), 5.0f, 1e-4f) << "PES 129-136: the look distance when the look block is valid";
+}
+
+// PES's captured request (live2/pid1062473 seq3229, the IDLE request at the handler's entry): facing (req[2]) 195.1 and body
+// (req[4]) 15.1. In the actions d_1406b7560.c 252-268 lists, the body is the last-tick displacement heading with no facing
+// added (fVar17 = fVar21). The MOVE action is not listed: its body is facing plus the centre (236-250).
+TEST(MoveFill, TheBodyFollowsItsDisplacementInTheActionsTheFillerLists) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.facingDeg = 195.1f;
+  in.animeState = 0;           // not MOVE: the displacement branch
+  in.displacementDeg = 15.1f;  // the last-tick displacement heading
+  in.targetZ = 8.0f;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 15.1f, 1e-3f)
+      << "PES's body is the displacement heading in this action (seq3229: req[4] 15.1, facing 195.1)";
+}
+
+TEST(MoveFill, TheBodyFacesItsMoveInTheMoveAction) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.facingDeg = 195.1f;
+  in.animeState = 2;           // the MOVE action: facing plus the centre, not the displacement
+  in.displacementDeg = 15.1f;
+  in.targetZ = 8.0f;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 195.1f, 1e-3f);
 }
 
 TEST(MoveFill, TheLookWordFallsBackToTheTargetDistanceWithoutALookPoint) {
