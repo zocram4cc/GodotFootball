@@ -321,6 +321,11 @@ inline constexpr std::size_t kSideIdOffset = 0x0;
 inline constexpr std::size_t kSideInfoIndexOffset = 0x4;
 inline constexpr std::size_t kSidePlayerInfoOffset = 0xA8;
 inline constexpr std::size_t kSidePlayerInfoStride = 0x128;
+// The per-player rating table the partner matcher's cost FUN_140A61F40 reads (FUN_1408C7550: byte [entry + 0x30 + 0x5E + 0xD * sheetWord +
+// role], 3 sheet words x 13 roles). Every one of the 80 captured entries (3 captures, both sides) holds 99 (0x63) in all 39 bytes.
+inline constexpr std::size_t kPlayerInfoRatingOffset = 0x30 + 0x5E;
+inline constexpr std::size_t kPlayerInfoRatingBytes = 3 * 13;
+inline constexpr uint8_t kPlayerInfoRatingUnrated = 99;
 inline constexpr std::size_t kSideSkillMaskOffset = 0x78;
 // The designated taker's slot: u32 at +0x7C of the SIDE record (G's first table, 0x140A48A30; `CMP EDX,[RAX+0x7C]` 0x1421101C7).
 inline constexpr std::size_t kSideKickerOffset = 0x7C;

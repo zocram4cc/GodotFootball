@@ -817,6 +817,13 @@ void PesWorld::BindSanction() {
     // squad loader, which is not decoded.
     for (int place = 0; place < kSlotsPerSide; ++place)
       StoreU32(team, kSideInfoIndexOffset + sizeof(uint32_t) * place, static_cast<uint32_t>(place));
+    // ponytail: the rating table of each player-info entry (kPlayerInfoRatingOffset) is copied by PES's squad constructor
+    // FUN_140A3B3A0 from the import's player records (FUN_1408C6560); all 80 captured entries hold 99 ("unrated"), which the matcher's
+    // cost reads as "no information". GF has no such records: every entry carries the captured 99. Removal: translate 0x140A3B3A0 over
+    // GF's squad import.
+    for (int entry = 0; entry < kTeamInfoCount; ++entry)
+      std::memset(team + kSidePlayerInfoOffset + static_cast<std::size_t>(entry) * kSidePlayerInfoStride + kPlayerInfoRatingOffset,
+                  kPlayerInfoRatingUnrated, kPlayerInfoRatingBytes);
   }
   const uint64_t block = SanctionVa(offsetof(PesSanctionImage, analyzeBlock));
   const uint64_t events = EventsVa();  // A1+0xE0 is the match's own store: the ball events the judge reads are the ones it wrote
