@@ -80,6 +80,7 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
     const int slot = static_cast<int>(Read(o, pcVa + pes::kPcIdOffset, 4));
     const int side = slot >= pes::kSlotsPerSide ? 1 : 0;
     // The records the window holds, copied whole (the capture's G and its tables), then the passget object/pc/R/arg over them.
+    o.ctxVa = static_cast<uint64_t>(Read(o, pcVa + pes::kPcCtxOffset, 8));
     pes_oracle::CopyRecords(o, b, true, side);
     const auto copyBytes = [&](uint8_t* dst, uint64_t srcBase, size_t n) {
       for (size_t i = 0; i < n; ++i) dst[i] = static_cast<uint8_t>(Read(o, srcBase + i, 1));

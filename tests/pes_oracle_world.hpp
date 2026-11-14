@@ -54,7 +54,7 @@ inline uint8_t* RecordOf(pes::PesWorld& w, int side, const std::string& kind, in
 // (`walk`): bp = rcx, ctx = *(rdx + 8).
 inline uint64_t CapturedBase(const Oracle& o, uint64_t g, const std::string& kind, int idx, bool walk) {
   const auto entry = [&](size_t table) { return Read(o, g + table + static_cast<size_t>(idx) * pes::kTableEntryBytes, 8); };
-  const uint64_t ctx = walk ? Read(o, o.regs.at("rdx") + pes::kUnitCtxOffset, 8) : o.regs.at("rdx");
+  const uint64_t ctx = o.ctxVa ? o.ctxVa : walk ? Read(o, o.regs.at("rdx") + pes::kUnitCtxOffset, 8) : o.regs.at("rdx");
   if (kind == "B") return Read(o, g + pes::kBallPtrOffset, 8);
   if (kind == "MI") return Read(o, g + pes::kMatchInfoPtrOffset, 8);
   if (kind == "pitch") return Read(o, g + pes::kPitchPtrOffset, 8);
@@ -64,7 +64,7 @@ inline uint64_t CapturedBase(const Oracle& o, uint64_t g, const std::string& kin
   if (kind == "anime") return entry(pes::kAnimeTableOffset);
   if (kind == "man") return entry(pes::kManTableOffset);
   if (kind == "slot") return entry(pes::kSlotTableOffset);
-  if (kind == "bp") return walk ? o.regs.at("rcx") : o.regs.at("r8") - pes::kBpUnitInfoOffset;
+  if (kind == "bp") return o.ctxVa ? 0 : walk ? o.regs.at("rcx") : o.regs.at("r8") - pes::kBpUnitInfoOffset;  // an object call (ctxVa) holds no BP
   if (kind == "ctx") return ctx;
   if (kind == "ma") return Read(o, ctx + pes::kCtxMaOffset, 8);
   if (kind == "e") return Read(o, ctx + pes::kCtxEventsOffset, 8);
