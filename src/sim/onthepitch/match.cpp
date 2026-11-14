@@ -885,6 +885,7 @@ void Match::Process() {
   if (pesLoop) {
     WritePesMovementRecords(*this);
     WritePesTrapActors(*this);
+    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
     RunPesTrapTicks(*this);
     RunPesBodyScans(*this);
   }

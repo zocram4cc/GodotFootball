@@ -466,6 +466,98 @@ void PesWorld::RunPlayerUpdate(int slot, PesTrapExternals& ext) {
   RunOnP(slot, ::pes_fn_1406F6CE0, ext);
 }
 
+bool PesWorld::JointPosition(int slot, int joint, PesTrapExternals& ext, float out[3]) {
+  if (P(slot)[kPAnimeReadyOffset] == 0) return false;
+  PesState st = NewCall(Bytes());
+  const std::size_t lent = LendExternals(st, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  st.wr(entry, 0, 8);
+  st.gpr[4] = entry;
+  st.gpr[1] = PVa(slot);                      // rcx: P
+  st.gpr[2] = kScratchVa;                     // rdx: the answer record (three floats); the reader returns it
+  st.gpr[8] = static_cast<uint64_t>(joint);   // r8: the joint index
+  st.mem.wlog = ext.writeLog;
+  ::pes_fn_141EB51A0(st);
+  for (int k = 0; k < 3; ++k) {
+    const uint32_t bits = static_cast<uint32_t>(st.rd(kScratchVa + 4 * static_cast<uint64_t>(k), 4));
+    std::memcpy(&out[k], &bits, sizeof bits);
+  }
+  ReturnSegments(st, ext, lent);
+  return true;
+}
+
+uint64_t PesWorld::CallPesFn(void (*fn)(PesState&), uint64_t rcx, uint64_t rdx, uint64_t r8, float xmm2, PesTrapExternals& ext) {
+  PesState st = NewCall(Bytes());
+  const std::size_t lent = LendExternals(st, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  st.wr(entry, 0, 8);
+  st.gpr[4] = entry;
+  st.gpr[1] = rcx;
+  st.gpr[2] = rdx;
+  st.gpr[8] = r8;
+  st.set_x_f32(2, xmm2);
+  st.mem.wlog = ext.writeLog;
+  fn(st);
+  const uint64_t result = st.gpr[0];
+  ReturnSegments(st, ext, lent);
+  return result;
+}
+
+// Blocks of FUN_140792E10's A branch reached with no object at P+0x3AC8 (PES's DemoInfoRef, built by FUN_1406EB250, which GF does not
+// run yet): counted, and their calls are not run (PesWorld::PushGateOpen).
+static std::size_t gBookkeepingSkips = 0;
+
+std::size_t PesWorld::BookkeepingSkips() { return gBookkeepingSkips; }
+
+bool PesWorld::PushGateOpen(int slot, PesTrapExternals& ext) {
+  constexpr uint8_t kTakingState = 1;          // *pcVar9 == 1: the taking path
+  constexpr uint32_t kBookkeepingFlag = 0x80;  // P+0x2460 |= 0x80 in the block
+  constexpr uint64_t kOneVa = 0x14256AE1C;     // DAT_14256AE1C (1.0): the scale both tests pass
+  uint8_t* record = P(slot);
+  if (record[kPTakingStateOffset] != kTakingState) return false;
+  uint16_t action = 0;
+  std::memcpy(&action, record + kPActionIdOffset, sizeof action);
+  float one = 0.0f;
+  std::memcpy(&one, ext.image + (kOneVa - ext.imageBase), sizeof one);
+  const auto asInt = [](uint64_t value) { return static_cast<int32_t>(static_cast<uint32_t>(value)); };
+  const uint64_t self = PVa(slot);
+  const uint64_t table = CallPesFn(::pes_fn_1406B0ED0, 0, 0, 0, 0.0f, ext);
+  const auto throwInEntry = [&]() { return asInt(CallPesFn(::pes_fn_1406E68C0, self, action, 0, 0.0f, ext)); };
+  if (throwInEntry() >= asInt(CallPesFn(::pes_fn_1406AF620, table, action, 0, one, ext))) return false;  // test A
+  const int32_t threshold = asInt(CallPesFn(::pes_fn_1406B08A0, table, action, 0, one, ext));
+  float thirdArg = 0.0f;
+  std::memcpy(&thirdArg, record + kPBookkeepingArgOffset, sizeof thirdArg);
+  if (CallPesFn(::pes_fn_1406EC260, self, static_cast<uint32_t>(threshold), 0, thirdArg, ext) & 0xFF) {
+    uint32_t flags = 0;
+    std::memcpy(&flags, record + kPBookkeepingFlagsOffset, sizeof flags);
+    flags |= kBookkeepingFlag;
+    std::memcpy(record + kPBookkeepingFlagsOffset, &flags, sizeof flags);
+    uint64_t anime = 0;
+    std::memcpy(&anime, record + kPBookkeepingObjectOffset, sizeof anime);
+    if (anime == 0) {
+      ++gBookkeepingSkips;
+      std::fprintf(stderr, "AnimeLayer: FUN_1406EC260 bookkeeping block reached with no P+0x3AC8 object (slot %d)\n", slot);
+    }
+  }
+  return throwInEntry() < threshold;  // test B
+}
+
+void PesWorld::RunAnkleShove(int slot, float x, float y, float z, PesTrapExternals& ext) {
+  PesState st = NewCall(Bytes());
+  const std::size_t lent = LendExternals(st, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  st.wr(entry, 0, 8);
+  st.wr(entry + 0x28, 1, 1);  // the fifth argument, the flag 1 (the caller's [rsp+0x20], as FUN_140792E10 passes it)
+  st.gpr[4] = entry;
+  st.gpr[1] = PVa(slot);      // rcx: P
+  st.set_x_f32(1, x);         // xmm1..xmm3: the root target, PES axes
+  st.set_x_f32(2, y);
+  st.set_x_f32(3, z);
+  st.mem.wlog = ext.writeLog;
+  ::pes_fn_141EB5BB0(st);
+  ReturnSegments(st, ext, lent);
+}
+
 void PesWorld::RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext) {
   PesState st = NewCall(Bytes());
   const std::size_t lent = LendExternals(st, ext);

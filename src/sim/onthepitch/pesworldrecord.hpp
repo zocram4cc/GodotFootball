@@ -1061,6 +1061,22 @@ class PesWorld {
   void RunPlayerUpdate(int slot, PesTrapExternals& ext);
   // A P-only translated function (rcx = P) on the window with the externals lent.
   void RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext);
+  // PES's joint reader FUN_141EB51A0 (translated) for joint `joint` of `slot`'s P: the joint's (x, y, z) into out, read from the joint
+  // block the last tick wrote (P+0x538 + 12 * joint). False when the anime is not built (P+0xA04 == 0): PES's reader would answer zeros.
+  bool JointPosition(int slot, int joint, PesTrapExternals& ext, float out[3]);
+  // PES's joint push FUN_141EB5BB0 (translated) on `slot`'s P with the flag 1: the root target (x, y, z) in PES axes goes into the root
+  // adjuster A = P+0x428 through FUN_141EB37B0; A's steps move GF's root (PesWorld::StepAdjusters, RootMotion).
+  void RunAnkleShove(int slot, float x, float y, float z, PesTrapExternals& ext);
+  // Runs a translated PES function on `slot`'s world with rcx, rdx and r8 set and xmm2 set to xmm2 (the x64 argument registers the
+  // function reads); returns rax. Used for PES's gate reads (FUN_1406B0ED0, FUN_1406E68C0, FUN_1406AF620, FUN_1406B08A0).
+  uint64_t CallPesFn(void (*fn)(PesState&), uint64_t rcx, uint64_t rdx, uint64_t r8, float xmm2, PesTrapExternals& ext);
+  // PES's guard chain of FUN_140792E10 before the push's joint reads: the taking state (P+0x245C == 1), test A (e < AF620), then B =
+  // B08A0, FUN_1406EC260 (translated, read-only; its boolean gates the A branch's bookkeeping block: the flag write P+0x2460 |= 0x80 is
+  // ported, its calls need the object at P+0x3AC8), and test B (e < B). e = E68C0(P, s), s the throw-in action id (P+0xAE0). True when the
+  // push may run. A block reached with no P+0x3AC8 object is counted (BookkeepingSkips) and its calls are not run.
+  bool PushGateOpen(int slot, PesTrapExternals& ext);
+  // Blocks reached with no P+0x3AC8 object since the process started (the regression check: 0 once the object is built).
+  static std::size_t BookkeepingSkips();
   // PES's Kick start FUN_140724CC0 (the Kick action's vtable slot 13; translated, set kick; 11 real kick_try calls, one of which starts a
   // kick, and SYNTHETIC states for the branches no real call took) on `slot`'s P, as the AI order path calls it each tick until it
   // answers: the Kick object (the action table's pointer for the pass ids), P, the ball record, the info record whose +0xB8 holds the

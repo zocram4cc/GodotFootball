@@ -23,6 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <cstring>
+#include <cstdio>
 #include <map>
 #include <utility>
 
@@ -1444,6 +1445,39 @@ pes::Vec3 ThrowInKeyOffset(Match& match, const Player* taker) {
 }
 
 }  // namespace
+
+void TeamAIController::PushPieceTakerBehindLine() {
+  // Before the release only: the restart is pending until the touch (the carry flag stays set after it, until the next restart).
+  if (!match->PesLoop() || !match->IsInSetPiece() || setPieceType != e_SetPiece_ThrowIn || taker == nullptr || !IsCarryingBall() ||
+      !PieceTakerArrived())
+    return;
+  // PES's constants, read from the image as PES reads them: the margin DAT_142588200 (0.1 m) and the signs DAT_142588218 (-1.0, a
+  // negative ankle z) and DAT_14256AE1C (1.0). F[1] is the pitch half-width (pesFieldHalfWidth, F1 0x42083D70).
+  constexpr uint64_t kAnkleMarginVa = 0x142588200, kSignNegativeVa = 0x142588218, kSignDefaultVa = 0x14256AE1C;
+  constexpr int kLeftAnkleJoint = 3, kRightAnkleJoint = 6;  // PES joint i is rig joint i+1: left_ankle, right_ankle (KickJoints 1)
+  pes::PesWorld& world = match->PesWorldOf();
+  pes::PesTrapExternals& ext = match->PesTrapExternalsOf();
+  const auto imageFloat = [&ext](uint64_t va) {
+    float value = 0.0f;
+    std::memcpy(&value, ext.image + (va - ext.imageBase), sizeof value);
+    return value;
+  };
+  const int slot = match->PesSlotOf(taker);
+  // PES's guard chain before the joint reads (FUN_140792E10: the taking state, tests A and B around the A branch's bookkeeping
+  // block): PesWorld::PushGateOpen, which runs PES's own translated functions on the taker's record.
+  if (!world.PushGateOpen(slot, ext)) return;
+  float left[3], right[3];
+  if (!world.JointPosition(slot, kLeftAnkleJoint, ext, left) || !world.JointPosition(slot, kRightAnkleJoint, ext, right)) return;
+  // The nearer ankle by |z|, joint 3 on a tie: FUN_140792E10's cmovbe.
+  const float* nearer = std::fabs(left[2]) <= std::fabs(right[2]) ? left : right;
+  const float threshold = pesFieldHalfWidth + imageFloat(kAnkleMarginVa);
+  const float absZ = std::fabs(nearer[2]);
+  if (absZ >= threshold) return;  // not short: no push
+  const float sign = nearer[2] < 0.0f ? imageFloat(kSignNegativeVa) : imageFloat(kSignDefaultVa);
+  float root[3];
+  std::memcpy(root, world.P(slot) + pes::kPPosOffset, sizeof root);  // P+8: x, y, z (PES axes)
+  world.RunAnkleShove(slot, root[0], root[1], root[2] + (threshold - absZ) * sign, ext);
+}
 
 void TeamAIController::PinBallAtRelease() {
   // A carrier holds the ball at his release row's key; a placed (ceremony) taker holds it at his SetKick key, the point the

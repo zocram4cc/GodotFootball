@@ -145,6 +145,11 @@ inline constexpr std::size_t kPhysiqueNextOffset = 0xF0;  // object A +0xF0: the
 inline constexpr std::size_t kPhysiqueGOffset = 0xC0;     // object B +0xC0: G (f32)
 inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clamped G FUN_141EB5810 stores beside the chain's copy
 inline constexpr std::size_t kPAnimeReadyOffset = 0xA04;   // P+0xA04: 1 once the anime player is built (FUN_141EB5250 0x141EB548B); FUN_141EB51A0 and FUN_141EB49B0 read it
+inline constexpr std::size_t kPTakingStateOffset = 0x245C;  // P+0x245C: FUN_140792E10's taking state (the vtable 0x20 getter); 1 = taking
+inline constexpr std::size_t kPActionIdOffset = 0xAE0;      // P+0xAE0: the throw-in action id, a u16 (the vtable 0x18 getter: P+0xAB8+0x28)
+inline constexpr std::size_t kPBookkeepingFlagsOffset = 0x2460;   // P+0x2460: the flags the A branch's bookkeeping block sets (bit 0x80)
+inline constexpr std::size_t kPBookkeepingArgOffset = 0x2468;     // P+0x2468: the float FUN_1406EC260 takes as its third argument
+inline constexpr std::size_t kPBookkeepingObjectOffset = 0x3AC8;  // P+0x3AC8: the object the block's calls take (PES builds it; GF does not)
 
 // The anime layer's objects the action tick (FUN_140797CD0) reaches from P, in PES's layout (docs/ports/pes-port-TrapTick.md 2;
 // bytes the 14 captured ticks read or write, names INF): A (P+0xA08 target) holds two children, O1 at +0x118 and O2 at +0x188;

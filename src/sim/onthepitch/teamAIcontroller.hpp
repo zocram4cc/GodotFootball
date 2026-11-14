@@ -139,6 +139,11 @@ public:
   // there until the release (FUN_140792E10 phase 1; pes-re-throwin-choreography.md 4.2, 5.3). Before the take the ball rides
   // at the taker's root (the carry pin in referee.cpp). The referee calls this from the start of the take until the touch.
   void PinBallAtRelease();
+  // PES's pre-release push of a carried throw-in's taker (FUN_140792E10, before the release frame; pes-re-throwin-choreography.md 4.2):
+  // of his two ankles (PES joints 3 and 6) the nearer by |z| must stand at least F[1] + DAT_142588200 from the centre line, else his
+  // root moves outward by the shortfall (FUN_141EB5BB0, through the root adjuster A = P+0x428). Called after the trap actors are written
+  // (WritePesTrapActors) and before the trap tick, as PES's update reads the joint block the tick before.
+  void PushPieceTakerBehindLine();
   // The receiver a throw-in is aimed at: the nearest mate inside the touchline (the throw's target; PES's ap+0x2bf4/0x2bfc).
   Player* ThrowInTargetMate(Player* thrower) const;
   // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
