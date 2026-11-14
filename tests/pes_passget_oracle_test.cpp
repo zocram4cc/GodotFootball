@@ -81,6 +81,9 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
     const int side = slot >= pes::kSlotsPerSide ? 1 : 0;
     // The records the window holds, copied whole (the capture's G and its tables), then the passget object/pc/R/arg over them.
     o.ctxVa = static_cast<uint64_t>(Read(o, pcVa + pes::kPcCtxOffset, 8));
+    // The window's ctx names the window's own MA and E (CopyRecords keeps what it finds: a bare window holds none).
+    pes::StoreU64(world.Ctx(side), pes::kCtxMaOffset, pes::PesWorld::MaVa(side));
+    pes::StoreU64(world.Ctx(side), pes::kCtxEventsOffset, pes::PesWorld::EventsVa());
     pes_oracle::CopyRecords(o, b, true, side);
     const auto copyBytes = [&](uint8_t* dst, uint64_t srcBase, size_t n) {
       for (size_t i = 0; i < n; ++i) dst[i] = static_cast<uint8_t>(Read(o, srcBase + i, 1));
@@ -186,6 +189,16 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
         pes::PesTrapSegment seg;
         seg.va = lo;
         for (uint64_t a = lo; a < hi; ++a) seg.bytes.push_back(static_cast<uint8_t>(Read(o, a, 1)));
+        // The heap objects hold the capture's pointers to the records the window keeps at its own VAs (the ctx, MA and E): name
+        // the window's (8-aligned words only: a heap object stores its pointers aligned).
+        const uint64_t capCtx = o.ctxVa, capMa = Read(o, capCtx + pes::kCtxMaOffset, 8), capE = Read(o, capCtx + pes::kCtxEventsOffset, 8);
+        for (size_t i = (8 - (seg.va & 7)) & 7; i + 8 <= seg.bytes.size(); i += 8) {
+          uint64_t word = 0;
+          std::memcpy(&word, &seg.bytes[i], 8);
+          const uint64_t mapped = word == capCtx ? pes::PesWorld::CtxVa(side) : word == capMa ? pes::PesWorld::MaVa(side)
+                                  : word == capE ? pes::PesWorld::EventsVa() : word;
+          if (mapped != word) std::memcpy(&seg.bytes[i], &mapped, 8);
+        }
         osSegs.push_back(std::move(seg));
       }
     }
@@ -212,7 +225,11 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
     // The capture's own VAs: the tick wrote into ITS object/pc/R (heap addresses); the window holds the same records at
     // PassGetVa/PcVa/RVa. Each capture write in one of the three records is compared with the window's byte.
     const std::pair<uint64_t, size_t> rec[3] = {{thisVa, pes::kPassGetObjectBytes}, {pcVa, pes::kPassGetPcBytes}, {rVa, pes::kPassGetRBytes}};
-    for (const auto& [addr, value] : pes.bytes) {
+    // A byte PES stores more than once ends with its LAST store (the object's route fields are reset, then set): the window's
+    // final byte is compared with that one.
+    std::map<uint64_t, uint8_t> lastStore;
+    for (const auto& [addr, value] : pes.bytes) lastStore[addr] = value;
+    for (const auto& [addr, value] : lastStore) {
       int which = -1;
       size_t rel = 0;
       for (int k = 0; k < 3; ++k)

@@ -3,7 +3,7 @@
 window holds (the image's own code/constants excluded): the PES side of a read-log diff against GF's window run.
 
 Usage: PES_EXE=<pes_full.bin> python3 passget_readlog.py SNAP HOOKS   (harness Python: unicorn)
-  One JSON object per line: {"a": addr, "n": size, "ip": the reading instruction} per read; with PASSGET_WRITES=1 also
+  One JSON object per line: {"a": addr, "n": size, "ip": the reading instruction, "v": the value} per read; with PASSGET_WRITES=1 also
 {"w": addr, "n", "ip", "v"} per store, after the reads, in call order.
 """
 import json
@@ -36,7 +36,7 @@ def main():
     def on_read(uc, access, addr, size, value, data):
         if to.IMG_LO <= addr < to.IMG_GLOBALS:
             return
-        reads.append((addr, size, uc.reg_read(xc.UC_X86_REG_RIP)))
+        reads.append((addr, size, uc.reg_read(xc.UC_X86_REG_RIP), int.from_bytes(bytes(uc.mem_read(addr, size)), "little")))
 
     def on_write(uc, access, addr, size, value, data):
         if to.IMG_LO <= addr < to.IMG_GLOBALS:
@@ -48,8 +48,8 @@ def main():
     _, err = ft.run_recorded(snap_dir, orig=ft.hook_bytes(hooks), trace=trace, on_code=on_code)
     if err is not None:
         sys.exit("replay failed: %s" % err)
-    for a, n, ip in reads:
-        print(json.dumps({"a": hex(a), "n": n, "ip": hex(ip)}))
+    for a, n, ip, v in reads:
+        print(json.dumps({"a": hex(a), "n": n, "ip": hex(ip), "v": hex(v)}))
     if os.environ.get("PASSGET_WRITES"):  # every store, with the writing instruction and the value
         for a, n, ip, v in writes:
             print(json.dumps({"w": hex(a), "n": n, "ip": hex(ip), "v": hex(v)}))
