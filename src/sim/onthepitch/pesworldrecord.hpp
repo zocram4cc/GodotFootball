@@ -504,6 +504,22 @@ struct PesAiRecord {
   std::array<uint8_t, kAiBytes> bytes{};
 };
 
+// A man's AI object U (the rcx of the man's think 0x14092ED30, called by the per-man tick 0x140928FC0 each tick): PES's own layout; only
+// what the think reads is carried (the live-in of the real calls: pes-port-PressCut.md). +0x18 the slot id, +0x624 the man's position
+// (x, height, z: P+8's value), +0x698 his action word, +0x7D8 and +0xAD28 the VA of his actor P, +0x7E0 the VA of his side's ctx, +0xACC8
+// and +0xACE0 the think's own persistent counter and float. It writes counters A (slot record +0x1430) and B (+0x1438), the arrival
+// estimate in frames the arrival-list writer 0x14045E0D0 ranks the men by.
+inline constexpr std::size_t kManAiSlotOffset = 0x18;
+inline constexpr std::size_t kManAiPosOffset = 0x624;
+inline constexpr std::size_t kManAiActionOffset = 0x698;
+inline constexpr std::size_t kManAiActorOffset = 0x7D8;
+inline constexpr std::size_t kManAiCtxOffset = 0x7E0;
+inline constexpr std::size_t kManAiActor2Offset = 0xAD28;
+inline constexpr std::size_t kManAiBytes = 0xAD40;
+struct PesManAiRecord {
+  std::array<uint8_t, kManAiBytes> bytes{};
+};
+
 // A side's carrier block BP (the unit set's per-carrier object, PES offsets; docs: pes-port-MatchInfo4.md 7.1). The danger
 // builder 0x142119390 takes rcx = imageA (BP+0xEC), r8 = the unit info (BP+0x1C: u32 slot at +0, u32 slot % 11 at +4, u32 side
 // at +8, f32 attack heading at +0x10, f32 attack sign at +0x14, the carrier's ground position (x, y, z) at +0x18 and the same
@@ -765,6 +781,7 @@ struct PesWorldImage {
   PesSkipRecord skip{};                                // G+0x3B0's skip object
   std::array<PesAiRecord, kSideCount> ai{};            // each side's AI object and context array (the arrival-list writer's rcx)
   PesPressImage press{};                         // the press call frames (kPressOffset)
+  std::array<PesManAiRecord, kSlotCount> manAi{};      // each man's AI object U (the think's rcx)
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -798,6 +815,8 @@ static_assert(offsetof(PesWorldImage, ai) == kAiOffset);
 inline constexpr std::size_t kBallActiveOffset = 0x2928;
 inline constexpr std::size_t kPressOffset = (kAiOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesAiRecord) + 7) & ~std::size_t{7};
 static_assert(offsetof(PesWorldImage, press) == kPressOffset);
+inline constexpr std::size_t kManAiOffset = (kPressOffset + sizeof(PesPressImage) + 7) & ~std::size_t{7};
+static_assert(offsetof(PesWorldImage, manAi) == kManAiOffset);
 
 // What the danger builder reads outside GF's window (tests: the capture's heap bytes) and the byte log of its writes.
 struct PesDangerExternals {
@@ -843,6 +862,13 @@ class PesWorld {
     for (int i = 0; i < kWorldListEntries; ++i)
       StoreU32(image_->press.list.data(), kWorldListStride * i + kWorldListIdOffset, 0xFFFFFFFFu);
     BindSanction();
+    for (int slot = 0; slot < kSlotCount; ++slot) {
+      uint8_t* u = ManAi(slot);
+      StoreU32(u, kManAiSlotOffset, static_cast<uint32_t>(slot));
+      StoreU64(u, kManAiActorOffset, PVa(slot));
+      StoreU64(u, kManAiActor2Offset, PVa(slot));  // the per-man tick 0x140928FC0 copies +0x7D8 here before the think
+      StoreU64(u, kManAiCtxOffset, CtxVa(slot / kSlotsPerSide));
+    }
     for (int side = 0; side < kSideCount; ++side) BindAi(side);
   }
   PesWorld(const PesWorld&) = delete;
@@ -1242,6 +1268,12 @@ class PesWorld {
   static constexpr uint64_t AnimeVa(int slot) { return BlockVa(slot); }
   static constexpr uint64_t ManVa(int slot) { return BlockVa(slot) + kManRecordOffset; }
   static constexpr uint64_t SlotVa(int slot) { return BlockVa(slot) + kSlotRecordOffset; }
+  static constexpr uint64_t ManAiVa(int slot) { return kWorldWindowVa + kManAiOffset + static_cast<uint64_t>(slot) * sizeof(PesManAiRecord); }
+  uint8_t* ManAi(int slot) { return image_->manAi[slot].bytes.data(); }
+  // The man's think FUN_14092ED30 (translated, 8 of 8 real calls bit-exact): stages the man's position and action word in his AI object
+  // from his man record, then runs it on his slot record, which it leaves with counters A (+0x1430) and B (+0x1438). The think gates
+  // itself (frames since the newest ball event, the cadence of his slot): a call may write nothing.
+  void RunManThink(int slot);
 
   // Host bytes of a slot's block (its anime record starts at its first byte).
   uint8_t* Block(int slot) { return image_->blocks[slot].bytes.data(); }

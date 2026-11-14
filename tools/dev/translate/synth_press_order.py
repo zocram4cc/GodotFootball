@@ -28,7 +28,19 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import synth_call as sc  # noqa: E402
+
+
+class sc:  # noqa: N801 (the two helpers of the deleted synth_call.py this script read; its case builder is gone, see build_case)
+    GPR_ORDER = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
+
+    @staticmethod
+    def read_state(state, index, va, n):
+        for m in index["mappings"]:
+            if m["va"] <= va < m["va"] + m["size"]:
+                with open(os.path.join(state, "mem.bin"), "rb") as f:
+                    f.seek(m["off"] + va - m["va"])
+                    return f.read(n)
+        raise SystemExit("address %#x is not mapped in the state" % va)
 
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness", "specs", "press")

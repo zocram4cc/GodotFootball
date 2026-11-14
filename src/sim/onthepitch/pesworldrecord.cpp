@@ -1003,6 +1003,18 @@ void PesWorld::RunPressCoordinator(int side) {
   ::pes_fn_140634470(s);
 }
 
+void PesWorld::RunManThink(int slot) {
+  uint8_t* u = ManAi(slot);
+  // U+0x624 is the man's position (x, height, z; P+8 holds the same value: seq031 18.38, 0, -11.94 in both), U+0x698 his action word.
+  std::memcpy(u + kManAiPosOffset, ManRecord(slot) + kManPosXOffset, 3 * sizeof(float));
+  StoreU32(u, kManAiActionOffset, LoadU32(ManRecord(slot), kManActionOffset));
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = ManAiVa(slot);  // rcx: U
+  s.gpr[2] = SlotVa(slot);   // rdx: the man's slot record
+  ::pes_fn_14092ED30(s);
+}
+
 void PesWorld::RunPressWriter(int side) {
   PesState s = NewCall(Bytes());
   for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});

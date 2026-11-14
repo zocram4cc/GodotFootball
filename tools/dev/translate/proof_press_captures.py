@@ -27,7 +27,9 @@ import synth_press_order as sp  # noqa: E402
 ROOTS = {"ai_press_writer_536FC0": ("0x140536FC0", "closure_press_writer.json", "the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots)"),
          "ai_press_eval_633940": ("0x140633940", "closure_press_eval.json", "the press target eval FUN_140633940 (second presser pick)"),
          "ai_press_coord_634470": ("0x140634470", "closure_press_coord.json", "the press coordinator FUN_140634470 (PRESS/SAND second presser)"),
-         "press_matchup_536210": ("0x140536210", "closure_press_matchup.json", "the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word)")}
+         "press_matchup_536210": ("0x140536210", "closure_press_matchup.json", "the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word)"),
+         "manthink_14092ED30": ("0x14092ED30", "closure_press_manthink.json", "the man's think FUN_14092ED30 (counters A and B of the slot record, the arrival-time estimate)"),
+         "press_dispatch_535C60": ("0x140535C60", "closure_press_dispatch.json", "the press dispatcher FUN_140535C60 (the defence passes, MATCH_UP, coordinator, reset, writer)")}
 
 
 def captures(launches):
