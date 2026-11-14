@@ -607,9 +607,7 @@ void Team::UpdatePesPossession() {
 }
 
 void Team::Process() {
-  // PES's loose-ball PRESS writer runs in the team tick before the latch
-  // (press-life 13.1). It self-gates on the PES path.
-  teamController->PesPressTick();
+  // The press (PES's dispatcher FUN_140535C60, call 0x1404F7955) runs after the selector below: RunPesPassTarget.
   UpdatePesPossession();
   // FUN_14051D9E0's head write (0x14051DA5A): the bulk writer of the PES role arrays.
   teamController->WriteRoleArrays(true);
@@ -642,6 +640,7 @@ void Team::Process() {
   // rows Match::Process ticked for both sides this frame, before the in-play gate (T7a runs in every state).
   teamController->TickMarkTable();
   if (match->PesLoop()) RunPesPassTarget();
+  teamController->PesPressTick();  // self-gates on the PES path
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     teamController->Process();
 

@@ -364,7 +364,6 @@ inline constexpr std::size_t kTeamTargetWordOffset = 0xB88C;   // u16[11]: the r
 inline constexpr std::size_t kTeamAttackLevelOffset = 0xB8A4;  // i32: the attack level (>= 3 widens the press)
 inline constexpr uint32_t kTeamNoMan = 0xFF;
 inline constexpr uint32_t kMiPlayStateLive = 1;                // MI+0x116C: in play (2 or 3 stopped)
-inline constexpr std::size_t kMiOnPitchOffset = 0x1748;        // u8[22]
 inline constexpr std::size_t kMiPlayStateOffset = 0x116C;
 // G+0x180: a POINTER to the 24-entry list (stride 0x74; the id u32 at +0x20) the press tests scan; an id >= 22 is no man.
 inline constexpr std::size_t kWorldListOffset = 0x180;
@@ -1193,7 +1192,6 @@ class PesWorld {
   // records; the facts below are GF's producers of the T fields PES's AI writes elsewhere (each `ponytail:` at its use names the
   // PES writer). The press result is T+0xA2A0 (the action words), +0xA548 (the enrolled men) and PP[2] (the second presser). ----
   struct PressFacts {
-    uint32_t designated = kTeamNoMan;  // T+0x78: the side's designated man (global slot 0..21), 0xFF none
     // T+0x558[k]: the man slot k marks (global 0..21, 0xFF none); PES's mark pass writes them (FUN_140546FB0). The MATCH_UP writer
     // 0x140536210 (RunMatchUp) picks the slot whose partner is the holder and writes T+0x7C itself.
     std::array<uint32_t, kSlotsPerSide> partner = {kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan, kTeamNoMan,

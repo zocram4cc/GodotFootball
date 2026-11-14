@@ -2477,13 +2477,9 @@ void TeamAIController::PesPressTick() {
   pes::PesWorld& world = match->PesWorldOf();
   const int side = team->GetID();
   WriteMaRecord();  // MA's ball copy and carrier, the point the press reads (the score rows keep MA's lists)
-  const auto globalSlot = [&](const Player* p) {
-    const int slot = p != nullptr ? RunSlotOf(p) : -1;
-    return slot >= 0 ? static_cast<uint32_t>(slot) : pes::kTeamNoMan;
-  };
   pes::PesWorld::PressFacts f;
-  f.designated = globalSlot(team->GetDesignatedTeamPossessionPlayer());  // T+0x78 (writer: the designation publisher FUN_14051E350)
-  // T+0x7C is written by the MATCH_UP writer (PesWorld::RunMatchUp: FUN_140536210), not staged.
+  // T+0x78 is the selector's output (Team::RunPesPassTarget, FUN_1404FB2A0, team-tick step 40c): the press reads the window's word, as
+  // PES's dispatcher (call 0x1404F7955) runs after the selector (0x1404F784B). T+0x7C is the MATCH_UP writer's (PesWorld::RunMatchUp).
   // MA+0x2601C: the last toucher (FUN_140457070, W1 0x14045725A; Match::RecomputePesHolder).
   const Player* holder = match->GetPesHolder();
   if (holder != nullptr) {
@@ -2491,21 +2487,23 @@ void TeamAIController::PesPressTick() {
     if (key.Valid() && key.team < 2 && key.slot < pes::kSlotsPerSide)
       f.holder = static_cast<uint32_t>(key.team) * pes::kSlotsPerSide + key.slot;
   }
-  // T+0x558[k]: who slot k marks. ponytail: PES's mark pass 1 (FUN_140546FB0 0x140547814) gives the carrier (the last toucher) his
-  // first defender (pes-re-defensive-shape.md 14.4, INF high); GF has no such table, so the nearest active outfield man of this side
-  // marks an opposing holder. Removal: the mark pass's partner words.
-  if (f.holder < 2 * pes::kSlotsPerSide && static_cast<int>(f.holder / pes::kSlotsPerSide) != side) {
-    const Vector3 holderAt = match->GetTeam(static_cast<int>(f.holder / pes::kSlotsPerSide))
-                                 ->GetAllPlayers()[f.holder % pes::kSlotsPerSide]->GetPosition();
+  // T+0x558[k]: who slot k marks. ponytail: PES's mark pass (FUN_140534A20 and the passes before it in FUN_140535C60, each slot's
+  // SetPartner 0x140A42B90) gives the man the MATCH_UP writer reads (0x140536210: the holder MA+0x2601C, else the opposing side's T+0x78)
+  // his first marker; its callees 0x1405346E0 and 0x1405350D0 and the plan mark bits T+0xB8BC are untranslated/unwritten, so the nearest
+  // active outfield man of this side marks that man. Removal: translate the two callees and run the mark pass.
+  const uint32_t marked = f.holder < 2 * pes::kSlotsPerSide ? f.holder : world.PassTarget(1 - side);
+  if (marked < 2 * pes::kSlotsPerSide && static_cast<int>(marked / pes::kSlotsPerSide) != side) {
+    const Vector3 markedAt = match->GetTeam(static_cast<int>(marked / pes::kSlotsPerSide))
+                                 ->GetAllPlayers()[marked % pes::kSlotsPerSide]->GetPosition();
     int best = -1;
     float bestDist = 0.0f;
     for (int k = 1; k < pes::kSlotsPerSide && k < static_cast<int>(team->GetAllPlayers().size()); ++k) {
       Player* p = team->GetAllPlayers()[k].get();
       if (!p->IsActive()) continue;
-      const float d = (p->GetPosition() - holderAt).GetLength();
+      const float d = (p->GetPosition() - markedAt).GetLength();
       if (best < 0 || d < bestDist) { best = k; bestDist = d; }
     }
-    if (best >= 0) f.partner[best] = f.holder;
+    if (best >= 0) f.partner[best] = marked;
   }
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   f.playState = static_cast<uint32_t>(pes::PlayStateFor(

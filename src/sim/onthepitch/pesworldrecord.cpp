@@ -959,7 +959,7 @@ float PesWorld::BearingOfPoints(float fromX, float fromZ, float toX, float toZ) 
 void PesWorld::StagePress(int side, const PressFacts& f) {
   static_assert(kSideRecordBytes == kTeamRecordBytes, "the world's side record is GF's T");
   uint8_t* t = SideRecord(side);
-  StoreU32(t, kTeamDesignatedOffset, f.designated);
+  // T+0x78 is the selector's (Team::RunPesPassTarget, 0x1404FB2A0): it is not staged here.
   // T+0x7C is the MATCH_UP writer's (RunMatchUp): it is not staged here.
   t[kTeamArmedOffset] = f.armed;
   StoreU32(t, kTeamFrameOffset, f.frame);

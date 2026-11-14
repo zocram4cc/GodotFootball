@@ -77,9 +77,12 @@ struct Staged {
   // PRESS from the last tick: the candidate table keeps a man whose action word is PRESS (FUN_140639830).
   void MarkPress(int k) { StoreU32(world.SideRecord(kSide), kTeamActionOffset + sizeof(uint32_t) * k, kPress); }
 
+  // T+0x78 as the selector left it (0xFF: no designated man); the window's pass target is not the press's to stage.
+  uint32_t designated = kTeamNoMan;
   void Run() {
     MarkPress(kNearMan);
     world.StagePress(kSide, facts);
+    StoreU32(world.SideRecord(kSide), kSidePassTargetOffset, designated);
     world.SideRecord(kSide)[kBearingBypassOffset] = 1;  // T+0xB709: the writer skips its bearing window (0x140537700)
     world.RunPressWriter(kSide);
   }
@@ -109,7 +112,7 @@ TEST_F(PesPressWorld, ThePressManNearALooseBallIsRenewedAndEnrolledWhenTheSideHa
 
 TEST_F(PesPressWorld, NobodyIsEnrolledWhileTheSideHasADesignatedMan) {
   Staged s;
-  s.facts.designated = kNearMan;  // T+0x78 valid: the writer leaves before the search (0x140537116)
+  s.designated = kNearMan;  // T+0x78 valid: the writer leaves before the search (0x140537116)
   s.Run();
   EXPECT_EQ(s.Enrolled(), kNobody);
 }
