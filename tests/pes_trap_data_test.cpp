@@ -248,4 +248,53 @@ TEST(TrapDataRefusal, AnUnmountedInstallBuildsNothing) {
   EXPECT_FALSE(err.empty());
 }
 
+// The parametric blend table object (FUN_1406B2950's output): group 0's three entries are what a real dribbletick/ballkick capture holds
+// (live2/pid274564 seq005: motions 1312, 1313, 1314 at 0.18, 0.36, 0.55, mirror 0), and the array is FUN_1406B2950's 95 groups with the loaded flag.
+TEST(TrapDataBlend, TheBlendTableObjectIsBuiltFromTheInstall) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (root == nullptr || *root == '\0') GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto data = pes::BuildTrapLoaderData(*exe, vfs, &err);
+  ASSERT_TRUE(data.has_value()) << err;
+  uint64_t object = 0;
+  for (const auto& [global, pointer] : data->globals)
+    if (global == pes::kBlendTableGlobalVa) object = pointer;
+  ASSERT_NE(object, 0u);
+  const auto q = [&](uint64_t va) {
+    uint64_t v = 0;
+    const uint8_t* p = data->At(va, 8);
+    EXPECT_NE(p, nullptr) << std::hex << va;
+    if (p != nullptr) std::memcpy(&v, p, 8);
+    return v;
+  };
+  EXPECT_EQ(*data->At(object + 8, 1), 1);
+  const uint64_t groups = q(object);
+  uint16_t count0;
+  std::memcpy(&count0, data->At(groups, 2), 2);
+  EXPECT_EQ(count0, 3);
+  const uint64_t entries = q(groups + 8);
+  const uint16_t motions[3] = {1312, 1313, 1314};
+  const float params[3] = {0.18f, 0.36f, 0.55f};
+  for (int k = 0; k < 3; ++k) {
+    uint16_t motion;
+    float param;
+    std::memcpy(&motion, data->At(entries + 12 * k, 2), 2);
+    std::memcpy(&param, data->At(entries + 12 * k + 4, 4), 4);
+    EXPECT_EQ(motion, motions[k]);
+    EXPECT_FLOAT_EQ(param, params[k]);
+    EXPECT_EQ(*data->At(entries + 12 * k + 8, 1), 0);
+  }
+  std::size_t total = 0;
+  for (std::size_t g = 0; g < pes::kBlendGroups; ++g) {
+    uint16_t c;
+    std::memcpy(&c, data->At(groups + 16 * g, 2), 2);
+    total += c;
+  }
+  EXPECT_EQ(total, 449u) << "FUN_1406B2950: 449 records in the file (docs/re/pes-re-animselect.md 2.6)";
+}
+
 }  // namespace

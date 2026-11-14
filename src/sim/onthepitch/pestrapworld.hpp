@@ -76,6 +76,17 @@ inline constexpr std::size_t kPF3B18Offset = 0x3B18;       // f32
 // observes the stores in a tick's write log (PesWorld::RunDribbleTick), and never writes it.
 inline constexpr std::size_t kPMotionIssuedOffset = 0x375C;
 inline constexpr uint8_t kMotionIssueSingle = 1, kMotionIssueSeries = 2;
+// The series variant (FUN_1406F14E0, called by the dribble's stand/idle handlers such as FUN_1407C18B0) stores no motion in P+0xAE0: it clears
+// and fills a vector in P (count u32 at +0x3B90, capacity +0x3B94, data pointer +0x3B98), one 0x38-byte entry per motion of the series id
+// (+8 u32 motion, +0xC f32 seconds = the clip's length * the rate, +0x10 u8 mirror), and sets P+0x3B50 = -1; the anime layer plays the entries.
+inline constexpr std::size_t kPSeriesCountOffset = 0x3B90, kPSeriesDataOffset = 0x3B98;
+// The two vectors are constructed with room (a real P: count 0, capacity 8 / 0x10, data allocated: live2/pid1270903 seq282, P+0x3B90..0x3BA8), so
+// the series SetMotion's push never reaches the growth path 0x14022C690 (a jemalloc call GF's allocator does not model). GF reserves the
+// longest group (9 entries in Parametricblendtable.bin) rounded up, and the float vector's 0x10.
+inline constexpr std::size_t kPSeriesCapacityOffset = 0x3B94, kPSeriesFloatCountOffset = 0x3BA0, kPSeriesFloatCapacityOffset = 0x3BA4,
+                             kPSeriesFloatDataOffset = 0x3BA8;
+inline constexpr uint32_t kSeriesReserve = 0x10;
+inline constexpr std::size_t kSeriesEntryBytes = 0x38, kSeriesMotionOffset = 8, kSeriesMirrorOffset = 0x10;
 inline constexpr std::size_t kPPlaybackOffset = 0x3758;    // f32: the playback rate SetMotion stores (FUN_1406F0F70)
 inline constexpr std::size_t kSlotPPtrTargetOffset = 0x15C0;  // the slot-record offset P+0x3AD8 names
 // The constructor FUN_1406E03D0's non-zero stores in P's tail (0x1406E0xxx stores; the member at +0x3B90 is FUN_1406E07D0's).
@@ -226,6 +237,8 @@ struct PesTickResult {
   uint8_t segment = 0;
   uint8_t phase = 0;
   float playback = 0.0f;
+  uint8_t action = 0;  // P+0xAC8 after the tick: the end handler's switch (0x1406EEBB0) may have left the Trap action
+  uint8_t issue = 0;   // the last store to P+0x375C in the tick's write log: 0 none, kMotionIssueSingle, kMotionIssueSeries
 };
 
 // The clip a successful call commits: the Trap action object's u16 at +8 (P+0xC80), a motion number of the Animetable

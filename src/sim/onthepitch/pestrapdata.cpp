@@ -1,5 +1,6 @@
 #include "onthepitch/pestrapdata.hpp"
 
+#include <algorithm>
 #include <array>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -12,6 +13,7 @@
 
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "pes/animetable.hpp"
+#include "pes/locomotion.hpp"
 #include "onthepitch/pesball.hpp"
 
 namespace pes {
@@ -33,6 +35,8 @@ constexpr uint64_t kPadVtableVa = 0x142AC5B68ULL;
 constexpr uint64_t kPadMaskFnVa = 0x141B52340ULL;
 constexpr std::size_t kPadVtableMaskSlot = 0x68, kPadObjectBytes = 0x118, kPadLockOffset = 0x10, kPadLockFlagOffset = 0x28;
 
+constexpr std::size_t kBlendObjectBytes = 0x40, kBlendLoadedOffset = 8, kBlendGroupBytes = 0x10, kBlendEntryBytes = 0xC;
+constexpr std::size_t kBlendEntryParamOffset = 4, kBlendEntryMirrorOffset = 8;
 constexpr std::size_t kAnimetableCellBytes = 2;  // s16
 constexpr std::size_t kEyesObjectBytes = 0x10, kEyesTablePtrOffset = 8;  // FUN_1406B4EA0's 0x10-byte object
 // FUN_1406AA440 stores the mirror flag bytes after the s16 cells (offset 0x1AC34 = 0xBE5 x 0x12 x 2), one byte per cell.
@@ -169,6 +173,17 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   }
 
 
+  const auto blend = LoadBlendTable(vfs, error);
+  if (!blend) return std::nullopt;
+  std::array<std::size_t, kBlendGroups> groupCount{};
+  for (const BlendMember& m : *blend) {
+    if (m.group < 0 || std::size_t(m.group) >= kBlendGroups) {
+      *error = "trap: Parametricblendtable.bin names a group past FUN_1406B2950's array";
+      return std::nullopt;
+    }
+    ++groupCount[std::size_t(m.group)];
+  }
+
   Arena arena(kTrapLoaderVa);
   const std::size_t table = arena.Alloc(kTableBytes), manager = arena.Alloc(kManagerBytes),
                     registry = arena.Alloc(kRegistryBytes), array = arena.Alloc(8 * (kTrapRegistryId + 1)),
@@ -176,6 +191,9 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
                     cells = arena.Alloc(kAnimetableBufferBytes), records = arena.Alloc(kMotionSlotCount * kMotionRecordBytes);
   const std::size_t eyesObject = arena.Alloc(kEyesObjectBytes), eyesTable = arena.Alloc(kEyesTargetTableBytes);
   const std::size_t pad = arena.Alloc(kPadObjectBytes);
+  const std::size_t blendObject = arena.Alloc(kBlendObjectBytes), blendGroups = arena.Alloc(kBlendGroups * kBlendGroupBytes);
+  std::array<std::size_t, kBlendGroups> blendEntries{};
+  for (std::size_t g = 0; g < kBlendGroups; ++g) blendEntries[g] = arena.Alloc(std::max<std::size_t>(groupCount[g], 1) * kBlendEntryBytes);
   const std::size_t ballEntry = arena.Alloc(kEntryBytes), ballObject = arena.Alloc(kBallRuntimeBytes);
   Store64(arena.At(pad), kPadVtableVa);
   arena.At(pad)[kPadLockOffset + kPadLockFlagOffset] = 1;  // FUN_1403FF3E0: set when the critical section initialised (always, on the live game)
@@ -211,6 +229,23 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
     arena.At(cells)[kAnimetableCellCount * kAnimetableCellBytes + c] = cell.mirror ? 1 : 0;
   }
 
+  // The parametric blend table (FUN_1406B2950): per group, the entries in file order.
+  std::array<std::size_t, kBlendGroups> filled{};
+  for (std::size_t g = 0; g < kBlendGroups; ++g) {
+    const uint16_t count = static_cast<uint16_t>(groupCount[g]);
+    std::memcpy(arena.At(blendGroups + g * kBlendGroupBytes), &count, sizeof count);
+    Store64(arena.At(blendGroups + g * kBlendGroupBytes) + 8, arena.Va(blendEntries[g]));
+  }
+  for (const BlendMember& m : *blend) {
+    uint8_t* entry = arena.At(blendEntries[std::size_t(m.group)] + filled[std::size_t(m.group)]++ * kBlendEntryBytes);
+    const uint16_t motion = static_cast<uint16_t>(m.motionNo);
+    std::memcpy(entry, &motion, sizeof motion);
+    std::memcpy(entry + kBlendEntryParamOffset, &m.param, sizeof m.param);
+    entry[kBlendEntryMirrorOffset] = m.mirror ? 1 : 0;
+  }
+  Store64(arena.At(blendObject), arena.Va(blendGroups));
+  arena.At(blendObject)[kBlendLoadedOffset] = 1;
+
   // constant::Trap: the class's vtable, then the slot-2 loader's stores.
   Store64(arena.At(object), kTrapVtableVa);
   if (!BuildConstantObject(trap, kTrapFields, "trap.o", arena.At(object), error)) return std::nullopt;
@@ -238,7 +273,8 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
                  {kAnimeManagerGlobalVa, out.animeManagerVa},
                  {kRegistryGlobalVa, out.registryVa},
                  {kEyesTargetGlobalVa, arena.Va(eyesObject)},
-                 {kPadManagerGlobalVa, arena.Va(pad)}};
+                 {kPadManagerGlobalVa, arena.Va(pad)},
+                 {kBlendTableGlobalVa, arena.Va(blendObject)}};
   out.padMaskVa = arena.Va(pad + kPadMaskOffset);
   out.segment.va = kTrapLoaderVa;
   out.segment.bytes = arena.Take();

@@ -10,6 +10,7 @@
 
 #include <cassert>
 #include <array>
+#include <optional>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -818,6 +819,26 @@ class PesWorld {
     uint8_t issue = 0;  // 0 none, kMotionIssueSingle, kMotionIssueSeries
   };
   DribbleTickResult RunDribbleTick(int slot, PesTrapExternals& ext);
+  // The motion the series variant's first entry names for `slot` (nullopt when the vector is empty or its data is not in the allocator's arena), and
+  // that entry's mirror byte: what the anime layer plays first. Valid after a tick whose `issue` was kMotionIssueSeries.
+  struct SeriesFirst {
+    uint16_t motion = 0;
+    bool mirror = false;
+  };
+  std::optional<SeriesFirst> SeriesFirstOf(int slot) const;
+  // A block from PES's allocator on GF memory (PesHeap), for the containers PES's constructors reserve (ConstructActorP's series vectors).
+  uint64_t HeapAlloc(uint64_t bytes, uint64_t align);
+  // The ball side of one man's touch, as the ball executor 0x140425010 runs it for a single toucher: the driver's out record `rec` (what the
+  // body scan filled, flags +0x10D bit 0 set) goes through the aggregator's kind dispatch (FUN_140865B80 builds its context, FUN_140865D70
+  // answers the touch vector and spin), the vector takes the frame rate (0x14351AE54, 0x14042581E..), and the candidate builder FUN_140874860
+  // (the kick application 0x140870A40's body) answers the ball's new motion: velocity at +0xC, spin at +0x18, in PES's axes (x, height, z).
+  // GF has no ball body B: its state lives in GF's Ball, so the builder's own previous-state inputs (B+0x64) are zero and the result's
+  // position copy is not read. A record type the executor treats specially (7: the vertical clamp; 8: no kick) aborts loudly.
+  struct BallTouchResult {
+    std::array<float, 3> velocity{};
+    std::array<float, 3> spin{};
+  };
+  BallTouchResult RunBallTouch(int slot, const PesBodyScanOut& rec, PesTrapExternals& ext);
   // PES's body contact scan 0x1406EDCE0 on the window for `slot`'s P (rcx = P, rdx = the driver's output record, zeroed in the call's
   // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
   // touched bit (kPFlagTouched) is the reach test's answer.

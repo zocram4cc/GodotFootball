@@ -404,11 +404,18 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   s.gpr[1] = PVa(slot) + kPActionOffset;
   s.gpr[2] = PVa(slot);
   s.gpr[8] = entry + kTickEntryFrameSlotOffset;
-  s.mem.wlog = ext.writeLog;
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  heap_->Attach(s);  // the end handler's act4 start can run the series SetMotion, whose vector grows through the allocator
+  std::vector<std::pair<uint64_t, uint8_t>> log;
+  s.mem.wlog = &log;
   ::pes_fn_140797CD0(s);
   ReturnSegments(s, ext, lent);
   const uint8_t* p = P(slot);
   PesTickResult result;
+  result.action = p[kPByteAC8Offset];
+  for (const auto& [addr, value] : log)
+    if (addr == PVa(slot) + kPMotionIssuedOffset) result.issue = value;
+  if (ext.writeLog != nullptr) ext.writeLog->insert(ext.writeLog->end(), log.begin(), log.end());
   std::memcpy(&result.motion, p + kPWordAE0Offset, sizeof result.motion);
   result.mirror = p[kPMirrorOffset];
   result.segment = p[kPSegmentOffset];
@@ -440,6 +447,8 @@ PesWorld::DribbleTickResult PesWorld::RunDribbleTick(int slot, PesTrapExternals&
   s.gpr[1] = action;
   s.gpr[2] = PVa(slot);
   s.gpr[8] = entry + kTickEntryFrameSlotOffset;
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  heap_->Attach(s);  // the stand/idle handlers' series SetMotion grows P's series vector through the allocator
   std::vector<std::pair<uint64_t, uint8_t>> log;
   s.mem.wlog = &log;
   ::pes_fn_1407B37D0(s);
@@ -451,6 +460,107 @@ PesWorld::DribbleTickResult PesWorld::RunDribbleTick(int slot, PesTrapExternals&
     if (addr == issueCell) result.issue = value;
   if (ext.writeLog != nullptr) ext.writeLog->insert(ext.writeLog->end(), log.begin(), log.end());
   return result;
+}
+
+uint64_t PesWorld::HeapAlloc(uint64_t bytes, uint64_t align) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  return heap_->Alloc(bytes, align);
+}
+
+std::optional<PesWorld::SeriesFirst> PesWorld::SeriesFirstOf(int slot) const {
+  const uint8_t* p = const_cast<PesWorld*>(this)->P(slot);
+  uint32_t count;
+  uint64_t data;
+  std::memcpy(&count, p + kPSeriesCountOffset, sizeof count);
+  std::memcpy(&data, p + kPSeriesDataOffset, sizeof data);
+  if (count == 0 || !heap_) return std::nullopt;
+  const uint8_t* entry = heap_->Host(data, kSeriesEntryBytes);
+  if (entry == nullptr) return std::nullopt;
+  uint32_t motion;
+  std::memcpy(&motion, entry + kSeriesMotionOffset, sizeof motion);
+  return SeriesFirst{static_cast<uint16_t>(motion), entry[kSeriesMirrorOffset] != 0};
+}
+
+// The ball executor's locals, at the top of the window's stack above the entry rsp: the aggregator's context, its vector and spin answers,
+// the candidate builder's result struct and its previous-state input, a copy of the touch record, and the object the context's +0x28 names.
+static constexpr std::size_t kBallFrameBytes = 0x900, kBallLocalsFromTop = 0x800;
+static constexpr std::size_t kBallCtxOffset = 0, kBallVecOffset = 0x40, kBallSpinOffset = 0x50, kBallResultOffset = 0x80,
+                             kBallPrevOffset = 0x1A0, kBallRecOffset = 0x240, kBallEntityOffset = 0x440;
+static constexpr std::size_t kBallResultBytes = 0x110, kBallPrevBytes = 0x90, kBallEntityBytes = 0x100;
+static constexpr uint64_t kFrameRateVa = 0x14351AE54ULL;  // FUN_141E532D0 returns this float
+static constexpr std::size_t kRecTypeOffset = 0, kBallResultVelocityOffset = 0xC, kBallResultSpinOffset = 0x18;
+static constexpr uint32_t kRecTypeVerticalClamp = 7, kRecTypeNoKick = 8;  // 0x1404253xx: the executor's special record types
+static constexpr std::size_t kArg5Offset = 0x28, kArg6Offset = 0x30, kArg7Offset = 0x38;
+
+PesWorld::BallTouchResult PesWorld::RunBallTouch(int slot, const PesBodyScanOut& rec, PesTrapExternals& ext) {
+  const uint32_t type = LoadU32(rec.bytes.data(), kRecTypeOffset);
+  if (type == kRecTypeVerticalClamp || type == kRecTypeNoKick) pes_dispatch_missing(0x140425010);
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kBallFrameBytes;
+  const uint64_t locals = kStackVa + kStackBytes - kBallLocalsFromTop;
+  const uint64_t recVa = locals + kBallRecOffset, ctx = locals + kBallCtxOffset, vec = locals + kBallVecOffset,
+                 spin = locals + kBallSpinOffset, result = locals + kBallResultOffset, prev = locals + kBallPrevOffset;
+  for (std::size_t i = 0; i < kScanOutBytes; i += sizeof(uint64_t)) {
+    uint64_t word;
+    std::memcpy(&word, rec.bytes.data() + i, sizeof word);
+    s.wr(recVa + i, word, sizeof word);
+  }
+  for (std::size_t i = 0; i < kBallEntityBytes; i += sizeof(uint64_t)) s.wr(locals + kBallEntityOffset + i, 0, sizeof(uint64_t));
+  for (std::size_t i = 0; i < kBallPrevBytes; i += sizeof(uint64_t)) s.wr(prev + i, 0, sizeof(uint64_t));
+  for (std::size_t i = 0; i < 0x20; i += sizeof(uint64_t)) { s.wr(vec + i, 0, sizeof(uint64_t)); s.wr(spin + i, 0, sizeof(uint64_t)); }
+  s.mem.wlog = ext.writeLog;
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  // FUN_140A48A10(G, idx): the man's player-info record, the aggregator's first context word (0x140425288 .. 0x1404252B0).
+  s.gpr[1] = kWorldWindowVa;
+  s.gpr[2] = static_cast<uint64_t>(slot);
+  ::pes_fn_140A48A10(s);
+  const uint64_t info = s.gpr[0];
+  // FUN_140865B80(ctx, entity+0x30, info, rec, idx): the context.
+  s.gpr[4] = entry;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kArg5Offset, static_cast<uint64_t>(slot), 4);
+  s.gpr[1] = ctx;
+  s.gpr[2] = locals + kBallEntityOffset;
+  s.gpr[8] = info;
+  s.gpr[9] = recVa;
+  ::pes_fn_140865B80(s);
+  // FUN_140865D70(ctx, &vec, &spin): the touch vector and spin.
+  s.gpr[1] = ctx;
+  s.gpr[2] = vec;
+  s.gpr[8] = spin;
+  ::pes_fn_140865D70(s);
+  // The executor scales the vector by the frame rate (0x1404255xx: local_1c8 * FUN_141E532D0()), a single toucher needing no average.
+  const float rate = s.rdf(kFrameRateVa);
+  for (int k = 0; k < 3; ++k) {
+    float v;
+    uint32_t bits = static_cast<uint32_t>(s.rd(vec + 4 * k, 4));
+    std::memcpy(&v, &bits, sizeof v);
+    v *= rate;
+    std::memcpy(&bits, &v, sizeof v);
+    s.wr(vec + 4 * k, bits, 4);
+  }
+  // FUN_140874860(result, rec, ball record, prev, &vec, &spin, 1): the kick application's candidate.
+  s.gpr[4] = entry;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kArg5Offset, vec, 8);
+  s.wr(entry + kArg6Offset, spin, 8);
+  s.wr(entry + kArg7Offset, 1, 1);
+  s.gpr[1] = result;
+  s.gpr[2] = recVa;
+  s.gpr[8] = BallVa();
+  s.gpr[9] = prev;
+  ::pes_fn_140874860(s);
+  ReturnSegments(s, ext, lent);
+  BallTouchResult out;
+  for (int k = 0; k < 3; ++k) {
+    const uint32_t v = static_cast<uint32_t>(s.mem.rd(result + kBallResultVelocityOffset + 4 * k, 4));
+    const uint32_t w = static_cast<uint32_t>(s.mem.rd(result + kBallResultSpinOffset + 4 * k, 4));
+    std::memcpy(&out.velocity[k], &v, sizeof v);
+    std::memcpy(&out.spin[k], &w, sizeof w);
+  }
+  return out;
 }
 
 // The scan's call frame: the output record sits above the entry rsp in the window's stack, zeroed as the anime driver zeroes it before

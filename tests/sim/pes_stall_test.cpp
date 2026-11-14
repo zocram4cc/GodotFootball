@@ -137,9 +137,16 @@ class TrapContactProbe : public pestest::Probe {
   // FUN_1406E68C0, the contact test FUN_1406EC260, the leave test FUN_1407B9280) all read the motion's frame from that table and answer 0
   // for a motion that is not on it. A tick of such a man with his motion off the table is the body not playing what PES issued.
   long pesDribbleTicks = 0;
+  unsigned dribbleScans = 0, dribbleGrants = 0, dribblePending = 0;  // body scans of PES-owned dribblers, granted ones, ones that ran with contact pending
+  unsigned dribbleKicks = 0;                         // dribbler touches the ball executor applied to the ball (Match::PesDribbleKicks)
   unsigned dribbleIssues = 0;                        // the dribble tick's SetMotion issues (Match::PesDribbleIssues)
   std::map<int, unsigned> unplayedDribbleIssues;   // those the body could not play, by motion
   long dribbleMotionNotOnTable = 0;
+  // The first link of the Dribble action's chain: on the tick a man's P+0xAC8 becomes Dribble (the trap end's switch 0x1406EEBB0 ran the
+  // act4 start 0x1407A38E0, whose SetMotion issued his first motion into P+0xAE0), the body must play that motion at the end of the tick.
+  long dribbleEntries = 0;
+  long dribbleEntriesNotPlayed = 0;
+  std::string dribbleEntrySamples;
   long neverEngagedTrappers = 0;  // granted resting touches whose man was in PES's dribble at no tick of the window (the chain never ran)
   // PES's per-man counter block (FUN_1406F6790, 0x1406F67C4..) counts P+0x2814 one tick at a time up to 255; PES's own writers reset it
   // (0x1406EB639, 0x1406EB83E, 0x1406EE75F, in the switch / reset), so a man's byte is either 255, or one more than last tick's, or a reset
@@ -191,20 +198,23 @@ class TrapContactProbe : public pestest::Probe {
     previousSpeed_ = speed;
     tickStart_ms_ = match.GetActualTime_ms();
     dribbleIssues = match.PesDribbleIssues();
+    dribbleKicks = match.PesDribbleKicks();
+    dribbleScans = match.PesDribbleScans();
+    dribbleGrants = match.PesDribbleGrants();
+    dribblePending = match.PesDribbleContactPending();
     unplayedDribbleIssues = match.PesDribbleIssuesUnplayed();
     for (int team = 0; team < 2; ++team) {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
         {
           const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player.get()));
-          uint16_t motion;
-          std::memcpy(&motion, p + pes::kPWordAE0Offset, sizeof motion);
+          const uint16_t motion = match.PesDribbleIssuedMotion(match.PesSlotOf(player.get()));
           uint16_t& before = lastMotion_[player.get()];
           // A motion issued this tick reaches the list in the next tick's rebuild (the anime update follows the action tick): only a
           // motion that has been the man's for a tick is held to it.
           const bool settled = before == motion;
           before = motion;
-          if (settled && p[pes::kPByteAC8Offset] == pes::kAnimeActionDribble && motion != pes::kPNoMotion) {
+          if (settled && p[pes::kPByteAC8Offset] == pes::kAnimeActionDribble && motion != 0) {
             ++pesDribbleTicks;
             uint32_t count;
             std::memcpy(&count, p + pes::kPMotionCountOffset, sizeof count);
@@ -216,6 +226,29 @@ class TrapContactProbe : public pestest::Probe {
             }
             if (!listed) ++dribbleMotionNotOnTable;
           }
+        }
+        {
+          const uint8_t* pp = match.PesWorldOf().P(match.PesSlotOf(player.get()));
+          uint8_t& before = lastAction_.emplace(player.get(), pp[pes::kPByteAC8Offset]).first->second;
+          // Only the trap end's switch is PES's entry into Dribble here: a man GF derives into it (a BallControl clip of the carrier) runs no
+          // act4 start.
+          if (before == pes::kAnimeActionTrap && pp[pes::kPByteAC8Offset] == pes::kAnimeActionDribble) {
+            ++dribbleEntries;
+            const uint16_t motion = match.PesDribbleIssuedMotion(match.PesSlotOf(player.get()));  // the issue (series: its first entry)
+            const Anim* clip = player->GetCurrentAnim();
+            const bool played = clip && clip->anim &&
+                                std::atoi(clip->anim->GetVariable("specialvar1").c_str()) == int(pes::PesClipFamily::kDribble) &&
+                                std::atoi(clip->anim->GetVariable("specialvar2").c_str()) == motion;
+            if (!played) {
+              ++dribbleEntriesNotPlayed;
+              if (dribbleEntrySamples.size() < 400)
+                dribbleEntrySamples += " issue " + std::to_string(match.PesTrapTickIssue(match.PesSlotOf(player.get()))) + " seriesCount " +
+                                       std::to_string(*reinterpret_cast<const uint32_t*>(pp + pes::kPSeriesCountOffset)) + " ae0 " +
+                                       std::to_string(*reinterpret_cast<const uint16_t*>(pp + pes::kPWordAE0Offset)) + " motion " + std::to_string(motion) + " body " +
+                                       (clip && clip->anim ? clip->anim->GetVariable("specialvar1") + "/" + clip->anim->GetVariable("specialvar2") : std::string("none")) + ";";
+            }
+          }
+          before = pp[pes::kPByteAC8Offset];
         }
         auto& w = waiting_[player.get()];
         if (w.restLeft > 0 && match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset] == pes::kAnimeActionDribble)
@@ -239,6 +272,7 @@ class TrapContactProbe : public pestest::Probe {
   static constexpr uint16_t kNoCounter = 0x100;
   std::map<const Player*, uint16_t> lastCounter_;
   std::map<const Player*, uint16_t> lastMotion_;
+  std::map<const Player*, uint8_t> lastAction_;
   std::map<int, unsigned> taken_;
   float previousSpeed_ = 0.0f;
   unsigned long tickStart_ms_ = 0;
@@ -447,4 +481,30 @@ TEST(PesStall, EveryDribbleIssueIsPlayedOnTheBody) {
   std::string unplayed;
   for (const auto& [motion, count] : contactCensus.unplayedDribbleIssues) unplayed += " " + std::to_string(motion) + "x" + std::to_string(count);
   EXPECT_TRUE(contactCensus.unplayedDribbleIssues.empty()) << "unplayable dribble issues (motion x count):" << unplayed;
+}
+
+// A man entering PES's Dribble action plays the motion the act4 start issued (the first SetMotion of the chain, run inside the trap end's
+// switch), on the tick he enters it.
+TEST(PesStall, AManEnteringPesDribbleBodyPlaysHisFirstMotion) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(contactCensus.dribbleEntries, 0) << "no man entered PES's Dribble action in the whole match";
+  EXPECT_EQ(contactCensus.dribbleEntriesNotPlayed, 0)
+      << contactCensus.dribbleEntriesNotPlayed << " of " << contactCensus.dribbleEntries
+      << " dribble entries left the body off the issued motion:" << contactCensus.dribbleEntrySamples;
+}
+
+// A PES dribbler's touch reaches the ball: the dribble's reach test grants it (the body scan), the ball executor's aggregator and the kick
+// application's candidate builder answer the ball's new motion, and GF's ball takes it. Red while the touch stops at the scan's record.
+TEST(PesStall, APesDribblerTouchMovesTheBall) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_GT(contactCensus.dribbleKicks, 0u) << "no PES dribbler touch reached the ball in the whole match (scans " << contactCensus.dribbleScans << ", with contact pending "
+      << contactCensus.dribblePending << ", granted " << contactCensus.dribbleGrants << ")";
 }

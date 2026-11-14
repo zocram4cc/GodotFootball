@@ -276,6 +276,13 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
   uint8_t* p = world.P(slot);  // the constructor FUN_1406E03D0's tail stores
   for (const std::size_t at : kPTailNoneOffsets) StoreU32(p, at, 0xFFFFFFFFu);
   for (const std::size_t at : kPTailOneOffsets) StoreF32(p, at, 1.0f);
+  // The series SetMotion's vectors (pestrapworld.hpp kSeriesReserve): empty, with room and data.
+  const uint64_t seriesData = world.HeapAlloc(kSeriesReserve * kSeriesEntryBytes, sizeof(uint64_t));
+  const uint64_t floatData = world.HeapAlloc(kSeriesReserve * sizeof(float), sizeof(uint64_t));
+  StoreU32(p, kPSeriesCapacityOffset, kSeriesReserve);
+  std::memcpy(p + kPSeriesDataOffset, &seriesData, sizeof seriesData);
+  StoreU32(p, kPSeriesFloatCapacityOffset, kSeriesReserve);
+  std::memcpy(p + kPSeriesFloatDataOffset, &floatData, sizeof floatData);
   ConstructActionTable(world, slot);
 }
 

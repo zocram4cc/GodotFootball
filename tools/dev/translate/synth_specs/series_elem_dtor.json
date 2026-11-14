@@ -1,0 +1,12 @@
+{
+ "label": "serieselemdtor",
+ "seed": 1,
+ "as": "0x1406E5F50",
+ "fields": [
+  {"name": "this", "at": "rcx", "type": "u64", "values": [0]},
+  {"name": "elem", "at": "rdx", "type": "u64", "values": [1237610624]}
+ ],
+ "cases": [
+  {"name": "empty_entry", "this": 0, "elem": 1237610624}
+ ]
+}

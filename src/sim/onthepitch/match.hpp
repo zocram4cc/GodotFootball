@@ -319,8 +319,25 @@ public:
   unsigned PesTouchesTaken(int slot) const { return pesTouchesTaken[slot]; }
   // The dribble tick's SetMotion issues (RunPesDribbleTicks) and the ones the body could not play, by motion number (the tests' witness
   // that PES's issue reached the body).
-  void NotePesDribbleIssue(int motion, bool played) { ++pesDribbleIssues; if (!played) ++pesDribbleIssuesUnplayed[motion]; }
+  void NotePesDribbleIssue(int slot, int motion, bool played) {
+    ++pesDribbleIssues;
+    pesDribbleIssuedMotion[slot] = static_cast<uint16_t>(motion);
+    if (!played) ++pesDribbleIssuesUnplayed[motion];
+  }
+  // The motion a man's last Dribble-action issue named (single: P+0xAE0; series: the vector's first entry), by slot.
+  uint16_t PesDribbleIssuedMotion(int slot) const { return pesDribbleIssuedMotion[slot]; }
   unsigned PesDribbleIssues() const { return pesDribbleIssues; }
+  // Dribbler touches the ball executor applied to the ball (RunPesBodyScans; the tests' witness that a PES dribble moves the ball).
+  void NotePesDribbleKick() { ++pesDribbleKicks; }
+  // Body scans run for PES-owned dribblers, and those whose reach test granted a touch (the tests' witness of where a dribble touch stops).
+  void NotePesDribbleScan(bool granted, bool contactPending) { ++pesDribbleScans; if (granted) ++pesDribbleGrants; if (contactPending) ++pesDribbleContactPending; }
+  unsigned PesDribbleScans() const { return pesDribbleScans; }
+  unsigned PesDribbleGrants() const { return pesDribbleGrants; }
+  unsigned PesDribbleContactPending() const { return pesDribbleContactPending; }
+  unsigned PesDribbleKicks() const { return pesDribbleKicks; }
+  // The last SetMotion kind a man's Trap tick issued (RunPesTrapTicks; PesTickResult::issue), by slot (the tests' witness).
+  void NotePesTrapTickIssue(int slot, uint8_t issue) { pesTrapTickIssue[slot] = issue; }
+  uint8_t PesTrapTickIssue(int slot) const { return pesTrapTickIssue[slot]; }
   const std::map<int, unsigned>& PesDribbleIssuesUnplayed() const { return pesDribbleIssuesUnplayed; }
   // A grant lives for the tick that made it (the bodies take it in the same tick's team stage): RunPesBodyScans clears the last tick's.
   void ClearPesTouches() { pesTouchGranted.fill(false); }
@@ -778,6 +795,10 @@ protected:
   std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
   std::array<unsigned, pes::kSlotCount> pesTouchesTaken{};
   unsigned pesDribbleIssues = 0;
+  unsigned pesDribbleKicks = 0;
+  unsigned pesDribbleScans = 0, pesDribbleGrants = 0, pesDribbleContactPending = 0;
+  std::array<uint16_t, pes::kSlotCount> pesDribbleIssuedMotion{};
+  std::array<uint8_t, pes::kSlotCount> pesTrapTickIssue{};
   std::map<int, unsigned> pesDribbleIssuesUnplayed;
   std::array<pes::PesBodyScanOut, pes::kSlotCount> pesTouch{};
   std::array<bool, pes::kSlotCount> pesTouchGranted{};

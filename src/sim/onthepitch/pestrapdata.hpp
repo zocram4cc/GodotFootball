@@ -32,6 +32,14 @@ inline constexpr const char* kEyesTargetPath = "common/anime/EyesTarget/bin/Eyes
 inline constexpr uint64_t kPadManagerGlobalVa = 0x1437F0A58ULL;
 inline constexpr std::size_t kPadMaskOffset = 0xC8;
 
+// The parametric blend table (Parametricblendtable.bin; FUN_1406B2950 parses it into the singleton at the global): the object's +0 is an
+// array of kBlendGroups 0x10-byte group records {u16 count, +8 pointer to the group's entries}, an entry 0xC bytes {u16 motion (bits 0-11 of the
+// file's word + 0x520), +4 f32 parameter, +8 u8 mirror}, entries in file order. The accessors FUN_1406B2DD0 / 2DA0 / 2DE0 / 2E00 read it, and the
+// dribble's stand/idle handlers (FUN_1406F14E0, the series SetMotion) fill P's series vector from it. Byte +8 of the object is its loaded flag.
+inline constexpr uint64_t kBlendTableGlobalVa = 0x1436F25C0ULL;
+inline constexpr const char* kBlendTablePath = "common/anime/AnimeTable/bin/Parametricblendtable.bin";
+inline constexpr std::size_t kBlendGroups = 0x5F0 / 0x10;  // FUN_1406B2950's array bound (0x5EF)
+
 // FUN_141E5CA20(registry, id): payload = *(*(array[id]) + 8). trap.o is object 35 of constant_player.bin, which follows
 // constant_match.bin's objects 0..26.
 inline constexpr uint32_t kTrapRegistryId = 0x3E;
