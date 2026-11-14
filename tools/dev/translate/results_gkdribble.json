@@ -1,0 +1,43 @@
+{
+ "note": "keeper GKDribble unit 0x142132E20 (pes-port-TeamTick2.md): proof_gkdribble.py.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x142132E20": {
+     "reached": 34,
+     "total": 39,
+     "fraction": 0.8718
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 9 of 9: 0 REAL captured calls (hook tt_142132E20), 9 SYNTHETIC states (synth.py: PES's own bytes run forward from a danger_builder_2119390 capture to the proposal writer 0x1421102D0 with the kind set to 0x13 and the kind object armed; the fields drawn are the case, proof_gkdribble.py FIELDS; own-block coverage is the best seed's).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 9,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 34,
+     "total": 39,
+     "fraction": 0.8718
+    },
+    "replayed": 9,
+    "source": "tools/dev/translate/results_gkdribble.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142132E20",
+   "closure_file": "closure_gkdribble.json",
+   "synthetic": true,
+   "synthetic_cases": 9
+  }
+ ]
+}

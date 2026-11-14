@@ -231,6 +231,8 @@ class FakeHost : public MoveHost {
   int MoveStatePrevious() const override { return previous; }
   float RecordF0bec() const override { return 0.0f; }
   void SetRecordF0bec(float value) override {}
+  void SetRootFacing(float) override {}
+  void ArmYawAdjuster(float, float, int, bool) override {}
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
 
   void RingSample(int index, float out[3]) const override { PositionAt(index, out); }

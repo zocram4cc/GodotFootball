@@ -289,7 +289,7 @@ void Humanoid::Process() {
   // PES plays contact clips at a Balance-dependent rate (pes-re-contact.md
   // 4.3): the frame advances by the accumulated rate, never past the clip's
   // last frame, so the end-of-clip switch below still sees it.
-  currentAnim->framePhase += currentAnim->playbackRate;
+  currentAnim->framePhase += currentAnim->playbackRate * ClipFramesPerTick();
   const int steps = static_cast<int>(currentAnim->framePhase);
   currentAnim->framePhase -= steps;
   currentAnim->frameNum =
@@ -638,7 +638,15 @@ void Humanoid::Process() {
   }
   // ---------------------- / EXPERIMENTAL ------------------------------------------------
 
-  if (currentAnim->touchFrame == currentAnim->frameNum) {
+  // A PES trap's touch is PES's body contact scan, not the clip's contact frame (docs/ports/pes-port-TrapContact.md): the trap tick
+  // sets the contact-pending bit on the contact frame, the scan's reach test (FUN_140799060) accepts or refuses it, and an accepted
+  // scan grants the touch (RunPesBodyScans). Neither GF's distance gate nor its height gate applies to it.
+  // ponytail: the ball's new velocity is still GF's trap vector (GetTrapVector); PES builds it in the scan's output record
+  // (+0x9C) and applies it in the ball's kick application FUN_140870A40, which is not translated.
+  const bool pesTrapClip = match->PesLoop() && OnPesTrap();
+  pes::PesBodyScanOut pesScan;
+  const bool pesTrapTouch = pesTrapClip && match->TakePesTouch(match->PesSlotOf(CastPlayer()), &pesScan);
+  if (pesTrapClip ? pesTrapTouch : currentAnim->touchFrame == currentAnim->frameNum) {
     Vector3 desiredBallPosition;
     std::static_pointer_cast<FootballAnimationExtension>(
         currentAnim->anim->GetExtension("football"))
@@ -686,9 +694,9 @@ void Humanoid::Process() {
     // incoming speed instead of dropping an otherwise-good touch outright.
     const float acceptGateScale =
         GameplayTuning::GetTrapAcceptGateScale(currentBallVec.GetLength());
-    if (fullBallDistance < touchableDistance * acceptGateScale &&
-        fabs(desiredBallHeight - match->GetBall()->Predict(0).coords[2]) <
-            1.0f * acceptGateScale) {
+    if ((pesTrapClip || fullBallDistance < touchableDistance * acceptGateScale) &&
+        (pesTrapClip ||
+         fabs(desiredBallHeight - match->GetBall()->Predict(0).coords[2]) < 1.0f * acceptGateScale)) {
       radian nextBodyAngle = startAngle + currentAnim->anim->GetOutgoingAngle() +
                              currentAnim->anim->GetOutgoingBodyAngle() +
                              currentAnim->rotationSmuggle.end;
@@ -846,10 +854,11 @@ void Humanoid::Process() {
           }
 
         }  // else: just stick to original
-
-        // PES's T+0x78: the kick writes the team's pass target; the receiver's
-        // run follows from it (Team::PassGetReceiver).
-        team->SetPassTarget(targetPlayer);
+        // GF mode's T+0x78: the kick writes the team's pass target; the receiver's run follows from it (Team::PassGetReceiver). On the
+        // PES path the kick writes the ball record's target word (+0x27E4: the man the pass is aimed at), which the next kick/touch event
+        // carries as its second key, and PES's selector chain 0x1404FB2A0 computes T+0x78 from it every team tick (Team::RunPesPassTarget).
+        if (match->PesLoop()) match->SetPesKickTarget(targetPlayer);
+        else team->SetPassTarget(targetPlayer);
 
         float zcurve = 0.0f;
         Vector3 touchVec = ballDirection * pes::kPassTouchSpeedPerPower_mps *
@@ -2060,6 +2069,19 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
 
     if (!IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement)
+      return false;
+    // The Move action's movement is MOVESTEP's alone (PES has no other mover): a requeue of GF's own movement clip on top of a PES
+    // locomotion clip throws away the clip the FSM just issued, and the FSM's next tick issues it again at frame 0. A designated man
+    // within 3 m of the ball requeues every second tick, so the keeper of a ball at rest never left his first frame.
+    // The exception is the goalkeeper's own movement: GF's requeue is what turns and steps him toward the shot (a stand-still Movement
+    // command that looks at the ball), and without it a shoot-out keeper kept MOVESTEP's idle clips and saved none of 541 kicks (seed 7).
+    // The thrash above is a designated man beside a ball at rest, so a keeper in that case stays refused.
+    // ponytail: PES moves its keepers through the KP actions (KP_PRESS action 0x3e and the keeper decider ticks, docs/re/pes-re-goalkeeper.md),
+    // none of which is translated; this requeue stands in for them. Translate the KP action ticks and delete this exception.
+    const bool keeperMovesItself = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK &&
+                                   !(match->GetDesignatedPossessionPlayer() == CastPlayer() &&
+                                     match->GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms);
+    if (OnPesLocomotion() && command.desiredFunctionType == e_FunctionType_Movement && !keeperMovesItself)
       return false;
     if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement &&

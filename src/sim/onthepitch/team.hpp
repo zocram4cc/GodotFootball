@@ -56,9 +56,14 @@ public:
   // PES's team-possession latch (T+0x255; pespossession.hpp), updated once per PES frame
   // at the start of the team's tick.
   bool IsPesPossession() const { return pesPossession; }
-  // PES's team pass target T+0x78 (pes-re-receiving.md §2), written by the pass.
+  // PES's team pass target T+0x78 (pes-re-receiving.md §2). On the PES path it is the window's record, written only by PES's selector
+  // chain 0x1404FB2A0 (RunPesPassTarget, every team tick): the player its slot id names, null for 0xFF. GF mode keeps the kick's own
+  // record (SetPassTarget at the kick, cleared at ResetSituation).
   void SetPassTarget(Player* player) { passTarget = player; }
-  Player* GetPassTarget() const { return passTarget; }
+  Player* GetPassTarget() const;
+  // Team tick step 40c (FUN_1404F6C30 -> 0x1404FB2A0): stages the records the selector's chain reads from GF's state and runs it on the
+  // world window. PES path only.
+  void RunPesPassTarget();
   // The player PES's movement selector sends to the ball as the receiver
   // (PASS_GET), or null: the own pass target, or this team's interceptor
   // winning the arbitration against the other team's pass.

@@ -54,6 +54,16 @@ void ApplyTail(MoveStepRecord& rec, MoveHost& host, MoveReq& req, MoveState stat
   rec.playbackSpeed = req.F(moveword::kPlayback);
 }
 
+// FUN_1406b8340's body tail: `if (req[0x3a]) FUN_141eb56d0(P, &req[0x3b], 1)`, then `if (req[0x3c]) { FUN_141eb35a0(P+0x4d0, req[2],
+// req[0x3d], req[0x3e], req[0x3f] byte); FUN_141eb3ae0(P+0x4d0); }` (decompile of FUN_1406b8340: locals local_670/local_66c and
+// local_668/local_664/local_660/local_65c, offsets 0xe8, 0xec and 0xf0..0xfc of the request).
+void ApplyBodyTail(MoveHost& host, const MoveReq& req) {
+  if (req.Flag(moveword::kRootFacing)) host.SetRootFacing(req.F(moveword::kRootFacingAngle));
+  if (req.Flag(moveword::kTurnLockFlag))
+    host.ArmYawAdjuster(req.F(moveword::kFacing), req.F(moveword::kTurnLockStamp),
+                        static_cast<int>(req.U(moveword::kTurnLockTicks)), req.Flag(moveword::kTurnLockDir));
+}
+
 }  // namespace movestep
 
 // Group B's header declares the TURN_STOP entry in namespace pes (its own file calls it

@@ -5,7 +5,11 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -20,6 +24,8 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesmovestep.hpp"
+#include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/player/humanoid/animcollection.hpp"
 #include "onthepitch/team.hpp"
@@ -366,6 +372,44 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
   EXPECT_GT(sameClip, 0);
   EXPECT_GT(advanced, 0);
   EXPECT_EQ(restarted, 0);
+}
+
+// PES's anime engine steps a motion's clock by one tick of real time per tick at rate 1 (FUN_141AF7A90 sets the step `tick * 300` units of
+// 1/300 s, FUN_141AF3100 reads seconds back with 1/300; SetSpeed's real calls hold rate 1.0), so an issued clip of L seconds ends after
+// L * 54 / rate ticks. GF's clip frames are 10 ms and the tick is 1000/54 ms: a clip must advance 1.852 frames per tick at rate 1. On the
+// base it advanced ONE frame per tick (0.54 of PES's speed: a trap's contact frame came at tick 29.5 against PES's 17).
+TEST(MoveStepWire, APesClipAdvancesATickOfRealTimePerTick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr double kFramesPerTick = 1000.0 / 54.0 / 10.0;  // the 10 ms engine frame in ticks of 1/54 s
+  constexpr double kTolerance = 0.03;
+  double framesAdvanced = 0.0, ticksCounted = 0.0;
+  for (int t = 0; t < kTicks; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<const Animation*> before;
+    std::vector<int> frameBefore, placementBefore;
+    for (Player* p : ps) {
+      const Anim* a = p->GetCurrentAnim();
+      before.push_back(a ? a->anim : nullptr);
+      frameBefore.push_back(a ? a->frameNum : 0);
+      placementBefore.push_back(p->CastHumanoid()->GetPlacementCount());
+    }
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      const Anim* a = ps[i]->GetCurrentAnim();
+      if (ps[i]->CastHumanoid()->GetPlacementCount() != placementBefore[i]) continue;
+      if (!a || !a->anim || a->anim != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
+      // A clip that ran into its last frame is clamped there: only ticks that stayed clear of the end say what the rate is.
+      if (a->frameNum <= frameBefore[i] || a->frameNum >= a->anim->GetFrameCount() - 1) continue;
+      framesAdvanced += a->frameNum - frameBefore[i];
+      ticksCounted += a->playbackRate;  // the clip's rate this tick: PES's rate is a factor on the real-time step
+    }
+  }
+  ASSERT_GT(ticksCounted, 200.0) << "no PES clip played long enough";
+  EXPECT_NEAR(framesAdvanced / ticksCounted, kFramesPerTick, kFramesPerTick * kTolerance)
+      << "frames per tick at rate 1 (PES: a tick of real time, 1.852 frames of 10 ms)";
 }
 
 // A re-issue of the motion the body already plays changes its rate only (humanoidbase.cpp's hold). Built
@@ -857,6 +901,139 @@ TEST(MoveStepWire, TheFacingWordIsTheRootYawNotTheTravelDirection) {
   EXPECT_EQ(wrong, 0) << wrong << " of " << split << " split ticks read the travel direction as the facing";
 }
 
+// PES's turn is the yaw adjuster P+0x4D0: FUN_1406B8340's tail arms it (FUN_141EB35A0) from the facing to the turn lock's heading over
+// req[0x3E] ticks, FUN_141EB3AF0 steps it each frame (vtable +0x18 = FUN_141EB1A50: curve 0 is the error spread evenly, `fVar6 /
+// iVar2 + acc`, so the N steps sum to the error), and FUN_1406EEDF0 hands each step to the anime request as a rotation about the
+// vertical axis. GF never ran any of it: a turn clip played its 0.5 degrees a tick and the man kept his heading. The root yaw must
+// move by the armed error over the armed ticks (the trap world's sense: PES's yaw is atan2(x, GF y); the P window holds that sense).
+TEST(RootMotion, ATurnTheYawAdjusterIsArmedWithTurnsTheManByItsErrorOverItsTicks) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kTicks = 3000;
+  constexpr float kMinError_deg = 30.0f;  // a turn, not a trap's trim
+  constexpr int kMinTicks = 8;
+  constexpr float kDegPerRad = 57.2957795f;
+  constexpr int kSlots = 22;
+  constexpr float kLow = 0.6f, kHigh = 1.4f;  // the clip's own body yaw adds a few degrees to the adjuster's error
+  auto facing = [&](Player* p) {  // PES's facing in the trap world: atan2(x, GF y)
+    const Vector3 v = p->GetRootDirectionVec();
+    return std::atan2(v.coords[0], v.coords[1]) * kDegPerRad;
+  };
+  auto fold = [](float d) { return std::fmod(d + 540.0f, 360.0f) - 180.0f; };
+  struct Watch {
+    bool on = false;
+    float error = 0.0f, start = 0.0f, last = 0.0f;
+    int ticks = 0, elapsed = 0;
+  };
+  std::array<Watch, kSlots> watch{};
+  std::vector<float> ratios;
+  pes::PesWorld& world = match->PesWorldOf();
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const int slot = match->PesSlotOf(p);
+      Watch& w = watch.at(slot);
+      const uint8_t* yaw = world.P(slot) + pes::kPYawAdjusterOffset;
+      uint32_t state;
+      int16_t count, ticks;
+      float error;
+      std::memcpy(&state, yaw + pes::kAdjStateOffset, sizeof state);
+      std::memcpy(&count, yaw + pes::kAdjCountOffset, sizeof count);
+      std::memcpy(&ticks, yaw + 0x10, sizeof ticks);
+      std::memcpy(&error, yaw + 0x28, sizeof error);
+      const float now = facing(p);
+      if (!w.on && state == pes::kAdjRunning && count == 2 && ticks >= kMinTicks && std::fabs(error) >= kMinError_deg) {
+        w = {true, error, w.last, now, ticks, 1};  // armed and stepped once this tick: the facing before is last tick's
+      } else if (w.on && ++w.elapsed >= w.ticks) {
+        ratios.push_back(fold(now - w.start) / w.error);
+        w.on = false;
+      }
+      w.last = now;
+    }
+  }
+  ASSERT_FALSE(ratios.empty()) << "no yaw adjuster was ever armed with a turn of " << kMinError_deg << " degrees";
+  std::sort(ratios.begin(), ratios.end());
+  const float median = ratios[ratios.size() / 2];
+  EXPECT_GT(median, kLow) << ratios.size() << " turns; the body turned less than the armed error";
+  EXPECT_LT(median, kHigh) << ratios.size() << " turns; the body turned more than the armed error";
+}
+
+// PES's IDLE_TURN turns a man on the spot toward his walk's look point. StayDecision lets a walk start under 112.5 degrees and
+// StepStops stops a back-bucket walk above 90 degrees, so the body must get under 90 degrees before the walk can run. PES does
+// that with the yaw adjuster (P+0x4D0): FUN_1406B8340's tail arms it from the turn lock over the lock's ticks, and FUN_141EB3AF0
+// steps it. GF's arm was a no-op: a man held about 110 degrees off the ball stalled in IDLE and STEP_LOOP (the breaker's seed-7
+// stall, 380 s). The test watches every IDLE_TURN that starts at 100 degrees or more and requires the body under 90 degrees within
+// the adjuster's own armed ticks (plus a slack tick), with the adjuster armed during the turn.
+TEST(MoveStepWire, AnIdleTurnFromOverAHundredDegreesGetsTheBodyUnderNinetyWithinTheAdjusterTime) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kTicks = 6000;
+  constexpr float kTurnFrom_deg = 100.0f;  // the stall's error was about 110 degrees
+  constexpr float kUnder_deg = 90.0f;      // StepStops' back-bucket stop (FUN_1406B6EE0, DAT_14259BE5C)
+  constexpr int kSlack_ticks = 1;          // the adjuster's last step lands a tick after its armed count
+  constexpr int kBudget_ticks = 120;       // a turn that runs this long has failed (about 2.2 s at 54 ticks a second)
+  constexpr float kDegPerRad = 57.2957795f;
+  constexpr int kSlots = 22;
+  auto fold = [](float d) { return std::fmod(d + 540.0f, 360.0f) - 180.0f; };
+  auto facing = [](Player* p) {  // PES's facing: atan2(x, GF y) of the root direction
+    const Vector3 v = p->GetRootDirectionVec();
+    return std::atan2(v.coords[0], v.coords[1]) * kDegPerRad;
+  };
+  // The error the request carries: the look point's heading less the facing (FUN_1406B7560's req[7]).
+  auto error = [&](Player* p, bool* hasLook) {
+    const auto& command = p->GetPesDecision().command;
+    *hasLook = command && command->useDesiredLookAt;
+    if (!*hasLook) return 0.0f;
+    const float dx = command->desiredLookAt.coords[0] - p->GetPosition().coords[0];
+    const float dy = command->desiredLookAt.coords[1] - p->GetPosition().coords[1];
+    return fold(std::atan2(dx, dy) * kDegPerRad - facing(p));
+  };
+  struct Watch {
+    bool on = false;
+    int elapsed = 0;
+    int armedTicks = -1;  // the adjuster's armed tick count, read the first tick it runs
+  };
+  std::array<Watch, kSlots> watch{};
+  std::vector<int> episodes;
+  int failures = 0;
+  pes::PesWorld& world = match->PesWorldOf();
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const int slot = match->PesSlotOf(p);
+      Watch& w = watch.at(slot);
+      bool hasLook = false;
+      const float now = error(p, &hasLook);
+      if (!w.on) {
+        if (hasLook && p->GetMoveStep().state == pes::MoveState::kIdleTurn && std::fabs(now) >= kTurnFrom_deg)
+          w = {true, 0, -1};
+        continue;
+      }
+      const uint8_t* yaw = world.P(slot) + pes::kPYawAdjusterOffset;
+      uint32_t state;
+      int16_t ticks;
+      std::memcpy(&state, yaw + pes::kAdjStateOffset, sizeof state);
+      std::memcpy(&ticks, yaw + pes::kAdjTicksOffset, sizeof ticks);
+      if (state == pes::kAdjRunning && w.armedTicks < 0) w.armedTicks = ticks;
+      ++w.elapsed;
+      if (hasLook && std::fabs(now) < kUnder_deg) {
+        episodes.push_back(w.elapsed);
+        if (w.armedTicks < 0 || w.elapsed > w.armedTicks + kSlack_ticks) ++failures;
+        w.on = false;
+      } else if (w.elapsed >= kBudget_ticks) {
+        ++failures;
+        w.on = false;
+      }
+    }
+  }
+  ASSERT_FALSE(episodes.empty() && failures == 0)
+      << "no IDLE_TURN from " << kTurnFrom_deg << " degrees in " << kTicks << " ticks";
+  EXPECT_EQ(failures, 0) << failures << " of " << (episodes.size() + failures) << " turns from " << kTurnFrom_deg
+                         << " degrees did not get under " << kUnder_deg << " degrees within the adjuster's armed time";
+}
+
 // The throw-in hold (SelectRetainAnim) starts from a body whose root and travel differ, and it keeps the root's yaw: the lift
 // left the carrier facing the pitch, and the hold continues that facing, not the pitch centre (humanoid.cpp SelectRetainAnim).
 // The body here has just stepped sideways, so its travel is 90 degrees off its facing. Before this change the hold turned the
@@ -1026,4 +1203,71 @@ TEST(MoveStepWire, TheFadingMotionSetAgreesWithTheTranslatedFunction) {
     members += oracle ? 1 : 0;
   }
   EXPECT_GT(members, 0);
+}
+
+
+// PES reads a root's speed as the root's displacement of the tick times the tick rate (FUN_1406EA110: `|dxz| * 54 * 3.6` km/h from the
+// root history P+8 / P+0x14; PES's one-tick root displacement along a clip equals the clip's root track over rate/54 s: seq077 of live2
+// pid3332804, motion 31 backslant_1_1_relax at 0.5847 s, rate 1.0250: capture 0.03323 m, clip track 0.03333 m). GF's m/s of a man on a
+// PES clip must therefore be his displacement per tick times 54: PositionAt hands PES `GetMovement() / 54` as the displacement of a tick.
+// With the old x100 (a 10 ms frame's m/s) on a tick that advances 1.852 frames, GF read every speed 1.85 times too high.
+TEST(MoveStepWire, APesClipsMovementIsItsDisplacementPerTickTimesTheTickRate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr double kTickRate = 54.0;
+  double read_m = 0.0, moved_m = 0.0;
+  std::map<Player*, Vector3> last;
+  std::map<Player*, int> placements;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Vector3 pos = p->GetPosition();
+      const auto it = last.find(p);
+      const int placed = p->CastHumanoid()->GetPlacementCount();
+      const bool replaced = placements.count(p) && placements[p] != placed;
+      placements[p] = placed;
+      const Anim* a = p->GetCurrentAnim();
+      const bool pesClip = a && a->anim && PlayedOf(p).family == LocomotionFamily();
+      if (it != last.end() && pesClip && !replaced) {
+        const Vector3 step = (pos - it->second).Get2D();
+        const double moved = step.GetLength();
+        // A man the engine moved (a restart, a collision push) is not on his clip's path: only steps near the clip's own count.
+        if (moved < 0.2) {
+          moved_m += moved;
+          read_m += p->GetMovement().Get2D().GetLength() / kTickRate;
+        }
+      }
+      last[p] = pos;
+    }
+  }
+  ASSERT_GT(moved_m, 50.0) << "no PES clip moved a man";
+  std::printf("[movestep-speed] GF m/s over displacement*54: %.4f (%.1f m moved)\n", read_m / moved_m, moved_m);
+  EXPECT_NEAR(read_m / moved_m, 1.0, 0.1) << "GF's m/s over PES's displacement per tick times the tick rate";
+}
+
+// A shootout keeper reaches his save path. GF's movement requeue (turn, step) is the keeper's mover (PES moves him through its KP actions, which are not
+// translated): 2dd6d027 refused the requeue on every PES locomotion clip, the keeper stayed on MOVESTEP's idle clips and over 541 seed-7 kicks not one
+// was saved (TeamTick base: 8 kicks, 2 saved). A save is what the shootout's own verdict says: the kick ended with the keeper's touch.
+TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
+  constexpr int kMaxKicks = 60;
+  constexpr unsigned kShootoutSeed = 7;  // the seed whose 541 kicks were all goals without the exemption
+  Properties config;
+  config.SetBool("pes_loop", true);
+  config.SetBool("penalty_shootout_only", true);
+  REQUIRE_PES_MATCH_AT(config, kShootoutSeed, 5);
+  PenaltyShootoutController* shootout = match->GetPenaltyShootout();
+  int kicks = 0, saves = 0;
+  bool wasLive = false;
+  while (!shootout->IsFinished() && kicks < kMaxKicks) {
+    match->Process();
+    if (wasLive && !shootout->IsKickLive()) {
+      ++kicks;
+      if (shootout->GetState().lastOutcome == PenaltyShootout::e_Outcome_Save) ++saves;
+    }
+    wasLive = shootout->IsKickLive();
+  }
+  std::printf("[shootout-keeper] %d kicks, %d saved\n", kicks, saves);
+  EXPECT_GT(saves, 0) << "the keeper saved none of " << kicks << " kicks";
 }

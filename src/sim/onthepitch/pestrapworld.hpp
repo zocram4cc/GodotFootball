@@ -87,6 +87,21 @@ inline constexpr std::size_t kMemberUnitRunOffset = 0x958, kMemberUnitRunCount =
 inline constexpr std::size_t kMemberScaleOffset = 0x9F8, kMemberPairOffset = 0x9FC;     // f32 1.0; u32 0x10001 (0x141EB4497, 0x141EB44A1)
 inline constexpr uint32_t kMemberPairInit = 0x10001;
 
+// The three adjusters of the member at P+8, stepped once a frame by the anime driver FUN_141EB5E70 (FUN_141EB3AF0 on each, in this order):
+// the root adjuster A = P+0x428 (the Trap start's strike FUN_141EB39A0 / FUN_141EB3900 / FUN_141EB3AE0, vtable +0x18 = FUN_141EB1BF0),
+// the height adjuster P+0x498 (vtable +0x18 = FUN_141EB2450) and the yaw adjuster P+0x4D0 (vtable +0x18 = FUN_141EB1A50). Offsets are
+// from the adjuster (FUN_141EB3AF0's own loads and stores).
+inline constexpr std::size_t kPAdjusterOffset = 0x428;
+inline constexpr std::size_t kPHeightAdjusterOffset = 0x498, kPYawAdjusterOffset = 0x4D0;
+inline constexpr std::size_t kAdjStateOffset = 0x8;   // u32: 1 armed, 2 running (FUN_141EB3AE0 moves 1 -> 2)
+inline constexpr std::size_t kAdjCountOffset = 0xC;   // s16: the tick counter
+inline constexpr std::size_t kAdjDelayOffset = 0xE;   // s16: ticks held before the first step
+inline constexpr std::size_t kAdjTicksOffset = 0x10;  // s16: the last step's tick
+inline constexpr std::size_t kAdjStepOffset = 0x14;   // 3 x f32 (x, y, z): the layer's root point (FUN_141AF3CA0), then the step's result
+inline constexpr std::size_t kAdjYawOutOffset = 0x20; // f32: the yaw adjuster's per-tick rotation (rad; degrees when the flag below is 1)
+inline constexpr std::size_t kAdjYawFlagOffset = 0x24; // u8: the yaw adjuster's override flag (FUN_141EB35A0's 5th argument)
+inline constexpr uint32_t kAdjRunning = 2;
+
 // The request the Trap action's +0x68 slot takes (r9 of 0x1407A01C0), 0x24 bytes in PES's layout
 // (docs/re/pes-re-trap-kind0.md 1). The dispatcher copies the words below into its own frame and calls the kind's chain; kind <= 0 is
 // the control touch. Only the fields kind 0 forwards are named.

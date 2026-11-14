@@ -89,3 +89,19 @@ TEST_F(PlayerObject, TheEntryAimFlagLeavesThePeriodRecordsPlayStateAlone) {
 }
 
 }  // namespace
+
+// PES's man accessor 0x140A48A10 answers the table entry unchecked and PesWorld binds every entry, so ManRecord is the bound
+// slot's man record, and a slot past the table reads entry 0 (the accessor's own fallback). An unbound table is a broken world:
+// ManRecord stops there instead of answering a null every caller reads through (the -Wstringop-overread in WriteActorP).
+TEST(ManRecord, IsTheBoundSlotsManRecordAndAPastTheTableSlotReadsEntryZero) {
+  pes::PesWorld world;
+  for (int slot = 0; slot < pes::kSlotCount; ++slot) world.BindSlot(slot);
+  for (int slot = 0; slot < pes::kSlotCount; ++slot)
+    EXPECT_EQ(world.ManRecord(slot), world.Bytes() + (pes::PesWorld::ManVa(slot) - pes::kWorldWindowVa)) << "slot " << slot;
+  EXPECT_EQ(world.ManRecord(pes::kManCount), world.ManRecord(0));
+}
+
+TEST(ManRecordDeathTest, AnUnboundSlotStopsTheRunInsteadOfAnsweringNull) {
+  pes::PesWorld world;
+  EXPECT_DEATH(world.ManRecord(3), "never bound");
+}
