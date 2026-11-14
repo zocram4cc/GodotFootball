@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "onthepitch/pespassgetworld.hpp"
+#include "onthepitch/pestrapactor.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes_oracle_world.hpp"
 #include "pes_state.hpp"
@@ -126,6 +127,27 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
       }
     }
     copyBytes(world.PassGetPc(slot), pcVa, pes::kPassGetPcBytes);
+    // The man's P record (pc+0x40) is the window's own, as in production: its capture bytes go into world.P(slot), every pointer
+    // into the capture's P names the window's P again, and pc points at it. (The cache object the route reads is P+0x34F0.)
+    constexpr size_t kPcPOffset = 0x40;
+    const uint64_t capP = static_cast<uint64_t>(Read(o, pcVa + kPcPOffset, 8));
+    copyBytes(world.P(slot), capP, pes::kTrapPBytes);
+    const auto relocate = [&](uint8_t* bytes, size_t n, uint64_t va) {
+      for (size_t i = (8 - (va & 7)) & 7; i + 8 <= n; i += 8) {
+        uint64_t word = 0;
+        std::memcpy(&word, bytes + i, 8);
+        const uint64_t capMaVa = Read(o, o.ctxVa + pes::kCtxMaOffset, 8), capEventsVa = Read(o, o.ctxVa + pes::kCtxEventsOffset, 8);
+        const uint64_t was = word;
+        if (word >= capP && word < capP + pes::kTrapPBytes) word = pes::PesWorld::PVa(slot) + (word - capP);
+        else if (word == o.ctxVa) word = pes::PesWorld::CtxVa(side);
+        else if (word == capMaVa) word = pes::PesWorld::MaVa(side);
+        else if (word == capEventsVa) word = pes::PesWorld::EventsVa();
+        if (word != was) std::memcpy(bytes + i, &word, 8);
+      }
+    };
+    relocate(world.P(slot), pes::kTrapPBytes, capP);  // P-relative words, aligned as the capture's P is
+    pes::ConstructActionTable(world, slot);  // the window's own action table (its pointers name window objects), as in production
+    pes::StoreU64(world.PassGetPc(slot), kPcPOffset, pes::PesWorld::PVa(slot));
     copyBytes(world.PassGetR(slot), rVa, pes::kPassGetRBytes);
     // The skip object (G+0x3B0): the tick reads it (FUN_1423E7FD0's byte +0x9C); the capture's bytes are its state.
     copyBytes(world.Skip(), Read(o, g + pes::kSkipPtrOffset, 8) ? Read(o, Read(o, g + pes::kSkipPtrOffset, 8), pes::kSkipBytes) : 0, pes::kSkipBytes);
@@ -185,6 +207,13 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
         else merged.push_back(r);
       }
       osSegs.clear();
+      std::vector<std::pair<uint64_t, uint64_t>> clipped;  // the capture's P block is the window's now: no heap staging inside it
+      for (const auto& [lo, hi] : merged) {
+        if (hi <= capP || lo >= capP + pes::kTrapPBytes) { clipped.push_back({lo, hi}); continue; }
+        if (lo < capP) clipped.push_back({lo, capP});
+        if (hi > capP + pes::kTrapPBytes) clipped.push_back({capP + pes::kTrapPBytes, hi});
+      }
+      merged = clipped;
       for (const auto& [lo, hi] : merged) {
         pes::PesTrapSegment seg;
         seg.va = lo;
@@ -196,7 +225,8 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
           uint64_t word = 0;
           std::memcpy(&word, &seg.bytes[i], 8);
           const uint64_t mapped = word == capCtx ? pes::PesWorld::CtxVa(side) : word == capMa ? pes::PesWorld::MaVa(side)
-                                  : word == capE ? pes::PesWorld::EventsVa() : word;
+                                  : word == capE ? pes::PesWorld::EventsVa()
+                                  : (word >= capP && word < capP + pes::kTrapPBytes) ? pes::PesWorld::PVa(slot) + (word - capP) : word;
           if (mapped != word) std::memcpy(&seg.bytes[i], &mapped, 8);
         }
         osSegs.push_back(std::move(seg));
