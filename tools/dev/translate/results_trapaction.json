@@ -1528,6 +1528,191 @@
    "stubs": [],
    "translated": true,
    "va": "0x14079E0B0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribspeed.json",
+   "coverage": {
+    "0x1407B4510": {
+     "reached": 17,
+     "total": 26,
+     "fraction": 0.6538
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 2 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble speed-class blend: 2 REAL calls of dribspeed_1407B4510, live2/pid1333886",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 17,
+     "total": 26,
+     "fraction": 0.6538
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407B4510"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribB.json",
+   "coverage": {
+    "0x1407B46A0": {
+     "reached": 5,
+     "total": 7,
+     "fraction": 0.7143
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 2 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble helper: 2 REAL calls of dribB_1407B46A0, live2/pid1333886",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 5,
+     "total": 7,
+     "fraction": 0.7143
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407B46A0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribC.json",
+   "coverage": {
+    "0x1407BD430": {
+     "reached": 63,
+     "total": 73,
+     "fraction": 0.863
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1: 1 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble helper: 1 REAL call of dribC_1407BD430, live2/pid1333886",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 63,
+     "total": 73,
+     "fraction": 0.863
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407BD430"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_dribA.json",
+   "coverage": {
+    "0x1407A5650": {
+     "reached": 63,
+     "total": 93,
+     "fraction": 0.6774
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 8 of 8: 8 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble sub-state helper (called from the dribble handlers): 8 REAL calls of dribA_1407A5650, live2/pid1333886",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 8,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 63,
+     "total": 93,
+     "fraction": 0.6774
+    },
+    "replayed": 8,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407A5650"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickdir.json",
+   "coverage": {
+    "0x140868500": {
+     "reached": 47,
+     "total": 69,
+     "fraction": 0.6812
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 8 of 8: 8 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. touch aggregator kind-0 vector (FUN_140865D70 case 0, record type != 2): 8 REAL calls of kickdir_140868500, live2/pid1333886",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 8,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 47,
+     "total": 69,
+     "fraction": 0.6812
+    },
+    "replayed": 8,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140868500"
   }
  ]
 }

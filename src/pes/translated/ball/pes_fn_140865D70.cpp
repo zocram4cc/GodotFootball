@@ -11,6 +11,7 @@
 static constexpr uint8_t k_t140865EF8_24[36] = {0xDC, 0x5D, 0x86, 0x00, 0x16, 0x5E, 0x86, 0x00, 0x5A, 0x5E, 0x86, 0x00, 0x6A, 0x5E, 0x86, 0x00, 0xAA, 0x5E, 0x86, 0x00, 0xDD, 0x5E, 0x86, 0x00, 0x9A, 0x5E, 0x86, 0x00, 0x7A, 0x5E, 0x86, 0x00, 0x8A, 0x5E, 0x86, 0x00};
 
 void pes_fn_140865D70(PesState& s);
+void pes_fn_140868500(PesState& s);
 void pes_fn_14086A3F0(PesState& s);
 void pes_fn_14086C100(PesState& s);
 
@@ -85,7 +86,7 @@ void pes_fn_140865D70(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("z")) goto L_140865DF4;
-  /*OUT-OF-SET CALL 0x140868500*/ pes_dispatch_missing(0x140868500);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140868500(s); s.gpr[4] += 8; }
   goto L_140865EDD;
   L_140865DF4:;
   s.set_x_f32(1, s.rdf(((s.gpr[14]) + (0x68ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;

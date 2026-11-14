@@ -234899,6 +234899,46 @@
    "vtables": [],
    "walked": true
   },
+  "1407A5650": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "1404B6390": "direct",
+    "1405C6560": "direct",
+    "1406F0590": "direct",
+    "140A57650": "direct",
+    "140A57710": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407A573E",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407A5824",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407a5650",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribA"
+   ],
+   "scope": "in",
+   "size": 347,
+   "source": "pdata",
+   "subsystem": "dribA",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407A5CC0": {
    "boundary": null,
    "callees": {
@@ -237642,6 +237682,71 @@
    "vtables": [],
    "walked": true
   },
+  "1407B4510": {
+   "boundary": null,
+   "callees": {
+    "1406B0180": "direct",
+    "1406B0ED0": "direct",
+    "1406E6660": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407B4553",
+     "text": "call qword ptr [r9 + 0x40]"
+    },
+    {
+     "site": "1407B4560",
+     "text": "call qword ptr [r9 + 0x18]"
+    },
+    {
+     "site": "1407B4570",
+     "text": "call qword ptr [rdx + 0x30]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407b4510",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribspeed"
+   ],
+   "scope": "in",
+   "size": 101,
+   "source": "pdata",
+   "subsystem": "dribspeed",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407B46A0": {
+   "boundary": null,
+   "callees": {
+    "1406E6660": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1407b46a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribB"
+   ],
+   "scope": "in",
+   "size": 28,
+   "source": "pdata",
+   "subsystem": "dribB",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1407B4710": {
    "boundary": null,
    "callees": {
@@ -239688,6 +239793,104 @@
    "size": 15,
    "source": "pdata",
    "subsystem": "dribbletick",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1407BD430": {
+   "boundary": null,
+   "callees": {
+    "1404309C0": "direct",
+    "14043A0A0": "direct",
+    "1404BCAD0": "direct",
+    "140581A40": "direct",
+    "140591A10": "direct",
+    "1406ABB30": "direct",
+    "1406ABBA0": "direct",
+    "1406ABD60": "direct",
+    "1406AF620": "direct",
+    "1406AF8E0": "direct",
+    "1406B03D0": "direct",
+    "1406B0ED0": "direct",
+    "1406E6660": "direct",
+    "1406E8790": "direct",
+    "1406E8B70": "direct",
+    "1406E8CC0": "direct",
+    "1407B4A60": "direct",
+    "1407B6080": "direct",
+    "140A6CF70": "direct",
+    "140A92950": "direct",
+    "1415A1780": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1407BD5CD",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407BD767",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407BD773",
+     "text": "call qword ptr [rdx + 0x30]"
+    },
+    {
+     "site": "1407BD7D8",
+     "text": "call qword ptr [rax + 0x18]"
+    },
+    {
+     "site": "1407BD7F5",
+     "text": "call qword ptr [rdx + 0x40]"
+    },
+    {
+     "site": "1407BD801",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407BD826",
+     "text": "call qword ptr [rdx + 0x18]"
+    },
+    {
+     "site": "1407BD9D6",
+     "text": "call qword ptr [rax]"
+    },
+    {
+     "site": "1407BD9F3",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407BD9FC",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407BDA05",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407BDA0E",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1407BDA55",
+     "text": "call qword ptr [rax + 0x28]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1407bd430",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "dribC"
+   ],
+   "scope": "in",
+   "size": 350,
+   "source": "pdata",
+   "subsystem": "dribC",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1312974,6 +1313177,24 @@
      "0x140699960"
     ]
    },
+   "dribA": {
+    "members": 1,
+    "roots": [
+     "0x1407A5650"
+    ]
+   },
+   "dribB": {
+    "members": 1,
+    "roots": [
+     "0x1407B46A0"
+    ]
+   },
+   "dribC": {
+    "members": 1,
+    "roots": [
+     "0x1407BD430"
+    ]
+   },
    "dribble": {
     "members": 84,
     "roots": [
@@ -1313024,6 +1313245,12 @@
      "0x1406EAB00"
     ]
    },
+   "dribspeed": {
+    "members": 1,
+    "roots": [
+     "0x1407B4510"
+    ]
+   },
    "endclear": {
     "members": 84,
     "roots": [
@@ -1313044,6 +1313271,12 @@
     "members": 237,
     "roots": [
      "0x140472640"
+    ]
+   },
+   "kickdir": {
+    "members": 1,
+    "roots": [
+     "0x140868500"
     ]
    },
    "motion": {
