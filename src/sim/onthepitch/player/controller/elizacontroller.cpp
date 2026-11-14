@@ -1140,7 +1140,38 @@ pes::SlideAggressionInput ElizaController::_SlideAggression() {
   return in;
 }
 
+// GF mode (pes_loop off): the legacy receiver approach, kept for the switch-off baseline. ponytail: GF's distance-to-velocity ramp stands in
+// for PES's route; the PES path below (_PassGetApproach) runs ActionPassGet's own tick and has no GF part.
+void ElizaController::_PassGetApproachGf(PlayerCommandQueue& commandQueue) {
+  const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
+  // FUN_140a4d340 searches the prediction one PES frame at a time, 0..0xf9.
+  constexpr int kPredictionFrames = 0xf9;
+  const float frame_ms = pesball::kPesTick_s * 1000.0f;
+  std::vector<pes::Point2> path;
+  path.reserve(kPredictionFrames);
+  for (int f = 0; f < kPredictionFrames; ++f) {
+    const Vector3 b = _mentalImage->GetBallPrediction(static_cast<int>(f * frame_ms));
+    path.push_back({b.coords[0], b.coords[1]});
+  }
+  const Vector3 me = CastPlayer()->GetPosition();
+  const pes::Point2 p =
+      pes::ReceivingPoint(k, path, {me.coords[0], me.coords[1]}, pitchHalfW, pitchHalfH);
+  const Vector3 target(p.x, p.y, 0);
+  PlayerCommand command;
+  command.desiredFunctionType = e_FunctionType_Movement;
+  command.useDesiredMovement = true;
+  command.desiredDirection = (target - me).Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+  // ponytail: the route's speed choice (BallFollow slots 0x58/0x60, not
+  // reduced) - GF's distance-to-velocity ramp stands in.
+  command.desiredVelocityFloat = RangeVelocity(
+      clamp((target - me).GetLength() * distanceToVelocityMultiplier, 0.0f, sprintVelocity));
+  command.useDesiredLookAt = true;
+  command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
+  commandQueue.push_back(command);
+}
+
 void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
+  if (!match->PesLoop()) return _PassGetApproachGf(commandQueue);
   // PES's ActionPassGet tick (0x14094E0E0) on the world window: it leaves the target point and the speed class in the command record
   // (docs/re/pes-re-receiving.md 4, pes-re-decision-read.md). The action id 5 is PASS_GET (R+0x874).
   constexpr uint32_t kPassGetAction = 5;

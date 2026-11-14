@@ -218,6 +218,30 @@ bool WithinBallDistanceTable(const ReceiveConstants& c, float ballDistanceSq_m2)
   return ballDistanceSq_m2 <= c.ballDistanceTableMaxSq_m2;
 }
 
+Point2 ReceivingPoint(const ReceiveConstants& c, const std::vector<Point2>& ballPath, Point2 me,
+                      float halfLength, float halfWidth) {
+  Point2 p = me;
+  float best = -1.0f;
+  for (const Point2& b : ballPath) {
+    const float d = (b.x - me.x) * (b.x - me.x) + (b.y - me.y) * (b.y - me.y);
+    if (best < 0.0f || d < best) {
+      best = d;
+      p = b;
+    }
+  }
+  if (std::fabs(p.x) > halfLength + c.receivingPointMargin_m) {
+    const float x = p.x < 0.0f ? -halfLength : halfLength;
+    p.y = p.y - (p.y - me.y) * (p.x - x) / (p.x - me.x);
+    p.x = x;
+  }
+  if (std::fabs(p.y) > halfWidth + c.receivingPointMargin_m) {
+    const float y = p.y < 0.0f ? -halfWidth : halfWidth;
+    p.x = p.x - (p.y - y) * (p.x - me.x) / (p.y - me.y);
+    p.y = y;
+  }
+  return p;
+}
+
 FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in, float fps) {
   const FirstTouch control{TouchKind::kControl, in.bodyHeading_deg, c.lineMargin_m};
   const long ageFrames = std::lround(in.eventAge_s * fps);

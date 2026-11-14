@@ -191,6 +191,12 @@ struct Point2 {
   float x = 0, y = 0;
 };
 
+// ActionPassGet's receiving point: the predicted ball point nearest the
+// receiver (FUN_140a4d340 over the prediction, one point per frame), clamped
+// onto the pitch along the line from him (FUN_14094e3a0).
+Point2 ReceivingPoint(const ReceiveConstants& c, const std::vector<Point2>& ballPath, Point2 me,
+                      float halfLength, float halfWidth);
+
 FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in, float fps);
 
 // --- Designated owner (MA+0x2600C: FUN_140457070's ring-0 scan d_a.c:1248-1283; gate 4c d_b.c:91) ---

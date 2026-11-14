@@ -1421,7 +1421,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: /mnt/Extra4/gf-Rendezvous-scratch/live2/pid615681 seq027 seq034 seq037 seq041 seq050 seq052",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid615681 seq027 seq034 seq037 seq041 seq050 seq052",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
@@ -1458,7 +1458,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: /mnt/Extra4/gf-Rendezvous-scratch/live2/pid615681 seq001 seq002 seq003 seq004 seq005 seq006",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid615681 seq001 seq002 seq003 seq004 seq005 seq006",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
@@ -1495,7 +1495,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 4 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: /mnt/Extra4/gf-Rendezvous-scratch/live2/pid634115 seq007 seq2005 seq3517 seq3520",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 4 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq007 seq2005 seq3517 seq3520",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
@@ -1532,7 +1532,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: /mnt/Extra4/gf-Rendezvous-scratch/live2/pid634115 seq005 seq1991 seq2003 seq3515 seq3518 seq545",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq005 seq1991 seq2003 seq3515 seq3518 seq545",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
@@ -1569,7 +1569,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: /mnt/Extra4/gf-Rendezvous-scratch/live2/pid634115 seq009 seq010 seq483 seq484 seq485 seq486",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq009 seq010 seq483 seq484 seq485 seq486",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
@@ -1606,7 +1606,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: /mnt/Extra4/gf-Rendezvous-scratch/live2/pid634115 seq006 seq1992 seq2000 seq2004 seq568 seq658",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq006 seq1992 seq2000 seq2004 seq568 seq658",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
