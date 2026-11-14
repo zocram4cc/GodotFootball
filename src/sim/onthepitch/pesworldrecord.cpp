@@ -403,6 +403,7 @@ void PesWorld::RunPassGetTick(int slot, PesTrapExternals& ext) {
   s.gpr[8] = PassGetRVa(slot);  // r8: the command record R
   s.gpr[9] = PassGetArgVa(slot);  // r9: the u32 the caller passes by pointer
   s.mem.wlog = ext.writeLog;
+  s.mem.readLog = ext.readLog;
   ::pes_fn_14094E0E0(s);
   ReturnSegments(s, ext, lent);
 }

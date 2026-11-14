@@ -180,6 +180,8 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
       ext.segments.push_back(std::move(entry));
     }
     ext.segments = std::move(osSegs);
+    std::vector<std::pair<uint64_t, unsigned>> reads;
+    ext.readLog = &reads;
     pes::PesWorld::SetDispatchThrowStatic(true);
     try {
       world.RunPassGetTick(slot, ext);
@@ -188,6 +190,13 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
       continue;
     }
     pes::PesWorld::SetDispatchThrowStatic(false);
+    if (const char* rl = std::getenv("GF_PASSGET_READLOG")) {  // diagnostic: the window run's ordered reads, as the capture-side tool prints them
+      std::FILE* f = std::fopen((std::string(rl) + "/" + dir.substr(dir.find_last_of('/') + 1) + ".jsonl").c_str(), "w");
+      if (f) {
+        for (const auto& [a, n] : reads) std::fprintf(f, "{\"a\": \"0x%llx\", \"n\": %u}\n", static_cast<unsigned long long>(a), n);
+        std::fclose(f);
+      }
+    }
     // PES's own writes over the same ranges, read through the delta overlay (the snapshot as the capture saw it at entry).
     const WriteLog pes(o.row);
     // The capture's own VAs: the tick wrote into ITS object/pc/R (heap addresses); the window holds the same records at
