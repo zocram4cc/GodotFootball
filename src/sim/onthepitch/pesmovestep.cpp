@@ -428,8 +428,11 @@ class MoveHostAdapter final : public pes::MoveHost {
   int CurrentMotion() const override { return pesmovestep::CurrentMotionOf(player_); }
   int CurrentClipFrames() const override { return player_.GetFrameNum(); }
   int AnimeState() const override {
-    // ponytail: vt+0x28 of the +0xab8 interface; GF answers the MOVE action (2) for
-    // movement-like functions, else the 0 stub (never the 0x4a replay action).
+    // ponytail: PES's action byte P+0xAC9 is maintained by TrapFactsOf/AnimeActionOfClip on TrapContact; read it after the BJ+BK merge.
+    // Until then vt+0x28 answers this 0/2 stand-in: 2 (MOVE) for a movement-like function, else 0 (never the 0x4a replay action).
+    // The table (origin/TrapAdmit pestrapactor.cpp 13-60) disagrees on Trap (7), carrier BallControl (4), ShortPass (9), LongPass
+    // and HighPass (8), Header and Shot (0xA), Sliding (0xB), Trip, Interfere and tackle (0xD), Catch (0x38), Deflect (0x3A), dodge
+    // (0x15) and the locomotion Special (2). Those rows are exactly what the stand-in gets wrong until the merge.
     switch (player_.GetCurrentFunctionType()) {
       case e_FunctionType_Movement:
       case e_FunctionType_BallControl:
