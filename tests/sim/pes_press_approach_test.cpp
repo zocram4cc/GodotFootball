@@ -65,16 +65,17 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 
 }  // namespace
 
-// PES's ActionPress steers the loose-ball presser to its target, the ball now or his own base (docs/re/pes-re-press-life.md
-// section 8, step 6). His movement command must name that target: a command without one projects its direction a second
-// ahead (pesmovestep FillCommandWords), which overshoots a ball a few metres away. Scope: a presser who does not hold the ball
-// and is not the PASS_GET receiver (ActionPassGet's approach is another PES action, not this port's), with a movement decision.
+// PES's ActionPress steers the man whose T+0xA2A0 word is PRESS to its target, the ball now or his own base
+// (docs/re/pes-re-press-life.md section 8, step 6). His movement command must name that target: a command without one projects its
+// direction a second ahead (pesmovestep FillCommandWords), which overshoots a ball a few metres away. Scope: a PRESS man while the
+// ball is in play and no set piece is armed (PES starts one through the MATCH_UP writer and the coordinator, which need an
+// opposing last toucher or carrier: not on a free ball, 0 of 4527 free-ball ticks of seed 7 held a PRESS man, 76 ticks of 12651 in
+// all), who does not hold the ball and is not the PASS_GET receiver (ActionPassGet's approach is another PES action, not this
+// port's), with a movement decision.
 TEST(PesPressApproach, ALoosePresserCommandNamesTheActionPressTarget) {
   unsigned long steered = 0, unnamed = 0;
   RunPesLoopMatch([&](Match& match) {
-    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
-                       match.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
-    if (!loose) return;
+    if (!match.IsInPlay() || match.IsInSetPiece()) return;
     for (int t = 0; t < 2; ++t) {
       Team* team = match.GetTeam(t);
       Player* presser = team->GetController()->GetLoosePressMan();
@@ -85,6 +86,6 @@ TEST(PesPressApproach, ALoosePresserCommandNamesTheActionPressTarget) {
       if (!command->useDesiredTarget) ++unnamed;
     }
   });
-  EXPECT_GT(steered, 0ul) << "no loose presser was steered in the match";
-  EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << steered << " loose-presser movement commands named no target";
+  EXPECT_GT(steered, 0ul) << "no PRESS man was steered in the match";
+  EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << steered << " PRESS-man movement commands named no target";
 }

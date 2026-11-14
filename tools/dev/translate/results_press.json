@@ -1,0 +1,229 @@
+{
+ "note": "press results. diffed = bit-exact vs the unicorn harness over the captured calls named in each record (snapdiff --bounded); pes-port-PressAI.md.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_order.json",
+   "coverage": {
+    "0x14062AF10": {
+     "reached": 79,
+     "total": 89,
+     "fraction": 0.8876
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 28 of 28. SYNTHETIC: 28 call states over one full match state (synth_press_order.py: the men's words, positions and kinds, the ball-distance lists, the enrolment words, the set-piece bytes, the G+0x180 list and the argument objects are chosen, not observed). The press dispatcher FUN_140535C60's order-word helper / slot reset: no hook, no capture calls it.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 28,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 79,
+     "total": 89,
+     "fraction": 0.8876
+    },
+    "replayed": 28,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 28,
+   "translated": true,
+   "va": "0x14062AF10"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_reset.json",
+   "coverage": {
+    "0x140536690": {
+     "reached": 129,
+     "total": 144,
+     "fraction": 0.8958
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 56 of 56. SYNTHETIC: 56 call states over one full match state (synth_press_order.py: the men's words, positions and kinds, the ball-distance lists, the enrolment words, the set-piece bytes, the G+0x180 list and the argument objects are chosen, not observed). The press dispatcher FUN_140535C60's order-word helper / slot reset: no hook, no capture calls it.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 56,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 129,
+     "total": 144,
+     "fraction": 0.8958
+    },
+    "replayed": 56,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 56,
+   "translated": true,
+   "va": "0x140536690"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_eval.json",
+   "coverage": {
+    "0x140633940": {
+     "reached": 120,
+     "total": 193,
+     "fraction": 0.6218
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 28 of 28 (the press target eval FUN_140633940 (second presser pick); 28 real captures of the hook in pid1037286, pid296049, 0 skipped: their trace left the captured pages). proof_press_captures.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 28,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 120,
+     "total": 193,
+     "fraction": 0.6218
+    },
+    "replayed": 28,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140633940"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_coord.json",
+   "coverage": {
+    "0x140634470": {
+     "reached": 61,
+     "total": 112,
+     "fraction": 0.5446
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 80 of 80 (the press coordinator FUN_140634470 (PRESS/SAND second presser); 80 real captures of the hook in pid1037286, pid296049, 0 skipped: their trace left the captured pages). proof_press_captures.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 80,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 61,
+     "total": 112,
+     "fraction": 0.5446
+    },
+    "replayed": 80,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140634470"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_writer.json",
+   "coverage": {
+    "0x140536FC0": {
+     "reached": 75,
+     "total": 170,
+     "fraction": 0.4412
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 23 of 23 (the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots): 3 kick-off captures (live2/pid296049 seq009, seq4264, seq4754), 4 in-play captures that leave at the body filter (seq94346, seq95361, seq95772, seq96616) and 16 SYNTHETIC states over seq95772 (synw2.py/synw3.py: own men marked off the pitch so the 11-slot filter passes, T+0xF1 armed, randomised men positions, T+0xB709 and the slot words 0x3A/0x34)).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 23,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 75,
+     "total": 170,
+     "fraction": 0.4412
+    },
+    "replayed": 23,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140536FC0",
+   "synthetic": true,
+   "synthetic_cases": 16
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_matchup.json",
+   "coverage": {
+    "0x140536210": {
+     "reached": 86,
+     "total": 94,
+     "fraction": 0.9149
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 68 of 68 (the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word); 12 real captures of the hook in pid1513193, 0 skipped: their trace left the captured pages; plus 56 SYNTHETIC states over one full match state (synth_press_order.py matchup_case: the men's words, positions, the partner words, the ball-distance lists and the set-piece object are chosen)). proof_press_captures.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 68,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 86,
+     "total": 94,
+     "fraction": 0.9149
+    },
+    "replayed": 68,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140536210",
+   "synthetic": true,
+   "synthetic_cases": 56
+  }
+ ]
+}
