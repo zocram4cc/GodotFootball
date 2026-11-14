@@ -14,10 +14,13 @@ path_patterns=(
   '/hom[e]/' '/mn[t]/' '/run/medi[a]/' '/User[s]/'
   '\.claud[e]' 'claude-[0-9]'
 )
-# A Windows drive path is a machine path, except where the translator models quote PES's own strings (the image's executable
-# path and root directory, which its code reads back): those two files describe PES's OS answers.
+# A Windows drive path is a machine path. The two translator files below quote PES's own OS answers (the image's executable
+# path, in JSON-escaped or plain form, and the root directory its code reads back); those exact strings are removed from a
+# hit line before the pattern is tested again, so any other drive path in the same files still fails.
 drive_pattern='(^|[^A-Za-z0-9_])[A-Za-z]:\\'
-drive_exempt=(tools/dev/translate/import_stubs.json tools/dev/translate/xlate.py)
+drive_exempt_files=(tools/dev/translate/import_stubs.json tools/dev/translate/xlate.py)
+# (each literal is split after its first letter so this line does not match the pattern it exempts)
+drive_exempt_strings=('C'':\\PES2021.exe' 'C'':\PES2021.exe' 'L\"C'':\\\"' 'L"C'':\\"')
 user_patterns=()
 [ -n "${USER:-}" ] && user_patterns+=("/${USER}/" "-${USER}-")
 host=$(hostname 2>/dev/null || true)
@@ -40,14 +43,17 @@ scan() {  # $1 = label, $2 = grep flags, $3 = pattern
   [ -n "$out" ] && while IFS= read -r line; do hit "$1: $line"; done <<<"$out"
 }
 for p in "${path_patterns[@]}"; do scan "machine path" -E "$p"; done
-drive_files=()
-for f in "${files[@]}"; do
-  skip=0
-  for e in "${drive_exempt[@]}"; do [ "$f" = "$e" ] && skip=1; done
-  [ "$skip" -eq 0 ] && drive_files+=("$f")
-done
-out=$(printf '%s\0' "${drive_files[@]}" | xargs -0 grep -nH -E -e "$drive_pattern" -- 2>/dev/null)
-[ -n "$out" ] && while IFS= read -r line; do hit "machine path: $line"; done <<<"$out"
+out=$(printf '%s\0' "${files[@]}" | xargs -0 grep -nH -E -e "$drive_pattern" -- 2>/dev/null)
+[ -n "$out" ] && while IFS= read -r line; do
+  file=${line%%:*}
+  rest=$line
+  for e in "${drive_exempt_files[@]}"; do
+    if [ "$file" = "$e" ]; then
+      for lit in "${drive_exempt_strings[@]}"; do rest=${rest//"$lit"/}; done  # only PES's own strings go; any other drive path stays
+    fi
+  done
+  [[ "$rest" =~ $drive_pattern ]] && hit "machine path: $line"
+done <<<"$out"
 for p in "${user_patterns[@]}"; do scan "user/host" -F "$p"; done
 
 emails=$(printf '%s\0' "${files[@]}" | xargs -0 grep -nHoE -e "$email" -- 2>/dev/null)
