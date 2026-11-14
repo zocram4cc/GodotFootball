@@ -30,7 +30,8 @@ ROOTS = {"ai_press_writer_536FC0": ("0x140536FC0", "closure_press_writer.json", 
          "press_matchup_536210": ("0x140536210", "closure_press_matchup.json", "the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word)"),
          "manthink_14092ED30": ("0x14092ED30", "closure_press_manthink.json", "the man's think FUN_14092ED30 (counters A and B of the slot record, the arrival-time estimate)"),
          "press_dispatch_535C60": ("0x140535C60", "closure_press_dispatch.json", "the press dispatcher FUN_140535C60 (the defence passes, MATCH_UP, coordinator, reset, writer)"),
-         "stats_ctor_1408C6B80": ("0x1408C6B80", "closure_press_stats.json", "the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads)")}
+         "stats_ctor_1408C6B80": ("0x1408C6B80", "closure_press_stats.json", "the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads)"),
+         "statsreset_1408CA340": ("0x1408CA340", "closure_press_statsreset.json", "the match-statistics reset FUN_1408CA340 (the ctor's last step; PES calls it again at a period reset)")}
 
 
 def captures(launches):

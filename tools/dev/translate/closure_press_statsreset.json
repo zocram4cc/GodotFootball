@@ -1,0 +1,12 @@
+{
+ "note": "the functions built for the proof of the match-statistics reset FUN_1408CA340 (the ctor's last step; PES calls it again at a period reset) over 4 real captures (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 4) plus the root's static direct-call closure (2 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
+ "root": "0x1408CA340",
+ "members": [
+  "0x1403FB410",
+  "0x1403FB860",
+  "0x1408CA250",
+  "0x1408CA340",
+  "0x1408CAB50",
+  "0x1415A1720"
+ ]
+}

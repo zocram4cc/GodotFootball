@@ -73,6 +73,11 @@ const Census& RunKickoff() {
     setup.animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
     setup.rig = &*rig;
     if (!pestest::FillMissingPesConstants(&setup)) return c;
+    // The PES captures' match was played at team level 5 (T+0xA294 = 500 on both sides, seq342); GF has no match-setting selector and
+    // takes the install's stock class (200), under which the dispatcher's mark pass does not run. The fixture states the capture's level.
+    pes::CarrierConstants carrier = *setup.pesCarrierConstants;
+    carrier.teamLevelRaw = 500;
+    setup.pesCarrierConstants = &carrier;
     Properties config;
     config.SetBool("pes_loop", true);
     Match match(new MatchData(kHomeTeam, kAwayTeam), setup, config);

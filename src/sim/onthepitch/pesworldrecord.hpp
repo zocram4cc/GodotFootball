@@ -1229,6 +1229,7 @@ class PesWorld {
     uint32_t playState = 0;            // MI+0x116C
     uint32_t frame = 0;                // T+0x21C
     uint32_t attackLevel = 0;          // T+0xB8A4
+    uint32_t teamLevelRaw = 0;         // T+0xA294: the side's level x100 (the mark pass 0x140534A20 tests it through 0x140A604D0)
     int attackSign = 0;                // T+0x254 (+1: the side attacks +x)
     float attackAngle_deg = 0.0f;      // T+0x250
     uint8_t armed = 0;                 // T+0xF1

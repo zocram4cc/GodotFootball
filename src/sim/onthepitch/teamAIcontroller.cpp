@@ -2492,6 +2492,7 @@ void TeamAIController::PesPressTick() {
       match->IsInPlay(), buffer.active, buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started));
   f.frame = static_cast<uint32_t>(match->GetSimFrame());
   f.attackLevel = static_cast<uint32_t>(teamTick.b8a4);
+  f.teamLevelRaw = static_cast<uint32_t>(match->GetTeamLevelRaw(side));
   f.attackSign = -team->GetSide();
   f.attackAngle_deg = f.attackSign > 0 ? kAttackAnglePlusX_deg : kAttackAngleMinusX_deg;
   // T+0xF1 / +0xB712 / +0xB715: the writer's body gate. ponytail: PES's event walk sets them on event type 7 (FUN_140501283 /

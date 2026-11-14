@@ -967,6 +967,8 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
   t[kTeamArmedOffset] = f.armed;
   StoreU32(t, kTeamFrameOffset, f.frame);
   StoreU32(t, kTeamAttackLevelOffset, f.attackLevel);
+  StoreU32(t, kSideTierOffset, f.teamLevelRaw);  // the level word: its reader 0x140A40BD0 answers 0 when +0xA29C is set
+  t[kSideTierFlagOffset] = 0;
   SetAttackSign(side, f.attackSign);
   SetAttackAngle(side, f.attackAngle_deg);
   if (f.sheet != nullptr) std::memcpy(t + kTeamSheetOffset, f.sheet, kSheetBytes);
