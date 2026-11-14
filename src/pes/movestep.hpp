@@ -66,19 +66,18 @@ enum class MoveState : uint8_t {
 };
 inline constexpr int kMoveStateCount = 24;
 
-// The FSM's pose hold: while the state is STOP, ACCELERATE, GOTO_RUN, IDLE_TURN or RUN_TURN_RUN the body keeps its pose. The
-// clip's end does not switch the body and the AI's movement command selects no clip (humanoid.cpp): PES's anime player keeps a
-// finished clip as the current motion until the next issue, and these handlers read that clip to exit. ponytail: the hold set is
-// the states whose exit reads the finished clip and is decoded (RUN_TURN_RUN: FUN_1406C14C0 from its instruction stream; GOTO_RUN:
-// FUN_1406bdf10 from its asm, 606 oracle rows, its exit waits for the clip's blend-or-last tick; IDLE_TURN: its entry
-// FUN_1406d1390 is oracle-checked (1,452 rows) and now issues PES's turn row clips (0x1425dda30), whose finished clip the
-// IdleTurn exit (`total <= frame || fixed <= frame`) reads; released at the clip's end the restart takers stood in IDLE/IDLE_TURN/
-// STEP_LOOP for minutes in PesForfeitMatch.ARedCard and GoalSceneHold/PesLoop); the other turn states keep the old hand-off
-// because their ports do not exit reliably yet (widening the hold to them froze a man for 2,500 ticks). IDLE_TURN's own handler
-// (group A IdleTurn) and IDLE/IDLE_OTHER are not oracle-checked yet.
+// The FSM's pose hold: while the state is STOP, ACCELERATE, GOTO_RUN or RUN_TURN_RUN the body keeps its pose. The clip's end does
+// not switch the body and the AI's movement command selects no clip (humanoid.cpp): PES's anime player keeps a finished clip as
+// the current motion until the next issue, and these handlers read that clip to exit. ponytail: the hold set is the states whose
+// exit is decoded and checked (RUN_TURN_RUN: FUN_1406C14C0 from its instruction stream; GOTO_RUN: FUN_1406bdf10 from its asm,
+// 606 oracle rows; its exit waits for the clip's blend-or-last tick, which a switched-away body never reaches). Not held, and
+// measured: IDLE_TURN (holding it kept the body on a finished turn clip: the pes-loop smoke and the restart trio stalled, 12fa66d8)
+// and IDLE (holding it stalled the restart again; the hold makes humanoid.cpp skip the AI's Movement commands, the likely cause
+// [INFERENCE] of the taker never walking to the restart spot). Released, the AI's standby clips take over IDLE and the open-play
+// idle stalls remain (the pes-loop smoke counts 9). The other turn states keep the old hand-off because their ports do not exit
+// reliably yet (widening the hold to them froze a man for 2,500 ticks).
 inline bool HoldsBodyPose(MoveState s) {
-  return s == MoveState::kStop || s == MoveState::kAccelerate || s == MoveState::kRunTurnRun || s == MoveState::kGotoRun ||
-         s == MoveState::kIdleTurn;
+  return s == MoveState::kStop || s == MoveState::kAccelerate || s == MoveState::kRunTurnRun || s == MoveState::kGotoRun;
 }
 
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.
