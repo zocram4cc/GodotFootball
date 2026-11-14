@@ -1010,8 +1010,13 @@ constexpr uint64_t kStatsStride = 0x59650;    // FUN_140535650: side * 0x59650
 
 void PesWorld::ConstructStats() {
   for (int side = 0; side < kSideCount; ++side) {
+    if (!heap_) heap_ = std::make_unique<PesHeap>();  // the constructor allocates its sub-objects through PES's allocator 0x1403FB410
     PesState s = NewCall(Bytes());
-    for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    heap_->Attach(s);
+    AttachImageTables(s);
+    const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
     s.gpr[1] = EventsVa() + kStatsOffset + static_cast<uint64_t>(side) * kStatsStride;  // rcx: the side's block
     ::pes_fn_1408C6B80(s);
   }
