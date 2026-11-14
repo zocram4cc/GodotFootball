@@ -147,3 +147,43 @@ Tip unchanged (`d88d0e6f`). Diagnostics ran in the detached worktree `gf-StepAud
 ### 7.3 Gate on `d88d0e6f`
 - Started ~08:00 (14-11). Smokes done: `smoke-off rc=0`, `smoke-pesloop rc=0` (`gate_final.out`). ctest ran 2423 tests at 10:20 and is still running; no verdict yet. Read `gf-StepAudit5-scratch/gate_final.out` and `done_gate` (`exit=N`) for the verdict.
 - Known expected red: `PesForfeitMatch.AYellowThenRed…` (BLOCKED, ForfeitOrder). Own red: `PesStall.ALiveBall…` (7.2). Not mine: `pes_throwin_release_test`.
+
+### 7.4 Root cause (measured; supersedes 7.2)
+- Site trace (`gf-StepAudit5-scratch/site_diag.patch`, dev worktree only, reverted): `RequestState` logs its call site; StayDecision and StepStops log their inputs. A5, t 380.5-380.7 s, `a5_cycle_trace.txt`:
+  - IDLE (1) -> GOTO_RUN precise -> STEP_LOOP (4) with no RequestState site (GotoRunPrecise writes next = 4; the shared tail sets the change flag).
+  - StayDecision (FUN_1406b6bb0): phase 1, threshold 0.10, gate 112.50 (DAT_1425cb30c), bearing 0.02-0.03 deg, err -117.7 refused (IDLE_TURN), -110.7 and -111.3 accepted.
+  - StepStops (FUN_1406b6ee0): bucket 7, turn = face = -110.7, distLook 10.8, cls 0: case 2/7 gate 0.4 <= 10.8, so `90 < |face|` returns true (stop). PES's case 2/7 uses fabs(req[7]) (the CONCAT44 idiom), so the port matches.
+  - STEP_LOOP stop -> EnterStop no-class arm (FUN_1406d5d60 lines 85-86, liveKind = m = 2) -> IDLE -> re-issue (IDLE arm FUN_1406bf0c0: liveKind != kind issues) -> StayDecision accepts -> repeat.
+  - IDLE_TURN re-enters every 1-3 ticks (FUN_1406bfe70's `current >= total or >= fixed`, clip readers bit-exact); the facing error moves -117.7 -> -110.7 over those re-entries and then drifts away.
+- Every decision above matches PES's decompile for these inputs. What is missing is the body turn: PES's FUN_1406b8340 body tail arms the facing adjuster (`if (req[0x3c]) FUN_141eb35a0(P+0x4d0, req[2], req[0x3d], req[0x3e], req[0x3f]); FUN_141eb3ae0(P+0x4d0)`), which turns the body under 90 deg in about a second (Main's TeamTick7: a class-4 receiver stays at 0.4-2 m/s for ~1 s before MOVESTEP moves him).
+- On MoveStepCell: AdjustAngleApply is a no-op (movestep_turn.cpp, movestep_group_a.cpp:188); FacingAdjusterBusy() is a stand-in `return false` (pesmovestep.cpp:425); the MoveHost has no ArmYawAdjuster; PesWorld::ArmYaw does not exist. The turn lock is written and never applied.
+- RootMotion's branch has the arm: `ArmYawAdjuster` (movestep.hpp:662), the body tail (movestep_dispatch_seams.cpp:62-64), the adapter (pesmovestep.cpp:338), and `PesWorld::ArmYaw` (pesworldrecord.cpp:493). RootMotion is not an ancestor of MoveStepCell.
+- RootMotion's detached worktree (`gf-StepAudit5-rm`, nothing changed), seed 7 pes-loop: full time 25,409 ticks (tip 42,390), 17 stalemate lines (tip 53), no 30-s chase deadlock (episodes 3-5 s, the chaser closes from 6 m to 1 m); log `rm_smoke_loop.log`. Its `PesStall.ALiveBall...` run: `rm_stall_test.log` (see 7.5).
+- Red as framed by Main (IDLE leaves for the walk within N ticks) is already green here: the walk starts in 2 ticks. The failing property is the turn completing before the walk gate; that needs the adjuster, so a MOVESTEP-only test would not pin it faithfully. Not stubbed.
+- DECISION sent to Main: land RootMotion's yaw adjuster on MoveStepCell (pesworldrecord.* is reserved by Main), or let StepLand2 port it. Waiting.
+
+### 7.5 Gate on `d88d0e6f`
+- Still running at 11:26 (`done_gate` absent). Not polled. Record the verdict from `gate_final.out` / `done_gate` when it lands.
+
+### 7.6 Process notes (this round)
+- Two edit-tool slips in the dev worktree, both repaired: a malformed `PUT 15>:` (literal text in the header, moved to the head after the fix) and a wrong namespace for the diagnostic flag (`pes::movestep::` -> `pes::`). Neither reached a commit.
+- A `find /` over the whole disk printed a directory listing and was killed; no effect on the tree.
+
+## 8. Merge of `origin/RootMotion` (89d0b5f0) into MoveStepCell: state at the checkpoint (IN PROGRESS, nothing pushed)
+- Where: dev worktree `gf-StepAudit5-dev`, branch `StepAudit7-merge` at `d88d0e6f` with the merge in progress (MERGE_HEAD `89d0b5f0`). `merge-base` = `c49be935`. Nothing committed; `MoveStepCell` on origin is still `d88d0e6f`.
+- Conflicts (`git merge-tree`: 5 files, 23 hunks), resolved by file:
+  - `src/sim/onthepitch/pesmovestep.cpp` (1 hunk): RootMotion side (`ApplyBodyTail` before the due issue, `issuesBefore` / `IssueCount` guard). The auto-merge dropped the `issuesBefore` declaration; restored at RootMotion's placement.
+  - `src/pes/movestep_group_a.cpp` (2 hunks): MoveStepCell side. `EnterIdleTurn` keeps the due-flag issue (`WriteIssue`) verified by the oracle (`pes_movestep_idleturn_entry_test`, 1,452 rows word-for-word, PES sets `req[0x2f]`). RootMotion's variant issues immediately (`host.Issue`) and its test pins that.
+  - `src/pes/movestep_run.cpp` (12 hunks) and `tests/pes_movestep_run_test.cpp` (7): MoveStepCell side, whole file. RootMotion's file defines `kFlagByteCmd3d/3e/3f` inside a conflicting hunk while its auto-merged code uses them (6 build errors), so a per-hunk merge does not compile. Its whole file builds (`movestep_run.cpp` 89d0b5f0 version), but its test host is a different API (see below).
+  - `tests/pes_movestep_turn_entry_test.cpp` (1 hunk, RootMotion's 350-line file): MoveStepCell side. RootMotion's file is NOT carried (BK).
+- Auto-merged, including `pesworldrecord.*` (`ArmYaw`) and the translated layer. `gen_translated.py --image <local>/ghidra-projects/scratch/Unpacker/pes_full.bin --check`: 5,691 functions regenerate byte-identical, so no regeneration was needed. `tools/dev/ledger.py`: not run.
+- Builds: `gfsim_run` clean (0 errors); `pes_movestep_wire_test` clean; `pes_movestep_test` builds, 31 pass, 1 red brought in: `EnterIdleTurn.IssuesTheTurnRowOfTheKindAtTheColumnOfTheLookBucketAndRequestsIdleTurn` (RootMotion's immediate-issue test vs our due flag).
+- UNFINISHED: `pes_movestep_run_test`, `pes_movestep_step_test`, `pes_movestep_turn_test` do NOT compile against the merged `MoveHost` (RootMotion added pure virtuals; our test hosts do not override them: 99 errors). The test hosts need overrides before these can run. Not done.
+- The property `MoveStepWire.AnIdleTurnFromOverAHundredDegreesGetsTheBodyUnderNinetyWithinTheAdjusterTime` (added, `tests/sim/pes_movestep_wire_test.cpp`): RED on the merged tree with the adjuster armed: 11 of 104 episodes fail with our `movestep_run.cpp`, 5 of 74 with RootMotion's. Two kinds, measured with a temporary per-episode print (removed):
+  - (a) armed but late: IDLE_TURN re-enters and re-arms, so the body needs a second arm; the test counts only the first arm (the criterion may be too strict for that case; to decide).
+  - (b) never armed: slot 10 at t=4653, IDLE with error -109.9 for 120 ticks. The walk-start cycle (StayDecision accepts at 112.5 deg, StepStops stops above 90) never reaches IDLE_TURN, so the adjuster is not armed. RootMotion's GOTO turn-lock arm (`movestep_run.cpp` 741-755) lowers the rate of this case but does not remove it.
+- Breaker `PesStall.ALiveBallNeverLiesStillLongEnoughForTheBreaker` (`liveFirings` must be 0): tip 7,480 ticks; `d2a3d5b6` 1,790 (`rm_stall_test.log`); `89d0b5f0` itself 1,079 (FAIL on RootMotion's own commit, `rm89_stall_test.log`). Remainder: men 1-1.4 m from the ball who are designated and never touch it (a touch decision, not MOVESTEP), plus the case (b) above.
+- Mutation check (ArmYaw call removed: red, restored: green): NOT run.
+- Not run (budget): switch-off and pes-loop smokes on the merged tree, restart trio, playback, GoalSceneHold/PesLoop, ARedCard.
+- Gate on `d88d0e6f`: still running (no `done_gate`), not polled. Verdict pending.
+- Decisions for Main: (1) `movestep_run.cpp` + its test: MoveStepCell (builds, our oracles) or RootMotion (fewer property failures, needs their test host); (2) `EnterIdleTurn`: due flag (PES oracle) or immediate issue (their test); (3) the property criterion for re-armed turns; (4) an owner for the touch defect behind the breaker's remainder.
