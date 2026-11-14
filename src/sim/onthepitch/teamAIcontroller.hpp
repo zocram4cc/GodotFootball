@@ -118,10 +118,11 @@ public:
   // 3.1-3.2). A goal kick's keeper is placed on his stand point when the kick is prepared and held there until the ladder
   // releases it (pesgoalkick.hpp, docs/re/pes-re-kicker-standby.md section 4).
   bool IsPieceTakerWalking(const Player* player) const;
-  // True while PES's throw-in action owns the taker's body: from the lift's start until the restart is over. His clips are the lift and
-  // the loop; the AI's movement commands and the clip-end switch do not reach him (the same rule as the dribble's).
+  // True while PES's phase-4 lift owns the taker's body: the lift warp, from its start to its end. The AI's movement commands and the
+  // clip-end switch do not reach him during the lift. After it the loop plays once (phase 5) and the queued throw switches the body at
+  // the loop's end, as PES does; holding past the loop kept the throw from ever being selected (the set piece then never closed).
   bool PieceTakerOwnsBody(const Player* player) const {
-    return pieceWalk && player == taker && pieceCarrying && (pieceWarping || pieceLifted);
+    return pieceWalk && player == taker && pieceCarrying && pieceWarping;
   }
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
