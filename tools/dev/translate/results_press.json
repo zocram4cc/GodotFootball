@@ -317,25 +317,25 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2 (the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads); 0 real captures of the hook in , 0 skipped: their trace left the captured pages; 2 SYNTHETIC calls rebuilt over a real dispatcher capture (synth_stats.py: rcx = each side's real statistics block; PES runs the constructor once at match load, before any capture window)). proof_press_captures.py.",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4 (the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads); 0 real captures of the hook in , 0 skipped: their trace left the captured pages; 4 SYNTHETIC calls rebuilt over a real dispatcher capture (synth_stats.py: rcx = each side's real statistics block; PES runs the constructor once at match load, before any capture window)). proof_press_captures.py.",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 2,
+    "calls": 4,
     "mismatches": 0,
     "own_block": {
      "reached": 12,
      "total": 12,
      "fraction": 1.0
     },
-    "replayed": 2,
+    "replayed": 4,
     "source": "tools/dev/translate/results_press.json"
    },
    "stubs": [],
    "translated": true,
    "va": "0x1408C6B80",
    "synthetic": true,
-   "synthetic_cases": 2
+   "synthetic_cases": 4
   }
  ]
 }

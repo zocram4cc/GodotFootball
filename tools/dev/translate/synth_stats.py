@@ -45,12 +45,16 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     for side in range(2):
         block = events + STATS_OFFSET + side * STATS_STRIDE
-        spec = {"label": "stats_ctor_side%d" % side, "seed": 7, "count": 1, "as": CTOR,
-                "fields": [{"name": "rcx", "at": "rcx", "type": "u64", "values": [block]}]}
-        path = os.path.join(a.out, "spec_side%d.json" % side)
-        json.dump(spec, open(path, "w"), indent=1)
-        out = os.path.join(a.out, "side%d" % side)
-        subprocess.check_call([sys.executable, os.path.join(HERE, "synth.py"), a.src, out, "--spec", path])
+        # the real block (a constructed one, as the capture holds it) and a zeroed one (what GF's window starts with, and what the
+        # allocator-calling arm of the constructor runs on: 0x1408CAB50 allocates when its sub-object is empty)
+        for tag, fields in (("real", []), ("zero", [{"name": "zero", "at": "va:%#x" % block, "type": "hex",
+                                                      "values": ["00" * STATS_STRIDE]}])):
+            spec = {"label": "stats_ctor_side%d_%s" % (side, tag), "seed": 7, "count": 1, "as": CTOR,
+                    "fields": [{"name": "rcx", "at": "rcx", "type": "u64", "values": [block]}] + fields}
+            path = os.path.join(a.out, "spec_side%d_%s.json" % (side, tag))
+            json.dump(spec, open(path, "w"))
+            subprocess.check_call([sys.executable, os.path.join(HERE, "synth.py"), a.src,
+                                   os.path.join(a.out, "side%d_%s" % (side, tag)), "--spec", path])
 
 
 if __name__ == "__main__":

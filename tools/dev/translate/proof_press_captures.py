@@ -145,7 +145,7 @@ def main():
                 rec["synthetic_cases"] = synthetic
             new.append(rec)
             sp.write_closure(image, va, closure_file, members, "the proof of %s over %d real captures%s (proof_press_captures.py)" % (
-                what, len(used), " and %d SYNTHETIC states" % synthetic if synthetic else ""), static=va != "0x1408C6B80")
+                what, len(used), " and %d SYNTHETIC states" % synthetic if synthetic else ""))
         doc["results"] = keep + new
         json.dump(doc, open(sp.RESULTS, "w"), indent=1)
         open(sp.RESULTS, "a").write("\n")

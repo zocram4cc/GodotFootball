@@ -1,7 +1,9 @@
 {
- "note": "the functions built for the proof of the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads) over 0 real captures and 2 SYNTHETIC states (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 13) plus the root's static direct-call closure (0 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
+ "note": "the functions built for the proof of the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads) over 0 real captures and 4 SYNTHETIC states (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 13) plus the root's static direct-call closure (2 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
  "root": "0x1408C6B80",
  "members": [
+  "0x1403FB410",
+  "0x1403FB860",
   "0x1408C6790",
   "0x1408C6890",
   "0x1408C6AD0",
