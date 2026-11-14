@@ -83,6 +83,10 @@ add_executable(pes_roster_entry_test pes_roster_entry_test.cpp)
 target_link_libraries(pes_roster_entry_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_roster_entry_test)
 
+add_executable(pes_vsprintf_model_test pes_vsprintf_model_test.cpp)
+target_link_libraries(pes_vsprintf_model_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_vsprintf_model_test)
+
 add_executable(pes_joint_block_test pes_joint_block_test.cpp)
 target_link_libraries(pes_joint_block_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_joint_block_test)
