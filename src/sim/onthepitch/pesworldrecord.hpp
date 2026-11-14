@@ -60,7 +60,14 @@ inline constexpr std::size_t kPitchRecordBytes = 0x48;
 inline constexpr std::size_t kBallPtrOffset = 0x40;
 // G's pointer to the roster block (the team tick's chain reads it: PES's roster G+0x180, 24 entries of 0x74 bytes whose u32 at
 // +0x20 is the entry's slot id and whose byte at +0xD is a flag). Every captured entry read 0xFF at +0x20 and 0 at +0xD (the
-// captured team ticks in play and in the stoppage alike), which the readers treat as "no entry".
+// captured team ticks in play and in the stoppage alike), which the readers treat as "no entry". PES's writers, found by static
+// analysis (no hook yet): the factory FUN_142160080 (a 0x1EC10-byte owner, cached at holder+0x10), its constructor FUN_14214CA10
+// (owner+0 = 0xFF, the 24 entries at owner+4+i*0x74 from FUN_140A55940 with FUN_140A55F80 and the record FUN_140A6E650), and the
+// population FUN_142155AA0 (entries copied from a source list). G+0x180 points at a table laid out like that owner's entries (owner+4);
+// the store of the pointer itself is not traced. The kick request builder FUN_140833CD0 reads an
+// entry's id (+0x20) and flag (+0xD), and its record (+0x68) only after an id matched the kicker. No captured entry ever matches, so
+// the bytes this port leaves zero (the record, and the other defaults) are not read on that path. ponytail: the source list is not
+// ported; the other readers of G+0x180 are not audited.
 inline constexpr std::size_t kRosterPtrOffset = 0x180;
 inline constexpr int kRosterEntries = 24;
 inline constexpr std::size_t kRosterEntryBytes = 0x74;
