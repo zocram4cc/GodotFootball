@@ -679,6 +679,38 @@ TEST(MoveStepWire, AMoveTargetWithin20CmOfTheRootSteersByTheBall) {
   EXPECT_NEAR(req.F(pes::moveword::kMoveTargetZ), -ball.coords[1], 1e-3f);
 }
 
+// A command that carries PES's own command words (the ActionPassGet tick's R: id, kind, precise, speed class, use-class-rate byte and
+// desired km/h, FUN_1406b7560 lines 52-62 and 305-307) reaches the request as they stand, not as the classes GF derives from the
+// command's velocity (a sprint-level velocity here would derive class 4 and no class-rate flag).
+TEST(MoveStepWire, ThePesCommandWordsReachTheRequestUnchanged) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = p->GetPosition() + Vector3(6.0f, 0.0f, 0.0f);
+  c.desiredVelocityFloat = sprintVelocity;
+  c.usePesWords = true;
+  c.pesWords = {5, 8, 0, 1, true, 5.0f};
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq on = pesmovestep::TickRequest(*p, *match);
+  EXPECT_EQ(on.U(pes::moveword::kCommandSpeedClass), 0u) << "cmd[0x17] = 1 maps to band 0 (FUN_1406b8de0), not the dash GF derives";
+  EXPECT_NEAR(on.F(pes::moveword::kDesiredSpeedKmh), 5.0f, 1e-4f) << "cmd[0x172]";
+  EXPECT_TRUE(on.Flag(pes::moveword::kUseClassRate)) << "cmd+0x5C5";
+  EXPECT_EQ(on.U(pes::moveword::kCommandId), 5u) << "cmd[0]";
+  EXPECT_EQ(on.U(pes::moveword::kKind), 2u) << "cmd[0x16] = 8 is read as 2";
+  c.pesWords.useClassRate = false;
+  c.pesWords.speedClass = 3;
+  c.pesWords.desiredKmh = 11.0f;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq off = pesmovestep::TickRequest(*p, *match);
+  EXPECT_FALSE(off.Flag(pes::moveword::kUseClassRate));
+  EXPECT_NEAR(off.F(pes::moveword::kDesiredSpeedKmh), 11.0f, 1e-4f);
+  EXPECT_NE(off.U(pes::moveword::kCommandSpeedClass), on.U(pes::moveword::kCommandSpeedClass));
+}
+
 // The request steers by the AI's decision on the tick the decision changes, not by the clip the mover plays: a decision
 // that turns him from east to north moves the request's move target north the same tick. Built on the clip's own command,
 // the target keeps pointing where the clip's command did until the clip ends.
