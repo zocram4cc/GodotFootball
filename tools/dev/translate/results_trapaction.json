@@ -1359,18 +1359,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 9 of 9: 0 REAL captured call(s) and 9 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble reach test (vt slot 0xB8 of the Dribble action): 9 SYNTHETIC cases over dribbletick seq282 (no real call of the test is captured)",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 10 of 10: 1 REAL captured call(s) and 9 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. dribble reach test (vt slot 0xB8 of the Dribble action): 1 REAL call (live2/pid480109/seq017, mirrored motion 0x250, bit 9 set) + 9 SYNTHETIC cases over dribbletick seq282",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 9,
+    "calls": 10,
     "mismatches": 0,
     "own_block": {
      "reached": 40,
      "total": 41,
      "fraction": 0.9756
     },
-    "replayed": 9,
+    "replayed": 10,
     "source": "tools/dev/translate/results_trapaction.json"
    },
    "stubs": [],
@@ -1378,6 +1378,80 @@
    "va": "0x1407B7720",
    "synthetic": true,
    "synthetic_cases": 9
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_ballagg.json",
+   "coverage": {
+    "0x140865D70": {
+     "reached": 8,
+     "total": 28,
+     "fraction": 0.2857
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. touch aggregator (kind dispatch of the ball executor 0x140425010): 6 REAL calls of ballagg_140865D70, live2/pid350172 (kind 2 and kind 4 records)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 28,
+     "fraction": 0.2857
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140865D70"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_ballcand.json",
+   "coverage": {
+    "0x140874860": {
+     "reached": 31,
+     "total": 67,
+     "fraction": 0.4627
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 8 of 8: 8 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kick candidate builder (called by the kick application 0x140870A40): 8 REAL calls of ballcand_140874860, live2/pid350172",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 8,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 31,
+     "total": 67,
+     "fraction": 0.4627
+    },
+    "replayed": 8,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140874860"
   }
  ]
 }

@@ -1312872,6 +1312872,18 @@
      "0x1404F8C70"
     ]
    },
+   "ballagg": {
+    "members": 1,
+    "roots": [
+     "0x140865D70"
+    ]
+   },
+   "ballcand": {
+    "members": 1,
+    "roots": [
+     "0x140874860"
+    ]
+   },
    "cardlevel": {
     "members": 93,
     "roots": [
