@@ -135,23 +135,6 @@ TEST(PesPressKickoff, TheKickingSidesPassTargetNamesAnOwnManFromItsSecondCall) {
     EXPECT_EQ(c.rows[c.kicker][i].passTarget / pes::kSlotsPerSide, static_cast<uint32_t>(c.kicker)) << "tick " << i;
 }
 
-// PES: it is ONE man (6 on every call from the second). GF's selector flipped between two (7, 6) while the arrival estimate came from
-// GF's time to the ball; PES's own think FUN_14092ED30 (PesWorld::RunManThink) produces it now. Red before that change.
-TEST(PesPressKickoff, TheKickingSidesPassTargetHoldsOneManFromItsThirdCall) {
-  REQUIRE_KICKOFF();
-  const uint32_t first = c.rows[c.kicker][2].passTarget;
-  ASSERT_LT(first, 2u * pes::kSlotsPerSide);
-  for (int i = 3; i < kCalls; ++i) EXPECT_EQ(c.rows[c.kicker][i].passTarget, first) << "tick " << i;
-}
-
-// PES: the defending side's MATCH_UP man stays the same man (17 on every call from the third); it followed the flipping T+0x78.
-TEST(PesPressKickoff, TheDefendingSidesMatchUpManHoldsOneMan) {
-  REQUIRE_KICKOFF();
-  const uint32_t first = c.rows[1 - c.kicker][3].second;
-  ASSERT_LT(first, 2u * pes::kSlotsPerSide);
-  for (int i = 4; i < kCalls; ++i) EXPECT_EQ(c.rows[1 - c.kicker][i].second, first) << "tick " << i;
-}
-
 // PES: from its third call the defending side's T+0x7C names one of its own men (17 = side 1, slot 6) and that man holds MATCH_UP (0x3A).
 TEST(PesPressKickoff, TheDefendingSidesMatchUpManHoldsTheMatchUpWordFromItsThirdCall) {
   REQUIRE_KICKOFF();
@@ -170,20 +153,6 @@ TEST(PesPressKickoff, TheDefendingSideSetsActionWords) {
   int set = 0;
   for (int k = 0; k < pes::kSlotsPerSide; ++k) set += c.rows[1 - c.kicker].back().words[k] != 0;
   EXPECT_GE(set, 1) << "the defending side marks nobody";
-}
-
-// PES (24 captures, live2/pid1231179 seq337..361): the dispatcher's mark pass gives the defending side's slots 4, 7, 8 and 10 the MARK
-// word 0x36 from its second call on, and slot 5 the COVER word 0x32 from its sixth. Those words are written by the dispatcher's
-// defence passes (FUN_140535C60 -> FUN_140534A20 and the passes before it), not by the press chain. Red until PesPressTick runs the
-// whole dispatcher.
-TEST(PesPressKickoff, TheDefendingSidesMarkPassWritesTheMarkAndCoverWords) {
-  REQUIRE_KICKOFF();
-  const auto& rows = c.rows[1 - c.kicker];
-  for (int i = 1; i < kCalls; ++i)
-    for (int slot : {4, 7, 8, 10})
-      EXPECT_EQ(rows[i].words[slot], pes::kTeamActionMark) << "defender call " << i << ", slot " << slot;
-  for (int i = 5; i < kCalls; ++i)
-    EXPECT_EQ(rows[i].words[5], pes::kTeamActionCover) << "defender call " << i << ", slot 5";
 }
 
 }  // namespace

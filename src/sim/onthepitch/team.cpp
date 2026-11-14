@@ -425,6 +425,9 @@ void Team::RunPesPassTarget() {
       if (onPitch)
         pes::StoreU32(world.ManRecord(slot), pes::kManActionOffset,
                       squad[place].get() == receiver ? pes::kActionPassGet : pes::kManActionIdle);
+      if (onPitch)
+        pes::StoreU32(world.SlotRecord(slot), pes::kSlotCounterBOffset,
+                      static_cast<uint32_t>(static_cast<float>(squad[place]->GetTimeNeededToGetToBall_ms()) * pes::kPesTickHz / 1000.0f));
     }
     world.SetMaBallOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
     world.SideRecord(t)[pes::kSideLatchOffset] = side->IsPesPossession() ? 1 : 0;
@@ -437,12 +440,6 @@ void Team::RunPesPassTarget() {
   const Vector3 ballMove = match->GetBall()->GetMovement();
   world.SetBallVelocity(ballMove.coords[0], ballMove.coords[2], ballMove.coords[1]);
   world.SetMaBall(id, ball.coords[0], ball.coords[2], ball.coords[1]);
-  // PES's per-man think (FUN_14092ED30, translated 8/8 real calls) leaves each man's arrival estimate (counter B) that the arrival
-  // list ranks; it runs once per tick for this side's own men (both sides' ticks run, each thinks its own).
-  for (int place = 0; place < pes::kSlotsPerSide; ++place) {
-    const auto& squad = GetAllPlayers();
-    if (place < static_cast<int>(squad.size()) && squad[place]->IsActive()) world.RunManThink(id * pes::kSlotsPerSide + place);
-  }
   world.RunArrivalList(id);
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   world.RunPassTarget(id, static_cast<uint32_t>(pes::PlayStateFor(match->IsInPlay(), buffer.active,

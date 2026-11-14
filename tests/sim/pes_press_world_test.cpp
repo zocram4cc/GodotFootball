@@ -325,13 +325,12 @@ constexpr uint32_t kMatchUp = 0x3A;
 constexpr uint32_t kOpposingHolder = kSlotsPerSide + 6;
 
 struct MatchUpScene : Staged {
-  uint32_t partnerOfNear = kOpposingHolder;  // T+0x558[kNearMan], the mark pass's word (the dispatcher keeps it between calls)
   MatchUpScene() {
     facts.holder = kOpposingHolder;  // MA+0x2601C: an opposing man touched last
+    facts.partner[kNearMan] = kOpposingHolder;
   }
   void Run() {
     world.StagePress(kSide, facts);
-    world.SetMarkPartner(kSide, kNearMan, partnerOfNear);
     world.RunMatchUp(kSide);
   }
   uint32_t Second() { return LoadU32(world.SideRecord(kSide), kTeamSecondOffset); }
@@ -346,7 +345,7 @@ TEST_F(PesPressWorld, TheManMarkingTheHolderBecomesMatchUp) {
 
 TEST_F(PesPressWorld, NobodyIsMatchUpWhenNoOwnManMarksTheHolder) {
   MatchUpScene s;
-  s.partnerOfNear = kSlotsPerSide + 7;  // marks another opponent
+  s.facts.partner[kNearMan] = kSlotsPerSide + 7;  // marks another opponent
   s.Run();
   EXPECT_EQ(s.Second(), kNobody);
   EXPECT_NE(s.world.PressAction(kSide, kNearMan), kMatchUp);
@@ -363,7 +362,7 @@ TEST_F(PesPressWorld, TheMatchUpManIsReleasedWhenTheNextTickHasNoPartner) {
   MatchUpScene s;
   s.Run();
   ASSERT_EQ(s.world.PressAction(kSide, kNearMan), kMatchUp);
-  s.partnerOfNear = kNobody;
+  s.facts.partner[kNearMan] = kNobody;
   s.Run();
   EXPECT_NE(s.world.PressAction(kSide, kNearMan), kMatchUp);
   EXPECT_EQ(s.Second(), kNobody);

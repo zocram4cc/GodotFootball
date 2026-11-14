@@ -772,7 +772,6 @@ bool PesWorld::RunPassTarget(int side, uint32_t playState, std::vector<std::pair
   ::pes_fn_1404FB2A0(s);
   StoreU64(brain, kBrainTeamOffset, 0);
   period.playState = saved;
-  image_->press.selector[side] = static_cast<uint8_t>(s.gpr[0] & 0xFF);
   return (s.gpr[0] & 0xFF) != 0;
 }
 
@@ -974,8 +973,9 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
     StoreU32(t, kSideUnitWordsOffset + sizeof(uint32_t) * k, f.roleClass[k]);
     StoreU32(t, kTeamRoleClassOffset + kTeamRoleClassStride * k, f.roleClass[k]);
     StoreF32(t, kTeamKeepXOffset + 12 * k, f.keepX[k]);
-    // The swap partner words T+0x620 have no GF carrier: "no partner" (> 21) keeps the eval's refusal quiet. The mark partner words
-    // T+0x558 are the dispatcher's mark pass's own state (RunPressDispatch), not staged.
+    // The mark partner words T+0x558 come from the caller (PressFacts::partner; PES's mark pass FUN_140546FB0 writes them). The
+    // swap partner words T+0x620 have no GF carrier: "no partner" (> 21) keeps the eval's refusal quiet.
+    StoreU32(t, kTeamMarkPartnerOffset + sizeof(uint32_t) * k, f.partner[k]);
     StoreU32(t, kTeamSwapPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
     // The candidate table 0x140639830 enrols a man whose own action word P+0x5D0 is PRESS (docs/re/pes-re-press-life.md 5): PES's
     // action machine mirrors T+0xA2A0 into the man record, so the press the writer or coordinator marked keeps its man.
@@ -990,7 +990,7 @@ void PesWorld::StagePress(int side, const PressFacts& f) {
   SetMaOwner(side, f.holder);
   uint8_t* arg = reinterpret_cast<uint8_t*>(image_->press.arg[side].data());
   StoreU64(arg, 0, CtxVa(side));
-  StoreU64(arg, 8, BrainVa(side) + kBrainSideCtxOffset);
+  StoreU64(arg, 8, 0);
   StoreU64(arg, 16, static_cast<uint64_t>(side));
 }
 
@@ -1001,18 +1001,6 @@ void PesWorld::RunPressCoordinator(int side) {
   s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
   s.gpr[8] = SideVa(side);      // r8: T
   ::pes_fn_140634470(s);
-}
-
-void PesWorld::RunManThink(int slot) {
-  uint8_t* u = ManAi(slot);
-  // U+0x624 is the man's position (x, height, z; P+8 holds the same value: seq031 18.38, 0, -11.94 in both), U+0x698 his action word.
-  std::memcpy(u + kManAiPosOffset, ManRecord(slot) + kManPosXOffset, 3 * sizeof(float));
-  StoreU32(u, kManAiActionOffset, LoadU32(ManRecord(slot), kManActionOffset));
-  PesState s = NewCall(Bytes());
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
-  s.gpr[1] = ManAiVa(slot);  // rcx: U
-  s.gpr[2] = SlotVa(slot);   // rdx: the man's slot record
-  ::pes_fn_14092ED30(s);
 }
 
 void PesWorld::RunPressWriter(int side) {
@@ -1052,31 +1040,6 @@ void PesWorld::RunMatchUp(int side) {
   s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
   s.gpr[8] = SideVa(side);      // r8: T
   ::pes_fn_140536210(s);
-  for (int k = 0; k < kSlotsPerSide; ++k) {
-    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
-    std::memcpy(anime + kAnimeLoOffset, pairs[k].data(), 2);
-    std::memcpy(anime + kAnimeHiOffset, pairs[k].data() + 2, 2);
-  }
-}
-
-void PesWorld::RunPressDispatch(int side) {
-  // The anime pair stand-in of RunMatchUp (its ponytail names the removal), for the writer inside the dispatcher.
-  std::array<std::array<uint8_t, 4>, kSlotsPerSide> pairs{};
-  for (int k = 0; k < kSlotsPerSide; ++k) {
-    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
-    std::memcpy(pairs[k].data(), anime + kAnimeLoOffset, 2);
-    std::memcpy(pairs[k].data() + 2, anime + kAnimeHiOffset, 2);
-    const uint16_t lo = 0, hi = 1;
-    std::memcpy(anime + kAnimeLoOffset, &lo, 2);
-    std::memcpy(anime + kAnimeHiOffset, &hi, 2);
-  }
-  PesState s = NewCall(Bytes());
-  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
-  s.gpr[1] = BrainVa(side) + kBrainDispatcherOffset;  // rcx: param_1 = Y + 0x4200
-  s.gpr[2] = PressArgVa(side);                        // rdx: {ctx, Y + 0x62B4, side, flag}
-  s.gpr[8] = SideVa(side);                            // r8: T
-  s.gpr[9] = image_->press.selector[side];            // r9: the selector's AL
-  ::pes_fn_140535C60(s);
   for (int k = 0; k < kSlotsPerSide; ++k) {
     uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
     std::memcpy(anime + kAnimeLoOffset, pairs[k].data(), 2);
