@@ -158,28 +158,7 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
         seg.bytes.push_back(static_cast<uint8_t>(Read(o, seg.va + i, 1)));
       osSegs.push_back(std::move(seg));
     }
-    // The constant::PassGet object's RUNTIME bytes (the capture's registry 0x35 payload): the tick reads the fields it
-    // holds; GF's built copy is proven separately (pes_trap_data_test's loader check). Staged as a segment like the H lines.
-    {
-      const uint64_t gCell = static_cast<uint64_t>(Read(o, 0x1437F4808ULL, 8));
-      const uint64_t arrVa = static_cast<uint64_t>(Read(o, gCell, 8));
-      const uint64_t entVa = static_cast<uint64_t>(Read(o, arrVa + 8 * 0x35, 8));
-      const uint64_t objVa = static_cast<uint64_t>(Read(o, entVa + 8, 8));
-      pes::PesTrapSegment seg;
-      seg.va = objVa;
-      for (uint64_t i = 0; i < 0x100; ++i) seg.bytes.push_back(static_cast<uint8_t>(Read(o, objVa + i, 1)));
-      ext.segments.push_back(std::move(seg));
-      // The registry's own chain: the global (already an I line), the entry array and the 0x35 entry's pointers.
-      pes::PesTrapSegment chain;
-      chain.va = arrVa;
-      for (uint64_t i = 0; i < 8 * 0x100; ++i) chain.bytes.push_back(static_cast<uint8_t>(Read(o, arrVa + i, 1)));
-      ext.segments.push_back(std::move(chain));
-      pes::PesTrapSegment entry;
-      entry.va = entVa;
-      for (uint64_t i = 0; i < 0x10; ++i) entry.bytes.push_back(static_cast<uint8_t>(Read(o, entVa + i, 1)));
-      ext.segments.push_back(std::move(entry));
-    }
-    ext.segments = std::move(osSegs);
+    for (auto& seg : osSegs) ext.segments.push_back(std::move(seg));  // after the loader data AddTo staged (constant::PassGet included)
     std::vector<std::pair<uint64_t, unsigned>> reads;
     ext.readLog = &reads;
     pes::PesWorld::SetDispatchThrowStatic(true);

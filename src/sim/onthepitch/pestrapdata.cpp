@@ -127,11 +127,11 @@ bool BuildConstantObjectAt(const std::vector<uint8_t>& blob, std::size_t root, c
         return false;
       }
     }
-    if (off + f.leaf + f.bytes > blob.size()) {
+    if (root + off + f.leaf + f.bytes > blob.size()) {
       *error = std::string(what) + ": leaf of runtime +" + std::to_string(f.dst) + " is past the end";
       return false;
     }
-    std::memcpy(object + f.dst, &blob[off + f.leaf], f.bytes);
+    std::memcpy(object + f.dst, &blob[root + off + f.leaf], f.bytes);
   }
   return true;
 }
