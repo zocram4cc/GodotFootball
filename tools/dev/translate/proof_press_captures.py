@@ -55,6 +55,7 @@ def main():
     ap.add_argument("--state", action="append", help="a WRITER capture (slim is fine) the writer's SYNTHETIC states poke; repeatable")
     ap.add_argument("--writer-synthetic", type=int, default=0, help="SYNTHETIC writer states added to the real captures (they reach the "
                     "enrolment arm; the real captures leave at the 11-slot body filter)")
+    ap.add_argument("--dispatch-states", action="append", help="SYNTHETIC dispatcher states (synth_dispatch.py output dirs); repeatable")
     a = ap.parse_args()
     image, hooks = os.environ["PES_EXE"], os.environ["RV_HOOKS"]
     os.makedirs(a.work, exist_ok=True)
@@ -92,6 +93,16 @@ def main():
                     continue
                 snaps += ["--snapshot", "%s=%s" % (cdir, trace)]
                 synthetic += 1
+        if va == "0x140535C60":
+            # the dispatcher's captures are rare (every 100th call, one side): its calls are rebuilt over real kick-off selector captures
+            # (synth_dispatch.py), each state a directory under --dispatch-states
+            for cdir in a.dispatch_states or []:
+                trace = os.path.join(a.work, "tr_" + os.path.basename(cdir))
+                if subprocess.call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", cdir, "--hooks", hooks, "--out", trace,
+                                    "--spec-dir", sp.SPEC_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
+                    continue
+                snaps += ["--snapshot", "%s=%s" % (cdir, trace)]
+                synthetic += 1
         res = os.path.join(a.work, "res_%s.json" % va[2:])
         out_dir = os.path.join(a.work, "build_" + va[2:])
         subprocess.call([sys.executable, os.path.join(HERE, "snapdiff.py"), "--image", image, "--out-dir", out_dir, "--spec-dir", sp.SPEC_DIR,
@@ -107,9 +118,13 @@ def main():
         keep = [r for r in doc["results"] if r["va"].upper() not in vas]
         new = []
         for va, closure_file, what, raw, members, used, skipped, synthetic in records:
-            extra = ("; plus %d SYNTHETIC states over one full match state (synth_press_order.py %s: the men's words, positions, the "
-                     "partner words, the ball-distance lists and the set-piece object are chosen)" % (
-                         synthetic, "matchup_case" if va == "0x140536210" else "writer_case")) if synthetic else ""
+            if va == "0x140535C60":
+                extra = ("; plus %d SYNTHETIC calls rebuilt over real kick-off selector captures (synth_dispatch.py: the call's operands are "
+                         "fields of the capture's team-tick object)" % synthetic) if synthetic else ""
+            else:
+                extra = ("; plus %d SYNTHETIC states over one full match state (synth_press_order.py %s: the men's words, positions, the "
+                         "partner words, the ball-distance lists and the set-piece object are chosen)" % (
+                             synthetic, "matchup_case" if va == "0x140536210" else "writer_case")) if synthetic else ""
             rec = {"aborted": 0, "capped": 0, "cases": 0, "closure_file": closure_file, "coverage": {va: raw["own_block"]},
                    "dead_blocks": {}, "diffed": bool(raw["proven"]), "failed": 0, "failure_class": None, "icount_max": 0, "nonreturn": 0,
                    "note": "proof snapdiff --bounded: every replayed call bit-exact, %d of %d (%s; %d real captures of the hook in %s, %d "

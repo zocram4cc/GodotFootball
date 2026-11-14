@@ -260,6 +260,44 @@
    "stubs": [],
    "translated": true,
    "va": "0x14092ED30"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_press_dispatch.json",
+   "coverage": {
+    "0x140535C60": {
+     "reached": 63,
+     "total": 83,
+     "fraction": 0.759
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 24 of 24 (the press dispatcher FUN_140535C60 (the defence passes, MATCH_UP, coordinator, reset, writer); 17 real captures of the hook in pid1571059, pid1659870, 0 skipped: their trace left the captured pages; plus 7 SYNTHETIC calls rebuilt over real kick-off selector captures (synth_dispatch.py: the call's operands are fields of the capture's team-tick object)). proof_press_captures.py.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 24,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 63,
+     "total": 83,
+     "fraction": 0.759
+    },
+    "replayed": 24,
+    "source": "tools/dev/translate/results_press.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140535C60",
+   "synthetic": true,
+   "synthetic_cases": 7
   }
  ]
 }
