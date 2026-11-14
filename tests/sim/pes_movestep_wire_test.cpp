@@ -1196,3 +1196,43 @@ TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
   std::printf("[shootout-keeper] %d kicks, %d saved\n", kicks, saves);
   EXPECT_GT(saves, 0) << "the keeper saved none of " << kicks << " kicks";
 }
+
+// PES's look point is the command record's own (cmd+0x14..+0x1C, PES axes: d_1406b7560.c 114-116). With usePesWords the look
+// heading (req[3]) is the bearing of that point from the man, not GF's look-at point. seq3229 (live capture): look 88.6, target 311.9.
+TEST(MoveStepWire, TheLookPointComesFromThePesWordsWhenTheCommandCarriesThem) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  const Vector3 at = p->GetPosition();
+  constexpr float kTargetBearingDeg = 311.9f;
+  constexpr float kLookBearingDeg = 88.6f;
+  constexpr float kRadius_m = 10.0f;
+  const float pi = std::acos(-1.0f);
+  // A PES-axes (x, z) point kRadius_m from the man on the given bearing; PES z = -GF y (the adapter's origin, FillCommandWords).
+  const auto pesPointOn = [&](float bearingDeg) {
+    const float rad = bearingDeg * pi / 180.0f;
+    return std::array<float, 2>{at.coords[0] + kRadius_m * std::sin(rad), -at.coords[1] + kRadius_m * std::cos(rad)};
+  };
+  const std::array<float, 2> target = pesPointOn(kTargetBearingDeg);
+  const std::array<float, 2> look = pesPointOn(kLookBearingDeg);
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = Vector3(target[0], -target[1], at.coords[2]);
+  c.desiredVelocityFloat = sprintVelocity;
+  c.useDesiredLookAt = true;
+  c.desiredLookAt = c.desiredTarget;  // GF's own look-at: the target's bearing, not the words' look
+  c.usePesWords = true;
+  c.pesWords.look[0] = look[0];
+  c.pesWords.look[1] = at.coords[2];  // PES height = GF z
+  c.pesWords.look[2] = look[1];
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq on = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(on.F(pes::moveword::kLookHeading), kLookBearingDeg, 1e-2f) << "cmd+0x14: the look point's bearing (seq3229: 88.6)";
+  EXPECT_NEAR(on.F(pes::moveword::kHeading), kTargetBearingDeg, 1e-2f) << "the move target's bearing (seq3229: 311.9)";
+  c.usePesWords = false;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq off = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(off.F(pes::moveword::kLookHeading), kTargetBearingDeg, 1e-2f) << "without the words the look is GF's look-at point";
+}

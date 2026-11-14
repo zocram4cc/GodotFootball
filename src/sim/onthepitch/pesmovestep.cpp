@@ -232,8 +232,11 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.facingDeg = FacingDeg();
     in.targetX = target.coords[0];
     in.targetZ = -target.coords[1];
-    in.lookX = look.coords[0];
-    in.lookZ = -look.coords[1];
+    // PES's look point is the command record's own words when the command carries them (cmd+0x14..+0x1C, PES axes; the adapter's
+    // PES frame is (x, -GF y), so the words need no conversion). Otherwise GF's look-at point.
+    const bool pesLook = cmd && cmd->usePesWords;
+    in.lookX = pesLook ? cmd->pesWords.look[0] : look.coords[0];
+    in.lookZ = pesLook ? cmd->pesWords.look[2] : -look.coords[1];
     in.lookValid = cmd && cmd->useDesiredLookAt;  // PES FUN_140a6e6b0: the look-at block is valid (the command carries a look point)
     in.speedBand = pes::CommandClassFor(CommandSpeedClassOf(speed), c_.runTables);
     in.desiredKmh = speed * kKmhPerMps;

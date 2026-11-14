@@ -152,7 +152,7 @@ namespace moveword {
 inline constexpr int kKind = 0x00;             // req[0]: move kind 0..7 (cmd[0x16]; 8 maps to 2) (OBS)
 inline constexpr int kHeading = 0x01;          // req[1]: heading to the move target, degrees (OBS)
 inline constexpr int kFacing = 0x02;           // req[2]: facing, P+0x20 (OBS)
-inline constexpr int kLookHeading = 0x03;      // req[3]: heading to the look-at point, cmd+0x20 (OBS)
+inline constexpr int kLookHeading = 0x03;      // req[3]: heading to the look-at point, the command's look point cmd+0x14 (PES 114-116) (OBS)
 inline constexpr int kBodyDirection = 0x04;    // req[4]: desired body direction (OBS; INIT reads it)
 inline constexpr int kLookDelta = 0x05;        // req[5]: wrap180 difference (OBS)
 inline constexpr int kTurn = 0x06;             // req[6]: target minus facing, the turn angle (OBS)
