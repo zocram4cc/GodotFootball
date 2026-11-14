@@ -248,8 +248,14 @@ kind-3 event `((raw+4)·2)·0.9`, read live from the motion table, OBS; they equ
 Phase 0 also starts a yaw warp onto the target over `max(clipTurnFrames, 12)` capped at `release − 6` frames
 (seamless entry: 14 frames).
 Phase 1 (each tick until the clip ends):
-- **before release** the taker is pushed so the hand further outside stays ≥ `F[1] + 0.1 m` from the centre
-  line (`FUN_141eb51a0` bones 3/6, `DAT_142588200`) — **the ball is always released from behind the line**;
+- **before release** (clip frame below the release frame) the taker's FEET are kept behind the line: of his two ankles
+  (`FUN_141eb51a0` joints 3 and 6 = `left_ankle` / `right_ankle`: PES joint i is rig joint i+1, docs/ports/pes-port-KickJoints.md 1)
+  the one nearer the centre line (smaller |z|) must be at least `F[1] + 0.1 m` (`DAT_142588200`) from it, else his position is moved
+  outward by the shortfall (`FUN_141eb5bb0(P, x, y, z + shortfall * sign, 1)`). **Corrected 12-11-26**: the earlier text called
+  the joints hands and concluded "the ball is always released from behind the line"; the joint map contradicts it, and PES has no
+  rule on the ball's place at the release. OBS live, the hold before the release (`live2/pid1482329` seq002/006/009, action 0x1B
+  phase 1): the taker at z 35.05..35.08 m, 0.99..1.02 m outside the 34.06 m touchline, the ball still at his hip (0.74 m up, z 34.88).
+  That is the hold, not the release: the captures show where he stands, not where the ball leaves him.
 - **at the release event** (`FUN_1406ec260(ap, FUN_1406b08a0(clip))`): `ap+0x2460 |= 0x80`, the flow is told
   the ball is in play (`FUN_140445750`) and the ball request is executed (`FUN_1406e47a0` case 0x1b/0x1c →
   `FUN_14081c640`, §5.2);
@@ -628,7 +634,7 @@ PES game-specific abstractions (OBS values).
 | EV-TI-0009 | Play state 2→3 at pickup (ball held) | Confirmed | live (2 frames after phase 3), 0x140791ec0 phase 3 |
 | EV-TI-0010 | ThrowinLoop aim loop: group 94 blend 0.5+0.5·aim/80°, ease 0.12; side-step/turn branches | Confirmed | 0x140793590 |
 | EV-TI-0011 | Release clip by distance 13/25 m; rate 0.75–1.05 for short; release frames 18/27/99/27/36 | Confirmed | 0x140792e10 + live motion table + live in-play timing |
-| EV-TI-0012 | Hands forced ≥ F[1]+0.1 outside before release → no foul throws | Confirmed (code) / High (no-foul conclusion) | 0x140792e10; string search |
+| EV-TI-0012 | Nearer ankle (joints 3/6) forced ≥ F[1]+0.1 outside before release → no foul throws (corrected 12-11-26: ankles, not hands) | Confirmed (code) / High (no-foul conclusion) | 0x140792e10; string search |
 | EV-TI-0013 | Throw request: kind 0x10, flight frames from 35/50(+10) km/h band, Long Throw 80→100 % | Confirmed | 0x14081c640 |
 | EV-TI-0014 | Reach 30 m / 37 m (Long Throw, skill bit 19); free-aim distance 5/15/25(32) by gauge | Confirmed (code) / High (bit 19 = Long Throw) | 0x1409bb450, 0x1409bb360 |
 | EV-TI-0015 | AI throws when the set-play counter ≈ 81 (+2) with a receiver; receiver 2–25 m + course test | Confirmed | 0x142137460, 0x142135700; live counter = 83 ×5 |
