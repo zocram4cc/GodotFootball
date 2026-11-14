@@ -56,13 +56,13 @@ constexpr float kDegPerRadian = 180.0f / 3.14159265358979323846f;
 float TargetBearingDeg(float dx, float dz, const RunConstants& k) {
   return FoldFull(std::atan2(dx, dz) * kDegPerRadian, k);
 }
-// The anime actions whose body is the displacement heading (d_1406b7560.c 252-266, the vt+0x20 tests): 0, 5-10, 12, 15, 16, 18, 19.
-// Action 3 is listed too, under P+0x281A, which GF does not model. GF answers 0 for a non-movement function and 2 for a movement-like
-// one (pesmovestep.cpp AnimeState), so the answer is exact for those two. ponytail: PES's table for every action has no GF source yet.
-bool ActionFollowsDisplacement(int action) {
+// The phases whose body is the displacement heading (d_1406b7560.c 252-266, the vt+0x20 tests on P+0x245c): 0, 5-10, 12, 15, 16, 18, 19.
+// Phase 3 is listed too, under the timer P+0x281A (d_1406b7560.c 262-265), which GF does not model: GF takes the centre for it.
+// ponytail: an approximation for phase 3 until P+0x281A and FUN_141e532d0 are ported.
+bool ActionFollowsDisplacement(int phase) {
   constexpr int kListed[] = {0, 5, 6, 7, 8, 9, 10, 12, 15, 16, 18, 19};
   for (const int listed : kListed) {
-    if (listed == action) return true;
+    if (listed == phase) return true;
   }
   return false;
 }
@@ -96,7 +96,7 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   // the caller's flag (MoveTargetInput::bodyBucket); PES reads that flag from host+0x2798 (see the header).
   // PES 236-268: the body is facing plus the centre (236-250), except in the listed actions: there it is the last-tick displacement
   // heading with no facing added (fVar17 = fVar21, 268). The caller's flag still picks the centre (BodyBucketFlag, see the header).
-  const float body = ActionFollowsDisplacement(in.animeState) ? in.displacementDeg
+  const float body = ActionFollowsDisplacement(in.phase) ? in.displacementDeg
                                                              : FoldFull(buckets.centre[in.bodyBucket] + in.facingDeg, k);
   const float turnToFacing = TargetTurnDeg(targetHeading - in.facingDeg, k);  // req[5]
   const float turnToBody = TargetTurnDeg(targetHeading - body, k);           // req[6]

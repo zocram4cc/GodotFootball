@@ -1766,7 +1766,7 @@ pes::movestep::MoveTargetInput OriginCommand() {
   pes::movestep::MoveTargetInput in;
   in.facingDeg = 0.0f;
   in.speedBand = 0;
-  in.animeState = 2;  // the MOVE action: the body is facing plus the centre (the displacement body has its own test)
+  in.phase = 4;  // seq7527's phase, not listed: the body is facing plus the centre (the displacement body has its own test)
   in.desiredKmh = 5.0f;
   return in;
 }
@@ -1826,19 +1826,19 @@ TEST(MoveFill, TheLookWordIsTheLookDistanceWhenTheCommandHasALookPoint) {
 TEST(MoveFill, TheBodyFollowsItsDisplacementInTheActionsTheFillerLists) {
   pes::movestep::MoveTargetInput in = OriginCommand();
   in.facingDeg = 195.1f;
-  in.animeState = 0;           // not MOVE: the displacement branch
+  in.phase = 0;                // listed (PES 252): the body is the displacement heading
   in.displacementDeg = 15.1f;  // the last-tick displacement heading
   in.targetZ = 8.0f;
   pes::MoveReq req;
   pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
   EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 15.1f, 1e-3f)
-      << "PES's body is the displacement heading in this action (seq3229: req[4] 15.1, facing 195.1)";
+      << "PES's body is the displacement heading in a listed phase (PES 252-268)";
 }
 
-TEST(MoveFill, TheBodyFacesItsMoveInTheMoveAction) {
+TEST(MoveFill, TheBodyFacesItsMoveOutsideTheListedPhases) {
   pes::movestep::MoveTargetInput in = OriginCommand();
   in.facingDeg = 195.1f;
-  in.animeState = 2;           // the MOVE action: facing plus the centre, not the displacement
+  in.phase = 4;               // seq7527's phase: facing plus the centre, not the displacement
   in.displacementDeg = 15.1f;
   in.targetZ = 8.0f;
   pes::MoveReq req;

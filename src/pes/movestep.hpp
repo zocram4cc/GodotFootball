@@ -1028,8 +1028,8 @@ struct MoveTargetInput {
   int commandSpeedClass = 0;
   bool animeStateNonzero = false;
   int bodyBucket = 0;       // the body-bucket flag, 0 or 1 (PES host+0x2798, set at 0x1411944E6)
-  // PES d_1406b7560.c 236-268: the body's anime action (vt+0x20 of +0xab8) and the heading of the last-tick displacement (DispHeading).
-  int animeState = 0;            // the body's action: 2 is MOVE (facing plus the centre); the listed actions take the displacement
+  // PES d_1406b7560.c 236-268: the body's phase (vt+0x20 of +0xab8: the state byte P+0x245c) and the heading of the last-tick displacement (DispHeading).
+  int phase = 0;                 // the MOVESTEP phase byte: the listed phases take the displacement heading, the others the centre
   float displacementDeg = 0.0f;  // the heading of the last-tick displacement, degrees, folded as DispHeading folds it
 };
 // ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket; 0 = the facing. The flag is

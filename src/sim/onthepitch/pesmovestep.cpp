@@ -244,8 +244,8 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.moveKind = pesmovestep::MoveKindFor(player_.GetFormationEntry().role == e_PlayerRole_GK);
     in.animeStateNonzero = static_cast<int>(player_.GetMoveStep().state) != 0;
     in.bodyBucket = pes::movestep::BodyBucketFlag(c_.run.one);  // OPEN: the per-player record (loader FUN_141194330, flag write 0x1411944E6); GF feeds PES's default producer value
-    // PES d_1406b7560.c 252-268: the body's anime action (vt+0x20 of +0xab8; AnimeState answers it) and the displacement heading.
-    in.animeState = AnimeState();
+    // PES d_1406b7560.c 252-268: the body's phase is the state byte P+0x245c (vt+0x20 of +0xab8), which picks the displacement branch.
+    in.phase = CurrentState();
     in.displacementDeg = pes::movestep::DisplacementHeadingDeg(*this, c_.turn);
     pes::movestep::FillMoveTarget(req, in, c_.run, c_.buckets);
   }
