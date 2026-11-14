@@ -2570,18 +2570,11 @@ void TeamAIController::PesSecondPresserTick() {
       holder = static_cast<int>(key.team) * pes::kPressSideMen + static_cast<int>(key.slot);
   }
   const bool holderValid = holder < pes::kPressTeamMen;
-  // The newest valid ring-0 touch: the T+0x78 stand-in for this side's last kick (the real writer is OPEN; the
-  // opponent-kick fallback T_opp+0x78 is absent).
-  pes::ActorKey touch{};
-  bool touchValid = false;
-  for (int n = 0; n < 8 && !touchValid; ++n) {
-    const pes::NewestEventView view = pes::EventAt(match->GetPesEvents(), n);
-    touchValid = view.present && view.actor.Valid() && view.actor.team < 2 && view.actor.slot < pes::kPressSideMen;
-    if (touchValid) touch = view.actor;
-  }
-  const bool kickValid = touchValid && static_cast<int>(touch.team) == side;
-  const int kickMan = kickValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
-                                : pes::kPressNoMan;
+  // T+0x78 of this side: the window's pass target, written by PES's selector chain 0x1404FB2A0 (Team::RunPesPassTarget; it replaces the
+  // newest-touch stand-in this read had). The press numbers the men side * 11 + slot, T+0x78's own numbering.
+  const uint32_t passTargetSlot = match->PesWorldOf().PassTarget(side);
+  const bool kickValid = passTargetSlot < 2 * static_cast<uint32_t>(pes::kPressSideMen);
+  const int kickMan = kickValid ? static_cast<int>(passTargetSlot) : pes::kPressNoMan;
 
   // The men by team index (side * 11 + slot), and this side's slot words.
   pes::PressEvalInput in;
@@ -3547,7 +3540,6 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
       f.playingCount = 1;
     }
   }
-  f.kickApproach = 0;  // the kick approach (adjuster A) is never armed in GF
   // P+0x277C / +0x2780: the first dwell's elapsed and limit, MOVESTEP's carried words req[0x1a] / req[0x1b].
   const auto carried = [&rec](int word) {
     float v;
@@ -3649,6 +3641,58 @@ void RunPesTrapTicks(Match& match) {
         issued.transition = pes::TransitionOfKind(r.kind);
         p->CastHumanoid()->PlayIssuedClip(issued, pes::PesClipFamily::kTrap);
       }
+    }
+  }
+}
+
+namespace {
+// PES's axes (x, height, z) of a GF world point: GF's z is the height and its y is PES's z (the ball sample writer, ball.hpp).
+std::array<float, 3> PesPoint(const Vector3& v) { return {v.coords[0], v.coords[2], v.coords[1]}; }
+
+// The man's skeleton as PES's joint block holds it: each collision bone's world position and rotation in PES's axes.
+// ponytail: the pose is the one GF's humanoid last posed (the previous tick's put), FUN_141EB49B0's anime layer pose is not run
+// (AnimeLayer), and the node rotations are GF's W*Rs joint frames, which differ from PES's joint frames F_b by 1.5 degrees at the leg,
+// 5.8 at the foot and about 22 at the forearm and hand (docs/re/pes-re-collision.md 4). The anime layer's joint writer removes this.
+pes::BoneFrames BoneFramesOf(Player& player, const pesrig::Rig& rig) {
+  pes::BoneFrames frames;
+  const auto& nodes = player.GetNodeMap();
+  for (std::size_t bone = 0; bone < pes::kScanBoneCount; ++bone) {
+    const std::optional<int> joint = pesrig::ResolveBone(rig, pes::kScanBoneNames[bone], nullptr);
+    assert(joint.has_value());
+    const boost::intrusive_ptr<blunted::Node>& node = nodes.at(rig.bones[*joint].gfName);
+    frames[bone].position = PesPoint(node->GetDerivedPosition());
+    // The rotation's axis changes basis with the position: (x, y, z) -> (x, z, y), a reflection, so the rotation about the swapped axis
+    // turns the other way and the vector part is negated.
+    const blunted::Quaternion q = node->GetDerivedRotation();
+    frames[bone].rotation = {-q.elements[0], -q.elements[2], -q.elements[1], q.elements[3]};
+  }
+  return frames;
+}
+}  // namespace
+
+// Every man in the Trap action runs PES's body contact scan 0x1406EDCE0 on the window after his action tick: the tick sets the contact
+// pending bit on the clip's contact frame, the scan's reach test answers it, and a touch request in the output record is the man's
+// grant to touch the ball (Match::TakePesTouch, the humanoid's contact).
+void RunPesBodyScans(Match& match) {
+  pes::PesWorld& world = match.PesWorldOf();
+  match.ClearPesTouches();
+  // The ball record's byte +0x279C is PES's copy of the ball body's byte B+0x48, taken on every ball update (0x140871A5C in
+  // 0x140870E90, B = the ball entity's +0x20). B+0x48 has one writer on any match path: the script binding 0x140BEB330 (a 0/1 from the
+  // two-row table at 0x1426CBAF8, picked by a script argument), and nothing in GF's match runs a script; otherwise it keeps its
+  // constructed value 0xFF. All six real reach-test captures (live2/pid3332804 seq088..seq1475) hold 0xFF in both cells while the ball
+  // is loose, in a pass and at rest, and the holder MA+0x2601C is a different cell (the last toucher, never cleared). So the byte is
+  // PES's constant for this match, not GF's holder: the scan's "owner is another man" refusal never fires, as in PES.
+  world.BallRecord()[pes::kBallOwnerOffset] = pes::kBallNoOwner;
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      world.WriteJointBlock(slot, BoneFramesOf(*p, match.GetRig()), match.GetPesActorConstants().jointMask);
+      const pes::PesBodyScanOut out = world.RunBodyScan(slot, match.PesTrapExternalsOf());
+      if (out.TouchRequested()) match.GrantPesTouch(slot, out);
     }
   }
 }

@@ -162,6 +162,11 @@ void Match::ProcessPesEventStage() {
     in.lastToucher = static_cast<int>(key.team) * kStartersPerSide +
                      std::min(static_cast<int>(key.slot), kStartersPerSide - 1);
     in.lastToucherSlot = static_cast<int>(key.slot);
+    if (pesKickTarget != nullptr) {
+      const pes::ActorKey target = PesActorKeyOf(pesKickTarget);
+      in.kickTarget = static_cast<int>(target.team) * kStartersPerSide + std::min(static_cast<int>(target.slot), kStartersPerSide - 1);
+      in.kickTargetSlot = static_cast<int>(target.slot);
+    }
     in.frame = touch.frame;
     in.phase = phase;
     in.state = kStateWord;

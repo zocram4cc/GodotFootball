@@ -512,6 +512,8 @@ struct BallEventInput {
   int ballWord281c = 0;  // G+0x40+0x281c
   int kickTailWord40 = 0;  // payload+0x40, the kind 1/2 tail
   int kickTailSub = 0;     // payload+0x18, the kind 1/2 tail
+  int kickTarget = -1;      // G+0x40+0x27E4: the id the last pass was aimed at (-1: none); kinds 1..3 name it as the second key
+  int kickTargetSlot = 0;   // the slot FUN_140a62fe0 pairs with that id
   std::array<uint32_t, 0x18> roster{};  // [G+0x180] + i*0x74 + 0x20, i < 0x18
   bool kickGate = false;       // FUN_140a57950(ball): ball+0x291c == 1
   bool secondGate = false;     // FUN_140a57930(ball): ball+0x2918 >> 2 & 1

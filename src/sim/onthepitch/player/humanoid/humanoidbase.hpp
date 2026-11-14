@@ -232,6 +232,9 @@ public:
   // read the warp's travel as the body's direction. OffsetPosition books its offset as movement (a bump), which made GF's
   // direction, and with it the start angle of every clip the warp's ticks began, follow the warp instead of the root.
   void WarpRoot(const Vector3& offset, radian yaw);
+  // A root yaw (PES's yaw adjuster step, the root-facing write): WarpRoot's turn, and the clip's remaining root path turns with the
+  // body about the point it has reached, as PES's engine integrates the root yaw before it applies the clip's displacement.
+  void TurnRoot(radian yaw);
   // False when the current clip cannot be interrupted by a trip.
   bool TripMe(const Vector3& tripVector, int tripType);
 
@@ -250,6 +253,8 @@ public:
   // the body plays it. In PES mode the issue also goes into the man's engine control (Match::PesAnimeIssue), whether or not the body
   // takes it: PES's SetMotion pushes the layer record every time it is called.
   bool PlayIssuedClip(const pes::MotionRequest& request, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion);
+  // RootMotion's issue by its parts (the motion, the playback rate, the mirror): the request overload forwards to it after the engine hook.
+  bool PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion);
   bool TripPending() const { return interruptAnim == e_InterruptAnim_Trip; }
   virtual float GetDecayingDifficultyFactor() const { return decayingDifficultyFactor; }
 
@@ -262,6 +267,13 @@ public:
   bool OnPesLocomotion() const;
   // A PES trap clip: a Special clip of the trap family, whose contact frame is a trap touch.
   bool OnPesTrap() const;
+  // A clip PES plays (a Special clip of the dodge, tackle, locomotion or trap family): the anime engine steps its clock by one tick of real
+  // time per tick (`FUN_141AF7A90`: tick * 300 units of 1/300 s; `FUN_141AF3100` reads seconds back with 1/300), times the layer's rate
+  // (SetSpeed `FUN_141AF6E40`).
+  bool OnPesClip() const;
+  // Engine animation frames the current clip advances per tick at rate 1: one frame (10 ms) for GF's own clips, whose rate it never scaled to
+  // the 1/54 s tick, and a tick of real time in frames for a PES clip.
+  float ClipFramesPerTick() const;
   bool IsMovementClip() const {
     return currentAnim->functionType == e_FunctionType_Movement || OnPesLocomotion();
   }

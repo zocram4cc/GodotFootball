@@ -25,6 +25,15 @@ constexpr float kBallFallbackDistance_m = 0.2f;
 using MoveHostConstants = pes::MoveStepConstants;
 
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
+constexpr float kHalfTurn_deg = 180.0f, kFullTurn_deg = 360.0f;
+
+// The trap world's facing (the man record's atan2(x, GF y), which the translated Trap start arms the yaw adjuster in) is the mirror of
+// MOVESTEP's (atan2(x, -GF y), PES's z = -GF y): trap = 180 - movestep. Every angle the adapter hands the yaw adjuster goes through
+// here, so the P window holds one sense.
+float TrapFacingOf(float moveStepDeg) {
+  const float folded = std::fmod(kHalfTurn_deg - moveStepDeg, kFullTurn_deg);
+  return folded < 0.0f ? folded + kFullTurn_deg : folded;
+}
 
 // PES's ground frame against GF's: PES's z is -coords[1] (referee.cpp:197 in.ballZ_m).
 // Every heading the adapter feeds PES goes through here, so the sign lives in this one place.
@@ -60,7 +69,7 @@ int CommandSpeedClassOf(float velocityMps) {
 // so each answer is a stand-in, and each names the PES read it replaces.
 class AdapterTeam final : public pes::TeamAi {
  public:
-  AdapterTeam(Player& player, const MoveHostConstants& c) : player_(player), c_(c) {}
+  AdapterTeam(Player& player, Match& match, const MoveHostConstants& c) : player_(player), match_(match), c_(c) {}
 
   // The rank-0 opponent of the own record in the team's last run world (NearestList's NearestOpponents over
   // the RunWorld, pesoffball.hpp). Its slot is the run world's: team·11 + roster index.
@@ -77,6 +86,8 @@ class AdapterTeam final : public pes::TeamAi {
     const int slot = Controller().RunSlotOf(&player_);
     return slot < 0 ? kNoPlayer : slot;
   }
+  // The player a slot names: the own record, or the run world's player in that slot; nullptr when none.
+  const Player* PlayerAt(int slot) const { return Who(slot); }
   // ponytail: GF's physical_acceleration stands in for the Acceleration byte (0x2b), scaled to the PES
   // ceiling (rec99). The DA (0x15) and PC (0x28) bytes have no GF stat yet and read 0.
   int Ability(int slot, int ability) const override {
@@ -128,11 +139,19 @@ class AdapterTeam final : public pes::TeamAi {
   bool IsQueuedCover(int) const override { return false; }
   bool SideSlotMarked(int) const override { return false; }
   bool SetPieceAnswer(int) const override { return false; }
+  // The ball owner of the player's own side: MA+0x2601C as Team::RunPesPassTarget stages it each tick (GF's ball retainer, that
+  // function's ponytail: W1's persisting holder replaces it). Slot 0xFF is no man.
+  int BallOwnerSlot() const override {
+    return static_cast<int>(pes::LoadU32(match_.PesWorldOf().Ma(player_.GetTeamID()), pes::kMaOwnerOffset));
+  }
+  // ponytail: MA+0x25930 has no GF source (its writer is not decoded), so it reads clear.
+  bool MaFlag25930() const override { return false; }
 
  private:
   static constexpr int kNoPlayer = 22;        // a slot of 22 or more is no player
   static constexpr int kFullCondition = 100;  // the condition byte's full value
   Player& player_;
+  Match& match_;
   const MoveHostConstants& c_;
   // The team controller this player belongs to: its last run world is the seam's ranking and roster.
   TeamAIController& Controller() const { return *player_.GetTeam()->GetController(); }
@@ -148,7 +167,7 @@ class AdapterTeam final : public pes::TeamAi {
 class MoveHostAdapter final : public pes::MoveHost {
  public:
   MoveHostAdapter(Player& player, Match& match, const MoveHostConstants& c)
-      : player_(player), match_(match), c_(c), team_(player, c) {}
+      : player_(player), match_(match), c_(c), team_(player, match, c) {}
 
   const pes::TeamAi& Team() const override { return team_; }
 
@@ -311,11 +330,30 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   float RecordF0bec() const override { return player_.GetMoveStep().yawLock; }
   void SetRecordF0bec(float value) override { player_.GetMoveStep().yawLock = value; }
+  // FUN_141eb56d0(P, &angle, 1): P+0x20 takes the angle and the yaw adjuster is armed from it to itself over one tick (the call's
+  // `FUN_141eb35a0(P+0x4d0, *P+0x20, *angle, 1)` reads P+0x20 after the store), so the write turns nothing by itself.
+  void SetRootFacing(float angleDeg) override {
+    match_.PesWorldOf().SetRootFacing(match_.PesSlotOf(&player_), TrapFacingOf(angleDeg));
+  }
+  void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) override {
+    match_.PesWorldOf().ArmYaw(match_.PesSlotOf(&player_), TrapFacingOf(fromDeg), TrapFacingOf(toDeg), ticks, overrideMode);
+  }
   const pes::AngleBucketConstants& AngleBuckets() const override { return c_.buckets; }
-  // FUN_141eb50b0: index 0 and 1 are the displacement; index >= 2 is the history ring, which GF does not keep.
-  // ponytail: PES's ring at P+0x2fc is written per tick by a writer not decoded yet; until then every sample is the position.
+  // FUN_141eb50b0 index 0 and 1: the displacement of the last tick, in metres per PES tick (every reader multiplies it by the
+  // tick rate to get km/h: FUN_1406bb570 line `ticks * 60 * 60 / 1000 * |displacement|`). GF's movement is metres per second
+  // (a 10 ms anim frame's step x 100), so it is divided by the PES tick rate. Index 2 and up are the bone, ball and ring reads
+  // of other PES functions that the contract still routes here (movestep.hpp).
+  // ponytail: those reads answer the position until each has its own source (FUN_141eb51a0's joints, FUN_140a6cf70's ball).
   void PositionAt(int index, float out[3]) const override {
-    const Vector3 v = index < 2 ? player_.GetMovement() : player_.GetPosition();
+    const Vector3 v = index < 2 ? player_.GetMovement() / TicksPerSecond() : player_.GetPosition();
+    pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
+  }
+  // FUN_141eb50b0's ring: slot k holds the man's predicted displacement per tick over 10(k+1) ticks, slot 0 his present
+  // velocity (TrapOpen2 section 6, INF from two snapshots of one man).
+  // ponytail: the writer of P+0x2fc (the root-motion predictor of the anime layer; the FUN_1406e9800 family reads it) is not
+  // decoded; GF has no braking prediction, so every slot is the present velocity, as the trap actor's open input is.
+  void RingSample(int, float out[3]) const override {
+    const Vector3 v = player_.GetMovement() / TicksPerSecond();
     pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   void OwnPosition(float out[3]) const override {
@@ -361,15 +399,6 @@ class MoveHostAdapter final : public pes::MoveHost {
   int IssueCount() const { return issues_; }
 
   const pes::StepScalars& StepConstants() const override { return c_.stepScalars; }
-  float BandSpeedKmh(int band, float g) const override {
-    (void)band;
-    (void)g;
-    // The callers scale this by speed3600 into km/h, so it is metres a second. ponytail: PES's band speed is not decoded.
-    // Its candidate source is the 11-knot rate curve at 0x1425DE010 (docs/re/pes-re-speed-inputs.md; the band-to-knot map
-    // is open). vt+0x60 is clip duration (FUN_1406E7EB0), not a band speed. Every band returns the player's ground speed
-    // for the last tick; the physique argument is ignored.
-    return player_.GetMovement().GetLength();
-  }
   bool MirrorChoice(bool sameTeam) const override {
     (void)sameTeam;
     return false;  // ponytail: FUN_140a62960's side choice.
@@ -436,10 +465,40 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   int ActionIndex() const override { return team_.OwnSlot(); }
   int RelatedSlot() const override { return -1; }  // ponytail: FUN_140a627e0's related record.
+  // The record's position (+0x55c x, +0x560 height, +0x564 z) in PES's order; zeros for a slot that names no player.
   void RecordPosition(int slot, float out[3]) const override {
-    (void)slot;
-    out[0] = out[1] = out[2] = 0.0f;  // ponytail: the match's per-player record positions.
+    const Player* p = team_.PlayerAt(slot);
+    const Vector3 v = p ? p->GetPosition() : Vector3{};
+    pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
+  const pes::TurnEntryTables& TurnEntryTablesView() const override { return c_.turnEntry; }
+  // ponytail: *(MA+0x2601c), the carrier slot (FUN_140a627e0(ctx, 0)); GF's ball retainer stands in. Removed by the MA record
+  // writer (TeamTick's carrier record).
+  int CarrierSlot() const override {
+    const Player* holder = match_.GetBallRetainer();
+    const int slot = holder ? holder->GetTeam()->GetController()->RunSlotOf(holder) : -1;
+    return slot < 0 ? 0x16 : slot;
+  }
+  // ponytail: byte +1 of the anime record (FUN_140a48910); GF knows only the role: a goalkeeper is 0x12.
+  int AnimeRecordClass(int slot) const override {
+    const Player* p = team_.PlayerAt(slot);
+    return p && p->GetFormationEntry().role == e_PlayerRole_GK ? 0x12 : 0;
+  }
+  // ponytail: FUN_14044e020's event-table ticks (MA+0x24840) have no GF record: 0, which keeps the tired row off.
+  int RecordTicks(int) const override { return 0; }
+  // ponytail: *(G+0x2c0)+0x85 (FUN_140a3f560) is the match object's flag; GF has none.
+  bool MatchObjectFlag2c0() const override { return false; }
+  // ponytail: FUN_1406e7730 reads the clip's hit root offsets (FUN_1406af6d0 / FUN_1406af9a0), which no reader serves yet.
+  float ClipHitDistance(int, float, int) const override { return 0.0f; }
+  // FUN_140439e50(P+8, point): 0 when the point is the own position, else the bearing folded into [0, 360).
+  float HeadingToPointDeg(const float point[3]) const override {
+    float own[3];
+    OwnPosition(own);
+    if (point[2] == own[2] && point[0] == own[0]) return 0.0f;
+    return pes::FoldFull(std::atan2(point[0] - own[0], point[2] - own[2]) * kDegPerRad, c_.run);
+  }
+  // ponytail: the analyser's counter row (FUN_1406e2c30, P+0x3AD8) has no GF record.
+  void CountAnalyserEvent(bool, int) override {}
   float RecordFacing(int slot) const override {
     (void)slot;
     return 0.0f;  // ponytail: the match's per-player record facings.
@@ -603,6 +662,7 @@ void ProcessMoveStep(Player& player, Match& match) {
   pes::movestep::RampsBeforeDispatch(host, req);
   const int issuesBefore = host.IssueCount();
   pes::Dispatch(stateAtEntry, host, req);
+  pes::movestep::ApplyBodyTail(host, req);  // FUN_1406b8340's root-facing write and yaw adjuster arm, before its issue
   // FUN_1406b8340's tail (anime-select 1, step 7): a request the handler left due (req[0x2f]) is issued
   // now, unless the handler already issued this tick.
   if (req.Flag(pes::moveword::kMotionPending) && host.IssueCount() == issuesBefore)
@@ -613,6 +673,26 @@ void ProcessMoveStep(Player& player, Match& match) {
   rec.liveKind = static_cast<uint8_t>(req.U(pes::moveword::kLiveKind) & 0xffu);
   pes::CarryOut(rec, req);  // FUN_1406b6a90's copy-back: the words the next tick reads back
   pes::ApplyTransition(rec, req);
+}
+
+void StepAdjusters(Player& player, Match& match) {
+  if (!match.PesLoop()) return;
+  const pes::PesWorld::AdjusterFrame frame =
+      match.PesWorldOf().StepAdjusters(match.PesSlotOf(&player), match.GetPesActorConstants().degToRad);
+  HumanoidBase* body = player.CastHumanoid();
+  // The trap world's axes: PES z is GF y (the strike's target was built in them).
+  if (frame.strikeMoved) body->WarpRoot(Vector3(frame.x, frame.z, 0.0f), 0.0f);
+  // The trap world's facing is atan2(x, GF y) = pi - GF's angle: a positive PES yaw turns GF's angle the other way.
+  if (frame.yawStepped) {
+    constexpr float kPi = 3.14159265358979323846f;
+    float turnTrap = frame.yawRad;  // the flag mode's rotation of this tick
+    if (!frame.yawIsRate) {         // the absolute yaw: the turn that takes the body's facing there
+      const Vector3 dir = player.GetRootDirectionVec();
+      const float bodyTrap = std::atan2(dir.coords[0], dir.coords[1]);
+      turnTrap = std::remainder(frame.yawRad - bodyTrap, 2.0f * kPi);
+    }
+    body->TurnRoot(-turnTrap);
+  }
 }
 
 void RequestStop(Player& player, Match& match) {

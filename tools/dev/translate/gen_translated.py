@@ -46,7 +46,7 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_kickbranch.json", "kick"), ("results_kickleaf.json", "kick"), ("results_kickgate.json", "kick"),
         ("results_kickballnear.json", "kick"), ("results_kickjoints.json", "kick"), ("results_animelayer.json", "kick"),
         ("results_kickroot.json", "kickroot"), ("results_kickturn.json", "kickroot"),
-        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"),
+        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"), ("results_teampass.json", "teampass"),
         ("results_gkdribble.json", "gkdribble"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"

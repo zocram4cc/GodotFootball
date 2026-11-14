@@ -19,6 +19,10 @@
 #include "clip_ticks_fake.hpp"
 #include "pes/movestep_turn.hpp"
 
+namespace pes::movestep {
+extern int runEntries;  // counted by the group B stub below
+}  // namespace pes::movestep
+
 namespace {
 
 using pes::MoveHost;
@@ -106,6 +110,7 @@ MoveTurnConstants SyntheticTurn() {
   k.blend03 = 0.3f;
   k.thirty = 30.0f;
   k.zero = 0.0f;
+  k.rateStep = 0.05f;
   k.p8 = 0.8f;
   k.startHalf = 0.6f;
   k.relax07 = 0.7f;
@@ -229,8 +234,11 @@ class FakeHost : public MoveHost {
   int MoveStatePrevious() const override { return previous; }
   float RecordF0bec() const override { return f0bec; }
   void SetRecordF0bec(float value) override { f0bec = value; }
+  void SetRootFacing(float) override {}
+  void ArmYawAdjuster(float, float, int, bool) override {}
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
 
+  void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
     out[0] = displacement[0];
     out[1] = displacement[1];
@@ -244,7 +252,6 @@ class FakeHost : public MoveHost {
   void Issue(const pes::MotionRequest& request) override { issued = request; ++issues; }
 
   const pes::StepScalars& StepConstants() const override { return scalars; }
-  float BandSpeedKmh(int band, float g) const override { return 0.0f; }
   bool MirrorChoice(bool sameTeam) const override { return false; }
   int FootBand() const override { return footBand; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
@@ -267,6 +274,8 @@ class FakeHost : public MoveHost {
   bool ClipFlag() const override { return false; }
   int AbilityByte(int id) const override { return id == 0x29 ? abilityByte : 0; }
   bool EntryAimFlag() const override { return entryAim; }
+  void CountAnalyserEvent(bool flag, int motion) override { analyserCalls.push_back({flag, motion}); }
+  std::vector<std::pair<bool, int>> analyserCalls;  // FUN_1406cba60's (flag, issued motion), in order
   int abilityByte = 50;   // FUN_1406e6660's answer for id 0x29 (Balance)
   bool entryAim = false;  // FUN_1406ba7d0's answer
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
@@ -353,6 +362,7 @@ TEST(RunTurnRun, WritesTheTurnedHeadingInsideTheReorientWindow) {
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 80.0f);
   req.SetF(pes::moveword::kTurnedRow, 70.0f);  // the candidate, 10 degrees below the heading
+  host.record = TurnRecordWithFrames();  // the window ends at min(end, fixed frames) (CMOVG at 0x1406c16b9)
   host.currentMotion = 0x1000;
   host.currentClipFrames = 1;  // inside (-930, 342]
   RunTurnRun(host, req, SyntheticTurn());
@@ -375,7 +385,10 @@ pes::MotionRecord DecodedRotRecord(uint32_t endField) {
                              /*pivot*/ 1};
   std::string err;
   auto m = pes::ParseMbinfo(bins, caps, &err);
-  return m ? m->Motion(0x1000) : pes::MotionRecord{};
+  if (!m) return pes::MotionRecord{};
+  pes::MotionRecord rec = m->Motion(0x1000);
+  rec.blend = {1000};  // the fixed frames bound the window: min(end, fixed) is the record's own end
+  return rec;
 }
 
 // The reorient window is the record's own (start to end, frames): the clip at frame 5 is past a
@@ -403,15 +416,18 @@ TEST(RunTurnRun, SelectsTheClassAndSpeedFromTheDisplacementSpeed) {
   MoveReq req;
   FillRequest(&req);
   host.currentMotion = 0x1000;
-  host.currentClipFrames = 50;  // past every window: the ladder and the damping tail
-  host.record = pes::MotionRecord{};  // the zero word: start -930 frames, end 2
+  host.currentClipFrames = 50;  // past the clip's end (min(end, fixed) = 0 on this record): the ladder, the damping tail, the exit
   host.displacement[0] = 0.0f;
   host.displacement[1] = 0.0f;
   host.displacement[2] = 0.0f;  // a stationary player: the speed is 0
+  pes::movestep::runEntries = 0;
   RunTurnRun(host, req, SyntheticTurn());
-  // PES's ladder with a zero speed writes class 0 and the 5.0 speed word (0x40a00000).
+  // A finished clip with the command's class (word 9) below the live class asks for the run (FUN_1406d2030 through vt+0): the
+  // ground speed is under the 5 km/h rung, so the rate is 0.15, its class comes from the rate table (0), and the class's rate
+  // is the 0.3 immediate (0x3e99999a).
+  EXPECT_EQ(pes::movestep::runEntries, 1);
   EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 5.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.3f);
 }
 
 // The rate tail: a fast clip re-selects the rate from the interface speed and clamps it.
@@ -511,16 +527,317 @@ bool StayDecision(MoveHost&, MoveReq&) { return false; }
 bool OutOfPlayPreempt(MoveHost&, MoveReq&) { return false; }
 bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) {}
-void EnterStop(MoveHost&, MoveReq&) {}
+int stopEntries = 0;  // counts the hand-offs to the STOP entry (FUN_1406d5d60), stubbed here
+void EnterStop(MoveHost&, MoveReq&) { ++stopEntries; }
 int turnStopEntries = 0;  // counts the hand-offs to TURN_STOP (group C's EnterTurnStop, stubbed here)
 void EnterTurnStop(MoveHost&, MoveReq&) { ++turnStopEntries; }  // group C's own; the stub keeps group D linking
 // Group C's FUN_1406b70d0 gate (movestep_step.cpp): the group-D tests take its "no", as the port did before group C landed.
 bool StepLetsRunTurn(MoveHost&, MoveReq&) { return false; }
+// Group B's run entry (FUN_1406d2030), which RUN_TURN_RUN's exit calls: the tests count the hand-offs.
+int runEntries = 0;
+int lastRunFoot = -1;          // the foot argument of the last run entry
+bool lastRunRateHeld = true;   // its rate-held argument
+void EnterRun(MoveHost&, MoveReq&, int foot, bool rateHeld) {
+  ++runEntries;
+  lastRunFoot = foot;
+  lastRunRateHeld = rateHeld;
+}
 }  // namespace movestep
+// Group B's two table pickers (movestep_run.cpp), which the exit reads: the tests use distinct answers per input.
+float BandRateFor(int band, int kind, const RunTables&) { return 0.1f * static_cast<float>(band + 1) + 0.01f * static_cast<float>(kind); }
+int ClassForRateFor(float rate, const RunTables&) { return rate < 0.25f ? 0 : (rate < 0.45f ? 1 : 2); }
+float RateToSpeedFor(float, float, const RunTables&, float) { return 0.0f; }
+// FUN_1406d01d0 (movestep_turn_entry.cpp), which STEP_TURN_RUN's early gate calls: the tests set its answer.
+bool turnLockAnswer = false;
+int turnLockCalls = 0;
+bool EnterGotoTurn(MoveHost&, MoveReq&) {
+  ++turnLockCalls;
+  return turnLockAnswer;
+}
 }  // namespace pes
 
 namespace {
 
+// ---------------------------------------------------------------------------------------------
+// RUN_TURN_RUN_SLIPDOWN, FUN_1406c2f80, read against its instruction stream (0x1406c2f80..0x1406c3467).
+// ---------------------------------------------------------------------------------------------
+
+// 0x1406c32e8..0x1406c32f0: XMM8 = max(-step, delta) after COMISS delta <= step: the damping step is the heading delta clamped
+// to +-limit/ticks, so a facing ahead of the heading is pulled back. (The old port took max(+step, delta): it always turned the
+// facing the positive way.)
+TEST(RunTurnRunSlipdown, TheDampedFacingMovesTowardTheHeadingFromBothSides) {
+  for (const float heading : {10.0f, 110.0f}) {
+    FakeHost host;
+    MoveReq req;
+    req.SetF(pes::moveword::kFacing, 60.0f);
+    req.SetF(pes::moveword::kHeading, heading);
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 1700;  // past the record's end: the damping runs
+    RunTurnRunSlipdown(host, req, SyntheticTurn());
+    const float damped = req.F(pes::moveword::kSlipAngle);
+    EXPECT_LT(std::fabs(damped - heading), std::fabs(60.0f - heading)) << "heading " << heading;
+  }
+}
+
+// 0x1406c311a: FUN_140a92950's clamp is DAT_1425cc680 (angle1125b), the candidate steps towards req[1] by at most that;
+// 0x1406c31fa: the yaw lock FUN_1406cbb00(P, candidate) then writes P+0xbec.
+TEST(RunTurnRunSlipdown, TheReselectedCandidateStepsByTheJostleBandAndLocksTheYaw) {
+  FakeHost host;
+  MoveReq req;
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 50.0f);       // 50 degrees from the candidate: inside the 90-degree gate
+  req.SetF(pes::moveword::kSlipCandidate, 0.0f);  // req[0x18]
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 500;  // inside (start, (start + 2 end) / 3] of the -930/1615 record
+  host.f0bec = -1.0f;
+  const MoveTurnConstants k = SyntheticTurn();
+  RunTurnRunSlipdown(host, req, k);
+  EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRowOut), k.angle1125b);
+  EXPECT_FLOAT_EQ(host.f0bec, k.angle1125b);
+}
+
+// 0x1406c3138..0x1406c31c7: the mirror test compares the row offset's sign with the sign of FUN_14043a0a0(req[2], candidate),
+// the SIGNED difference of the facing and the candidate (XMM4). The old port tested the magnitude's sign, which is never
+// negative, so a row with a positive offset never mirrored.
+TEST(RunTurnRunSlipdown, TheMirrorBitFollowsTheSignOfTheFacingToCandidateDifference) {
+  struct Case { float facing; uint32_t mirror; };
+  for (const Case c : {Case{80.0f, 1u}, Case{0.0f, 0u}}) {  // candidate 40: the difference is -40 or +40; the offset is +120
+    FakeHost host;
+    host.record = TurnRecordWithOffset();
+    MoveReq req;
+    req.SetF(pes::moveword::kFacing, c.facing);
+    req.SetF(pes::moveword::kHeading, 40.0f);
+    req.SetF(pes::moveword::kSlipCandidate, 40.0f);
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 45;  // the window (45, 46] of the short record: its first frame
+    RunTurnRunSlipdown(host, req, SyntheticTurn());
+    EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 1u) << "facing " << c.facing;
+    EXPECT_EQ(req.U(pes::moveword::kSlipMirrorOut) & 0xffu, c.mirror) << "facing " << c.facing;
+  }
+}
+
+// 0x1406c3441..0x1406c3456: the tail calls the run entry (FUN_1406d2030 through P+0xac0 vt+0), then stores the rate, the class
+// word 1 (byte 0x7c = word 0x1f) and the speed word. The old port made no call and left the class word alone.
+TEST(RunTurnRunSlipdown, TheTailEntersTheRunAndWritesClassOne) {
+  FakeHost host;
+  MoveReq req;
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetU(pes::moveword::kClassWord, 2);
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 0;
+  host.record = pes::MotionRecord{};
+  host.footBand = 2;  // the foot the interface reports ((P+0xab8 vt+0x78)()); the run entry takes it as its foot argument
+  const int before = pes::movestep::runEntries;
+  RunTurnRunSlipdown(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::runEntries, before + 1);
+  EXPECT_EQ(pes::movestep::lastRunFoot, 2);
+  EXPECT_FALSE(pes::movestep::lastRunRateHeld);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipSpeed), 11.0f);
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// RUN_TURN_STEP, FUN_1406c3470, re-read against its instruction stream (0x1406c3470..0x1406c4c0b). Each test names the site the
+// old port got wrong.
+// ---------------------------------------------------------------------------------------------
+
+// 0x1406c36d4..0x1406c3721: a row with no offset starts at 0 and ends after the tenth of a second, and the end is MIN(end, fixed
+// frames) (CMOVG). The facing write (0x1406c4220) runs once the clip passes that end. The old port took the dwell as the start
+// and the max as the end, so the write waited for the whole clip.
+TEST(RunTurnStep, ARowWithNoOffsetEndsAfterATenthOfASecondAndWritesTheFacing) {
+  FakeHost host;
+  host.record = TurnRecordWithFrames();  // the fixed frames are 1615 ticks; offset 0
+  host.record.cancel = {5};              // band 0: 9 ticks, the frame the facing write waits for on a row with no offset
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 20;  // past the 9-tick tenth of a second and band 0, far inside the 1615 fixed frames
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 1);  // keeps the ladder out of the way
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  // Live bucket 0: the heading shifts by half a turn; the facing steps by (blend * 90 + 90) / ticks towards it.
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 10.0f + 180.0f / 54.0f, 1e-3f);
+}
+
+// 0x1406c3859..0x1406c3970: the reorient window turns the row heading (req[0x17]) towards req[1] LESS the live bucket's table
+// angle (req[0x20] indexes DAT_1425dd660), by DAT_14259d618 (22.5), adds the table angle back into req[0x18], and measures the
+// facing against the turned heading (FUN_14043a0a0(req[2], rowAngle)).
+TEST(RunTurnStep, TheReorientWindowTurnsTheRowHeadingAgainstTheLiveBucketsTableAngle) {
+  FakeHost host;
+  host.record = TurnRecordWithOffset();  // ticks: start 45, end 47, fixed 47; offset +120
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 45;  // the window (45, 46]: its first frame
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kHeading, 150.0f);
+  req.SetF(pes::moveword::kFacing, 20.0f);
+  req.SetF(0x17, 10.0f);  // the row heading
+  req.SetU(0x20, 3);      // the live bucket: table angle 45 * 3
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kReorientFlag) & 0xffu, 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 15.0f);  // 10 stepped towards 150 - 135 = 15
+  EXPECT_FLOAT_EQ(req.F(0x18), 150.0f);                    // 15 + 135
+  EXPECT_EQ(req.U(pes::moveword::kTurnFrames), 2u);
+}
+
+// 0x1406c39d8..0x1406c3b3d: inside the first tenth of a second a settled, fast command enters the run (vt+0 = FUN_1406d2030),
+// with a rate that follows the displacement speed, the class of that rate and a speed-word FLOAT (the old port stored a
+// truncated integer and made no entry).
+TEST(RunTurnStep, TheLoopBranchEntersTheRunWithTheRateOfTheDisplacementSpeed) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2;
+  host.rateCeiling = 1.0f;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0);
+  req.SetU(pes::moveword::kKind, 5);
+  const int before = pes::movestep::runEntries;
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::runEntries, before + 1);
+  const MoveTurnConstants k = SyntheticTurn();
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), host.rateCeiling * k.playbackFloor);  // the 194 km/h displacement is over 22
+  EXPECT_EQ(req.U(pes::moveword::kPrevKind), 5u);
+}
+
+// 0x1406c3cb0..0x1406c3ceb: an unset command class with a near body and a fast player writes class 3 and the speed word 28
+// and hands the tick to FUN_1406d2590 (the TURN_STOP entry). The old port called the STOP entry FUN_1406d5d60 there.
+TEST(RunTurnStep, AnUnsetCommandClassWithAFastPlayerHandsTheTickToTheTurnStopEntry) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2000;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, static_cast<uint32_t>(-1));
+  const int turnStops = pes::movestep::turnStopEntries, stops = pes::movestep::stopEntries;
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::turnStopEntries, turnStops + 1);
+  EXPECT_EQ(pes::movestep::stopEntries, stops);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 3u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 28.0f);
+}
+
+// 0x1406c3c42..0x1406c4220 (the unset-class ladder; the port's own address range): a man that is facing the body direction and moves at 8 km/h or more
+// hands the tick to the TURN_STOP entry with the class and speed word of his displacement speed: class 1 and the immediate
+// 11.0 under 14.75 km/h, class 2 and 16.0 under 19 km/h, class 3 and 28.0 above (STOP's row picker reads both words).
+TEST(RunTurnStep, TheUnsetClassLadderWritesTheClassAndSpeedWordOfTheDisplacementSpeed) {
+  struct Case { float kmh; uint32_t cls; float word; };
+  for (const Case c : {Case{10.0f, 1u, 11.0f}, Case{17.0f, 2u, 16.0f}, Case{25.0f, 3u, 28.0f}}) {
+    FakeHost host;
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    host.displacement[2] = c.kmh * 1000.0f / (54.0f * 3600.0f);  // 54 Hz ticks
+    MoveReq req;
+    FillRequest(&req);
+    req.SetU(pes::moveword::kCommandSpeedClass, static_cast<uint32_t>(-1));
+    const int turnStops = pes::movestep::turnStopEntries;
+    RunTurnStep(host, req, SyntheticTurn());
+    EXPECT_EQ(pes::movestep::turnStopEntries, turnStops + 1) << c.kmh << " km/h";
+    EXPECT_EQ(req.U(pes::moveword::kClassWord), c.cls) << c.kmh << " km/h";
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), c.word) << c.kmh << " km/h";
+  }
+}
+
+// 0x1406c3f1e..0x1406c3f3a: the look-at gate: a speed under 13.5 (and over 8) writes class 1 and the speed word 11.0 (the
+// immediate 0x41300000; the old port wrote the 8.0 band threshold) and enters STOP.
+TEST(RunTurnStep, ALookAtBehindTheManWritesTheElevenKmhSpeedWordAndEntersStop) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2000;
+  host.displacement[2] = 10.0f * 1000.0f / (54.0f * 3600.0f);  // 10 km/h
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetF(pes::moveword::kFacingError, 100.0f);
+  req.SetF(pes::moveword::kDistToTarget, 0.1f);
+  const int stops = pes::movestep::stopEntries;
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::stopEntries, stops + 1);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 11.0f);
+}
+
+// 0x1406c3c3a: the ladder is skipped (not the handler) while the interface plays the scripted state 0x4a; the exit gate still
+// issues the step row. The old port returned at once.
+TEST(RunTurnStep, TheScriptedStateSkipsTheLadderButTheExitGateStillIssuesTheStepRow) {
+  FakeHost host;
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 2000;
+  host.animeState = 0x4a;
+  host.cellMotion = 0x600;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(host.issues, 1);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepLoop));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// 0x1406c48d0..0x1406c4964: the step row's echo ids are 0x53a -> 0x53b (50 %, at columns 0x11 and 0), 0x542 -> 0x543 (20 %) and
+// 0x52e -> 0x530 (the old port compared against 0x546 / 0x54e and the column 0x520).
+TEST(RunTurnStep, TheStepRowEchoIdsAreTheOnesTheInstructionStreamCompares) {
+  struct Case { uint32_t row, expectRow; bool percent; };
+  for (const Case c : {Case{0x53a, 0x53b, true}, Case{0x53a, 0x53a, false}, Case{0x542, 0x543, true}, Case{0x52e, 0x530, false}}) {
+    FakeHost host;
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    host.animeState = 0x4a;
+    host.cellMotion = 0x600;
+    host.percentAnswer = c.percent;
+    MoveTurnConstants k = SyntheticTurn();
+    // A heading whose live bucket maps to column 0 or 0x11.
+    int bucket = -1;
+    float heading = 0.0f;
+    for (float h = 0.0f; h < 360.0f && bucket < 0; h += 5.0f) {
+      const int b = pes::movestep::AngleBucket(host.AngleBuckets(), h, 10, false);
+      if (k.bucketColumn[b] == 0 || k.bucketColumn[b] == 0x11) { bucket = b; heading = h; }
+    }
+    ASSERT_GE(bucket, 0);
+    for (auto& r : k.stepRow) r = static_cast<int32_t>(c.row);
+    MoveReq req;
+    FillRequest(&req);
+    req.SetF(pes::moveword::kHeading, heading);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1);
+    RunTurnStep(host, req, k);
+    EXPECT_EQ(static_cast<uint32_t>(host.lastRow), c.expectRow) << "row " << std::hex << c.row << " percent " << c.percent;
+  }
+}
+
+// 0x1406c4a13..0x1406c4afd: for kind 3 at a side bucket (2 or 7), when both history steps run forward by more than 0.2 m the
+// exit gate's clip request carries the 0.3 blend (the decompile's arguments hid it); the ladder's copy has no such term.
+TEST(RunTurnStep, TheExitGateWidensTheBlendForAForwardKindThreeStep) {
+  for (const float forward : {1.0f, 0.0f}) {
+    FakeHost host;
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    host.animeState = 0x4a;
+    host.cellMotion = 0x600;
+    host.displacement[2] = forward;  // the history samples the fake returns for every index
+    float heading = 0.0f;
+    int bucket = -1;
+    for (float h = 0.0f; h < 360.0f && bucket < 0; h += 5.0f) {
+      const int b = pes::movestep::AngleBucket(host.AngleBuckets(), h, 10, false);
+      if (b == 2 || b == 7) { bucket = b; heading = h; }
+    }
+    ASSERT_GE(bucket, 0);
+    MoveReq req;
+    FillRequest(&req);
+    req.SetF(pes::moveword::kHeading, heading);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1);
+    req.SetU(pes::moveword::kKind, 3);
+    RunTurnStep(host, req, SyntheticTurn());
+    ASSERT_EQ(host.issues, 1);
+    const MoveTurnConstants k = SyntheticTurn();
+    EXPECT_FLOAT_EQ(host.issued.duration, forward > 0.5f ? k.blend03 : k.clipBlend) << "forward " << forward;
+  }
+}
 // ---------------------------------------------------------------------------------------------
 // RUN_TURN_STEP, FUN_1406c3470.
 // ---------------------------------------------------------------------------------------------
@@ -634,41 +951,36 @@ TEST(RunTurnStep, HandsTheTickToStepTurnRunWhenTheEntryWritesTheRequest) {
 // STEP_TURN_RUN, FUN_1406c7400.
 // ---------------------------------------------------------------------------------------------
 
-// PES at 0x1406C7695: the reorient window's precise gate reads
-// FUN_14043a0a0(req[0x04], req[0x03]) = wrap180(kLookHeading - kBodyDirection), and at
-// 0x1406C76CF: FUN_14043a0a0(req[0x18], req[0x04]) = wrap180(kBodyDirection - kTurnedRow).
-// The port read the facing against the body direction and the heading against the facing, so
-// both of the window's gates read the wrong angles.
-TEST(StepTurnRun, TheReorientWindowReadsTheLookHeadingAgainstTheBodyDirection) {
-  FakeHost host;
-  MoveReq req;
-  FillRequest(&req);
-  host.currentMotion = 0x1000;
-  host.record = TurnRecordWithFrames();
-  host.currentClipFrames = 2;  // inside the reorient window, with frames left
-  req.SetU(pes::moveword::kCommandSpeedClass, 3);
-  req.SetU(pes::moveword::kClassWord, 2);
-  req.SetU(pes::moveword::kPrecise, 1u);
-  // The look heading is 60 degrees from the body direction, so PES's precise gate
-  // (wrap180(lookHeading - bodyDirection) < 45) fails and the row is not stepped. The facing
-  // is level with the body direction, so the port's old operand (facing against the body
-  // direction) was 0 and the gate passed.
-  req.SetF(pes::moveword::kFacing, 10.0f);
-  // The request's heading is 30 degrees from the row, so stepping the row towards the
-  // heading would move it to 40.
-  req.SetF(pes::moveword::kHeading, 40.0f);
-  req.SetF(pes::moveword::kLookHeading, 70.0f);
-  req.SetF(pes::moveword::kBodyDirection, 10.0f);
-  req.SetF(pes::moveword::kTurnedRow, 10.0f);
-  req.SetF(pes::moveword::kRowAngle, 10.0f);
-  req.SetU(pes::moveword::kMoveBucket, 0);
-  host.displacement[0] = 3.0f;
-  host.displacement[1] = 0.0f;
-  host.displacement[2] = 4.0f;
-  StepTurnRun(host, req, SyntheticTurn());
-  // The precise gate failed, so the row was NOT stepped towards the heading: the window's
-  // write (req[0x3d]) is the request's own turned heading (10), not the stepped 40.
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 10.0f);
+// PES at 0x1406c7689..0x1406c7695: the reorient window's precise gate reads FUN_14043a0a0(req[1] (byte +4), req[3] (byte +0xc)) =
+// the look heading against the HEADING (the old port read byte offset 4 as word 4, the body direction). The row steps towards the
+// heading by DAT_14259d618 (22.5) when the gate passes (0x1406c76e9: XMM2 = XMM15).
+TEST(StepTurnRun, TheReorientWindowsPreciseGateMeasuresTheLookHeadingAgainstTheHeading) {
+  struct Case { float look; float expectRow; };
+  // Heading 40, row 10: look 60 is 20 degrees from the heading (the gate passes: the row steps by 22.5 to 32.5); look 100 is 60
+  // degrees from it (the gate fails: the row stays at 10). The body direction is 10 in both, so the old operand (look against
+  // body) read 50 and 90 and never passed.
+  for (const Case c : {Case{60.0f, 32.5f}, Case{100.0f, 10.0f}}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    host.currentMotion = 0x1000;
+    host.record = TurnRecordWithFrames();
+    host.currentClipFrames = 2;  // inside the reorient window, with frames left
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kClassWord, 2);
+    req.SetU(pes::moveword::kPrecise, 1u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 40.0f);
+    req.SetF(pes::moveword::kLookHeading, c.look);
+    req.SetF(pes::moveword::kBodyDirection, 10.0f);
+    req.SetF(0x18, 10.0f);  // the row
+    host.displacement[0] = 3.0f;
+    host.displacement[1] = 0.0f;
+    host.displacement[2] = 4.0f;
+    StepTurnRun(host, req, SyntheticTurn());
+    EXPECT_NEAR(req.F(pes::moveword::kAngle3d), c.expectRow, 1e-4f) << "look " << c.look;
+    EXPECT_NEAR(req.F(0x18), c.expectRow, 1e-4f) << "look " << c.look;  // req[0x3d] and req[0x18] both take the row
+  }
 }
 
 // The same window with the look heading level with the body direction: PES's gate passes and
@@ -795,46 +1107,37 @@ TEST(StepTurnRun, ReplaysARowThroughTheStepGridWhenTheClipIsYoung) {
 // FUN_14043a0a0(req[0x02], turned) = wrap180(turned - facing), where `turned` is the stepped
 // heading. The port read the folded value (the stepped heading plus the bucket's angle) against
 // the facing, which is a different angle - and the per-frame gate then bites.
-TEST(StepTurnStep, TheReorientWindowMeasuresTheSteppedHeadingAgainstTheFacing) {
+TEST(StepTurnStep, TheReorientWindowStepsTheRowHeadingTowardTheHeadingLessTheLiveBucketsTableAngle) {
+  // 0x1406c8fe5..0x1406c9124: the step is FUN_140a92950(req[0x17], req[1] - DAT_1425dd660[req[0x20]], 22.5) (the live bucket
+  // word, not req[8]); req[0x3d] gets the stepped row and req[0x18] the row plus the table angle; the mirror test compares the
+  // sign of FUN_14043a0a0(req[2], row) with the row offset's.
   FakeHost host;
   MoveReq req;
   FillRequest(&req);
   host.currentMotion = 0x1000;
-  host.record = TurnRecordWithOffset();
+  host.record = TurnRecordWithOffset();  // S = 45, E = 47 at 54 Hz: the window is F in [45, 46)
   host.currentClipFrames = 45;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
-  req.SetU(pes::moveword::kClassWord, 2);
   req.SetU(pes::moveword::kPrecise, 1u);
-  req.SetF(pes::moveword::kFacing, 120.0f);
-  // The heading is 60 degrees from the facing, so PES's tight value is wrap180(60 - 120) = -60
-  // and the window's frame count is 2: 60 / 2 is inside the 45-deg-per-frame gate. The port's
-  // folded value would be wrap180(60 + the bucket's 90 - 120) = +30, whose sign differs from
-  // the row offset's (+60) - and the mirror's sign test then flips the other way.
+  req.SetF(pes::moveword::kFacing, 100.0f);
   req.SetF(pes::moveword::kHeading, 60.0f);
-  req.SetF(pes::moveword::kLookHeading, 0.0f);
-  req.SetF(pes::moveword::kBodyDirection, 0.0f);
-  req.SetF(pes::moveword::kTurnedRow, 0.0f);
-  req.SetF(pes::moveword::kRowAngle, 0.0f);
-  req.SetU(pes::moveword::kMoveBucket, 2);  // the bucket's angle is 45 degrees
-  host.displacement[0] = 3.0f;
-  host.displacement[1] = 0.0f;
-  host.displacement[2] = 4.0f;
+  req.SetF(0x17, 0.0f);
+  req.SetU(0x20, 0u);                       // table angle 0 (the live bucket word)
+  req.SetU(pes::moveword::kMoveBucket, 2);  // table angle 90: the old port read this word
   StepTurnStep(host, req, SyntheticTurn());
-  // The window ran, so the turned heading was written.
+  // The row 0 is 60 degrees from the target 60 (inside the 90 gate), so it steps by 22.5; the facing is 77.5 away from it:
+  // 77.5 / 2 frames < 45.
   EXPECT_TRUE(req.Flag(pes::moveword::kReorientFlag));
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 60.0f);
-  // The mirror's sign test: PES's tight value is negative and the row offset is positive, so
-  // the signs differ and the mirror is set. The port's folded value is positive, the signs
-  // match, and the mirror stays clear.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 22.5f);
+  EXPECT_FLOAT_EQ(req.F(0x18), 22.5f);
+  // The row offset is +120 (> 90) and the facing-to-row angle is negative: the signs differ and the angle is past 22.5.
   EXPECT_EQ(req.U(pes::moveword::kMirrorFlag) & 0xffu, 1u);
 }
 
-// PES's S8 root-facing write (0x1406C96CA-0x1406C97FF): the heading, offset by the row's own
-// turn, is compared with the look heading; the residual is blended (0 at 22.5 degrees, 1 at 45),
-// scaled by 90 + 90 * blend and divided by the frame rate (FUN_141e532d0 = 54.0 - NOT a random
-// draw), and the host's facing moves towards that reach. The port computed the values and
-// discarded them, so the damped facing never used them.
-TEST(StepTurnStep, TheRootFacingMovesTowardsTheLookHeading) {
+// 0x1406c96aa..0x1406c97ff: once the live end is reached the facing target is the heading offset by the live bucket's side
+// (+90 at bucket 7, -90 at bucket 2, -180 otherwise), the residual against the look heading ramps the reach from 90 to 180
+// degrees a second, and the facing moves toward the target by at most that reach per tick (the clamp is +-reach).
+TEST(StepTurnStep, TheRootFacingMovesTowardTheBucketsSideByAtMostTheReachPerTick) {
   FakeHost host;
   MoveReq req;
   FillRequest(&req);
@@ -846,18 +1149,14 @@ TEST(StepTurnStep, TheRootFacingMovesTowardsTheLookHeading) {
   req.SetU(pes::moveword::kPrecise, 1u);
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, 0.0f);
-  // The look heading is 100 degrees away, so the residual is past 45 and the blend is 1: the
-  // reach is (90 + 90) / 54 = 3.33 degrees. The row 2's own turn is -90 degrees, so the
-  // heading the facing compares against is -90.
-  req.SetF(pes::moveword::kLookHeading, 100.0f);
+  req.SetF(pes::moveword::kLookHeading, 100.0f);  // 170 degrees from the target: the ramp is at its end, reach (90+90)/54
   req.SetF(pes::moveword::kBodyDirection, 0.0f);
-  req.SetU(0x20, 2u);  // the row's own turn is -90 degrees
+  req.SetU(0x20, 2u);  // the target is the heading - 90 = 270, i.e. 90 degrees behind the facing
   req.SetF(pes::moveword::kDesiredSpeedKmh, 14.0f);
   StepTurnStep(host, req, SyntheticTurn());
-  // The reach (3.33) is smaller than the turn to the facing (90), so the facing takes the
-  // turn: the host's own facing (0) plus 90.
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
-  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 90.0f, 0.01f);
+  // The facing is 90 degrees from the target but may only turn 3.33 degrees: clamp(-90, -3.33, 3.33) = -3.33 -> 356.67.
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 360.0f - 180.0f / 54.0f, 0.01f);
 }
 
 // PES's final class ladder (0x1406C9B0B-0x1406C9B54): the ball's distance from the player,
@@ -972,6 +1271,31 @@ TEST(EnterRunTurnRun, SelectsTheRowAndAsksForTheRunTurnRunState) {
   // The entry issues the ladder's row with the vt+0x10 blend duration.
   EXPECT_EQ(host.issued.motion, 0x5be);
   EXPECT_NEAR(host.issued.duration, 1.0f / 6.0f, 1e-6f);
+}
+
+// 0x1406d7ed8 / 0x1406d851c: after a re-select the entry calls FUN_1406cba60(P, relax, motion), which counts the issued motion in
+// the analyser (FUN_1406e2c30) and writes nothing else. The port took it for the yaw writer and stored 180 degrees in P+0xbec
+// when the entry-aim flag was set (the yaw writer is FUN_1406cbb00, which this entry never calls).
+TEST(EnterRunTurnRun, AReselectCountsTheIssueInTheAnalyserAndLeavesTheYawLockAlone) {
+  for (const bool relax : {false, true}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    req.SetU(pes::moveword::kClassWord, 2);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kMoveBucket, 3);
+    req.SetU(pes::moveword::kKind, 2);
+    host.currentMotion = 0x1000;
+    host.cellMotion = 0x5c3;
+    req.SetU(0xf, 1u);  // the request's word 0xf byte: the row ladder's second arm
+    host.entryAim = relax;
+    host.f0bec = -1.0f;
+    EnterRunTurnRun(host, req, SyntheticTurn());
+    EXPECT_FLOAT_EQ(host.f0bec, -1.0f) << "relax " << relax;
+    ASSERT_EQ(host.analyserCalls.size(), 1u) << "relax " << relax;
+    EXPECT_EQ(host.analyserCalls[0].first, relax);
+    EXPECT_EQ(host.analyserCalls[0].second, 0x5c3);  // class 3 re-selects the 0x5c3 row (0x1406d6ab3)
+  }
 }
 
 // FUN_1406d6780's tail (0x1406D7811 CALL 0x140A58550, 0x1406D783F CMP DIL,0x14): a tank under 20 percent takes the tired row 0x5b6
@@ -1284,6 +1608,7 @@ TEST(RunTurnRun, WritesTheTurnedRowWhenTheClipIsInsideTheWindow) {
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, 70.0f);
   req.SetF(pes::moveword::kTurnedRow, 20.0f);  // 50 degrees short of the heading
+  host.record = TurnRecordWithFrames();
   host.currentMotion = 0x1000;
   // The window is (-930, 342]; a clip frame of 3 sits inside it with room for the span.
   host.currentClipFrames = 3;
@@ -1308,14 +1633,15 @@ TEST(RunTurnRun, TakesTheReplayPathWhenTheDrawIsInsideTheNinetyGate) {
   req.SetF(pes::moveword::kTurnedRow, 60.0f);
   req.SetF(pes::moveword::kFacingError, 0.0f);
   host.currentMotion = 0x1000;
-  host.currentClipFrames = 2000;  // past every window: the ladder and the damping tail
+  host.currentClipFrames = 2000;  // past the clip's end: the ladder, the damping tail, the exit
   host.displacement[0] = 0.0f;    // a stationary player: speed 0
   host.displacement[1] = 0.0f;
   host.displacement[2] = 0.0f;
+  pes::movestep::runEntries = 0;
   RunTurnRun(host, req, SyntheticTurn());
-  // The replay path writes the class/speed pair from the drawn speed (class 0 / 5.0).
+  // The look draw (50 degrees) is inside the 90 gate, so the replay flag is off and the finished clip takes the exit to the run.
+  EXPECT_EQ(pes::movestep::runEntries, 1);
   EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 5.0f);
 }
 
 // FUN_1406c14c0's rate ladder: the precise arm writes the 0.6 rate and the threshold, so
@@ -1342,6 +1668,31 @@ TEST(RunTurnRun, WritesTheZeroSixRateOnThePreciseArmOfTheLadder) {
   const float rate = req.F(pes::moveword::kRate);
   EXPECT_GE(rate, 0.0f);
   EXPECT_LE(rate, host.rateCeiling);
+}
+
+// 0x1406c26ac (the damp block): once the clip is past its end the root facing damps toward the heading by at most the tick's
+// reach (the 180-degree limit of a class below three over the tick rate), from either side, and reaches a heading nearer
+// than the reach. The reach is clamped on BOTH sides: a clamp that only bounds the positive side turns the man the wrong way.
+TEST(RunTurnRun, TheDampedRootFacingMovesTowardTheHeadingByAtMostTheTicksReachFromBothSides) {
+  const MoveTurnConstants k = SyntheticTurn();
+  const float reach = k.halfTurn / 54.0f;  // limit / ticks (FakeHost's tick rate is 54 Hz)
+  struct Case { float heading; float expected; };
+  for (const Case c : {Case{30.0f, reach}, Case{-30.0f, -reach}, Case{2.0f, 2.0f}, Case{-2.0f, -2.0f}}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    req.SetF(pes::moveword::kFacing, 0.0f);  // FakeHost::FacingDeg() is 0
+    req.SetF(pes::moveword::kHeading, c.heading);
+    req.SetF(pes::moveword::kTurnedRow, c.heading);
+    req.SetF(pes::moveword::kLookHeading, c.heading);
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 2000;
+    RunTurnRun(host, req, k);
+    ASSERT_TRUE(req.Flag(pes::moveword::kRootFacing)) << "heading " << c.heading;
+    float yaw = req.F(pes::moveword::kRootFacingAngle);
+    if (yaw > k.halfTurn) yaw -= k.fullTurn;  // the port folds into [0, 360)
+    EXPECT_NEAR(yaw, c.expected, 1e-3f) << "heading " << c.heading;
+  }
 }
 
 // FUN_1406c2f80's sub-record test: the tail clears the class words and rewrites the rate only
@@ -1640,4 +1991,306 @@ TEST(MoveTurnConstantsInstall, LoadsTheExeConstantsAndTablesWithTheirRelations) 
   EXPECT_GT(k->fps, 0.0f);
   EXPECT_GT(k->thousand, 0.0f);
   EXPECT_FLOAT_EQ(k->kmhToRate, 3.6f);
+}
+
+// ---------------------------------------------------------------------------------------------
+// STEP_TURN_RUN (FUN_1406c7400) blocks 4-5 and STEP_TURN_STEP (FUN_1406c8d80), re-ported from their instruction streams
+// (MoveStepCell3). Each test names the asm address it pins. ClipTicks at 54 Hz is int(1.8 v + 0.5): TurnRecordWithOffset has
+// S = 45, E = fixed = 47; the six-tick window is int(54 * 6 / 60 + 0.5) = 5; the one-tick displacement speed is
+// 194.4 * |displacement| km/h.
+// ---------------------------------------------------------------------------------------------
+constexpr float kKmhPerMetre = 54.0f * 60.0f * 60.0f / 1000.0f;
+
+void SetGroundSpeed(FakeHost* host, float kmh) {
+  host->displacement[0] = 0.0f;
+  host->displacement[1] = 0.0f;
+  host->displacement[2] = kmh / kKmhPerMetre;
+}
+
+// 0x1406c7bb3: the early gate's first draw is FUN_14043a0a0(req[0x18], req[1]) (XMM0 <- [R14+0x60], XMM1 <- [R14+4]); the old
+// port drew (req[0x18], req[4]). 0x1406c7c0f: the gate also tests the BYTE at request offset 0x3f (the top byte of word 0xf),
+// not word 0x3f; and it calls FUN_1406d01d0 (0x1406c7c1c) instead of returning unconditionally.
+TEST(StepTurnRun, TheEarlyGateMeasuresTheTurnedRowAgainstTheHeadingAndConsultsTheTurnLock) {
+  const auto locks = [](float turnedRow, float bodyDirection, uint32_t word0xf, uint32_t word0x3f) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    host.currentMotion = 0x1000;
+    host.record = TurnRecordWithOffset();
+    host.currentClipFrames = 2;
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kClassWord, 1);
+    req.SetU(pes::moveword::kPrecise, 0u);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kTurnedRow, turnedRow);
+    req.SetF(pes::moveword::kBodyDirection, bodyDirection);
+    req.SetU(0xf, word0xf);
+    req.SetU(pes::moveword::kMirrorFlag, word0x3f);
+    pes::turnLockAnswer = true;
+    pes::turnLockCalls = 0;
+    StepTurnRun(host, req, SyntheticTurn());
+    return pes::turnLockCalls;
+  };
+  EXPECT_EQ(locks(0.0f, 170.0f, 0u, 0u), 1);    // heading 10 from the row: inside 45, the body direction does not matter
+  EXPECT_EQ(locks(100.0f, 100.0f, 0u, 0u), 0);  // heading 90 from the row: outside 45 although the body direction is level
+  EXPECT_EQ(locks(0.0f, 170.0f, 0x01000000u, 0u), 0);  // byte 0x3f set
+  EXPECT_EQ(locks(0.0f, 170.0f, 0u, 1u), 1);           // word 0x3f is another field
+}
+
+// 0x1406c7ec2: an unset command class at 5..11 km/h writes the speed word 11 (the immediate 0x41300000, not the 8.0 band) and
+// 0x1406c7ee0..0x1406c7f0b: enters STOP with req[0x25] <- req[0x20] and req[0x20] <- the bucket of FUN_14043a0a0(req[2], req[4])
+// (XMM3, R8D = 10); the old port wrote req[8] and req[0x25].
+TEST(StepTurnRun, AnUnsetCommandClassStopsAtTheBucketOfTheFacingToBodyAngleWithTheElevenKmhWord) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 2;
+  SetGroundSpeed(&host, 9.0f);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 100.0f);  // 90 degrees: the man is not "level", so the stop is the unhurried arm
+  req.SetF(pes::moveword::kHeading, 100.0f);
+  req.SetF(pes::moveword::kTurnedRow, 100.0f);
+  req.SetU(0x20, 7u);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  pes::movestep::stopEntries = 0;
+  StepTurnRun(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::stopEntries, 1);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 11.0f);
+  EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 7u);
+  EXPECT_EQ(req.U(0x20), static_cast<uint32_t>(pes::movestep::AngleBucket(host.buckets, 90.0f, 10, false)));
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 3u);
+}
+
+// 0x1406c8231..0x1406c8239: the slow exit's floor is 5 km/h (8 once band 0 has passed), not 22: at 6 km/h before the band the
+// man is not sent to GOTO_RUN, so the tick ends in the STOP entry at 0x1406c835a.
+TEST(StepTurnRun, TheSlowExitFloorIsFiveKmhBeforeTheFirstBand) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 2;
+  SetGroundSpeed(&host, 6.0f);
+  req.SetU(pes::moveword::kKind, 7u);  // FUN_1406d38d0 refuses kind 7
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetF(pes::moveword::kHeading, 100.0f);  // 100 degrees from the turned row: past the 67.5 tolerance, past 90
+  req.SetF(pes::moveword::kTurnedRow, 0.0f);
+  pes::movestep::stopEntries = 0;
+  StepTurnRun(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::stopEntries, 1);
+}
+
+// 0x1406c8459..0x1406c85fe: the damped facing steps toward the heading by at most 180 degrees a second, clamped to +-step as
+// max(-step, delta) (0x1406c85ae..0x1406c85bb; the old port clamped only the upper side, so a facing ahead of the heading
+// was pushed the wrong way), and past the row's end it also writes req[0x18] as a float (byte 0x60).
+TEST(StepTurnRun, TheDampedFacingIsClampedOnBothSidesAndWritesTheTurnedRowAsAFloat) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 60;  // past E = 47
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kHeading, 350.0f);  // -10 degrees from the facing 0
+  req.SetF(pes::moveword::kTurnedRow, 355.0f);
+  StepTurnRun(host, req, SyntheticTurn());
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  const float damped = 360.0f - 180.0f / 54.0f;  // -step, folded
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), damped, 0.01f);
+  EXPECT_NEAR(req.F(0x18), damped, 0.01f);
+}
+
+// 0x1406c8cbb, 0x1406c8cca..0x1406c8cf5, 0x1406c8d12: the final rate for a class-3 run is built from (+0xac0 vt+0x18) = the
+// rate ceiling (three reads / 5 above 22 km/h) and clamped to [0, ceiling]: above the ceiling it becomes the ceiling (the old
+// port stored 0 and read the command's speed as the ceiling).
+TEST(StepTurnRun, TheFinalRateIsBuiltFromTheCeilingAndClampedToIt) {
+  const auto rateFor = [](float ceiling) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    host.currentMotion = 0x1000;
+    host.record = TurnRecordWithOffset();
+    host.currentClipFrames = 60;
+    host.rateCeiling = ceiling;
+    SetGroundSpeed(&host, 23.4f);  // 22 < v <= 25: (3 ceiling + 0.6 + 0.6) / 5
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kClassWord, 3);
+    req.SetU(pes::moveword::kPrecise, 1u);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kTurnedRow, 0.0f);
+    StepTurnRun(host, req, SyntheticTurn());
+    return req.F(pes::moveword::kRate);
+  };
+  EXPECT_NEAR(rateFor(1.0f), (3.0f * 1.0f + 1.2f) / 5.0f, 1e-4f);
+  EXPECT_NEAR(rateFor(0.3f), 0.3f, 1e-4f);  // 0.42 > 0.3: clamped to the ceiling
+}
+
+// 0x1406c8636..0x1406c8757: a class-3 command inside the second band after band 0 re-enters clip 0x3b: the band-0 frame is
+// local_res8 (FUN_1406af8e0 index 0), not the row's start; it stores req[0x18] <- req[1] (a float word, not 0x17) and
+// req[0x20] <- req[8] (the old port copied req[8] onto itself).
+TEST(StepTurnRun, AClassThreeCommandAfterBandZeroReentersTheClip3bAndCopiesTheWords) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x2e;
+  host.record = TurnRecordWithOffset();
+  host.record.cancel = {20, 30};  // 36 and 54 ticks
+  host.currentClipFrames = 40;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kTurnedRow, 5.0f);  // d1 = 5 < 45
+  req.SetU(pes::moveword::kMoveBucket, 5u);
+  req.SetU(0x20, 9u);
+  req.SetU(pes::moveword::kKind, 3u);
+  pes::turnLockAnswer = false;
+  StepTurnRun(host, req, SyntheticTurn());
+  EXPECT_EQ(host.issued.motion, 0x3b);
+  EXPECT_FLOAT_EQ(host.issued.startTime, 41.0f / 54.0f);
+  EXPECT_FLOAT_EQ(req.F(0x18), 10.0f);
+  EXPECT_EQ(req.U(0x20), 5u);
+  EXPECT_EQ(req.U(pes::moveword::kPrevClassWord), 2u);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 3u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 28.0f);
+}
+
+// 0x1406c8fe5..0x1406c9124 (STEP_TURN_STEP): the window's table angle is DAT_1425dd660[req[0x20]]; it is S <= F < (S + 2E) / 3.
+// Covered above by TheReorientWindowStepsTheRowHeadingTowardTheHeadingLessTheLiveBucketsTableAngle; this pins its upper edge.
+TEST(StepTurnStep, TheReorientWindowEndsAtTwoThirdsOfTheWayToTheLiveEnd) {
+  const auto windowOpen = [](int frame) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    host.currentMotion = 0x1000;
+    host.record = TurnRecordWithOffset();
+    host.record.rot = {pes::RotRecord{120, 20, 40}};  // S = 36, E = 72: the window is [36, (36 + 144) / 3 = 60)
+    host.record.blend = {40};                          // fixed = 72
+    host.currentClipFrames = frame;
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kPrecise, 1u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(0x17, 10.0f);
+    req.SetU(0x20, 0u);
+    StepTurnStep(host, req, SyntheticTurn());
+    return req.Flag(pes::moveword::kReorientFlag);
+  };
+  EXPECT_TRUE(windowOpen(59));
+  EXPECT_FALSE(windowOpen(60));  // the run handler's (S + E) / 2 = 54 would have closed it at 55
+}
+
+// 0x1406c924e..0x1406c92f8: an unset command class while the clip is young takes STOP at the bucket of FUN_14043a0a0(req[2],
+// req[4]): req[0x25] <- req[0x20], req[0x20] <- the bucket (the old port wrote req[8]).
+TEST(StepTurnStep, AnUnsetCommandClassStopsAtTheBucketOfTheFacingToBodyAngle) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 2;
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 100.0f);
+  req.SetU(0x20, 6u);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  pes::movestep::stopEntries = 0;
+  StepTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(pes::movestep::stopEntries, 1);
+  EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 6u);
+  EXPECT_EQ(req.U(0x20), static_cast<uint32_t>(pes::movestep::AngleBucket(host.buckets, 90.0f, 10, false)));
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 3u);
+}
+
+// 0x1406c9254..0x1406c92f8: a turned row 56.25 degrees or more from the heading while the clip is young takes the speed bands
+// 8 / 13.5 with the speed words 5, 11 and 16 (the old port wrote 8 for class 1 and read req[6]/req[1] instead of the row).
+TEST(StepTurnStep, AWideTurnedRowWritesTheElevenKmhWordForClassOne) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 2;
+  SetGroundSpeed(&host, 9.0f);
+  req.SetU(pes::moveword::kKind, 7u);  // FUN_1406d38d0 refuses
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetF(pes::moveword::kHeading, 100.0f);
+  req.SetF(pes::moveword::kTurnedRow, 0.0f);  // 100 >= 56.25
+  req.SetF(pes::moveword::kTurn, 0.0f);       // the old port read this word
+  pes::movestep::stopEntries = 0;
+  StepTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 11.0f);
+  EXPECT_EQ(pes::movestep::stopEntries, 1);
+}
+
+// 0x1406c9332..0x1406c94d3: the three replay clips. Motion 0x35 replays 0x3f with the mirror negated and blend DAT_142588200;
+// 0x39 replays 0x4e and 0xc51 replays 0xc6d with the mirror NOT negated (0x1406c947b, 0x1406c94ca: MOVZX R9D,AL) and blend
+// DAT_142598578 (the old port had the 0x39 / 0xc51 mirrors negated and the 0x35 one plain). The tail copies req[1] to req[0x18]
+// and req[8] to req[0x20] and asks for STEP_TURN_RUN.
+TEST(StepTurnStep, TheReplayClipsTakeTheMirrorAndBlendTheInstructionStreamPasses) {
+  struct Arm {
+    int motion, clip;
+    bool mirrorNegated;
+    float blend;
+  };
+  for (const Arm arm : {Arm{0x35, 0x3f, true, 0.1f}, Arm{0x39, 0x4e, false, 0.2f}, Arm{0xc51, 0xc6d, false, 0.2f}}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    host.currentMotion = arm.motion;
+    host.record = TurnRecordWithOffset();
+    host.currentClipFrames = 2;
+    req.SetU(pes::moveword::kCommandSpeedClass, 3);
+    req.SetU(pes::moveword::kClassWord, 2);
+    req.SetU(pes::moveword::kMirror, 1u);  // the playing clip is mirrored
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kTurnedRow, 5.0f);  // d1 = 5 < 11.25
+    req.SetU(pes::moveword::kMoveBucket, 4u);
+    req.SetU(0x20, 9u);
+    StepTurnStep(host, req, SyntheticTurn());
+    EXPECT_EQ(host.issued.motion, arm.clip) << arm.motion;
+    EXPECT_EQ(host.issued.mirror, !arm.mirrorNegated) << arm.motion;  // mirrored clip: negated -> false, plain -> true
+    EXPECT_FLOAT_EQ(host.issued.duration, arm.blend) << arm.motion;
+    EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepTurnRun)) << arm.motion;
+    EXPECT_FLOAT_EQ(req.F(0x18), 10.0f) << arm.motion;
+    EXPECT_EQ(req.U(0x20), 4u) << arm.motion;
+  }
+}
+
+// 0x1406c996f..0x1406c99e7: past the live end the bucket argument is the table angle itself at buckets 9 / 4 when the
+// facing-to-body angle is past 135 (the old port always asked for the bucket of req[6]); the select then writes req[0x25] <-
+// req[0x20], req[0x20] <- the bucket and enters STEP_LOOP.
+TEST(StepTurnStep, PastTheLiveEndTheBucketArgumentIsTheTableAngleAtTheBackBuckets) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 60;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 170.0f);  // 170 > 135 at live bucket 9
+  req.SetF(pes::moveword::kHeading, 170.0f);
+  req.SetF(pes::moveword::kTurnedRow, 170.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetU(0x20, 9u);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 14.0f);
+  StepTurnStep(host, req, SyntheticTurn());
+  const MoveTurnConstants k = SyntheticTurn();
+  EXPECT_EQ(req.U(0x20), static_cast<uint32_t>(pes::movestep::AngleBucket(host.buckets, k.bucketAngle[9], 10, false)));
+  EXPECT_NE(req.U(0x20), static_cast<uint32_t>(pes::movestep::AngleBucket(host.buckets, 170.0f, 10, false)));
+  EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 9u);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepLoop));
 }

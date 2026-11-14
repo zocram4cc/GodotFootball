@@ -93,12 +93,9 @@ public:
   e_MatchPhase GetMatchPhase() const { return matchPhase; }
 
   void StartPlay() { inPlay = true; }
-  // PES's ball is dead at the whistle: on the PES path the stop zeroes it in place (velocity and
-  // spin), so the stop never inherits a flight. The prepare teleport still moves it to the spot.
-  void StopPlay() {
-    inPlay = false;
-    if (pesLoop) ball->Stop();
-  }
+  // PES's whistle leaves the ball alone: the whistle 0x14050E770 writes the stoppage words and no ball state
+  // (docs/ports/pes-port-TeamTick7.md §3), so a ball in flight keeps flying until the prepare places it.
+  void StopPlay() { inPlay = false; }
   bool IsInPlay() const { return inPlay; }
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
@@ -184,8 +181,19 @@ public:
   // A touch of the ball, queued for the next event stage. `actionKind` is PES's action kind
   // (team.cpp maps the GF touch function onto it).
   void QueuePesTouch(Player* player, uint32_t actionKind);
+  // PES's ball record word +0x27E4 (G+0x40): the man the last pass was aimed at, written by the kick; the kind 1..3 touch events carry it as
+  // their second key (FUN_140A18940 cases 1-3, payload+0x38), where the pass-target selector 0x1404F0E50 reads it. Null: none.
+  void SetPesKickTarget(Player* target) { pesKickTarget = target; }
   // The player a store key names: his side's squad at the key's slot. Null for an invalid key.
   Player* GetPesActorPlayer(const pes::ActorKey& key);
+  // The player a PES slot id names (side * 11 + squad place, as PesSlotOf makes it): null for 0xFF and any id past the 22 men.
+  Player* GetPesSlotPlayer(uint32_t slot) {
+    if (slot >= 2 * static_cast<uint32_t>(pes::kSlotsPerSide)) return nullptr;
+    pes::ActorKey key;
+    key.team = slot / pes::kSlotsPerSide;
+    key.slot = slot % pes::kSlotsPerSide;
+    return GetPesActorPlayer(key);
+  }
   // The store key of a player: his side and his squad index.
   pes::ActorKey PesActorKeyOf(const Player* player);
   // The PES slot (side * 11 + squad place) of an on-pitch player: the table entries and block holding his records.
@@ -312,6 +320,21 @@ public:
   uint64_t PesAnimePlayerOf(int slot);
   // The clip a player's body was issued, pushed into his engine control (PesFoxWorld::IssueMotion): PlayIssuedClip's seam, PES mode only.
   void PesAnimeIssue(const Player* player, const pes::MotionRequest& request);
+  // PES's body contact scan (pesbodyscan.hpp), run for each man in the Trap action after his action tick (RunPesBodyScans): the scan's
+  // answer per PES slot, kept until the man's body takes it (TakePesTouch). A grant is the scan having filled the driver's output record
+  // with a touch request: the reach test passed on this tick's contact frame.
+  void GrantPesTouch(int slot, const pes::PesBodyScanOut& out) { pesTouch[slot] = out; pesTouchGranted[slot] = true; }
+  bool TakePesTouch(int slot, pes::PesBodyScanOut* out) {
+    if (!pesTouchGranted[slot]) return false;
+    pesTouchGranted[slot] = false;
+    ++pesTouchesTaken[slot];
+    *out = pesTouch[slot];
+    return true;
+  }
+  // How many grants slot's body has taken in this match (the tests' witness that a touch was a grant).
+  unsigned PesTouchesTaken(int slot) const { return pesTouchesTaken[slot]; }
+  // A grant lives for the tick that made it (the bodies take it in the same tick's team stage): RunPesBodyScans clears the last tick's.
+  void ClearPesTouches() { pesTouchGranted.fill(false); }
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
   // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
   // takes the named fallback.
@@ -687,6 +710,7 @@ protected:
     int frame = 0;
   };
   std::vector<PendingPesTouch> pesPendingTouches;
+  Player* pesKickTarget = nullptr;  // the ball record's +0x27E4 (SetPesKickTarget)
   // The detectors' own stored words (their "+8" words), kept between ticks.
   struct PesDetectorState {
     int phase = 0;
@@ -775,6 +799,9 @@ protected:
   std::array<uint64_t, pes::kSlotCount> pesAnimePlayers{};
   const pes::PesVfs* pesVfs = nullptr;
   std::string pesImagePath;
+  std::array<unsigned, pes::kSlotCount> pesTouchesTaken{};
+  std::array<pes::PesBodyScanOut, pes::kSlotCount> pesTouch{};
+  std::array<bool, pes::kSlotCount> pesTouchGranted{};
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
   std::optional<pes::formation::FormationTables> pesFormations;
   std::optional<pes::formation::SheetConstants> pesSheetConstants;

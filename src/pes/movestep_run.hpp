@@ -34,6 +34,8 @@ inline constexpr int kHitFrame = 0x28;       // req[0x28]: the last hit record's
 int CommandClassFor(int command, const RunTables& t);      // FUN_1406b8de0, 0x1425ddcd8
 float BandRateFor(int band, int kind, const RunTables& t);  // FUN_1406b9e50, 0x1425dde10
 int ClassForRateFor(float rate, const RunTables& t);        // FUN_1406ba030, 0x1425dde20
+// FUN_1406b9aa0(rate, g): the rate's speed in metres a second (vt+0x48 of +0xac0), `rateFloor` = RunConstants::rampSlope.
+float RateToSpeedFor(float rate, float g, const RunTables& t, float rateFloor);
 
 // The interface's row pickers, declared here so the tests can check the index order directly
 // (FUN_1406ce820 writes the same order inline at d_1406ce820.c:321). Defined in movestep_run.cpp.
@@ -59,7 +61,6 @@ int TurnStopRowFor(int kind, int cls, const RunTables& t);  // FUN_1406ba0d0, 0x
 
 // The group-B file-local helpers, defined in namespace pes beside the loaders (their callers
 // are the handlers in namespace pes::movestep, which see them through pes::).
-bool TurnLockEligible(MoveHost& host, MoveReq& req);       // FUN_1406d01d0
 // FUN_140a92950(heading, target, clamp): the heading stepped toward the target by at most the
 // clamp, wrapped into [0, 360). Group C carries the same helper as StepHeadingToPoint; the two
 // reconcile when the shared contract names it.

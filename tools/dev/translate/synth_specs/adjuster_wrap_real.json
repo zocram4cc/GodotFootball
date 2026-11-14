@@ -1,0 +1,48 @@
+{
+ "label": "adjwrap_real",
+ "seed": 1,
+ "as": "0x141EB3AF0",
+ "fields": [
+  {
+   "name": "adj",
+   "at": "rcx",
+   "type": "u64",
+   "values": [
+    943049600
+   ]
+  },
+  {
+   "name": "chain",
+   "at": "rdx",
+   "type": "u64",
+   "values": [
+    935011216
+   ]
+  },
+  {
+   "name": "ret",
+   "at": "ret",
+   "type": "u64",
+   "values": [
+    5400911546
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "yaw_armed_first_tick",
+   "adj": 943049600,
+   "ret": 5400911546
+  },
+  {
+   "name": "strike_armed_first_tick",
+   "adj": 943049432,
+   "ret": 5400911508
+  },
+  {
+   "name": "height_idle",
+   "adj": 943049544,
+   "ret": 5400911527
+  }
+ ]
+}

@@ -115,6 +115,10 @@ add_executable(pes_walk_oracle_test pes_walk_oracle_test.cpp)
 target_link_libraries(pes_walk_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_walk_oracle_test)
 
+add_executable(pes_teampass_oracle_test pes_teampass_oracle_test.cpp)
+target_link_libraries(pes_teampass_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_teampass_oracle_test)
+
 add_executable(pes_dribble_oracle_test pes_dribble_oracle_test.cpp)
 target_link_libraries(pes_dribble_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_dribble_oracle_test)
@@ -201,6 +205,10 @@ add_executable(pes_movestep_test pes_movestep_test.cpp)
 target_link_libraries(pes_movestep_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
 gtest_discover_tests(pes_movestep_test)
 
+add_executable(pes_movestep_turn_entry_test pes_movestep_turn_entry_test.cpp)
+target_link_libraries(pes_movestep_turn_entry_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_turn_entry_test)
+
 add_executable(pes_movestep_run_test pes_movestep_run_test.cpp movestep_probe_stubs.cpp)
 target_link_libraries(pes_movestep_run_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_run_test)
@@ -281,7 +289,7 @@ add_test(NAME godot_post_meter_test
 set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 900)
 
 add_executable(pes_events_test pes_events_test.cpp)
-target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_link_libraries(pes_events_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_events_test)
 
 add_executable(pes_possession_test pes_possession_test.cpp)

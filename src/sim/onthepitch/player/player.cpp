@@ -73,7 +73,7 @@ int Player::GetTeamID() const {
   return team->GetID();
 }
 
-Team* Player::GetTeam() {
+Team* Player::GetTeam() const {
   return team;
 }
 
@@ -230,7 +230,7 @@ void Player::Deactivate() {
   PlayerBase::Deactivate();
 }
 
-FormationEntry Player::GetFormationEntry() {
+FormationEntry Player::GetFormationEntry() const {
   return team->GetFormationEntry(id);
 }
 
@@ -465,6 +465,8 @@ void Player::Process() {
     // PES 2021's MOVESTEP machine: one logic tick per player, before the controller and the
     // humanoid step this frame.
     pesmovestep::ProcessMoveStep(*this, *match);
+    // PES's anime driver steps the body adjusters the entry (or the Trap action's start) armed, in the same frame.
+    pesmovestep::StepAdjusters(*this, *match);
 
     // One PES logic frame's worth of the intercept clock (Milestone A1: kTick_ms
     // is 1000/54 ms, not GF's 10).

@@ -38,6 +38,8 @@ struct SyntheticTeam : pes::TeamAi {
   Flags queued{};
   Flags marked{};
   Flags setPiece{};
+  int ballOwner = 0xFF;  // MA+0x2601C: no man owns the ball unless a case names one
+  bool maFlag25930 = false;
 
   int NearestOpponent(int) const override { return nearest; }
   int Ability(int slot, int ability) const override {
@@ -63,6 +65,8 @@ struct SyntheticTeam : pes::TeamAi {
   bool IsQueuedCover(int slot) const override { return Has(queued, slot); }
   bool SideSlotMarked(int slot) const override { return Has(marked, slot); }
   bool SetPieceAnswer(int slot) const override { return Has(setPiece, slot); }
+  int BallOwnerSlot() const override { return ballOwner; }
+  bool MaFlag25930() const override { return maFlag25930; }
 
  private:
   static bool Valid(int slot) { return 0 <= slot && slot < kSlots; }

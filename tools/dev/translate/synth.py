@@ -81,7 +81,7 @@ ZERO1 = ("_crt_atexit", "atexit", "_onexit", "__stdio_common_vsprintf_s")  # a f
 
 
 def is_reg(at):
-    return at in GPR_ORDER or at in REG32 or at == "ret" or XMM_RE.fullmatch(at) is not None
+    return at == "ret" or at in GPR_ORDER or at in REG32 or XMM_RE.fullmatch(at) is not None
 
 
 def num(v, typ):
@@ -177,6 +177,10 @@ class StaticView:
         self.writes.append((va, data))
 
     def set_reg(self, name, data):
+        if name == "ret":  # the return address: the call record's slot and the word at [rsp], as a call leaves them
+            self.vals[RET_SLOT] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")
+            self.write(self.vals[GPR_ORDER.index("rsp")], data.ljust(GPR_BYTES, b"\0"))
+            return
         name = REG32.get(name, name)
         if name in GPR_ORDER:
             self.vals[GPR_ORDER.index(name)] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")

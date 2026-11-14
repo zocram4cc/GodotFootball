@@ -15,6 +15,7 @@
 
 #include "pes/exe.hpp"
 #include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesbodyscan.hpp"
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes/physique.hpp"
@@ -45,7 +46,9 @@ struct PesActorFacts {
   uint8_t phase = 0;           // P+0x245C: the locomotion phase byte
   uint8_t action = 0, sub = 0, prevAction = 0, prevSub = 0;  // P+0xAC8..+0xACB: PES's ids (2 MOVE, 3 STEP_MOVE, 7 TRAP)
   uint16_t motion = 0;         // P+0xAE0: the PES motion number playing
-  uint32_t kickApproach = 0;   // P+0x430: 0 unless the kick approach is armed (adjuster A state)
+  // P+0x430 is adjuster A's own state word (A = P+0x428, pestrapworld.hpp): the match runs A (PesWorld::StepAdjusters), so it leaves the word
+  // alone (nullopt). An oracle that replays a captured tick sets the captured value.
+  std::optional<uint32_t> kickApproach;
   float word277C = 0.0f;       // P+0x277C and +0x2780: the phase-1 test of the class writer (writers OPEN)
   float word2780 = 0.0f;
   float speedByte = 0.0f;      // slot record +0x97
@@ -88,7 +91,12 @@ struct PesActorConstants {
   float metresPerKm = 0.0f;       // 0x14256AE34 (0x1406EA168)
   float heightDivisor = 0.0f;     // 0x142598580: P+0x3B18 = height_cm / 180 (0x1406EB231)
   uint64_t memberVtable[3] = {0, 0, 0};  // P+0x428, +0x498, +0x4D0: the member constructor 0x141EB42B0's three `lea rax,[vtable]` sites
+  // The vtables' slots (5 qwords: ctor/dtor, reset +8, +0x10, step +0x18, finish +0x20) as the image holds them: the virtual calls of
+  // FUN_141EB3AF0 and the arms read them at the vptr the window's P holds.
+  std::array<std::array<uint8_t, 0x28>, 3> memberVtableSlots{};
   float memberRateNumerator = 0.0f;      // 0x14256AE1C: P+0x41C = this / tickRate (0x141EB4333)
+  float degToRad = 0.0f;                 // 0x1425A0C48: the yaw adjuster's override rate, degrees -> radians (FUN_1406EEDF0, 0x1406EEF75)
+  std::array<bool, 19> jointMask{};      // DAT_14351E540: the bones the joint block holds (the body scan's input; pesbodyscan.hpp)
 };
 
 // Reads the constants from the install's exe, each behind the opcode of the instruction that names it. Empty with `*error` set
