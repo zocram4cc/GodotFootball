@@ -172,6 +172,8 @@ struct PlayerCommand {
     int speedClass = 0;
     bool useClassRate = false;
     float desiredKmh = 0.0f;
+    // cmd+0x14..+0x1C: the look point in PES axes (x, height, z), read as FUN_1406b7560 reads param_3[5..7] (d_1406b7560.c 114-116).
+    float look[3] = {0.0f, 0.0f, 0.0f};
   } pesWords;
 
   TouchInfo touchInfo;

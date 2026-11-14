@@ -1187,7 +1187,8 @@ void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
   // The command record's words as FUN_1406B7560 reads them (R+0x874.. is cmd+0): taken as PES left them, no GF class or ramp.
   command.usePesWords = true;
   command.pesWords = {static_cast<int>(r.commandId), static_cast<int>(r.moveKind), static_cast<int>(r.precise),
-                      static_cast<int>(r.speedClass), r.speedUse, r.speedKmh};
+                      static_cast<int>(r.speedClass), r.speedUse, r.speedKmh,
+                      {r.look[0], r.look[1], r.look[2]}};
   command.useDesiredTarget = true;
   command.desiredTarget = target;
   // km/h to m/s is arithmetic (3600/1000), not a PES number: GF's own readers of the command (the humanoid's velocity level) take m/s.

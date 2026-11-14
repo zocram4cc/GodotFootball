@@ -423,6 +423,7 @@ PesPassGetResult PesWorld::RunPassGetAction(int slot, uint32_t actionId, PesTrap
   const uint8_t* r = PassGetR(slot);
   PesPassGetResult out;
   for (int k = 0; k < 3; ++k) std::memcpy(&out.target[k], r + kRTargetOffset + 4 * k, sizeof(float));
+  for (int k = 0; k < 3; ++k) std::memcpy(&out.look[k], r + kRLookOffset + 4 * k, sizeof(float));
   out.commandId = LoadU32(r, kRCommandIdOffset);
   out.moveKind = LoadU32(r, kRMoveKindOffset);
   out.precise = LoadU32(r, kRPreciseOffset);
