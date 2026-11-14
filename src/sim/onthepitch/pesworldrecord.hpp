@@ -73,6 +73,7 @@ inline constexpr int kRosterEntries = 24;
 inline constexpr std::size_t kRosterEntryBytes = 0x74;
 inline constexpr std::size_t kRosterSlotOffset = 0x20;
 inline constexpr uint32_t kRosterNoSlot = 0xFF;
+
 // G's pointer to the skip object the team tick's step 2 and the pass-target selector read (0x1423E7FD0 = its byte +0x9C; 0x140A431E0
 // reads its word +0x8C and the flag +0xA0+0xE2A0 once +0x9C is set). Every captured team tick read +0x9C = 0, so the selector ran
 // 0x1404FB380. GF holds the object with its bytes clear: nothing in GF raises the byte (OPEN: PES's writer of it).
@@ -311,6 +312,42 @@ inline uint64_t LoadU64(const uint8_t* record, std::size_t offset) {
 }
 inline void StoreU64(uint8_t* record, std::size_t offset, uint64_t value) {
   std::memcpy(record + offset, &value, sizeof value);
+}
+
+// PES's roster-entry default: FUN_140A55940 (memset 0x74; byte+1 = index; dword+2 = 0xFF; byte+0xC = 0)
+// calls FUN_140A55F80 (the defaults) and FUN_140A6E6C0 (the 12-byte record at +0x68). Entries 2..23
+// reproduce the captured roster table (live2/pid480109/seq001) byte-for-byte except +0x18, where the
+// capture holds kRosterCapturedSlot18 and the writer's own store (0xFFFFFFFF) does not match it: INF,
+// the writer of that byte was not found. Entries 0 and 1 differ from the capture in many bytes (their
+// captured bytes differ from the writer's stores; writer not found): INF, they keep the writer's
+// defaults. The owner (FUN_14214CA10) and the source list (FUN_142155AA0) are not ported.
+inline constexpr uint32_t kRosterCapturedSlot18 = 0x20;
+inline constexpr std::size_t kRosterRecordOffset = 0x68;
+inline constexpr std::size_t kRosterRecordBytes = 12;
+inline constexpr uint8_t kRosterRecord[kRosterRecordBytes] = {0x00, 0x01, 0x00, 0x02, 0x00, 0x00,
+                                                              0x01, 0x01, 0x01, 0x01, 0x00, 0x00};
+inline void InitRosterEntry(uint8_t* entry, uint8_t index) {
+  std::memset(entry, 0, kRosterEntryBytes);
+  entry[0] = 0x01;
+  entry[1] = index;
+  StoreU32(entry, 2, kRosterNoSlot);
+  entry[0x0C] = 0;
+  entry[0x08] = 0;
+  StoreU32(entry, 0x10, 0xFFFFFFFFu);
+  StoreU32(entry, 0x18, index >= 2 ? kRosterCapturedSlot18 : 0xFFFFFFFFu);
+  StoreU32(entry, kRosterSlotOffset, kRosterNoSlot);
+  StoreU32(entry, 0x24, kRosterNoSlot);
+  entry[0x06] = 0;
+  entry[0x0D] = 0x00;
+  entry[0x0E] = 0x01;
+  StoreU32(entry, 0x2C, kRosterNoSlot);
+  StoreU64(entry, 0x34, 0);
+  StoreU64(entry, 0x3C, 0);
+  StoreU64(entry, 0x44, 0);
+  StoreU64(entry, 0x4C, 0);
+  StoreU64(entry, 0x54, 0);
+  StoreU32(entry, 0x64, 0);
+  std::memcpy(entry + kRosterRecordOffset, kRosterRecord, kRosterRecordBytes);
 }
 
 // A team record (G's side tables name them). Its attack angle is an f32 at +0x250 (CONFIRMED on-path in the corridor
@@ -769,7 +806,7 @@ class PesWorld {
     image_->tables.roster = RosterVa();
     image_->tables.skip = SkipVa();
     for (int entry = 0; entry < kRosterEntries; ++entry)
-      StoreU32(image_->roster.bytes.data(), entry * kRosterEntryBytes + kRosterSlotOffset, kRosterNoSlot);
+      InitRosterEntry(image_->roster.bytes.data() + entry * kRosterEntryBytes, static_cast<uint8_t>(entry));
     image_->ball.bytes[kBallActiveOffset] = 1;
     for (int team = 0; team < kSideCount; ++team) {
       StoreU32(image_->sides[team].bytes.data(), kSidePassTargetOffset, kNoPassTarget);
