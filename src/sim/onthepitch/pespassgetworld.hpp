@@ -30,8 +30,7 @@ inline constexpr std::size_t kRCommandIdOffset = 0x874, kRPreciseOffset = 0x8C8,
 inline constexpr std::size_t kPassGetTargetIdOffset = 0x68, kPassGetResultOffset = 0x6C;
 
 struct PesPassGetResult {
-  bool targetWritten = false;  // the tick stored R's target point this call
-  float target[3] = {0, 0, 0};  // PES axes: x, height, z
+  float target[3] = {0, 0, 0};  // R+0x894 (cmd+0x20), PES axes: x, height, z; the last point a tick stored
   uint32_t commandId = 0, moveKind = 0, precise = 0, speedClass = 0;
   bool speedUse = false;
   float speedKmh = 0;

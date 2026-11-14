@@ -1147,8 +1147,8 @@ void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
   const pes::PesPassGetResult r =
       match->PesWorldOf().RunPassGetAction(match->PesSlotOf(CastPlayer()), kPassGetAction, match->PesTrapExternalsOf());
   const Vector3 me = CastPlayer()->GetPosition();
-  // PES's axes (x, height, z) are GF's (x, z -> y); a tick that stored no target leaves the man where he stands.
-  const Vector3 target = r.targetWritten ? Vector3(r.target[0], r.target[2], 0) : me;
+  // PES's axes (x, height, z) are the window's frame: GF's (x, y) is (x, z), as the ball samples.
+  const Vector3 target(r.target[0], r.target[2], 0);
   PlayerCommand command;
   command.desiredFunctionType = e_FunctionType_Movement;
   command.useDesiredMovement = true;
@@ -1157,7 +1157,7 @@ void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
   command.usePesWords = true;
   command.pesWords = {static_cast<int>(r.commandId), static_cast<int>(r.moveKind), static_cast<int>(r.precise),
                       static_cast<int>(r.speedClass), r.speedUse, r.speedKmh};
-  command.useDesiredTarget = r.targetWritten;
+  command.useDesiredTarget = true;
   command.desiredTarget = target;
   // km/h to m/s is arithmetic (3600/1000), not a PES number: GF's own readers of the command (the humanoid's velocity level) take m/s.
   command.desiredVelocityFloat = r.speedKmh / 3.6f;

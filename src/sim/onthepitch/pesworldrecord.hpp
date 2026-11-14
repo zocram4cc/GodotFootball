@@ -961,8 +961,7 @@ class PesWorld {
   void RunPassGetTick(int slot, PesTrapExternals& ext);
   // The ActionPassGet tick as the match runs it for the PASS_GET receiver in `slot` (his P record and the world window are current):
   // pc is built from the slot (id, ctx, P), the action id cell holds `actionId`, the object is constructed on first use, and the
-  // command record R keeps its state between ticks. Returns what the tick left in R (the target is flagged written only when this
-  // call stored it).
+  // command record R keeps its state between ticks (PES's A+0x874.. likewise). Returns what R holds after the tick.
   PesPassGetResult RunPassGetAction(int slot, uint32_t actionId, PesTrapExternals& ext);  // The image sections a window run reads at fixed VAs (the .rdata block 0x14252F000, the .data block 0x14339B000): the
   // FixDemo rig's own memory layout, shared by every run that dispatches on an image vtable cell (tests). The run's memory
   // keeps them whole (no overlay): the bytes are the file's, which is what PES's own run read there.

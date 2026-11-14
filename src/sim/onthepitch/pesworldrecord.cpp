@@ -409,7 +409,6 @@ void PesWorld::RunPassGetTick(int slot, PesTrapExternals& ext) {
 }
 
 PesPassGetResult PesWorld::RunPassGetAction(int slot, uint32_t actionId, PesTrapExternals& ext) {
-  constexpr uint32_t kUnwrittenTarget = 0x7FC0FADEu;  // a NaN payload no float computation stores: the tick's own store replaces it
   const int side = slot >= kSlotsPerSide ? 1 : 0;
   uint8_t* pc = PassGetPc(slot);
   std::memset(pc, 0, kPassGetPcBytes);
@@ -418,11 +417,11 @@ PesPassGetResult PesWorld::RunPassGetAction(int slot, uint32_t actionId, PesTrap
   StoreU64(pc, kPcPOffset, PVa(slot));
   uint8_t* arg = PassGetObject(slot) + PassGetArgVa(slot) - PassGetVa(slot);
   StoreU32(arg, 0, actionId);
-  uint8_t* r = PassGetR(slot);
-  for (int k = 0; k < 3; ++k) StoreU32(r, kRTargetOffset + 4 * k, kUnwrittenTarget);
   RunPassGetTick(slot, ext);
+  // R is the AI's command record: it keeps what a tick did not write (the target, the words) until the next tick overwrites it, as
+  // PES's A+0x874.. does between thinks.
+  const uint8_t* r = PassGetR(slot);
   PesPassGetResult out;
-  out.targetWritten = LoadU32(r, kRTargetOffset) != kUnwrittenTarget;
   for (int k = 0; k < 3; ++k) std::memcpy(&out.target[k], r + kRTargetOffset + 4 * k, sizeof(float));
   out.commandId = LoadU32(r, kRCommandIdOffset);
   out.moveKind = LoadU32(r, kRMoveKindOffset);
