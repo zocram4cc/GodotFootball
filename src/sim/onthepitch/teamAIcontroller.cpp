@@ -3677,9 +3677,10 @@ void RunPesDribbleTicks(Match& match) {
       const std::optional<PlayerCommand>& command = p->GetPesDecision().command;
       if (command) {
         decision.active = true;
-        // GF's controller does not know the man is PES's dribbler: its command is idle on 97% of his ticks (11,613 of 12,000 seed-7 calls), which the
-        // builder reads as speed class 0 (weight 0: the stand/turn series, never a run onto the ball). The 12 real dribble-tick frames are the run class
-        // (3) on 10 and the dash class (4) on 2 (F[0] = 7), so the dribbler's row is at least the run band.
+        // ponytail: this stands in for PES's AI ORDER, it is not a tuning knob. GF's AI command for a PES-owned dribbler is idle on 11,613 of 12,000
+        // ticks (GF's controller does not know PES owns his body), which the builder reads as speed class 0 (weight 0: the stand/turn series, never a
+        // run onto the ball); PES's AI orders a run for him: the 12 real dribble-tick frames are class 3 on 10 and class 4 on 2 (F[0] = 7). So the
+        // plan's row speed is at least the run band. Upgrade: PES's AI think (FUN_1409257B0 / FUN_14092ED30) writes the template and the plan.
         decision.speedKmh = std::max(command->desiredVelocityFloat * kKmhPerMps, pes::kSpeedClassBandsKmh[2]);
         decision.kind = static_cast<uint32_t>(kDribbleOrderKind);
         decision.mode = static_cast<uint32_t>(kDribbleMode);

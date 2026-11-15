@@ -66,6 +66,7 @@ constexpr FamilyPrefix kFamilies[] = {
     // family from them, delete this list. idle_, parallel_ and run_ are also locomotion clips under another family: the family is the body's owner.
     {PesClipFamily::kDribble, "dribble"},
     {PesClipFamily::kDribble, "feint"},
+    {PesClipFamily::kDribble, "idle_0_2_run_"},  // motions 2220 / 2221: the stand/turn series' first entries once the dribbler's order is a run
     {PesClipFamily::kDribble, "idle_0_3_run_"},
     {PesClipFamily::kDribble, "parallel_"},
     {PesClipFamily::kDribble, "run_"},
