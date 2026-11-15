@@ -2,6 +2,8 @@
 // See pes_native.hpp.
 #include "pes_native.hpp"
 
+#include <sys/mman.h>
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -28,9 +30,19 @@ PesHeap& HeapOf(PesState& s) {
 
 }  // namespace
 
-void PesHeap::Store64(std::vector<uint8_t>& mem, uint64_t off, uint64_t v) { std::memcpy(mem.data() + off, &v, 8); }
+void PesHeap::Store64(uint8_t* mem, uint64_t off, uint64_t v) { std::memcpy(mem + off, &v, 8); }
 
-PesHeap::PesHeap(uint64_t arenaBytes) : page_(kPageBytes), arena_(arenaBytes), top_(kBlocksOff) {
+namespace {
+// An anonymous private mapping of `bytes` zero bytes, committed as the heap touches it (the arena reads as zero until PES uses it).
+uint8_t* MapZeroed(uint64_t bytes) {
+  void* p = ::mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (p == MAP_FAILED) Die("cannot map a heap of bytes", bytes);
+  return static_cast<uint8_t*>(p);
+}
+}  // namespace
+
+PesHeap::PesHeap(uint64_t arenaBytes)
+    : page_(MapZeroed(kPageBytes)), arena_(MapZeroed(arenaBytes)), arenaBytes_(arenaBytes), top_(kBlocksOff) {
   if (arenaBytes <= kBlocksOff) Die("arena too small:", arenaBytes);
   const uint64_t heapObj = kArenaVa + kHeapObjOff, fwdObj = kArenaVa + kFwdObjOff;
   Store64(arena_, kHeapObjOff, kArenaVa + kHeapVtOff);
@@ -51,11 +63,39 @@ PesHeap::PesHeap(uint64_t arenaBytes) : page_(kPageBytes), arena_(arenaBytes), t
   for (unsigned id = kForwarderFirst; id <= kForwarderLast; ++id) Store64(page_, table + id * kPoolBytes, fwdObj);
 }
 
+PesHeap::PesHeap(uint64_t arenaBytes, Adopt)
+    : page_(MapZeroed(kPageBytes)), arena_(MapZeroed(arenaBytes)), arenaBytes_(arenaBytes), top_(kBlocksOff) {
+  if (arenaBytes <= kBlocksOff) Die("arena too small:", arenaBytes);
+}
+
+PesHeap::~PesHeap() {
+  if (page_) ::munmap(page_, kPageBytes);
+  if (arena_) ::munmap(arena_, arenaBytes_);
+}
+
 void PesHeap::Attach(PesState& s) {
   s.heap = this;
   s.mem.services.clear();
-  s.mem.services.push_back({kPageVa, kPageBytes, nullptr, page_.data()});
-  s.mem.services.push_back({kArenaVa, arena_.size(), nullptr, arena_.data()});
+  s.mem.services.push_back({kPageVa, kPageBytes, nullptr, page_});
+  s.mem.services.push_back({kArenaVa, arenaBytes_, nullptr, arena_});
+}
+
+PesHeap::Bookkeeping PesHeap::SaveBookkeeping() const {
+  Bookkeeping b;
+  b.top = top_;
+  b.live = live_;
+  b.freeList = freeList_;
+  b.allocs = allocs_;
+  b.frees = frees_;
+  return b;
+}
+
+void PesHeap::RestoreBookkeeping(const Bookkeeping& b) {
+  top_ = b.top;
+  live_ = b.live;
+  freeList_ = b.freeList;
+  allocs_ = b.allocs;
+  frees_ = b.frees;
 }
 
 uint64_t PesHeap::LiveBytes() const {
@@ -70,7 +110,7 @@ uint64_t PesHeap::Alloc(uint64_t size, uint64_t align) {
     a = 0x20;
     while (a < align) a <<= 1;
   }
-  if (size > arena_.size()) return 0;  // 0x1403FDB10 refuses sizes that wrap; anything past the arena cannot fit
+  if (size > arenaBytes_) return 0;  // 0x1403FDB10 refuses sizes that wrap; anything past the arena cannot fit
   const uint64_t n = ((size ? size : 1) + kMinAlign - 1) & ~(kMinAlign - 1);
   uint64_t va = 0;
   if (a == kMinAlign) {
@@ -83,7 +123,7 @@ uint64_t PesHeap::Alloc(uint64_t size, uint64_t align) {
   }
   if (!va) {
     const uint64_t off = (top_ + a - 1) & ~(a - 1);  // the arena's base is aligned, so an offset's alignment is the address's
-    if (off + n > arena_.size()) return 0;
+    if (off + n > arenaBytes_) return 0;
     top_ = off + n;
     va = kArenaVa + off;
   }

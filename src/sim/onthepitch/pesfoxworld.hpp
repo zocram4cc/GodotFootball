@@ -4,6 +4,9 @@
 // managers, the pump's lists, the ResManager singleton), PES's own allocator on GF's heap (PesHeap), a stack and a thread block of their own,
 // and GF's file seam: where the reader asks the CRI Fs API for a file, PesFoxWorld answers from the install's VFS (the six pes_service_fs_*
 // calls, pes_native.hpp). The bytes PES parses are the install's own, verbatim.
+//
+// The anime engine's world is booted and loaded once per process and frozen (AnimeWorldTemplate); each match's world is a clone of that
+// template: the same memory, copy-on-write over the frozen pages, in the same host state.
 #pragma once
 
 #include <cstdint>
@@ -20,17 +23,42 @@
 
 namespace pes {
 
+class PesFoxWorld;
+
+// The fox world frozen after its Boot and LoadBody (PesFoxWorld::Freeze): the memory's template and the world's host state. A PesFoxWorld
+// built from it is a clone. Move-only.
+class PesFoxWorldTemplate {
+ public:
+  PesFoxWorldTemplate(PesFoxWorldTemplate&&) = default;
+  PesFoxWorldTemplate& operator=(PesFoxWorldTemplate&&) = default;
+  PesFoxWorldTemplate(const PesFoxWorldTemplate&) = delete;
+  PesFoxWorldTemplate& operator=(const PesFoxWorldTemplate&) = delete;
+
+  // The bytes each region of the frozen memory holds dirty (what the template costs as memfds).
+  PesMemoryTemplate::Footprint Footprint() const { return memory_.Dirty(); }
+
+ private:
+  friend class PesFoxWorld;
+  PesFoxWorldTemplate(PesMemoryTemplate memory, uint64_t serves, uint64_t initializersRun, uint64_t issueScratch);
+  PesMemoryTemplate memory_;
+  uint64_t serves_ = 0, initializersRun_ = 0, issueScratch_ = 0;
+};
+
 class PesFoxWorld final : public PesFileSource {
  public:
   // imagePath: the unpacked image (PES_EXE). heapBytes: the arena PES's allocator serves from. Throws std::runtime_error when the image cannot
   // be mapped.
   PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes);
+  // A clone of a frozen world (AnimeWorldTemplate): the memory is copy-on-write over the frozen pages, the host state is the frozen one.
+  PesFoxWorld(const PesFoxWorldTemplate& frozen, const PesVfs& vfs);
   ~PesFoxWorld() override;
   PesFoxWorld(const PesFoxWorld&) = delete;
   PesFoxWorld& operator=(const PesFoxWorld&) = delete;
 
   // The memory the world runs in (its image, heap, stack and thread block).
   PesMemory& Memory();
+  // This world frozen, after its Boot and LoadBody (no call running): the template a clone is built from.
+  PesFoxWorldTemplate Freeze();
 
   // A call state over the world: the image mapping, the heap, the stack and the thread block (gs), rsp at a return slot.
   PesState NewCall();
@@ -98,5 +126,9 @@ class PesFoxWorld final : public PesFileSource {
   uint64_t serves_ = 0;
   uint64_t initializersRun_ = 0;
 };
+
+// The anime engine's booted and loaded world, frozen: built once per process for this image, install and heap size (the first caller boots
+// and loads a world, freezes it and drops it), and every world made from it is a clone. Throws std::runtime_error when the load fails.
+const PesFoxWorldTemplate& AnimeWorldTemplate(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes);
 
 }  // namespace pes

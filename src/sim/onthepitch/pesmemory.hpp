@@ -1,11 +1,16 @@
-// PES's memory as GF runs it (OneWorld cut 1): one class owns the image mapping, PES's heap, the stack and the thread block, and the OS
-// arena. The fox world (pesfoxworld.hpp) and its boot (pesboot.hpp) run on it. PesImageMapping is the image part the trap memory maps too
-// (pestrapdata.hpp); the trap world's heap, stack and window move into this class in cut 3, when the two worlds share one memory.
+// PES's memory as GF runs it (OneWorld). One class owns the image mapping, PES's heap, the stack and the thread block, and the OS arena. The
+// fox world (pesfoxworld.hpp) and its boot (pesboot.hpp) run on it. PesImageMapping is the image part the trap memory maps too
+// (pestrapdata.hpp); the trap world's heap, stack and window join this class in cut 3.
+//
+// A PesMemory can be frozen after its boot (Freeze) into a PesMemoryTemplate: each region's dirty pages go to a memfd (sparse), and the heap's
+// bookkeeping is kept. A PesMemory built from a template is a clone: each region is its base (the install's file for the image, zeros for the
+// rest) with the frozen pages laid over it, copy-on-write. Clones share the template's pages and never write to them.
 #pragma once
 
 #include <cstdint>
 #include <initializer_list>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "pes_native.hpp"
@@ -13,14 +18,39 @@
 
 namespace pes {
 
-// A private, copy-on-write mapping of the unpacked image (PES_EXE): the chain writes image globals, and the file stays as it is. Throws
-// std::runtime_error with `who` as the prefix when the image cannot be opened or mapped.
-class PesImageMapping {
+// A region's frozen bytes: the pages that differ from the region's base (the install's file for the image, zeros for the rest), in a memfd.
+// The memfd is sparse: only the dirty pages are allocated. Move-only.
+class PesFrozenRegion {
  public:
-  PesImageMapping(const std::string& imagePath, const std::string& who);
-  ~PesImageMapping();
-  PesImageMapping(const PesImageMapping&) = delete;
-  PesImageMapping& operator=(const PesImageMapping&) = delete;
+  PesFrozenRegion() = default;
+  PesFrozenRegion(PesFrozenRegion&& other) noexcept;
+  PesFrozenRegion& operator=(PesFrozenRegion&& other) noexcept;
+  ~PesFrozenRegion();
+  PesFrozenRegion(const PesFrozenRegion&) = delete;
+  PesFrozenRegion& operator=(const PesFrozenRegion&) = delete;
+
+  // The pages of `live` (`bytes` long) that differ from `base` (null: from zeros). Throws std::runtime_error when the memfd cannot be made.
+  static PesFrozenRegion Capture(const uint8_t* live, uint64_t bytes, const uint8_t* base);
+  // Lays the frozen pages over `mapped`: a private, writable mapping of at least Bytes() bytes whose other bytes are the frozen base.
+  void LayOver(uint8_t* mapped) const;
+
+  uint64_t Bytes() const { return bytes_; }
+  uint64_t DirtyBytes() const;
+
+ private:
+  int fd_ = -1;
+  uint64_t bytes_ = 0;
+  std::vector<std::pair<uint64_t, uint64_t>> runs_;  // (offset, length) of the dirty runs, page-aligned, in offset order
+};
+
+// An anonymous private mapping: zero bytes, committed as they are touched (MAP_NORESERVE when asked). Throws std::runtime_error when the
+// mapping fails.
+class PesAnonMapping {
+ public:
+  PesAnonMapping(uint64_t bytes, bool noReserve);
+  ~PesAnonMapping();
+  PesAnonMapping(const PesAnonMapping&) = delete;
+  PesAnonMapping& operator=(const PesAnonMapping&) = delete;
 
   uint8_t* data() const { return data_; }
   uint64_t bytes() const { return bytes_; }
@@ -30,8 +60,47 @@ class PesImageMapping {
   uint64_t bytes_ = 0;
 };
 
-// The image and the windows PES's process has around it: the stack and the thread block (gs), the OS arena (VirtualAlloc's range), and
-// the heap PES's allocator serves from. NewCall maps all of them.
+// A private, copy-on-write mapping of the unpacked image (PES_EXE). Throws std::runtime_error with `who` as the prefix when the image cannot
+// be opened or mapped. With `frozen`, its dirty pages are laid over the mapping (the image of a clone).
+class PesImageMapping {
+ public:
+  PesImageMapping(const std::string& imagePath, const std::string& who, const PesFrozenRegion* frozen = nullptr);
+  ~PesImageMapping();
+  PesImageMapping(const PesImageMapping&) = delete;
+  PesImageMapping& operator=(const PesImageMapping&) = delete;
+
+  uint8_t* data() const { return data_; }
+  uint64_t bytes() const { return bytes_; }
+  const std::string& path() const { return path_; }
+
+ private:
+  std::string path_;
+  uint8_t* data_ = nullptr;
+  uint64_t bytes_ = 0;
+};
+
+// PES's memory frozen after its boot (PesMemory::Freeze): the dirty pages of every region and the heap's bookkeeping. Move-only.
+class PesMemoryTemplate {
+ public:
+  // The bytes each region holds dirty.
+  struct Footprint {
+    uint64_t image, heapPage, heapArena, stack, teb, osArena;
+  };
+  PesMemoryTemplate() = default;
+  PesMemoryTemplate(PesMemoryTemplate&&) = default;
+  PesMemoryTemplate& operator=(PesMemoryTemplate&&) = default;
+  PesMemoryTemplate(const PesMemoryTemplate&) = delete;
+  PesMemoryTemplate& operator=(const PesMemoryTemplate&) = delete;
+
+  Footprint Dirty() const;
+
+ private:
+  friend class PesMemory;
+  std::string imagePath_;
+  PesFrozenRegion image_, heapPage_, heapArena_, stack_, teb_, osArena_;
+  PesHeap::Bookkeeping heap_;
+};
+
 class PesMemory {
  public:
   static constexpr uint64_t kImageBase = 0x140000000ULL;
@@ -41,15 +110,24 @@ class PesMemory {
   // cell at its base is the bump pointer): the memory maps it, or the allocator reads zeros and never returns.
   static constexpr uint64_t kOsArenaVa = 0x3000000000ULL, kOsArenaBytes = 0x100000000ULL;
 
-  // imagePath: the unpacked image. heapBytes: the arena PES's allocator serves from. Throws std::runtime_error when the image cannot be
-  // mapped or the OS arena cannot be reserved.
+  // The memory of a fresh boot: the image mapped privately, the heap and the windows zeroed (PesBoot fills them). Throws std::runtime_error
+  // when the image cannot be mapped or the OS arena cannot be reserved.
   PesMemory(const std::string& imagePath, uint64_t heapBytes);
+  // A clone of a frozen memory (see PesMemoryTemplate): every region holds the frozen bytes, copy-on-write.
+  explicit PesMemory(const PesMemoryTemplate& frozen);
   ~PesMemory();
   PesMemory(const PesMemory&) = delete;
   PesMemory& operator=(const PesMemory&) = delete;
 
   uint8_t* Image() const { return image_.data(); }
   uint64_t ImageBytes() const { return image_.bytes(); }
+  PesHeap& Heap() { return heap_; }
+  uint8_t* Stack() const { return stack_.data(); }
+  uint8_t* Teb() const { return teb_.data(); }
+  uint8_t* OsArena() const { return osArena_.data(); }
+
+  // This memory frozen (no call running): every region's dirty pages go to memfds; the memory itself is unchanged.
+  PesMemoryTemplate Freeze();
 
   // A call state over the memory: the image, the heap, the stack and thread block, the OS arena; rsp at a return slot.
   PesState NewCall();
@@ -68,8 +146,7 @@ class PesMemory {
  private:
   PesImageMapping image_;
   PesHeap heap_;
-  std::vector<uint8_t> stack_, teb_;
-  uint8_t* osArena_ = nullptr;
+  PesAnonMapping stack_, teb_, osArena_;
 };
 
 }  // namespace pes

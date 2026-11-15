@@ -4,6 +4,8 @@
 #include "pes/translated/translated.hpp"
 
 #include <algorithm>
+#include <map>
+#include <mutex>
 #include <cstring>
 #include <iterator>
 #include <optional>
@@ -68,6 +70,7 @@ struct PesFoxWorld::Impl {
   PesMemory memory;
   uint64_t issueScratch = 0;  // IssueMotion's record and parameter block in the heap (made on the first issue)
   Impl(const PesVfs& v, const std::string& imagePath, uint64_t heapBytes) : vfs(v), memory(imagePath, heapBytes) {}
+  Impl(const PesVfs& v, const PesMemoryTemplate& frozen) : vfs(v), memory(frozen) {}
 };
 
 PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes)
@@ -75,7 +78,37 @@ PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64
   pes_service_set_file_source(this);
 }
 
+PesFoxWorld::PesFoxWorld(const PesFoxWorldTemplate& frozen, const PesVfs& vfs)
+    : impl_(std::make_unique<Impl>(vfs, frozen.memory_)), serves_(frozen.serves_), initializersRun_(frozen.initializersRun_) {
+  impl_->issueScratch = frozen.issueScratch_;
+  pes_service_set_file_source(this);
+}
+
 PesFoxWorld::~PesFoxWorld() { pes_service_set_file_source(nullptr); }
+
+PesFoxWorldTemplate::PesFoxWorldTemplate(PesMemoryTemplate memory, uint64_t serves, uint64_t initializersRun, uint64_t issueScratch)
+    : memory_(std::move(memory)), serves_(serves), initializersRun_(initializersRun), issueScratch_(issueScratch) {}
+
+PesFoxWorldTemplate PesFoxWorld::Freeze() {
+  return PesFoxWorldTemplate(impl_->memory.Freeze(), serves_, initializersRun_, impl_->issueScratch);
+}
+
+const PesFoxWorldTemplate& AnimeWorldTemplate(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes) {
+  static std::mutex mutex;
+  static std::map<std::string, std::unique_ptr<PesFoxWorldTemplate>> templates;
+  const std::string key = imagePath + '\n' + vfs.Root() + '\n' + std::to_string(heapBytes);
+  std::lock_guard<std::mutex> lock(mutex);
+  const auto found = templates.find(key);
+  if (found != templates.end()) return *found->second;
+  PesFoxWorld boot(imagePath, vfs, heapBytes);
+  boot.Boot();
+  std::string error;
+  if (!boot.LoadBody(&error)) throw std::runtime_error("PES anime engine: " + error);
+  auto frozen = std::make_unique<PesFoxWorldTemplate>(boot.Freeze());
+  const PesFoxWorldTemplate& ref = *frozen;
+  templates.emplace(key, std::move(frozen));
+  return ref;
+}
 
 PesMemory& PesFoxWorld::Memory() { return impl_->memory; }
 

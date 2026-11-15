@@ -77,10 +77,7 @@ pes::PesFoxWorld& Match::PesAnimeWorldOf() {
   if (!pesAnimeWorld) {
     if (pesVfs == nullptr)
       throw std::runtime_error("PES anime engine: the install's file system is missing: give MatchSetup::pesVfs");
-    pesAnimeWorld = std::make_unique<pes::PesFoxWorld>(pesImagePath, *pesVfs, kPesAnimeHeapBytes);
-    pesAnimeWorld->Boot();
-    std::string error;
-    if (!pesAnimeWorld->LoadBody(&error)) throw std::runtime_error("PES anime engine: " + error);
+    pesAnimeWorld = std::make_unique<pes::PesFoxWorld>(pes::AnimeWorldTemplate(pesImagePath, *pesVfs, kPesAnimeHeapBytes), *pesVfs);
   }
   return *pesAnimeWorld;
 }

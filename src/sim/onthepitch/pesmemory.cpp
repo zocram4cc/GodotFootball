@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <stdexcept>
 
@@ -18,10 +20,105 @@ constexpr uint64_t kTebSelfOffset = 0x30;  // gs:[0x30]: the thread block's own 
 // block's window. The bits are the slots taken when PES's allocator started: its three TlsAlloc calls returned 9, 10 and 11 (the live dump holds
 // those at 0x143AC3DCC, 0x143AC2814 and 0x143AC2810, import_stubs.json), so slots 0..8 were taken.
 constexpr uint64_t kTebPebPointerOffset = 0x60, kPebOffsetInTeb = 0x1800, kPebTlsBitmapOffset = 0x328, kTlsSlotsTakenAtStart = 9;
+// The granule of a frozen region's dirty runs: the page.
+constexpr uint64_t kFrozenPage = 0x1000;
+const uint8_t kZeroPage[kFrozenPage] = {};
+
+// Writes all `n` bytes of `p` into `fd` at `off`.
+void WriteAll(int fd, const uint8_t* p, uint64_t n, uint64_t off) {
+  while (n > 0) {
+    const ssize_t w = ::pwrite(fd, p, n, static_cast<off_t>(off));
+    if (w < 0) {
+      if (errno == EINTR) continue;
+      throw std::runtime_error(std::string("PES template: cannot write the memfd: ") + std::strerror(errno));
+    }
+    p += w;
+    off += static_cast<uint64_t>(w);
+    n -= static_cast<uint64_t>(w);
+  }
+}
+
+// The image's frozen pages against the install's file (the image's base): the file is mapped read-only for the comparison.
+PesFrozenRegion CaptureOverFile(const uint8_t* live, uint64_t bytes, const std::string& path) {
+  const int fd = ::open(path.c_str(), O_RDONLY);
+  struct stat st {};
+  if (fd < 0 || ::fstat(fd, &st) != 0 || static_cast<uint64_t>(st.st_size) != bytes) {
+    if (fd >= 0) ::close(fd);
+    throw std::runtime_error("PES template: the image " + path + " is not the file the memory was mapped from");
+  }
+  void* base = ::mmap(nullptr, bytes, PROT_READ, MAP_PRIVATE, fd, 0);
+  ::close(fd);
+  if (base == MAP_FAILED) throw std::runtime_error("PES template: cannot map the image " + path);
+  PesFrozenRegion region = PesFrozenRegion::Capture(live, bytes, static_cast<const uint8_t*>(base));
+  ::munmap(base, bytes);
+  return region;
+}
 
 }  // namespace
 
-PesImageMapping::PesImageMapping(const std::string& imagePath, const std::string& who) {
+PesFrozenRegion::PesFrozenRegion(PesFrozenRegion&& other) noexcept
+    : fd_(other.fd_), bytes_(other.bytes_), runs_(std::move(other.runs_)) {
+  other.fd_ = -1;
+}
+
+PesFrozenRegion& PesFrozenRegion::operator=(PesFrozenRegion&& other) noexcept {
+  if (this != &other) {
+    if (fd_ >= 0) ::close(fd_);
+    fd_ = other.fd_;
+    bytes_ = other.bytes_;
+    runs_ = std::move(other.runs_);
+    other.fd_ = -1;
+  }
+  return *this;
+}
+
+PesFrozenRegion::~PesFrozenRegion() {
+  if (fd_ >= 0) ::close(fd_);
+}
+
+PesFrozenRegion PesFrozenRegion::Capture(const uint8_t* live, uint64_t bytes, const uint8_t* base) {
+  PesFrozenRegion region;
+  region.bytes_ = bytes;
+  region.fd_ = ::memfd_create("pes-template", MFD_CLOEXEC);
+  if (region.fd_ < 0) throw std::runtime_error(std::string("PES template: cannot create a memfd: ") + std::strerror(errno));
+  if (::ftruncate(region.fd_, static_cast<off_t>(bytes)) != 0)
+    throw std::runtime_error(std::string("PES template: cannot size a memfd: ") + std::strerror(errno));
+  for (uint64_t off = 0; off < bytes; off += kFrozenPage) {
+    const uint64_t n = std::min<uint64_t>(kFrozenPage, bytes - off);
+    const uint8_t* p = live + off;
+    if (std::memcmp(p, base ? base + off : kZeroPage, n) == 0) continue;
+    WriteAll(region.fd_, p, n, off);
+    if (!region.runs_.empty() && region.runs_.back().first + region.runs_.back().second == off) region.runs_.back().second += n;
+    else region.runs_.push_back({off, n});
+  }
+  return region;
+}
+
+void PesFrozenRegion::LayOver(uint8_t* mapped) const {
+  for (const auto& run : runs_) {
+    void* p = ::mmap(mapped + run.first, run.second, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd_, static_cast<off_t>(run.first));
+    if (p == MAP_FAILED) throw std::runtime_error(std::string("PES template: cannot lay the frozen pages: ") + std::strerror(errno));
+  }
+}
+
+uint64_t PesFrozenRegion::DirtyBytes() const {
+  uint64_t n = 0;
+  for (const auto& run : runs_) n += run.second;
+  return n;
+}
+
+PesAnonMapping::PesAnonMapping(uint64_t bytes, bool noReserve) : bytes_(bytes) {
+  const int flags = MAP_PRIVATE | MAP_ANONYMOUS | (noReserve ? MAP_NORESERVE : 0);
+  void* p = ::mmap(nullptr, bytes, PROT_READ | PROT_WRITE, flags, -1, 0);
+  if (p == MAP_FAILED) throw std::runtime_error("PES memory: cannot map " + std::to_string(bytes) + " bytes");
+  data_ = static_cast<uint8_t*>(p);
+}
+
+PesAnonMapping::~PesAnonMapping() {
+  if (data_) ::munmap(data_, bytes_);
+}
+
+PesImageMapping::PesImageMapping(const std::string& imagePath, const std::string& who, const PesFrozenRegion* frozen) : path_(imagePath) {
   const int fd = ::open(imagePath.c_str(), O_RDONLY);
   struct stat st {};
   if (fd < 0 || ::fstat(fd, &st) != 0) {
@@ -34,24 +131,69 @@ PesImageMapping::PesImageMapping(const std::string& imagePath, const std::string
   ::close(fd);
   if (map == MAP_FAILED) throw std::runtime_error(who + ": cannot map the image " + imagePath);
   data_ = static_cast<uint8_t*>(map);
+  if (frozen) {
+    if (frozen->Bytes() != bytes_) {
+      ::munmap(data_, bytes_);
+      throw std::runtime_error(who + ": the frozen image is not the size of " + imagePath);
+    }
+    try {
+      frozen->LayOver(data_);
+    } catch (...) {
+      ::munmap(data_, bytes_);
+      throw;
+    }
+  }
 }
 
 PesImageMapping::~PesImageMapping() {
   if (data_) ::munmap(data_, bytes_);
 }
 
+PesMemoryTemplate::Footprint PesMemoryTemplate::Dirty() const {
+  return Footprint{image_.DirtyBytes(), heapPage_.DirtyBytes(), heapArena_.DirtyBytes(), stack_.DirtyBytes(), teb_.DirtyBytes(),
+                   osArena_.DirtyBytes()};
+}
+
 PesMemory::PesMemory(const std::string& imagePath, uint64_t heapBytes)
-    : image_(imagePath, "PES memory"), heap_(heapBytes), stack_(kStackBytes), teb_(kTebBytes) {
-  void* arena = ::mmap(nullptr, kOsArenaBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-  if (arena == MAP_FAILED) throw std::runtime_error("PES memory: cannot map the OS arena");
-  osArena_ = static_cast<uint8_t*>(arena);
+    : image_(imagePath, "PES memory"),
+      heap_(heapBytes),
+      stack_(kStackBytes, false),
+      teb_(kTebBytes, false),
+      osArena_(kOsArenaBytes, true) {
   std::memcpy(teb_.data() + kTebSelfOffset, &kTebVa, sizeof kTebVa);
   const uint64_t pebVa = kTebVa + kPebOffsetInTeb, takenBits = (1ULL << kTlsSlotsTakenAtStart) - 1;
   std::memcpy(teb_.data() + kTebPebPointerOffset, &pebVa, sizeof pebVa);
   std::memcpy(teb_.data() + kPebOffsetInTeb + kPebTlsBitmapOffset, &takenBits, sizeof takenBits);
 }
 
-PesMemory::~PesMemory() { ::munmap(osArena_, kOsArenaBytes); }
+PesMemory::PesMemory(const PesMemoryTemplate& frozen)
+    : image_(frozen.imagePath_, "PES memory", &frozen.image_),
+      heap_(frozen.heapArena_.Bytes(), PesHeap::Adopt{}),
+      stack_(kStackBytes, false),
+      teb_(kTebBytes, false),
+      osArena_(kOsArenaBytes, true) {
+  frozen.heapPage_.LayOver(heap_.PageData());
+  frozen.heapArena_.LayOver(heap_.ArenaData());
+  heap_.RestoreBookkeeping(frozen.heap_);
+  frozen.stack_.LayOver(stack_.data());
+  frozen.teb_.LayOver(teb_.data());
+  frozen.osArena_.LayOver(osArena_.data());
+}
+
+PesMemory::~PesMemory() = default;
+
+PesMemoryTemplate PesMemory::Freeze() {
+  PesMemoryTemplate frozen;
+  frozen.imagePath_ = image_.path();
+  frozen.image_ = CaptureOverFile(image_.data(), image_.bytes(), image_.path());
+  frozen.heapPage_ = PesFrozenRegion::Capture(heap_.PageData(), heap_.PageBytes(), nullptr);
+  frozen.heapArena_ = PesFrozenRegion::Capture(heap_.ArenaData(), heap_.ArenaBytes(), nullptr);
+  frozen.stack_ = PesFrozenRegion::Capture(stack_.data(), stack_.bytes(), nullptr);
+  frozen.teb_ = PesFrozenRegion::Capture(teb_.data(), teb_.bytes(), nullptr);
+  frozen.osArena_ = PesFrozenRegion::Capture(osArena_.data(), osArena_.bytes(), nullptr);
+  frozen.heap_ = heap_.SaveBookkeeping();
+  return frozen;
+}
 
 PesState PesMemory::NewCall() {
   PesState s;
@@ -61,7 +203,7 @@ PesState PesMemory::NewCall() {
   heap_.Attach(s);  // clears the services, so the memory's windows follow
   s.mem.services.push_back({kStackVa, kStackBytes, nullptr, stack_.data()});
   s.mem.services.push_back({kTebVa, kTebBytes, nullptr, teb_.data()});
-  s.mem.services.push_back({kOsArenaVa, kOsArenaBytes, nullptr, osArena_});
+  s.mem.services.push_back({kOsArenaVa, kOsArenaBytes, nullptr, osArena_.data()});
   s.gs_base = kTebVa;
   s.gpr[4] = kStackVa + kStackBytes - kEntryFrameBytes;
   s.wr(s.gpr[4], 0, 8);  // the return address slot

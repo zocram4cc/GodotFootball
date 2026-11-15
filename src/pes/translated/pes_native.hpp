@@ -44,7 +44,11 @@ struct PesHeap {
   static constexpr uint64_t kDefaultArenaBytes = 8u << 20;
   static constexpr uint64_t kMinAlign = 0x10;  // PES's block alignment (0x1403FB410's floor for sizes >= 0x10)
 
-  explicit PesHeap(uint64_t arenaBytes = kDefaultArenaBytes);
+  explicit PesHeap(uint64_t arenaBytes = kDefaultArenaBytes);  // fresh: zeroed mappings, the object graph written into them
+  // A heap over mappings the caller lays out (a frozen state's clone, PesMemory): nothing is written; RestoreBookkeeping follows.
+  struct Adopt {};
+  PesHeap(uint64_t arenaBytes, Adopt);
+  ~PesHeap();
   PesHeap(const PesHeap&) = delete;
   PesHeap& operator=(const PesHeap&) = delete;
 
@@ -65,15 +69,32 @@ struct PesHeap {
   uint64_t LiveBytes() const;
   bool Owns(uint64_t va) const { return live_.count(va) != 0; }
 
- private:
-  uint8_t* At(uint64_t va) { return arena_.data() + (va - kArenaVa); }
-  void Store64(std::vector<uint8_t>& mem, uint64_t off, uint64_t v);
+  // The page and the arena as mappings (a frozen state's clone lays its pages over them).
+  uint8_t* PageData() { return page_; }
+  uint64_t PageBytes() const { return kPageBytes; }
+  uint8_t* ArenaData() { return arena_; }
+  uint64_t ArenaBytes() const { return arenaBytes_; }
 
-  std::vector<uint8_t> page_;   // the allocator's global page at kPageVa
-  std::vector<uint8_t> arena_;  // the objects' own bytes, then the blocks, at kArenaVa
-  uint64_t top_ = 0;            // bump offset into arena_ of the next fresh block
+  // The bookkeeping a frozen state carries: the bump offset, the blocks, the free lists and the counters.
   struct Block { uint64_t bytes; bool recyclable; };
-  std::map<uint64_t, Block> live_;                       // block VA -> its size, and whether Free may reuse it
+  struct Bookkeeping {
+    uint64_t top = 0;
+    std::map<uint64_t, Block> live;                      // block VA -> its size, and whether Free may reuse it
+    std::map<uint64_t, std::vector<uint64_t>> freeList;  // block bytes -> reusable kMinAlign-aligned blocks
+    uint64_t allocs = 0, frees = 0;
+  };
+  Bookkeeping SaveBookkeeping() const;
+  void RestoreBookkeeping(const Bookkeeping& b);
+
+ private:
+  uint8_t* At(uint64_t va) { return arena_ + (va - kArenaVa); }
+  static void Store64(uint8_t* mem, uint64_t off, uint64_t v);
+
+  uint8_t* page_ = nullptr;   // the allocator's global page at kPageVa
+  uint8_t* arena_ = nullptr;  // the objects' own bytes, then the blocks, at kArenaVa
+  uint64_t arenaBytes_ = 0;
+  uint64_t top_ = 0;          // bump offset into arena_ of the next fresh block
+  std::map<uint64_t, Block> live_;                      // block VA -> its size, and whether Free may reuse it
   std::map<uint64_t, std::vector<uint64_t>> freeList_;  // block bytes -> reusable kMinAlign-aligned blocks
   uint64_t allocs_ = 0, frees_ = 0;
 };
