@@ -248,11 +248,15 @@ inline constexpr float kTickWeightControl = 0.6f, kTickWeightDirectional = 1.0f;
 // row count (0 = no plan), and the rows from +0x3FC, 0x10 bytes each: +0 the speed in km/h, +4 the gait row of the weight table
 // (0..2), +8 a flag byte. Its high part (+0x554..) is the man (facing, position) and, from +0x5D0, the builder's own previous outputs
 // that FUN_1409F20C0 copies back after every build (kRetained*). Read off the 14 captures and the decompile of FUN_1409F20C0.
+// P+0x18 names the side's AI record MA and P+0xE0 the event store E (the builder reads MA+0x2601C, MA+0x24xxx and E's rings through them on every fbF capture).
+inline constexpr std::size_t kPMaPtrOffset = 0x18, kPEventStorePtrOffset = 0xE0;
 inline constexpr std::size_t kDecisionSBytes = 0x50, kDecisionTBytes = 0x1A00, kPlanBytes = 0x700;
 inline constexpr std::size_t kDecisionSSlotOffset = 0x4, kDecisionSPOffset = 0x38;
 inline constexpr std::size_t kDecisionTSpeedClassOffset = 0x5C, kDecisionTUnsetAOffset = 0x5D4, kDecisionTUnsetBOffset = 0x19B4;
 inline constexpr std::size_t kDecisionTScratchOffset = 0x874, kDecisionTOutClassOffset = 0x1960, kDecisionTOutWeightOffset = 0x1964;
 inline constexpr std::size_t kPlanIndexOffset = 0x3, kPlanPointCountOffset = 0x4, kPlanPointsOffset = 0x8, kPlanPointBytes = 0xC;
+// With Q+4 != 0 the target is the point at Q + (index + 2) * 12 (FUN_140A75720); with Q+4 == 0 it is the point at Q+8 (FUN_140A76240).
+inline constexpr std::size_t kPlanPathBias = 2;
 inline constexpr std::size_t kPlanRowOffset = 0x108, kPlanRowCountOffset = 0x3F4, kPlanRowsOffset = 0x3FC, kPlanRowBytes = 0x10;
 inline constexpr std::size_t kPlanRowSpeedOffset = 0x0, kPlanRowGaitOffset = 0x4, kPlanRowFlagOffset = 0x8;
 inline constexpr std::size_t kPlanFacingOffset = 0x554, kPlanFacing2Offset = 0x558, kPlanPosOffset = 0x55C;
@@ -263,13 +267,28 @@ inline constexpr float kPlanLeadRowSpeedKmh = 16.0f;  // every captured plan's l
 inline constexpr uint32_t kPlanLeadRowGait = 1;
 // T+0x874's idle AI scratch, read off every one of the 14 captures' entry state (words 0..19; the constructor FUN_140A854B0 copies it).
 inline constexpr uint32_t kDecisionScratch[20] = {0, 0, 0x18, 0, 0, 0, 0xBF800000u, 0, 0, 0, 0, 0, 0xBF800000u, 0, 0, 0, 0xBF800000u, 0, 0xFF, 1};
+// T+0x874 is the AI's F-shaped decision template: PES's driver FUN_140928FC0 rebuilds it every frame from the constructor's defaults (FUN_140A85270 +
+// FUN_140A85820) and the AI think (FUN_1409257B0, FUN_14092ED30) then writes the order into it. The words below are the ones the 8 open-play
+// captures show the AI writing, read off them: the order kind and mode, the frame stamp (MI+0x1198), the target point (several copies), the man's
+// own position (two copies), the distance to the target and the unit direction to it (two copies each), the situation code and the speed class.
+inline constexpr std::size_t kTplKind = 0x0, kTplMode = 0x4, kTplFrame = 0x10, kTplTargetX = 0x14, kTplTargetY = 0x18, kTplTargetZ = 0x1C, kTplTarget2X = 0x20, kTplTarget2Z = 0x28;
+inline constexpr std::size_t kTplSituation = 0x58, kTplClass = 0x5C, kTplTarget3X = 0x70, kTplTarget3Z = 0x78, kTplDist = 0x7C, kTplPosX = 0x80, kTplPosZ = 0x88;
+inline constexpr std::size_t kTplTarget4X = 0x8C, kTplTarget4Z = 0x94, kTplPos2X = 0x188, kTplPos2Z = 0x190, kTplDirX = 0x194, kTplDirZ = 0x19C, kTplDist2 = 0x1A0;
+inline constexpr std::size_t kTplTarget5X = 0x1AC, kTplTarget5Z = 0x1B4, kTplDir2X = 0x1B8, kTplDir2Z = 0x1C0, kTplPointCount = 0x6C;
+inline constexpr uint32_t kTplSituationRecompute = 8;  // F+0x58 in the template of every open-play call whose situation is recomputed (FUN_1409F3930 tests it)
+// PES's run-entry bands (km/h) that name speed classes 1..4: walk, jog, run, dash (pesmovestep.cpp CommandSpeedClassOf; FUN_1406B8DE0).
+inline constexpr float kSpeedClassBandsKmh[4] = {5.0f, 11.0f, 16.0f, 28.0f};
 // The AI's plan for one man, in PES's frame: what GF's AI command says, mapped into Q.
-struct PesDecision {
+struct AiFrameDecision {
   bool active = false;       // a plan exists (Q+0x3F4 rows)
   float speedKmh = 0.0f;     // the row's speed: PES's run-entry bands (5, 11, 16, 28 km/h) name the walk, jog, run and dash classes
   uint32_t gaitRow = 1;      // the row of FUN_140A756C0's weight table
   float target[3] = {0, 0, 0};  // x, height, z
   uint8_t aiFlag = 0;        // the AI object's byte +0x95C, the builder's seventh argument
+  uint32_t kind = 1;         // template F[0]: the order kind (1: go to the target point)
+  uint32_t mode = 3;         // template F[1]: the mode the AI asks for
+  uint32_t frameStamp = 0;   // template F+0x10: the logic frame (MI+0x1198)
+  uint32_t situation = kTplSituationRecompute;  // template F+0x58
 };
 
 // What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment

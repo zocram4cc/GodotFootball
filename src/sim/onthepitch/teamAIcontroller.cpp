@@ -3668,6 +3668,25 @@ void RunPesDribbleTicks(Match& match) {
       constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      // The tick's frame F is built by PES's AI frame builder (FUN_1409F1F20) from the AI's decision for the man. ponytail: PES's AI think
+      // (FUN_1409257B0, FUN_14092ED30) is not ported; the decision is GF's AI command (Player::Think's first movement command): its speed
+      // names the plan's row, the man runs to the ball (the run-to point of every captured dribbler frame is the ball's sample 0), and the
+      // order is the dribble's (kind 3, mode 4 on 11 of 12 real dribble-tick frames). Upgrade: PES's AI writes the template and the plan.
+      constexpr float kKmhPerMps = 3.6f, kDribbleOrderKind = 3.0f, kDribbleMode = 4.0f;
+      pes::AiFrameDecision decision;
+      const std::optional<PlayerCommand>& command = p->GetPesDecision().command;
+      if (command) {
+        decision.active = true;
+        decision.speedKmh = command->desiredVelocityFloat * kKmhPerMps;
+        decision.kind = static_cast<uint32_t>(kDribbleOrderKind);
+        decision.mode = static_cast<uint32_t>(kDribbleMode);
+        decision.frameStamp = world.MatchFrame();
+        const Vector3 ball = match.GetBall()->Predict(0);
+        decision.target[0] = ball.coords[0];
+        decision.target[1] = ball.coords[2];
+        decision.target[2] = -ball.coords[1];
+      }
+      world.RunDecisionFrame(slot, decision, match.PesTrapExternalsOf());
       const pes::PesWorld::DribbleTickResult tick = world.RunDribbleTick(slot, match.PesTrapExternalsOf());
       PlayDribbleIssue(match, *p, slot, tick.issue);
       if (tick.action != pes::kAnimeActionDribble) match.SetPesDribbleSwitched(slot, false);  // the dribble tick switched him out

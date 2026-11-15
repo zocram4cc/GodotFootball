@@ -153,6 +153,55 @@ struct Image {
   }
 };
 
+// One call's world: every object the call read, loaded as the real call held it, except what `skip` names (the callers then supply it).
+struct Loaded {
+  pes::PesWorld world;
+  pes::PesTrapExternals ext;
+  uint8_t aiFlag = 0;
+};
+
+void LoadCall(Loaded& l, const Call& c, const Image& image) {
+  pes::PesWorld& world = l.world;
+  for (int k = 0; k < pes::kSlotCount; ++k) world.BindSlot(k);
+  l.ext.image = image.map;
+  l.ext.imageBase = pes::kImageBaseVa;
+  l.ext.imageBytes = image.bytes;
+  const int side = c.slot / pes::kSlotsPerSide;
+  uint8_t* p = world.P(c.slot);
+  const uint64_t ma = pes::PesWorld::MaVa(side), events = pes::PesWorld::EventsVa();
+  std::memcpy(p + 0x18, &ma, 8);
+  std::memcpy(p + 0xE0, &events, 8);
+  // G's tables the window has no object for yet: each gets an allocator block its header slot names.
+  const std::map<std::string, std::pair<std::size_t, std::size_t>> kHeapObjects = {{"G180", {0x180, 0xB00}}, {"G3b0", {0x3B0, 0x100}}, {"rec1978", {0x1978, 0xA300}}};
+  std::map<std::string, uint8_t*> heapHome;
+  for (const auto& [name, slotAndBytes] : kHeapObjects) {
+    const uint64_t va = world.HeapAlloc(slotAndBytes.second, 16);
+    std::memcpy(world.Bytes() + slotAndBytes.first, &va, 8);
+    heapHome[name] = world.HeapHost(va, slotAndBytes.second);
+  }
+  for (const ReadRun& r : c.runs) {
+    // The builder's stack arguments sit just below F (F - 0x40: Q, the param_6 vector, then the seventh argument, the AI object's byte at +0x95C).
+    if (r.object == "va" && r.bytes.size() == 17) l.aiFlag = r.bytes[16];
+    if (r.object == "va") {  // any other address: lent as the call's own bytes
+      pes::PesTrapSegment seg;
+      seg.va = r.offset;
+      seg.bytes = r.bytes;
+      l.ext.segments.push_back(std::move(seg));
+      continue;
+    }
+    uint8_t* home = heapHome.count(r.object) ? heapHome[r.object] : Home(world, r.object, c.slot);
+    if (home == nullptr) continue;
+    for (std::size_t k = 0; k < r.bytes.size(); ++k) {
+      const std::size_t off = r.offset + k;
+      home[off] = r.bytes[k];
+    }
+  }
+  // The plan's man words are the man record's (RunFrameBuilder copies the facing and the position in): the record's facing is not in the read set,
+  // the plan's own copy is, so the record takes it.
+  uint8_t* man = world.ManRecord(c.slot);
+  std::memcpy(man + pes::kManFacingOffset, world.DecisionPlan(c.slot) + pes::kPlanFacingOffset, 4);
+}
+
 TEST(PesFrameBuilder, OverPesRealStateItReproducesTheRealFrame) {
   Image image;
   if (image.map == nullptr) GTEST_SKIP() << "PES_EXE unset (the running game's memory dump, not committed)";
@@ -161,53 +210,62 @@ TEST(PesFrameBuilder, OverPesRealStateItReproducesTheRealFrame) {
   const std::vector<Call> calls = LoadCalls(states);
   ASSERT_FALSE(calls.empty());
   for (const Call& c : calls) {
+    Loaded l;
+    LoadCall(l, c, image);
+    l.world.RunFrameBuilder(c.slot, l.ext, l.aiFlag);
+    EXPECT_EQ(Mismatches(l.world, c), 0) << c.name << " full-frame word diffs (window/real):" << FullDiff(l.world, c);
+  }
+}
+
+// The dribbler: GF's AI command maps to PES's decision as the seam does it (a plan whose row holds the command's speed, the run-to point at the ball,
+// the dribble's order kind and mode); the builder's frame for the man must carry what the real dribble tick received on 12 REAL dribble-tick entries
+// (live2 dribbletick_1407B37D0, GF_PES_DRIBBLE_FRAMES): the order kind, the mode, the speed class and the weight, and the run-to point.
+// Only the decision's own fields are held to the real frames; the world around the man (match state, side records) is the window's, as in a match.
+TEST(PesFrameBuilder, TheDribblersFrameBuiltFromTheAiCommandCarriesTheRealOrder) {
+  const char* path = std::getenv("GF_PES_DRIBBLE_FRAMES");
+  if (path == nullptr || *path == '\0') GTEST_SKIP() << "GF_PES_DRIBBLE_FRAMES unset (PES-derived captures, not committed: tools/dev/translate/dribble_frames.py)";
+  Image image;
+  if (image.map == nullptr) GTEST_SKIP() << "PES_EXE unset (the running game's memory dump, not committed)";
+  std::ifstream in(path);
+  std::string line;
+  int frames = 0;
+  while (std::getline(in, line)) {
+    std::istringstream ls(line);
+    std::string name;
+    ls >> name;
+    uint32_t w[14];
+    for (uint32_t& v : w) {
+      std::string hex;
+      ls >> hex;
+      v = static_cast<uint32_t>(std::stoul(hex, nullptr, 16));
+    }
+    ++frames;
+    const int slot = static_cast<int>(w[0]);
     pes::PesWorld world;
     for (int k = 0; k < pes::kSlotCount; ++k) world.BindSlot(k);
     pes::PesTrapExternals ext;
     ext.image = image.map;
     ext.imageBase = pes::kImageBaseVa;
     ext.imageBytes = image.bytes;
-    const int side = c.slot / pes::kSlotsPerSide;
-    uint8_t* p = world.P(c.slot);
-    const uint64_t ma = pes::PesWorld::MaVa(side), events = pes::PesWorld::EventsVa();
-    std::memcpy(p + 0x18, &ma, 8);
-    std::memcpy(p + 0xE0, &events, 8);
-    // G's tables the window has no object for yet: each gets an allocator block its header slot names.
-    const std::map<std::string, std::pair<std::size_t, std::size_t>> kHeapObjects = {{"G180", {0x180, 0xB00}}, {"G3b0", {0x3B0, 0x100}}, {"rec1978", {0x1978, 0xA300}}};
-    std::map<std::string, uint8_t*> heapHome;
-    for (const auto& [name, slotAndBytes] : kHeapObjects) {
-      const uint64_t va = world.HeapAlloc(slotAndBytes.second, 16);
-      std::memcpy(world.Bytes() + slotAndBytes.first, &va, 8);
-      heapHome[name] = world.HeapHost(va, slotAndBytes.second);
-    }
-    std::string skipped;
-    uint8_t aiFlag = 0;
-    for (const ReadRun& r : c.runs) {
-      // The builder's stack arguments sit just below F (F - 0x40: Q, the param_6 vector, then the seventh argument, the AI object's byte at +0x95C).
-      if (r.object == "va" && r.bytes.size() == 17) aiFlag = r.bytes[16];
-      if (r.object == "va") {  // any other address: lent as the call's own bytes
-        pes::PesTrapSegment seg;
-        seg.va = r.offset;
-        seg.bytes = r.bytes;
-        ext.segments.push_back(std::move(seg));
-        continue;
-      }
-      uint8_t* home = heapHome.count(r.object) ? heapHome[r.object] : Home(world, r.object, c.slot);
-      if (home == nullptr) {
-        if (skipped.find(" " + r.object + " ") == std::string::npos) skipped += " " + r.object + " ";
-        continue;
-      }
-      std::memcpy(home + r.offset, r.bytes.data(), r.bytes.size());
-    }
-    // The plan's man words are the man record's (RunFrameBuilder copies the facing and the position in): the record's facing is not in the read set,
-    // the plan's own copy is, so the record takes it.
-    {
-      uint8_t* man = world.ManRecord(c.slot);
-      std::memcpy(man + pes::kManFacingOffset, world.DecisionPlan(c.slot) + pes::kPlanFacingOffset, 4);
-    }
-    world.RunFrameBuilder(c.slot, ext, aiFlag);
-    EXPECT_EQ(Mismatches(world, c), 0) << c.name << " full-frame word diffs (window/real):" << FullDiff(world, c) << " (objects without a window home:" << skipped << ")";
+    uint8_t* man = world.ManRecord(slot);
+    std::memcpy(man + pes::kManPosXOffset, &w[1], 4);
+    std::memcpy(man + pes::kManPosXOffset + 8, &w[2], 4);
+    const uint32_t realClass = w[9];
+    pes::AiFrameDecision d;
+    d.active = true;
+    d.speedKmh = pes::kSpeedClassBandsKmh[realClass - 1];  // the command's speed: the band's entry speed names the class
+    d.kind = w[6];
+    d.mode = w[7];
+    std::memcpy(d.target, &w[3], sizeof d.target);  // the ball's sample 0
+    world.RunDecisionFrame(slot, d, ext);
+    const uint8_t* f = world.TickFrameConst();
+    auto word = [&](std::size_t off) { uint32_t v; std::memcpy(&v, f + off, 4); return v; };
+    EXPECT_EQ(word(0), w[6]) << name << " order kind";
+    EXPECT_EQ(word(4), w[7]) << name << " mode";
+    EXPECT_EQ(word(0x5C), w[9]) << name << " speed class";
+    EXPECT_EQ(word(0x5E4), w[10]) << name << " weight";
   }
+  EXPECT_GT(frames, 0);
 }
 
 }  // namespace

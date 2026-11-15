@@ -824,12 +824,14 @@ class PesWorld {
   // PES's AI frame builder FUN_1409F1F20 on `slot`: builds the tick frame F (TickFrame()) from the man's decision record, the way PES builds it
   // before every action tick. The controller objects S, T and X (pestrapworld.hpp kDecision*) live in the allocator, filled from the man record
   // and `decision`. The next RunDribbleTick then runs on this frame (F+0x868 names X).
-  void RunDecisionFrame(int slot, const PesDecision& decision, PesTrapExternals& ext);
+  void RunDecisionFrame(int slot, const AiFrameDecision& decision, PesTrapExternals& ext);
   // The pieces of it: the plan record Q and the team block T of `slot`'s controller objects (allocated on first use), the plan a decision maps to,
   // and the builder run over whatever Q and T hold (tests write real captured state there).
   uint8_t* DecisionPlan(int slot);
   uint8_t* DecisionTeam(int slot);
-  void FillPlan(int slot, const PesDecision& decision);
+  void FillPlan(int slot, const AiFrameDecision& decision);
+  // The AI's decision template T+0x874 for `slot`: PES's constructor defaults, then the words the AI writes (kTpl*), from the decision and the man.
+  void FillTemplate(int slot, const AiFrameDecision& decision, PesTrapExternals& ext);
   // aiFlag is the builder's seventh argument, the AI object's byte at +0x95C (1 in the kick-off calls, 0 in play).
   void RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag = 0);
   // The motion the series variant's first entry names for `slot` (nullopt when the vector is empty or its data is not in the allocator's arena), and

@@ -280,6 +280,8 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
   StoreF32(m, kMemberScaleOffset, 1.0f);
   StoreU32(m, kMemberPairOffset, kMemberPairInit);
   uint8_t* p = world.P(slot);  // the constructor FUN_1406E03D0's tail stores
+  StoreU64(p, kPMaPtrOffset, PesWorld::MaVa(slot / kSlotsPerSide));
+  StoreU64(p, kPEventStorePtrOffset, PesWorld::EventsVa());
   for (const std::size_t at : kPTailNoneOffsets) StoreU32(p, at, 0xFFFFFFFFu);
   for (const std::size_t at : kPTailOneOffsets) StoreF32(p, at, 1.0f);
   // The series SetMotion's vectors (pestrapworld.hpp kSeriesReserve): empty, with room and data.

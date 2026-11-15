@@ -2,6 +2,7 @@
 // record an entry names, and fall back to entry 0 past the table's count, as PES does. GF's readers of the two tables
 // run them on the world window.
 
+#include <cmath>
 #include <cstdint>
 
 #include "onthepitch/pesworldrecord.hpp"
@@ -529,7 +530,7 @@ uint8_t* PesWorld::DecisionTeam(int slot) {
   return HeapHost(decision_[slot].t, kDecisionTBytes);
 }
 
-void PesWorld::FillPlan(int slot, const PesDecision& d) {
+void PesWorld::FillPlan(int slot, const AiFrameDecision& d) {
   uint8_t* q = DecisionPlan(slot);
   // The plan: one row naming the speed, aimed at one point. PES's plans carry a leading row (gait 1, 16 km/h, flag 1) before the row in
   // force, as every captured plan does.
@@ -538,7 +539,7 @@ void PesWorld::FillPlan(int slot, const PesDecision& d) {
     q[kPlanIndexOffset] = 1;
     q[kPlanPointCountOffset] = 2;
     std::memcpy(q + kPlanPointsOffset, d.target, sizeof d.target);
-    std::memcpy(q + kPlanPointsOffset + 2 * kPlanPointBytes + 0, d.target, sizeof d.target);
+    std::memcpy(q + (1 + kPlanPathBias) * kPlanPointBytes, d.target, sizeof d.target);  // index 1: the point FUN_140A75720 names
     q[kPlanRowOffset] = 1;
     q[kPlanRowCountOffset] = 2;
     uint8_t* row0 = q + kPlanRowsOffset;
@@ -550,6 +551,60 @@ void PesWorld::FillPlan(int slot, const PesDecision& d) {
     StoreU32(row1, kPlanRowGaitOffset, d.gaitRow);
     row1[kPlanRowFlagOffset] = 0;
   }
+}
+
+void PesWorld::FillTemplate(int slot, const AiFrameDecision& d, PesTrapExternals& ext) {
+  EnsureDecisionBlocks(slot);
+  DecisionBlocks& b = decision_[slot];
+  uint8_t* t = HeapHost(b.t, kDecisionTBytes);
+  uint8_t* tpl = t + kDecisionTScratchOffset;
+  // FUN_140928FC0: the constructor's defaults, with F+0x868 / F+0x86C (the frame's X pointer) cleared, copied into the template every frame.
+  {
+    PesState s = NewCall(Bytes());
+    const std::size_t lent = LendExternals(s, ext);
+    heap_->Attach(s);
+    const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = b.t + kDecisionTScratchOffset;
+    ::pes_fn_140A85270(s);
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = b.t + kDecisionTScratchOffset;
+    ::pes_fn_140A85820(s);
+    ReturnSegments(s, ext, lent);
+  }
+  StoreU64(tpl, 0x868, 0);
+  if (!d.active) return;
+  const uint8_t* man = ManRecord(slot);
+  float px, pz;
+  std::memcpy(&px, man + kManPosXOffset, 4);
+  std::memcpy(&pz, man + kManPosXOffset + 8, 4);
+  const float dx = d.target[0] - px, dz = d.target[2] - pz;
+  const float dist = std::sqrt(dx * dx + dz * dz);
+  const float dirX = dx / dist, dirZ = dz / dist;
+  uint32_t speedClass = 0;
+  for (std::size_t k = 0; k < 4; ++k)
+    if (d.speedKmh >= kSpeedClassBandsKmh[k]) speedClass = static_cast<uint32_t>(k + 1);
+  StoreU32(tpl, kTplKind, d.kind);
+  StoreU32(tpl, kTplMode, d.mode);
+  StoreU32(tpl, kTplFrame, d.frameStamp);
+  for (const std::size_t off : {kTplTarget2X, kTplTarget3X, kTplTarget4X, kTplTarget5X}) StoreF32(tpl, off, d.target[0]);
+  for (const std::size_t off : {kTplTarget2Z, kTplTarget3Z, kTplTarget4Z, kTplTarget5Z}) StoreF32(tpl, off, d.target[2]);
+  // The point F+0x14.. is the ball's sample 0 (B+0x88: x, height, z): on all 8 open-play captures it equals the ball record's first sample
+  // (the AI's look point; the move target within 0.2 m of the root steers by it too, MoveHostAdapter's atRoot).
+  const uint8_t* ball = image_->ball.bytes.data() + kBallSamplesOffset;
+  StoreF32(tpl, kTplTargetX, LoadF32(ball, kBallSampleXOffset));
+  StoreF32(tpl, kTplTargetY, LoadF32(ball, kBallSampleYOffset));
+  StoreF32(tpl, kTplTargetZ, LoadF32(ball, kBallSampleZOffset));
+  for (const std::size_t off : {kTplPosX, kTplPos2X}) StoreF32(tpl, off, px);
+  for (const std::size_t off : {kTplPosZ, kTplPos2Z}) StoreF32(tpl, off, pz);
+  for (const std::size_t off : {kTplDist, kTplDist2}) StoreF32(tpl, off, dist);
+  for (const std::size_t off : {kTplDirX, kTplDir2X}) StoreF32(tpl, off, dirX);
+  for (const std::size_t off : {kTplDirZ, kTplDir2Z}) StoreF32(tpl, off, dirZ);
+  StoreU32(tpl, kTplSituation, d.situation);
+  StoreU32(tpl, kTplClass, speedClass);
+  StoreU32(tpl, kTplPointCount, DecisionPlan(slot)[kPlanPointCountOffset]);
 }
 
 void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag) {
@@ -607,8 +662,9 @@ void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag) 
   frameBuiltFor_ = slot;
 }
 
-void PesWorld::RunDecisionFrame(int slot, const PesDecision& d, PesTrapExternals& ext) {
+void PesWorld::RunDecisionFrame(int slot, const AiFrameDecision& d, PesTrapExternals& ext) {
   FillPlan(slot, d);
+  FillTemplate(slot, d, ext);
   RunFrameBuilder(slot, ext, d.aiFlag);
 }
 
