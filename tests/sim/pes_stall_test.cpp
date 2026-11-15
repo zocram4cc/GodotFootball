@@ -154,6 +154,12 @@ class TrapContactProbe : public pestest::Probe {
   std::map<int, unsigned> unplayedDribbleIssues;   // those the body could not play, by motion
   long dribbleMotionNotOnTable = 0;
   std::vector<std::pair<long, std::string>> ownershipStreaks;  // (length, how it began and ended), closed streaks
+  // A PES-owned dribbler and a ball that lies still more than a touch away: PES's Dribble action steers the man onto the ball (the run-to point of every
+  // real dribble frame is the ball) or hands the body back to MOVE; one that stays in the action, with the ball at rest out of reach, for five seconds
+  // is the dribble holding a man who does nothing with it (the breaker's live firings).
+  long strandedDribblers = 0;            // stretches of 5 s of that
+  long strandedTicks = 0;                // ticks in them
+  std::string strandedSamples;
   long ownedTicksOffDribbleClip = 0;  // ticks of a PES-owned dribbler whose body clip is not a dribble-family clip
   std::map<std::string, long> dribbleClipExits;  // how a dribble clip left the body, and what took it
   // The first link of the Dribble action's chain: on the tick a man's P+0xAC8 becomes Dribble (the trap end's switch 0x1406EEBB0 ran the
@@ -207,6 +213,27 @@ class TrapContactProbe : public pestest::Probe {
         if (adj[pes::kAdjModeOffset] == 1 && state == 0 && ticks > count) {
           ++adjusterKilled;
           if (adjusterSamples.size() < 120) adjusterSamples += " " + std::to_string(match.PesSlotOf(player.get())) + ":" + std::to_string(count) + "/" + std::to_string(ticks);
+        }
+      }
+    }
+    {
+      constexpr float kRestingBall_mps = 0.3f, kTouchReach_m = 0.6f;
+      constexpr int kStrandedTicks = 500;  // 5 s at the 10 ms tick
+      const bool resting = match.GetBall()->GetMovement().GetLength() < kRestingBall_mps;
+      for (int team = 0; team < 2; ++team) {
+        for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
+          if (!player->IsActive()) continue;
+          int& away = awayTicks_[player.get()];
+          const float dist = (player->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength();
+          if (match.PesOwnsDribble(*player) && resting && dist > kTouchReach_m) {
+            ++strandedTicks;
+            if (++away == kStrandedTicks) {
+              ++strandedDribblers;
+              if (strandedSamples.size() < 160) strandedSamples += " " + std::string(player->GetPlayerData()->GetLastName()) + "@" + std::to_string(tickCount_) + "/" + std::to_string(dist).substr(0, 4) + "m";
+            }
+          } else {
+            away = 0;
+          }
         }
       }
     }
@@ -350,6 +377,7 @@ class TrapContactProbe : public pestest::Probe {
     long restLeft = 0;
     bool sawDribble = false;
   };
+  std::map<const Player*, int> awayTicks_;
   std::map<const Player*, Wait> waiting_;
   static constexpr uint16_t kNoCounter = 0x100;
   std::map<const Player*, uint16_t> lastCounter_;
@@ -521,6 +549,16 @@ TEST(PesStall, ATrapStrikeAdjusterRunsItsStepsToTheContactFrame) {
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
   EXPECT_EQ(contactCensus.adjusterKilled, 0) << contactCensus.adjusterKilled << " ticks of a man in the Trap action had his strike adjuster's state zeroed mid-run (count/last tick:"
                                               << contactCensus.adjusterSamples << ")";
+}
+
+TEST(PesStall, APesDribblerGoesToABallAtRestOrLeavesTheDribble) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(contactCensus.strandedDribblers, 0) << contactCensus.strandedDribblers << " PES dribblers stayed in the Dribble action 5 s with the ball at rest out of reach (" << contactCensus.strandedTicks
+                                                 << " ticks):" << contactCensus.strandedSamples;
 }
 
 TEST(PesStall, ATrapReachesABallAtRest) {

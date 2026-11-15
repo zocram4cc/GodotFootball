@@ -604,7 +604,7 @@ void PesWorld::FillTemplate(int slot, const AiFrameDecision& d, PesTrapExternals
   for (const std::size_t off : {kTplDirZ, kTplDir2Z}) StoreF32(tpl, off, dirZ);
   StoreU32(tpl, kTplSituation, d.situation);
   StoreU32(tpl, kTplClass, speedClass);
-  StoreU32(tpl, kTplPointCount, DecisionPlan(slot)[kPlanPointCountOffset]);
+  StoreU32(tpl, kTplPointCount, d.pathPoints);
 }
 
 void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag) {

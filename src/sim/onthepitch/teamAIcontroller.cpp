@@ -3677,14 +3677,19 @@ void RunPesDribbleTicks(Match& match) {
       const std::optional<PlayerCommand>& command = p->GetPesDecision().command;
       if (command) {
         decision.active = true;
-        decision.speedKmh = command->desiredVelocityFloat * kKmhPerMps;
+        // GF's controller does not know the man is PES's dribbler: its command is idle on 97% of his ticks (11,613 of 12,000 seed-7 calls), which the
+        // builder reads as speed class 0 (weight 0: the stand/turn series, never a run onto the ball). The 12 real dribble-tick frames are the run class
+        // (3) on 10 and the dash class (4) on 2 (F[0] = 7), so the dribbler's row is at least the run band.
+        decision.speedKmh = std::max(command->desiredVelocityFloat * kKmhPerMps, pes::kSpeedClassBandsKmh[2]);
         decision.kind = static_cast<uint32_t>(kDribbleOrderKind);
         decision.mode = static_cast<uint32_t>(kDribbleMode);
         decision.frameStamp = world.MatchFrame();
+        decision.situation = pes::kTplSituationDribble;
+        decision.pathPoints = 0;
         const Vector3 ball = match.GetBall()->Predict(0);
         decision.target[0] = ball.coords[0];
         decision.target[1] = ball.coords[2];
-        decision.target[2] = -ball.coords[1];
+        decision.target[2] = ball.coords[1];  // PES z = coords[1] (WritePesManMovement, PesPoint): the man record's own frame
       }
       world.RunDecisionFrame(slot, decision, match.PesTrapExternalsOf());
       const pes::PesWorld::DribbleTickResult tick = world.RunDribbleTick(slot, match.PesTrapExternalsOf());

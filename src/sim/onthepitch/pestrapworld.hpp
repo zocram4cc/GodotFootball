@@ -184,7 +184,9 @@ inline constexpr std::size_t kAChainYOffset = 0x88, kAChainLayerOffset = 0xF8;
 inline constexpr std::size_t kChainYZOffset = 0x10, kChainYBytes = 0x20, kChainZTableOffset = 0xF8, kChainZBytes = 0x108;
 inline constexpr std::size_t kLayerTableBytes = 0x60, kLayerTableIndexOffset = 0x48, kLayerTableKindOffset = 0x4C, kLayerTableEntryDataOffset = 0,
                              kLayerTableEntryCountOffset = 0xC;
-inline constexpr std::size_t kLayerObjectBytes = 0xC8, kLayerCountOffset = 0xB8, kLayerDataOffset = 0xC0, kLayerBytes = 0x30, kLayerRateOffset = 0x14;
+// The layer object L: FUN_141AF6E40 (SetSpeed) calls FUN_141AEE290 on L+0xB8, which walks the vectors at L+0xD8 and L+0xE8 (their counts are the words at
+// L+0xD8 / L+0xE8: a count read from the next heap block ran the loop to billions) and ORs bit 1 into L+0x13C: the object holds zeros through +0x140.
+inline constexpr std::size_t kLayerObjectBytes = 0x140, kLayerCountOffset = 0xB8, kLayerDataOffset = 0xC0, kLayerBytes = 0x30, kLayerRateOffset = 0x14;
 // O1 is the AnimPlugin object FUN_141B158F0 constructs: 0x1378 bytes (nine layer objects embedded, the layer pointer array at +0xB0 pointing
 // back into it), rounded up to 0x1380. pesanimplugin_stores.inc is that constructor's output (gen_animplugin.py).
 // R is the joint chain: its 0x90-byte header is followed by the joint objects, one allocation in PES (CONFIRMED on seq1917: R+0x90 is the
@@ -275,6 +277,8 @@ inline constexpr std::size_t kTplKind = 0x0, kTplMode = 0x4, kTplFrame = 0x10, k
 inline constexpr std::size_t kTplSituation = 0x58, kTplClass = 0x5C, kTplTarget3X = 0x70, kTplTarget3Z = 0x78, kTplDist = 0x7C, kTplPosX = 0x80, kTplPosZ = 0x88;
 inline constexpr std::size_t kTplTarget4X = 0x8C, kTplTarget4Z = 0x94, kTplPos2X = 0x188, kTplPos2Z = 0x190, kTplDirX = 0x194, kTplDirZ = 0x19C, kTplDist2 = 0x1A0;
 inline constexpr std::size_t kTplTarget5X = 0x1AC, kTplTarget5Z = 0x1B4, kTplDir2X = 0x1B8, kTplDir2Z = 0x1C0, kTplPointCount = 0x6C;
+// The 12 real dribble-tick frames all hold F+0x58 = 3 and F+0x6C = 0 (no path): the dribble's own situation.
+inline constexpr uint32_t kTplSituationDribble = 3;
 inline constexpr uint32_t kTplSituationRecompute = 8;  // F+0x58 in the template of every open-play call whose situation is recomputed (FUN_1409F3930 tests it)
 // PES's run-entry bands (km/h) that name speed classes 1..4: walk, jog, run, dash (pesmovestep.cpp CommandSpeedClassOf; FUN_1406B8DE0).
 inline constexpr float kSpeedClassBandsKmh[4] = {5.0f, 11.0f, 16.0f, 28.0f};
@@ -289,6 +293,7 @@ struct AiFrameDecision {
   uint32_t mode = 3;         // template F[1]: the mode the AI asks for
   uint32_t frameStamp = 0;   // template F+0x10: the logic frame (MI+0x1198)
   uint32_t situation = kTplSituationRecompute;  // template F+0x58
+  uint32_t pathPoints = 2;   // template F+0x6C: the AI's path points (0 on every real dribble frame)
 };
 
 // What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment

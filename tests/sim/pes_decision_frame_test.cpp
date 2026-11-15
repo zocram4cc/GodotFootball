@@ -256,6 +256,8 @@ TEST(PesFrameBuilder, TheDribblersFrameBuiltFromTheAiCommandCarriesTheRealOrder)
     d.speedKmh = pes::kSpeedClassBandsKmh[realClass - 1];  // the command's speed: the band's entry speed names the class
     d.kind = w[6];
     d.mode = w[7];
+    d.situation = pes::kTplSituationDribble;
+    d.pathPoints = 0;
     std::memcpy(d.target, &w[3], sizeof d.target);  // the ball's sample 0
     world.RunDecisionFrame(slot, d, ext);
     const uint8_t* f = world.TickFrameConst();
@@ -264,6 +266,8 @@ TEST(PesFrameBuilder, TheDribblersFrameBuiltFromTheAiCommandCarriesTheRealOrder)
     EXPECT_EQ(word(4), w[7]) << name << " mode";
     EXPECT_EQ(word(0x5C), w[9]) << name << " speed class";
     EXPECT_EQ(word(0x5E4), w[10]) << name << " weight";
+    EXPECT_EQ(word(0x58), w[8]) << name << " situation";
+    EXPECT_EQ(word(0x6C), 0u) << name << " path points";
   }
   EXPECT_GT(frames, 0);
 }
