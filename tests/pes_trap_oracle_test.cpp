@@ -1139,14 +1139,19 @@ class TrapTickOracle : public TrapOracle {
   const char* OracleEnv() const override { return "GF_PES_TRAP_TICK_ORACLE"; }
 };
 
-// Owner ruling 01-11-26. A capture's launch folder is the oracle directory's name prefix (`pid<PES pid>_seq<N>`). The launch
-// `pid3741448` is the No-Mod pinned launch (30-10-26 14:35 pin; GF's default mount and PES played the stock gameplay constants).
-// Every other launch in an oracle set is mod-era: its match rolled a gameplay mod (a different constant_player.bin), so the loader
-// data GF builds from the default mount rightly differs from it. Mod-era captures serve the translation-proof tick tests only.
-constexpr char kNoModLaunchPrefix[] = "pid3741448_";
+// Owner ruling 01-11-26, extended 15-11-26. A capture's launch folder is the oracle directory's name prefix (`pid<PES pid>_seq<N>`).
+// A No-Mod launch played the stock gameplay constants (GF's default mount, no gameplay mod); every other launch in an oracle set is
+// mod-era: its match rolled a gameplay mod (a different constant_player.bin), so the loader data GF builds from the default mount
+// rightly differs from it. Mod-era captures serve the translation-proof tick tests only. The No-Mod launches, each with its evidence:
+//   pid3741448: the 01-11-26 ruling's pin (30-10-26 14:35); deleted at the 06-11 handover.
+//   pid2523621: 15-11-26 03:54. content/gameplay-loader/config.ini reads `favorite_gameplay_mod = No Mod`, unchanged since 30-10 14:34
+//               (checked by Main on 15-11-26), so the launch rolled no mod.
+constexpr const char* kNoModLaunches[] = {"pid3741448", "pid2523621"};
 bool IsNoModCapture(const std::string& dir) {
   const std::string name = std::filesystem::path(dir).filename().string();
-  return name.rfind(kNoModLaunchPrefix, 0) == 0;
+  for (const char* launch : kNoModLaunches)
+    if (name.rfind(std::string(launch) + "_", 0) == 0) return true;
+  return false;
 }
 
 // What PES's tick left in P at `off` (n bytes): its last write there, else the byte the call started with.
@@ -1307,7 +1312,7 @@ TEST_F(TrapTickOracle, ListWhatTheOverlaySupplies) {
 // EyesTarget table and the Animetable buffer) equals what GF's loader built from the install: the loader is the input the window
 // cannot overlay (it holds no copy of the capture's heap), so a record GF built differently changes the solver's output unseen.
 // A read byte that lies in none of these structures, nor in the window's objects, is reported as unexplained.
-// Oracle dirs for this test (GF_PES_TRAP_TICK_ORACLE) are captures of the No-Mod launch (live2/pid3741448, after the 30-10-26 14:35 pin;
+// Oracle dirs for this test (GF_PES_TRAP_TICK_ORACLE) are the captures of the No-Mod launches (kNoModLaunches; pid2523621 from 15-11-26);
 // trap_action_tick_797CD0 seq1877, 1883, 1889, 1895, 1917, 1924, 1938, 1948, 1982, 4790, 4798, 4803 and the start and mirrored ticks seq77210,
 // 78106, 78113, 78120, 78127, 78134, 78141 (rvwatch37 predicate b(rdx+0x245c)==0 or b(rdx+0x2472)==1), FULL: a slim capture lacks the
 // actor-fact pages trap_oracle.py reads). The older oracle dirs were mod captures (sider's GameplayLoader.lua had selected a gameplay mod;
