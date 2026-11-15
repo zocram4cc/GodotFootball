@@ -94,6 +94,22 @@ PesFoxWorldTemplate PesFoxWorld::Freeze() {
   return PesFoxWorldTemplate(impl_->memory.Freeze(), serves_, initializersRun_, impl_->issueScratch);
 }
 
+// The trap world's loader data (the motion table, the Animetable, the registry, trap.o, the pad manager and the anime chain's layers),
+// built from the install (PesTrapSource): shared regions (every clone maps them), and the pointer globals written into the memory.
+// The clip database is not one of them: that global holds the booted ResManager, which the trap chain reads as PES's own.
+void AddTrapLoaderData(PesMemory& memory, const PesVfs& vfs, const std::string& imagePath) {
+  std::string error;
+  const auto pe = PeImage::Open(vfs.Root() + "/PES2021.exe", &error);
+  if (!pe) throw std::runtime_error("PES anime engine: " + error);
+  const auto source = LoadTrapSource(*pe, vfs, imagePath, &error);
+  if (!source) throw std::runtime_error("PES anime engine: " + error);
+  PesTrapExternals loader;
+  source->loader.AddTo(loader);
+  for (const PesTrapSegment& seg : loader.segments) memory.AddSharedRegion(seg.va, seg.bytes);
+  for (const auto& [va, value] : loader.globals)
+    if (va != kClipDatabaseGlobalVa) memory.Write64(va, value);
+}
+
 const PesFoxWorldTemplate& AnimeWorldTemplate(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes) {
   static std::mutex mutex;
   static std::map<std::string, std::unique_ptr<PesFoxWorldTemplate>> templates;
@@ -105,18 +121,7 @@ const PesFoxWorldTemplate& AnimeWorldTemplate(const std::string& imagePath, cons
   boot.Boot();
   std::string error;
   if (!boot.LoadBody(&error)) throw std::runtime_error("PES anime engine: " + error);
-  // The trap world's loader data (the motion table, the Animetable, the registry, trap.o, the pad manager and the anime chain's layers),
-  // built from the install (PesTrapSource): the template's shared regions (every clone maps them), and its pointer globals written once here.
-  // The clip database is not one of them: that global holds the booted ResManager, which the trap chain reads as PES's own.
-  const auto pe = PeImage::Open(vfs.Root() + "/PES2021.exe", &error);
-  if (!pe) throw std::runtime_error("PES anime engine: " + error);
-  const auto source = LoadTrapSource(*pe, vfs, imagePath, &error);
-  if (!source) throw std::runtime_error("PES anime engine: " + error);
-  PesTrapExternals loader;
-  source->loader.AddTo(loader);
-  for (const PesTrapSegment& seg : loader.segments) boot.Memory().AddSharedRegion(seg.va, seg.bytes);
-  for (const auto& [va, value] : loader.globals)
-    if (va != kClipDatabaseGlobalVa) boot.Memory().Write64(va, value);
+  AddTrapLoaderData(boot.Memory(), vfs, imagePath);
   auto frozen = std::make_unique<PesFoxWorldTemplate>(boot.Freeze());
   const PesFoxWorldTemplate& ref = *frozen;
   templates.emplace(key, std::move(frozen));

@@ -80,6 +80,8 @@ TEST(FoxTemplate, ACloneHoldsTheFreshBootsBytesAndBookkeepingOnEveryRegion) {
   pes::PesFoxWorld fresh(exe, vfs, kHeapBytes);
   fresh.Boot();
   ASSERT_TRUE(fresh.LoadBody(&error)) << error;
+  // The reference is the state the template freezes (cut 3): the boot, the body and the trap loader data.
+  pes::AddTrapLoaderData(fresh.Memory(), vfs, exe);
   const pes::PesFoxWorldTemplate& frozen = pes::AnimeWorldTemplate(exe, vfs, kHeapBytes);
   pes::PesFoxWorld clone(frozen, vfs);
   pes::PesMemory& a = fresh.Memory();
@@ -106,6 +108,7 @@ TEST(FoxTemplate, ACloneRunsTheSameFramesToTheSamePoses) {
   pes::PesFoxWorld fresh(exe, vfs, kHeapBytes);
   fresh.Boot();
   ASSERT_TRUE(fresh.LoadBody(&error)) << error;
+  pes::AddTrapLoaderData(fresh.Memory(), vfs, exe);
   const PlayResult expected = Play(fresh);
   const pes::PesFoxWorldTemplate& frozen = pes::AnimeWorldTemplate(exe, vfs, kHeapBytes);
   pes::PesFoxWorld clone(frozen, vfs);
@@ -128,6 +131,7 @@ TEST(FoxTemplate, ACloneThatRunsLeavesAnotherCloneAndTheFreshBootUnchanged) {
   pes::PesFoxWorld fresh(exe, vfs, kHeapBytes);
   fresh.Boot();
   ASSERT_TRUE(fresh.LoadBody(&error)) << error;
+  pes::AddTrapLoaderData(fresh.Memory(), vfs, exe);
   const pes::PesFoxWorldTemplate& frozen = pes::AnimeWorldTemplate(exe, vfs, kHeapBytes);
   pes::PesFoxWorld runner(frozen, vfs);
   Play(runner);  // its writes go copy-on-write, over the frozen pages

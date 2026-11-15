@@ -127,6 +127,11 @@ class PesFoxWorld final : public PesFileSource {
   uint64_t initializersRun_ = 0;
 };
 
+// The trap world's loader data on a booted and loaded memory: the shared regions and the pointer globals that AnimeWorldTemplate freezes
+// (the template's state is the boot, the body and this). Exposed so a reference boot can carry the same state. Throws std::runtime_error
+// when the install's trap data cannot be read.
+void AddTrapLoaderData(PesMemory& memory, const PesVfs& vfs, const std::string& imagePath);
+
 // The anime engine's booted and loaded world, frozen: built once per process for this image, install and heap size (the first caller boots
 // and loads a world, freezes it and drops it), and every world made from it is a clone. Throws std::runtime_error when the load fails.
 const PesFoxWorldTemplate& AnimeWorldTemplate(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes);
