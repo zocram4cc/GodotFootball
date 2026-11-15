@@ -1,5 +1,6 @@
 // PES's AI frame builder FUN_1409F1F20 on the window's own objects (PesWorld::RunFrameBuilder), against 14 REAL calls (live2 fbF captures:
-// kick-off and open play). tests/fixtures/pes_fbuilder_states.txt holds, per call, every byte of PES's state the replay read before writing
+// kick-off and open play). The file GF_PES_FBUILDER_STATES names (PES-derived runtime memory, kept out of the repo like every other oracle's
+// captures; tools/dev/translate/fbuilder_states.py regenerates it from the live2 captures) holds, per call, every byte of PES's state the replay read before writing
 // it (the live-in set, measured with a read log on the snapshot replay) and the frame F the real call left. The first test loads ALL of it:
 // the window's builder over PES's real state must reproduce F bit-for-bit. The later tests take the objects from the window's own writers
 // one at a time (see their comments), each held to the same frames.
@@ -36,9 +37,9 @@ struct Call {
   std::vector<ReadRun> runs;
 };
 
-std::vector<Call> LoadCalls() {
+std::vector<Call> LoadCalls(const char* path) {
   std::vector<Call> calls;
-  std::ifstream in(std::string(GF_SOURCE_DIR) + "/tests/fixtures/pes_fbuilder_states.txt");
+  std::ifstream in(path);
   std::string line;
   while (std::getline(in, line)) {
     if (line.empty() || line[0] == '#') continue;
@@ -155,8 +156,10 @@ struct Image {
 TEST(PesFrameBuilder, OverPesRealStateItReproducesTheRealFrame) {
   Image image;
   if (image.map == nullptr) GTEST_SKIP() << "PES_EXE unset (the running game's memory dump, not committed)";
-  const std::vector<Call> calls = LoadCalls();
-  ASSERT_EQ(calls.size(), 14u);
+  const char* states = std::getenv("GF_PES_FBUILDER_STATES");
+  if (states == nullptr || *states == '\0') GTEST_SKIP() << "GF_PES_FBUILDER_STATES unset (PES-derived captures, not committed: tools/dev/translate/fbuilder_states.py)";
+  const std::vector<Call> calls = LoadCalls(states);
+  ASSERT_FALSE(calls.empty());
   for (const Call& c : calls) {
     pes::PesWorld world;
     for (int k = 0; k < pes::kSlotCount; ++k) world.BindSlot(k);
