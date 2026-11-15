@@ -1,0 +1,10 @@
+{
+ "note": "the functions built for the proof of the squad record initializer FUN_1408C7510 (the rating table default 99) over 0 real captures and 2 SYNTHETIC states (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 4) plus the root's static direct-call closure (0 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
+ "root": "0x1408C7510",
+ "members": [
+  "0x1408C7510",
+  "0x1408C75E0",
+  "0x1408CAF30",
+  "0x1408CB080"
+ ]
+}

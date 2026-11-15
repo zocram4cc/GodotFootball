@@ -813,17 +813,11 @@ void PesWorld::BindSanction() {
   for (int side = 0; side < kSideCount; ++side) {
     uint8_t* team = TeamInfoRecord(side);
     StoreU32(team, kSideIdOffset, static_cast<uint32_t>(side));
-    // ponytail: GF's squad place is the record index; PES's map is a permutation (0x140A3AF90 reads it), written by its
-    // squad loader, which is not decoded.
+    // The side id and the slot-to-entry map: PES's team-info constructor (BuildTeamInfo, on a match) writes the same identity map at
+    // construction; a world without install tables (the sanction tests) gets it here. ponytail: PES's map is later a permutation by
+    // lineup (0x140A3AF90 reads it); its reorder writer is not decoded.
     for (int place = 0; place < kSlotsPerSide; ++place)
       StoreU32(team, kSideInfoIndexOffset + sizeof(uint32_t) * place, static_cast<uint32_t>(place));
-    // ponytail: the rating table of each player-info entry (kPlayerInfoRatingOffset) is copied by PES's squad constructor
-    // FUN_140A3B3A0 from the import's player records (FUN_1408C6560); all 80 captured entries hold 99 ("unrated"), which the matcher's
-    // cost reads as "no information". GF has no such records: every entry carries the captured 99. Removal: translate 0x140A3B3A0 over
-    // GF's squad import.
-    for (int entry = 0; entry < kTeamInfoCount; ++entry)
-      std::memset(team + kSidePlayerInfoOffset + static_cast<std::size_t>(entry) * kSidePlayerInfoStride + kPlayerInfoRatingOffset,
-                  kPlayerInfoRatingUnrated, kPlayerInfoRatingBytes);
   }
   const uint64_t block = SanctionVa(offsetof(PesSanctionImage, analyzeBlock));
   const uint64_t events = EventsVa();  // A1+0xE0 is the match's own store: the ball events the judge reads are the ones it wrote
@@ -1029,6 +1023,45 @@ void PesWorld::ConstructStats() {
     s.gpr[1] = EventsVa() + kStatsOffset + static_cast<uint64_t>(side) * kStatsStride;  // rcx: the side's block
     ::pes_fn_1408C6B80(s);
   }
+}
+
+void PesWorld::BuildTeamInfo() {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  for (int side = 0; side < kSideCount; ++side) {
+    PesSquadSide& squad = image_->squad[side];
+    for (int k = 0; k < kSquadCount; ++k) {
+      PesState s = NewCall(Bytes());
+      heap_->Attach(s);
+      AttachImageTables(s);
+      const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+      s.wr(entry, 0, 8);
+      s.gpr[4] = entry;
+      s.gpr[1] = SquadRecordVa(side, k);  // rcx: the record
+      ::pes_fn_1408C7510(s);
+      squad.pointers[k] = SquadRecordVa(side, k);
+      if (k < kSlotsPerSide)
+        StoreU32(squad.records.data() + static_cast<std::size_t>(k) * kSquadRecordBytes, kSquadRecordIdOffset,
+                 static_cast<uint32_t>(side * kSlotsPerSide + k + 1));
+    }
+    PesState s = NewCall(Bytes());
+    heap_->Attach(s);
+    AttachImageTables(s);
+    const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = TeamInfoVa(side);       // rcx: the info record
+    s.gpr[2] = static_cast<uint32_t>(side);
+    s.gpr[8] = SquadPointersVa(side);  // r8: the record pointers
+    ::pes_fn_140A3B3A0(s);
+  }
+}
+
+void PesWorld::ResetEvents() {
+  uint8_t* stats = reinterpret_cast<uint8_t*>(&image_->events) + kStatsOffset;
+  const std::size_t bytes = static_cast<std::size_t>(kSideCount) * kStatsStride;
+  const std::vector<uint8_t> kept(stats, stats + bytes);
+  Events().Reset();
+  std::memcpy(stats, kept.data(), bytes);
 }
 
 uint32_t PesWorld::StatsValue(int side, uint32_t stat, int col) {

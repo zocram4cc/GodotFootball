@@ -321,11 +321,6 @@ inline constexpr std::size_t kSideIdOffset = 0x0;
 inline constexpr std::size_t kSideInfoIndexOffset = 0x4;
 inline constexpr std::size_t kSidePlayerInfoOffset = 0xA8;
 inline constexpr std::size_t kSidePlayerInfoStride = 0x128;
-// The per-player rating table the partner matcher's cost FUN_140A61F40 reads (FUN_1408C7550: byte [entry + 0x30 + 0x5E + 0xD * sheetWord +
-// role], 3 sheet words x 13 roles). Every one of the 80 captured entries (3 captures, both sides) holds 99 (0x63) in all 39 bytes.
-inline constexpr std::size_t kPlayerInfoRatingOffset = 0x30 + 0x5E;
-inline constexpr std::size_t kPlayerInfoRatingBytes = 3 * 13;
-inline constexpr uint8_t kPlayerInfoRatingUnrated = 99;
 inline constexpr std::size_t kSideSkillMaskOffset = 0x78;
 // The designated taker's slot: u32 at +0x7C of the SIDE record (G's first table, 0x140A48A30; `CMP EDX,[RAX+0x7C]` 0x1421101C7).
 inline constexpr std::size_t kSideKickerOffset = 0x7C;
@@ -526,6 +521,17 @@ inline constexpr std::size_t kManAiActor2Offset = 0xAD28;
 inline constexpr std::size_t kManAiBytes = 0xAD40;
 struct PesManAiRecord {
   std::array<uint8_t, kManAiBytes> bytes{};
+};
+
+// A side's squad records (the match setup's player blocks, PES: 0x28 records of 0xF0 bytes, FUN_1408C6560) and the pointer array
+// FUN_140A3B3A0 takes. PES's FUN_1408C7510 initializes each record (the rating table = 99 among its defaults), the match build fills the
+// id at +4 (nonzero: the constructor copies only those records into the team-info entry, from +0x30) and the constructor numbers them.
+inline constexpr int kSquadCount = 0x28;
+inline constexpr std::size_t kSquadRecordBytes = 0xF0;
+inline constexpr std::size_t kSquadRecordIdOffset = 4;
+struct PesSquadSide {
+  std::array<uint8_t, kSquadCount * kSquadRecordBytes> records{};
+  std::array<uint64_t, kSquadCount> pointers{};
 };
 
 // A side's carrier block BP (the unit set's per-carrier object, PES offsets; docs: pes-port-MatchInfo4.md 7.1). The danger
@@ -791,6 +797,7 @@ struct PesWorldImage {
   std::array<PesAiRecord, kSideCount> ai{};            // each side's AI object and context array (the arrival-list writer's rcx)
   PesPressImage press{};                         // the press call frames (kPressOffset)
   std::array<PesManAiRecord, kSlotCount> manAi{};      // each man's AI object U (the think's rcx)
+  std::array<PesSquadSide, kSideCount> squad{};        // each side's squad records (the team-info constructor's source)
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -825,6 +832,8 @@ inline constexpr std::size_t kBallActiveOffset = 0x2928;
 inline constexpr std::size_t kPressOffset = (kAiOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesAiRecord) + 7) & ~std::size_t{7};
 static_assert(offsetof(PesWorldImage, press) == kPressOffset);
 inline constexpr std::size_t kManAiOffset = (kPressOffset + sizeof(PesPressImage) + 7) & ~std::size_t{7};
+inline constexpr std::size_t kSquadOffset = (kManAiOffset + sizeof(PesManAiRecord) * kSlotCount + 7) & ~std::size_t{7};
+static_assert(offsetof(PesWorldImage, squad) == kSquadOffset);
 static_assert(offsetof(PesWorldImage, manAi) == kManAiOffset);
 
 // What the danger builder reads outside GF's window (tests: the capture's heap bytes) and the byte log of its writes.
@@ -942,6 +951,9 @@ class PesWorld {
   EventStoreImage& EventImage() { return image_->events; }
   // E as the store's own view: every event the match routes lands in the window.
   EventStore Events() { return EventStore(image_->events); }
+  // Empties the event store's rings (a new situation) but keeps the match-statistics blocks inside E (E + 0x750D0 .. per side): PES
+  // clears its event rings on a restart, not the statistics; a wipe leaves their anti-tamper cells invalid (the reader aborts).
+  void ResetEvents();
   // The block's state is already live (a test that loaded a capture's BP): RunCarrierUpdate continues it instead of resetting.
   void AdoptCarrierState(int side) { stateReady_[side] = constructed_[side] = true; }
   // A side's carrier block BP (kBp* offsets) and the Clear unit object beside it (the unit's r8).
@@ -1297,6 +1309,17 @@ class PesWorld {
   // dispatcher's defence pass reads valid cells. StatsValue is the reader FUN_1408C9190 (statistic `stat`, column `col` < 9).
   void ConstructStats();
   uint32_t StatsValue(int side, uint32_t stat, int col);
+  // PES's team-info construction (the match setup builds the side info G's table B names): FUN_1408C7510 initializes each side's 0x28
+  // squad records (translated; proven on synthetic calls over a real capture), the 11 men on the pitch get their id (slot + 1) at record +4,
+  // and FUN_140A3B3A0 copies those records into the team-info entries and numbers the slots (translated, the same proof). The record
+  // defaults (the rating table = 99) are PES's, not staged. Needs the install tables (BindImageTables).
+  void BuildTeamInfo();
+  static constexpr uint64_t SquadRecordVa(int side, int k) {
+    return kWorldWindowVa + kSquadOffset + static_cast<uint64_t>(side) * sizeof(PesSquadSide) + static_cast<uint64_t>(k) * kSquadRecordBytes;
+  }
+  static constexpr uint64_t SquadPointersVa(int side) {
+    return kWorldWindowVa + kSquadOffset + static_cast<uint64_t>(side) * sizeof(PesSquadSide) + offsetof(PesSquadSide, pointers);
+  }
 
   // Host bytes of a slot's block (its anime record starts at its first byte).
   uint8_t* Block(int slot) { return image_->blocks[slot].bytes.data(); }

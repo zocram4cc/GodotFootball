@@ -31,7 +31,10 @@ ROOTS = {"ai_press_writer_536FC0": ("0x140536FC0", "closure_press_writer.json", 
          "manthink_14092ED30": ("0x14092ED30", "closure_press_manthink.json", "the man's think FUN_14092ED30 (counters A and B of the slot record, the arrival-time estimate)"),
          "press_dispatch_535C60": ("0x140535C60", "closure_press_dispatch.json", "the press dispatcher FUN_140535C60 (the defence passes, MATCH_UP, coordinator, reset, writer)"),
          "stats_ctor_1408C6B80": ("0x1408C6B80", "closure_press_stats.json", "the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads)"),
-         "statsreset_1408CA340": ("0x1408CA340", "closure_press_statsreset.json", "the match-statistics reset FUN_1408CA340 (the ctor's last step; PES calls it again at a period reset)")}
+         "statsreset_1408CA340": ("0x1408CA340", "closure_press_statsreset.json", "the match-statistics reset FUN_1408CA340 (the ctor's last step; PES calls it again at a period reset)"),
+         "partner_1405346E0": ("0x1405346E0", "closure_press_partner.json", "the partner matcher FUN_1405346E0 (the mark pass's T+0x558 words)"),
+         "squadrec_1408C7510": ("0x1408C7510", "closure_press_squadrec.json", "the squad record initializer FUN_1408C7510 (the rating table default 99)"),
+         "teaminfo_140A3B3A0": ("0x140A3B3A0", "closure_press_teaminfo.json", "the team-info constructor FUN_140A3B3A0 (copies the squad records into G's side info)")}
 
 
 def captures(launches):
@@ -95,7 +98,7 @@ def main():
                     continue
                 snaps += ["--snapshot", "%s=%s" % (cdir, trace)]
                 synthetic += 1
-        if va in ("0x140535C60", "0x1408C6B80"):
+        if va in ("0x140535C60", "0x1408C6B80", "0x1408C7510", "0x140A3B3A0"):
             # the dispatcher's captures are rare (every 100th call, one side): its calls are rebuilt over real kick-off selector captures
             # (synth_dispatch.py); the statistics constructor runs once at match load: rebuilt over a dispatcher capture (synth_stats.py).
             # Each state is a directory under --dispatch-states (the root it belongs to is the one --only selects).
@@ -121,7 +124,11 @@ def main():
         keep = [r for r in doc["results"] if r["va"].upper() not in vas]
         new = []
         for va, closure_file, what, raw, members, used, skipped, synthetic in records:
-            if va == "0x1408C6B80":
+            if va in ("0x1408C7510", "0x140A3B3A0"):
+                extra = ("; %d SYNTHETIC calls rebuilt over a real capture's memory (synth_squad.py: stack scratch holding the records; the "
+                         "constructor's source records are the capture's real team-info entries; PES runs both once at match load, before "
+                         "any capture window)" % synthetic) if synthetic else ""
+            elif va == "0x1408C6B80":
                 extra = ("; %d SYNTHETIC calls rebuilt over a real dispatcher capture (synth_stats.py: rcx = each side's real statistics block; "
                          "PES runs the constructor once at match load, before any capture window)" % synthetic) if synthetic else ""
             elif va == "0x140535C60":

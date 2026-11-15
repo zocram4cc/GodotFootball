@@ -152,7 +152,7 @@ constexpr float kInsideRadiusDistSq = 1.0f;            // under the 3 m class-5 
 struct HolderScene : Staged {
   HolderScene() {
     facts.holder = kHolderId;  // MA+0x2601C
-    StoreU32(world.SideRecord(kSide), kSideTierOffset, kLevelTier3);
+    facts.teamLevelRaw = kLevelTier3;  // T+0xA294 (StagePress writes it from the facts)
     uint8_t* row = world.Ma(kSide) + kMaNearestRowsOffset + kMaNearestRowBytes * kHolderId;
     StoreU32(row, 0, kNearId);
     StoreF32(row, sizeof(uint32_t), 4.0f);
@@ -390,5 +390,38 @@ TEST_F(PesPressWorld, TheStatisticsBlocksPassPesHashCheckAfterTheirConstructor) 
       EXPECT_EQ(world.StatsValue(side, 0, col), 0u) << "side " << side << " protected column " << col;
       EXPECT_EQ(world.StatsValue(side, 5, col), 0u) << "side " << side << " plain row 5, column " << col;
     }
+}
+
+// A new situation empties E's event rings; PES does not touch the statistics blocks inside E. GF's reset wiped the whole 1.5 MB image
+// (EventStore::Reset), so the first reset after the constructor left every protected cell invalid and the dispatcher's defence pass
+// aborted in the reader (pes_pass_target_test, pes_press_approach_test on the wired tree: SIGABRT in FUN_1408C9190).
+TEST_F(PesPressWorld, TheStatisticsBlocksSurviveAnEventReset) {
+  PesWorld world;
+  world.BindImageTables(InstallTables());
+  world.ConstructStats();
+  world.ResetEvents();
+  for (int side = 0; side < kSideCount; ++side)
+    for (int col = 0; col < 9; ++col) EXPECT_EQ(world.StatsValue(side, 0, col), 0u) << "side " << side << " column " << col;
+}
+
+// The partner matcher's man-to-man cost (FUN_140A62140 -> FUN_140A61F40 -> FUN_1408C7550) reads a rating table in each team-info entry:
+// byte [entry + 0x30 + 0x5E + 0xD * sheetWord + role], 3 x 13 bytes. PES holds 99 in all 80 captured entries (3 captures); a zero
+// table made the cost 0 and the matcher never wrote a partner (kick-off: no MARK 0x36 word on the defender). The 99 is PES's record
+// initializer FUN_1408C7510 (translated, proven on synthetic calls over a real capture), run by PesWorld::BuildTeamInfo and copied into
+// the entry by the team-info constructor FUN_140A3B3A0 (translated, same proof), not a staged constant.
+TEST_F(PesPressWorld, TheTeamInfoEntriesCarryPesRecordDefaultRatingsAndTheMenIds) {
+  PesWorld world;
+  world.BindImageTables(InstallTables());
+  world.BuildTeamInfo();
+  for (int side = 0; side < kSideCount; ++side) {
+    const uint8_t* info = world.TeamInfoRecord(side);
+    EXPECT_EQ(LoadU32(info, kSideIdOffset), static_cast<uint32_t>(side));
+    for (int k = 0; k < kSlotsPerSide; ++k) {
+      const uint8_t* entry = info + kSidePlayerInfoOffset + static_cast<std::size_t>(k) * kSidePlayerInfoStride;
+      EXPECT_EQ(LoadU32(entry, kTeamInfoIdOffset), static_cast<uint32_t>(side * kSlotsPerSide + k + 1)) << "side " << side << " man " << k;
+      EXPECT_EQ(LoadU32(info, kSideInfoIndexOffset + sizeof(uint32_t) * k), static_cast<uint32_t>(k));  // the constructor numbers the slots
+      for (int b = 0; b < 3 * 13; ++b) EXPECT_EQ(entry[0x30 + 0x5E + b], 99) << "side " << side << " man " << k << " rating byte " << b;
+    }
+  }
 }
 }  // namespace

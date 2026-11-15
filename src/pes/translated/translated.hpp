@@ -6761,6 +6761,7 @@ void pes_fn_140A3B250(PesState& s);
 void pes_fn_140A3B2A0(PesState& s);
 void pes_fn_140A3B320(PesState& s);
 void pes_fn_140A3B370(PesState& s);
+void pes_fn_140A3B3A0(PesState& s);
 void pes_fn_140A3B510(PesState& s);
 void pes_fn_140A3B520(PesState& s);
 void pes_fn_140A3B560(PesState& s);
