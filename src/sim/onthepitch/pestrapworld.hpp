@@ -269,6 +269,7 @@ struct PesDecision {
   float speedKmh = 0.0f;     // the row's speed: PES's run-entry bands (5, 11, 16, 28 km/h) name the walk, jog, run and dash classes
   uint32_t gaitRow = 1;      // the row of FUN_140A756C0's weight table
   float target[3] = {0, 0, 0};  // x, height, z
+  uint8_t aiFlag = 0;        // the AI object's byte +0x95C, the builder's seventh argument
 };
 
 // What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment

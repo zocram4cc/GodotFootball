@@ -708,6 +708,7 @@ class PesWorld {
   EventStoreImage& EventImage() { return image_->events; }
   // E as the store's own view: every event the match routes lands in the window.
   EventStore Events() { return EventStore(image_->events); }
+  uint8_t* EventBytes() { return reinterpret_cast<uint8_t*>(&image_->events); }
   // The block's state is already live (a test that loaded a capture's BP): RunCarrierUpdate continues it instead of resetting.
   void AdoptCarrierState(int side) { stateReady_[side] = constructed_[side] = true; }
   // A side's carrier block BP (kBp* offsets) and the Clear unit object beside it (the unit's r8).
@@ -829,7 +830,8 @@ class PesWorld {
   uint8_t* DecisionPlan(int slot);
   uint8_t* DecisionTeam(int slot);
   void FillPlan(int slot, const PesDecision& decision);
-  void RunFrameBuilder(int slot, PesTrapExternals& ext);
+  // aiFlag is the builder's seventh argument, the AI object's byte at +0x95C (1 in the kick-off calls, 0 in play).
+  void RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag = 0);
   // The motion the series variant's first entry names for `slot` (nullopt when the vector is empty or its data is not in the allocator's arena), and
   // that entry's mirror byte: what the anime layer plays first. Valid after a tick whose `issue` was kMotionIssueSeries.
   struct SeriesFirst {

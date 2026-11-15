@@ -552,7 +552,7 @@ void PesWorld::FillPlan(int slot, const PesDecision& d) {
   }
 }
 
-void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext) {
+void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag) {
   EnsureDecisionBlocks(slot);
   DecisionBlocks& b = decision_[slot];
   uint8_t* sBlock = HeapHost(b.s, kDecisionSBytes + kDecisionTBytes);
@@ -563,8 +563,6 @@ void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext) {
   const uint8_t* man = ManRecord(slot);
   std::memcpy(q + kPlanFacingOffset, man + kManFacingOffset, 4);
   std::memcpy(q + kPlanPosOffset, man + kManPosXOffset, 12);
-  // INF: T+0x5C equals the class F+0x5C the previous build left (all 14 captures); no writer is known.
-  StoreU32(t, kDecisionTSpeedClassOffset, t[kDecisionTOutClassOffset]);
   PesState s = NewCall(Bytes());
   const std::size_t lent = LendExternals(s, ext);
   const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
@@ -572,7 +570,7 @@ void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext) {
   s.wr(entry, 0, 8);
   s.wr(entry + kArg5Offset, b.x, 8);
   s.wr(entry + kArg6Offset, b.vec, 8);
-  s.wr(entry + kArg7Offset, 0, 1);
+  s.wr(entry + kArg7Offset, aiFlag, 1);
   s.gpr[4] = entry;
   s.gpr[1] = TickFrameVa();
   s.gpr[2] = b.s;
@@ -601,6 +599,8 @@ void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext) {
     StoreU32(q, kRetainedHeading, bearing);
   }
   t[kDecisionTOutClassOffset] = f[0x5C];
+  // INF: T+0x5C holds the class F+0x5C of the build before (it equals the call's own F+0x5C on all 14 captures); no writer is known.
+  StoreU32(t, kDecisionTSpeedClassOffset, f[0x5C]);
   StoreU32(t, kDecisionTOutWeightOffset, LoadU32(f, 0x5E4));
   ReturnSegments(s, ext, lent);
   frameBuiltFor_ = slot;
@@ -608,7 +608,7 @@ void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext) {
 
 void PesWorld::RunDecisionFrame(int slot, const PesDecision& d, PesTrapExternals& ext) {
   FillPlan(slot, d);
-  RunFrameBuilder(slot, ext);
+  RunFrameBuilder(slot, ext, d.aiFlag);
 }
 
 

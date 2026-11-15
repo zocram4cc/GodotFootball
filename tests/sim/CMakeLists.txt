@@ -166,6 +166,7 @@ gtest_discover_tests(pes_receive_test)
 
 add_executable(pes_decision_frame_test pes_decision_frame_test.cpp)
 target_link_libraries(pes_decision_frame_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_decision_frame_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_decision_frame_test)
 
 add_executable(pes_challenge_counters_test pes_challenge_counters_test.cpp)
