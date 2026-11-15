@@ -296,7 +296,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
     pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
     pes::ConstructAnimPlugin(*pesWorld, slot);
   }
-  pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
   pesVfs = setup.pesVfs;
   pesImagePath = setup.pesTrapSource->imagePath;
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
@@ -341,6 +340,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   for (int k = 0; k < 3; ++k)
     pesWorld->AddImageSegment(pesActorConstants.memberVtable[k], pesActorConstants.memberVtableSlots[k].data(),
                               pesActorConstants.memberVtableSlots[k].size());
+  if (pesLoop) BindPesTrapWorld();
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);

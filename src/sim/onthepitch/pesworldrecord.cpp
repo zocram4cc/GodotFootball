@@ -77,6 +77,20 @@ void PesWorld::BindCall(::PesState& call) { Bind(call, Bytes()); }
 
 PesWorld::~PesWorld() = default;
 
+void PesWorld::BindMemory(PesMemory& memory) {
+  if (heap_) throw std::runtime_error("PesWorld: the heap exists before the binding to the match's PES memory");
+  // The window's bytes move into the memory's own storage (per match). The window holds VAs only (no host pointers), so the copy is valid
+  // at the new base. The heap becomes the memory's: the trap world's allocations and the anime engine's are one allocator.
+  PesWorldImage* host = image_.release();
+  uint8_t* storage = memory.AddWindow(sizeof(PesWorldImage));
+  std::memcpy(storage, host, sizeof(PesWorldImage));
+  delete host;
+  image_.reset(reinterpret_cast<PesWorldImage*>(storage));
+  image_.get_deleter().owned = false;
+  heap_.reset(&memory.Heap());
+  heap_.get_deleter().owned = false;
+}
+
 PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
   uint8_t* unit = UnitObject(side);
   StoreU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset, carrierSlot);
@@ -92,7 +106,7 @@ PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
 }
 
 bool PesWorld::RunDangerBuilder(int side, const PesDangerExternals& ext) {
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
   AttachImageTables(s);
@@ -166,7 +180,7 @@ void PesWorld::StoreLiveAbility(int slot, uint32_t id, uint8_t base, const Abili
 }
 
 void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternals& ext) {
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   const uint64_t bp = CarrierVa(side);
   const auto call = [&](void (*fn)(::PesState&), uint64_t rcx, uint64_t r8) {
     PesState s = NewCall(Bytes());
@@ -204,7 +218,7 @@ void PesWorld::RunCarrierUpdate(int side, uint32_t slot, const PesDangerExternal
 }
 
 uint32_t PesWorld::RunWalk(int side, const PesDangerExternals& ext) {
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
   AttachImageTables(s);
@@ -220,7 +234,7 @@ uint32_t PesWorld::RunWalk(int side, const PesDangerExternals& ext) {
 }
 
 void PesWorld::RunCarrierConstruct(int side, const PesDangerExternals& ext) {
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
   AttachImageTables(s);
@@ -236,7 +250,7 @@ void PesWorld::RunCarrierConstruct(int side, const PesDangerExternals& ext) {
 }
 
 void PesWorld::RunTurnReference(int side, const PesDangerExternals& ext) {
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   const uint64_t bp = CarrierVa(side);
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
@@ -320,6 +334,7 @@ static std::size_t LendExternals(PesState& s, PesTrapExternals& ext) {
   s.mem.flat_size = ext.imageBytes;
   const std::size_t lent = s.mem.segs.size();
   for (PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, std::move(seg.bytes)});
+  for (const PesMem::Window& w : ext.borrowed) s.mem.services.push_back(w);
   for (const auto& [va, value] : ext.globals) s.mem.wr(va, value, 8);
   return lent;
 }

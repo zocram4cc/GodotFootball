@@ -1,16 +1,17 @@
-// PES's memory as GF runs it (OneWorld). One class owns the image mapping, PES's heap, the stack and the thread block, and the OS arena. The
-// fox world (pesfoxworld.hpp) and its boot (pesboot.hpp) run on it. PesImageMapping is the image part the trap memory maps too
-// (pestrapdata.hpp); the trap world's heap, stack and window join this class in cut 3.
+// PES's memory as GF runs it (OneWorld). One class owns the image mapping, PES's heap, the stack and the thread block, the OS arena, the
+// shared regions (the trap world's loader data and anime chain, built once per process in the template) and the window storage of a match
+// (the trap world's window, per match). The fox world (pesfoxworld.hpp) and its boot (pesboot.hpp) run on it; a match's trap world runs on
+// the same memory (pesworldrecord.hpp: BindMemory), so the trap chain reads the booted image and the heap the anime engine built.
 //
-// A PesMemory can be frozen after its boot (Freeze) into a PesMemoryTemplate: each region's dirty pages go to a memfd (sparse), and the heap's
-// bookkeeping is kept. A PesMemory built from a template is a clone: each region is its base (the install's file for the image, zeros for the
-// rest) with the frozen pages laid over it, copy-on-write. Clones share the template's pages and never write to them.
+// A PesMemory can be frozen after its boot (Freeze) into a PesMemoryTemplate: each region's dirty pages go to a memfd (sparse), and the
+// heap's bookkeeping is kept. A PesMemory built from the template is a clone: each region is its base (the install's file for the image,
+// zeros for the rest) with the frozen pages laid over it, copy-on-write. Clones share the template's pages and never write to them.
 #pragma once
 
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "pes_native.hpp"
@@ -79,12 +80,20 @@ class PesImageMapping {
   uint64_t bytes_ = 0;
 };
 
-// PES's memory frozen after its boot (PesMemory::Freeze): the dirty pages of every region and the heap's bookkeeping. Move-only.
+// A shared region frozen with the template: its VA, its size and its dirty pages. Move-only.
+struct PesFrozenShared {
+  uint64_t va = 0;
+  uint64_t bytes = 0;
+  PesFrozenRegion data;
+};
+
+// PES's memory frozen after its boot (PesMemory::Freeze): the dirty pages of every region, the shared regions and the heap's bookkeeping.
+// Move-only.
 class PesMemoryTemplate {
  public:
   // The bytes each region holds dirty.
   struct Footprint {
-    uint64_t image, heapPage, heapArena, stack, teb, osArena;
+    uint64_t image, heapPage, heapArena, stack, teb, osArena, shared;
   };
   PesMemoryTemplate() = default;
   PesMemoryTemplate(PesMemoryTemplate&&) = default;
@@ -99,6 +108,7 @@ class PesMemoryTemplate {
   std::string imagePath_;
   PesFrozenRegion image_, heapPage_, heapArena_, stack_, teb_, osArena_;
   PesHeap::Bookkeeping heap_;
+  std::vector<PesFrozenShared> shared_;
 };
 
 class PesMemory {
@@ -129,6 +139,14 @@ class PesMemory {
   // This memory frozen (no call running): every region's dirty pages go to memfds; the memory itself is unchanged.
   PesMemoryTemplate Freeze();
 
+  // A region outside the image and the heap, at `va`, copied from `bytes` (the trap world's loader data). Before Freeze: the template
+  // freezes it, and every clone maps it. A call of a trap world on the memory maps it as a borrowed window (SharedWindows).
+  void AddSharedRegion(uint64_t va, const std::vector<uint8_t>& bytes);
+  // The shared regions as host windows (translated code addresses them by VA; nothing is copied).
+  std::vector<PesMem::Window> SharedWindows() const;
+  // Storage owned by this memory for a match's window: zeroed, `bytes` long, valid for the memory's lifetime. Not frozen.
+  uint8_t* AddWindow(uint64_t bytes);
+
   // A call state over the memory: the image, the heap, the stack and thread block, the OS arena; rsp at a return slot.
   PesState NewCall();
   // Runs `fn` with rcx, rdx, r8, r9 = args (up to four) and returns rax. The image and the heap persist across calls.
@@ -144,9 +162,16 @@ class PesMemory {
   uint64_t HeapLiveBytes() const;
 
  private:
+  struct SharedRegion {
+    uint64_t va;
+    uint64_t bytes;
+    std::unique_ptr<PesAnonMapping> map;
+  };
   PesImageMapping image_;
   PesHeap heap_;
   PesAnonMapping stack_, teb_, osArena_;
+  std::vector<SharedRegion> shared_;
+  std::vector<std::unique_ptr<PesAnonMapping>> windows_;
 };
 
 }  // namespace pes

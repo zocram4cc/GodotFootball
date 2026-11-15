@@ -23,6 +23,7 @@
 #include "peskickchooser.hpp"
 #include "pesimagetables.hpp"
 #include "pes_native.hpp"
+#include "pesmemory.hpp"
 #include "pesbodyscan.hpp"
 
 struct PesState;  // the translated layer's call state (pes_state.hpp)
@@ -797,9 +798,24 @@ struct PesDangerExternals {
 
 inline constexpr std::size_t kWorldBytes = sizeof(PesWorldImage);
 
+// The window and the heap of a PesWorld: its own (a world built alone), or the match's PES memory's once BindMemory has run (the memory owns
+// them, so the world does not free them).
+struct PesWindowDeleter {
+  bool owned = true;
+  void operator()(PesWorldImage* p) const {
+    if (owned) delete p;
+  }
+};
+struct PesHeapDeleter {
+  bool owned = true;
+  void operator()(PesHeap* p) const {
+    if (owned) delete p;
+  }
+};
+
 class PesWorld {
  public:
-  PesWorld() : image_(std::make_unique<PesWorldImage>()) {
+  PesWorld() : image_(new PesWorldImage(), PesWindowDeleter{true}) {
     image_->tables.ball = BallVa();
     image_->tables.match = MatchInfoVa();
     image_->tables.frameRandom = FrameRandomVa();
@@ -837,6 +853,10 @@ class PesWorld {
 
   // The window's bytes: PesMem::window maps them at kWorldWindowVa for kWorldBytes.
   uint8_t* Bytes() { return reinterpret_cast<uint8_t*>(image_.get()); }
+
+  // Binds the world to the match's PES memory (cut 3): the window moves into the memory's storage and the heap becomes the memory's (both
+  // shared with the anime engine's world). Once, before any call on the world's heap.
+  void BindMemory(PesMemory& memory);
 
   // The VAs a slot's three records sit at (a table entry names one of these once bound). Officials use the same stride.
   static constexpr uint64_t BlockVa(int slot) {
@@ -1316,9 +1336,9 @@ class PesWorld {
     }
   }
 
-  std::unique_ptr<PesWorldImage> image_;
+  std::unique_ptr<PesWorldImage, PesWindowDeleter> image_;
   std::array<TickPlan, kSlotCount> tickPlan_{};
-  std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
+  std::unique_ptr<PesHeap, PesHeapDeleter> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder, or the match's PES memory's (BindMemory); the BP lists live in it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
   std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)
   PesImageTables imageTables_;     // the install's table bytes the window runs read at register-held addresses (BindImageTables)

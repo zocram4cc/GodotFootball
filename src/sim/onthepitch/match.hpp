@@ -312,7 +312,8 @@ public:
   // PES's Trap action chain (pestrapdata.hpp): the actor constants P is made from, and the match's own copy of the image slice and
   // loader data the chain runs on, built once at construction.
   const pes::PesActorConstants& GetPesActorConstants() const { return pesActorConstants; }
-  pes::PesTrapExternals& PesTrapExternalsOf() { return pesTrapMemory->Externals(); }
+  pes::PesTrapExternals& PesTrapExternalsOf();  // the trap world's externals over the match's PES memory (bound on first use)
+  void BindPesTrapWorld();                       // the trap world on the match's one PES memory (matchevents.cpp)
   // PES's per-player anime engine graph (pesfoxworld.hpp), built from the install on first use: the translated fox load chain fills the
   // ResManager from the body animation files, and the player constructor makes each slot's BodyAnimControl. PesAnimePlayerOf(slot) is the
   // engine's player block of a slot (constructed on first use).
@@ -794,7 +795,8 @@ protected:
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   pes::PesActorConstants pesActorConstants{};
-  std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
+  pes::PesTrapExternals pesTrapView;  // the trap world's externals over the memory (set by BindPesTrapWorld)
+  bool pesTrapBound = false;
   std::unique_ptr<pes::PesFoxWorld> pesAnimeWorld;
   std::array<uint64_t, pes::kSlotCount> pesAnimePlayers{};
   const pes::PesVfs* pesVfs = nullptr;

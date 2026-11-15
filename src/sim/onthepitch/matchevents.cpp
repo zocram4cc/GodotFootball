@@ -82,6 +82,26 @@ pes::PesFoxWorld& Match::PesAnimeWorldOf() {
   return *pesAnimeWorld;
 }
 
+pes::PesTrapExternals& Match::PesTrapExternalsOf() {
+  if (!pesTrapBound) BindPesTrapWorld();
+  return pesTrapView;
+}
+
+// The trap world on the match's one PES memory (cut 3, OneWorld): the anime world's memory, which holds the booted image and heap and the
+// template's loader regions (shared; every trap call borrows them), with the trap world's window in the memory's storage and G's global in the
+// image. The trap chain reads the booted globals (the ResManager at 0x1437CEAA0 among them), not the dump's.
+void Match::BindPesTrapWorld() {
+  if (pesTrapBound) return;
+  pes::PesMemory& memory = PesAnimeWorldOf().Memory();
+  pesWorld->BindMemory(memory);
+  memory.Write64(pes::kWorldGlobalVa, pes::kWorldWindowVa);  // G's global holds the window's VA: the image's global, once per match
+  pesTrapView.image = memory.Image();
+  pesTrapView.imageBase = pes::PesMemory::kImageBase;
+  pesTrapView.imageBytes = memory.ImageBytes();
+  pesTrapView.borrowed = memory.SharedWindows();
+  pesTrapBound = true;
+}
+
 uint64_t Match::PesAnimePlayerOf(int slot) {
   uint64_t& p = pesAnimePlayers[static_cast<std::size_t>(slot)];
   if (p == 0) {

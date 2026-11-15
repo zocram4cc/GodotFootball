@@ -12,6 +12,7 @@
 #include <cstring>
 #include <cstdint>
 #include <vector>
+#include "pes_state.hpp"
 
 namespace pes {
 
@@ -254,6 +255,7 @@ struct PesTrapExternals {
   std::vector<PesTrapSegment> segments;  // lent to a call (PesWorld::RunTrapKind0 moves them in and back)
   std::vector<std::pair<uint64_t, uint64_t>> globals;  // (image VA, 8-byte value)
   std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr;  // every byte the call writes, in order (tests)
+  std::vector<PesMem::Window> borrowed;  // the regions of the match's PES memory a call maps as they are (not copied, not lent)
 };
 
 struct PesTrapResult {

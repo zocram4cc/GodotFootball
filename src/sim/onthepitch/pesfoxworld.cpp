@@ -1,6 +1,7 @@
 #include "onthepitch/pesfoxworld.hpp"
 
 #include "onthepitch/pesboot.hpp"
+#include "onthepitch/pestrapdata.hpp"
 #include "pes/translated/translated.hpp"
 
 #include <algorithm>
@@ -49,7 +50,7 @@ constexpr char kBodyName[] = "body";
 // byte, +0x14 rate f32 (DAT_14256AE1C = 1.0 in the constructor's idle record), +0x18 flags (bit 0: resource resolved), +0x20 weight count u32,
 // +0x28 weight array pointer, +0x30 byte, +0x34 u32 -1}. The parameter block (third argument, P+0x3B80 in SetMotion): {+0 u32, +4 kind byte, +8
 // blend f32}.
-constexpr uint64_t kRecordBytes = 0x38, kParamsOffset = 0x40, kScratchBytes = 0x60;
+constexpr uint64_t kRecordBytes = 0x38, kParamsOffset = 0x40, kIssueScratchBytes = 0x60;
 constexpr uint64_t kRecMotion = 0x8, kRecStartTime = 0xC, kRecMirror = 0x10, kRecRate = 0x14, kRecSlotMark = 0x34;
 constexpr uint64_t kParamKind = 0x4, kParamBlend = 0x8;
 constexpr uint32_t kRecNoSlot = 0xFFFFFFFFu;
@@ -104,6 +105,18 @@ const PesFoxWorldTemplate& AnimeWorldTemplate(const std::string& imagePath, cons
   boot.Boot();
   std::string error;
   if (!boot.LoadBody(&error)) throw std::runtime_error("PES anime engine: " + error);
+  // The trap world's loader data (the motion table, the Animetable, the registry, trap.o, the pad manager and the anime chain's layers),
+  // built from the install (PesTrapSource): the template's shared regions (every clone maps them), and its pointer globals written once here.
+  // The clip database is not one of them: that global holds the booted ResManager, which the trap chain reads as PES's own.
+  const auto pe = PeImage::Open(vfs.Root() + "/PES2021.exe", &error);
+  if (!pe) throw std::runtime_error("PES anime engine: " + error);
+  const auto source = LoadTrapSource(*pe, vfs, imagePath, &error);
+  if (!source) throw std::runtime_error("PES anime engine: " + error);
+  PesTrapExternals loader;
+  source->loader.AddTo(loader);
+  for (const PesTrapSegment& seg : loader.segments) boot.Memory().AddSharedRegion(seg.va, seg.bytes);
+  for (const auto& [va, value] : loader.globals)
+    if (va != kClipDatabaseGlobalVa) boot.Memory().Write64(va, value);
   auto frozen = std::make_unique<PesFoxWorldTemplate>(boot.Freeze());
   const PesFoxWorldTemplate& ref = *frozen;
   templates.emplace(key, std::move(frozen));
@@ -210,7 +223,7 @@ void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {
   if (request.group >= 0) throw std::runtime_error("fox world: IssueMotion takes SetMotion's arguments (group -1)");
   if (request.motion > kMaxMotion) return;
   if (impl_->issueScratch == 0) {
-    impl_->issueScratch = Alloc(kScratchBytes);
+    impl_->issueScratch = Alloc(kIssueScratchBytes);
     if (impl_->issueScratch == 0) throw std::runtime_error("fox world: the arena is full");
   }
   const uint64_t a = Read64(p + kAnimeOffset), record = impl_->issueScratch, params = record + kParamsOffset;
@@ -220,7 +233,7 @@ void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {
     return static_cast<uint64_t>(b);
   };
   PesState s = NewCall();
-  for (uint64_t at = 0; at < kScratchBytes; at += 8) s.wr(record + at, 0, 8);
+  for (uint64_t at = 0; at < kIssueScratchBytes; at += 8) s.wr(record + at, 0, 8);
   s.wr(record + kRecMotion, static_cast<uint32_t>(request.motion), 4);
   s.wr(record + kRecStartTime, bits(request.startTime), 4);
   s.wr(record + kRecMirror, request.mirror ? 1 : 0, 1);

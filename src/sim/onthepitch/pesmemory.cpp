@@ -150,8 +150,10 @@ PesImageMapping::~PesImageMapping() {
 }
 
 PesMemoryTemplate::Footprint PesMemoryTemplate::Dirty() const {
+  uint64_t shared = 0;
+  for (const PesFrozenShared& s : shared_) shared += s.data.DirtyBytes();
   return Footprint{image_.DirtyBytes(), heapPage_.DirtyBytes(), heapArena_.DirtyBytes(), stack_.DirtyBytes(), teb_.DirtyBytes(),
-                   osArena_.DirtyBytes()};
+                   osArena_.DirtyBytes(), shared};
 }
 
 PesMemory::PesMemory(const std::string& imagePath, uint64_t heapBytes)
@@ -178,6 +180,10 @@ PesMemory::PesMemory(const PesMemoryTemplate& frozen)
   frozen.stack_.LayOver(stack_.data());
   frozen.teb_.LayOver(teb_.data());
   frozen.osArena_.LayOver(osArena_.data());
+  for (const PesFrozenShared& s : frozen.shared_) {
+    shared_.push_back(SharedRegion{s.va, s.bytes, std::make_unique<PesAnonMapping>(s.bytes, false)});
+    s.data.LayOver(shared_.back().map->data());
+  }
 }
 
 PesMemory::~PesMemory() = default;
@@ -192,7 +198,36 @@ PesMemoryTemplate PesMemory::Freeze() {
   frozen.teb_ = PesFrozenRegion::Capture(teb_.data(), teb_.bytes(), nullptr);
   frozen.osArena_ = PesFrozenRegion::Capture(osArena_.data(), osArena_.bytes(), nullptr);
   frozen.heap_ = heap_.SaveBookkeeping();
+  for (const SharedRegion& r : shared_) {
+    PesFrozenShared s;
+    s.va = r.va;
+    s.bytes = r.bytes;
+    s.data = PesFrozenRegion::Capture(r.map->data(), r.bytes, nullptr);
+    frozen.shared_.push_back(std::move(s));
+  }
   return frozen;
+}
+
+void PesMemory::AddSharedRegion(uint64_t va, const std::vector<uint8_t>& bytes) {
+  shared_.push_back(SharedRegion{va, bytes.size(), std::make_unique<PesAnonMapping>(bytes.size(), false)});
+  if (!bytes.empty()) std::memcpy(shared_.back().map->data(), bytes.data(), bytes.size());
+}
+
+std::vector<PesMem::Window> PesMemory::SharedWindows() const {
+  std::vector<PesMem::Window> windows;
+  for (const SharedRegion& r : shared_) {
+    PesMem::Window w;
+    w.base = r.va;
+    w.size = r.bytes;
+    w.rw = r.map->data();
+    windows.push_back(w);
+  }
+  return windows;
+}
+
+uint8_t* PesMemory::AddWindow(uint64_t bytes) {
+  windows_.push_back(std::make_unique<PesAnonMapping>(bytes, false));
+  return windows_.back()->data();
 }
 
 PesState PesMemory::NewCall() {
