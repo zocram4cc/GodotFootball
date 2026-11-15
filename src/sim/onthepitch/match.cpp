@@ -109,6 +109,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
       std::clamp(matchDurationMinutes, kMinimumMatchDurationMinutes, kMaximumMatchDurationMinutes);
   // PES's world window (pesworldrecord.hpp) exists before the clock: the match-info block holds the clock's period record.
   pesWorld = std::make_unique<pes::PesWorld>();
+  pesVfs = setup.pesVfs;
+  if (setup.pesTrapSource != nullptr) pesImagePath = setup.pesTrapSource->imagePath;
+  // pes_loop: the trap world's window moves into the match's PES memory first (BindPesTrapWorld). The clock keeps a reference into the
+  // window's period record, so it is made after the move: a clock made on the old window would write freed memory after the move.
+  if (pesLoop && setup.pesTrapSource != nullptr) BindPesTrapWorld();
   pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes, pesWorld->Period());
 
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md): every constant
@@ -296,8 +301,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
     pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
     pes::ConstructAnimPlugin(*pesWorld, slot);
   }
-  pesVfs = setup.pesVfs;
-  pesImagePath = setup.pesTrapSource->imagePath;
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;
   if (setup.pesSheetConstants) pesSheetConstants = *setup.pesSheetConstants;
@@ -340,7 +343,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   for (int k = 0; k < 3; ++k)
     pesWorld->AddImageSegment(pesActorConstants.memberVtable[k], pesActorConstants.memberVtableSlots[k].data(),
                               pesActorConstants.memberVtableSlots[k].size());
-  if (pesLoop) BindPesTrapWorld();
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);
