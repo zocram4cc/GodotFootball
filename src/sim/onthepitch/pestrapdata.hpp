@@ -14,6 +14,7 @@
 #include "onthepitch/pestrapactor.hpp"
 #include "onthepitch/pesanimechain.hpp"
 #include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesmemory.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 
@@ -131,6 +132,7 @@ class PesTrapMemory {
   PesTrapExternals& Externals() { return ext_; }
 
  private:
+  PesImageMapping image_;
   PesTrapExternals ext_;
 };
 

@@ -1,164 +1,16 @@
 #include "onthepitch/pesfoxworld.hpp"
 
-#include "pes/exe.hpp"
-#include "onthepitch/pesinitializers.inc"
-#include "pes/translated/pes_dispatch.hpp"
+#include "onthepitch/pesboot.hpp"
 #include "pes/translated/translated.hpp"
-
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <cstring>
 #include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
 namespace pes {
-namespace {
-
-constexpr uint64_t kImageBase = 0x140000000ULL;
-// The world's own windows, above PES's image and the heap arena (PesHeap::kArenaVa = 0x24_0000_0000).
-constexpr uint64_t kStackVa = 0x2600000000ULL, kStackBytes = 0x100000;
-constexpr uint64_t kTebVa = 0x2610000000ULL, kTebBytes = 0x2000;
-constexpr uint64_t kTebSelfOffset = 0x30;  // gs:[0x30]: the thread block's own address (FlsGetValue and the last-error model read it)
-// The process block the TlsAlloc model reads (gs:[0x60] = PEB; PEB+0x328 = TlsBitmapBits, the first 64 slots): it sits at the end of the thread
-// block's window. The bits are the slots taken when PES's allocator started: its three TlsAlloc calls returned 9, 10 and 11 (the live dump holds
-// those at 0x143AC3DCC, 0x143AC2814 and 0x143AC2810, import_stubs.json), so slots 0..8 were taken.
-constexpr uint64_t kTebPebPointerOffset = 0x60, kPebOffsetInTeb = 0x1800, kPebTlsBitmapOffset = 0x328, kTlsSlotsTakenAtStart = 9;
-// Win64: rsp at a function's entry holds the return address and is 8 (mod 16); the shadow space and the stack arguments sit above it.
-constexpr uint64_t kEntryFrameBytes = 0x200;
-// import_stubs.json "os_arena": PES's jemalloc (FUN_1403CF740, under FUN_14029D370) gets its chunks from VirtualAlloc, which the translated
-// model serves from this range (the cell at its base is the bump pointer): the world maps it, or the allocator reads zeros and never returns.
-constexpr uint64_t kOsArenaVa = 0x3000000000ULL, kOsArenaBytes = 0x100000000ULL;
-
-}  // namespace
-
-struct PesFoxWorld::Impl {
-  const PesVfs& vfs;
-  uint8_t* image = nullptr;
-  uint64_t imageBytes = 0;
-  PesHeap heap;
-  std::vector<uint8_t> stack, teb;
-  uint8_t* osArena = nullptr;  // the VirtualAlloc model's arena, lazily zeroed pages (anonymous mmap)
-  uint64_t issueScratch = 0;   // IssueMotion's record and parameter block in the heap (made on the first issue)
-  Impl(const PesVfs& v, uint64_t heapBytes) : vfs(v), heap(heapBytes), stack(kStackBytes), teb(kTebBytes) {}
-};
-
-PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes)
-    : impl_(std::make_unique<Impl>(vfs, heapBytes)) {
-  const int fd = ::open(imagePath.c_str(), O_RDONLY);
-  struct stat st {};
-  if (fd < 0 || ::fstat(fd, &st) != 0) {
-    if (fd >= 0) ::close(fd);
-    throw std::runtime_error("fox world: cannot open the image " + imagePath);
-  }
-  impl_->imageBytes = static_cast<uint64_t>(st.st_size);
-  // Private, copy-on-write: the chain writes image globals (the singletons, the lists), and the file stays as it is.
-  void* map = ::mmap(nullptr, impl_->imageBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-  ::close(fd);
-  if (map == MAP_FAILED) throw std::runtime_error("fox world: cannot map the image " + imagePath);
-  impl_->image = static_cast<uint8_t*>(map);
-  void* arena = ::mmap(nullptr, kOsArenaBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-  if (arena == MAP_FAILED) {
-    ::munmap(map, impl_->imageBytes);
-    throw std::runtime_error("fox world: cannot map the OS arena");
-  }
-  impl_->osArena = static_cast<uint8_t*>(arena);
-  std::memcpy(impl_->teb.data() + kTebSelfOffset, &kTebVa, sizeof kTebVa);
-  const uint64_t pebVa = kTebVa + kPebOffsetInTeb, takenBits = (1ULL << kTlsSlotsTakenAtStart) - 1;
-  std::memcpy(impl_->teb.data() + kTebPebPointerOffset, &pebVa, sizeof pebVa);
-  std::memcpy(impl_->teb.data() + kPebOffsetInTeb + kPebTlsBitmapOffset, &takenBits, sizeof takenBits);
-  pes_service_set_file_source(this);
-}
-
-PesFoxWorld::~PesFoxWorld() {
-  pes_service_set_file_source(nullptr);
-  ::munmap(impl_->image, impl_->imageBytes);
-  ::munmap(impl_->osArena, kOsArenaBytes);
-}
-
-PesState PesFoxWorld::NewCall() {
-  PesState s;
-  s.mem.flat = impl_->image;
-  s.mem.flat_base = kImageBase;
-  s.mem.flat_size = impl_->imageBytes;
-  impl_->heap.Attach(s);  // clears the services, so the world's windows follow
-  s.mem.services.push_back({kStackVa, kStackBytes, nullptr, impl_->stack.data()});
-  s.mem.services.push_back({kTebVa, kTebBytes, nullptr, impl_->teb.data()});
-  s.mem.services.push_back({kOsArenaVa, kOsArenaBytes, nullptr, impl_->osArena});
-  s.gs_base = kTebVa;
-  s.gpr[4] = kStackVa + kStackBytes - kEntryFrameBytes;
-  s.wr(s.gpr[4], 0, 8);  // the return address slot
-  return s;
-}
-
-uint64_t PesFoxWorld::Call(void (*fn)(PesState&), std::initializer_list<uint64_t> args) {
-  PesState s = NewCall();
-  static constexpr int kArgRegs[4] = {1, 2, 8, 9};  // rcx, rdx, r8, r9
-  int i = 0;
-  for (uint64_t a : args) {
-    if (i == 4) throw std::runtime_error("fox world: more than four register arguments");
-    s.gpr[kArgRegs[i++]] = a;
-  }
-  fn(s);
-  return s.gpr[0];
-}
-
-uint64_t PesFoxWorld::Read64(uint64_t va) { return NewCall().rd(va, 8); }
-
-void PesFoxWorld::Write64(uint64_t va, uint64_t value) {
-  PesState s = NewCall();
-  s.wr(va, value, 8);
-}
-
-std::string PesFoxWorld::ReadCString(uint64_t va, uint64_t max) {
-  PesState s = NewCall();
-  std::string out;
-  for (uint64_t c = s.rd(va, 1); c != 0 && out.size() < max; c = s.rd(va + out.size(), 1)) out.push_back(static_cast<char>(c));
-  return out;
-}
-
-uint64_t PesFoxWorld::Alloc(uint64_t bytes) { return impl_->heap.Alloc(bytes, PesHeap::kMinAlign); }
-
-uint64_t PesFoxWorld::NewCString(const std::string& text) {
-  const uint64_t va = impl_->heap.Alloc(text.size() + 1, PesHeap::kMinAlign);
-  if (!va) throw std::runtime_error("fox world: the arena is full");
-  PesState s = NewCall();
-  for (std::size_t i = 0; i < text.size(); ++i) s.wr(va + i, static_cast<uint8_t>(text[i]), 1);
-  return va;
-}
-
-int64_t PesFoxWorld::Size(const char* path) {
-  const std::optional<uint64_t> size = impl_->vfs.Size(path);
-  return size ? static_cast<int64_t>(*size) : -1;
-}
-
-int64_t PesFoxWorld::Read(const char* path, uint64_t offset, uint8_t* dst, uint64_t n) {
-  std::string error;
-  const auto bytes = impl_->vfs.Read(path, &error);
-  if (!bytes || offset > bytes->size()) return -1;
-  const uint64_t got = std::min<uint64_t>(n, bytes->size() - offset);
-  std::memcpy(dst, bytes->data() + offset, got);
-  ++serves_;
-  return static_cast<int64_t>(got);
-}
-
-uint8_t PesFoxWorld::Read8(uint64_t va) { return static_cast<uint8_t>(NewCall().rd(va, 1)); }
-void PesFoxWorld::Write8(uint64_t va, uint8_t value) {
-  PesState s = NewCall();
-  s.wr(va, value, 1);
-}
-
-uint32_t PesFoxWorld::Read32(uint64_t va) { return static_cast<uint32_t>(NewCall().rd(va, 4)); }
-
-void PesFoxWorld::Write32(uint64_t va, uint32_t value) {
-  PesState s = NewCall();
-  s.wr(va, value, 4);
-}
-
 namespace {
 
 // The singletons the dump holds from the running game (each names a heap object that does not exist in GF's world). Writers: the file
@@ -167,9 +19,6 @@ namespace {
 constexpr uint64_t kFileManagerVa = 0x143704E40, kRequestManagerAVa = 0x143705DC8, kRequestManagerBVa = 0x143705DD0,
                    kFileSystemVa = 0x143704F18, kPumpListAVa = 0x1437F48A8, kPumpCountAVa = 0x1437F48B0, kPumpListBVa = 0x1437F48B8,
                    kPumpCountBVa = 0x1437F48C0, kResManagerVa = 0x1437CEAA0, kAnimeInitFlagVa = 0x1437CEA18;
-constexpr uint64_t kFileManagerBytes = 0x2E0;  // FUN_14149AB60: FUN_1403FB410(pool, 0x2E0)
-// The first call of the game's boot (live2/pid2740946 seq001): FUN_141AE77B0(0, 1, 0, 0, 0).
-constexpr uint64_t kBootArgs[4] = {0, 1, 0, 0};
 // FUN_141EA7190's flags (FUN_141EA8430 passes 0x20009 for a queued name).
 constexpr uint64_t kJobFlags = 0x20009;
 constexpr uint64_t kJobHandleOffset = 0x38, kHandleStateOffset = 8;
@@ -184,36 +33,6 @@ constexpr int kFinishSteps = 16;
 // the dump holds as the running game left them. The anime systems table DAT_1437CEA30 is left as the dump holds it (a system is made only for
 // a null cell, and a made one allocates through PES's jemalloc, whose state is the dead game's: see the report, section 5 item 1).
 constexpr uint64_t kRegistryVa = 0x1437F4F78, kRegistrarFlagVa = 0x1437F4F82;
-// The CRT's thread-safe function-local statics (`static T x;` -> _Init_thread_header / _Init_thread_footer): a static is built on its first
-// use, while its guard dword is 0. The dump holds the dead game's: 692 of the image's 856 guards are set and their objects hold dead-heap
-// state, so a first use here would skip the constructor and walk dead pointers (the string table, the anime type objects). PES starts with
-// every guard 0, the global epoch (_Init_global_epoch, DAT_14350B358) at INT_MIN and each thread's epoch (TLS block +0x84, a thread-local
-// initialised to INT_MIN) likewise. A guard is the rip-relative operand of the `lea rcx, [guard]` that sits right before each `call
-// _Init_thread_header` (0x14159F8B0): the scan finds them in the image's code section (.trace, the section table: 0x140001000, 0x252D800 bytes).
-constexpr uint64_t kInitThreadHeaderVa = 0x14159F8B0, kInitGlobalEpochVa = 0x14350B358, kCodeSectionVa = 0x140001000, kCodeSectionBytes = 0x252D800;
-constexpr uint32_t kInitEpochStart = 0x80000000u;  // INT_MIN
-constexpr uint64_t kTlsInitEpochOffset = 0x84;
-// `lea rcx, [rip + rel32]` (48 8D 0D) directly followed by `call rel32` (E8): 7 + 5 bytes.
-constexpr uint8_t kLeaRcxRipOpcode[3] = {0x48, 0x8D, 0x0D}, kCallOpcode = 0xE8;
-constexpr uint64_t kLeaBytes = 7, kCallBytes = 5;
-// The engine's hash-map statics (the type table, FUN_14026A2B0's, and its siblings) are constant-initialized in the exe's .data: the file holds
-// each in its empty state, the six qwords FUN_140266ED0's inlined constructor stores ({0, -1, 0xFFFFFFFF, 0, 0, 0}, 0x14339B010..0x14339B038).
-// The dump holds the dead game's filled maps (counts, pointers into its heap) in 9 of the file's 17 such objects. The initialized part of .data
-// is the section's raw size (the section table: 0x14339B000, 0x334800 bytes); the install's own exe supplies the bytes (PeImage::ReadVa).
-constexpr uint64_t kInitializedDataVa = 0x14339B000, kInitializedDataBytes = 0x334800;
-constexpr uint64_t kEmptyHashMap[6] = {0, ~0ull, 0xFFFFFFFFull, 0, 0, 0};
-// PES's process start runs C++ static initializers (a run of code pointers at 0x142530868.., 6,849 set; it is a mixed run: it also holds CRT
-// entries such as atexit, so only the entries the selector picks run). The dump holds their results with the dead game's runtime mutations on
-// top (a std::map's head node, an intrusive pointer global naming a dead object). kSelectedInitializers (pesinitializers.inc, generated by
-// tools/dev/translate/select_initializers.py) lists, in table order, those that store to a global a translated function names; Boot runs the
-// ones the layer holds. The selection grows with the layer (a fixed point is reached when every selected initializer is translated).
-// FUN_14029E940's config block: it reads only the dword at +4 (the pool size, 0 = default).
-constexpr uint64_t kScriptConfigBytes = 0x10;
-// The scratch arena (FUN_1403EFDF0 pushes frames on the TLS slot's frame): the thread block's TLS pointer (TEB+0x58), the TLS index
-// cell, the slot offset in the thread's block, the frame's vtable and the arena's size.
-constexpr uint64_t kTebTlsPointerOffset = 0x58, kTlsIndexVa = 0x1437067A0, kTlsSlotOffset = 0x38, kScratchFrameVtable = 0x14258BCA8,
-                   kScratchArenaBytes = 0x40000, kTlsBlockBytes = 0x100, kScratchFrameBytes = 0x38;
-constexpr uint64_t kScratchFrameBaseOffset = 0x18, kScratchFrameCursorOffset = 0x20, kScratchFrameEndOffset = 0x28;
 // The pump's queue node: the job at +0x10 (FUN_141EA8430), the job's handle at +0x38.
 constexpr uint64_t kPumpNodeJobOffset = 0x10;
 constexpr int kPumpSteps = 4096;
@@ -242,91 +61,76 @@ constexpr uint64_t kFifthArgumentOffset = 0x28;
 constexpr uint32_t kAllRecords = 0xFFFFFFFFu;
 constexpr uint64_t kUnitFloatVa = 0x14256AE1C;  // DAT_14256AE1C, 1.0f: the template's rate (FUN_141EB5250 stores it in the idle record)
 
-// The zero-initialised part of .data (the section table: virtual size 0x72A000, raw size 0x334800 at 0x14339B000, so the tail is
-// 0x1436CF800..0x143AC5000): at process start Windows maps it zero, and PES's own start-up code (the allocator's malloc_init_hard, the C++
-// static initializers, the engine singletons' first use) builds on that. The dump holds the dead game's runtime state there: the allocator's
-// trees, the registries, every `if (cell == 0)` singleton and smart-pointer global (an initializer that assigns null into one releases the
-// dead object it still names). Boot zeroes the whole tail (this replaces the earlier per-object lists: the allocator's two runs, the
-// singleton cells, the registrar and anime flags).
-constexpr uint64_t kZeroDataBegin = 0x1436CF800, kZeroDataEnd = 0x143AC5000;
-
 }  // namespace
 
-void PesFoxWorld::Boot() {
-  ZeroInitializedData();
-  RestoreInitialData();
-  ResetStaticInitState();
-  // The thread-safe static guards (_Init_thread_header) read the thread's TLS block (epoch at +0x84): it exists before the first one runs.
-  InstallScratchArena();
-  Call(::pes_fn_14038EE80, {});  // malloc_init_hard, as PES's first allocation runs it (FUN_14038E3E0 tests its flag at 0x1436DCEE0)
-  RunStaticInitializers();
-  const uint64_t manager = Alloc(kFileManagerBytes);
-  Call(::pes_fn_14149A620, {manager});
-  Call(::pes_fn_1414A3550, {});
-  Call(::pes_fn_1414B08A0, {});
-  Call(::pes_fn_1414B0E90, {});
-  Call(::pes_fn_1402223C0, {});
-  Call(::pes_fn_140222390, {});
-  // PES's scripting init (FUN_14029E940, called from the engine init FUN_1402902B0 before any system): the "Lua VM" pool and the script manager
-  // DAT_1436D0068 names, which FUN_141B0BA70 pushes a C function into. The dump's manager is the dead game's; the config block's pool size (+4) is
-  // zero, which the init reads as its default (0x300000).
-  Call(::pes_fn_14029E940, {Alloc(kScriptConfigBytes)});
-  Call(::pes_fn_141AE77B0, {kBootArgs[0], kBootArgs[1], kBootArgs[2], kBootArgs[3]});
+struct PesFoxWorld::Impl {
+  const PesVfs& vfs;
+  PesMemory memory;
+  uint64_t issueScratch = 0;  // IssueMotion's record and parameter block in the heap (made on the first issue)
+  Impl(const PesVfs& v, const std::string& imagePath, uint64_t heapBytes) : vfs(v), memory(imagePath, heapBytes) {}
+};
+
+PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes)
+    : impl_(std::make_unique<Impl>(vfs, imagePath, heapBytes)) {
+  pes_service_set_file_source(this);
 }
 
-void PesFoxWorld::InstallScratchArena() {
-  const uint64_t tlsArray = Alloc(8 * (static_cast<uint64_t>(Read32(kTlsIndexVa)) + 1));
-  const uint64_t block = Alloc(kTlsBlockBytes), frame = Alloc(kScratchFrameBytes), arena = Alloc(kScratchArenaBytes);
-  if (!tlsArray || !block || !frame || !arena) throw std::runtime_error("fox world: the arena is full");
-  Write64(frame, kScratchFrameVtable);  // {vtable, 0, prev = 0, base, cursor = base, end, 0}
-  Write64(frame + kScratchFrameBaseOffset, arena);
-  Write64(frame + kScratchFrameCursorOffset, arena);
-  Write64(frame + kScratchFrameEndOffset, arena + kScratchArenaBytes);
-  Write64(block + kTlsSlotOffset, frame);
-  Write32(block + kTlsInitEpochOffset, kInitEpochStart);
-  Write64(tlsArray + 8 * static_cast<uint64_t>(Read32(kTlsIndexVa)), block);
-  Write64(kTebVa + kTebTlsPointerOffset, tlsArray);
+PesFoxWorld::~PesFoxWorld() { pes_service_set_file_source(nullptr); }
+
+PesMemory& PesFoxWorld::Memory() { return impl_->memory; }
+
+PesState PesFoxWorld::NewCall() { return impl_->memory.NewCall(); }
+
+uint64_t PesFoxWorld::Call(void (*fn)(PesState&), std::initializer_list<uint64_t> args) { return impl_->memory.Call(fn, args); }
+
+uint64_t PesFoxWorld::Read64(uint64_t va) { return impl_->memory.Read64(va); }
+
+void PesFoxWorld::Write64(uint64_t va, uint64_t value) { impl_->memory.Write64(va, value); }
+
+std::string PesFoxWorld::ReadCString(uint64_t va, uint64_t max) {
+  PesState s = NewCall();
+  std::string out;
+  for (uint64_t c = s.rd(va, 1); c != 0 && out.size() < max; c = s.rd(va + out.size(), 1)) out.push_back(static_cast<char>(c));
+  return out;
 }
 
-void PesFoxWorld::ZeroInitializedData() { std::memset(impl_->image + (kZeroDataBegin - kImageBase), 0, kZeroDataEnd - kZeroDataBegin); }
+uint64_t PesFoxWorld::Alloc(uint64_t bytes) { return impl_->memory.Alloc(bytes); }
 
-void PesFoxWorld::RunStaticInitializers() {
-  for (const uint64_t entry : kSelectedInitializers) {
-    const PesDispatch target = pes_dispatch_lookup(entry);
-    if (target.fn) {
-      Call(target.fn, {});
-      ++initializersRun_;
-    }
-  }
+uint64_t PesFoxWorld::NewCString(const std::string& text) {
+  const uint64_t va = impl_->memory.Alloc(text.size() + 1);
+  if (!va) throw std::runtime_error("fox world: the arena is full");
+  PesState s = NewCall();
+  for (std::size_t i = 0; i < text.size(); ++i) s.wr(va + i, static_cast<uint8_t>(text[i]), 1);
+  return va;
 }
 
-void PesFoxWorld::RestoreInitialData() {
+int64_t PesFoxWorld::Size(const char* path) {
+  const std::optional<uint64_t> size = impl_->vfs.Size(path);
+  return size ? static_cast<int64_t>(*size) : -1;
+}
+
+int64_t PesFoxWorld::Read(const char* path, uint64_t offset, uint8_t* dst, uint64_t n) {
   std::string error;
-  const auto exe = PeImage::Open(impl_->vfs.Root() + "/PES2021.exe", &error);
-  if (!exe) throw std::runtime_error("fox world: the install's exe: " + error);
-  std::vector<uint8_t> initial(kInitializedDataBytes);
-  if (!exe->ReadVa(kInitializedDataVa, initial.size(), initial.data()))
-    throw std::runtime_error("fox world: the install's exe holds no .data at " + std::to_string(kInitializedDataVa));
-  const uint8_t* pattern = reinterpret_cast<const uint8_t*>(kEmptyHashMap);
-  for (uint64_t at = 0; at + sizeof kEmptyHashMap <= initial.size(); at += sizeof(uint64_t))
-    if (std::memcmp(initial.data() + at, pattern, sizeof kEmptyHashMap) == 0)
-      std::memcpy(impl_->image + (kInitializedDataVa - kImageBase) + at, pattern, sizeof kEmptyHashMap);
+  const auto bytes = impl_->vfs.Read(path, &error);
+  if (!bytes || offset > bytes->size()) return -1;
+  const uint64_t got = std::min<uint64_t>(n, bytes->size() - offset);
+  std::memcpy(dst, bytes->data() + offset, got);
+  ++serves_;
+  return static_cast<int64_t>(got);
 }
 
-void PesFoxWorld::ResetStaticInitState() {
-  const uint8_t* code = impl_->image + (kCodeSectionVa - kImageBase);
-  for (uint64_t at = 0; at + kLeaBytes + kCallBytes <= kCodeSectionBytes; ++at) {
-    if (std::memcmp(code + at, kLeaRcxRipOpcode, sizeof kLeaRcxRipOpcode) != 0 || code[at + kLeaBytes] != kCallOpcode) continue;
-    int32_t callRel, guardRel;
-    std::memcpy(&guardRel, code + at + sizeof kLeaRcxRipOpcode, sizeof guardRel);
-    std::memcpy(&callRel, code + at + kLeaBytes + 1, sizeof callRel);
-    const uint64_t site = kCodeSectionVa + at;
-    if (site + kLeaBytes + kCallBytes + static_cast<int64_t>(callRel) != kInitThreadHeaderVa) continue;
-    const uint64_t guard = site + kLeaBytes + static_cast<int64_t>(guardRel);
-    std::memset(impl_->image + (guard - kImageBase), 0, sizeof(uint32_t));
-  }
-  std::memcpy(impl_->image + (kInitGlobalEpochVa - kImageBase), &kInitEpochStart, sizeof kInitEpochStart);
+uint8_t PesFoxWorld::Read8(uint64_t va) { return static_cast<uint8_t>(NewCall().rd(va, 1)); }
+
+void PesFoxWorld::Write8(uint64_t va, uint8_t value) {
+  PesState s = NewCall();
+  s.wr(va, value, 1);
 }
+
+uint32_t PesFoxWorld::Read32(uint64_t va) { return impl_->memory.Read32(va); }
+
+void PesFoxWorld::Write32(uint64_t va, uint32_t value) { impl_->memory.Write32(va, value); }
+
+void PesFoxWorld::Boot() { initializersRun_ = PesBoot(impl_->memory, impl_->vfs.Root()); }
 
 bool PesFoxWorld::PumpUntilIdle(std::string* error) {
   for (int step = 0; step < kPumpSteps; ++step) {
@@ -419,7 +223,7 @@ PesJointPose PesFoxWorld::ReadPose(uint64_t p) {
   return pose;
 }
 
-uint64_t PesFoxWorld::HeapLiveBytes() const { return impl_->heap.LiveBytes(); }
+uint64_t PesFoxWorld::HeapLiveBytes() const { return impl_->memory.HeapLiveBytes(); }
 
 uint64_t PesFoxWorld::StartJob(const std::string& path) { return Call(::pes_fn_141EA7190, {NewCString(path), kJobFlags}); }
 

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "onthepitch/pesfoxworld.hpp"
+#include "onthepitch/pesboot.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_stubs.hpp"
 #include "pes/vfs.hpp"
@@ -185,7 +186,7 @@ constexpr uint64_t kStringTableGuardVa = 0x1436EDCA8, kAnimeTypeGuardVa = 0x1437
 TEST_F(FoxSeam, TheStaticInitResetClearsEveryGuardAndStartsTheEpochAtIntMin) {
   ASSERT_NE(world_->Read32(kStringTableGuardVa), 0u) << "the dump no longer holds the guard set: the test proves nothing";
   ASSERT_NE(world_->Read32(kAnimeTypeGuardVa), 0u);
-  world_->ResetStaticInitState();
+  pes::ResetStaticInitState(world_->Memory());
   EXPECT_EQ(world_->Read32(kStringTableGuardVa), 0u);
   EXPECT_EQ(world_->Read32(kAnimeTypeGuardVa), 0u);
   EXPECT_EQ(world_->Read32(kGlobalEpochVa), 0x80000000u);
@@ -205,7 +206,7 @@ TEST_F(FoxSeam, TheInitialDataRestoreBringsBackTheExesBytesOfAConstantInitialize
   std::vector<uint8_t> dump(kTypeTableBytes);
   for (uint64_t i = 0; i < dump.size(); ++i) dump[i] = world_->Read8(kTypeTableVa + i);
   ASSERT_NE(dump, initial) << "the dump no longer holds runtime state there: the test proves nothing";
-  world_->RestoreInitialData();
+  pes::RestoreInitialData(world_->Memory(), std::getenv("PES21_ROOT"));
   std::vector<uint8_t> restored(kTypeTableBytes);
   for (uint64_t i = 0; i < restored.size(); ++i) restored[i] = world_->Read8(kTypeTableVa + i);
   EXPECT_EQ(restored, initial);
