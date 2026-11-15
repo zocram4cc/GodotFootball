@@ -166,6 +166,11 @@ class TrapContactProbe : public pestest::Probe {
   // (0x1406EB639, 0x1406EB83E, 0x1406EE75F, in the switch / reset), so a man's byte is either 255, or one more than last tick's, or a reset
   // to a smaller value. A byte below 255 that did not move, or that moved by anything but one, is the counter not counting.
   long counterNotCounting = 0;
+  // The strike adjuster A = P+0x428 that a Trap start arms (FUN_141EB39A0: mode byte A+0x6D = 1, state A+8 = 1; FUN_141EB3AE0 moves it to 2) walks the root
+  // onto the ball's contact point one step a tick until its last tick A+0x10, when FUN_141EB3AF0's finish zeroes A+8..+0x1F. A man in the Trap action whose
+  // adjuster has its mode set and steps left (A+0x10 > count) but whose state word reads 0 had it killed mid-run: the strike's walk stopped after its first step.
+  long adjusterKilled = 0;
+  std::string adjusterSamples;
   std::string counterSamples;  // the first violations: last->now@slot/action
   // Match::Process advances the clock at its end (match.cpp, `actualTime_ms += kTick_ms`), after the bodies stamped this tick's
   // touches, so a touch made on the tick that just ran carries the clock as it stood when the tick began.
@@ -186,6 +191,23 @@ class TrapContactProbe : public pestest::Probe {
           if (counterSamples.size() < 12) counterSamples += (upByOther ? " up " : " stuck ") + std::to_string(last) + "->" + std::to_string(byte) + "@" + std::to_string(match.PesSlotOf(player.get())) + "/ac8=" + std::to_string(match.PesWorldOf().P(match.PesSlotOf(player.get()))[pes::kPByteAC8Offset]);
         }
         last = byte;
+      }
+    }
+    for (int team = 0; team < 2; ++team) {
+      for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
+        if (!player->IsActive()) continue;
+        const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player.get()));
+        if (p[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+        const uint8_t* adj = p + pes::kPAdjusterOffset;
+        int16_t count, ticks;
+        std::memcpy(&count, adj + pes::kAdjCountOffset, sizeof count);
+        std::memcpy(&ticks, adj + pes::kAdjTicksOffset, sizeof ticks);
+        uint32_t state;
+        std::memcpy(&state, adj + pes::kAdjStateOffset, sizeof state);
+        if (adj[pes::kAdjModeOffset] == 1 && state == 0 && ticks > count) {
+          ++adjusterKilled;
+          if (adjusterSamples.size() < 120) adjusterSamples += " " + std::to_string(match.PesSlotOf(player.get())) + ":" + std::to_string(count) + "/" + std::to_string(ticks);
+        }
       }
     }
     const float restingSpeed_mps = 1.0f;
@@ -489,6 +511,18 @@ TEST(PesStall, EveryManOnThePitchHasPesTickCountersCounting) {
 
 // A resting ball a trapping man reaches is the case PES's reach test decides and GF's distance gate used to refuse (the loose-ball
 // stalls: men 0.4 to 2.7 m from a ball at rest who never play it): at least one grant is a touch of a ball at rest.
+// A Trap start's strike adjuster must run its steps to the contact point: it is PES's own state in P (P+0x428), written by the start and stepped by the
+// anime tick, and GF's per-tick write of P must leave it alone while the tick owns it.
+TEST(PesStall, ATrapStrikeAdjusterRunsItsStepsToTheContactFrame) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(contactCensus.adjusterKilled, 0) << contactCensus.adjusterKilled << " ticks of a man in the Trap action had his strike adjuster's state zeroed mid-run (count/last tick:"
+                                              << contactCensus.adjusterSamples << ")";
+}
+
 TEST(PesStall, ATrapReachesABallAtRest) {
   pestest::Run(contactCensus);
   if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";

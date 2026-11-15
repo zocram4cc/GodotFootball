@@ -219,8 +219,10 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
     p[kPPrevActionOffset] = f.prevAction;
     p[kPPrevActionOffset + 1] = f.prevSub;
     std::memcpy(p + kPWordAE0Offset, &f.motion, sizeof f.motion);
+    // P+0x430 is the strike adjuster's state word (A+8, A = P+0x428): GF never arms one, so 0 for a man PES is not running. A Trap start arms it and
+    // the anime tick steps it for the clip's length; a write of 0 over a running adjuster killed its walk after the first step.
+    StoreU32(p, kPWord430Offset, f.kickApproach);
   }
-  StoreU32(p, kPWord430Offset, f.kickApproach);
   StoreF32(p, kPWord277COffset, f.word277C);
   StoreF32(p, kPWord277COffset + 4, f.word2780);
   RebuildMotionTable(p, f);
