@@ -1770,18 +1770,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kick-off AI frame builder: REAL calls of fbF_1409F1F20, live2/pid2026667 + pid2040186",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 14 of 14: 14 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kick-off AI frame builder: REAL calls of fbF_1409F1F20, live2/pid2026667, pid2040186, pid2058282, pid2284349, pid2286718 (kick-off + in-play)",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
-    "calls": 6,
+    "calls": 14,
     "mismatches": 0,
     "own_block": {
      "reached": 21,
      "total": 25,
      "fraction": 0.84
     },
-    "replayed": 6,
+    "replayed": 14,
     "source": "tools/dev/translate/results_trapaction.json"
    },
    "stubs": [],

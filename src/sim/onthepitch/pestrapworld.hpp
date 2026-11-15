@@ -240,6 +240,37 @@ inline constexpr int32_t kTickKindControl = 3, kTickKindDirectional = 4;
 inline constexpr std::size_t kFrameWeightOffset = 0x5E4;
 inline constexpr float kTickWeightControl = 0.6f, kTickWeightDirectional = 1.0f;
 
+// The AI frame builder FUN_1409F1F20 (live2 fbF captures: 14 REAL calls, kick-off and open play) builds F from three controller objects
+// the window does not own: S (0x50 bytes: S+4 the slot, S+0x38 the man's P), T = S+0x50 (the team AI block: +0x5C the speed class the AI
+// last chose, +0x5D4 and +0x19B4 -1.0 when unset, +0x874 the AI scratch the constructor copies into F, outputs +0x1960 / +0x1964) and
+// Q = A+0xC8, the AI's plan record for the man. Q's low part is the plan the AI wrote: +3 the current point index, +4 the point count
+// class, +8 the points (12 bytes each: x, height, z; with +4 != 0 the target is point index+2), +0x108 the current row, +0x3F4 the
+// row count (0 = no plan), and the rows from +0x3FC, 0x10 bytes each: +0 the speed in km/h, +4 the gait row of the weight table
+// (0..2), +8 a flag byte. Its high part (+0x554..) is the man (facing, position) and, from +0x5D0, the builder's own previous outputs
+// that FUN_1409F20C0 copies back after every build (kRetained*). Read off the 14 captures and the decompile of FUN_1409F20C0.
+inline constexpr std::size_t kDecisionSBytes = 0x50, kDecisionTBytes = 0x1A00, kPlanBytes = 0x700;
+inline constexpr std::size_t kDecisionSSlotOffset = 0x4, kDecisionSPOffset = 0x38;
+inline constexpr std::size_t kDecisionTSpeedClassOffset = 0x5C, kDecisionTUnsetAOffset = 0x5D4, kDecisionTUnsetBOffset = 0x19B4;
+inline constexpr std::size_t kDecisionTScratchOffset = 0x874, kDecisionTOutClassOffset = 0x1960, kDecisionTOutWeightOffset = 0x1964;
+inline constexpr std::size_t kPlanIndexOffset = 0x3, kPlanPointCountOffset = 0x4, kPlanPointsOffset = 0x8, kPlanPointBytes = 0xC;
+inline constexpr std::size_t kPlanRowOffset = 0x108, kPlanRowCountOffset = 0x3F4, kPlanRowsOffset = 0x3FC, kPlanRowBytes = 0x10;
+inline constexpr std::size_t kPlanRowSpeedOffset = 0x0, kPlanRowGaitOffset = 0x4, kPlanRowFlagOffset = 0x8;
+inline constexpr std::size_t kPlanFacingOffset = 0x554, kPlanFacing2Offset = 0x558, kPlanPosOffset = 0x55C;
+inline constexpr std::size_t kRetainedMode = 0x5E0, kRetainedHeading = 0x5E4, kRetainedWeight = 0x5E8, kRetainedTarget = 0x5EC,
+                             kRetainedSecond = 0x5F8, kRetainedF54 = 0x604, kRetainedF58 = 0x608;
+inline constexpr float kDecisionUnset = -1.0f;
+inline constexpr float kPlanLeadRowSpeedKmh = 16.0f;  // every captured plan's leading row (gait 1, 16 km/h, flag 1)
+inline constexpr uint32_t kPlanLeadRowGait = 1;
+// T+0x874's idle AI scratch, read off every one of the 14 captures' entry state (words 0..19; the constructor FUN_140A854B0 copies it).
+inline constexpr uint32_t kDecisionScratch[20] = {0, 0, 0x18, 0, 0, 0, 0xBF800000u, 0, 0, 0, 0, 0, 0xBF800000u, 0, 0, 0, 0xBF800000u, 0, 0xFF, 1};
+// The AI's plan for one man, in PES's frame: what GF's AI command says, mapped into Q.
+struct PesDecision {
+  bool active = false;       // a plan exists (Q+0x3F4 rows)
+  float speedKmh = 0.0f;     // the row's speed: PES's run-entry bands (5, 11, 16, 28 km/h) name the walk, jog, run and dash classes
+  uint32_t gaitRow = 1;      // the row of FUN_140A756C0's weight table
+  float target[3] = {0, 0, 0};  // x, height, z
+};
+
 // What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment
 // index (P+0x2471), the playback rate (P+0x3758) and the phase byte (P+0x245C) the next tick switches on.
 struct PesTickResult {

@@ -804,6 +804,7 @@ class PesWorld {
   static constexpr uint64_t TickFrameVa() { return kWorldWindowVa + kTickFrameOffset; }
   static constexpr uint64_t TickFrameXVa() { return kWorldWindowVa + kTickFrameXOffset; }
   uint8_t* TickFrame() { return image_->tickFrame.data(); }
+  const uint8_t* TickFrameConst() const { return image_->tickFrame.data(); }
   uint8_t* TickFrameX() { return image_->tickFrameX.data(); }
   // PES's Trap action tick 0x140797CD0 on the window for `slot`'s P (rcx = the action, rdx = P, r8 = a stack slot holding F): the
   // phase machine the action runs each logic frame. `ext` is the chain's (the loader data and the image). A path no capture
@@ -819,6 +820,16 @@ class PesWorld {
     uint8_t issue = 0;  // 0 none, kMotionIssueSingle, kMotionIssueSeries
   };
   DribbleTickResult RunDribbleTick(int slot, PesTrapExternals& ext);
+  // PES's AI frame builder FUN_1409F1F20 on `slot`: builds the tick frame F (TickFrame()) from the man's decision record, the way PES builds it
+  // before every action tick. The controller objects S, T and X (pestrapworld.hpp kDecision*) live in the allocator, filled from the man record
+  // and `decision`. The next RunDribbleTick then runs on this frame (F+0x868 names X).
+  void RunDecisionFrame(int slot, const PesDecision& decision, PesTrapExternals& ext);
+  // The pieces of it: the plan record Q and the team block T of `slot`'s controller objects (allocated on first use), the plan a decision maps to,
+  // and the builder run over whatever Q and T hold (tests write real captured state there).
+  uint8_t* DecisionPlan(int slot);
+  uint8_t* DecisionTeam(int slot);
+  void FillPlan(int slot, const PesDecision& decision);
+  void RunFrameBuilder(int slot, PesTrapExternals& ext);
   // The motion the series variant's first entry names for `slot` (nullopt when the vector is empty or its data is not in the allocator's arena), and
   // that entry's mirror byte: what the anime layer plays first. Valid after a tick whose `issue` was kMotionIssueSeries.
   struct SeriesFirst {
@@ -1096,6 +1107,12 @@ class PesWorld {
 
   std::unique_ptr<PesWorldImage> image_;
   std::array<TickPlan, kSlotCount> tickPlan_{};
+  void EnsureDecisionBlocks(int slot);
+  struct DecisionBlocks {
+    uint64_t s = 0, t = 0, x = 0, vec = 0;  // the allocator blocks of RunDecisionFrame's S, T, X and param_6 vector
+  };
+  std::array<DecisionBlocks, kSlotCount> decision_{};
+  int frameBuiltFor_ = -1;  // the slot RunDecisionFrame built F for: the next RunDribbleTick keeps F's own F+0x868 / F+0x870
   std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
   std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)

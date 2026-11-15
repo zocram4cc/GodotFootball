@@ -432,8 +432,12 @@ PesWorld::DribbleTickResult PesWorld::RunDribbleTick(int slot, PesTrapExternals&
   const std::size_t lent = LendExternals(s, ext);
   const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
   uint8_t* frame = TickFrame();
-  StoreU64(frame, kFrameBallOffset, BallVa());
-  StoreU64(frame, kFrameXPtrOffset, TickFrameXVa());
+  // A frame RunDecisionFrame built already names its own X and the ball (the constructor FUN_140A851F0 wrote them).
+  if (frameBuiltFor_ != slot) {
+    StoreU64(frame, kFrameBallOffset, BallVa());
+    StoreU64(frame, kFrameXPtrOffset, TickFrameXVa());
+  }
+  frameBuiltFor_ = -1;
   s.wr(entry, 0, 8);
   s.wr(entry + kTickEntryFrameSlotOffset, TickFrameVa(), 8);
   s.gpr[4] = entry;
@@ -495,6 +499,118 @@ static constexpr uint64_t kFrameRateVa = 0x14351AE54ULL;  // FUN_141E532D0 retur
 static constexpr std::size_t kRecTypeOffset = 0, kBallResultVelocityOffset = 0xC, kBallResultSpinOffset = 0x18;
 static constexpr uint32_t kRecTypeVerticalClamp = 7, kRecTypeNoKick = 8;  // 0x1404253xx: the executor's special record types
 static constexpr std::size_t kArg5Offset = 0x28, kArg6Offset = 0x30, kArg7Offset = 0x38;
+
+// FUN_1409F1F20 (rcx F, rdx S, r8 T = S+0x50, stack: Q, the param_6 vector, the param_7 byte): PES's frame builder, proven on 14 REAL calls.
+// FUN_1409F20C0 (its caller) copies the frame's outputs back into the AI object after the build; those copies are Q's retained fields and
+// T's outputs, which the next build reads (kRetained*, kDecisionTOut*).
+void PesWorld::EnsureDecisionBlocks(int slot) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  DecisionBlocks& b = decision_[slot];
+  if (b.s == 0) {
+    // S and T are one block (T = S + 0x50): the builder reaches T by S's address in PES's controller layout.
+    b.s = HeapAlloc(kDecisionSBytes + kDecisionTBytes, 16);
+    b.t = b.s + kDecisionSBytes;
+    b.x = HeapAlloc(kPlanBytes, 16);
+    b.vec = HeapAlloc(0x20, 16);
+    uint8_t* t0 = HeapHost(b.t, kDecisionTBytes);
+    for (std::size_t k = 0; k < sizeof kDecisionScratch / sizeof kDecisionScratch[0]; ++k) StoreU32(t0, kDecisionTScratchOffset + 4 * k, kDecisionScratch[k]);
+    StoreF32(t0, kDecisionTUnsetAOffset, kDecisionUnset);
+    StoreF32(t0, kDecisionTUnsetBOffset, kDecisionUnset);
+  }
+}
+
+uint8_t* PesWorld::DecisionPlan(int slot) {
+  EnsureDecisionBlocks(slot);
+  return HeapHost(decision_[slot].x, kPlanBytes);
+}
+
+uint8_t* PesWorld::DecisionTeam(int slot) {
+  EnsureDecisionBlocks(slot);
+  return HeapHost(decision_[slot].t, kDecisionTBytes);
+}
+
+void PesWorld::FillPlan(int slot, const PesDecision& d) {
+  uint8_t* q = DecisionPlan(slot);
+  // The plan: one row naming the speed, aimed at one point. PES's plans carry a leading row (gait 1, 16 km/h, flag 1) before the row in
+  // force, as every captured plan does.
+  std::memset(q, 0, kPlanRowsOffset);
+  if (d.active) {
+    q[kPlanIndexOffset] = 1;
+    q[kPlanPointCountOffset] = 2;
+    std::memcpy(q + kPlanPointsOffset, d.target, sizeof d.target);
+    std::memcpy(q + kPlanPointsOffset + 2 * kPlanPointBytes + 0, d.target, sizeof d.target);
+    q[kPlanRowOffset] = 1;
+    q[kPlanRowCountOffset] = 2;
+    uint8_t* row0 = q + kPlanRowsOffset;
+    StoreF32(row0, kPlanRowSpeedOffset, kPlanLeadRowSpeedKmh);
+    StoreU32(row0, kPlanRowGaitOffset, kPlanLeadRowGait);
+    row0[kPlanRowFlagOffset] = 1;
+    uint8_t* row1 = row0 + kPlanRowBytes;
+    StoreF32(row1, kPlanRowSpeedOffset, d.speedKmh);
+    StoreU32(row1, kPlanRowGaitOffset, d.gaitRow);
+    row1[kPlanRowFlagOffset] = 0;
+  }
+}
+
+void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext) {
+  EnsureDecisionBlocks(slot);
+  DecisionBlocks& b = decision_[slot];
+  uint8_t* sBlock = HeapHost(b.s, kDecisionSBytes + kDecisionTBytes);
+  uint8_t* q = HeapHost(b.x, kPlanBytes);
+  uint8_t* t = sBlock + kDecisionSBytes;
+  StoreU32(sBlock, kDecisionSSlotOffset, static_cast<uint32_t>(slot));
+  StoreU64(sBlock, kDecisionSPOffset, PVa(slot));
+  const uint8_t* man = ManRecord(slot);
+  std::memcpy(q + kPlanFacingOffset, man + kManFacingOffset, 4);
+  std::memcpy(q + kPlanPosOffset, man + kManPosXOffset, 12);
+  // INF: T+0x5C equals the class F+0x5C the previous build left (all 14 captures); no writer is known.
+  StoreU32(t, kDecisionTSpeedClassOffset, t[kDecisionTOutClassOffset]);
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
+  heap_->Attach(s);
+  s.wr(entry, 0, 8);
+  s.wr(entry + kArg5Offset, b.x, 8);
+  s.wr(entry + kArg6Offset, b.vec, 8);
+  s.wr(entry + kArg7Offset, 0, 1);
+  s.gpr[4] = entry;
+  s.gpr[1] = TickFrameVa();
+  s.gpr[2] = b.s;
+  s.gpr[8] = b.t;
+  s.gpr[9] = 0;
+  ::pes_fn_1409F1F20(s);
+  // FUN_1409F20C0's copy-back of the frame: the mode, the weight, the target and the second point, F+0x54 / F+0x58, the heading delta
+  // (the bearing from the man to F+0x20, or his facing when he stands on it), and T's class and weight.
+  const uint8_t* f = TickFrame();
+  StoreU32(q, kRetainedMode, LoadU32(f, 4));
+  StoreU32(q, kRetainedWeight, LoadU32(f, 0x5E4));
+  std::memcpy(q + kRetainedTarget, f + 0x14, 12);
+  std::memcpy(q + kRetainedSecond, f + 0x2C, 12);
+  StoreU32(q, kRetainedF54, LoadU32(f, 0x54));
+  StoreU32(q, kRetainedF58, LoadU32(f, 0x58));
+  if (std::memcmp(q + kPlanPosOffset, f + 0x20, 12) == 0) {
+    std::memcpy(q + kRetainedHeading, q + kPlanFacingOffset, 4);
+  } else {
+    s.gpr[4] = entry;
+    s.wr(entry, 0, 8);
+    s.gpr[1] = b.vec + 0x10;
+    s.gpr[2] = b.x + kPlanPosOffset;
+    s.gpr[8] = TickFrameVa() + 0x20;
+    ::pes_fn_140439E50(s);
+    const uint32_t bearing = static_cast<uint32_t>(s.mem.rd(s.gpr[0], 4));
+    StoreU32(q, kRetainedHeading, bearing);
+  }
+  t[kDecisionTOutClassOffset] = f[0x5C];
+  StoreU32(t, kDecisionTOutWeightOffset, LoadU32(f, 0x5E4));
+  ReturnSegments(s, ext, lent);
+  frameBuiltFor_ = slot;
+}
+
+void PesWorld::RunDecisionFrame(int slot, const PesDecision& d, PesTrapExternals& ext) {
+  FillPlan(slot, d);
+  RunFrameBuilder(slot, ext);
+}
+
 
 PesWorld::BallTouchResult PesWorld::RunBallTouch(int slot, const PesBodyScanOut& rec, PesTrapExternals& ext) {
   const uint32_t type = LoadU32(rec.bytes.data(), kRecTypeOffset);
