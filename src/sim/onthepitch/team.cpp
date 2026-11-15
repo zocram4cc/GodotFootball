@@ -409,7 +409,10 @@ Player* Team::GetPassTarget() const {
 // 0x140A512E0 are driven from the tick. The record fields the writer reads that GF does not carry (counter A SR+0x1430, SR+0x12BC, the roles
 // SR+0x1A/+0x1C, MA+0x247D4's bearings, MA+0x253C4's masks, T+0xB8B4, B+0x18) are zero.
 // ponytail: counter B (SR+0x1438), the base of a resting ball's arrival time, is the AI record writer FUN_14092ED30's estimate in frames
-// (21..500 captured, pes-re-player-record.md 2.1); GF's time to the ball stands in until that writer runs.
+// (21..500 captured, pes-re-player-record.md 2.1); GF's time to the ball stands in until that writer runs. The writer is translated and
+// proven (8/8 real calls); its deep arm calls the pass planner through the man's motion-controller object (P+0xAB8, the BodyAnimControl
+// seam), which the window lacks. Removal: that object (OneWorld cut 4), then PesWorld::RunManThink (PressCut-wip). The stand-in's value
+// near-ties between men, so the selector's pass target flips between two (PES: one man); the MARK/MATCH_UP words follow it.
 void Team::RunPesPassTarget() {
   pes::PesWorld& world = match->PesWorldOf();
   uint8_t* mi = world.MatchInfo();

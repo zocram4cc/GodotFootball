@@ -341,6 +341,8 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   for (int k = 0; k < 3; ++k)
     pesWorld->AddImageSegment(pesActorConstants.memberVtable[k], pesActorConstants.memberVtableSlots[k].data(),
                               pesActorConstants.memberVtableSlots[k].size());
+  pesWorld->ConstructStats();  // PES's statistics blocks (E + 0x750D0): the cells the defence pass reads are written by their constructor
+  pesWorld->BuildTeamInfo();  // PES's squad records and the team-info constructor: the record defaults (the rating table) are PES's
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);
@@ -551,7 +553,7 @@ void Match::ResetSituation(const Vector3& focusPos) {
     lastTouchTeamIDs[i] = -1;
   }
   lastTouchTeamID = -1;
-  pesWorld->Events().Reset();
+  pesWorld->ResetEvents();
   pesDetectors = PesDetectorState{};
   lastGoalScorer = 0;
   bestPossessionTeamID = -1;

@@ -152,7 +152,7 @@ constexpr float kInsideRadiusDistSq = 1.0f;            // under the 3 m class-5 
 struct HolderScene : Staged {
   HolderScene() {
     facts.holder = kHolderId;  // MA+0x2601C
-    StoreU32(world.SideRecord(kSide), kSideTierOffset, kLevelTier3);
+    facts.teamLevelRaw = kLevelTier3;  // T+0xA294 (StagePress writes it from the facts)
     uint8_t* row = world.Ma(kSide) + kMaNearestRowsOffset + kMaNearestRowBytes * kHolderId;
     StoreU32(row, 0, kNearId);
     StoreF32(row, sizeof(uint32_t), 4.0f);
@@ -325,12 +325,13 @@ constexpr uint32_t kMatchUp = 0x3A;
 constexpr uint32_t kOpposingHolder = kSlotsPerSide + 6;
 
 struct MatchUpScene : Staged {
+  uint32_t partnerOfNear = kOpposingHolder;  // T+0x558[kNearMan], the mark pass's word (the dispatcher keeps it between calls)
   MatchUpScene() {
     facts.holder = kOpposingHolder;  // MA+0x2601C: an opposing man touched last
-    facts.partner[kNearMan] = kOpposingHolder;
   }
   void Run() {
     world.StagePress(kSide, facts);
+    world.SetMarkPartner(kSide, kNearMan, partnerOfNear);
     world.RunMatchUp(kSide);
   }
   uint32_t Second() { return LoadU32(world.SideRecord(kSide), kTeamSecondOffset); }
@@ -345,7 +346,7 @@ TEST_F(PesPressWorld, TheManMarkingTheHolderBecomesMatchUp) {
 
 TEST_F(PesPressWorld, NobodyIsMatchUpWhenNoOwnManMarksTheHolder) {
   MatchUpScene s;
-  s.facts.partner[kNearMan] = kSlotsPerSide + 7;  // marks another opponent
+  s.partnerOfNear = kSlotsPerSide + 7;  // marks another opponent
   s.Run();
   EXPECT_EQ(s.Second(), kNobody);
   EXPECT_NE(s.world.PressAction(kSide, kNearMan), kMatchUp);
@@ -362,7 +363,7 @@ TEST_F(PesPressWorld, TheMatchUpManIsReleasedWhenTheNextTickHasNoPartner) {
   MatchUpScene s;
   s.Run();
   ASSERT_EQ(s.world.PressAction(kSide, kNearMan), kMatchUp);
-  s.facts.partner[kNearMan] = kNobody;
+  s.partnerOfNear = kNobody;
   s.Run();
   EXPECT_NE(s.world.PressAction(kSide, kNearMan), kMatchUp);
   EXPECT_EQ(s.Second(), kNobody);
@@ -374,5 +375,65 @@ TEST_F(PesPressWorld, TheMatchUpManIsReleasedWhenTheNextTickHasNoPartner) {
 TEST_F(PesPressWorld, TheCoordinatorsPressStateStartsWithNoManNamed) {
   PesWorld world;
   for (int side = 0; side < kSideCount; ++side) EXPECT_EQ(world.PressSecond(side), kNobody);
+}
+
+// The match-statistics blocks (E + 0x750D0 + side * 0x59650) hold PES's anti-tamper cells: the reader FUN_1408C9190 re-computes a salted
+// FNV hash over a cell and aborts when it differs from the stored one, so a zero block aborts the dispatcher's defence pass
+// (FUN_140536170 -> 0x140535650 -> 0x1408C8FC0). After the constructor FUN_1408C6B80 (PesWorld::ConstructStats) every protected cell
+// (statistic 0, columns 0..8) reads 0 and the plain rows too.
+TEST_F(PesPressWorld, TheStatisticsBlocksPassPesHashCheckAfterTheirConstructor) {
+  PesWorld world;
+  world.BindImageTables(InstallTables());
+  world.ConstructStats();
+  for (int side = 0; side < kSideCount; ++side)
+    for (int col = 0; col < 9; ++col) {
+      EXPECT_EQ(world.StatsValue(side, 0, col), 0u) << "side " << side << " protected column " << col;
+      EXPECT_EQ(world.StatsValue(side, 5, col), 0u) << "side " << side << " plain row 5, column " << col;
+    }
+}
+
+// A new situation empties E's event rings; PES does not touch the statistics blocks inside E. GF's reset wiped the whole 1.5 MB image
+// (EventStore::Reset), so the first reset after the constructor left every protected cell invalid and the dispatcher's defence pass
+// aborted in the reader (pes_pass_target_test, pes_press_approach_test on the wired tree: SIGABRT in FUN_1408C9190).
+TEST_F(PesPressWorld, TheStatisticsBlocksSurviveAnEventReset) {
+  PesWorld world;
+  world.BindImageTables(InstallTables());
+  world.ConstructStats();
+  world.ResetEvents();
+  for (int side = 0; side < kSideCount; ++side)
+    for (int col = 0; col < 9; ++col) EXPECT_EQ(world.StatsValue(side, 0, col), 0u) << "side " << side << " column " << col;
+}
+
+// The partner matcher's man-to-man cost (FUN_140A62140 -> FUN_140A61F40 -> FUN_1408C7550) reads a rating table in each team-info entry:
+// byte [entry + 0x30 + 0x5E + 0xD * sheetWord + role], 3 x 13 bytes. PES holds 99 in all 80 captured entries (3 captures); a zero
+// table made the cost 0 and the matcher never wrote a partner (kick-off: no MARK 0x36 word on the defender). The 99 is PES's record
+// initializer FUN_1408C7510 (translated, proven on synthetic calls over a real capture), run by PesWorld::BuildTeamInfo and copied into
+// the entry by the team-info constructor FUN_140A3B3A0 (translated, same proof), not a staged constant.
+TEST_F(PesPressWorld, TheTeamInfoEntriesCarryPesRecordDefaultRatingsAndTheMenIds) {
+  PesWorld world;
+  world.BindImageTables(InstallTables());
+  world.BuildTeamInfo();
+  for (int side = 0; side < kSideCount; ++side) {
+    const uint8_t* info = world.TeamInfoRecord(side);
+    EXPECT_EQ(LoadU32(info, kSideIdOffset), static_cast<uint32_t>(side));
+    for (int k = 0; k < kSlotsPerSide; ++k) {
+      const uint8_t* entry = info + kSidePlayerInfoOffset + static_cast<std::size_t>(k) * kSidePlayerInfoStride;
+      EXPECT_EQ(LoadU32(entry, kTeamInfoIdOffset), static_cast<uint32_t>(side * kSlotsPerSide + k + 1)) << "side " << side << " man " << k;
+      EXPECT_EQ(LoadU32(info, kSideInfoIndexOffset + sizeof(uint32_t) * k), static_cast<uint32_t>(k));  // the constructor numbers the slots
+      for (int b = 0; b < 3 * 13; ++b) EXPECT_EQ(entry[0x30 + 0x5E + b], 99) << "side " << side << " man " << k << " rating byte " << b;
+    }
+  }
+}
+
+// The side's level word T+0xA294 (FUN_140A424E0's one store; the reader FUN_140A40BD0 answers 0 when +0xA29C is set) is the match's level
+// x 100 (the captures' match: 500 on both sides, seq342). StagePress carries the import's level into the window; the flag byte stays clear.
+TEST_F(PesPressWorld, StagePressWritesTheTeamLevelWordTheDispatcherPassesRead) {
+  Staged s;
+  s.facts.teamLevelRaw = 500;
+  StoreU32(s.world.SideRecord(kSide), kSideTierOffset, 7);
+  s.world.SideRecord(kSide)[kSideTierFlagOffset] = 1;
+  s.world.StagePress(kSide, s.facts);
+  EXPECT_EQ(LoadU32(s.world.SideRecord(kSide), kSideTierOffset), 500u);
+  EXPECT_EQ(s.world.SideRecord(kSide)[kSideTierFlagOffset], 0);
 }
 }  // namespace

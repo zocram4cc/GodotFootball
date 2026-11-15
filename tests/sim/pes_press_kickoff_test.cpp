@@ -73,6 +73,11 @@ const Census& RunKickoff() {
     setup.animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
     setup.rig = &*rig;
     if (!pestest::FillMissingPesConstants(&setup)) return c;
+    // The PES captures' match was played at team level 5 (T+0xA294 = 500 on both sides, seq342); GF has no match-setting selector and
+    // takes the install's stock class (200), under which the dispatcher's mark pass does not run. The fixture states the capture's level.
+    pes::CarrierConstants carrier = *setup.pesCarrierConstants;
+    carrier.teamLevelRaw = 500;
+    setup.pesCarrierConstants = &carrier;
     Properties config;
     config.SetBool("pes_loop", true);
     Match match(new MatchData(kHomeTeam, kAwayTeam), setup, config);
@@ -135,7 +140,8 @@ TEST(PesPressKickoff, TheKickingSidesPassTargetNamesAnOwnManFromItsSecondCall) {
     EXPECT_EQ(c.rows[c.kicker][i].passTarget / pes::kSlotsPerSide, static_cast<uint32_t>(c.kicker)) << "tick " << i;
 }
 
-// PES: from its third call the defending side's T+0x7C names one of its own men (17 = side 1, slot 6) and that man holds MATCH_UP (0x3A).
+// PES: from its third call the defending side's T+0x7C names one of its own men and that man holds MATCH_UP (0x3A) (PES: 17 on every
+// call; GF's flips between two men while counter B is the stand-in: the strict one-man form is on PressCut-wip).
 TEST(PesPressKickoff, TheDefendingSidesMatchUpManHoldsTheMatchUpWordFromItsThirdCall) {
   REQUIRE_KICKOFF();
   const int defender = 1 - c.kicker;
@@ -153,6 +159,20 @@ TEST(PesPressKickoff, TheDefendingSideSetsActionWords) {
   int set = 0;
   for (int k = 0; k < pes::kSlotsPerSide; ++k) set += c.rows[1 - c.kicker].back().words[k] != 0;
   EXPECT_GE(set, 1) << "the defending side marks nobody";
+}
+
+// PES (24 captures, live2/pid1231179 seq337..361): the dispatcher's mark pass gives the defending side MARK words (0x36) from its second
+// call on (slots 4, 7, 8 and 10 in PES; five or six men on most calls). They are written by the dispatcher's partner matcher and mark
+// pass (FUN_140535C60 -> FUN_140534A20 -> FUN_1405346E0), not by the press chain: at least one man holds MARK on every call (PES: four). Which men
+// is the selector's pass target's (counter B, held, see the report): the strict per-slot form is on PressCut-wip.
+TEST(PesPressKickoff, TheDefendingSidesMarkPassWritesMarkWords) {
+  REQUIRE_KICKOFF();
+  const auto& rows = c.rows[1 - c.kicker];
+  for (int i = 1; i < kCalls; ++i) {
+    int marks = 0;
+    for (int k = 0; k < pes::kSlotsPerSide; ++k) marks += rows[i].words[k] == pes::kTeamActionMark;
+    EXPECT_GE(marks, 1) << "defender call " << i;
+  }
 }
 
 }  // namespace
