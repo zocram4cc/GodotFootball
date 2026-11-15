@@ -424,4 +424,16 @@ TEST_F(PesPressWorld, TheTeamInfoEntriesCarryPesRecordDefaultRatingsAndTheMenIds
     }
   }
 }
+
+// The side's level word T+0xA294 (FUN_140A424E0's one store; the reader FUN_140A40BD0 answers 0 when +0xA29C is set) is the match's level
+// x 100 (the captures' match: 500 on both sides, seq342). StagePress carries the import's level into the window; the flag byte stays clear.
+TEST_F(PesPressWorld, StagePressWritesTheTeamLevelWordTheDispatcherPassesRead) {
+  Staged s;
+  s.facts.teamLevelRaw = 500;
+  StoreU32(s.world.SideRecord(kSide), kSideTierOffset, 7);
+  s.world.SideRecord(kSide)[kSideTierFlagOffset] = 1;
+  s.world.StagePress(kSide, s.facts);
+  EXPECT_EQ(LoadU32(s.world.SideRecord(kSide), kSideTierOffset), 500u);
+  EXPECT_EQ(s.world.SideRecord(kSide)[kSideTierFlagOffset], 0);
+}
 }  // namespace
