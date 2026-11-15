@@ -567,6 +567,7 @@ void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag) 
   const std::size_t lent = LendExternals(s, ext);
   const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
   heap_->Attach(s);
+  s.mem.wlog = ext.writeLog;
   s.wr(entry, 0, 8);
   s.wr(entry + kArg5Offset, b.x, 8);
   s.wr(entry + kArg6Offset, b.vec, 8);

@@ -199,7 +199,12 @@ TEST(PesFrameBuilder, OverPesRealStateItReproducesTheRealFrame) {
       }
       std::memcpy(home + r.offset, r.bytes.data(), r.bytes.size());
     }
-    // The man record's position and facing are the plan's man words (RunFrameBuilder copies them in).
+    // The plan's man words are the man record's (RunFrameBuilder copies the facing and the position in): the record's facing is not in the read set,
+    // the plan's own copy is, so the record takes it.
+    {
+      uint8_t* man = world.ManRecord(c.slot);
+      std::memcpy(man + pes::kManFacingOffset, world.DecisionPlan(c.slot) + pes::kPlanFacingOffset, 4);
+    }
     world.RunFrameBuilder(c.slot, ext, aiFlag);
     EXPECT_EQ(Mismatches(world, c), 0) << c.name << " full-frame word diffs (window/real):" << FullDiff(world, c) << " (objects without a window home:" << skipped << ")";
   }

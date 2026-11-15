@@ -8,7 +8,7 @@ Method. Each capture (live2/pidN/seqM, hook fbF_1409F1F20) is replayed by prove_
 built from a SCRATCH COPY of this tool tree and of src/pes/translated whose pes_state.hpp logs every byte the snapshot replay reads
 (PES_RLOG): the repository's headers are untouched. The read bytes that the call has not written first are the call's live-in set; each
 is filed under the object that holds it (S, T, Q = A+0xC8, G's per-slot records, MI, pitch, ball, P, the event store behind P+0xE0, the side
-MA behind P+0x18, G's side records and tables), with the capture's value. The frame F the call left is read from the replay trace.
+MA behind P+0x18, G's side records and tables), with the capture's value. The frame F the call left is the capture's entry bytes with the replay's writes into F applied (the replay is proven bit-exact against PES).
 
 Usage: fbuilder_states.py --live2 DIR --scratch DIR --out FILE [--limit N]
 Environment: PES_EXE (the memory dump), RV_HOOKS (a hooks.cfg naming fbF_1409F1F20; a one-line file is enough) as for prove_bounded.py.
@@ -38,9 +38,17 @@ struct PesRLog {
   }
 };
 inline PesRLog g_rlog;
-inline void pes_rlog_note(int write, uint64_t a) {
-  if (write) g_rlog.writes.insert(a);
-  else if (!g_rlog.writes.count(a)) g_rlog.reads.insert(a);
+inline void pes_rlog_note(int write, uint64_t a, unsigned b = 0) {
+  if (write) {
+    g_rlog.writes.insert(a);
+    // The bytes the call writes into its output frame F (PES_WF = F's address): the final F is the entry bytes with these applied.
+    static const char* wf = std::getenv("PES_WF");
+    static uint64_t base = wf ? std::strtoull(wf, nullptr, 16) : 0;
+    if (base && a >= base && a < base + 0x880) {
+      FILE* f = std::fopen(std::getenv("PES_WLOG"), "a");
+      if (f) { std::fprintf(f, "%llx %02x\\n", (unsigned long long)(a - base), b); std::fclose(f); }
+    }
+  } else if (!g_rlog.writes.count(a)) g_rlog.reads.insert(a);
 }
 '''
 
@@ -57,7 +65,7 @@ def scratch_copy(scratch):
     p = os.path.join(dst, "src", "pes", "translated", "pes_state.hpp")
     s = open(p).read()
     a = "        if (const uint8_t* b = snap->at(addr + i)) v |= (uint64_t)*b << (8 * i);"
-    b = ("      for (unsigned i = 0; i < n; ++i) {\n        pes_rlog_note(1, addr + i);\n"
+    b = ("      for (unsigned i = 0; i < n; ++i) {\n        pes_rlog_note(1, addr + i, (unsigned)((v >> (8 * i)) & 0xff));\n"
          "        if (uint8_t* b = snap->at(addr + i)) {\n          *b = (uint8_t)(v >> (8 * i));\n"
          "          log_bytes(addr + i, v >> (8 * i), 1);\n        }\n      }\n      return;")
     c = ("      for (unsigned i = 0; i < n; ++i)\n        if (uint8_t* b = snap->at(addr + i)) {\n          *b = (uint8_t)(v >> (8 * i));\n"
@@ -114,20 +122,13 @@ def regions(m, call, image):
     return slot, ordered
 
 
-def frame_of(trace, F):
-    lines = [json.loads(l) for l in open(os.path.join(trace, "deltas.jsonl"))]
-    pg = {va: i for va, i in lines[-1]["pages"]}
-    pages = open(os.path.join(trace, "pool", "pages.bin"), "rb").read()
-    out = b""
-    a, k = F, F_BYTES
-    while k > 0:
-        b = a & ~0xFFF
-        of = a & 0xFFF
-        c = min(k, 0x1000 - of)
-        out += pages[pg[b] * 4096 + of:pg[b] * 4096 + of + c] if b in pg else b"\0" * c
-        a += c
-        k -= c
-    return out
+def final_frame(m, F, wlog):
+    """F as the call leaves it: the capture's entry bytes with the call's writes (in order) applied."""
+    frame = bytearray(m.read(F, F_BYTES))
+    for line in open(wlog):
+        off, val = line.split()
+        frame[int(off, 16)] = int(val, 16)
+    return bytes(frame)
 
 
 def main():
@@ -160,13 +161,19 @@ def main():
         if os.path.exists(log):
             os.remove(log)
         shutil.rmtree(work, ignore_errors=True)
-        env = dict(os.environ, PES_RLOG=log, RV_HOOKS=hooks)
+        wlog = os.path.join(a.scratch, "fb_wlog_%d.txt" % n)
+        if os.path.exists(wlog):
+            os.remove(wlog)
+        open(wlog, "w").close()
+        F = struct.unpack("<49Q", open(os.path.join(d, "call.bin"), "rb").read(49 * 8))[1]
+        env = dict(os.environ, PES_RLOG=log, RV_HOOKS=hooks, PES_WF="%x" % F, PES_WLOG=wlog)
         subprocess.run([sys.executable, os.path.join(copy, "tools/dev/translate/prove_bounded.py"), ROOT, work, "--tag", "fb", "--real", d],
                        env=env, check=True, stdout=subprocess.DEVNULL)
         m = SnapMem(d)
         call = struct.unpack("<49Q", open(os.path.join(d, "call.bin"), "rb").read(49 * 8))
         slot, regs = regions(m, call, image)
-        frame = frame_of(os.path.join(work, "tr_" + os.path.basename(d)), call[1])
+        frame = final_frame(m, call[1], wlog)
+        os.remove(wlog)
         w = lambda o: struct.unpack_from("<I", frame, o)[0]
         pid, seq = src.rstrip("/").split("/")[-2:]
         out.write("ROW %s %s slot %d\n" % (pid, seq, slot))
