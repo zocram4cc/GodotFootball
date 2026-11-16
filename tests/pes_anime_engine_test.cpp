@@ -385,15 +385,17 @@ float MaxPoseDelta(const pes::PesJointPose& a, const pes::PesJointPose& b) {
   return most;
 }
 
-// PES's walk_1_1 (motion 3633) played as a one-member series keeps moving past its first entry's last frame: SetParametric
-// (FUN_141AF52B0) pushes the member and the layer loops it. Played as a single record the same clip freezes there: the H6 dribbler
-// (TrapContact10 section 13) froze at walk_1_1's frame 120/121.
+// PES's walk_1_1 (motion 3633) played as a series keeps moving past its first entry's last frame: SetParametric (FUN_141AF52B0) pushes the
+// member and the layer loops it. The first entry's last frame is measured on the engine: the first frame from which the same clip, played
+// as a single record, stays still (the H6 dribbler froze at walk_1_1's frame 120/121, TrapContact10 section 13; not assumed here).
 TEST_F(AnimeEngine, ASeriesKeepsMovingAfterItsFirstEntryEnds) {
-  constexpr int kMotion = 3633;        // walk_1_1
-  constexpr int kFirstEntryEnd = 121;  // the clip's last frame (TrapContact10 section 13: frame 120/121)
-  constexpr int kFrames = 260;         // well past the first entry
-  constexpr float kStill = 1e-5f;      // a joint change below this is no movement
-  const auto movingFrames = [&](bool asSeries) {
+  constexpr int kMotion = 3633;      // walk_1_1
+  constexpr int kMaxFrames = 2000;   // the single record must freeze within this many frames
+  constexpr int kStillFrames = 30;   // consecutive still frames that make a freeze
+  constexpr int kWatchFrames = 200;  // frames watched past the first entry's last frame
+  constexpr float kStill = 1e-5f;    // a joint change below this is no movement
+  // The pose before the first frame and after each frame of a player issued `motion`: a series of one member, or a single record.
+  const auto trail = [&](bool asSeries, int frames) {
     const uint64_t p = NewPlayer();
     world_->ConstructAnime(p, 0);
     pes::MotionRequest request;
@@ -404,18 +406,33 @@ TEST_F(AnimeEngine, ASeriesKeepsMovingAfterItsFirstEntryEnds) {
       request.motion = kMotion;
       world_->IssueMotion(p, request);
     }
-    pes::PesJointPose previous = world_->ReadPose(p);
-    int moving = 0;
-    for (int f = 0; f < kFrames; ++f) {
+    std::vector<pes::PesJointPose> out{world_->ReadPose(p)};
+    for (int f = 0; f < frames; ++f) {
       world_->RunFrame(p);
-      const pes::PesJointPose current = world_->ReadPose(p);
-      if (f >= kFirstEntryEnd && MaxPoseDelta(previous, current) > kStill) ++moving;
-      previous = current;
+      out.push_back(world_->ReadPose(p));
     }
-    return moving;
+    return out;
   };
-  EXPECT_EQ(movingFrames(false), 0) << "control: the single record freezes after its clip's last frame (the H6 freeze)";
-  EXPECT_GT(movingFrames(true), (kFrames - kFirstEntryEnd) / 2) << "a series keeps the body moving after its first entry";
+  // The frames in [from, to) on which the pose changes.
+  const auto moving = [](const std::vector<pes::PesJointPose>& poses, std::size_t from, std::size_t to) {
+    int n = 0;
+    for (std::size_t f = from; f < to; ++f)
+      if (MaxPoseDelta(poses[f], poses[f + 1]) > kStill) ++n;
+    return n;
+  };
+  const std::vector<pes::PesJointPose> single = trail(false, kMaxFrames);
+  std::size_t end = 0;
+  bool frozen = false;
+  for (std::size_t f = 0; !frozen && f + kStillFrames < single.size(); ++f)
+    if (moving(single, f, f + kStillFrames) == 0) {
+      end = f;
+      frozen = true;
+    }
+  ASSERT_TRUE(frozen) << "the single record never freezes within " << kMaxFrames << " frames";
+  std::printf("the single record of motion %d is still from frame %zu\n", kMotion, end);
+  EXPECT_EQ(moving(single, end, end + kWatchFrames), 0) << "control: the single record is still after its first entry ends";
+  const std::vector<pes::PesJointPose> series = trail(true, static_cast<int>(end) + kWatchFrames);
+  EXPECT_GT(moving(series, end, end + kWatchFrames), kWatchFrames / 2) << "a series keeps the body moving after its first entry ends";
 }
 
 }  // namespace

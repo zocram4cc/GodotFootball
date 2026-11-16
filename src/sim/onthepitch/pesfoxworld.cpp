@@ -261,8 +261,15 @@ void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {
   ::pes_fn_141AF6E40(speed);
 }
 
-void PesFoxWorld::IssueSeries(uint64_t, const std::vector<SeriesMember>&, const MotionRequest&) {
-  throw std::logic_error("fox world: IssueSeries is not implemented yet");
+void PesFoxWorld::IssueSeries(uint64_t p, const std::vector<SeriesMember>& members, const MotionRequest& request) {
+  // The red state (the engine before the series path is wired): a series plays its first member as one record, which the layer runs
+  // once and holds, so the body stops at that entry's last frame. The green state wires SetParametric (FUN_141AF52B0).
+  if (members.empty()) throw std::runtime_error("fox world: IssueSeries needs at least one member");
+  MotionRequest single = request;
+  single.motion = members.front().motion;
+  single.startTime = members.front().startTime;
+  single.group = -1;
+  IssueMotion(p, single);
 }
 
 PesJointPose PesFoxWorld::ReadPose(uint64_t p) {
