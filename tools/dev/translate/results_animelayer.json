@@ -686,7 +686,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: 8 REAL calls of SetParametric (FUN_141AF52B0, hook setparam_141AF52B0; the one call site 0x1406E6325, return 0x1406E632A): live2/pid661338 seq001-008 (copies, unpacked; the captures packed again after). Every call sets up a six-member series: walk_1_1 (3633), then 3005, 3011, 3077, 3133, 3143; member 0 starts at 0.0 s in seq001 and at 0.9 s in seq002-008. Every replayed call bit-exact (rax, xmm0 and every written byte); 0 mismatches; 0 excluded; the closure is capture-bounded (the 99 functions the replays entered). Own-block 80/190 over the union. Match state at each call: period 1, play state 1 (MI non-null). Per-case results and own-block coverage: AnimeLayer7 report.",
+   "note": "proof snapdiff --bounded: 8 REAL calls of SetParametric (FUN_141AF52B0, hook setparam_141AF52B0; the one call site 0x1406E6325, return 0x1406E632A): live2/pid661338 seq001-008 (read from unpacked agent copies; the rig's captures were never unpacked and stay packed). Every call sets up a six-member series: walk_1_1 (3633), then 3005, 3011, 3077, 3133, 3143; member 0 starts at 0.0 s in seq001 and at 0.9 s in seq002-008. Every replayed call bit-exact (rax, xmm0 and every written byte); 0 mismatches; 0 excluded; the closure is capture-bounded (the 99 functions the replays entered, besides the root). Own-block 80/190 over the union. Match state at each call: period 1, play state 1 (MI non-null). Per-case results and own-block coverage: AnimeLayer7 report.",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {
