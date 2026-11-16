@@ -1414424,6 +1414424,12 @@
      "0x141ECA500"
     ]
    },
+   "animeseries": {
+    "members": 1,
+    "roots": [
+     "0x141AF52B0"
+    ]
+   },
    "ankleshove": {
     "members": 5,
     "roots": [

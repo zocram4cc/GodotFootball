@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 6a3fe2619cabe469 -->
+<!-- LEDGER-STAMP 7b443936823e62bc -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,7 +13,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 21802 | 19481 | 41283 |
+| total | 21804 | 19481 | 41285 |
 | ported | 421 | 0 | 421 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
@@ -21,7 +21,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 | decoded | 1275 | 0 | 1275 |
 | leaf accessor | 2122 | 0 | 2122 |
 | engine | 1242 | 0 | 1242 |
-| undecoded | 16422 | 0 | 16422 |
+| undecoded | 16424 | 0 | 16424 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 19481 | 19481 |
 
@@ -187,6 +187,7 @@ Rows per subsystem and status:
 | motion | 2 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 |
 | proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
 | rootmotion | 4 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 3 | 0 |
+| throwin140792 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | trapact4 | 20 | 2 | 0 | 0 | 0 | 6 | 4 | 0 | 8 | 0 |
 | trapadjust | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | trapchain | 105 | 1 | 0 | 0 | 0 | 8 | 46 | 0 | 50 | 0 |
@@ -196,7 +197,7 @@ Rows per subsystem and status:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | trapkind | 13 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 12 | 0 |
 | trapscan | 91 | 4 | 0 | 0 | 0 | 34 | 7 | 0 | 46 | 0 |
-| total | 21802 | 421 | 154 | 63 | 102 | 1275 | 2122 | 1242 | 16422 | 1 |
+| total | 21804 | 421 | 154 | 63 | 102 | 1275 | 2122 | 1242 | 16424 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -247,6 +248,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | motion | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
 | proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
 | rootmotion | 4 | 1 | 0 | 0 | 0 | 0 | 0 |
+| throwin140792 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapact4 | 20 | 6 | 2 | 0 | 0 | 0 | 0 |
 | trapadjust | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapchain | 105 | 68 | 1 | 1 | 0 | 0 | 0 |
@@ -256,7 +258,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapkind | 13 | 5 | 0 | 0 | 0 | 0 | 0 |
 | trapscan | 91 | 15 | 4 | 2 | 0 | 0 | 0 |
-| total | 21802 | 6165 | 677 | 384 | 9941 | 8139 | 289 |
+| total | 21804 | 6165 | 677 | 384 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -2208,7 +2210,7 @@ Not found (owner's list):
 | 0x1403FAFA0 | FUN_1403fafa0 | undecoded | - | - | - | 3 | 11 | y | doc | 14118BE40>14116E670>1403FAFA0 |
 | 0x1403FB0F0 | FUN_1403fb0f0 | leaf accessor | - | - | - | 2 | 5 | y | doc | 14116E670>1411CB6F0>1403FB0F0 |
 | 0x1403FB210 | FUN_1403fb210 | undecoded | - | - | - | 11 | 14 | - | doc | 14116E670>1411CB6F0>1403FB210 |
-| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1704 | 62 | - | doc | 140418940>1403FB410 |
+| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1705 | 62 | - | doc | 140418940>1403FB410 |
 | 0x1403FB860 | FUN_1403fb860 | undecoded | - | - | - | 2 | 21 | - | doc | 140418940>1403FB410>1403FB860 |
 | 0x140401120 | FUN_140401120 | undecoded | - | - | - | 2 | 16 | - | doc | 140418940>141B501C0>140401120 |
 | 0x1404063C0 | FUN_1404063c0 | undecoded | - | - | - | 2 | 24 | y | doc | 14158EB80>140406B80>1404063C0 |
@@ -7327,8 +7329,8 @@ Not found (owner's list):
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 0x1403FF430 | FUN_1403ff430 | undecoded | - | pes-re-possession-latch.md | - | 435 | 10 | - | doc | 14044C880>141F15FC0>1403FF430 |
-| 0x1403FF490 | FUN_1403ff490 | undecoded | - | pes-re-motion-remap.md | - | 435 | 10 | - | doc | 14044C880>141F15FC0>1403FF490 |
+| 0x1403FF430 | FUN_1403ff430 | undecoded | - | pes-re-possession-latch.md | - | 436 | 10 | - | doc | 14044C880>141F15FC0>1403FF430 |
+| 0x1403FF490 | FUN_1403ff490 | undecoded | - | pes-re-motion-remap.md | - | 436 | 10 | - | doc | 14044C880>141F15FC0>1403FF490 |
 | 0x140413CE0 | FUN_140413ce0 | undecoded | - | - | - | 2 | 154 | y | doc | 140422030>140413CE0 |
 | 0x140413FF0 | FUN_140413ff0 | undecoded | - | - | - | 2 | 46 | y | doc | 140422030>140413FF0 |
 | 0x140414E90 | FUN_140414e90 | undecoded | - | - | - | 2 | 144 | y | doc | 140422030>140A3CD80>140414E90 |
@@ -22109,6 +22111,13 @@ Not found (owner's list):
 | 0x141EB1A50 | FUN_141eb1a50 | undecoded | - | - | - | 0 | 97 | - | closure |  |
 | 0x141EB2450 | FUN_141eb2450 | leaf accessor | - | - | - | 0 | 61 | y | closure |  |
 | 0x141EB3830 | FUN_141eb3830 | undecoded | - | - | - | 0 | 56 | - | closure |  |
+
+## throwin140792 (2)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x141B6E9C0 | FUN_141b6e9c0 | undecoded | - | - | - | 0 | 2 | - | closure |  |
+| 0x141B6F220 | FUN_141b6f220 | undecoded | - | - | - | 1 | 37 | - | closure |  |
 
 ## trapact4 (20)
 
