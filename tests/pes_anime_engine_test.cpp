@@ -374,4 +374,81 @@ TEST_F(AnimeEngine, TheHeapHoldsTheLoadAndTwentyTwoPlayers) {
   EXPECT_LT(world_->HeapLiveBytes(), kHeapBytes);
 }
 
+// H6's six-member series (TrapAdmit2, TrapContact 90213d5a report section 15: the H6 P at t10849): PES plays the members with every
+// weight 1.0. The member motions and start times are the captured call of live2/pid661338 seq002 (SetParametric's descriptor). The
+// first member alone is measured (not assumed) to turn about 0.023 rad over the walk; the blend must turn the body more than that.
+constexpr std::size_t kMembers = 6;
+constexpr int kSeriesMotions[kMembers] = {3633, 3005, 3011, 3077, 3133, 3143};
+constexpr float kSeriesStarts[kMembers] = {0.9f, 0.5f, 0.55f, 0.525f, 0.35f, 0.325f};
+constexpr int kWalkFrames = 240;         // about 4.4 s at 54 Hz
+constexpr float kCapturedBlend = 0.15f;  // the captured series' blend (seq002's descriptor)
+constexpr int kCapturedKind = 1;         // the captured series' transition kind (seq002's descriptor)
+constexpr float kMinTravel = 0.5f;       // a heading is measured once the body is this far from its start; nearer, float noise turns it
+constexpr double kTurnNoise = 1e-3;      // rounding of a heading computed from float positions (radians)
+constexpr double kPi = 3.14159265358979323846;
+constexpr uint64_t kPlayerAnimeOffset = 0xA08;  // P+0xA08: the player's anime object A (pesfoxworld.cpp)
+constexpr uint64_t kAnimeLayerOffset = 0x88;    // A+0x88: the layer controller L1
+constexpr uint64_t kStateOffset = 0x10;         // L1+0x10: the state block L2
+
+TEST_F(AnimeEngine, ASeriesTurnsMoreThanItsFirstMemberAlone) {
+  struct Ground {
+    float x;
+    float z;
+  };
+  // The body's path in the model frame: the running sum of the state's root vector (x, z) over the frames (L2+0x00, per frame).
+  const auto walk = [&](bool asSeries) {
+    const uint64_t p = NewPlayer();
+    world_->ConstructAnime(p, 0);
+    const uint64_t l1 = world_->Read64(world_->Read64(p + kPlayerAnimeOffset) + kAnimeLayerOffset);
+    pes::MotionRequest request;
+    request.playback = 1.0f;
+    request.duration = kCapturedBlend;
+    request.transition = kCapturedKind;
+    if (asSeries) {
+      std::vector<pes::SeriesMember> members;
+      for (std::size_t i = 0; i < kMembers; ++i) members.push_back(pes::SeriesMember{kSeriesMotions[i], kSeriesStarts[i], 1.0f});
+      world_->IssueSeries(p, members, request);
+    } else {
+      request.motion = kSeriesMotions[0];
+      request.startTime = kSeriesStarts[0];
+      world_->IssueMotion(p, request);
+    }
+    std::vector<Ground> path{Ground{0.0f, 0.0f}};
+    Ground at{0.0f, 0.0f};
+    for (int f = 0; f < kWalkFrames; ++f) {
+      world_->RunFrame(p);
+      const std::vector<float> root = Floats(world_->Read64(l1 + kStateOffset), 3);
+      at.x += root[0];
+      at.z += root[2];
+      path.push_back(at);
+    }
+    return path;
+  };
+  // The largest turn, in radians, of the direction from the start to the body at each frame, counted from the first frame it is
+  // kMinTravel away.
+  const auto largestTurn = [](const std::vector<Ground>& path) {
+    double turn = 0.0, reference = 0.0;
+    bool referenced = false;
+    for (const Ground& at : path) {
+      const double dx = at.x - path.front().x, dz = at.z - path.front().z;
+      if (std::hypot(dx, dz) < kMinTravel) continue;
+      const double heading = std::atan2(dx, dz);
+      if (!referenced) {
+        reference = heading;
+        referenced = true;
+      }
+      turn = std::max(turn, std::fabs(std::remainder(heading - reference, 2.0 * kPi)));
+    }
+    return turn;
+  };
+  const std::vector<Ground> single = walk(false);
+  const std::vector<Ground> series = walk(true);
+  const double singleTravel = std::hypot(single.back().x - single.front().x, single.back().z - single.front().z);
+  std::printf("first member alone: travelled %.3f m, largest turn %.6f rad; series: largest turn %.6f rad\n", singleTravel,
+              largestTurn(single), largestTurn(series));
+  EXPECT_GT(singleTravel, kMinTravel) << "the first member alone moves the body (its root vector accumulates)";
+  EXPECT_GT(largestTurn(series), largestTurn(single) + kTurnNoise)
+      << "the blend steers: the series turns more than its first member alone";
+}
+
 }  // namespace
