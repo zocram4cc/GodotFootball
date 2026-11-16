@@ -261,6 +261,10 @@ void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {
   ::pes_fn_141AF6E40(speed);
 }
 
+void PesFoxWorld::IssueSeries(uint64_t, const std::vector<SeriesMember>&, const MotionRequest&) {
+  throw std::logic_error("fox world: IssueSeries is not implemented yet");
+}
+
 PesJointPose PesFoxWorld::ReadPose(uint64_t p) {
   const uint64_t a = Read64(p + kAnimeOffset), l1 = Read64(a + kControlOffset);
   const uint64_t positions = Read64(l1 + kPosePointerOffset), rotations = Read64(a + kQuatPointerOffset);

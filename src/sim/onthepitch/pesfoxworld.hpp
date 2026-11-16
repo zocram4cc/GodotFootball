@@ -13,6 +13,7 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "onthepitch/pesanimechain.hpp"
 #include "onthepitch/pesmemory.hpp"
@@ -24,6 +25,12 @@
 namespace pes {
 
 class PesFoxWorld;
+// One member of a series: a clip (motion number), its start time in seconds and its playback rate (PES's series entry, 0x38 bytes).
+struct SeriesMember {
+  int motion = -1;
+  float startTime = 0.0f;
+  float rate = 1.0f;
+};
 
 // The fox world frozen after its Boot and LoadBody (PesFoxWorld::Freeze): the memory's template and the world's host state. A PesFoxWorld
 // built from it is a clone. Move-only.
@@ -110,6 +117,12 @@ class PesFoxWorld final : public PesFileSource {
   // transition whose kind byte SetMotion stores); its group must be -1 (SetParametric's records are not pushed here). A motion above 0x1124
   // is dropped, as SetMotion's first test does.
   void IssueMotion(uint64_t p, const MotionRequest& request);
+
+// SetParametric's series (FUN_141AF52B0, reached from PES's parametric caller 0x1406E6303): one record per member, pushed to the control
+// and blended by the layer, looping. The request's playback is the rate every record takes (SetSpeed) and its duration the blend.
+// ponytail: the members come from the caller; PES builds them from the blend group in SetParametricBlendMotion (FUN_1406F14E0), which is
+// not translated yet.
+void IssueSeries(uint64_t p, const std::vector<SeriesMember>& members, const MotionRequest& request);
   // The pose the frame left in the control (L1+0x50: joint positions, A+0x20: joint rotations): the arrays FUN_141EB49B0 reads.
   PesJointPose ReadPose(uint64_t p);
   // Bytes of the world's heap in live blocks (the arena a world needs).
