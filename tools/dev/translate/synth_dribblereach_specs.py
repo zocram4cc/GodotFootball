@@ -20,7 +20,9 @@ import struct
 import sys
 
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "synth_specs")
-IMAGE = os.environ.get("PES_EXE", "/home/z/ghidra-projects/scratch/Unpacker/pes_full.bin")
+IMAGE = os.environ.get("PES_EXE")
+if not IMAGE:
+    sys.exit("PES_EXE (the unpacked pes_full.bin) is required")
 IMAGE_BASE = 0x140000000
 G_VA = 0x1436F3DC8
 MOTION_MANAGER_VA = 0x1436F23C0
