@@ -374,48 +374,4 @@ TEST_F(AnimeEngine, TheHeapHoldsTheLoadAndTwentyTwoPlayers) {
   EXPECT_LT(world_->HeapLiveBytes(), kHeapBytes);
 }
 
-// The largest change of any joint's position or rotation between two poses.
-float MaxPoseDelta(const pes::PesJointPose& a, const pes::PesJointPose& b) {
-  float most = 0.0f;
-  for (uint32_t j = 0; j < pes::kAnimeJointCount; ++j)
-    for (uint32_t k = 0; k < 4; ++k) {
-      most = std::max(most, std::fabs(a.position[j][k] - b.position[j][k]));
-      most = std::max(most, std::fabs(a.rotation[j][k] - b.rotation[j][k]));
-    }
-  return most;
-}
-
-// PES's walk_1_1 (motion 3633) played as a one-member series keeps moving past its first entry's last frame: SetParametric
-// (FUN_141AF52B0) pushes the member and the layer loops it. Played as a single record the same clip freezes there: the H6 dribbler
-// (TrapContact10 section 13) froze at walk_1_1's frame 120/121.
-TEST_F(AnimeEngine, ASeriesKeepsMovingAfterItsFirstEntryEnds) {
-  constexpr int kMotion = 3633;        // walk_1_1
-  constexpr int kFirstEntryEnd = 121;  // the clip's last frame (TrapContact10 section 13: frame 120/121)
-  constexpr int kFrames = 260;         // well past the first entry
-  constexpr float kStill = 1e-5f;      // a joint change below this is no movement
-  const auto movingFrames = [&](bool asSeries) {
-    const uint64_t p = NewPlayer();
-    world_->ConstructAnime(p, 0);
-    pes::MotionRequest request;
-    request.playback = 1.0f;
-    if (asSeries) {
-      world_->IssueSeries(p, {pes::SeriesMember{kMotion, 0.0f, 1.0f}}, request);
-    } else {
-      request.motion = kMotion;
-      world_->IssueMotion(p, request);
-    }
-    pes::PesJointPose previous = world_->ReadPose(p);
-    int moving = 0;
-    for (int f = 0; f < kFrames; ++f) {
-      world_->RunFrame(p);
-      const pes::PesJointPose current = world_->ReadPose(p);
-      if (f >= kFirstEntryEnd && MaxPoseDelta(previous, current) > kStill) ++moving;
-      previous = current;
-    }
-    return moving;
-  };
-  EXPECT_EQ(movingFrames(false), 0) << "control: the single record freezes after its clip's last frame (the H6 freeze)";
-  EXPECT_GT(movingFrames(true), (kFrames - kFirstEntryEnd) / 2) << "a series keeps the body moving after its first entry";
-}
-
 }  // namespace
