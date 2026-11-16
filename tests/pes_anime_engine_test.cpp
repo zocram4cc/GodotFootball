@@ -383,6 +383,10 @@ constexpr float kSeriesStarts[kMembers] = {0.9f, 0.5f, 0.55f, 0.525f, 0.35f, 0.3
 constexpr int kWalkFrames = 240;         // about 4.4 s at 54 Hz
 constexpr float kCapturedBlend = 0.15f;  // the captured series' blend (seq002's descriptor)
 constexpr int kCapturedKind = 1;         // the captured series' transition kind (seq002's descriptor)
+// The series' rate table (the descriptor's +0x18 array, one f32 per member): identical in all eight captured calls (live2/pid661338 seq001-008).
+constexpr float kSeriesRates[kMembers] = {0.0f, 0.15f, 0.3f, 0.5f, 0.9f, 1.0f};
+constexpr uint8_t kCapturedParamKind = 0;             // the parameter block's kind byte (seq002; all eight have 0)
+constexpr float kCapturedParamBlend = 0.16666667f;    // the parameter block's blend (seq002; the eight calls vary it)
 constexpr float kMinTravel = 0.5f;       // a heading is measured once the body is this far from its start; nearer, float noise turns it
 constexpr double kTurnNoise = 1e-3;      // rounding of a heading computed from float positions (radians)
 constexpr double kPi = 3.14159265358979323846;
@@ -405,9 +409,12 @@ TEST_F(AnimeEngine, ASeriesTurnsMoreThanItsFirstMemberAlone) {
     request.duration = kCapturedBlend;
     request.transition = kCapturedKind;
     if (asSeries) {
-      std::vector<pes::SeriesMember> members;
-      for (std::size_t i = 0; i < kMembers; ++i) members.push_back(pes::SeriesMember{kSeriesMotions[i], kSeriesStarts[i], 1.0f});
-      world_->IssueSeries(p, members, request);
+      pes::SeriesSpec series;
+      for (std::size_t i = 0; i < kMembers; ++i) series.members.push_back(pes::SeriesMember{kSeriesMotions[i], kSeriesStarts[i], 1.0f});
+      series.rates.assign(std::begin(kSeriesRates), std::end(kSeriesRates));
+      series.paramKind = kCapturedParamKind;
+      series.paramBlend = kCapturedParamBlend;
+      world_->IssueSeries(p, series, request);
     } else {
       request.motion = kSeriesMotions[0];
       request.startTime = kSeriesStarts[0];

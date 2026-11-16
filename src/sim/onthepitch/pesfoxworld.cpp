@@ -64,6 +64,23 @@ constexpr uint64_t kFifthArgumentOffset = 0x28;
 constexpr uint32_t kAllRecords = 0xFFFFFFFFu;
 constexpr uint64_t kUnitFloatVa = 0x14256AE1C;  // DAT_14256AE1C, 1.0f: the template's rate (FUN_141EB5250 stores it in the idle record)
 
+// SetParametric's series descriptor (rdx, 0x28 bytes used): {+0 count u32, +8 entries pointer, +0x10 rate count u32, +0x18 rate table
+// pointer (one f32 per member), +0x20 byte (1 in all eight captures: SetParametric stores it in its state at +0x18), +0x21 kind byte,
+// +0x22 flags byte (1 in all eight captures of live2/pid661338 seq001-008), +0x24 blend f32}. The parameter block (r8) is SetMotion's:
+// kParamKind and kParamBlend; kSeriesParamsBytes is the block we zero (its fields end at +0xC).
+constexpr uint64_t kSeriesDescBytes = 0x28, kDescCount = 0x0, kDescEntries = 0x8, kDescRateCount = 0x10, kDescRates = 0x18;
+constexpr uint64_t kDescByte20 = 0x20, kDescKind = 0x21, kDescFlags = 0x22, kDescBlend = 0x24;
+constexpr uint8_t kByte20 = 1;
+constexpr uint8_t kSeriesFlags = 1;
+constexpr uint64_t kRateBytes = sizeof(float), kSeriesParamsBytes = 0x10;
+
+// The bit pattern of a float, as the image stores it.
+uint64_t FloatBits(float f) {
+  uint32_t b;
+  std::memcpy(&b, &f, sizeof b);
+  return static_cast<uint64_t>(b);
+}
+
 }  // namespace
 
 struct PesFoxWorld::Impl {
@@ -232,11 +249,7 @@ void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {
     if (impl_->issueScratch == 0) throw std::runtime_error("fox world: the arena is full");
   }
   const uint64_t a = Read64(p + kAnimeOffset), record = impl_->issueScratch, params = record + kParamsOffset;
-  const auto bits = [](float f) {
-    uint32_t b;
-    std::memcpy(&b, &f, sizeof b);
-    return static_cast<uint64_t>(b);
-  };
+  const auto bits = FloatBits;
   PesState s = NewCall();
   for (uint64_t at = 0; at < kIssueScratchBytes; at += 8) s.wr(record + at, 0, 8);
   s.wr(record + kRecMotion, static_cast<uint32_t>(request.motion), 4);
@@ -261,15 +274,52 @@ void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {
   ::pes_fn_141AF6E40(speed);
 }
 
-void PesFoxWorld::IssueSeries(uint64_t p, const std::vector<SeriesMember>& members, const MotionRequest& request) {
-  // The red state (the engine before the series path is wired): a series plays its first member as one record, which the layer runs
-  // once and holds, so the body stops at that entry's last frame. The green state wires SetParametric (FUN_141AF52B0).
-  if (members.empty()) throw std::runtime_error("fox world: IssueSeries needs at least one member");
-  MotionRequest single = request;
-  single.motion = members.front().motion;
-  single.startTime = members.front().startTime;
-  single.group = -1;
-  IssueMotion(p, single);
+void PesFoxWorld::IssueSeries(uint64_t p, const SeriesSpec& series, const MotionRequest& request) {
+  const std::size_t count = series.members.size();
+  if (count == 0) throw std::runtime_error("fox world: IssueSeries needs at least one member");
+  if (series.rates.size() != count) throw std::runtime_error("fox world: IssueSeries needs one rate per member");
+  const uint64_t desc = Alloc(kSeriesDescBytes), entries = Alloc(count * kRecordBytes), rates = Alloc(count * kRateBytes),
+                 params = Alloc(kSeriesParamsBytes);
+  if (desc == 0 || entries == 0 || rates == 0 || params == 0) throw std::runtime_error("fox world: the arena is full");
+  const uint64_t a = Read64(p + kAnimeOffset);
+  PesState s = NewCall();
+  const auto zero = [&s](uint64_t va, uint64_t bytes) {
+    for (uint64_t at = 0; at < bytes; at += 4) s.wr(va + at, 0, 4);
+  };
+  zero(desc, kSeriesDescBytes);
+  zero(entries, count * kRecordBytes);
+  zero(rates, count * kRateBytes);
+  zero(params, kSeriesParamsBytes);
+  const bool known = request.transition >= 0 && request.transition < static_cast<int>(std::size(kKindByTransition));
+  s.wr(desc + kDescCount, count, 4);
+  s.wr(desc + kDescEntries, entries, 8);
+  s.wr(desc + kDescRateCount, count, 4);
+  s.wr(desc + kDescRates, rates, 8);
+  s.wr(desc + kDescByte20, kByte20, 1);
+  s.wr(desc + kDescKind, known ? kKindByTransition[request.transition] : 0, 1);
+  s.wr(desc + kDescFlags, kSeriesFlags, 1);
+  s.wr(desc + kDescBlend, FloatBits(request.duration), 4);
+  for (std::size_t i = 0; i < count; ++i) {
+    const SeriesMember& member = series.members[i];
+    const uint64_t entry = entries + i * kRecordBytes;
+    s.wr(entry + kRecMotion, static_cast<uint32_t>(member.motion), 4);
+    s.wr(entry + kRecStartTime, FloatBits(member.startTime), 4);
+    s.wr(entry + kRecRate, FloatBits(member.rate), 4);
+    s.wr(entry + kRecSlotMark, kRecNoSlot, 4);
+    s.wr(rates + i * kRateBytes, FloatBits(series.rates[i]), 4);
+  }
+  s.wr(params + kParamKind, series.paramKind, 1);
+  s.wr(params + kParamBlend, FloatBits(series.paramBlend), 4);
+  s.gpr[1] = a;
+  s.gpr[2] = desc;
+  s.gpr[8] = params;
+  ::pes_fn_141AF52B0(s);
+  PesState speed = NewCall();
+  speed.gpr[1] = a;
+  speed.set_x_f32(1, request.playback);
+  speed.gpr[8] = 0;  // layer 0
+  speed.gpr[9] = kAllRecords;
+  ::pes_fn_141AF6E40(speed);
 }
 
 PesJointPose PesFoxWorld::ReadPose(uint64_t p) {
