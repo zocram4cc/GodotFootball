@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "onthepitch/pesroles.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 
 namespace {
@@ -179,6 +180,8 @@ void LoadCall(Loaded& l, const Call& c, const Image& image) {
     std::memcpy(world.Bytes() + slotAndBytes.first, &va, 8);
     heapHome[name] = world.HeapHost(va, slotAndBytes.second);
   }
+  pes::roles::SideRoles sideRoles[2];
+  bool sideRolesSeen[2] = {false, false};
   for (const ReadRun& r : c.runs) {
     // The builder's stack arguments sit just below F (F - 0x40: Q, the param_6 vector, then the seventh argument, the AI object's byte at +0x95C).
     if (r.object == "va" && r.bytes.size() == 17) l.aiFlag = r.bytes[16];
@@ -193,9 +196,19 @@ void LoadCall(Loaded& l, const Call& c, const Image& image) {
     if (home == nullptr) continue;
     for (std::size_t k = 0; k < r.bytes.size(); ++k) {
       const std::size_t off = r.offset + k;
+      // The side records' role arrays (B at +0x4C00, A at +0x4BD4) come through the production writer, as a match stores them (pes::roles::StoreSideRoles):
+      // the bytes the real call read fill a SideRoles, which the writer lays out in the record.
+      const bool sideRecord = r.object == "rec1928" || r.object == "rec1950";
+      if (sideRecord && off >= pes::roles::kSideRoleBOffset && off < pes::roles::kSideRoleBOffset + 4 * pes::roles::kSideSlots) {
+        sideRoles[r.object == "rec1928" ? 0 : 1].b[(off - pes::roles::kSideRoleBOffset) / 4] |= r.bytes[k] << (8 * ((off - pes::roles::kSideRoleBOffset) % 4));
+        sideRolesSeen[r.object == "rec1928" ? 0 : 1] = true;
+        continue;
+      }
       home[off] = r.bytes[k];
     }
   }
+  for (int side = 0; side < 2; ++side)
+    if (sideRolesSeen[side]) pes::roles::StoreSideRoles(sideRoles[side], world.SideRecord(side));
   // The plan's man words are the man record's (RunFrameBuilder copies the facing and the position in): the record's facing is not in the read set,
   // the plan's own copy is, so the record takes it.
   uint8_t* man = world.ManRecord(c.slot);

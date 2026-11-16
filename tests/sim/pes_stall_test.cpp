@@ -35,17 +35,80 @@ class BreakerCensusProbe : public pestest::Probe {
       : Probe("PesStall", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
   long armedFirings = 0;    // the referee had a restart armed (its buffer is active)
   long liveFirings = 0;     // play is live, nothing is armed: a man on a ball that nobody plays
+  // Attribution of the live firings by the man the breaker forces (the series freeze is AnimeLayer's SetParametric port, a separate defect): a PES-owned
+  // dribbler whose body sits on the last frame of a clip with a series held in P is the freeze; every other firing, by the forced man's state.
+  long liveFiringsSeriesFrozen = 0;
+  // A PES dribbler frozen on the last frame of a series clip holds the ball for PES (MA+0x2601C) while it lies still beside him: the other men's firings
+  // while one has been frozen for a second are downstream of the same defect (the defenders challenge a holder who never plays on).
+  long liveFiringsDuringFreeze = 0;
+  std::map<const Player*, int> frozenTicks_;
+  std::vector<std::pair<long, std::string>> liveEpisodes;  // (ticks, start tick / man / state at the start): one per run of consecutive firings on one man
+  long episodeStart_ = -1, episodeLast_ = -1, tick_ = 0;
+  const Player* episodeMan_ = nullptr;
+  std::string episodeLabel_;
+  std::map<std::string, long> liveFiringsOther;
   long unarmedFirings = 0;  // play is off and nothing is armed
   void OnStart(Match& match) override { lastCount_ = match.GetStalemateCount(); }
   void OnTick(Match& match) override {
+    ++tick_;
+    bool freezeActive = false;
+    for (int team = 0; team < 2; ++team) {
+      for (const auto& pl : match.GetTeam(team)->GetAllPlayers()) {
+        if (!pl->IsActive()) continue;
+        uint32_t seriesCount;
+        std::memcpy(&seriesCount, match.PesWorldOf().P(match.PesSlotOf(pl.get())) + pes::kPSeriesCountOffset, sizeof seriesCount);
+        const Anim* clip = pl->GetCurrentAnim();
+        const bool frozen = match.PesOwnsDribble(*pl) && seriesCount > 0 && clip && clip->anim && clip->frameNum >= clip->anim->GetFrameCount() - 1 && pl->GetMovement().GetLength() < 0.1f;
+        int& n = frozenTicks_[pl.get()];
+        n = frozen ? n + 1 : 0;
+        constexpr int kFrozenSecond = 100;  // ticks of 10 ms
+        freezeActive = freezeActive || n >= kFrozenSecond;
+      }
+    }
     const unsigned long count = match.GetStalemateCount();
     const bool fired = count != lastCount_;
     lastCount_ = count;
     if (!fired) return;
     if (match.GetRefereeBuffer().active)
       armedFirings++;
-    else if (match.IsInPlay() && !match.IsInSetPiece())
+    else if (match.IsInPlay() && !match.IsInSetPiece()) {
       liveFirings++;
+      Player* who = match.GetDesignatedPossessionPlayer();
+      bool seriesFrozenMan = false;
+      if (who != nullptr) {
+        uint32_t sc;
+        std::memcpy(&sc, match.PesWorldOf().P(match.PesSlotOf(who)) + pes::kPSeriesCountOffset, sizeof sc);
+        const Anim* cc = who->GetCurrentAnim();
+        seriesFrozenMan = match.PesOwnsDribble(*who) && sc > 0 && cc && cc->anim && cc->frameNum >= cc->anim->GetFrameCount() - 1;
+      }
+      const bool downstreamOfFreeze = freezeActive || seriesFrozenMan;  // the episode list below holds the firings the series freeze does not explain
+      if (!downstreamOfFreeze && (who != episodeMan_ || tick_ != episodeLast_ + 1)) {
+        if (episodeStart_ >= 0) liveEpisodes.push_back({episodeLast_ - episodeStart_ + 1, episodeLabel_});
+        episodeStart_ = tick_;
+        episodeMan_ = who;
+        const uint8_t* ep = who ? match.PesWorldOf().P(match.PesSlotOf(who)) : nullptr;
+        const Anim* ec = who ? who->GetCurrentAnim() : nullptr;
+        episodeLabel_ = "t" + std::to_string(tick_) + " " + (who ? std::string(who->GetPlayerData()->GetLastName()) : std::string("-")) + " ac8 " + (ep ? std::to_string(ep[pes::kPByteAC8Offset]) : "-") +
+                        (who && match.PesOwnsDribble(*who) ? " PES dribbler" : "") + " clip " + (ec && ec->anim ? ec->anim->GetName() : std::string("-")) + " ball " +
+                        std::to_string((who ? (who->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength() : 0.0f)).substr(0, 4) + "m";
+      }
+      if (!downstreamOfFreeze) episodeLast_ = tick_;
+      if (who != nullptr) {
+        const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(who));
+        uint32_t seriesCount;
+        std::memcpy(&seriesCount, p + pes::kPSeriesCountOffset, sizeof seriesCount);
+        const Anim* clip = who->GetCurrentAnim();
+        const bool lastFrame = clip && clip->anim && clip->frameNum >= clip->anim->GetFrameCount() - 1;
+        if (match.PesOwnsDribble(*who) && seriesCount > 0 && lastFrame) {
+          liveFiringsSeriesFrozen++;
+        } else if (freezeActive) {
+          liveFiringsDuringFreeze++;
+        } else {
+          const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : -1;
+          liveFiringsOther["ac8 " + std::to_string(p[pes::kPByteAC8Offset]) + (match.PesOwnsDribble(*who) ? ", PES-owned dribbler" : ", not a PES dribbler") + ", body family " + std::to_string(family) + ", function " + std::to_string(int(who->GetCurrentFunctionType()))]++;
+        }
+      }
+    }
     else
       unarmedFirings++;
   }
@@ -143,6 +206,7 @@ class TrapContactProbe : public pestest::Probe {
   // resting ball is the post-touch chain never running (end handler 0x14079E5C0 -> switch 0x1406EEBB0 -> act4 start 0x1407A38E0).
   static constexpr long kDribbleEngageTicks = 150;  // ~2.8 s: the trap clip's tail past its contact frame plus the end chain
   long strandedTrappers = 0;  // granted resting touches with no dribble inside the window
+  std::string strandedTrapperSamples;  // each: the action at the window's end, whether he reached the dribble, whether he still holds the ball, the clip, the series
   // A man in PES's Dribble action whose P+0xAE0 names a motion (the one the dribble tick's SetMotion issued) must have that motion on the
   // anime player's list (the table P+0x354, rebuilt each tick from the clip the body plays): the dribble's frame tests (iface +0x38 =
   // FUN_1406E68C0, the contact test FUN_1406EC260, the leave test FUN_1407B9280) all read the motion's frame from that table and answer 0
@@ -153,11 +217,16 @@ class TrapContactProbe : public pestest::Probe {
   unsigned dribbleIssues = 0;                        // the dribble tick's SetMotion issues (Match::PesDribbleIssues)
   std::map<int, unsigned> unplayedDribbleIssues;   // those the body could not play, by motion
   long dribbleMotionNotOnTable = 0;
+  // Attribution of the off-the-list ticks (the series freeze is AnimeLayer's SetParametric port, a separate defect): a tick counts as the series freeze when
+  // the man's P holds a series (count > 0) and his body sits on the last frame of a clip the dribble family owns. The rest, by what the body plays.
+  long notOnTableSeriesFrozen = 0;
+  std::map<std::string, long> notOnTableOther;
   std::vector<std::pair<long, std::string>> ownershipStreaks;  // (length, how it began and ended), closed streaks
   // A PES-owned dribbler and a ball that lies still more than a touch away: PES's Dribble action steers the man onto the ball (the run-to point of every
   // real dribble frame is the ball) or hands the body back to MOVE; one that stays in the action, with the ball at rest out of reach, for five seconds
   // is the dribble holding a man who does nothing with it (the breaker's live firings).
   long strandedDribblers = 0;            // stretches of 5 s of that
+  long strandedSeriesFrozen = 0;         // of them, the man's body on the last frame of a clip with a series held in P (the series freeze)
   long strandedTicks = 0;                // ticks in them
   std::string strandedSamples;
   long ownedTicksOffDribbleClip = 0;  // ticks of a PES-owned dribbler whose body clip is not a dribble-family clip
@@ -229,6 +298,12 @@ class TrapContactProbe : public pestest::Probe {
             ++strandedTicks;
             if (++away == kStrandedTicks) {
               ++strandedDribblers;
+              {
+                uint32_t seriesCount;
+                std::memcpy(&seriesCount, match.PesWorldOf().P(match.PesSlotOf(player.get())) + pes::kPSeriesCountOffset, sizeof seriesCount);
+                const Anim* clip = player->GetCurrentAnim();
+                if (seriesCount > 0 && clip && clip->anim && clip->frameNum >= clip->anim->GetFrameCount() - 1) ++strandedSeriesFrozen;
+              }
               if (strandedSamples.size() < 160) strandedSamples += " " + std::string(player->GetPlayerData()->GetLastName()) + "@" + std::to_string(tickCount_) + "/" + std::to_string(dist).substr(0, 4) + "m";
             }
           } else {
@@ -278,7 +353,9 @@ class TrapContactProbe : public pestest::Probe {
           // motion that has been the man's for a tick is held to it.
           const bool settled = before == motion;
           before = motion;
-          if (settled && p[pes::kPByteAC8Offset] == pes::kAnimeActionDribble && motion != 0) {
+          // Only a man PES owns in the Dribble action is a PES dribbler: one whose P reads Dribble because GF's clip derives it (a stand-up clip after a fall)
+          // carries the issue of his earlier PES dribble, which no clip of his now plays (52 such ticks in the seed-7 match, all one man).
+          if (settled && match.PesOwnsDribble(*player) && p[pes::kPByteAC8Offset] == pes::kAnimeActionDribble && motion != 0) {
             ++pesDribbleTicks;
             uint32_t count;
             std::memcpy(&count, p + pes::kPMotionCountOffset, sizeof count);
@@ -288,7 +365,20 @@ class TrapContactProbe : public pestest::Probe {
               std::memcpy(&id, p + pes::kPMotionTableOffset + k * pes::kPMotionEntryBytes, sizeof id);
               listed = listed || id == motion;
             }
-            if (!listed) ++dribbleMotionNotOnTable;
+            if (!listed) {
+              ++dribbleMotionNotOnTable;
+              const Anim* clip = player->GetCurrentAnim();
+              uint32_t seriesCount;
+              std::memcpy(&seriesCount, p + pes::kPSeriesCountOffset, sizeof seriesCount);
+              const bool lastFrame = clip && clip->anim && clip->frameNum >= clip->anim->GetFrameCount() - 1;
+              if (seriesCount > 0 && lastFrame) {
+                ++notOnTableSeriesFrozen;
+              } else {
+                const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : -1;
+                const int bodyMotion = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar2").c_str()) : -1;
+                ++notOnTableOther[std::string(match.PesOwnsDribble(*player) ? "PES-owned" : "NOT PES-owned (P says Dribble from GF's clip, the issue is stale)") + ", series " + (seriesCount > 0 ? "held" : "empty") + ", body family " + std::to_string(family) + (bodyMotion == int(motion) ? " plays the issued motion" : " plays another motion") + (lastFrame ? " (last frame)" : "")];
+              }
+            }
           }
         }
         {
@@ -364,7 +454,16 @@ class TrapContactProbe : public pestest::Probe {
           w.sawDribble = true;
         if (w.restLeft > 0 && --w.restLeft == 0) {
           const int slot = match.PesSlotOf(player.get());
-          if (match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) strandedTrappers++;
+          if (match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) {
+            strandedTrappers++;
+            const uint8_t* pp = match.PesWorldOf().P(slot);
+            uint32_t seriesCount;
+            std::memcpy(&seriesCount, pp + pes::kPSeriesCountOffset, sizeof seriesCount);
+            const Anim* clip = player->GetCurrentAnim();
+            strandedTrapperSamples += " [t" + std::to_string(tickCount_) + " " + std::string(player->GetPlayerData()->GetLastName()) + " ac8 " + std::to_string(pp[pes::kPByteAC8Offset]) + (w.sawDribble ? " left the dribble" : " never dribbled") +
+                               (match.GetPesHolder() == player.get() ? ", holder" : ", not the holder") + ", series " + std::to_string(seriesCount) + ", clip " +
+                               (clip && clip->anim ? clip->anim->GetName() : std::string("-")) + "]";
+          }
           if (!w.sawDribble) neverEngagedTrappers++;
           w.sawDribble = false;
         }
@@ -499,7 +598,17 @@ TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
   ASSERT_TRUE(census.setupError.empty()) << census.setupError;
   pestest::Settle(census);
   ASSERT_TRUE(census.stop.gameOver) << "the match did not reach full time";
-  EXPECT_EQ(census.liveFirings, 0) << "the breaker forced a live ball for " << census.liveFirings << " ticks";
+  if (census.episodeStart_ >= 0) census.liveEpisodes.push_back({census.episodeLast_ - census.episodeStart_ + 1, census.episodeLabel_});
+  std::sort(census.liveEpisodes.rbegin(), census.liveEpisodes.rend());
+  std::string episodes;
+  for (std::size_t i = 0; i < census.liveEpisodes.size() && i < 25; ++i) episodes += "\n    " + std::to_string(census.liveEpisodes[i].first) + " ticks from " + census.liveEpisodes[i].second;
+  EXPECT_EQ(census.liveFirings, 0) << "the breaker forced a live ball for " << census.liveFirings << " ticks in " << census.liveEpisodes.size() << " episodes the series freeze does not explain (longest:" << episodes << "); " << census.liveFiringsSeriesFrozen
+                                   << " of them on a PES dribbler whose body sat on the last frame of a clip with a series held (the series freeze), " << census.liveFiringsDuringFreeze
+                                   << " more while another PES dribbler had been frozen so for a second; the rest, by the forced man:" << [&] {
+                                        std::string o;
+                                        for (const auto& [k, v] : census.liveFiringsOther) o += "\n    " + std::to_string(v) + " x " + k;
+                                        return o;
+                                      }();
 }
 
 TEST(PesStall, ANoManIsEverHandedNoCommandAtAClipEnd) {
@@ -557,7 +666,7 @@ TEST(PesStall, APesDribblerGoesToABallAtRestOrLeavesTheDribble) {
   ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
   pestest::Settle(contactCensus);
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
-  EXPECT_EQ(contactCensus.strandedDribblers, 0) << contactCensus.strandedDribblers << " PES dribblers stayed in the Dribble action 5 s with the ball at rest out of reach (" << contactCensus.strandedTicks
+  EXPECT_EQ(contactCensus.strandedDribblers, 0) << contactCensus.strandedDribblers << " PES dribblers stayed in the Dribble action 5 s with the ball at rest out of reach, " << contactCensus.strandedSeriesFrozen << " of them frozen on a series clip's last frame (" << contactCensus.strandedTicks
                                                  << " ticks):" << contactCensus.strandedSamples;
 }
 
@@ -581,7 +690,7 @@ TEST(PesStall, AGrantedRestingTouchStartsPesDribble) {
   ASSERT_GT(contactCensus.restingGrants, 0) << "no trap touched a ball at rest in the whole match";
   EXPECT_EQ(contactCensus.strandedTrappers, 0)
       << contactCensus.strandedTrappers << " of " << contactCensus.restingGrants
-      << " granted resting touches left the trapper out of PES's dribble";
+      << " granted resting touches left the trapper out of PES's dribble:" << contactCensus.strandedTrapperSamples;
 }
 
 // The cause side of the stranded count: a granted resting touch whose man was in PES's dribble at NO tick of the window is the post-touch
@@ -611,7 +720,11 @@ TEST(PesStall, APesDribblerPlaysTheMotionItIssued) {
   EXPECT_EQ(contactCensus.dribbleMotionNotOnTable, 0)
       << contactCensus.dribbleMotionNotOnTable << " of " << contactCensus.pesDribbleTicks
       << " PES-dribbler ticks had the issued motion off the anime player's list; ticks owned but on a non-dribble clip: "
-      << contactCensus.ownedTicksOffDribbleClip << "; streaks: " << contactCensus.ownershipStreaks.size() << [&] {
+      << contactCensus.ownedTicksOffDribbleClip << "; of them " << contactCensus.notOnTableSeriesFrozen << " with his body on the last frame of a series' clip (the series freeze), the others:" << [&] {
+        std::string o;
+        for (const auto& [k, v] : contactCensus.notOnTableOther) o += "\n    " + std::to_string(v) + " x " + k;
+        return o;
+      }() << "; streaks: " << contactCensus.ownershipStreaks.size() << [&] {
         auto v = contactCensus.ownershipStreaks;
         std::sort(v.rbegin(), v.rend());
         std::string o;

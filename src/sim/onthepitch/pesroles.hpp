@@ -39,6 +39,10 @@ int RegisteredRoleOf(e_PlayerRole role);
 std::optional<std::array<int, kRegisteredRoles>> LoadRoleClassMap(const PeImage& exe,
                                                                   std::string* error);
 
+// The arrays' places in the side record (the window's SideRecord, G's side table entry): A at +0x4BD4, B at +0x4C00, eleven u32 each. The AI frame builder reads
+// B (+0x4C00 + 4 * the man's squad index, real frames of live2 fbF_1409F1F20: 0 = keeper, 2 = SB, 4 = CMF ...).
+inline constexpr std::size_t kSideRoleAOffset = 0x4BD4, kSideRoleBOffset = 0x4C00;
+
 struct SideRoles {
   std::array<int, kSideSlots> a{};  // A (FUN_140A425A0): the stamina-sub class
   std::array<int, kSideSlots> b{};  // B (FUN_140A42590): the class the run, style and AI readers use
@@ -80,5 +84,8 @@ void WriteBandRows(uint8_t* team, int phase, const SideRoles& roles,
                    const std::array<bool, kSideSlots>& active);
 int BandRowMen(const uint8_t* team, int phase, int line);
 int BandRowActive(const uint8_t* team, int phase, int line);
+
+// Stores A and B into the side record's bytes (kSideRoleAOffset, kSideRoleBOffset).
+void StoreSideRoles(const SideRoles& roles, uint8_t* sideRecord);
 
 }  // namespace pes::roles

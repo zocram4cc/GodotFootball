@@ -3284,6 +3284,7 @@ void TeamAIController::SetUpRoleArrays() {
                                  pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece()),
                                  match->PesRestartKind()),
                              &roles);
+  pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
 }
 
 // The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). Both take the level of
@@ -3303,6 +3304,7 @@ void TeamAIController::WriteRoleArrays(bool head) {
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamRecord.sheet,
                              level, &roles);
+  pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
   // ponytail: `level` is the role level, the matrix row of WriteSideRoles. WriteSlotPoints takes the sheet phase
   // (FUN_1404F5F10: f = 2 - (F != 0), 0 when MI+0x116C != 1 && MI+0x1554 == 1; 0x1404F5F38-4A). They coincide on every
   // reachable path today (audit F6); split them when a level-0 phase lands.
@@ -3323,8 +3325,10 @@ void TeamAIController::WriteRoleArrays(bool head) {
   }
   if (match->PesLoop()) UpdateLaneLine();
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
-  if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
+  if (roleSwap && possession && pes::roles::TailSwapAllowed(roles)) {
     pes::roles::SwapB(&roles, roleSwap->first, roleSwap->second);
+    pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
+  }
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
