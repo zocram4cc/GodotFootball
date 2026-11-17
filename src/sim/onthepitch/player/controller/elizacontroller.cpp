@@ -116,6 +116,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
   // PES's loose-ball presser (press-life 3/10): his movement is the ActionPress below, not a dribble.
   const bool loosePresser = match->PesLoop() && team->GetController()->IsLoosePresser(player);
+  // PES's PASS_GET man walks to the ball with ActionPassGet (the approach) and is no carrier until his touch: the on-ball branches
+  // (the carrier's brain, the BallControl) stand aside for him, whatever the geometric HasPossession says while he is still walking.
+  const bool passGetMan = match->PesLoop() && team->PassGetReceiver() == player;
 
   // celebrate good times come on!
 
@@ -655,7 +658,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
             extraHaste = true;
           }
         }
-      } else if (!loosePresser || hasIt) {
+      } else if ((!loosePresser || hasIt) && !passGetMan) {
         GetOnTheBallCommands(commandQueue, rawInputDirection, rawInputVelocityFloat);
         // A loose-ball presser without the ball: nothing here, the press steers him below.
       }
@@ -808,7 +811,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // A keeper whose PES rush has won the race (KP_PRESS, pes-re-goalkeeper.md 10.3) goes for the ball.
     // ponytail: PES moves him with its keeper mover (action 0x3e, not decoded); GF's ball control stands in for it.
     const bool keeperRush = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK && keeperRushing;
-    if (!match->PesLoop() || CastPlayer()->HasPossession() || keeperRush)
+    if ((!match->PesLoop() || CastPlayer()->HasPossession() || keeperRush) && !passGetMan)
       _BallControlCommand(commandQueue, false, false,
                           false);  // last param true == enable sticky run direction.
 
@@ -940,7 +943,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // PES's PASS_GET receiver runs ActionPassGet's approach (BallFollow): to
     // the ball path's nearest point, clamped onto the pitch. GF's magnet
     // approach is for everyone else.
-    if (team->PassGetReceiver() == player && !hasPossession)
+    if (team->PassGetReceiver() == player && (passGetMan || !hasPossession))
       _PassGetApproach(commandQueue);
     else
       _MovementCommand(commandQueue, forceMagnet, extraHaste, pressTarget);
