@@ -66,3 +66,39 @@ At `current >= end` it clears state/counters/accumulator/flag, calls vtable `+0x
 adjuster's whole run is bounded by its frame window, and the state field is set to 2 by the
 clip/anime side — **who sets it to 2 is the remaining open item** for the height adjuster
 (strike and yaw are seen at 2 live; height never was).
+
+## The three adjusters and the B block, read out of a real in-play capture (17-11, static)
+
+`live2/pid3778393/seq1128`, unpacked with `capz.py unpack` (packed again after) and read from
+`mem.bin`, which is concatenated in `index.json` mapping order, not VA-indexed (its size equals the
+sum of the mapping sizes). `P` = `rcx` at the hook = the anime object.
+
+|adjuster|struct at|vtable|state `+0x8`|`+0xc` / `+0xe`|vtable `+0x10` reset / `+0x18` step / `+0x20` finish|
+|---|---|---|---|---|---|
+|strike|`P+0x428`|`0x142b678f0`|2 (running)|6 / 0|`0x141eb1a20` / `0x141eb1bf0` / `0x141794410`|
+|height|`P+0x498`|`0x142b67920`|0 (never armed)|0 / 0|`0x141eb1a40` / `0x141eb2450` / `0x141794410`|
+|yaw|`P+0x4D0`|`0x142b67950`|2 (running)|5 / 0|`0x141eb1a10` / `0x141eb1a50` / `0x141794410`|
+
+The vtables are installed by the anime-object constructor `FUN_141eb42b0`, which leaves every
+adjuster's state at 0; the stop/reset routines `FUN_141eb33e0` and `FUN_141eb3440` set the state
+back to 0. No arming site turned up in `FUN_141eb4650`, `FUN_141eb3bd0`, `FUN_141af52b0` or
+`FUN_1406f14e0`, so the open item stands, narrowed to: who stores 2 into `+0x8` of these three.
+
+**Height is never armed, not armed late:** its state, counters and accumulator are all zero in this
+capture, so the missing height branch is an arming decision upstream, not a timing difference.
+
+`FUN_1406EEDF0`'s writes into the chain's B block, checked against the same capture
+(`A = [P+0xA08] = 0x2ca7cb90`, `B = [A+0xF0] = 0x2f33d310`):
+
+|B field|observed|source|
+|---|---|---|
+|`+0x80` any-active|1|set by any active adjuster|
+|`+0x81` strike-active|1|`FUN_141eb3320(P+0x428)`|
+|`+0x82` yaw-active|1|`FUN_141eb3320(P+0x4D0)`|
+|`+0x90`, `+0x98`|−15.5029, −15.7650|the strike accumulators `P+0x43C`, `P+0x444` (they match exactly)|
+|`+0xA4`, `+0xAC`|0.9758, −0.2185|the yaw trig polynomial on `P+0x4F0` = 3.5822|
+|`+0xB4` height value|0|height inactive, so the `+0xB0`/`+0xB4` branch|
+|`P+0x41C` p2|0.018519 = 1/54|confirms the per-tick dt|
+
+These are the values the one-chain cut has to reproduce from the adjuster state: a checked
+expectation for `FUN_1406EEDF0` without replay.
