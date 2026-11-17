@@ -27,15 +27,15 @@ The wrapper S is 0x18 bytes at model+0x940, and the same handle is also stored a
 |constructor|`FUN_141EBC1C0`|stores `S+0x14 = 0x100`|
 |gate writer (wrapper)|`FUN_141EBC4D0`|one caller, `0x1406F1147`. `cmp edx,0x100` at `0x141EBC4F0`; the `>=` path stores `0x100` at `0x141EBC4F8`; the `<` path stores the index (`edi`) at `0x141EBC54D`|
 |handle installer|`FUN_1406F0350`|`mov [rcx+0x3AE8], rdx; ret`. Callers `0x1408BE832` (in FUN_1408BE740) and `0x1408BEFFF` (in FUN_1408BED84): rcx = `[model+0x7D8]` = P, rdx = `[model+0x940]` = S|
-|handle reader|function at `0x1406F10E6` (no prologue; key in `ebp`)|`cmp [rsi+0x3AE8],0` at `0x1406F111D`; index call `FUN_1406B4E70` at `0x1406F1131` with edx = key; `mov rcx,[rsi+0x3AE8]` at `0x1406F1136`; wrapper call at `0x1406F1147` with edx = index|
-|index|`FUN_1406B4E70`|`cmp edx,0x1125; jae` → returns 0x100. Else reads the word at `table[key*4]` and returns it `& 0x1FF`; a null table returns 0x100. The table comes from holder `FUN_1406B4EA0`, not decoded further|
+|handle reader|the key function `FUN_1406F0F70`'s separate `.pdata` chunk `0x1406F10E6–0x1406F1182` (key in `ebp`; 157 E8 callers)|`cmp [rsi+0x3AE8],0` at `0x1406F111D`; index call `FUN_1406B4E70` at `0x1406F1131` with edx = key; `mov rcx,[rsi+0x3AE8]` at `0x1406F1136`; wrapper call at `0x1406F1147` with edx = index|
+|index|`FUN_1406B4E70`|`cmp edx,0x1125; jae` → returns 0x100. Else reads the word at `table[key*4]` and returns it `& 0x1FF`; a null table returns 0x100. The table is `FUN_1406B4D40`'s 0x1125-word copy of the stock `Eyestarget.bin`, held by `FUN_1406B4EA0` (see `docs/re/pes-re-chainx-select.md`)|
 |gate|`FUN_141EBC820`|`cmp [rbx+0x14],0x100` at `0x141EBC83A` (returns at >= 0x100). Per-tick call at `0x1408BFD49` in FUN_1408BFCF0|
 |query|`FUN_141EBC300`|`cmp [rdi+0x14],0x100` at `0x141EBC34A`; one caller, `0x1408BEBDD`|
 |release|`FUN_141EBC2A0`|frees X, `S+0x0 = 0`|
 
-Reading: 0x100 is the sentinel the index returns for a key ≥ 0x1125, a null table or an entry whose low 9 bits are ≥ 0x100, and the wrapper stores it for any index ≥ 0x100. An index below 0x100 reaches the wrapper's `<` path. The gate runs the chain only when the singleton flag is set, X is non-null and `S+0x14 <= 0xFF`. All 19 captures show 256, which means "no chain selected" in those ticks (INF). Whether a live request ever selects an entry below 256 is open. Not verified here: the holder table layout behind `FUN_1406B4EA0`, and the wrapper's `<` path callees (`FUN_141AFE750`, `FUN_141AFF770`, reported by the ChainXIndex agent).
+Reading: 0x100 is the sentinel the index returns for a key ≥ 0x1125, a null table or an entry whose low 9 bits are ≥ 0x100, and the wrapper stores it for any index ≥ 0x100. An index below 0x100 reaches the wrapper's `<` path (`FUN_141AFE750`, `FUN_141AFF770`, both verified by ChainXSelect). The gate runs the chain only when the singleton flag is set, X is non-null and `S+0x14 <= 0xFF`. All 19 captures show 256, which means "no chain selected" in those ticks. 234 motion keys select an entry; whether a live request ever does is open.
 
-Cheapest settling capture, when the rig is back: a hook at `0x141EBC4D0` logging S, `*S`, the index and `S+0x14` before and after. One hit with an index below 256 settles it.
+Settling capture: the wrapper entry `0x141EBC4D0` is not hookable (RIP-relative operand inside the window), so hook `FUN_141AFE750`'s entry with the predicate "return address = `0x141EBC52F`" (its call from the wrapper's `<` path). One hit settles it, and the snapshot carries P, S, the index and the key (`rbp`).
 
 ## Retracted claims (17-11)
 - "Chain X is born closed / dead for player models": wrong. A second handle (P+0x3AE8) reaches the gate writer, so 256 is a "no selection" value, not a lock.
