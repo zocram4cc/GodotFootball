@@ -1107,45 +1107,6 @@
    "bounded": true,
    "capped": 0,
    "cases": 0,
-   "closure_file": "closure_demoinfo.json",
-   "coverage": {
-    "0x1406EB250": {
-     "reached": 23,
-     "total": 28,
-     "fraction": 0.8214
-    }
-   },
-   "dead_blocks": {},
-   "diffed": true,
-   "failed": 0,
-   "failure_class": null,
-   "icount_max": 0,
-   "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3: 0 REAL captured call(s) and 3 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC states: the capture tipush_140792E10 seq29621 and seq29642 (same process) memory, called as FUN_1406EB250 with rcx = the taker's P, P+0x3AC8 cleared (the writer's output slot) and the registry's registration counter at 5 (the capture holds 6 after its own call) or 0; PES's bytes run to the return. A live hook on the writer crashes PES at load, so no real call exists.",
-   "proof": "snapdiff",
-   "requested": 0,
-   "snapdiff": {
-    "calls": 3,
-    "mismatches": 0,
-    "own_block": {
-     "reached": 23,
-     "total": 28,
-     "fraction": 0.8214
-    },
-    "replayed": 3,
-    "source": "tools/dev/translate/results_trapaction.json"
-   },
-   "stubs": [],
-   "translated": true,
-   "va": "0x1406EB250",
-   "synthetic": true,
-   "synthetic_cases": 3
-  },
-  {
-   "aborted": 0,
-   "bounded": true,
-   "capped": 0,
-   "cases": 0,
    "closure_file": "closure_animeupd.json",
    "coverage": {
     "0x141EB4650": {
@@ -1177,6 +1138,160 @@
    "stubs": [],
    "translated": true,
    "va": "0x141EB4650",
+   "synthetic": true,
+   "synthetic_cases": 4
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_registry.json",
+   "coverage": {
+    "0x141B55E70": {
+     "reached": 13,
+     "total": 16,
+     "fraction": 0.8125
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1: 0 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL call: live2/pid3319119 seq001, the engine init's FUN_141B50400 -> FUN_141B55E70 (rcx = the 0x58-byte config FUN_140401420 builds), the call that creates the registry singleton DAT_1437F0AC8. The replay runs the ntdll lock imports as models (import_stubs.json: RtlInitializeSRWLock, RtlAcquireSRWLockExclusive, RtlReleaseSRWLockExclusive; bytes read from the prefix's ntdll).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 13,
+     "total": 16,
+     "fraction": 0.8125
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141B55E70"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_allocinit.json",
+   "coverage": {
+    "0x140215210": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 0 REAL captured call(s) and 2 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC states over the registry_create_141B55E70 capture (live2/pid3319119 seq001): the call as FUN_140215210 (a C++ static initializer: PES runs it at process start, before any hook), the 0x32-record table at 0x1437F0100 and the cell DAT_1437F0420 cleared, or filled with other values; PES's bytes run to the return.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140215210",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_objinit.json",
+   "coverage": {
+    "0x140440FC0": {
+     "reached": 9,
+     "total": 14,
+     "fraction": 0.6429
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 0 REAL captured call(s) and 2 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC states over the throw-in capture (snap29621): the call as FUN_140440FC0 (the DemoInfo name registry's object factory, called through the function pointer FUN_140451C10 stores; no argument), the registration counter at 5 or 9; PES's bytes run to the return. It allocates a 0x20 object and a 0x174 block and constructs the block with FUN_143EF92D0 (loop count and value decoded by XOR from two cells of the image's protected-value area).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 9,
+     "total": 14,
+     "fraction": 0.6429
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140440FC0",
+   "synthetic": true,
+   "synthetic_cases": 2
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_demoinfo.json",
+   "coverage": {
+    "0x1406EB250": {
+     "reached": 25,
+     "total": 28,
+     "fraction": 0.8929
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 0 REAL captured call(s) and 4 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC states: the capture tipush_140792E10 seq29621 and seq29642 (same process) memory, called as FUN_1406EB250 with rcx = the taker's P, P+0x3AC8 cleared (the writer's output slot), the registry's registration counter at 5 or 9, and the slot byte P+0x2458 at its captured 19 (the man's name is already registered: lookup arm) or 25 / 40 (a name no man holds: the insert arm, the object factory FUN_140440FC0); PES's bytes run to the return. A live hook on the writer crashes PES at load, so no real call exists.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 25,
+     "total": 28,
+     "fraction": 0.8929
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406EB250",
    "synthetic": true,
    "synthetic_cases": 4
   }

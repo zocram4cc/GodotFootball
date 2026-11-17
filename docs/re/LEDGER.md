@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 531df122207a2473 -->
+<!-- LEDGER-STAMP 25fac0e2e117b8ab -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,7 +13,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 21806 | 19481 | 41287 |
+| total | 21809 | 19481 | 41290 |
 | ported | 421 | 0 | 421 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
@@ -21,7 +21,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 | decoded | 1275 | 0 | 1275 |
 | leaf accessor | 2122 | 0 | 2122 |
 | engine | 1242 | 0 | 1242 |
-| undecoded | 16426 | 0 | 16426 |
+| undecoded | 16429 | 0 | 16429 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 19481 | 19481 |
 
@@ -158,6 +158,7 @@ Rows per subsystem and status:
 | in-match menu | 3777 | 9 | 4 | 0 | 3 | 26 | 398 | 60 | 3276 | 1 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
 | aiconcepts | 11 | 0 | 0 | 0 | 0 | 3 | 3 | 0 | 5 | 0 |
+| allocinit | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | animelayer | 7 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 5 | 0 |
 | animelayer10a | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | animelayer10b | 7 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 6 | 0 |
@@ -187,7 +188,9 @@ Rows per subsystem and status:
 | endclear | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 2 | 0 |
 | gkdribble | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | motion | 2 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 |
+| objinit | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
+| registry | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | rootmotion | 4 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 3 | 0 |
 | throwin140792 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | trapact4 | 20 | 2 | 0 | 0 | 0 | 6 | 4 | 0 | 8 | 0 |
@@ -199,7 +202,7 @@ Rows per subsystem and status:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | trapkind | 13 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 12 | 0 |
 | trapscan | 91 | 4 | 0 | 0 | 0 | 34 | 7 | 0 | 46 | 0 |
-| total | 21806 | 421 | 154 | 63 | 102 | 1275 | 2122 | 1242 | 16426 | 1 |
+| total | 21809 | 421 | 154 | 63 | 102 | 1275 | 2122 | 1242 | 16429 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -221,6 +224,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | in-match menu | 3777 | 973 | 16 | 10 | 131 | 3646 | 0 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 289 |
 | aiconcepts | 11 | 4 | 0 | 0 | 0 | 0 | 0 |
+| allocinit | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | animelayer | 7 | 2 | 0 | 0 | 0 | 0 | 0 |
 | animelayer10a | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | animelayer10b | 7 | 1 | 0 | 0 | 0 | 0 | 0 |
@@ -250,7 +254,9 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | endclear | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | gkdribble | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | motion | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
+| objinit | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
+| registry | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | rootmotion | 4 | 1 | 0 | 0 | 0 | 0 | 0 |
 | throwin140792 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapact4 | 20 | 6 | 2 | 0 | 0 | 0 | 0 |
@@ -262,7 +268,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapkind | 13 | 5 | 0 | 0 | 0 | 0 | 0 |
 | trapscan | 91 | 15 | 4 | 2 | 0 | 0 | 0 |
-| total | 21806 | 6165 | 677 | 384 | 9941 | 8139 | 289 |
+| total | 21809 | 6165 | 677 | 384 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -2214,7 +2220,7 @@ Not found (owner's list):
 | 0x1403FAFA0 | FUN_1403fafa0 | undecoded | - | - | - | 3 | 11 | y | doc | 14118BE40>14116E670>1403FAFA0 |
 | 0x1403FB0F0 | FUN_1403fb0f0 | leaf accessor | - | - | - | 2 | 5 | y | doc | 14116E670>1411CB6F0>1403FB0F0 |
 | 0x1403FB210 | FUN_1403fb210 | undecoded | - | - | - | 11 | 14 | - | doc | 14116E670>1411CB6F0>1403FB210 |
-| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1706 | 62 | - | doc | 140418940>1403FB410 |
+| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1708 | 62 | - | doc | 140418940>1403FB410 |
 | 0x1403FB860 | FUN_1403fb860 | undecoded | - | - | - | 2 | 21 | - | doc | 140418940>1403FB410>1403FB860 |
 | 0x140401120 | FUN_140401120 | undecoded | - | - | - | 2 | 16 | - | doc | 140418940>141B501C0>140401120 |
 | 0x1404063C0 | FUN_1404063c0 | undecoded | - | - | - | 2 | 24 | y | doc | 14158EB80>140406B80>1404063C0 |
@@ -7177,7 +7183,7 @@ Not found (owner's list):
 | 0x14143C670 | FUN_14143c670 | leaf accessor | - | - | - | 7 | 10 | y | doc | 1405069A0>140504D20>14143C670 |
 | 0x1414C1E20 | FUN_1414c1e20 | leaf accessor | - | - | - | 3 | 2 | y | doc | 1405069A0>140504990>1414C1E20 |
 | 0x14159EF7C | ?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z | engine | - | - | - | 1 | 15 | - | doc | 140AC4900>140AC4BA0>14159EF7C |
-| 0x14159EFF8 | ??_L@YAXPEAX_K1P6AX0@Z2@Z | engine | - | - | - | 110 | 35 | - | doc | 14051E970>14159EFF8 |
+| 0x14159EFF8 | ??_L@YAXPEAX_K1P6AX0@Z2@Z | engine | - | - | - | 111 | 35 | - | doc | 14051E970>14159EFF8 |
 | 0x14159F3E0 | __security_check_cookie | engine | - | - | - | 3835 | 8 | - | doc | 1404F6C30>14159F3E0 |
 | 0x14159FA0C | ??_M@YAXPEAX_K1P6AX0@Z@Z | engine | - | - | - | 198 | 36 | - | doc | 14051E970>14159FA0C |
 | 0x14159FB70 | _alloca_probe | engine | - | - | - | 44 | 19 | - | doc | 140500B90>14159FB70 |
@@ -9700,7 +9706,7 @@ Not found (owner's list):
 | 0x1419F8570 | FUN_1419f8570 | engine | - | - | - | 1 | 31 | - | rtti | 1419F8400>1419F8170>1419F8570 |
 | 0x141A465A0 | FUN_141a465a0 | undecoded | - | - | - | 2 | 34 | - | rtti | 14217C9B0>141EBE280>141A465A0 |
 | 0x141AEBE90 | FUN_141aebe90 | undecoded | - | - | - | 1 | 9 | - | rtti | 1420B83B0>142174140>141AEBE90 |
-| 0x141B37CC0 | FUN_141b37cc0 | undecoded | - | - | - | 8 | 5 | - | rtti | 141B39B40>141B3A760>141B37CC0 |
+| 0x141B37CC0 | FUN_141b37cc0 | undecoded | - | - | - | 9 | 5 | - | rtti | 141B39B40>141B3A760>141B37CC0 |
 | 0x141B37CF0 | FUN_141b37cf0 | engine | - | - | - | 2 | 25 | - | rtti | 141B3A760>141B37CC0>141B37CF0 |
 | 0x141B37D50 | FUN_141b37d50 | undecoded | - | - | - | 2 | 13 | - | rtti | 141B3ADB0>141B3AC10>141B37D50 |
 | 0x141B38A50 | FUN_141b38a50 | undecoded | - | - | - | 1 | 36 | - | rtti | 1419BA560>1419BA4B0>141B38A50 |
@@ -10942,7 +10948,7 @@ Not found (owner's list):
 | 0x1400EEF90 | FUN_1400eef90 | undecoded | - | - | - | 4 | 19 | y | doc | 1400BEA80>14002EB90>1400EEF90 |
 | 0x140108D70 | FUN_140108d70 | undecoded | - | - | - | 3 | 57 | - | doc | 1400BEA80>1400341F0>140108D70 |
 | 0x1403FB4F0 | FUN_1403fb4f0 | undecoded | - | - | - | 1 | 60 | - | doc | 1420F0EB0>1403FB5B0>1403FB4F0 |
-| 0x1403FB5B0 | FUN_1403fb5b0 | decoded | OBS | pes-re-gaps-anime.md | - | 4002 | 13 | - | doc | 1420F0EB0>1403FB5B0 |
+| 0x1403FB5B0 | FUN_1403fb5b0 | decoded | OBS | pes-re-gaps-anime.md | - | 4003 | 13 | - | doc | 1420F0EB0>1403FB5B0 |
 | 0x140400F50 | FUN_140400f50 | undecoded | - | - | - | 81 | 22 | - | doc | 1420F2F80>140400F50 |
 | 0x140402240 | FUN_140402240 | undecoded | - | - | - | 638 | 85 | - | doc | 1420F1750>140402240 |
 | 0x140402370 | FUN_140402370 | undecoded | - | - | - | 782 | 94 | - | doc | 1420F0EB0>140402370 |
@@ -18997,6 +19003,12 @@ Not found (owner's list):
 | 0x141B52340 | FUN_141b52340 | undecoded | - | - | - | 0 | 17 | - | closure |  |
 | 0x142132000 | FUN_142132000 | leaf accessor | - | - | - | 0 | 11 | y | closure |  |
 
+## allocinit (1)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x140215210 | FUN_140215210 | undecoded | - | - | - | 0 | 24 | - | closure |  |
+
 ## animelayer (7)
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
@@ -22106,6 +22118,12 @@ Not found (owner's list):
 | 0x1406EA810 | FUN_1406ea810 | leaf accessor | CONFIRMED | pes-re-a3helpers.md | - | 0 | 2 | y | closure |  |
 | 0x1406EAAF0 | FUN_1406eaaf0 | leaf accessor | OBS | pes-re-gaps-anime.md | - | 0 | 2 | y | closure |  |
 
+## objinit (1)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x140440FC0 | FUN_140440fc0 | undecoded | - | - | - | 0 | 50 | - | closure |  |
+
 ## proccam (8)
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
@@ -22118,6 +22136,12 @@ Not found (owner's list):
 | 0x141B34C30 | FUN_141b34c30 | undecoded | - | - | - | 0 | 11 | y | closure |  |
 | 0x141B3D6E0 | FUN_141b3d6e0 | undecoded | - | - | - | 0 | 1 | - | closure |  |
 | 0x141B3DE00 | FUN_141b3de00 | undecoded | - | - | - | 1 | 108 | - | closure |  |
+
+## registry (1)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x141B55E70 | FUN_141b55e70 | undecoded | - | - | - | 0 | 55 | - | closure |  |
 
 ## rootmotion (4)
 

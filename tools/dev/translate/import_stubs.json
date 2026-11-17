@@ -280,6 +280,36 @@
       ]
     },
     {
+      "module": "ntdll.dll",
+      "export": "RtlInitializeSRWLock",
+      "do": "srw_init",
+      "code_hex": "48 c7 01 00 00 00 00 c3 cc",
+      "why": [
+        "Wine ntdll RtlInitializeSRWLock (file offset 0x2f1d0, read from the prefix's ntdll.dll): `mov qword ptr [rcx], 0; ret`, the lock's pointer word cleared; rax is not written (the function is void).",
+        "Called from the registry creator's closure (FUN_141B55E70, real call live2/pid3319119 seq001): a lock member initialised in a freshly allocated object."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlAcquireSRWLockExclusive",
+      "do": "srw_acquire_exclusive",
+      "code_hex": "56 53 48 83 ec 38 48 89 cb 66 f0 83 01 02 66 0f 1f 44 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 8b 13 89 d0 89 54 24 2c c1 e8 10 75 33 b8 01 00 00 00 66 89 44 24 2e 0f b7 44 24 2c 83 e8 02 83 c8 01 66 89 44 24 2c 8b 4c 24 2c 89 d0 f0 0f b1 0b 75 cd 48 83 c4 38 5b 5e c3 cc cc cc cc cc cc cc",
+      "why": [
+        "Wine ntdll RtlAcquireSRWLockExclusive (file offset 0x1d540, read from the prefix's ntdll.dll): the machine code of the uncontended path, byte for byte (0x00..0x79): `lock add word [rcx], 2` (one waiter-count unit), then the loop reads the dword, and when its shared count (high word) is zero stores ((low word - 2) | 1) with the high word 1 (the exclusive bit, one holder) by lock cmpxchg; it returns with eax = edx = the dword it read, ecx = the dword it stored, rsi and rbx restored. The contended path (a nonzero shared count: 0x80, ending in the RtlWaitOnAddress call) is int3 here, excluded, never replayed wrong.",
+        "Model assumption: single-threaded replay, so the cmpxchg always succeeds. The function's stack locals ([rsp+0x2c], [rsp+0x2e] below the return slot) and the two pushes are written as the code writes them."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlReleaseSRWLockExclusive",
+      "do": "srw_release_exclusive",
+      "code_hex": "56 53 48 83 ec 38 48 89 ce eb 27 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 0f b7 d3 89 d8 66 89 da 66 83 e2 fe f0 0f b1 16 74 3e 8b 1e f6 c3 01 75 e7 cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc 66 f7 c3 fe ff 74 19 cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc 48 89 f1 48 83 c4 38 5b 5e c3 cc",
+      "why": [
+        "Wine ntdll RtlReleaseSRWLockExclusive (file offset 0x385c0, read from the prefix's ntdll.dll): the machine code of the release with no waiters, byte for byte: the dword is read, the exclusive bit (bit 0) must be set (else the path at 0x39, the RtlWaitOnAddress call, is int3 here), the low word is stored with bit 0 cleared and the high word zero by lock cmpxchg, and when no other bit of the low word is set (no waiters: `test bx, 0xfffe`) the real function tail-jumps to the wake routine at +0x6b00 (a scan of ntdll's wait-address hash table, empty when nobody waits) with rcx = the lock.",
+        "Model assumption: single-threaded replay and no waiter on any address, so that wake routine finds nothing and returns: here it is a `ret` after `mov rcx, rsi` and the frame's pops. The registers and the dead stack the wake routine would leave (rax, rdx, r8-r11 and its own pushes below the return slot) are not modelled; PES's callers of this void function read none of them. The waiter path (other bits of the low word set: the tail jump to +0x6cc0) is int3."
+      ]
+    },
+    {
       "module": "kernelbase.dll",
       "export": "FlsGetValue",
       "do": "fls_get",

@@ -66472,6 +66472,31 @@
    "vtables": [],
    "walked": true
   },
+  "140215210": {
+   "boundary": null,
+   "callees": {
+    "14159EFF8": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140215210",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "allocinit"
+   ],
+   "scope": "in",
+   "size": 24,
+   "source": "pdata",
+   "subsystem": "allocinit",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1402152D0": {
    "boundary": null,
    "callees": {
@@ -159021,6 +159046,33 @@
    "source": "bridge",
    "subsystem": "restart",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "140440FC0": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "140441320": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140440fc0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "objinit"
+   ],
+   "scope": "in",
+   "size": 50,
+   "source": "pdata",
+   "subsystem": "objinit",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -919266,6 +919318,40 @@
    "vtables": [],
    "walked": true
   },
+  "141B55E70": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "141B37CC0": "direct",
+    "141B49C80": "direct",
+    "141B56170": "direct",
+    "141B6DAA0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141B55F21",
+     "text": "call qword ptr [rax + 0x18]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141b55e70",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "registry"
+   ],
+   "scope": "in",
+   "size": 55,
+   "source": "pdata",
+   "subsystem": "registry",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141B55F40": {
    "boundary": null,
    "callees": {},
@@ -1387059,6 +1387145,12 @@
      "0x1404F8C70"
     ]
    },
+   "allocinit": {
+    "members": 1,
+    "roots": [
+     "0x140215210"
+    ]
+   },
    "animecrt": {
     "members": 1,
     "roots": [
@@ -1414656,10 +1414748,22 @@
      "0x1406B1F00"
     ]
    },
+   "objinit": {
+    "members": 1,
+    "roots": [
+     "0x140440FC0"
+    ]
+   },
    "proccam": {
     "members": 272,
     "roots": [
      "0x141F7BFE0"
+    ]
+   },
+   "registry": {
+    "members": 1,
+    "roots": [
+     "0x141B55E70"
     ]
    },
    "rootmotion": {

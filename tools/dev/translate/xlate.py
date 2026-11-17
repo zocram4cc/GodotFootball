@@ -611,6 +611,33 @@ def import_model_lines(op, jump):
                 " if ((_v & 0xFFFFu) != 0) __builtin_trap();"
                 " uint32_t _n = _v + 0x10000u; s.wr(s.gpr[1], (uint64_t)_n, 4);"
                 " s.gpr[0] = _v; s.gpr[2] = _v; s.gpr[1] = _n;%s }" % pop_ret]
+    if e["do"] == "srw_init":
+        # RtlInitializeSRWLock(rcx=lock): the lock's pointer word is cleared (`mov qword ptr [rcx], 0; ret`); no register changes.
+        return ["{ " + push_ret + " s.wr(s.gpr[1], 0ULL, 8);%s }" % pop_ret]
+    if e["do"] == "srw_acquire_exclusive":
+        # RtlAcquireSRWLockExclusive(rcx=lock), the code_hex model register for register and byte for byte: rsi and rbx pushed below the
+        # return slot R (restored by the pops), the frame is 0x38 bytes (locals at R-0x48+0x2c: the dword, its high word 1, its low word
+        # (low - 2) | 1); `lock add word [lock], 2`; a nonzero shared count (high word) is the int3 path (a trap here); the dword stored is
+        # the locals' dword; rax = rdx = the dword read, rcx = the dword stored.
+        return ["{ " + push_ret + " const uint64_t _R = s.gpr[4], _l = s.gpr[1];"
+                " s.wr(_R - 8, s.gpr[6], 8); s.wr(_R - 16, s.gpr[3], 8);"
+                " s.wr(_l, (uint64_t)(uint16_t)((uint16_t)s.rd(_l, 2) + 2u), 2);"
+                " const uint32_t _v = (uint32_t)s.rd(_l, 4); const uint64_t _t = _R - 0x48 + 0x2c;"
+                " s.wr(_t, (uint64_t)_v, 4);"
+                " if ((_v >> 16) != 0) __builtin_trap();"
+                " s.wr(_t + 2, 1ULL, 2); s.wr(_t, (uint64_t)(uint16_t)(((uint32_t)(uint16_t)_v - 2u) | 1u), 2);"
+                " const uint32_t _n = (uint32_t)s.rd(_t, 4); s.wr(_l, (uint64_t)_n, 4);"
+                " s.gpr[0] = _v; s.gpr[2] = _v; s.gpr[1] = _n;%s }" % pop_ret]
+    if e["do"] == "srw_release_exclusive":
+        # RtlReleaseSRWLockExclusive(rcx=lock), the code_hex model: rsi and rbx pushed below the return slot (restored); the dword read must
+        # have bit 0 set and no other bit of its low word set (else int3: a trap here); the dword stored is the low word with bit 0 clear
+        # and the high word zero; rax = the dword read, rdx = the dword stored, rcx = the lock; the wake routine is a plain return.
+        return ["{ " + push_ret + " const uint64_t _R = s.gpr[4], _l = s.gpr[1];"
+                " s.wr(_R - 8, s.gpr[6], 8); s.wr(_R - 16, s.gpr[3], 8);"
+                " const uint32_t _b = (uint32_t)s.rd(_l, 4);"
+                " if ((_b & 1u) == 0 || (_b & 0xFFFEu) != 0) __builtin_trap();"
+                " const uint32_t _e = _b & 0xFFFEu; s.wr(_l, (uint64_t)_e, 4);"
+                " s.gpr[0] = _b; s.gpr[2] = _e;%s }" % pop_ret]
     if e["do"] == "srw_release_shared":
         # RtlReleaseSRWLockShared(rcx=lock): fast path only; [lock] -= 0x10000 when bit 0 is clear and the shared count
         # is nonzero; rax = old; rdx = count - 1; r8 = new; rcx unchanged. Any other case is int3 in the harness: a trap.

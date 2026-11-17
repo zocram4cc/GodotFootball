@@ -23,4 +23,16 @@ void RestoreInitialData(PesMemory& memory, const std::string& installRoot);
 // ResetStaticInitState: every thread-safe static's guard is 0 and the global epoch is INT_MIN, as at process start.
 void ResetStaticInitState(PesMemory& memory);
 
+// The registry singleton DAT_1437F0AC8 (the object PES's string-assign FUN_141B55730 dispatches through: the DemoInfoRef writer's player names, and
+// FUN_141B55F40's other readers). PES creates it in the engine init FUN_140401420 -> FUN_141B50400 -> FUN_141B55E70(config); that init also
+// calls two protection thunks (thunk_EXT_FUN_15b23bce0, thunk_EXT_FUN_15b532330) and is not run. The creator is run (translated, proven on the
+// real call live2/pid3319119 seq001) on a config built by meaning from the init's stores; returns the config block's VA.
+// ponytail: the config is rebuilt from FUN_140401420's stores, not captured. Its two machine queries are fixed: the thread count (FUN_141B348C0
+// (2, 0), clamped to 4: 4 on the capture) and the option flag (FUN_141B34850(0x14258ED10, 0): 0 on the capture, so flags bit 2 stays clear).
+// Removed by running those two queries.
+inline constexpr uint64_t kRegistryCellVa = 0x1437F0AC8;
+inline constexpr uint64_t kRegistryConfigBytes = 0x88;   // FUN_140401420's local block (rsp+0x40 .. rsp+0xC8)
+inline constexpr uint64_t kRegistryConfigCopyFrom = 0x28, kRegistryConfigCopyTo = 0x80;  // the creator's FUN_141B56170 copies these bytes to registry+0x50
+uint64_t CreateRegistry(PesMemory& memory);
+
 }  // namespace pes

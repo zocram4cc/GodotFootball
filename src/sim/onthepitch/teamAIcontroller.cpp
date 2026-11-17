@@ -3634,9 +3634,10 @@ void WritePesTrapActors(Match& match) {
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
       // ponytail: PES's actor setup builds the man's DemoInfoRef once (FUN_1406EB670 -> FUN_1406EB250, after the slot byte WriteActorP stored):
-      // PesWorld::BuildDemoInfoRef runs the proven writer, but the match memory has no name registry yet (the singleton DAT_1437F0AC8 is created
-      // by FUN_141B55E70, called from the engine init FUN_140401420 -> FUN_141B50400, which the template's boot does not run), so the writer's
-      // name call dispatches through a null vtable. The call goes in here once the boot builds the registry; EveryManHasHisDemoInfoRef is the test.
+      // PesWorld::BuildDemoInfoRef runs the proven writer on the boot's registry (pes::CreateRegistry), and its first name registration on the
+      // fresh registry grows an empty vector (FUN_141B6F420 -> FUN_141B6EDE0, std::vector<0x38>::reserve -> FUN_141B6ED10), which no proof state
+      // reaches (the captured registry has room): the call dispatches to an untranslated target and aborts. The call goes in here once those two
+      // are translated and proven; EveryManHasHisDemoInfoRef is the test.
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
       // cell whose hash does not match (0x140A58550). The ring index's clock dword has no GF source: the match's clock stands in
       // (WriteSlotStamina's ponytail).
