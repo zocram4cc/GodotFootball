@@ -458,4 +458,24 @@ TEST_F(AnimeEngine, ASeriesTurnsMoreThanItsFirstMemberAlone) {
       << "the blend steers: the series turns more than its first member alone";
 }
 
+// PES's layer holds eleven plugins once the match load has created the anime singleton (live2/pid661338 seq002: the layer list at L1+0x30,
+// its count at L1+0x28). The layer setup builds the extra plugins only while the singleton is there; the part slots A+0x120..0x158 hold
+// the objects it builds, and the stage-1 plugin (vptr 0x142ABEA08) has the anime object A as its owner (plugin+0x1370).
+TEST_F(AnimeEngine, APlayersLayerHoldsTheElevenPluginsPesBuildsAtTheMatchLoad) {
+  const uint64_t p = NewPlayer();
+  world_->ConstructAnime(p, 0);
+  const uint64_t a = world_->Read64(p + kPlayerAnimeOffset);
+  const uint64_t l1 = world_->Read64(a + kAnimeLayerOffset);
+  EXPECT_EQ(world_->Read32(l1 + 0x28), 11u) << "the layer's plugin count";
+  EXPECT_NE(world_->Read64(a + 0x150), 0u) << "the part slot A+0x150 (the befc8 creator's gate) is populated";
+  EXPECT_NE(world_->Read64(a + 0x158), 0u) << "the part slot A+0x158 (the befc8 plugin) is populated";
+  const uint64_t list = world_->Read64(l1 + 0x30);
+  uint64_t owner = 0;
+  for (uint32_t i = 0; i < world_->Read32(l1 + 0x28); ++i) {
+    const uint64_t plugin = world_->Read64(list + 8 * i);
+    if (world_->Read64(plugin) == 0x142ABEA08ULL) owner = world_->Read64(plugin + 0x1370);
+  }
+  EXPECT_EQ(owner, a) << "the stage-1 plugin's owner is the anime object (PES: plugin+0x1370 = A)";
+}
+
 }  // namespace
