@@ -478,4 +478,12 @@ TEST_F(AnimeEngine, APlayersLayerHoldsTheElevenPluginsPesBuildsAtTheMatchLoad) {
   EXPECT_EQ(owner, a) << "the stage-1 plugin's owner is the anime object (PES: plugin+0x1370 = A)";
 }
 
+// PES holds the anime singleton from the match load on: *0x1437CEA40 is an object whose vtable is 0x142AB91C0 (live2/pid661338 seq002,
+// read-only). The layer setup reads the global before it builds a body's extra plugins.
+TEST_F(AnimeEngine, TheMatchLoadCreatesTheAnimeSingletonPesHolds) {
+  const uint64_t singleton = world_->Read64(0x1437CEA40ULL);
+  EXPECT_NE(singleton, 0u) << "the anime singleton is created at the match load";
+  if (singleton != 0) EXPECT_EQ(world_->Read64(singleton), 0x142AB91C0ULL) << "its vtable is PES's";
+}
+
 }  // namespace
