@@ -1101,6 +1101,84 @@
    "va": "0x141EB56D0",
    "synthetic": true,
    "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_demoinfo.json",
+   "coverage": {
+    "0x1406EB250": {
+     "reached": 23,
+     "total": 28,
+     "fraction": 0.8214
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3: 0 REAL captured call(s) and 3 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC states: the capture tipush_140792E10 seq29621 and seq29642 (same process) memory, called as FUN_1406EB250 with rcx = the taker's P, P+0x3AC8 cleared (the writer's output slot) and the registry's registration counter at 5 (the capture holds 6 after its own call) or 0; PES's bytes run to the return. A live hook on the writer crashes PES at load, so no real call exists.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 23,
+     "total": 28,
+     "fraction": 0.8214
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406EB250",
+   "synthetic": true,
+   "synthetic_cases": 3
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animeupd.json",
+   "coverage": {
+    "0x141EB4650": {
+     "reached": 31,
+     "total": 33,
+     "fraction": 0.9394
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 0 REAL captured call(s) and 4 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC states over the throw-in capture tipush_140792E10 seq29621 and seq29642 (same process; the memory is the taker's P after PES's own update of that tick: its control, table and adjuster): called as FUN_141EB4650(P, dl, vec) with dl 0 or 1 and the root adjuster's state/mode (P+0x430, P+0x495) at idle, running-mode 3 and running-mode 2; PES's bytes run to the return. The control's pose update FUN_141AEF890 is not entered (FUN_141AF4230 reads the table entry for the control's +0x60 slot as null in the capture: PES does not run it for this control), so it stays a loud abort outside the closure.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 31,
+     "total": 33,
+     "fraction": 0.9394
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB4650",
+   "synthetic": true,
+   "synthetic_cases": 4
   }
  ]
 }

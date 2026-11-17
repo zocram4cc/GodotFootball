@@ -89,6 +89,7 @@ void PesWorld::BindMemory(PesMemory& memory) {
   image_.get_deleter().owned = false;
   heap_.reset(&memory.Heap());
   heap_.get_deleter().owned = false;
+  memory_ = &memory;
 }
 
 PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
@@ -524,9 +525,38 @@ static std::size_t gBookkeepingSkips = 0;
 
 std::size_t PesWorld::BookkeepingSkips() { return gBookkeepingSkips; }
 
+void PesWorld::BuildDemoInfoRef(int slot) {
+  uint64_t object = 0;
+  std::memcpy(&object, P(slot) + kPBookkeepingObjectOffset, sizeof object);
+  if (object != 0) return;
+  if (memory_ == nullptr) throw std::runtime_error("PesWorld::BuildDemoInfoRef: the world is not bound to the match's PES memory");
+  memory_->Call(::pes_fn_1406EB250, {PVa(slot)});  // rcx: P
+}
+
+bool PesWorld::RunBookkeeping(int slot) {
+  constexpr uint32_t kBookkeepingFlag = 0x80;  // P+0x2460 |= 0x80 in the block
+  uint8_t* record = P(slot);
+  uint32_t flags = 0;
+  std::memcpy(&flags, record + kPBookkeepingFlagsOffset, sizeof flags);
+  flags |= kBookkeepingFlag;
+  std::memcpy(record + kPBookkeepingFlagsOffset, &flags, sizeof flags);
+  uint64_t object = 0;
+  std::memcpy(&object, record + kPBookkeepingObjectOffset, sizeof object);
+  if (object == 0) {
+    ++gBookkeepingSkips;
+    std::fprintf(stderr, "PesWorld: the bookkeeping block was reached with no DemoInfoRef at P+0x3AC8 (slot %d)\n", slot);
+    return false;
+  }
+  if (memory_ == nullptr) throw std::runtime_error("PesWorld::RunBookkeeping: the world is not bound to the match's PES memory");
+  // The DemoInfoRef's calls run on the match's PES memory (its heap and registry), like the writer.
+  const uint64_t info = memory_->Call(::pes_fn_1404511E0, {object});
+  if (memory_->Call(::pes_fn_140A605E0, {info}) & 0xFF) memory_->Call(::pes_fn_140A607D0, {info, 0});  // the setter takes dl = 0
+  memory_->Call(::pes_fn_140445750, {object});
+  return true;
+}
+
 bool PesWorld::PushGateOpen(int slot, PesTrapExternals& ext) {
   constexpr uint8_t kTakingState = 1;          // *pcVar9 == 1: the taking path
-  constexpr uint32_t kBookkeepingFlag = 0x80;  // P+0x2460 |= 0x80 in the block
   constexpr uint64_t kOneVa = 0x14256AE1C;     // DAT_14256AE1C (1.0): the scale both tests pass
   uint8_t* record = P(slot);
   if (record[kPTakingStateOffset] != kTakingState) return false;
@@ -542,18 +572,7 @@ bool PesWorld::PushGateOpen(int slot, PesTrapExternals& ext) {
   const int32_t threshold = asInt(CallPesFn(::pes_fn_1406B08A0, table, action, 0, one, ext));
   float thirdArg = 0.0f;
   std::memcpy(&thirdArg, record + kPBookkeepingArgOffset, sizeof thirdArg);
-  if (CallPesFn(::pes_fn_1406EC260, self, static_cast<uint32_t>(threshold), 0, thirdArg, ext) & 0xFF) {
-    uint32_t flags = 0;
-    std::memcpy(&flags, record + kPBookkeepingFlagsOffset, sizeof flags);
-    flags |= kBookkeepingFlag;
-    std::memcpy(record + kPBookkeepingFlagsOffset, &flags, sizeof flags);
-    uint64_t anime = 0;
-    std::memcpy(&anime, record + kPBookkeepingObjectOffset, sizeof anime);
-    if (anime == 0) {
-      ++gBookkeepingSkips;
-      std::fprintf(stderr, "AnimeLayer: FUN_1406EC260 bookkeeping block reached with no P+0x3AC8 object (slot %d)\n", slot);
-    }
-  }
+  if (CallPesFn(::pes_fn_1406EC260, self, static_cast<uint32_t>(threshold), 0, thirdArg, ext) & 0xFF) RunBookkeeping(slot);
   return throwInEntry() < threshold;  // test B
 }
 

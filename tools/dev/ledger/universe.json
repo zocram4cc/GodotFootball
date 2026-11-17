@@ -292928,6 +292928,53 @@
    "vtables": [],
    "walked": true
   },
+  "1406EB250": {
+   "boundary": null,
+   "callees": {
+    "1403CF8B0": "direct",
+    "1403FB410": "direct",
+    "140433870": "direct",
+    "140451C10": "direct",
+    "14159F3E0": "direct",
+    "141E53520": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1406EB2D6",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "1406EB2E2",
+     "text": "call qword ptr [rdx + 8]"
+    },
+    {
+     "site": "1406EB364",
+     "text": "call qword ptr [rax + 8]"
+    },
+    {
+     "site": "1406EB3F7",
+     "text": "call qword ptr [rax + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1406eb250",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "demoinfo"
+   ],
+   "scope": "in",
+   "size": 126,
+   "source": "pdata",
+   "subsystem": "demoinfo",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1406EB440": {
    "boundary": null,
    "callees": {
@@ -1170332,6 +1170379,52 @@
    "vtables": [],
    "walked": true
   },
+  "141EB4650": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A1720": "direct",
+    "141AF3070": "direct",
+    "141AF3100": "direct",
+    "141AF3330": "direct",
+    "141AF34B0": "direct",
+    "141AF3CA0": "direct",
+    "141AF4160": "direct",
+    "141AF4230": "direct",
+    "141AF7880": "direct",
+    "141E532D0": "direct",
+    "141EB3320": "direct",
+    "141EB3BD0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141EB46B4",
+     "text": "call qword ptr [rax + 0x20]"
+    },
+    {
+     "site": "141EB498C",
+     "text": "call qword ptr [rax + 0x10]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141eb4650",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "animeupd"
+   ],
+   "scope": "in",
+   "size": 183,
+   "source": "pdata",
+   "subsystem": "animeupd",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EB4F60": {
    "boundary": null,
    "callees": {
@@ -1414424,6 +1414517,12 @@
      "0x141ECA500"
     ]
    },
+   "animeupd": {
+    "members": 1,
+    "roots": [
+     "0x141EB4650"
+    ]
+   },
    "ankleshove": {
     "members": 5,
     "roots": [
@@ -1414476,6 +1414575,12 @@
     "roots": [
      "0x142119390",
      "0x140699960"
+    ]
+   },
+   "demoinfo": {
+    "members": 1,
+    "roots": [
+     "0x1406EB250"
     ]
    },
    "dribble": {
