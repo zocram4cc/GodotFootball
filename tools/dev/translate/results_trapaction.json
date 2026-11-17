@@ -1294,6 +1294,45 @@
    "va": "0x1406EB250",
    "synthetic": true,
    "synthetic_cases": 4
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_vecgrow.json",
+   "coverage": {
+    "0x141B6F420": {
+     "reached": 11,
+     "total": 11,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 0 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC states over the throw-in capture (snap29621): the call as FUN_141B6F420 (std::vector<0x38 bytes>::push_back, called on the DemoInfo name registry's vector), rcx = a vector object in the match window: empty (the fresh registry's first name: reserve(1) allocates), with room (plain copy), full with 10 elements in a REAL kind-2 block of the capture's own registry (reserve grows, FUN_141B6DD60 moves the elements, the old block is freed), and the element given as a pointer into the vector itself (the aliasing arm), full and with room; PES's bytes run to the return.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 11,
+     "total": 11,
+     "fraction": 1.0
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141B6F420",
+   "synthetic": true,
+   "synthetic_cases": 5
   }
  ]
 }

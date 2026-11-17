@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 25fac0e2e117b8ab -->
+<!-- LEDGER-STAMP 3fab42fc5274663e -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,7 +13,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 21809 | 19481 | 41290 |
+| total | 21812 | 19481 | 41293 |
 | ported | 421 | 0 | 421 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
@@ -21,7 +21,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 | decoded | 1275 | 0 | 1275 |
 | leaf accessor | 2122 | 0 | 2122 |
 | engine | 1242 | 0 | 1242 |
-| undecoded | 16429 | 0 | 16429 |
+| undecoded | 16432 | 0 | 16432 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 19481 | 19481 |
 
@@ -202,7 +202,8 @@ Rows per subsystem and status:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | trapkind | 13 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 12 | 0 |
 | trapscan | 91 | 4 | 0 | 0 | 0 | 34 | 7 | 0 | 46 | 0 |
-| total | 21809 | 421 | 154 | 63 | 102 | 1275 | 2122 | 1242 | 16429 | 1 |
+| vecgrow | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 |
+| total | 21812 | 421 | 154 | 63 | 102 | 1275 | 2122 | 1242 | 16432 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -268,7 +269,8 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapkind | 13 | 5 | 0 | 0 | 0 | 0 | 0 |
 | trapscan | 91 | 15 | 4 | 2 | 0 | 0 | 0 |
-| total | 21809 | 6165 | 677 | 384 | 9941 | 8139 | 289 |
+| vecgrow | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| total | 21812 | 6165 | 677 | 384 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -2220,7 +2222,7 @@ Not found (owner's list):
 | 0x1403FAFA0 | FUN_1403fafa0 | undecoded | - | - | - | 3 | 11 | y | doc | 14118BE40>14116E670>1403FAFA0 |
 | 0x1403FB0F0 | FUN_1403fb0f0 | leaf accessor | - | - | - | 2 | 5 | y | doc | 14116E670>1411CB6F0>1403FB0F0 |
 | 0x1403FB210 | FUN_1403fb210 | undecoded | - | - | - | 11 | 14 | - | doc | 14116E670>1411CB6F0>1403FB210 |
-| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1708 | 62 | - | doc | 140418940>1403FB410 |
+| 0x1403FB410 | FUN_1403fb410 | decoded | OBS | pes-re-face-rig.md | - | 1709 | 62 | - | doc | 140418940>1403FB410 |
 | 0x1403FB860 | FUN_1403fb860 | undecoded | - | - | - | 2 | 21 | - | doc | 140418940>1403FB410>1403FB860 |
 | 0x140401120 | FUN_140401120 | undecoded | - | - | - | 2 | 16 | - | doc | 140418940>141B501C0>140401120 |
 | 0x1404063C0 | FUN_1404063c0 | undecoded | - | - | - | 2 | 24 | y | doc | 14158EB80>140406B80>1404063C0 |
@@ -10948,7 +10950,7 @@ Not found (owner's list):
 | 0x1400EEF90 | FUN_1400eef90 | undecoded | - | - | - | 4 | 19 | y | doc | 1400BEA80>14002EB90>1400EEF90 |
 | 0x140108D70 | FUN_140108d70 | undecoded | - | - | - | 3 | 57 | - | doc | 1400BEA80>1400341F0>140108D70 |
 | 0x1403FB4F0 | FUN_1403fb4f0 | undecoded | - | - | - | 1 | 60 | - | doc | 1420F0EB0>1403FB5B0>1403FB4F0 |
-| 0x1403FB5B0 | FUN_1403fb5b0 | decoded | OBS | pes-re-gaps-anime.md | - | 4003 | 13 | - | doc | 1420F0EB0>1403FB5B0 |
+| 0x1403FB5B0 | FUN_1403fb5b0 | decoded | OBS | pes-re-gaps-anime.md | - | 4004 | 13 | - | doc | 1420F0EB0>1403FB5B0 |
 | 0x140400F50 | FUN_140400f50 | undecoded | - | - | - | 81 | 22 | - | doc | 1420F2F80>140400F50 |
 | 0x140402240 | FUN_140402240 | undecoded | - | - | - | 638 | 85 | - | doc | 1420F1750>140402240 |
 | 0x140402370 | FUN_140402370 | undecoded | - | - | - | 782 | 94 | - | doc | 1420F0EB0>140402370 |
@@ -22617,4 +22619,12 @@ Not found (owner's list):
 | 0x140A93130 | FUN_140a93130 | undecoded | - | - | - | 1 | 41 | - | closure |  |
 | 0x140A931F0 | FUN_140a931f0 | undecoded | - | - | - | 1 | 6 | - | closure |  |
 | 0x144032A40 | FUN_144032a40 | undecoded | - | - | - | 1 | 43 | - | closure |  |
+
+## vecgrow (3)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x141B6ED10 | FUN_141b6ed10 | undecoded | - | - | - | 1 | 53 | - | closure |  |
+| 0x141B6EDE0 | FUN_141b6ede0 | undecoded | - | - | - | 1 | 57 | - | closure |  |
+| 0x141B6F420 | FUN_141b6f420 | undecoded | - | - | - | 0 | 63 | - | closure |  |
 

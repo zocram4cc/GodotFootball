@@ -919695,6 +919695,63 @@
    "vtables": [],
    "walked": true
   },
+  "141B6ED10": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "141B6DD60": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b6ed10",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "vecgrow"
+   ],
+   "scope": "in",
+   "size": 53,
+   "source": "pdata",
+   "subsystem": "vecgrow",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B6EDE0": {
+   "boundary": null,
+   "callees": {
+    "141B6ED10": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141B6EE54",
+     "text": "CALL qword ptr [0x14252fa28]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141b6ede0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "vecgrow"
+   ],
+   "scope": "in",
+   "size": 57,
+   "source": "pdata",
+   "subsystem": "vecgrow",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141B6F220": {
    "boundary": null,
    "callees": {
@@ -919717,6 +919774,31 @@
    "size": 37,
    "source": "pdata",
    "subsystem": "throwin140792",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141B6F420": {
+   "boundary": null,
+   "callees": {
+    "141B6EDE0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141b6f420",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "vecgrow"
+   ],
+   "scope": "in",
+   "size": 63,
+   "source": "pdata",
+   "subsystem": "vecgrow",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1414921,6 +1415003,14 @@
     "roots": [
      "0x1406E9F10",
      "0x1406E9F90"
+    ]
+   },
+   "vecgrow": {
+    "members": 3,
+    "roots": [
+     "0x141B6F420",
+     "0x141B6EDE0",
+     "0x141B6ED10"
     ]
    },
    "walk": {
