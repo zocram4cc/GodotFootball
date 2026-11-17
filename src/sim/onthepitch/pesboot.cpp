@@ -124,7 +124,10 @@ namespace {
 // the getter and its consumer 0x1418632F0: +0xC and +0xF0. +0xC is the constant the sub-object's constructor 0x14035DF70 stores
 // (`mov dword [rcx+0xc], 0x3f800000`, 1.0f). +0xF0 is the frame duration: the float of the game's double 1001/60000 s at 0x143445278
 // (beside 59.94 fps at 0x143445270). Both hold these values in the boot, ConstructAnime and in-play captures. Nothing else of the object
-// and no vtable is built: the path reads neither.
+// and no vtable is built: the path reads neither. ponytail: the other readers of that word (0x14029C8B0, 0x14029C8E0, 0x14029CA20) and
+// its clears (0x14029C3F0, 0x14029C610) are not translated, so a match path that reaches one aborts in dispatch instead of reading the
+// unbuilt fields. They lie off the replayed ConstructAnime path (the recorded reads of that path touch the word only through 0x14029C800
+// and 0x1418632F0). Removed when those readers and clears are translated from PES.
 constexpr uint64_t kHavokObjectGlobalVa = 0x1436D0030ULL;
 constexpr uint64_t kHavokSubobjectOffset = 0x220, kHavokSubobjectBytes = 0x100;  // the block covers +0xF4, the last read
 constexpr uint64_t kHavokFrameTimeVa = 0x143445278ULL;
