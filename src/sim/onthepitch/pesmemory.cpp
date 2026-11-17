@@ -248,10 +248,19 @@ PesState PesMemory::NewCall() {
 uint64_t PesMemory::Call(void (*fn)(PesState&), std::initializer_list<uint64_t> args) {
   PesState s = NewCall();
   static constexpr int kArgRegs[4] = {1, 2, 8, 9};  // rcx, rdx, r8, r9
+  // Win64: the fifth and later arguments sit above the caller's 0x20-byte shadow space, at [rsp + 0x20] and up, when the call is made;
+  // the callee reads them at [rsp + 0x28] on entry, past the return address the call pushes.
+  static constexpr uint64_t kShadowBytes = 0x20;
+  if (args.size() > 8) throw std::runtime_error("PES memory: more than eight arguments");
   int i = 0;
   for (uint64_t a : args) {
-    if (i == 4) throw std::runtime_error("PES memory: more than four register arguments");
-    s.gpr[kArgRegs[i++]] = a;
+    if (i < 4) s.gpr[kArgRegs[i]] = a;
+    else s.wr(s.gpr[4] + kShadowBytes + 8 * static_cast<uint64_t>(i - 4), a, 8);
+    ++i;
+  }
+  if (i > 4) {
+    s.gpr[4] -= 8;
+    s.wr(s.gpr[4], 0, 8);  // the return address (the translated calls push 0)
   }
   fn(s);
   return s.gpr[0];

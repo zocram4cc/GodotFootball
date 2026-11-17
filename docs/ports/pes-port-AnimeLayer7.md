@@ -108,10 +108,25 @@ Translating them is a closure task (closure.py roots, then gen_translated.py, th
   state after the match load. Its `+0x2C0` should already be 0x8: FUN_141AE77B0 returns before any ConstructAnime call. If it shows 0,
   the ordering assumption is wrong and that is a finding.
 
-## 7. Next steps
+## 7. Havok sub-object (narrow reconstruction) and status
 
-1. Translate the 27 callees of section 5 (closure roots), regenerate, one full build, then restore the held match-load call
-   (`scratch/held_matchload.patch`) and rerun both reds and `TheConstructorBuildsAPlayersControlAndItsParts`.
-2. Diff the reconstruction against the ConstructAnime capture. Every differing field that a reader in section 3 reads is a stop for
-   the owner; differing fields nothing reads are recorded.
-3. Items 2-4 and the steering red are not started in this change.
+The lazy object at `[0x1436D0030]` is built by the havok subsystem init, which reaches protection through the `.rdata`-slot thunks
+`0x142293C38` and `0x1415A18FA` (`local/pes-havok-stop-AnimeLayer7.md`); the boot does not run that init. The fresh-player path
+(ConstructAnime, replayed clean from `caps/pid3199291_001`: 305,365 instructions, no protection event) reads exactly two dwords of
+the object, through the lazy getter `0x14029C800` and its only consumer `0x1418632F0`: `sub+0xC` and `sub+0xF0`, where `sub` is
+`obj+0x220`. No vtable and no other field is read. `0x1418632F0` stores `sub+0xC` at `this+0xB0` and `sub+0xF0` at `this+0xAC`
+(the product test against the constant at `0x14202FB30` picks `sub+0xF0` for this capture).
+
+`BuildHavokSubobject` (`pesboot.cpp`, labelled `ponytail:`) writes those two values, from game code and game data: `sub+0xC` = 1.0f
+(the constant `0x14035DF70` stores), `sub+0xF0` = the float of the double 1001/60000 s at `0x143445278`. The state check: both
+values are identical in the boot capture (`pid900228` seq001), the ConstructAnime capture, and the in-play and late captures
+(`pid661338` seq001/seq005, `pid855705` seq015). No pointer is read, so no pointee class needs checking.
+
+Status: the match-load call (`pesfoxworld.cpp`) is restored and the three tests pass (`APlayersLayerHoldsTheElevenPluginsPesBuildsAtTheMatchLoad`,
+`TheMatchLoadCreatesTheAnimeSingletonPesHolds`, `TheConstructorBuildsAPlayersControlAndItsParts`). The rest of the suite passes (13 tests)
+except the steering red `AnimeEngine.ASeriesTurnsMoreThanItsFirstMemberAlone`, which aborts with `PES_DISPATCH_UNTRANSLATED: 0x1423B2340`
+(kind-2 head, item 4): it was already excluded from the earlier committed runs.
+
+Open: items 2–4 (`+0x94`, the L2 bit, the kind-2 head `0x1423B2340`) and the steering red. The static protection closure under-counts
+`.rdata`-slot thunks (`closure_check.py`); `closure_check2.py` lists them as candidates (946 in the havok closure, mostly imports), and
+the replay (`root_check2.py`) decides.

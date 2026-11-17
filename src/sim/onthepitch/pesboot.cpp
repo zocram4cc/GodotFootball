@@ -116,6 +116,36 @@ void ResetStaticInitState(PesMemory& memory) {
   std::memcpy(memory.Image() + (kInitGlobalEpochVa - PesMemory::kImageBase), &kInitEpochStart, sizeof kInitEpochStart);
 }
 
+namespace {
+
+// ponytail: PES builds this object in the havok subsystem init, [0x1436D0030] (the lazy getter 0x14029C800 returns its sub-object at
+// +0x220). That init reaches protection through the .rdata-slot thunks 0x142293C38 and 0x1415A18FA (both branches of its file check:
+// pes-havok-stop-AnimeLayer7.md), so the boot does not run it. The fresh-player path reads exactly two floats of the sub-object, through
+// the getter and its consumer 0x1418632F0: +0xC and +0xF0. +0xC is the constant the sub-object's constructor 0x14035DF70 stores
+// (`mov dword [rcx+0xc], 0x3f800000`, 1.0f). +0xF0 is the frame duration: the float of the game's double 1001/60000 s at 0x143445278
+// (beside 59.94 fps at 0x143445270). Both hold these values in the boot, ConstructAnime and in-play captures. Nothing else of the object
+// and no vtable is built: the path reads neither.
+constexpr uint64_t kHavokObjectGlobalVa = 0x1436D0030ULL;
+constexpr uint64_t kHavokSubobjectOffset = 0x220, kHavokSubobjectBytes = 0x100;  // the block covers +0xF4, the last read
+constexpr uint64_t kHavokFrameTimeVa = 0x143445278ULL;
+constexpr uint32_t kHavokUnitScaleBits = 0x3F800000u;  // 1.0f
+
+void BuildHavokSubobject(PesMemory& memory) {
+  const uint64_t object = memory.Alloc(kHavokSubobjectOffset + kHavokSubobjectBytes);
+  if (!object) throw std::runtime_error("PES boot: the havok object is full");
+  const uint64_t frameBits = memory.Read64(kHavokFrameTimeVa);
+  double frameSeconds;
+  std::memcpy(&frameSeconds, &frameBits, sizeof frameSeconds);
+  const float frame = static_cast<float>(frameSeconds);
+  uint32_t frameWord;
+  std::memcpy(&frameWord, &frame, sizeof frameWord);
+  memory.Write32(object + kHavokSubobjectOffset + 0xC, kHavokUnitScaleBits);
+  memory.Write32(object + kHavokSubobjectOffset + 0xF0, frameWord);
+  memory.Write64(kHavokObjectGlobalVa, object);
+}
+
+}  // namespace
+
 uint64_t PesBoot(PesMemory& memory, const std::string& installRoot) {
   ZeroInitializedData(memory);
   RestoreInitialData(memory, installRoot);
@@ -138,6 +168,8 @@ uint64_t PesBoot(PesMemory& memory, const std::string& installRoot) {
   // ponytail: FUN_14149AB60 also initialises the CRI library (FUN_14149ABE0) and starts its worker threads (FUN_1414B11A0, FUN_1414B1D90);
   // GF has no CRI library (the six CRI Fs calls under the reader are GF's file seam) and serves the request lists itself (ServeFile), so
   // those three calls are left out. Remove with a GF that runs PES's worker threads.
+  // The havok object exists before the anime init in PES's boot (boot capture pid900228: [0x1436D0030] = 0x1FE0400 at 0x141AE77B0's entry).
+  BuildHavokSubobject(memory);
   memory.Call(::pes_fn_141AE77B0, {kBootArgs[0], kBootArgs[1], kBootArgs[2], kBootArgs[3]});
   return initializers;
 }

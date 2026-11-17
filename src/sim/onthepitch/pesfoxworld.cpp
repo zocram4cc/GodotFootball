@@ -229,6 +229,9 @@ bool PesFoxWorld::LoadBody(std::string* error) {
   // and fills the joint-id tables DAT_1437F4E60 from it) before the body's own setup.
   Call(::pes_fn_141ECA210, {owner});
   Call(::pes_fn_141ECA500, {owner});
+  // The match load's anime setup: PES's caller 0x141FE4A30 calls FUN_141AE77B0 with rcx = 1, dl = 1, r8 = 0, r9 = 1 and [rsp+0x20] = 0
+  // (the call at 0x141FE4AB3). Its effect here is the anime singleton (pes_service_anime_singleton) that the player's layer setup reads.
+  Call(::pes_fn_141AE77B0, {1, 1, 0, 1, 0});
   return true;
 }
 
