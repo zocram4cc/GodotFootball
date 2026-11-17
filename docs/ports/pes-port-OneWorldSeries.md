@@ -42,8 +42,9 @@
 ## Named gaps kept
 - Height adjuster branch (`P+0x498`): state, counters and accumulator are all zero in `seq1128`, so it is **never
   armed**, not armed late; who stores state 2 into the three adjusters is open. See the adjtick note.
-- Chain X: **closed** — the gate `S+0x14` is written only by its constructor, to 256, so the tick is dead for player
-  models. No stand-in, no capture needed. See the adjtick note.
+- Chain X: **open, not closed.** The gate `S+0x14` is 256 in 19/19 captures, but that means "no X chain selected":
+  `FUN_141ebced0`, reached through a second handle at `P+0x3AE8`, stores an index below 256 from the parametric-request
+  path. No stand-in. To settle it when the rig is back: hook `FUN_141ebced0`. See the adjtick note.
 - TrapAdmit2 item 1 (rewire onto the real control) and item 3 (planner) wait on this cut.
 
 ## Evidence files

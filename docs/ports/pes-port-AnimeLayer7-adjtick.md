@@ -28,25 +28,39 @@
 - [P+0xA08] = 0x2CA7CB90, vtable 0x142ABA1A8 (vt+0x18 = 0x141AF4360, vt+0x20 = 0x141AF4650 driver, vt+0x38 = 0x141AFC4A0 runner).
 - GF's RunFrame (pesfoxworld.cpp:255) runs the driver on a = Read64(engineP + kAnimeOffset), not on the player block. So the chain for P+0xA08 is that `a`. Confirm before the cut.
 
-## Chain X closed: the gate is written once, closed (17-11, static)
+## Chain X: the earlier "born closed, dead" claim was WRONG (17-11, byte scan)
 
-The wrapper `S` is a plain 0x18-byte struct: `+0x0` the X object (0x180 bytes, vtable
-`0x142ABA840`), `+0x8`/`+0x10` ints, `+0x14` the gate int. Its entire xref graph in the image:
+The xref-graph argument above (ctor, dtor, tick only) missed a second handle, found by disassembling the whole code
+section (`capstone`, 10,514,410 instructions, every memory operand with `disp == 0x940`: 128 sites).
 
-|role|fn|what it does to `S`|
+|fact|evidence|
+|---|---|
+|The wrapper has a **second handle**: the anime object's `P+0x3AE8`|`FUN_1406f0d50` (`0x1406f0d50: mov [rcx+0x3AE8], rdx; ret`) is called from the model paths `0x1408bf224` and `0x1408bf9f1` with rcx = `[model+0x7d8]`, rdx = `[model+0x940]`. Six sites touch `+0x3AE8`.|
+|A fourth wrapper user exists, reached through that handle|`0x1406f1b36: mov rcx, [rsi+0x3AE8]; ... call 0x141ebced0` in the parametric-request path|
+|**`FUN_141ebced0` writes the gate**|`0x141ebcef0: cmp edx, 0x100` → `jge` path stores `mov dword [rbx+0x14], 0x100`; the `jl` path calls `FUN_141aff150` and `FUN_141b00170` on X, zeroes `S+0x8` and `S+0x10`, then `0x141ebcf4d: mov dword ptr [rbx+0x14], edi`|
+
+So `0x100` (256) is **"no X chain selected"**, not a permanent lock: a value below 256 is stored by
+`FUN_141ebced0` from the parametric request (its `edx` comes from `FUN_1406b5870`'s answer at `0x1406f1b31`). All 19
+captures show 256, i.e. X was unselected at every captured tick; whether it is ever selected in a match is **open
+again**, and the cut still carries no stand-in. The concrete thing to capture next, when the rig is back: a hook on
+`FUN_141ebced0` (or read `[P+0x3AE8]+0x14` after a parametric request).
+
+Method note, because it cost the wrong claim: an immediate-value scan finds nothing here — the arming store is
+`mov [rbx+0x14], edi`, a register. The image has 16 sites storing the immediate 2 into `[reg+0x14]` and 562 storing
+any immediate, none of them the wrapper. Only the handle scan (`disp == 0x940`, then `disp == 0x3AE8`) found the writer.
+
+## At-rest vtable slots are obfuscated (17-11)
+
+Read the same VA in the unpacked image and in a live capture:
+
+|slot|at rest (`pes_full.bin`)|at runtime (capture)|
 |---|---|---|
-|ctor `0x141ebc1c0`|(called from the model init `0x1408be3c0`, stores it at model+0x940)|`S+0x14 = 0x100`; builds X only when `DAT_1437f4cb0` (the anime singleton flag) and `DAT_1437f4ca8` are live **and** the ResManager lookup `0x141af3300` yields a resource|
-|dtor `0x141ebc2a0`|(model re-init `0x1408be3c0`, teardown `0x1408be8d0`, model dtor `0x1408bdd80`)|frees X, `S+0x0 = 0`; never touches `+0x14`|
-|tick `0x141ebc820`|(one caller, the per-tick `0x1408bfcf0`)|`return` unless singleton, `S+0x0 != 0`, and `S+0x14 <= 0xff`|
+|adjuster strike vtable `0x142b678f0` +0..0x18|`8000000000000000 8000000000000000 0000000080000000 0000000080000000`|`141eb45e0 141eb33e0 141eb1a20 141eb1bf0`|
+|chain-A vtable `0x142aba1a8` +0..0x10|`119930522 3281480 300000000`|`141af4360 141af4650 141afc4a0`|
 
-**No writer of `S+0x14` other than the constructor exists in the graph**, so the gate is
-initialized to 256 and stays there: chain X's tick is dead for player models. That matches the
-19 captures exactly (`S+0x14 = 256` in every one). Confidence High on the xref graph; the
-offset-level scan is by graph traversal, not a byte-pattern sweep of every `+0x14` store
-(INF on completeness). Consequence for the cut: no stand-in and no further capture effort for X.
-
-The per-tick caller also gates chain A/X together (`0x1408bfcf0`): both run only when
-`A+0xA07 == 0 || A+0xA06 != 0`, and X only when `model+0x940 != 0` and `model+0x7c8 != 0`.
+That is why `closure_check` misses `.rdata`-slot thunks, and why Ghidra has **no function** for `0x141afc4a0`,
+`0x141ebcd00` or `0x141ebced0`: their addresses never appear as static operands, so its analysis never creates them.
+Anything read out of `.rdata` in the file must be treated as encoded; the capture's runtime copy is the authority.
 
 ## The adjuster wrapper (`FUN_141eb3af0`), the shape the cut needs
 
