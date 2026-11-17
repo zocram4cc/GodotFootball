@@ -392,6 +392,11 @@ void pes_service_gfx_device_alloc(PesState& s) { s.gpr[0] = 0; }
 // part of GF. GF makes every store the setter makes on its own path, in the setter's order, with the image constants it loads. The
 // objects the protection-dependent calls fill are not built: S+0x20, S+0x30..S+0x58, S+0x70, the vector's elements, and the context
 // global's fields. docs/ports/pes-port-AnimeLayer7.md lists them with their readers and the state diff against live captures.
+// ponytail (latent release risk, AnimeLayer7): the S+0x20 object is allocated here through the pool (0x14029D370); its release would run
+// through the singleton's destructor (0x141AEB5B0 via 0x141AEBE90), which returns unless +0x2C0 bit 0 is set (`test byte [rcx+0x2C0],1` at
+// 0x141AEBE90, 0x141AEBE97). No writer sets bit 0 and every snapshot shows +0x2C0 = 0x8, so the release never runs. Its PES-side free is
+// the core free 0x1403CF770 (core 0x14037FDB0), which does not match this allocation: a port of 0x140427100, 0x141B04600 or 0x1421742E2
+// (the destructor's callers, untranslated and loud if reached) must route the release to the pool's own free first.
 namespace {
 constexpr uint64_t kSingletonVtableVa = 0x142AB91C0ULL;  // the setter's vptr store (lea at 0x141AEA935)
 constexpr uint64_t kDriverVtableVa = 0x142AB9188ULL;     // the +0x28 record's vptr store (lea at 0x141AEB04A)
