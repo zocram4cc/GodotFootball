@@ -232,6 +232,19 @@ bool PesFoxWorld::LoadBody(std::string* error) {
   // The match load's anime setup: PES's caller 0x141FE4A30 calls FUN_141AE77B0 with rcx = 1, dl = 1, r8 = 0, r9 = 1 and [rsp+0x20] = 0
   // (the call at 0x141FE4AB3). Its effect here is the anime singleton (pes_service_anime_singleton) that the player's layer setup reads.
   Call(::pes_fn_141AE77B0, {1, 1, 0, 1, 0});
+  // The rest of PES's match-load setup after that call (0x141FE4AB8..0x141FE4ACC, the sequence read from the image): the anime load
+  // flag (cl = 1: FUN_141EA8BB0 stores cl to DAT_1437F489C), then the registry getter FUN_141EC8C40 and, when it returns a registry,
+  // the anime loader FUN_141EC8D30 on that registry (rcx). ConstructAnime's lookup reads the "body" node of that registry (FUN_141EC8BD0).
+  // Without this sequence the match-load z-arm (0x1423A0DE0 -> FUN_14239EF20, untranslated) is taken: the pre-fix pes-loop smoke aborts
+  // there. The three calls share one register state, as PES's sequence does.
+  PesState anime = NewCall();
+  anime.gpr[1] = 1;
+  ::pes_fn_141EA8BB0(anime);
+  ::pes_fn_141EC8C40(anime);
+  if (anime.gpr[0] != 0) {
+    anime.gpr[1] = anime.gpr[0];
+    ::pes_fn_141EC8D30(anime);
+  }
   return true;
 }
 
