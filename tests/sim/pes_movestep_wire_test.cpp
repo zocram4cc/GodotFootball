@@ -139,7 +139,9 @@ bool IsPesFamily(int family) {
   // A trap clip is a PES motion too: PES's trap end handler 0x14079E5C0 waits while the playing motion is in the anime's table.
   return family == static_cast<int>(pes::PesClipFamily::kDodge) ||
          family == static_cast<int>(pes::PesClipFamily::kTackle) || family == LocomotionFamily() ||
-         family == static_cast<int>(pes::PesClipFamily::kTrap);
+         family == static_cast<int>(pes::PesClipFamily::kTrap) ||
+         // The dribble family: a PES-owned dribbler's SetMotion clips carry PES motion numbers (CurrentMotionOf reads them).
+         family == static_cast<int>(pes::PesClipFamily::kDribble);
 }
 
 }  // namespace

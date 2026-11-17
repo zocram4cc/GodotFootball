@@ -8,6 +8,7 @@
 
 #include "pes/animetable.hpp"
 #include "pes/clips.hpp"
+#include "pes/locomotion.hpp"
 #include "pes/strcode.hpp"
 #include "rig/clip_pose.hpp"
 #include "rig/rig_names.hpp"
@@ -58,6 +59,17 @@ constexpr FamilyPrefix kFamilies[] = {
     {PesClipFamily::kLocomotion, "idle_"},
     {PesClipFamily::kLocomotion, "gkmove"},
     {PesClipFamily::kLocomotion, "dm_oop_"},
+    // The dribble family. ponytail: the motions the Dribble action's sub-state handlers can issue are named here by prefix, from the ones a
+    // seed-7 pes-loop match issued (dribble_, dribblerun_, dribbleslide*, feint*, idle_0_3_run_, parallel_, run_; PesStall.EveryDribbleIssueIsPlayedOnTheBody
+    // names any that are missing). PES's set is the motion ids the handlers read out of their tables (FUN_1407B05F0 and the 16 sub-state handlers it
+    // dispatches, each picking a motion through FUN_1406B0xxx queries over the motion database); upgrade path: decode those tables, derive the
+    // family from them, delete this list. idle_, parallel_ and run_ are also locomotion clips under another family: the family is the body's owner.
+    {PesClipFamily::kDribble, "dribble"},
+    {PesClipFamily::kDribble, "feint"},
+    {PesClipFamily::kDribble, "idle_0_2_run_"},  // motions 2220 / 2221: the stand/turn series' first entries once the dribbler's order is a run
+    {PesClipFamily::kDribble, "idle_0_3_run_"},
+    {PesClipFamily::kDribble, "parallel_"},
+    {PesClipFamily::kDribble, "run_"},
     // (The trap family is not listed here: it is every motion an Animetable cell names, loaded below.)
 };
 
@@ -86,6 +98,38 @@ std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, st
       if (!gani) return std::nullopt;
       set.clips.push_back({name, int(m), f.family, std::move(*gani)});
     }
+  }
+  // The dribble family also holds the motions of PES's parametric blend table that a field player plays: the Dribble action's stand/idle
+  // handlers issue the series SetMotion (FUN_1406F14E0) over a blend group of that table (walk_1_1 .. run_5_5, the relaxed/near/guard variants,
+  // the side-run and throw-in-turn groups), so the clips it plays are the group's members. The table itself separates the goalkeeper's groups only by
+  // its members' motion names (`gk*`: gkmove/gkcatch height blends; docs/re/pes-re-animselect.md 2.6), so a group is the goalkeeper's when any of its
+  // members is a `gk*` motion. INF: no dribbler issues a goalkeeper group (the keeper's own mover is KP_PRESS, not the Dribble action).
+  const auto blend = LoadBlendTable(vfs, error);
+  if (!blend) return std::nullopt;
+  const auto nameOf = [&](int motion) -> const std::string* {
+    return motion >= 0 && static_cast<size_t>(motion) < names->size() ? &(*names)[static_cast<size_t>(motion)] : nullptr;
+  };
+  std::set<int> keeperGroups;
+  for (const BlendMember& member : *blend) {
+    const std::string* name = nameOf(member.motionNo);
+    if (name != nullptr && name->starts_with("gk")) keeperGroups.insert(member.group);
+  }
+  std::set<int> dribbleMotions;
+  for (const PesClip& c : set.clips)
+    if (c.family == PesClipFamily::kDribble) dribbleMotions.insert(c.motionNo);
+  for (const BlendMember& member : *blend) {
+    if (keeperGroups.count(member.group) != 0) continue;
+    if (!dribbleMotions.insert(member.motionNo).second) continue;
+    const std::string* name = nameOf(member.motionNo);
+    if (name == nullptr) {
+      *error = "pes clips: the blend table names motion " + std::to_string(member.motionNo) + " past the motion table";
+      return std::nullopt;
+    }
+    auto blob = FindBodyClip(vfs, StrCode32(*name), error);
+    if (!blob) return std::nullopt;
+    auto gani = ParseGani(*blob, error);
+    if (!gani) return std::nullopt;
+    set.clips.push_back({*name, member.motionNo, PesClipFamily::kDribble, std::move(*gani)});
   }
   // The trap family: the Trap action's kind-0 chain commits a motion number into the action object (u16 +8, pes-port-TrapCutover.md)
   // that it picked from an Animetable cell (row x column), so every motion any cell names is a clip the trap can play.

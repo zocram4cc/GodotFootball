@@ -2,6 +2,7 @@
 // record an entry names, and fall back to entry 0 past the table's count, as PES does. GF's readers of the two tables
 // run them on the world window.
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -11,6 +12,8 @@
 #include "pes/translated/pes_dispatch.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
+#include "onthepitch/pestrapactor.hpp"
+#include "pes_dispatch.hpp"
 
 namespace pes {
 namespace {
@@ -462,6 +465,20 @@ bool PesWorld::RunEntryAim(int slot, int side, uint32_t playState) {
   return (s.gpr[0] & 0xFF) != 0;
 }
 
+bool PesWorld::RunTrapAdmit(int slot, uint32_t action, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;  // rsp at the entry: the return address slot
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  s.gpr[1] = PVa(slot);  // rcx: P
+  s.gpr[2] = action;     // edx: the action FUN_1406D9010 names in P's table
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_1406B4C10(s);
+  ReturnSegments(s, ext, lent);
+  return (s.gpr[0] & 0xFF) != 0;  // al
+}
+
 PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   PesState s = NewCall(Bytes());
   const std::size_t lent = LendExternals(s, ext);
@@ -477,17 +494,339 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   s.gpr[1] = PVa(slot) + kPActionOffset;
   s.gpr[2] = PVa(slot);
   s.gpr[8] = entry + kTickEntryFrameSlotOffset;
-  s.mem.wlog = ext.writeLog;
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  heap_->Attach(s);  // the end handler's act4 start can run the series SetMotion, whose vector grows through the allocator
+  std::vector<std::pair<uint64_t, uint8_t>> log;
+  s.mem.wlog = &log;
   ::pes_fn_140797CD0(s);
   ReturnSegments(s, ext, lent);
   const uint8_t* p = P(slot);
   PesTickResult result;
+  result.action = p[kPByteAC8Offset];
+  for (const auto& [addr, value] : log)
+    if (addr == PVa(slot) + kPMotionIssuedOffset) result.issue = value;
+  if (ext.writeLog != nullptr) ext.writeLog->insert(ext.writeLog->end(), log.begin(), log.end());
   std::memcpy(&result.motion, p + kPWordAE0Offset, sizeof result.motion);
   result.mirror = p[kPMirrorOffset];
   result.segment = p[kPSegmentOffset];
   result.phase = p[kPPhaseOffset];
   result.playback = LoadF32(p, kPPlaybackOffset);
   return result;
+}
+// One PES frame of the Dribble action tick 0x1407B37D0 on `slot`'s P: the action object is the table's id-4 entry (P+0xC40 +
+// +0x1528 + 4*8, the object with vtable 0x1425E2440), P, and the same caller frame F the trap tick takes (F+0x870 names the
+// ball record). A path no proof reached aborts in the translated dispatch, loudly. Returns P+0xAC8 after the tick so the
+// caller sees the dribble's own switch-outs (kick, tackle, re-trap).
+PesWorld::DribbleTickResult PesWorld::RunDribbleTick(int slot, PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
+  uint8_t* frame = TickFrame();
+  // A frame RunDecisionFrame built already names its own X and the ball (the constructor FUN_140A851F0 wrote them).
+  if (frameBuiltFor_ != slot) {
+    StoreU64(frame, kFrameBallOffset, BallVa());
+    StoreU64(frame, kFrameXPtrOffset, TickFrameXVa());
+  }
+  frameBuiltFor_ = -1;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kTickEntryFrameSlotOffset, TickFrameVa(), 8);
+  s.gpr[4] = entry;
+  // The action object is the table's id-4 entry (built for every slot by ConstructActionTable, the object with vtable
+  // 0x1425E2440). A zero entry is a structural defect, not a state: abort loudly rather than tick with no action.
+  uint64_t action = 0;
+  std::memcpy(&action, P(slot) + kPActionTableOffset + kActionTablePointersOffset +
+                              kAnimeActionDribble * sizeof(uint64_t),
+              sizeof action);
+  if (action == 0) pes_dispatch_missing(0x1407B37D0);
+  s.gpr[1] = action;
+  s.gpr[2] = PVa(slot);
+  s.gpr[8] = entry + kTickEntryFrameSlotOffset;
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  heap_->Attach(s);  // the stand/idle handlers' series SetMotion grows P's series vector through the allocator
+  std::vector<std::pair<uint64_t, uint8_t>> log;
+  s.mem.wlog = &log;
+  ::pes_fn_1407B37D0(s);
+  ReturnSegments(s, ext, lent);
+  DribbleTickResult result;
+  result.action = P(slot)[kPByteAC8Offset];
+  const uint64_t issueCell = PVa(slot) + kPMotionIssuedOffset;
+  for (const auto& [addr, value] : log)
+    if (addr == issueCell) result.issue = value;
+  if (ext.writeLog != nullptr) ext.writeLog->insert(ext.writeLog->end(), log.begin(), log.end());
+  return result;
+}
+
+uint8_t* PesWorld::HeapHost(uint64_t va, uint64_t bytes) {
+  return heap_ ? const_cast<uint8_t*>(heap_->Host(va, bytes)) : nullptr;
+}
+
+uint64_t PesWorld::HeapAlloc(uint64_t bytes, uint64_t align) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  return heap_->Alloc(bytes, align);
+}
+
+std::optional<PesWorld::SeriesFirst> PesWorld::SeriesFirstOf(int slot) const {
+  const uint8_t* p = const_cast<PesWorld*>(this)->P(slot);
+  uint32_t count;
+  uint64_t data;
+  std::memcpy(&count, p + kPSeriesCountOffset, sizeof count);
+  std::memcpy(&data, p + kPSeriesDataOffset, sizeof data);
+  if (count == 0 || !heap_) return std::nullopt;
+  const uint8_t* entry = heap_->Host(data, kSeriesEntryBytes);
+  if (entry == nullptr) return std::nullopt;
+  uint32_t motion;
+  std::memcpy(&motion, entry + kSeriesMotionOffset, sizeof motion);
+  return SeriesFirst{static_cast<uint16_t>(motion), entry[kSeriesMirrorOffset] != 0};
+}
+
+// The ball executor's locals, at the top of the window's stack above the entry rsp: the aggregator's context, its vector and spin answers,
+// the candidate builder's result struct and its previous-state input, a copy of the touch record, and the object the context's +0x28 names.
+static constexpr std::size_t kBallFrameBytes = 0x900, kBallLocalsFromTop = 0x800;
+static constexpr std::size_t kBallCtxOffset = 0, kBallVecOffset = 0x40, kBallSpinOffset = 0x50, kBallResultOffset = 0x80,
+                             kBallPrevOffset = 0x1A0, kBallRecOffset = 0x240, kBallEntityOffset = 0x440;
+static constexpr std::size_t kBallResultBytes = 0x110, kBallPrevBytes = 0x90, kBallEntityBytes = 0x100;
+static constexpr uint64_t kFrameRateVa = 0x14351AE54ULL;  // FUN_141E532D0 returns this float
+static constexpr std::size_t kRecTypeOffset = 0, kBallResultVelocityOffset = 0xC, kBallResultSpinOffset = 0x18;
+static constexpr uint32_t kRecTypeVerticalClamp = 7, kRecTypeNoKick = 8;  // 0x1404253xx: the executor's special record types
+static constexpr std::size_t kArg5Offset = 0x28, kArg6Offset = 0x30, kArg7Offset = 0x38;
+
+// FUN_1409F1F20 (rcx F, rdx S, r8 T = S+0x50, stack: Q, the param_6 vector, the param_7 byte): PES's frame builder, proven on 14 REAL calls.
+// FUN_1409F20C0 (its caller) copies the frame's outputs back into the AI object after the build; those copies are Q's retained fields and
+// T's outputs, which the next build reads (kRetained*, kDecisionTOut*).
+void PesWorld::EnsureDecisionBlocks(int slot) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  DecisionBlocks& b = decision_[slot];
+  if (b.s == 0) {
+    // S and T are one block (T = S + 0x50): the builder reaches T by S's address in PES's controller layout.
+    b.s = HeapAlloc(kDecisionSBytes + kDecisionTBytes, 16);
+    b.t = b.s + kDecisionSBytes;
+    b.x = HeapAlloc(kPlanBytes, 16);
+    b.vec = HeapAlloc(0x20, 16);
+    uint8_t* t0 = HeapHost(b.t, kDecisionTBytes);
+    for (std::size_t k = 0; k < sizeof kDecisionScratch / sizeof kDecisionScratch[0]; ++k) StoreU32(t0, kDecisionTScratchOffset + 4 * k, kDecisionScratch[k]);
+    StoreF32(t0, kDecisionTUnsetAOffset, kDecisionUnset);
+    StoreF32(t0, kDecisionTUnsetBOffset, kDecisionUnset);
+  }
+}
+
+uint8_t* PesWorld::DecisionPlan(int slot) {
+  EnsureDecisionBlocks(slot);
+  return HeapHost(decision_[slot].x, kPlanBytes);
+}
+
+uint8_t* PesWorld::DecisionTeam(int slot) {
+  EnsureDecisionBlocks(slot);
+  return HeapHost(decision_[slot].t, kDecisionTBytes);
+}
+
+void PesWorld::FillPlan(int slot, const AiFrameDecision& d) {
+  uint8_t* q = DecisionPlan(slot);
+  // The plan: one row naming the speed, aimed at one point. PES's plans carry a leading row (gait 1, 16 km/h, flag 1) before the row in
+  // force, as every captured plan does.
+  std::memset(q, 0, kPlanRowsOffset);
+  if (d.active) {
+    q[kPlanIndexOffset] = 1;
+    q[kPlanPointCountOffset] = 2;
+    std::memcpy(q + kPlanPointsOffset, d.target, sizeof d.target);
+    std::memcpy(q + (1 + kPlanPathBias) * kPlanPointBytes, d.target, sizeof d.target);  // index 1: the point FUN_140A75720 names
+    q[kPlanRowOffset] = 1;
+    q[kPlanRowCountOffset] = 2;
+    uint8_t* row0 = q + kPlanRowsOffset;
+    StoreF32(row0, kPlanRowSpeedOffset, kPlanLeadRowSpeedKmh);
+    StoreU32(row0, kPlanRowGaitOffset, kPlanLeadRowGait);
+    row0[kPlanRowFlagOffset] = 1;
+    uint8_t* row1 = row0 + kPlanRowBytes;
+    StoreF32(row1, kPlanRowSpeedOffset, d.speedKmh);
+    StoreU32(row1, kPlanRowGaitOffset, d.gaitRow);
+    row1[kPlanRowFlagOffset] = 0;
+  }
+}
+
+void PesWorld::FillTemplate(int slot, const AiFrameDecision& d, PesTrapExternals& ext) {
+  EnsureDecisionBlocks(slot);
+  DecisionBlocks& b = decision_[slot];
+  uint8_t* t = HeapHost(b.t, kDecisionTBytes);
+  uint8_t* tpl = t + kDecisionTScratchOffset;
+  // FUN_140928FC0: the constructor's defaults, with F+0x868 / F+0x86C (the frame's X pointer) cleared, copied into the template every frame.
+  {
+    PesState s = NewCall(Bytes());
+    const std::size_t lent = LendExternals(s, ext);
+    heap_->Attach(s);
+    const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = b.t + kDecisionTScratchOffset;
+    ::pes_fn_140A85270(s);
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = b.t + kDecisionTScratchOffset;
+    ::pes_fn_140A85820(s);
+    ReturnSegments(s, ext, lent);
+  }
+  StoreU64(tpl, 0x868, 0);
+  if (!d.active) return;
+  const uint8_t* man = ManRecord(slot);
+  float px, pz;
+  std::memcpy(&px, man + kManPosXOffset, 4);
+  std::memcpy(&pz, man + kManPosXOffset + 8, 4);
+  const float dx = d.target[0] - px, dz = d.target[2] - pz;
+  const float dist = std::sqrt(dx * dx + dz * dz);
+  const float dirX = dx / dist, dirZ = dz / dist;
+  uint32_t speedClass = 0;
+  for (std::size_t k = 0; k < 4; ++k)
+    if (d.speedKmh >= kSpeedClassBandsKmh[k]) speedClass = static_cast<uint32_t>(k + 1);
+  StoreU32(tpl, kTplKind, d.kind);
+  StoreU32(tpl, kTplMode, d.mode);
+  StoreU32(tpl, kTplFrame, d.frameStamp);
+  for (const std::size_t off : {kTplTarget2X, kTplTarget3X, kTplTarget4X, kTplTarget5X}) StoreF32(tpl, off, d.target[0]);
+  for (const std::size_t off : {kTplTarget2Z, kTplTarget3Z, kTplTarget4Z, kTplTarget5Z}) StoreF32(tpl, off, d.target[2]);
+  // The point F+0x14.. is the ball's sample 0 (B+0x88: x, height, z): on all 8 open-play captures it equals the ball record's first sample
+  // (the AI's look point; the move target within 0.2 m of the root steers by it too, MoveHostAdapter's atRoot).
+  const uint8_t* ball = image_->ball.bytes.data() + kBallSamplesOffset;
+  StoreF32(tpl, kTplTargetX, LoadF32(ball, kBallSampleXOffset));
+  StoreF32(tpl, kTplTargetY, LoadF32(ball, kBallSampleYOffset));
+  StoreF32(tpl, kTplTargetZ, LoadF32(ball, kBallSampleZOffset));
+  for (const std::size_t off : {kTplPosX, kTplPos2X}) StoreF32(tpl, off, px);
+  for (const std::size_t off : {kTplPosZ, kTplPos2Z}) StoreF32(tpl, off, pz);
+  for (const std::size_t off : {kTplDist, kTplDist2}) StoreF32(tpl, off, dist);
+  for (const std::size_t off : {kTplDirX, kTplDir2X}) StoreF32(tpl, off, dirX);
+  for (const std::size_t off : {kTplDirZ, kTplDir2Z}) StoreF32(tpl, off, dirZ);
+  StoreU32(tpl, kTplSituation, d.situation);
+  StoreU32(tpl, kTplClass, speedClass);
+  StoreU32(tpl, kTplPointCount, d.pathPoints);
+}
+
+void PesWorld::RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag) {
+  EnsureDecisionBlocks(slot);
+  DecisionBlocks& b = decision_[slot];
+  uint8_t* sBlock = HeapHost(b.s, kDecisionSBytes + kDecisionTBytes);
+  uint8_t* q = HeapHost(b.x, kPlanBytes);
+  uint8_t* t = sBlock + kDecisionSBytes;
+  StoreU32(sBlock, kDecisionSSlotOffset, static_cast<uint32_t>(slot));
+  StoreU64(sBlock, kDecisionSPOffset, PVa(slot));
+  const uint8_t* man = ManRecord(slot);
+  std::memcpy(q + kPlanFacingOffset, man + kManFacingOffset, 4);
+  std::memcpy(q + kPlanPosOffset, man + kManPosXOffset, 12);
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;
+  heap_->Attach(s);
+  s.mem.wlog = ext.writeLog;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kArg5Offset, b.x, 8);
+  s.wr(entry + kArg6Offset, b.vec, 8);
+  s.wr(entry + kArg7Offset, aiFlag, 1);
+  s.gpr[4] = entry;
+  s.gpr[1] = TickFrameVa();
+  s.gpr[2] = b.s;
+  s.gpr[8] = b.t;
+  s.gpr[9] = 0;
+  ::pes_fn_1409F1F20(s);
+  // FUN_1409F20C0's copy-back of the frame: the mode, the weight, the target and the second point, F+0x54 / F+0x58, the heading delta
+  // (the bearing from the man to F+0x20, or his facing when he stands on it), and T's class and weight.
+  const uint8_t* f = TickFrame();
+  StoreU32(q, kRetainedMode, LoadU32(f, 4));
+  StoreU32(q, kRetainedWeight, LoadU32(f, 0x5E4));
+  std::memcpy(q + kRetainedTarget, f + 0x14, 12);
+  std::memcpy(q + kRetainedSecond, f + 0x2C, 12);
+  StoreU32(q, kRetainedF54, LoadU32(f, 0x54));
+  StoreU32(q, kRetainedF58, LoadU32(f, 0x58));
+  if (std::memcmp(q + kPlanPosOffset, f + 0x20, 12) == 0) {
+    std::memcpy(q + kRetainedHeading, q + kPlanFacingOffset, 4);
+  } else {
+    s.gpr[4] = entry;
+    s.wr(entry, 0, 8);
+    s.gpr[1] = b.vec + 0x10;
+    s.gpr[2] = b.x + kPlanPosOffset;
+    s.gpr[8] = TickFrameVa() + 0x20;
+    ::pes_fn_140439E50(s);
+    const uint32_t bearing = static_cast<uint32_t>(s.mem.rd(s.gpr[0], 4));
+    StoreU32(q, kRetainedHeading, bearing);
+  }
+  t[kDecisionTOutClassOffset] = f[0x5C];
+  // INF: T+0x5C holds the class F+0x5C of the build before (it equals the call's own F+0x5C on all 14 captures); no writer is known.
+  StoreU32(t, kDecisionTSpeedClassOffset, f[0x5C]);
+  StoreU32(t, kDecisionTOutWeightOffset, LoadU32(f, 0x5E4));
+  ReturnSegments(s, ext, lent);
+  frameBuiltFor_ = slot;
+}
+
+void PesWorld::RunDecisionFrame(int slot, const AiFrameDecision& d, PesTrapExternals& ext) {
+  FillPlan(slot, d);
+  FillTemplate(slot, d, ext);
+  RunFrameBuilder(slot, ext, d.aiFlag);
+}
+
+
+PesWorld::BallTouchResult PesWorld::RunBallTouch(int slot, const PesBodyScanOut& rec, PesTrapExternals& ext) {
+  const uint32_t type = LoadU32(rec.bytes.data(), kRecTypeOffset);
+  if (type == kRecTypeVerticalClamp || type == kRecTypeNoKick) pes_dispatch_missing(0x140425010);
+  PesState s = NewCall(Bytes());
+  const std::size_t lent = LendExternals(s, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kBallFrameBytes;
+  const uint64_t locals = kStackVa + kStackBytes - kBallLocalsFromTop;
+  const uint64_t recVa = locals + kBallRecOffset, ctx = locals + kBallCtxOffset, vec = locals + kBallVecOffset,
+                 spin = locals + kBallSpinOffset, result = locals + kBallResultOffset, prev = locals + kBallPrevOffset;
+  for (std::size_t i = 0; i < kScanOutBytes; i += sizeof(uint64_t)) {
+    uint64_t word;
+    std::memcpy(&word, rec.bytes.data() + i, sizeof word);
+    s.wr(recVa + i, word, sizeof word);
+  }
+  for (std::size_t i = 0; i < kBallEntityBytes; i += sizeof(uint64_t)) s.wr(locals + kBallEntityOffset + i, 0, sizeof(uint64_t));
+  for (std::size_t i = 0; i < kBallPrevBytes; i += sizeof(uint64_t)) s.wr(prev + i, 0, sizeof(uint64_t));
+  for (std::size_t i = 0; i < 0x20; i += sizeof(uint64_t)) { s.wr(vec + i, 0, sizeof(uint64_t)); s.wr(spin + i, 0, sizeof(uint64_t)); }
+  s.mem.wlog = ext.writeLog;
+  s.wr(entry, 0, 8);
+  s.gpr[4] = entry;
+  // FUN_140A48A10(G, idx): the man's player-info record, the aggregator's first context word (0x140425288 .. 0x1404252B0).
+  s.gpr[1] = kWorldWindowVa;
+  s.gpr[2] = static_cast<uint64_t>(slot);
+  ::pes_fn_140A48A10(s);
+  const uint64_t info = s.gpr[0];
+  // FUN_140865B80(ctx, entity+0x30, info, rec, idx): the context.
+  s.gpr[4] = entry;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kArg5Offset, static_cast<uint64_t>(slot), 4);
+  s.gpr[1] = ctx;
+  s.gpr[2] = locals + kBallEntityOffset;
+  s.gpr[8] = info;
+  s.gpr[9] = recVa;
+  ::pes_fn_140865B80(s);
+  // FUN_140865D70(ctx, &vec, &spin): the touch vector and spin.
+  s.gpr[1] = ctx;
+  s.gpr[2] = vec;
+  s.gpr[8] = spin;
+  ::pes_fn_140865D70(s);
+  // The executor scales the vector by the frame rate (0x1404255xx: local_1c8 * FUN_141E532D0()), a single toucher needing no average.
+  const float rate = s.rdf(kFrameRateVa);
+  for (int k = 0; k < 3; ++k) {
+    float v;
+    uint32_t bits = static_cast<uint32_t>(s.rd(vec + 4 * k, 4));
+    std::memcpy(&v, &bits, sizeof v);
+    v *= rate;
+    std::memcpy(&bits, &v, sizeof v);
+    s.wr(vec + 4 * k, bits, 4);
+  }
+  // FUN_140874860(result, rec, ball record, prev, &vec, &spin, 1): the kick application's candidate.
+  s.gpr[4] = entry;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kArg5Offset, vec, 8);
+  s.wr(entry + kArg6Offset, spin, 8);
+  s.wr(entry + kArg7Offset, 1, 1);
+  s.gpr[1] = result;
+  s.gpr[2] = recVa;
+  s.gpr[8] = BallVa();
+  s.gpr[9] = prev;
+  ::pes_fn_140874860(s);
+  ReturnSegments(s, ext, lent);
+  BallTouchResult out;
+  for (int k = 0; k < 3; ++k) {
+    const uint32_t v = static_cast<uint32_t>(s.mem.rd(result + kBallResultVelocityOffset + 4 * k, 4));
+    const uint32_t w = static_cast<uint32_t>(s.mem.rd(result + kBallResultSpinOffset + 4 * k, 4));
+    std::memcpy(&out.velocity[k], &v, sizeof v);
+    std::memcpy(&out.spin[k], &w, sizeof w);
+  }
+  return out;
 }
 
 // The scan's call frame: the output record sits above the entry rsp in the window's stack, zeroed as the anime driver zeroes it before

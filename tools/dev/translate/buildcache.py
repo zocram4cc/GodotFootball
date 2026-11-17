@@ -3,14 +3,16 @@
 
 Object cache (driver.build_and_diff): one object per translation unit. The key is sha256 of the compiler identity, the
 flags, the TU's name and bytes, and the bytes of every build-tree header the TU includes, transitively (include_closure).
-Identical TUs in different VAs' build trees share one object.
+Identical TUs in different VAs' build trees share one object. A hit touches the object; each run trims the cache to
+OBJECT_CAP_BYTES, least recently used first (object_trim).
 
-Corpus cache (driver.run_one): run.py's outputs for one VA. The key is its inputs: the digests of the image, the spec,
+Record cache (driver.corpus_run): run.py's outputs for one VA. The key is its inputs: the digests of the image, the spec,
 the seed artifact and bank for that VA, the harness interpreter, and the flags. An entry is reused only while every file
-run.py loaded still has the digest it had when the entry was made (record_run: an audit hook on open and import, plus
-the libraries the process maps), and every value run.py took from xlate (capstone_decode per call, CCMAP) still
-computes the same. xlate.py is not a file dependency: run.py reads it only through those values, so a translator edit
-that changes neither value hits.
+run.py opened still has the digest it had at that open (record_run: an audit hook on open and import, plus the libraries
+the process maps; a file changed while run.py ran leaves no entry), every value run.py took from xlate (capstone_decode per
+call, CCMAP) still computes the same, and the stub models run.py installed (stub_models_digest) are unchanged. xlate.py is
+not a file dependency: run.py reads it only through those values, so a translator edit that changes neither value hits.
+Entries are trimmed to CORPUS_CAP_BYTES, least recently used first.
 
 CLI: buildcache.py record DEPS_JSON RUN_PY ARGS...   (run.py under the recorder; its stdout and exit code pass through)
 
@@ -19,6 +21,7 @@ ponytail: the include closure is a regex scan, not the preprocessor. It keeps ev
 the header set from the compiler's -MD depfile of the same TU.
 """
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -34,6 +37,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # run.py reaches the translator only through xlate.capstone_decode and xlate.CCMAP (both recorded by value and recomputed
 # on reuse), so xlate.py, and the flow.py and pdata.py modules it imports, are not file dependencies.
 VALUE_COVERED = frozenset(os.path.join(HERE, n) for n in ("xlate.py", "flow.py", "pdata.py"))
+# run.py reads stubs.json only for its models (stub_models_digest), so the file is not a dependency of its own.
+STUBS_JSON = os.path.join(HERE, "stubs.json")
 CHUNK_BYTES = 1 << 20
 # A file whose mtime is this close to the moment we read it may be rewritten in the same clock tick (Linux file times
 # come from a coarse clock), so its digest is recomputed, never memoized (the racy-timestamp rule of git's index).
@@ -157,6 +162,13 @@ def corpus_key(run_args, inputs):
 CORPUS_DIR = "records"
 CORPUS_CAP_BYTES = 10 * 2 ** 30  # ponytail: one trim walk per driver process, at start; a run's own records may exceed the cap until the next.
 
+# The object cache is trimmed once per driver run to OBJECT_CAP_BYTES. Measured 2026-11-09 across every checkout: 37,835
+# objects, 628 MB (about 16.6 kB each); the BE gate's core re-check alone hit 12,879 of them. 4 GiB holds that whole set
+# about six times over. ponytail: one trim walk per driver process, at start; a trim can evict an object another driver
+# process has just hit, and that build's link then fails loudly, never with a wrong object.
+OBJECT_DIR = "obj"
+OBJECT_CAP_BYTES = 4 * 2 ** 30
+
 
 def _read_json(path):
     try:
@@ -207,8 +219,10 @@ def corpus_store(root, out, names, gen, record):
     """Commit a successful run under root as the record of its harness state: its outputs (copied from gen) and its
     validation document, stored under the digest of that document. run.json is written last, so its presence commits the
     record. The same state recorded again replaces its own record."""
-    os.makedirs(root, exist_ok=True)
     deps = entry_doc(record)
+    if deps is None:  # a recorded file changed while run.py ran: the record would hold bytes run.py never read
+        return
+    os.makedirs(root, exist_ok=True)
     tmp = tempfile.mkdtemp(dir=root)
     for name in names:
         shutil.copyfile(os.path.join(gen, name), os.path.join(tmp, name))
@@ -246,6 +260,44 @@ def corpus_trim(corpus, cap=CORPUS_CAP_BYTES):
         total -= size
 
 
+def object_hit(path):
+    """True when the cached object is there, touched so that it counts as recently used. False when it is gone (a trim
+    evicted it since the caller looked): the caller compiles it again."""
+    try:
+        os.utime(path)
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def object_trim(objdir, cap=OBJECT_CAP_BYTES):
+    """Evict the least recently used objects (*.o, by mtime) until objdir holds at most cap bytes. A compile in flight (a
+    .tmp file) is neither counted nor evicted."""
+    try:
+        names = os.listdir(objdir)
+    except OSError:
+        return
+    found = []  # (last use, bytes, path)
+    for name in names:
+        if not name.endswith(".o"):
+            continue
+        path = os.path.join(objdir, name)
+        try:
+            st = os.stat(path)
+        except OSError:  # evicted by another run meanwhile
+            continue
+        found.append((st.st_mtime_ns, st.st_size, path))
+    total = sum(size for _, size, _ in found)
+    for _, size, path in sorted(found):
+        if total <= cap:
+            break
+        try:
+            os.unlink(path)
+        except OSError:  # evicted by another run meanwhile
+            continue
+        total -= size
+
+
 def decode_digest(image_path, va):
     """Digest of xlate.capstone_decode(image, va): one translator value run.py reads."""
     import xlate
@@ -263,7 +315,7 @@ def _abs(path):
 
 
 def _excluded(path):
-    return path.endswith(".pyc") or path in VALUE_COVERED or path.startswith(("/proc/", "/dev/"))
+    return path.endswith(".pyc") or path in VALUE_COVERED or path == STUBS_JSON or path.startswith(("/proc/", "/dev/"))
 
 
 def _mapped_files():
@@ -280,19 +332,52 @@ def _mapped_files():
     return out
 
 
+def _observe(files, path):
+    """Record path's digest the first time run.py (or the interpreter) opens it: the digest of the bytes run.py is about to
+    read. The placeholder comes first, since digesting the file opens it again."""
+    if path in files or _excluded(path):
+        return
+    files[path] = None
+    files[path] = file_digest(path)
+
+
+def _source_of(pyc):
+    """The source a cached module's bytecode was compiled from, or None for a .pyc outside a __pycache__ directory."""
+    try:
+        return importlib.util.source_from_cache(pyc)
+    except ValueError:
+        return None
+
+
+def _module_files():
+    return {_abs(m.__file__) for m in list(sys.modules.values()) if isinstance(getattr(m, "__file__", None), str)}
+
+
 def record_run(deps_path, run_py, run_args):
     """Run run.py as __main__ with argv run_args and write what it read to deps_path (JSON): every file it opened for
-    reading (a failed open too), every module loaded (its source, even when bytecode was used), the libraries mapped, and
-    every capstone_decode it asked xlate for (image, va, digest of the result). Its stdout and stderr match a direct
-    `python run.py` run: sys.exit(text) prints the text, an uncaught exception prints its traceback from run.py's frame.
-    Returns run.py's exit status."""
-    files, decode = set(), []
+    reading (a failed open too), each digested at its open; every module loaded (its source, even when bytecode was used);
+    the libraries mapped; the stub models run.py installed (stub_models_digest); and every capstone_decode it asked xlate
+    for (image, va, digest of the result). Its stdout and stderr match a direct `python run.py` run: sys.exit(text) prints
+    the text, an uncaught exception prints its traceback from run.py's frame. Returns run.py's exit status."""
+    files, decode, meta = {}, [], {}
 
     def hook(event, args):
-        if event == "open":
-            path, mode = args[0], (args[1] if len(args) > 1 else None)
-            if isinstance(path, (str, bytes, os.PathLike)) and not (isinstance(mode, str) and set(mode) & set("wax+")):
-                files.add(_abs(path))
+        if event != "open":
+            return
+        path, mode = args[0], (args[1] if len(args) > 1 else None)
+        if not isinstance(path, (str, bytes, os.PathLike)) or (isinstance(mode, str) and set(mode) & set("wax+")):
+            return
+        p = _abs(path)
+        if p == STUBS_JSON:
+            if "stubs" not in meta:
+                meta["stubs"] = None  # claimed first: stub_models_digest opens the file again
+                meta["stubs"] = stub_models_digest()
+        elif p.endswith(".pyc"):  # a cached module: the source its bytecode was compiled from is what it depends on
+            source = _source_of(p)
+            if source is not None:
+                _observe(files, source)
+        else:
+            _observe(files, p)
 
     sys.addaudithook(hook)
     import xlate
@@ -303,6 +388,8 @@ def record_run(deps_path, run_py, run_args):
         decode.append((_abs(image_path), va, sha(repr(out))))
         return out
 
+    for p in _mapped_files() | _module_files():  # what the process loaded before run.py: digested before run.py runs
+        _observe(files, p)
     xlate.capstone_decode = recording_decode
     sys.path[0] = os.path.dirname(os.path.abspath(run_py))
     sys.argv = [run_py] + list(run_args)
@@ -323,11 +410,11 @@ def record_run(deps_path, run_py, run_args):
         traceback.print_exception(type(e), e, tb)
         rc = 1
     finally:
-        files |= _mapped_files()
-        files |= {_abs(m.__file__) for m in list(sys.modules.values()) if isinstance(getattr(m, "__file__", None), str)}
+        for p in _mapped_files() | _module_files():  # loaded without an open of their own (a shared library, say)
+            _observe(files, p)
         with open(deps_path, "w") as f:
-            json.dump({"files": sorted(p for p in files if not _excluded(p)),
-                       "decode": [list(t) for t in sorted(set(decode), key=repr)]}, f, indent=1, sort_keys=True)
+            json.dump({"files": files, "decode": [list(t) for t in sorted(set(decode), key=repr)],
+                       "stubs": meta.get("stubs")}, f, indent=1, sort_keys=True)
     return rc
 
 
@@ -345,20 +432,37 @@ def _resolve(path):
     return os.path.join(REPO, path[len(REPO_TAG):]) if path.startswith(REPO_TAG) else path
 
 
+def stub_models_digest(path=STUBS_JSON):
+    """Digest of the stub entries run.py consults: each model (VA and do), which run.py installs in every run, and the
+    models only, since a legacy stub_refs must name one (check_spec_refs). No other stubs.json field or entry reaches a
+    record, so editing one keeps every record."""
+    import stubs
+    table = stubs.load(path)
+    return sha(json.dumps(sorted([va, e["do"]] for va, e in stubs.models(table).items())))
+
+
 def entry_doc(record):
-    """The validation document of a recorded run, taken once it has finished: each file's digest (None: absent), the
-    decoded values, and the translator table's digest. Files inside the checkout are stored relative to it."""
-    return {"files": {_portable(p): file_digest(p) for p in record["files"]}, "decode": record["decode"],
-            "ccmap": translator_digest()}
+    """The validation document of a recorded run, or None when a recorded file or the stub models changed since run.py read
+    them: the run read other bytes than these, so it is not kept. Files inside the checkout are stored relative to it."""
+    files = record["files"]
+    if any(file_digest(p) != d for p, d in files.items()):
+        return None
+    if record["stubs"] is not None and stub_models_digest() != record["stubs"]:
+        return None
+    return {"files": {_portable(p): d for p, d in files.items()}, "decode": record["decode"],
+            "stubs": record["stubs"], "ccmap": translator_digest()}
 
 
 def entry_is_valid(doc):
     """True while every recorded file (resolved against THIS checkout) has its digest, every recorded decode recomputes,
-    and the translator table is unchanged. A recorded input that cannot be recomputed is a miss, never a hit."""
+    and the stub models and the translator table are unchanged. A recorded input that cannot be recomputed is a miss, never
+    a hit."""
     try:
         if any(file_digest(_resolve(p)) != d for p, d in doc["files"].items()):
             return False
         if any(decode_digest(image, va) != d for image, va, d in doc["decode"]):
+            return False
+        if doc["stubs"] is not None and stub_models_digest() != doc["stubs"]:
             return False
         return translator_digest() == doc["ccmap"]
     except Exception:  # noqa: BLE001 - any failure to recompute a recorded input is a miss

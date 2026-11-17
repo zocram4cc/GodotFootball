@@ -503,7 +503,7 @@ def compile_note(err, out_dir):
 
 
 def cache_root(args):
-    """Where the object and corpus caches live: GF_DIFF_CACHE when set (gate.sh shares one across worktrees and sets; every
+    """Where the object and record caches live: GF_DIFF_CACHE when set (gate.sh shares one across worktrees and sets; every
     key is a content hash of all its inputs, so sharing cannot give a wrong hit), else <out-dir>/cache."""
     return os.environ.get("GF_DIFF_CACHE") or os.path.join(args.out_dir, "cache")
 
@@ -517,9 +517,9 @@ def compile_one(args, gen, tu):
         obj = os.path.splitext(tu)[0] + ".o"
         rc, _, err = sh([args.cxx] + SEMANTIC_FLAGS + ["-I", gen, "-c", tu, "-o", obj], timeout=300)
         return (obj, None) if rc == 0 else (None, err)
-    objdir = os.path.join(cache_root(args), "obj")
+    objdir = os.path.join(cache_root(args), buildcache.OBJECT_DIR)
     final = os.path.join(objdir, key + ".o")
-    if os.path.exists(final):
+    if buildcache.object_hit(final):
         tally("object hit")
         return final, None
     os.makedirs(objdir, exist_ok=True)
@@ -1094,6 +1094,7 @@ def main():
         specs = [f for f in specs if f[:-5].lower() in want]
     os.makedirs(args.out_dir, exist_ok=True)
     buildcache.corpus_trim(os.path.join(cache_root(args), buildcache.CORPUS_DIR))  # once per run: the corpus stays under its cap
+    buildcache.object_trim(os.path.join(cache_root(args), buildcache.OBJECT_DIR))  # once per run: the object cache stays under its cap
     # A run generates everything afresh: callee TUs and support headers are reused within a run when they exist, so a
     # gen dir left by an older translator would link stale code (the gate's build dir persists between gates).
     shutil.rmtree(os.path.join(args.out_dir, "gen"), ignore_errors=True)

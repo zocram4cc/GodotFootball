@@ -400,6 +400,13 @@ bool PlayerController::_ReceiveCandidate() {
     constexpr bool kKeeperClaimFlag = false;
     const uint8_t actionType = match->PesWorldOf().P(match->PesSlotOf(CastPlayer()))[pes::kPByteAC9Offset];
     if (match->GetPesHolder() == CastPlayer() && !pes::CarrierMayTouch(actionType, kKeeperClaimFlag)) return false;
+    // Reaction gate 4a (FUN_1409FA520's first test, FUN_1406B4C10(anime, 7)): the man's current action must be one the Trap action may
+    // follow, and that action's own slot +0x70 handler must accept. PES's translated code on his P (WritePesTrapActors wrote it this tick).
+    // A man already in the Trap action is held by _TrapCommand (the reaction queues nothing for him); PES's gate refuses TRAP itself.
+    const int slot = match->PesSlotOf(CastPlayer());
+    if (match->PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap &&
+        !match->PesWorldOf().RunTrapAdmit(slot, pes::kAnimeActionTrap, match->PesTrapExternalsOf()))
+      return false;
   } else if (hasPossession) {
     return false;
   }

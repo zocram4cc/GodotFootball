@@ -196,6 +196,12 @@ public:
   pes::ActorKey PesActorKeyOf(const Player* player);
   // The PES slot (side * 11 + squad place) of an on-pitch player: the table entries and block holding his records.
   int PesSlotOf(const Player* player);
+  // PES owns this man's body through its Dribble action: PES's own tick put him there (the trap end's switch, RunPesTrapTicks) and has not taken
+  // him out since (RunPesDribbleTicks), and P+0xAC8 still says Dribble. A man whose P merely says Dribble because GF derives it from his clip
+  // (a BallControl clip of the carrier) is GF's: his P is rewritten from the clip every tick, and when the clip ends he leaves the action with
+  // it. The flag is GF state about who owns the body, not a PES cell.
+  bool PesOwnsDribble(Player& player);
+  void SetPesDribbleSwitched(int slot, bool switched) { pesDribbleSwitched[slot] = switched; }
   // PES's G tables and per-player blocks (pesworldrecord.hpp), owned by the match for the whole match.
   pes::PesWorld& PesWorldOf() { return *pesWorld; }
   // Seconds since a store record's frame, on PES's game-speed frames.
@@ -324,6 +330,28 @@ public:
   }
   // How many grants slot's body has taken in this match (the tests' witness that a touch was a grant).
   unsigned PesTouchesTaken(int slot) const { return pesTouchesTaken[slot]; }
+  // The dribble tick's SetMotion issues (RunPesDribbleTicks) and the ones the body could not play, by motion number (the tests' witness
+  // that PES's issue reached the body).
+  void NotePesDribbleIssue(int slot, int motion, bool played) {
+    ++pesDribbleIssues;
+    pesDribbleIssuedMotion[slot] = static_cast<uint16_t>(motion);
+    if (!played) ++pesDribbleIssuesUnplayed[motion];
+  }
+  // The motion a man's last Dribble-action issue named (single: P+0xAE0; series: the vector's first entry), by slot.
+  uint16_t PesDribbleIssuedMotion(int slot) const { return pesDribbleIssuedMotion[slot]; }
+  unsigned PesDribbleIssues() const { return pesDribbleIssues; }
+  // Dribbler touches the ball executor applied to the ball (RunPesBodyScans; the tests' witness that a PES dribble moves the ball).
+  void NotePesDribbleKick() { ++pesDribbleKicks; }
+  // Body scans run for PES-owned dribblers, and those whose reach test granted a touch (the tests' witness of where a dribble touch stops).
+  void NotePesDribbleScan(bool granted, bool contactPending) { ++pesDribbleScans; if (granted) ++pesDribbleGrants; if (contactPending) ++pesDribbleContactPending; }
+  unsigned PesDribbleScans() const { return pesDribbleScans; }
+  unsigned PesDribbleGrants() const { return pesDribbleGrants; }
+  unsigned PesDribbleContactPending() const { return pesDribbleContactPending; }
+  unsigned PesDribbleKicks() const { return pesDribbleKicks; }
+  // The last SetMotion kind a man's Trap tick issued (RunPesTrapTicks; PesTickResult::issue), by slot (the tests' witness).
+  void NotePesTrapTickIssue(int slot, uint8_t issue) { pesTrapTickIssue[slot] = issue; }
+  uint8_t PesTrapTickIssue(int slot) const { return pesTrapTickIssue[slot]; }
+  const std::map<int, unsigned>& PesDribbleIssuesUnplayed() const { return pesDribbleIssuesUnplayed; }
   // A grant lives for the tick that made it (the bodies take it in the same tick's team stage): RunPesBodyScans clears the last tick's.
   void ClearPesTouches() { pesTouchGranted.fill(false); }
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
@@ -780,6 +808,13 @@ protected:
   pes::PesActorConstants pesActorConstants{};
   std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
   std::array<unsigned, pes::kSlotCount> pesTouchesTaken{};
+  unsigned pesDribbleIssues = 0;
+  unsigned pesDribbleKicks = 0;
+  std::array<bool, pes::kSlotCount> pesDribbleSwitched{};
+  unsigned pesDribbleScans = 0, pesDribbleGrants = 0, pesDribbleContactPending = 0;
+  std::array<uint16_t, pes::kSlotCount> pesDribbleIssuedMotion{};
+  std::array<uint8_t, pes::kSlotCount> pesTrapTickIssue{};
+  std::map<int, unsigned> pesDribbleIssuesUnplayed;
   std::array<pes::PesBodyScanOut, pes::kSlotCount> pesTouch{};
   std::array<bool, pes::kSlotCount> pesTouchGranted{};
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;

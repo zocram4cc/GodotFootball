@@ -466,8 +466,15 @@ void WritePesMovementRecords(Match& match);
 // Every active player's P (PES's AnimePlayer, pestrapactor.hpp) from his state, written right after the movement records: the
 // Trap chain's actor objects, one per player. Match::Process calls it on the PES path.
 void WritePesTrapActors(Match& match);
+// PES's holder into both sides' window MA before the trap ticks (the end chain reads it): Match::Process calls it on the PES path.
+void WritePesMaHolders(Match& match);
 // Every man in the Trap action runs PES's action tick on the window and plays the clip it issues (after WritePesTrapActors).
 void RunPesTrapTicks(Match& match);
+// Every man PES owns in the Dribble action runs PES's dribble tick (after RunPesTrapTicks: a trap end can switch mid-block).
+void RunPesDribbleTicks(Match& match);
+// Every active man's saturating tick counters P+0x2814..0x281A and cooldown P+0x2824 count one tick (pes::AdvanceActorTickCounters),
+// after the action ticks.
+void RunPesActorCounters(Match& match);
 // Every man in the Trap action runs PES's body contact scan (pesbodyscan.hpp) after his action tick: a touch request grants his body the
 // touch (Match::TakePesTouch).
 void RunPesBodyScans(Match& match);
