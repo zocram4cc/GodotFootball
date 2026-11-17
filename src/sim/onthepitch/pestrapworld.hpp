@@ -123,6 +123,7 @@ inline constexpr std::size_t kAdjTicksOffset = 0x10;  // s16: the last step's ti
 inline constexpr std::size_t kAdjStepOffset = 0x14;   // 3 x f32 (x, y, z): the layer's root point (FUN_141AF3CA0), then the step's result
 inline constexpr std::size_t kAdjYawOutOffset = 0x20; // f32: the yaw adjuster's per-tick rotation (rad; degrees when the flag below is 1)
 inline constexpr std::size_t kAdjYawFlagOffset = 0x24; // u8: the yaw adjuster's override flag (FUN_141EB35A0's 5th argument)
+inline constexpr std::size_t kAdjModeOffset = 0x6D;  // u8: 1 strike (FUN_141EB39A0), 2 approach (FUN_141EB3910); FUN_141EB1A20 clears it
 inline constexpr uint32_t kAdjRunning = 2;
 
 // The request the Trap action's +0x68 slot takes (r9 of 0x1407A01C0), 0x24 bytes in PES's layout
