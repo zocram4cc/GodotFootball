@@ -23,15 +23,27 @@
 - Anime engine tests: unchanged (14 OK).
 
 ## Next steps, in order
-1. Build the trap world's translated states over the full PES memory: keep a PesMemory* in PesWorld::BindMemory and use memory_->NewCall() (pesmemory.hpp:151) instead of NewCall(Bytes()) in every trap-world path that touches the engine chain: BindAnimeChain, WriteAnimeG, WriteAnimeRootPoint, RunAnimeJoints, ReadAdjusterFrame, RunAdjusters, RunOnP and RunRootMotion. Check LendExternals/ReturnSegments with the full state.
+1. Build the trap world's translated states over the full PES memory: keep a PesMemory* in PesWorld::BindMemory and use
+   memory_->NewCall() (pesmemory.hpp:151) instead of NewCall(Bytes()) in every trap-world path that touches the engine
+   chain: BindAnimeChain, WriteAnimeG, WriteAnimeRootPoint, RunAnimeJoints, ReadAdjusterFrame, RunAdjusters, RunOnP and
+   RunRootMotion. Check LendExternals/ReturnSegments with the full state.
+   Mechanics (17-11, static): `PesWorld` holds no reference to the memory today — `BindMemory`
+   (`pesworldrecord.cpp:80-92`) copies the window into `memory.AddWindow`, points `heap_` at `memory.Heap()` and keeps
+   nothing else, so a member is needed (`PesMemory* memory_ = nullptr;` beside `heap_`, `pesworldrecord.hpp:1333`).
+   `PesMemory::NewCall()` maps the image, the heap, the stack/TIB and the OS arena, while the world's `Bind`
+   (`pesworldrecord.cpp:21-28`) maps only the window plus one global seg and puts `rsp` at `kStackVa + kStackBytes`:
+   check that `rsp` difference first, because a translated body that indexes its frame by the world's `kStackVa` breaks
+   once the state comes from the memory.
 2. Run pes_adjuster_tick_test. The four tests must pass. If the yaw test fails on the sign or axis, swap B+0xA4 and B+0xAC in ReadAdjusterFrame (the test compares the output to P+0x4F0 within 1e-5 rad).
 3. Port pes_joint_block_test (write the test's pose into the engine chain's arrays: positions at [L1+0x50], rotations at [chain+0x20], 16-byte entries; RunAnimeJoints(slot, ext)); pes_kick_oracle_common.hpp (Build takes an engine player; BindMemory before writes; no stand-in segments); pes_trap_oracle_test.cpp (drop the PhysiqueA/B and ConstructAnimPlugin assertions; reach O2 through the chain).
 4. Build the full test set and run ctest; run the pes-loop and switch-off smokes through tools/dev/simslot.sh (seed 7, 2 min); report the expected moves with reasons; commit; push; ls-remote.
 5. Then delete the stand-in chain loader data (BuildAnimeChain, kAnimeChainVa segments, the kAnimeLayer/KeyTable/Quat VAs) that the trap path no longer reads.
 
 ## Named gaps kept
-- Height adjuster branch (P+0x498 running): not observed in 19 captures. Watcher bg_252 may still be armed.
-- Chain X (FUN_141EBC820 -> FUN_141B00910): gate S+0x14 = 256 in 19/19 captures. Undecoded, no stand-in.
+- Height adjuster branch (`P+0x498`): state, counters and accumulator are all zero in `seq1128`, so it is **never
+  armed**, not armed late; who stores state 2 into the three adjusters is open. See the adjtick note.
+- Chain X: **closed** — the gate `S+0x14` is written only by its constructor, to 256, so the tick is dead for player
+  models. No stand-in, no capture needed. See the adjtick note.
 - TrapAdmit2 item 1 (rewire onto the real control) and item 3 (planner) wait on this cut.
 
 ## Evidence files
