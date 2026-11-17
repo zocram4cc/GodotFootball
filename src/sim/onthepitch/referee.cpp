@@ -314,13 +314,14 @@ void Referee::Process() {
           buffer.teamID = 0;
         }
 
-        // PES's period writer at the whistle (FUN_1404494E0): the record moves to the break, or to
-        // full time when the match is not level. Extra time only when the match is level, both extra
-        // periods always played, penalties only after a draw in them.
+        // PES's period writer at the whistle (FUN_1404494E0): the record moves to the break, or to full time
+        // when the match is not level. Extra time and the shoot-out follow the match's options (PES's E+0x66
+        // and E+0x67); both extra periods are always played.
         const bool scoresLevel = match->GetScore(0) == match->GetScore(1);
-        clock.EndPeriod(scoresLevel);
+        const MatchProgression::Options& progressionOptions = match->GetProgressionOptions();
+        clock.EndPeriod(scoresLevel, progressionOptions);
         const MatchProgression::Outcome progression =
-            MatchProgression::GetNext(match->GetMatchPhase(), scoresLevel);
+            MatchProgression::GetNext(match->GetMatchPhase(), scoresLevel, progressionOptions);
         if (progression.gameOver) {
           match->GameOver();
           return;

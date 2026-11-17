@@ -231,16 +231,17 @@ TEST(PesPeriodLifecycle, EachTransitionStartsItsOwnPESPeriod) {
   auto match = MatchAtPhase(e_MatchPhase_1stHalf, 2400.0f);
   ASSERT_TRUE(match);
   EXPECT_EQ(match->GetPesClock().Record().period, 1u);
-  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_1stHalf, false).nextPhase, e_MatchPhase_2ndHalf);
+  const MatchProgression::Options extraTimeAndShootOut{true, true};
+  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_1stHalf, false, extraTimeAndShootOut).nextPhase, e_MatchPhase_2ndHalf);
   match->SetMatchPhase(e_MatchPhase_2ndHalf);
   EXPECT_EQ(match->GetPesClock().Record().period, 3u);
   EXPECT_FLOAT_EQ(match->GetPesClock().PeriodClock(), 0.0f) << "the second half's record starts at zero";
-  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_2ndHalf, true).nextPhase, e_MatchPhase_1stExtraTime);
+  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_2ndHalf, true, extraTimeAndShootOut).nextPhase, e_MatchPhase_1stExtraTime);
   match->SetMatchPhase(e_MatchPhase_1stExtraTime);
   EXPECT_EQ(match->GetPesClock().Record().period, 5u);
   match->SetMatchPhase(e_MatchPhase_2ndExtraTime);
   EXPECT_EQ(match->GetPesClock().Record().period, 7u);
-  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_2ndExtraTime, true).nextPhase, e_MatchPhase_Penalties);
+  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_2ndExtraTime, true, extraTimeAndShootOut).nextPhase, e_MatchPhase_Penalties);
   match->SetMatchPhase(e_MatchPhase_Penalties);
   EXPECT_EQ(match->GetPesClock().Record().period, 9u);
 }

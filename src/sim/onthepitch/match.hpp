@@ -89,6 +89,8 @@ public:
 
   void SetMatchPhase(e_MatchPhase newMatchPhase);
   e_MatchPhase GetMatchPhase() const { return matchPhase; }
+  // PES's extra-time and shoot-out options for this match (MatchSetup).
+  const MatchProgression::Options& GetProgressionOptions() const { return progressionOptions; }
 
   void StartPlay() { inPlay = true; }
   // PES's ball is dead at the whistle: on the PES path the stop zeroes it in place (velocity and
@@ -712,6 +714,7 @@ protected:
   Vector3 previousBallPos;
 
   float matchDurationMinutes;
+  MatchProgression::Options progressionOptions;
   float matchDurationFactor;
   float matchTimeScale;
 

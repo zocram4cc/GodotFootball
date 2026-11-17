@@ -24,6 +24,7 @@
 #include <optional>
 #include <string>
 
+#include "matchprogression.hpp"
 #include "gametypes.hpp"
 #include "pes/exe.hpp"
 
@@ -83,9 +84,9 @@ uint32_t PeriodNumber(e_MatchPhase phase);
 bool PeriodHasClock(uint32_t period);
 
 // The period a clock period hands to when its whistle blows (FUN_1404494E0, A6Writers 5): 1 to
-// 2, 3 to 4 when level and to 10 otherwise, 5 to 6, 7 to 8 when level and to 10 otherwise. Any
-// other period is unchanged.
-uint32_t PeriodAfterWhistle(uint32_t period, bool scoresLevel);
+// 2; 3 to 4 when level and extra time is on, else to 8 when level and the shoot-out is on, else to
+// 10; 5 to 6; 7 to 8 when level and the shoot-out is on, else to 10. Any other period is unchanged.
+uint32_t PeriodAfterWhistle(uint32_t period, bool scoresLevel, const MatchProgression::Options& options);
 // The stamp's units per logic frame: PES's match speed, 90 * E60 * E5C * (60 / 54) / E58
 // (FUN_140A6C050, A6Writers 6), with E58 the match-time setting in minutes.
 float PesUnitsPerFrame(const PesClockConstants& c, float matchMinutes);
@@ -221,8 +222,8 @@ class PesClock {
   // Adds the added-time formula's minutes to LIMIT, once per period (report 3.2).
   void AnnounceAddedTime(int tier);
   // The period writer at a whistle (FUN_1404494E0): the record moves to the break or to full time,
-  // as PeriodAfterWhistle names.
-  void EndPeriod(bool scoresLevel);
+  // as PeriodAfterWhistle names, under the match's options.
+  void EndPeriod(bool scoresLevel, const MatchProgression::Options& options);
   // PES's period writer for the post-match period (FUN_14102CAD0 with 10, FUN_140447B50 case 6).
   void SetPeriod(uint32_t period) { record.period = period; }
   bool AddedTimeAnnounced() const { return addedTimeAnnounced; }

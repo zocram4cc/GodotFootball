@@ -2,7 +2,7 @@
 
 namespace MatchProgression {
 
-Outcome GetNext(e_MatchPhase currentPhase, bool scoresLevel) {
+Outcome GetNext(e_MatchPhase currentPhase, bool scoresLevel, const Options& options) {
   Outcome outcome;
   outcome.nextPhase = currentPhase;
 
@@ -12,9 +12,14 @@ Outcome GetNext(e_MatchPhase currentPhase, bool scoresLevel) {
       break;
 
     case e_MatchPhase_2ndHalf:
-      // Extra time is only played when there is still nothing between them.
-      if (scoresLevel)
+      // PES's tie test (FUN_1404493D0): a level match takes extra time when that option is on,
+      // else the shoot-out when it is on, else full time.
+      if (!scoresLevel)
+        outcome.gameOver = true;
+      else if (options.extraTime)
         outcome.nextPhase = e_MatchPhase_1stExtraTime;
+      else if (options.penaltyShootout)
+        outcome.nextPhase = e_MatchPhase_Penalties;
       else
         outcome.gameOver = true;
       break;
@@ -25,7 +30,8 @@ Outcome GetNext(e_MatchPhase currentPhase, bool scoresLevel) {
       break;
 
     case e_MatchPhase_2ndExtraTime:
-      if (scoresLevel)
+      // PES's tie test (FUN_1404499D0): a level match goes to the shoot-out when that option is on.
+      if (scoresLevel && options.penaltyShootout)
         outcome.nextPhase = e_MatchPhase_Penalties;
       else
         outcome.gameOver = true;

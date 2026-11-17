@@ -68,6 +68,13 @@ struct MatchSetup {
   unsigned int seed = 0;
   int durationMinutes = 0;
   float timeScale = 1.0f;
+  // PES's match options, the two settings flags the save holds (MatchProgression::Options; PES's E+0x66 extra time and E+0x67
+  // shoot-out). They decide what a level match does at the end of the second half (MatchProgression::GetNext).
+  // ponytail: the defaults are the live values of E+0x66 = 0 and E+0x67 = 1 in this install's exhibition match (pid 3218130,
+  // read-only pread of E = q(q(0x1436F3DC8)+0x2C0)). The upgrade path is the user's EDIT save's settings records, the layout
+  // FUN_142159F40 reads (reached from FUN_14214B8D0 / FUN_142160350); until a reader exists, the defaults are this measurement.
+  bool extraTime = false;
+  bool penaltyShootout = true;
   // Whether the CPU manager adapts each team's tactics and makes its
   // substitutions; off, the team plays its set tactics and bench all match.
   bool aiManagerRuns[2] = {true, true};

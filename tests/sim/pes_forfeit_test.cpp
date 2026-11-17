@@ -19,6 +19,7 @@
 
 #include "data/matchdata.hpp"
 #include "onthepitch/match.hpp"
+#include "onthepitch/matchprogression.hpp"
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/pesclock.hpp"
 #include "onthepitch/pesforfeit.hpp"
@@ -51,6 +52,9 @@ constexpr unsigned long kNeverSentOff_ms = 1000000000000ul;
 constexpr int kStoppageSampleTicks = 64;
 // Contacts that take a player to PES's injured level (the contact path, pes_stamina_test's slide).
 constexpr int kInjuringContacts = 200;
+// The forfeit matches are played on PES's full-time route (no extra time, no shoot-out): a level score at the whistle is
+// full time, which is where the forfeit is written. Set explicitly so the route does not depend on the settings default.
+constexpr MatchProgression::Options kFullTimeOnly{false, false};
 
 bool HaveInstall() { return std::getenv("PES21_ROOT") != nullptr; }
 
@@ -80,7 +84,7 @@ std::optional<pes::ForfeitConstants> InstalledForfeitConstants(std::string* erro
 }
 
 // A real match from the fixture, every PES constant from the install. Null when one is missing.
-std::unique_ptr<Match> BuildMatch(int minutes) {
+std::unique_ptr<Match> BuildMatch(int minutes, const MatchProgression::Options& progression) {
   static std::unique_ptr<blunted::Database> held;  // the engine reads a process-wide database
   held = std::make_unique<blunted::Database>();
   if (!held->LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql")) return nullptr;
@@ -90,6 +94,8 @@ std::unique_ptr<Match> BuildMatch(int minutes) {
   setup.awayTeamDbId = AWAY_TEAM;
   setup.seed = SEED;
   setup.durationMinutes = minutes;
+  setup.extraTime = progression.extraTime;
+  setup.penaltyShootout = progression.penaltyShootout;
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
   if (!setup.rig) return nullptr;
@@ -217,7 +223,7 @@ TEST(PesForfeitInstall, ThePostMatchPeriodIsTheOneTheWhistleWrites) {
   const auto k = InstalledForfeitConstants(&err);
   ASSERT_TRUE(k) << err;
   // The min-players writer (0x140447EF8) and the full-time writer agree on the post-match period.
-  EXPECT_EQ(static_cast<int>(pes::PeriodAfterWhistle(3, false)), k->postMatchPeriod);
+  EXPECT_EQ(static_cast<int>(pes::PeriodAfterWhistle(3, false, kFullTimeOnly)), k->postMatchPeriod);
 }
 
 // --- the live match: the minimum-players rule (cards through GiveRedCard, removal through SendOff) ---
@@ -229,7 +235,7 @@ TEST(PesForfeitMatch, ASideShortOfTheMinimumEndsTheMatchAtItsNextStoppage) {
   std::string err;
   const auto k = InstalledForfeitConstants(&err);
   ASSERT_TRUE(k) << err;
-  auto match = BuildMatch(kMatchMinutes);
+  auto match = BuildMatch(kMatchMinutes, kFullTimeOnly);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   const int toRemove = 11 - (pes::forfeit::kPesMinimumPlayers - 1);
@@ -247,7 +253,7 @@ TEST(PesForfeitMatch, ASideShortOfTheMinimumEndsTheMatchAtItsNextStoppage) {
 // match keeps going through the whole window.
 TEST(PesForfeitMatch, ASideAtTheMinimumKeepsPlaying) {
   if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
-  auto match = BuildMatch(kMatchMinutes);
+  auto match = BuildMatch(kMatchMinutes, kFullTimeOnly);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   const int toRemove = 11 - pes::forfeit::kPesMinimumPlayers;
@@ -267,7 +273,7 @@ TEST(PesForfeitMatch, ASideAtTheMinimumKeepsPlaying) {
 // execution path, then a real contact injures a player with no bench player left.
 TEST(PesForfeitMatch, AnInjuredPlayerStaysOnThePitchWhenTheBenchIsUsedUp) {
   if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
-  auto match = BuildMatch(kMatchMinutes);
+  auto match = BuildMatch(kMatchMinutes, kFullTimeOnly);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   ASSERT_TRUE(RunToStoppage(*match)) << "no stoppage to make substitutions in";
@@ -288,7 +294,7 @@ TEST(PesForfeitMatch, AnInjuredPlayerStaysOnThePitchWhenTheBenchIsUsedUp) {
 // The control for the test above: with a sub left, the injured player is replaced.
 TEST(PesForfeitMatch, AnInjuredPlayerIsReplacedWhileASubIsLeft) {
   if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
-  auto match = BuildMatch(kMatchMinutes);
+  auto match = BuildMatch(kMatchMinutes, kFullTimeOnly);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   const int allowance = SubstitutionsLeft(*match, HOME);
@@ -309,7 +315,7 @@ TEST(PesForfeitMatch, AnInjuredPlayerIsReplacedWhileASubIsLeft) {
 // docs/re/pes-re-missing-systems.md 2.7 and 2.13). When it is ported, this test must change with it.
 TEST(PesForfeitMatch, ARedCardRemovesTheOffenderAndTheSideIsNotForfeited) {
   if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
-  auto match = BuildMatch(kShortMatchMinutes);
+  auto match = BuildMatch(kShortMatchMinutes, kFullTimeOnly);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   Player* offender = OutfieldOnPitch(*match, HOME).front();
@@ -328,7 +334,7 @@ TEST(PesForfeitMatch, AYellowThenRedStillOnThePitchAtFullTimeForfeitsThreeNil) {
   std::string err;
   const auto k = InstalledForfeitConstants(&err);
   ASSERT_TRUE(k) << err;
-  auto match = BuildMatch(kShortMatchMinutes);
+  auto match = BuildMatch(kShortMatchMinutes, kFullTimeOnly);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   Player* offender = OutfieldOnPitch(*match, HOME).front();

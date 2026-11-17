@@ -93,6 +93,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   matchDurationMinutes = static_cast<float>(setup.durationMinutes);
   matchDurationFactor = MatchDurationFactorFromMinutes(matchDurationMinutes);
   matchTimeScale = std::max(1.0f, setup.timeScale);
+  progressionOptions = {setup.extraTime, setup.penaltyShootout};
   matchDifficulty = GetConfiguration()->GetReal("match_difficulty", _default_Difficulty);
 
   // PES 2021's clock (docs/re/pes-re-tactics-clock.md 7.2): every constant is

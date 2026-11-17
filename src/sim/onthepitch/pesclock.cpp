@@ -98,16 +98,20 @@ bool PeriodHasClock(uint32_t period) {
   return period == 1 || period == 3 || period == 5 || period == 7;
 }
 
-// FUN_1404494E0 writes the period through FUN_14102CAD0. The level cases are FUN_1404493D0 (period
-// 3, VA 0x1404493D0) and FUN_1404499D0 (period 7, VA 0x1404499D0). ponytail: PES's knockout flags
-// (0x66 extra time, 0x67 shoot-out) have no GF setting. GF plays extra time and a shoot-out after a
-// draw (MatchProgression::GetNext), so a level match always takes the break that leads to them.
-uint32_t PeriodAfterWhistle(uint32_t period, bool scoresLevel) {
+// FUN_1404494E0 writes the period through FUN_14102CAD0. The level cases are the tie tests FUN_1404493D0
+// (period 3, VA 0x1404493D0: extra time is 4 when PES's E+0x66 is set, else the shoot-out's 8 when E+0x67 is set,
+// else full time) and FUN_1404499D0 (period 7, VA 0x1404499D0: the shoot-out's 8 when E+0x67 is set, else 10).
+// ponytail: the tie test's E+0x68 / E+0x69 doubled tallies and FUN_140443E30's side argument (E+0x65) are not
+// ported; the install's values for both are 0 and 1, and GF has no aggregate tally.
+uint32_t PeriodAfterWhistle(uint32_t period, bool scoresLevel, const MatchProgression::Options& options) {
   switch (period) {
-    case 1: return 2;                     // the half-time break, fixed
-    case 3: return scoresLevel ? 4 : 10;  // the extra-time break, or full time
-    case 5: return 6;                     // the extra-time break, fixed
-    case 7: return scoresLevel ? 8 : 10;  // the shoot-out break, or full time
+    case 1: return 2;  // the half-time break, fixed
+    case 3:
+      if (!scoresLevel) return 10;
+      if (options.extraTime) return 4;
+      return options.penaltyShootout ? 8 : 10;
+    case 5: return 6;  // the extra-time break, fixed
+    case 7: return (scoresLevel && options.penaltyShootout) ? 8 : 10;
     default: return period;
   }
 }
@@ -355,8 +359,8 @@ void PesClock::AnnounceAddedTime(int tier) {
 }
 
 // FUN_1404494E0 writes the period at the whistle (A6Writers 5).
-void PesClock::EndPeriod(bool scoresLevel) {
-  record.period = PeriodAfterWhistle(record.period, scoresLevel);
+void PesClock::EndPeriod(bool scoresLevel, const MatchProgression::Options& options) {
+  record.period = PeriodAfterWhistle(record.period, scoresLevel, options);
 }
 
 void PesClock::Display(int* minute_db_pitch, int* second) const {

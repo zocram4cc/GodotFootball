@@ -1,6 +1,8 @@
 // Match phase progression: what follows the whistle at the end of a period.
-// Extra time is only played when the match is level at full time, both extra
-// periods are always completed, and penalties only follow a draw after them.
+// Extra time and the shoot-out are PES's match options (its E+0x66 and E+0x67 flags). A level
+// second half goes to extra time when that option is on, else to the shoot-out when it is on,
+// else to full time. Both extra periods are always completed; a level match after them goes to
+// the shoot-out when that option is on, else to full time.
 // See TECHNICAL_ROADMAP.md checklist item 1.
 
 #ifndef _HPP_MATCH_PROGRESSION
@@ -10,12 +12,17 @@
 
 namespace MatchProgression {
 
+struct Options {
+  bool extraTime = false;        // PES E+0x66: a level second half plays extra time
+  bool penaltyShootout = false;  // PES E+0x67: a level match (after extra time, if played) goes to the shoot-out
+};
+
 struct Outcome {
   bool gameOver = false;
   e_MatchPhase nextPhase = e_MatchPhase_1stHalf;
 };
 
-Outcome GetNext(e_MatchPhase currentPhase, bool scoresLevel);
+Outcome GetNext(e_MatchPhase currentPhase, bool scoresLevel, const Options& options);
 
 // Does this period change ends? Team::GetSide() flips for the second half and the
 // second period of extra time and for nothing else, so these are the two moments

@@ -620,13 +620,18 @@ TEST(PesClockInstall, ConstantsComeFromTheExe) {
 
 // --- the breaks and the whistle (A6Writers 5): each whistle hands the record to its break ---
 
+// The options under which every break is played (extra time and the shoot-out on).
+constexpr MatchProgression::Options kExtraTimeAndShootOut{true, true};
+constexpr MatchProgression::Options kShootOutOnly{false, true};
+constexpr MatchProgression::Options kFullTimeOnly{false, false};
+
 TEST(PesPeriodWhistle, TheHalfTimeWhistleHandsOverToTheBreakWhateverTheScore) {
   const pes::PesClockConstants c = FakeConstants();
   for (bool level : {false, true}) {
     pes::PeriodRecord periodRecord;
     pes::PesClock clock(c, kMatchMinutes, periodRecord);
     clock.SetPhase(e_MatchPhase_1stHalf);
-    clock.EndPeriod(level);
+    clock.EndPeriod(level, kExtraTimeAndShootOut);
     EXPECT_EQ(clock.Record().period, 2u) << "level " << level;
   }
 }
@@ -636,13 +641,28 @@ TEST(PesPeriodWhistle, ATiedSecondHalfHandsOverToTheExtraTimeBreakAndAnUntiedOne
   pes::PeriodRecord tiedRecord;
   pes::PesClock tied(c, kMatchMinutes, tiedRecord);
   tied.SetPhase(e_MatchPhase_2ndHalf);
-  tied.EndPeriod(true);
+  tied.EndPeriod(true, kExtraTimeAndShootOut);
   EXPECT_EQ(tied.Record().period, 4u);
   pes::PeriodRecord untiedRecord;
   pes::PesClock untied(c, kMatchMinutes, untiedRecord);
   untied.SetPhase(e_MatchPhase_2ndHalf);
-  untied.EndPeriod(false);
+  untied.EndPeriod(false, kExtraTimeAndShootOut);
   EXPECT_EQ(untied.Record().period, 10u);
+}
+
+// With extra time off (PES's E+0x66 = 0), a tied second half goes to the shoot-out break when E+0x67 is set, else to full time.
+TEST(PesPeriodWhistle, ATiedSecondHalfWithoutExtraTimeGoesToTheShootOutOrFullTime) {
+  const pes::PesClockConstants c = FakeConstants();
+  pes::PeriodRecord shootOutRecord;
+  pes::PesClock shootOut(c, kMatchMinutes, shootOutRecord);
+  shootOut.SetPhase(e_MatchPhase_2ndHalf);
+  shootOut.EndPeriod(true, kShootOutOnly);
+  EXPECT_EQ(shootOut.Record().period, 8u);
+  pes::PeriodRecord fullTimeRecord;
+  pes::PesClock fullTime(c, kMatchMinutes, fullTimeRecord);
+  fullTime.SetPhase(e_MatchPhase_2ndHalf);
+  fullTime.EndPeriod(true, kFullTimeOnly);
+  EXPECT_EQ(fullTime.Record().period, 10u);
 }
 
 TEST(PesPeriodWhistle, ATiedSecondExtraTimeHandsOverToTheShootOutBreakAndAnUntiedOneToFullTime) {
@@ -650,13 +670,18 @@ TEST(PesPeriodWhistle, ATiedSecondExtraTimeHandsOverToTheShootOutBreakAndAnUntie
   pes::PeriodRecord tiedRecord;
   pes::PesClock tied(c, kMatchMinutes, tiedRecord);
   tied.SetPhase(e_MatchPhase_2ndExtraTime);
-  tied.EndPeriod(true);
+  tied.EndPeriod(true, kExtraTimeAndShootOut);
   EXPECT_EQ(tied.Record().period, 8u);
   pes::PeriodRecord untiedRecord;
   pes::PesClock untied(c, kMatchMinutes, untiedRecord);
   untied.SetPhase(e_MatchPhase_2ndExtraTime);
-  untied.EndPeriod(false);
+  untied.EndPeriod(false, kExtraTimeAndShootOut);
   EXPECT_EQ(untied.Record().period, 10u);
+  pes::PeriodRecord fullTimeRecord;
+  pes::PesClock fullTime(c, kMatchMinutes, fullTimeRecord);
+  fullTime.SetPhase(e_MatchPhase_2ndExtraTime);
+  fullTime.EndPeriod(true, kFullTimeOnly);
+  EXPECT_EQ(fullTime.Record().period, 10u) << "a tied second extra time with E+0x67 clear is full time";
 }
 
 TEST(PesPeriodWhistle, TheExtraTimeFirstHalfHandsOverToItsBreakWhateverTheScore) {
@@ -665,7 +690,7 @@ TEST(PesPeriodWhistle, TheExtraTimeFirstHalfHandsOverToItsBreakWhateverTheScore)
     pes::PeriodRecord periodRecord;
     pes::PesClock clock(c, kMatchMinutes, periodRecord);
     clock.SetPhase(e_MatchPhase_1stExtraTime);
-    clock.EndPeriod(level);
+    clock.EndPeriod(level, kExtraTimeAndShootOut);
     EXPECT_EQ(clock.Record().period, 6u) << "level " << level;
   }
 }
@@ -676,19 +701,19 @@ TEST(PesPeriodWhistle, ALevelMatchRunsThroughEveryBreak) {
   pes::PeriodRecord periodRecord;
   pes::PesClock clock(c, kMatchMinutes, periodRecord);
   clock.SetPhase(e_MatchPhase_1stHalf);
-  clock.EndPeriod(true);
+  clock.EndPeriod(true, kExtraTimeAndShootOut);
   EXPECT_EQ(clock.Record().period, 2u);
   clock.SetPhase(e_MatchPhase_2ndHalf);
   EXPECT_EQ(clock.Record().period, 3u);
-  clock.EndPeriod(true);
+  clock.EndPeriod(true, kExtraTimeAndShootOut);
   EXPECT_EQ(clock.Record().period, 4u);
   clock.SetPhase(e_MatchPhase_1stExtraTime);
   EXPECT_EQ(clock.Record().period, 5u);
-  clock.EndPeriod(true);
+  clock.EndPeriod(true, kExtraTimeAndShootOut);
   EXPECT_EQ(clock.Record().period, 6u);
   clock.SetPhase(e_MatchPhase_2ndExtraTime);
   EXPECT_EQ(clock.Record().period, 7u);
-  clock.EndPeriod(true);
+  clock.EndPeriod(true, kExtraTimeAndShootOut);
   EXPECT_EQ(clock.Record().period, 8u);
   clock.SetPhase(e_MatchPhase_Penalties);
   EXPECT_EQ(clock.Record().period, 9u);
@@ -702,7 +727,7 @@ TEST(PesBreak, ABreakHasNoClock) {
   clock.SetPhase(e_MatchPhase_1stHalf);
   clock.Advance(Frames(100));
   const float stamp = clock.PeriodClock();
-  clock.EndPeriod(false);
+  clock.EndPeriod(false, kExtraTimeAndShootOut);
   ASSERT_FALSE(pes::PeriodHasClock(clock.Record().period)) << "the half-time break";
   clock.Advance(Frames(1000));
   clock.SetFrozen(true);
