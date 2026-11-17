@@ -385,8 +385,8 @@ constexpr float kCapturedBlend = 0.15f;  // the captured series' blend (seq002's
 constexpr int kCapturedKind = 1;         // the captured series' transition kind (seq002's descriptor)
 // The series' rate table (the descriptor's +0x18 array, one f32 per member): identical in all eight captured calls (live2/pid661338 seq001-008).
 constexpr float kSeriesRates[kMembers] = {0.0f, 0.15f, 0.3f, 0.5f, 0.9f, 1.0f};
-constexpr uint8_t kCapturedParamKind = 0;             // the parameter block's kind byte (seq002; all eight have 0)
-constexpr float kCapturedParamBlend = 0.16666667f;    // the parameter block's blend (seq002; the eight calls vary it)
+constexpr uint8_t kCapturedParamKind = 1;           // the parameter block's kind byte at +0x4 (seq002 entry state, pid661338_002)
+constexpr float kCapturedParamBlend = 8.407790785948902e-45f;  // the block's word at +0x8 (seq002 holds 6), read as f32 by SetParametric
 constexpr float kMinTravel = 0.5f;       // a heading is measured once the body is this far from its start; nearer, float noise turns it
 constexpr double kTurnNoise = 1e-3;      // rounding of a heading computed from float positions (radians)
 constexpr double kPi = 3.14159265358979323846;
