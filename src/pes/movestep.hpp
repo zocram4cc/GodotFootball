@@ -1033,6 +1033,7 @@ struct MoveTargetInput {
   int commandId = 0;
   int commandSpeedClass = 0;
   bool animeStateNonzero = false;
+  bool useClassRate = false;  // cmd+0x5C5 (req[0xb] byte): the requested rate is the class's band rate
   int bodyBucket = 0;       // the centre index: the low byte of P+0x2798, which is req[0x20] (the live bucket, 0..9; PES 236-241)
   // PES d_1406b7560.c 236-268: the body's phase (vt+0x20 of +0xab8: the state byte P+0x245c) and the heading of the last-tick displacement (DispHeading).
   int phase = 0;                 // the MOVESTEP phase byte: the listed phases take the displacement heading, the others the centre

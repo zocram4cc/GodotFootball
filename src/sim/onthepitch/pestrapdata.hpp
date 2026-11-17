@@ -44,6 +44,10 @@ inline constexpr std::size_t kTrapRuntimeBytes = 0x1D8;  // constant::Trap: the 
 // param_5; the slot-2 loader FUN_141E73720's last store is +0x2E8.
 inline constexpr uint32_t kBallRegistryId = 4;
 inline constexpr std::size_t kBallRuntimeBytes = 0x2EC;
+// constant::PassGet, registry id 0x35 (passget.o of constant_player.bin; vtable 0x142B547A8, slot-2 loader FUN_141E6CDC0, last store +0x98): the
+// object ActionPassGet's route walk reads through FUN_141E5CA20(0x1437F4808, 0x35) (FUN_140945EC0).
+inline constexpr uint32_t kPassGetRegistryId = 0x35;
+inline constexpr std::size_t kPassGetRuntimeBytes = 0x9C;
 
 // The six Mbinfo files the chain and the action tick read, as FUN_1406AEF60 files them: kind (the file's index in the path table 0x14344DC40),
 // the list offset FUN_1406AE810 gives it inside a motion record, the record size, the motion key.
@@ -78,7 +82,7 @@ inline constexpr uint64_t kTrapLoaderVa = 0x2100000000ULL;
 struct PesTrapLoaderData {
   PesTrapSegment segment;                               // every loader object, at kTrapLoaderVa
   std::vector<std::pair<uint64_t, uint64_t>> globals;   // (image VA, pointer into the segment)
-  uint64_t motionTableVa = 0, motionRecordsVa = 0, animeManagerVa = 0, animetableVa = 0, registryVa = 0, trapVa = 0, ballVa = 0;
+  uint64_t motionTableVa = 0, motionRecordsVa = 0, animeManagerVa = 0, animetableVa = 0, registryVa = 0, trapVa = 0, ballVa = 0, passGetVa = 0;
   // The pad manager's connected-pad mask (u32). ponytail: 0 = no pad connected; PES's device poll FUN_141B53060 copies it from +0xC0
   // (the input device layer's bits), which GF's input layer replaces; a test that replays a capture sets the capture's mask.
   uint64_t padMaskVa = 0;

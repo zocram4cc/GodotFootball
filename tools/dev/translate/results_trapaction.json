@@ -1101,6 +1101,567 @@
    "va": "0x141EB56D0",
    "synthetic": true,
    "synthetic_cases": 5
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_passget_all.json",
+   "coverage": {
+    "0x14094E0E0": {
+     "reached": 30,
+     "total": 47,
+     "fraction": 0.6383
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 24 of 24: 24 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL:pid480109_passget_tick_captures",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 24,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 30,
+     "total": 47,
+     "fraction": 0.6383
+    },
+    "replayed": 24,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14094E0E0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_passget_leaf_b8dd0.json",
+   "coverage": {
+    "0x1406B8DD0": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 10 of 10: 0 REAL captured call(s) and 10 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC: pure leaf, states over pid480109/seq001 (synth_passget_leaves.py)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 10,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 10,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B8DD0",
+   "synthetic": true,
+   "synthetic_cases": 10
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_passget_leaf_e9ef0.json",
+   "coverage": {
+    "0x1406E9EF0": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 16 of 16: 0 REAL captured call(s) and 16 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC: pure leaf, states over pid480109/seq001 (synth_passget_leaves.py)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 16,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 16,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406E9EF0",
+   "synthetic": true,
+   "synthetic_cases": 16
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_14093C930.json",
+   "coverage": {
+    "0x14093C930": {
+     "reached": 14,
+     "total": 16,
+     "fraction": 0.875
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 5 of 5: 5 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL:  seq039 seq040 seq041 seq042 seq043",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 16,
+     "fraction": 0.875
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14093C930"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_140941D50.json",
+   "coverage": {
+    "0x140941D50": {
+     "reached": 11,
+     "total": 13,
+     "fraction": 0.8462
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL:  seq002 seq005 seq006 seq007 seq008 seq009",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 11,
+     "total": 13,
+     "fraction": 0.8462
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140941D50"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_1409393F0.json",
+   "coverage": {
+    "0x1409393F0": {
+     "reached": 52,
+     "total": 67,
+     "fraction": 0.7761
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL:  seq004 seq010 seq012 seq014 seq016 seq021",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 52,
+     "total": 67,
+     "fraction": 0.7761
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1409393F0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_14093C090.json",
+   "coverage": {
+    "0x14093C090": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 2 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL:  seq003 seq019",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14093C090"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_140934E10.json",
+   "coverage": {
+    "0x140934E10": {
+     "reached": 4,
+     "total": 6,
+     "fraction": 0.6667
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL:  seq175 seq176 seq177 seq178 seq179 seq180",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 6,
+     "fraction": 0.6667
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140934E10"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_140939CC0.json",
+   "coverage": {
+    "0x140939CC0": {
+     "reached": 73,
+     "total": 204,
+     "fraction": 0.3578
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid615681 seq027 seq034 seq037 seq041 seq050 seq052",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 73,
+     "total": 204,
+     "fraction": 0.3578
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140939CC0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_140935920.json",
+   "coverage": {
+    "0x140935920": {
+     "reached": 4,
+     "total": 33,
+     "fraction": 0.1212
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid615681 seq001 seq002 seq003 seq004 seq005 seq006",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 33,
+     "fraction": 0.1212
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140935920"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_1406B8E00.json",
+   "coverage": {
+    "0x1406B8E00": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 4 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq007 seq2005 seq3517 seq3520",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1406B8E00"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_140934A50.json",
+   "coverage": {
+    "0x140934A50": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq005 seq1991 seq2003 seq3515 seq3518 seq545",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 2,
+     "total": 2,
+     "fraction": 1.0
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140934A50"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_140935F90.json",
+   "coverage": {
+    "0x140935F90": {
+     "reached": 13,
+     "total": 24,
+     "fraction": 0.5417
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq009 seq010 seq483 seq484 seq485 seq486",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 13,
+     "total": 24,
+     "fraction": 0.5417
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140935F90"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_route_14093BC00.json",
+   "coverage": {
+    "0x14093BC00": {
+     "reached": 28,
+     "total": 37,
+     "fraction": 0.7568
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. REAL: live2/pid634115 seq006 seq1992 seq2000 seq2004 seq568 seq658",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 28,
+     "total": 37,
+     "fraction": 0.7568
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14093BC00"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_passget_leaf_b20.json",
+   "coverage": {
+    "0x140934B20": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 42 of 42: 0 REAL captured call(s) and 42 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. SYNTHETIC: pure leaf, states over pid480109/seq001 (synth_passget_leaves.py)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 42,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 1,
+     "total": 1,
+     "fraction": 1.0
+    },
+    "replayed": 42,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140934B20",
+   "synthetic": true,
+   "synthetic_cases": 42
   }
  ]
 }

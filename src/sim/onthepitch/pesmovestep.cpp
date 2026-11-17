@@ -246,6 +246,16 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.commandId = pesmovestep::CommandIdFor(cmd);
     in.moveKind = pesmovestep::MoveKindFor(player_.GetFormationEntry().role == e_PlayerRole_GK);
     in.animeStateNonzero = static_cast<int>(player_.GetMoveStep().state) != 0;
+    if (cmd && cmd->usePesWords) {  // PES's own command words (the ActionPassGet tick's R): FUN_1406b7560 copies them as they stand
+      const PlayerCommand::PesWords& w = cmd->pesWords;
+      in.commandId = w.id;
+      in.moveKind = w.kind;
+      in.precise = w.precise != 0;  // cmd[0x15] of 2 is read as 1 (PES 58-60)
+      in.commandSpeedClass = w.speedClass;
+      in.speedBand = pes::CommandClassFor(w.speedClass, c_.runTables);
+      in.desiredKmh = w.desiredKmh;
+      in.useClassRate = w.useClassRate;
+    }
     // PES 236-241: the centre is DAT_1425DD660 at the low byte of P+0x2798, and P+0x2798 is req[0x20] as the tick's copy-back
     // (FUN_1406b6a90, store 0x1406b6afc) left it (25 of 25 captures). CarryIn put the carried live bucket into req before this fill.
     in.bodyBucket = static_cast<int>(req.U(pes::moveword::kLiveBucket) & 0xFFu);

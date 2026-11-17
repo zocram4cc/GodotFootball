@@ -167,6 +167,7 @@ UNHANDLED_DEAD_NOISE = {
     "0x1404B6ED0": "FDIV/OUTSD after the unconditional goto L_1404B74FF, behind no reached label",
     "0x1405EC600": "POP/RETF/ADD after the final unconditional goto L_1405ED02B (0x1405ED1ED JMP), behind no label",
     "0x1407AD150": "OUT/RETF/XLATB at 0x1407ADF9C..0x1407ADFC2, after the final unconditional JMP 0x1407ADEC2 and its NOP pad (no branch before 0x1407ADF99 targets it; the one indirect JMP is a table in the image's data)",
+    "0x140706350": "FILD/FIMUL/OUT/OUTSB at 0x140707E94..0x140707EDC, after the final unconditional JMP 0x140706DEA (0x140707E8D) and its NOP: the function's switch table (4-byte entries) is data, and the only branches in that range target other bytes of the same noise (capstone scan of 0x140706350..0x140707EE0)",
 }
 
 

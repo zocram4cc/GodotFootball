@@ -240,6 +240,7 @@ struct PesTrapExternals {
   std::vector<PesTrapSegment> segments;  // lent to a call (PesWorld::RunTrapKind0 moves them in and back)
   std::vector<std::pair<uint64_t, uint64_t>> globals;  // (image VA, 8-byte value)
   std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr;  // every byte the call writes, in order (tests)
+  std::vector<std::pair<uint64_t, unsigned>>* readLog = nullptr;  // every read the call makes, in order (tests: the read-log diff)
 };
 
 struct PesTrapResult {

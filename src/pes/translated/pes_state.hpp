@@ -57,6 +57,9 @@ struct PesMem {
   // Writable scratch: sorted (base, bytes) regions (harness regions).
   struct Seg { uint64_t base; std::vector<uint8_t> bytes; };
   std::vector<Seg> segs;
+  // READ_LOG: every address rd() served, appended in order (a read-log diff between PES's own replay and GF's window
+  // run; tests). Mutable: rd() is const and the log is diagnostic.
+  mutable std::vector<std::pair<uint64_t, unsigned>>* readLog = nullptr;
   // Whole-file flat image view (run.py maps a flat dump: file offset = VA -
   // flat_base). A private copy-on-write mapping in the diff main, so writes
   // persist across cases as in the harness. Null means no image view.
@@ -112,6 +115,7 @@ struct PesMem {
     return nullptr;
   }
   uint64_t rd(uint64_t addr, unsigned n) const {
+    if (readLog) readLog->push_back({addr, n});
     if (const uint8_t* p = service_at(addr, n)) {
       uint64_t v = 0;
       std::memcpy(&v, p, n);
