@@ -677,8 +677,7 @@ void ProcessMoveStep(Player& player, Match& match) {
 
 void StepAdjusters(Player& player, Match& match) {
   if (!match.PesLoop()) return;
-  const pes::PesWorld::AdjusterFrame frame =
-      match.PesWorldOf().StepAdjusters(match.PesSlotOf(&player), match.GetPesActorConstants().degToRad);
+  const pes::PesWorld::AdjusterFrame frame = match.PesWorldOf().ReadAdjusterFrame(match.PesSlotOf(&player));
   HumanoidBase* body = player.CastHumanoid();
   // The trap world's axes: PES z is GF y (the strike's target was built in them).
   if (frame.strikeMoved) body->WarpRoot(Vector3(frame.x, frame.z, 0.0f), 0.0f);

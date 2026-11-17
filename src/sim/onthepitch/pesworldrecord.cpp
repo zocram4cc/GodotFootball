@@ -89,6 +89,15 @@ void PesWorld::BindMemory(PesMemory& memory) {
   image_.get_deleter().owned = false;
   heap_.reset(&memory.Heap());
   heap_.get_deleter().owned = false;
+  memory_ = &memory;
+  memory.Write64(kWorldGlobalVa, kWorldWindowVa);  // G's global holds the window's VA: the image's global, once per match
+}
+
+PesState PesWorld::MemoryCall() {
+  if (!memory_) throw std::runtime_error("PesWorld: the engine chain's call needs the match's PES memory (BindMemory)");
+  PesState s = memory_->NewCall();
+  s.mem.services.push_back(PesMem::Window{kWorldWindowVa, kWorldBytes, nullptr, Bytes()});  // G's window, by VA
+  return s;
 }
 
 PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
@@ -441,37 +450,44 @@ PesKickDescriptor PesWorld::RunKickChooser(int slot, const PesKickRequest& reque
   return out;
 }
 
-void PesWorld::BindAnimeChain(int slot) {
-  const uint64_t a = PhysiqueAVa(slot), b = PhysiqueBVa(slot);
-  StoreU64(P(slot), kPScalePtrOffset, a);
-  StoreU64(PhysiqueA(slot), kPhysiqueNextOffset, b);
-  StoreU64(PhysiqueA(slot), kAnimeLayerOffset, kAnimeLayerVa);
-  StoreU64(PhysiqueA(slot), kAnimeKeyTableOffset, kAnimeKeyTableVa);
-  StoreU64(PhysiqueB(slot), kPhysiqueAnimeOffset, a);
-  StoreU64(PhysiqueA(slot), kAQuatOffset, kAnimeQuatArrayVa);
+void PesWorld::BindAnimeChain(int slot, uint64_t engineP) {
+  // The engine player's own chain (its +0xA08, the BodyAnimControl its phases run on). P+0xA04 says the anime player is built.
+  PesState s = MemoryCall();
+  StoreU64(P(slot), kPScalePtrOffset, s.rd(engineP + kPScalePtrOffset, 8));
   P(slot)[kPAnimeReadyOffset] = 1;
 }
 
-void PesWorld::RunAnimeJoints(int slot, const PesJointPose& pose, PesTrapExternals& ext) {
-  // The placement object A+0x188 (O2): the world matrix FUN_141EB49B0 turns the model-space joints with: the heading's rotation about
-  // y in rows +0xA0 / +0xC0 (row-vector convention: x' = x cos + z sin), +0xB0 the up axis, the position row +0xD0 (WriteActorP's), and
-  // the joint count at +0xF8. CONFIRMED against live matrices (heading P+0x20 = 94.66: row0 (-0.0812, 0, -0.9967), row2 (0.9967, 0,
-  // -0.0812)).
-  uint8_t* o2 = O2(slot);
-  const float heading = LoadF32(P(slot), kPHeadingOffset) * kDegToRad, c = std::cos(heading), s = std::sin(heading);
-  const float rows[3][3] = {{c, 0.0f, -s}, {0.0f, 1.0f, 0.0f}, {s, 0.0f, c}};
-  for (std::size_t r = 0; r < 3; ++r)
-    for (std::size_t k = 0; k < 3; ++k) StoreF32(o2, kPlacementRowOffset + r * kPlacementRowStride + 4 * k, rows[r][k]);
-  StoreU32(o2, kPlacementJointCountOffset, kAnimeJointCount);
-  // The joint arrays the chain's readers take (L1+0x50, A+0x20): shared, written for this player just before his writers run.
-  for (PesTrapSegment& seg : ext.segments) {
-    if (seg.va != kAnimeChainVa) continue;
-    for (std::size_t j = 0; j < kAnimeJointCount; ++j) {
-      std::memcpy(seg.bytes.data() + kAnimePosArrayOffset + j * kJointEntryBytes, pose.position[j].data(), kJointEntryBytes);
-      std::memcpy(seg.bytes.data() + kAnimeQuatArrayOffset + j * kJointEntryBytes, pose.rotation[j].data(), kJointEntryBytes);
-    }
+void PesWorld::WriteAnimeG(int slot, float g) {
+  PesState s = MemoryCall();
+  const uint64_t b = s.rd(LoadU64(P(slot), kPScalePtrOffset) + kPhysiqueNextOffset, 8);  // A+0xF0 -> B
+  s.wr(b + kPhysiqueGOffset, PesState::bits(g), 4);                                       // B+0xC0 = G
+}
+
+void PesWorld::WriteAnimeRootPoint(int slot, const uint8_t* position12) {
+  PesState s = MemoryCall();
+  const uint64_t o2 = s.rd(LoadU64(P(slot), kPScalePtrOffset) + kAChildO2Offset, 8);  // A+0x188: the placement object
+  for (std::size_t k = 0; k < 3; ++k) {
+    uint32_t bits;
+    std::memcpy(&bits, position12 + 4 * k, sizeof bits);
+    s.wr(o2 + kO2PointOffset + 4 * k, bits, 4);
   }
-  // The anime player's joint writer (FUN_141EB49B0): P+0x538.. the joint positions, P+0x700.. the rotations, and the position history.
+  s.wr(o2 + kO2PointOffset + 12, PesState::bits(1.0f), 4);
+}
+
+void PesWorld::RunAnimeJoints(int slot, PesTrapExternals& ext) {
+  // The placement object of the engine's chain (A+0x188, O2): the world matrix FUN_141EB49B0 turns the model-space joints with: the
+  // heading's rotation about y in rows +0xA0 / +0xC0 (row-vector convention: x' = x cos + z sin), +0xB0 the up axis, the position row
+  // +0xD0 (the root point), and the joint count at +0xF8. CONFIRMED against live matrices (heading P+0x20 = 94.66: row0 (-0.0812, 0,
+  // -0.9967), row2 (0.9967, 0, -0.0812)).
+  PesState s = MemoryCall();
+  const uint64_t o2 = s.rd(LoadU64(P(slot), kPScalePtrOffset) + kAChildO2Offset, 8);
+  const float heading = LoadF32(P(slot), kPHeadingOffset) * kDegToRad, c = std::cos(heading), sn = std::sin(heading);
+  const float rows[3][3] = {{c, 0.0f, -sn}, {0.0f, 1.0f, 0.0f}, {sn, 0.0f, c}};
+  for (std::size_t r = 0; r < 3; ++r)
+    for (std::size_t k = 0; k < 3; ++k)
+      s.wr(o2 + kPlacementRowOffset + r * kPlacementRowStride + 4 * k, PesState::bits(rows[r][k]), 4);
+  s.wr(o2 + kPlacementJointCountOffset, kAnimeJointCount, 4);
+  // The joint writer reads the pose the chain's phases left in the chain's own arrays (L1+0x50, A+0x20): no copy.
   RunOnP(slot, ::pes_fn_141EB49B0, ext);
 }
 
@@ -483,7 +499,7 @@ void PesWorld::RunPlayerUpdate(int slot, PesTrapExternals& ext) {
 
 bool PesWorld::JointPosition(int slot, int joint, PesTrapExternals& ext, float out[3]) {
   if (P(slot)[kPAnimeReadyOffset] == 0) return false;
-  PesState st = NewCall(Bytes());
+  PesState st = MemoryCall();
   const std::size_t lent = LendExternals(st, ext);
   const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
   st.wr(entry, 0, 8);
@@ -574,7 +590,7 @@ void PesWorld::RunAnkleShove(int slot, float x, float y, float z, PesTrapExterna
 }
 
 void PesWorld::RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext) {
-  PesState st = NewCall(Bytes());
+  PesState st = MemoryCall();
   const std::size_t lent = LendExternals(st, ext);
   const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
   st.wr(entry, 0, 8);
@@ -628,7 +644,7 @@ PesKickStartResult PesWorld::RunKickStart(int slot, const PesKickOrder& order, P
 }
 
 std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float seconds, PesTrapExternals& ext) {
-  PesState s = NewCall(Bytes());
+  PesState s = MemoryCall();
   const std::size_t lent = LendExternals(s, ext);
 
   // The geometry test's call (0x14082B02F): rcx = B, rdx = 0 (no second output), r8 = the output vector, xmm3 = the time in seconds
@@ -639,7 +655,7 @@ std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float se
   s.wr(entry + kRootMotionArg5Offset, motion, 4);
   s.wrf(entry + kRootMotionArg6Offset, 0.0f);
   s.gpr[4] = entry;
-  s.gpr[1] = PhysiqueBVa(slot);
+  s.gpr[1] = s.rd(LoadU64(P(slot), kPScalePtrOffset) + kPhysiqueNextOffset, 8);  // rcx: the engine chain's B (A+0xF0)
   s.gpr[2] = 0;
   s.gpr[8] = outVa;
   s.xmm[3][0] = PesState::bits(seconds);
@@ -748,50 +764,49 @@ PesBodyScanOut PesWorld::RunBodyScan(int slot, PesTrapExternals& ext) {
   return result;
 }
 
-PesWorld::AdjusterFrame PesWorld::StepAdjusters(int slot, float degToRad) {
-  uint8_t* p = P(slot);
-  AdjusterFrame frame;
-  const uint64_t chain = LoadU64(p, kPScalePtrOffset);  // the anime chain *(P+0xA08): the window's physique object
-  const std::size_t order[3] = {kPAdjusterOffset, kPHeightAdjusterOffset, kPYawAdjusterOffset};
-  const uint8_t yawOverride = p[kPYawAdjusterOffset + kAdjYawFlagOffset];  // FUN_141EB3AF0's finish zeroes it
-  // FUN_141EB3AF0 steps an adjuster when its state is 2 and the counter is past the hold (+0xE) and not past the last tick (+0x10).
-  const auto steps = [p](std::size_t at) {
-    uint32_t state;
-    int16_t count, delay, ticks;
-    std::memcpy(&state, p + at + kAdjStateOffset, sizeof state);
-    std::memcpy(&count, p + at + kAdjCountOffset, sizeof count);
-    std::memcpy(&delay, p + at + kAdjDelayOffset, sizeof delay);
-    std::memcpy(&ticks, p + at + kAdjTicksOffset, sizeof ticks);
-    return state == kAdjRunning && count >= delay && count <= ticks;
+PesWorld::AdjusterFrame PesWorld::ReadAdjusterFrame(int slot) {
+  // The tick's outputs in B (FUN_1406EEDF0 wrote them after the adjusters stepped): the strike valid byte B+0x81 and the root step B+0x90
+  // (x, y, z), the yaw valid byte B+0x82 with the absolute yaw's direction (sin at B+0xA4, cos at B+0xAC), or in the flag (rate) mode the
+  // valid byte B+0xB8 and the rate B+0xBC (radians this tick).
+  PesState st = MemoryCall();
+  const uint64_t a = LoadU64(P(slot), kPScalePtrOffset);
+  const uint64_t b = st.rd(a + kPhysiqueNextOffset, 8);
+  const uint64_t o2 = st.rd(a + kAChildO2Offset, 8);
+  const auto f32 = [&st](uint64_t va) {
+    const uint32_t bits = static_cast<uint32_t>(st.rd(va, 4));
+    float f;
+    std::memcpy(&f, &bits, sizeof f);
+    return f;
   };
-  const bool aStepped = steps(kPAdjusterOffset), yawStepped = steps(kPYawAdjusterOffset);
-  for (const std::size_t at : order) {
-    PesState s = NewCall(Bytes());
-    AttachImageTables(s);  // the adjusters' vtable slots (Match binds them) and the sine/frame-rate cells
-    const uint64_t entry = kStackVa + kStackBytes - kScanFrameBytes;
-    s.wr(entry, 0, 8);
-    s.gpr[4] = entry;
-    s.gpr[1] = PVa(slot) + at;  // rcx: the adjuster
-    s.gpr[2] = chain;           // rdx: the anime chain
-    ::pes_fn_141EB3AF0(s);
+  AdjusterFrame frame;
+  frame.strikeMoved = (st.rd(b + kBStrikeValidOffset, 1) & 0xFFu) != 0;
+  if (frame.strikeMoved) {
+    // The root point was the step's start (O2+0xD0): the displacement is the step minus it.
+    frame.x = f32(b + kBStepOffset) - f32(o2 + kO2PointOffset);
+    frame.z = f32(b + kBStepOffset + 8) - f32(o2 + kO2PointOffset + 8);
   }
-  // A's step adds the frame's root displacement to the layer's root point FUN_141AF3CA0 loaded (the man's position, O2+0xD0), so the
-  // displacement is the difference. A that did not step leaves the point as loaded (a difference of zero).
-  const uint8_t* o2 = InWindow(Bytes(), LoadU64(PhysiqueA(slot), kAChildO2Offset));
-  const uint8_t* a = p + kPAdjusterOffset + kAdjStepOffset;
-  frame.strikeMoved = aStepped;
-  if (aStepped) {
-    frame.x = LoadF32(a, 0) - LoadF32(o2, kO2PointOffset);
-    frame.z = LoadF32(a, 2 * sizeof(float)) - LoadF32(o2, kO2PointOffset + 2 * sizeof(float));
+  frame.yawIsRate = P(slot)[kPYawAdjusterOffset + kAdjYawFlagOffset] != 0;
+  if (frame.yawIsRate) {
+    frame.yawStepped = (st.rd(b + kBYawRateValidOffset, 1) & 0xFFu) != 0;
+    frame.yawRad = f32(b + kBYawRateOffset);
+  } else {
+    frame.yawStepped = (st.rd(b + kBYawValidOffset, 1) & 0xFFu) != 0;
+    frame.yawRad = std::atan2(f32(b + kBYawSinOffset), f32(b + kBYawCosOffset));
   }
-  // The yaw adjuster's output (+0x20, P+0x4F0): FUN_141EB1A50's curves store acc = from + (the error spread so far) in degrees and
-  // output acc * 0.0174533, i.e. the ABSOLUTE yaw in radians; with the flag (+0x24 = P+0x4F4, FUN_1406EEDF0 0x1406EEF75) it outputs
-  // err / N, a rate in degrees per tick that EEDF0 turns into radians per tick.
-  frame.yawStepped = yawStepped;
-  frame.yawIsRate = yawOverride != 0;
-  const float yaw = LoadF32(p, kPYawAdjusterOffset + kAdjYawOutOffset);
-  frame.yawRad = frame.yawIsRate ? yaw * degToRad : yaw;
   return frame;
+}
+
+void PesWorld::RunAdjusters(int slot, float tickSeconds, PesTrapExternals& ext) {
+  PesState st = MemoryCall();
+  const std::size_t lent = LendExternals(st, ext);
+  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  st.wr(entry, 0, 8);
+  st.gpr[4] = entry;
+  st.gpr[1] = PVa(slot);         // rcx: P
+  st.set_x_f32(1, tickSeconds);  // xmm1: the tick in seconds (PES's p2: one logic frame, 1/54 s)
+  st.mem.wlog = ext.writeLog;
+  ::pes_fn_141EB5E70(st);
+  ReturnSegments(st, ext, lent);
 }
 
 void PesWorld::ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool overrideMode) {
@@ -801,7 +816,8 @@ void PesWorld::ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool over
   AttachImageTables(s);
   s.wr(entry, 0, 8);
   s.gpr[4] = entry;
-  s.gpr[1] = PVa(slot) + kPYawAdjusterOffset;
+  s.gpr[1] = PVa(slot) + kPYawAdjusterOffset;  // rcx: the yaw adjuster
+  s.gpr[2] = PVa(slot);                        // rdx: P (the interface object at P+0xAB8 is read from it)
   std::memcpy(&bits, &fromDeg, sizeof bits);
   s.xmm[1][0] = bits;
   std::memcpy(&bits, &toDeg, sizeof bits);

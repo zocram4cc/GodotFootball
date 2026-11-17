@@ -299,7 +299,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   pesActorConstants = setup.pesTrapSource->actor;
   for (int slot = 0; slot < pes::kSlotCount; ++slot) {
     pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
-    pes::ConstructAnimPlugin(*pesWorld, slot);
   }
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;

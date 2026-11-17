@@ -3631,6 +3631,7 @@ void WritePesTrapActors(Match& match) {
                     pes::kVelocityRingEntryBytes);
       pes::PesActorFacts facts = TrapFactsOf(*p, slot);
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
+      match.PesWorldOf().BindAnimeChain(slot, match.PesAnimePlayerOf(slot));
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
@@ -3638,15 +3639,11 @@ void WritePesTrapActors(Match& match) {
       // (WriteSlotStamina's ponytail).
       pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
                             static_cast<uint32_t>(match.GetActualTime_ms()));
-      // The anime player's joint block, PES's order in the player's tick (FUN_141AF4650's phases, then FUN_141EB49B0, then FUN_1406F6CE0):
-      // the engine runs this man's frame (PES's translated driver on his BodyAnimControl, built from the install's animation files) and the
-      // pose it leaves in the control's arrays is the joint writer's input, the heights P+0xB90.. the Kick gate and the chooser read.
-      // ponytail: the window's P is not the engine's (its A at P+0xA08 is the window's physique object): the engine holds its own player
-      // block per slot and the pose is copied into the window's joint arrays. Removed when the window's P is the constructor's own.
-      pes::PesFoxWorld& engine = match.PesAnimeWorldOf();
-      const uint64_t engineP = match.PesAnimePlayerOf(slot);
-      engine.RunFrame(engineP);
-      match.PesWorldOf().RunAnimeJoints(slot, engine.ReadPose(engineP), match.PesTrapExternalsOf());
+      // The anime player's joint block, PES's order in the player's tick: the adjuster driver FUN_141EB5E70 (the three adjusters, then the
+      // chain's phases on the engine's BodyAnimControl at P+0xA08) leaves the pose in the chain's arrays and its outputs in B; the joint
+      // writer and the player update follow.
+      match.PesWorldOf().RunAdjusters(slot, 1.0f / pes::kPesTickHz, match.PesTrapExternalsOf());
+      match.PesWorldOf().RunAnimeJoints(slot, match.PesTrapExternalsOf());
       match.PesWorldOf().RunPlayerUpdate(slot, match.PesTrapExternalsOf());
     }
   }

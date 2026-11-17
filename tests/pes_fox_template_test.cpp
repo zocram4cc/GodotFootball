@@ -14,6 +14,7 @@
 #include "onthepitch/pesfoxworld.hpp"
 #include "onthepitch/pesmemory.hpp"
 #include "pes/vfs.hpp"
+#include "pes_engine_harness.hpp"
 
 namespace {
 
@@ -38,7 +39,7 @@ PlayResult Play(pes::PesFoxWorld& world) {
   PlayResult result;
   for (int f = 0; f < kFrames; ++f)
     for (uint64_t p : players) {
-      world.RunFrame(p);
+      pes_test::RunEngineFrame(world, p);
       result.poses.push_back(world.ReadPose(p));
     }
   result.serves = world.FileServes();

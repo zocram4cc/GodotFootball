@@ -855,7 +855,7 @@ class PesWorld {
   uint8_t* Bytes() { return reinterpret_cast<uint8_t*>(image_.get()); }
 
   // Binds the world to the match's PES memory (cut 3): the window moves into the memory's storage and the heap becomes the memory's (both
-  // shared with the anime engine's world). Once, before any call on the world's heap.
+  // shared with the anime engine's world). Once, before any call on the world's heap; G's global is set to the window's VA.
   void BindMemory(PesMemory& memory);
 
   // The VAs a slot's three records sit at (a table entry names one of these once bound). Officials use the same stride.
@@ -993,19 +993,10 @@ class PesWorld {
   // state persists per player). Its window VA is rdx of the chain.
   static constexpr uint64_t PVa(int slot) { return kWorldWindowVa + kTrapOffset + static_cast<uint64_t>(slot) * sizeof(PesTrapImage); }
   uint8_t* P(int slot) { return image_->trap[slot].p.data(); }
-  // The physique chain's two objects (P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G), written by WriteActorP.
-  static constexpr uint64_t PhysiqueAVa(int slot) { return PVa(slot) + kTrapPBytes; }
-  static constexpr uint64_t PhysiqueBVa(int slot) { return PhysiqueAVa(slot) + kPhysiqueObjectBytes; }
-  uint8_t* PhysiqueA(int slot) { return image_->trap[slot].physiqueA.data(); }
-  uint8_t* PhysiqueB(int slot) { return image_->trap[slot].physiqueB.data(); }
-  // The anime layer objects the tick reaches (pestrapworld.hpp), after the physique chain's two.
-  static constexpr uint64_t O1Va(int slot) { return PVa(slot) + kTrapO1Offset; }
-  static constexpr uint64_t O2Va(int slot) { return PVa(slot) + kTrapO2Offset; }
+  // The anime chain is the engine player's own (P+0xA08 -> A, bound by BindAnimeChain): A+0xF0 is B, A+0x188 the root-point object O2.
   static constexpr uint64_t QVa(int slot) { return PVa(slot) + kTrapQOffset; }
   static constexpr uint64_t RVa(int slot) { return PVa(slot) + kTrapROffset; }
   static constexpr uint64_t SVa(int slot) { return PVa(slot) + kTrapSOffset; }
-  uint8_t* O1(int slot) { return image_->trap[slot].o1.data(); }
-  uint8_t* O2(int slot) { return image_->trap[slot].o2.data(); }
   uint8_t* Q(int slot) { return image_->trap[slot].q.data(); }
   uint8_t* R(int slot) { return image_->trap[slot].r.data(); }
   uint8_t* S(int slot) { return image_->trap[slot].s.data(); }
@@ -1022,16 +1013,8 @@ class PesWorld {
   // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
   // touched bit (kPFlagTouched) is the reach test's answer.
   PesBodyScanOut RunBodyScan(int slot, PesTrapExternals& ext);
-  // One frame of the three body adjusters of `slot`'s P, in the order of the anime driver FUN_141EB5E70: the root adjuster A =
-  // P+0x428 (strike, approach), the height adjuster P+0x498 and the yaw adjuster P+0x4D0, each through FUN_141EB3AF0 (hold ticks,
-  // finish, the layer's root point loaded into A+0x14, the step through the adjuster's vtable +0x18).
-  // `strikeMoved` is set when A ran (x, z) = the frame's root displacement it added to the root point, PES axes (the trap world's: z =
-  // GF y), m. `yawStepped` is set when the yaw adjuster ran: `yawRad` is its output in the trap world's facing sense (atan2(x, GF y)):
-  // the ABSOLUTE yaw, radians (FUN_141EB1A50 curves 0-2), or, when `yawIsRate`, the rotation of this one tick (the flag mode: FUN_1406EEDF0
-  // multiplies it by `degToRad`, 0x1425A0C48, 0x1406EEF75).
+  // The tick's adjuster outputs, read by ReadAdjusterFrame after RunAdjusters.
   // ponytail: the height adjuster's output (+0x18, metres of root height) has no consumer: GF's body has no root height (2D contract).
-  // ponytail: the chain's root point O2+0xD0 is the man's position the actor writer stores; PES's anime evaluation (the engine step
-  // FUN_141EB5E70 ends in, chain vtable +0x38) is not run, so the engine's own consumption of these outputs is GF's body step (AnimeLayer).
   struct AdjusterFrame {
     bool strikeMoved = false;
     float x = 0.0f, z = 0.0f;
@@ -1039,7 +1022,14 @@ class PesWorld {
     bool yawIsRate = false;
     float yawRad = 0.0f;
   };
-  AdjusterFrame StepAdjusters(int slot, float degToRad);
+  // One tick of `slot`'s anime driver FUN_141EB5E70 (rcx = P, xmm1 = the tick in seconds): the body adjusters (strike P+0x428, height
+  // P+0x498, yaw P+0x4D0) through FUN_141EB3AF0, the chain's phases on the engine's BodyAnimControl, and the outputs into B. The caller
+  // runs it where the engine's phase run was, before the joint writer.
+  void RunAdjusters(int slot, float tickSeconds, PesTrapExternals& ext);
+  // The tick's outputs from B: strikeMoved and the root displacement (x, z: the step B+0x90 and B+0x98 minus the root point O2+0xD0,
+  // PES axes). The yaw: in the flag (rate) mode yawIsRate and yawRad = B+0xBC (radians this tick); else the absolute yaw,
+  // yawRad = atan2(B+0xA4 (sin), B+0xAC (cos)).
+  AdjusterFrame ReadAdjusterFrame(int slot);
   // FUN_141EB35A0(P+0x4D0, from, to, ticks, override) then FUN_141EB3AE0: arms the yaw adjuster (facing degrees, the trap world's sense).
   void ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool overrideMode);
   // FUN_141EB56D0(P, &angle, 1): the root-facing write: P+0x20 takes the angle and the yaw adjuster is armed over one tick without error.
@@ -1069,15 +1059,17 @@ class PesWorld {
   // P, the ball, MI, man and slot records from the window, the image and loader data from `ext` (the chain's externals, lent for the
   // call). A kind outside the translated closure aborts loudly (pes_dispatch_missing).
   PesKickDescriptor RunKickChooser(int slot, const PesKickRequest& request, PesTrapExternals& ext);
-  // Links `slot`'s P to the anime player's chain the kick geometry test's root-motion reader walks (pesanimechain.hpp): P+0xA08 -> A,
-  // A+0xF0 -> B, A+0x88 the layer controller, A+0x180 the motion -> clip key table, B+0xC8 -> A. The objects are the loader data's
-  // (PesTrapExternals, BuildAnimeChain), shared by every slot.
-  void BindAnimeChain(int slot);
-  // The player's joint block, PES's order in the player's tick: RunAnimeJoints puts `pose` (the anime skeleton's pose in the player's
-  // frame) into the chain's joint arrays and the placement object, and runs FUN_141EB49B0 (P+0x538.. the joint positions, P+0x700..
-  // the rotations); RunPlayerUpdate runs FUN_1406F6CE0 (the player update: P+0xB1C and the joint block P+0xB38..0xBA0, the per-tick
-  // flags). Both on `slot`'s P; they require BindAnimeChain and WriteActorP this tick.
-  void RunAnimeJoints(int slot, const PesJointPose& pose, PesTrapExternals& ext);
+  // Links `slot`'s P to the engine player's chain (P+0xA08 = the player's +0xA08, the BodyAnimControl its phases run on): the chain the adjuster
+  // driver and the joint writer read. P+0xA04 = 1 (the anime player is built).
+  void BindAnimeChain(int slot, uint64_t engineP);
+  // B+0xC0 = g (the G the root-bone arm pushes), on the chain's B (A+0xF0).
+  void WriteAnimeG(int slot, float g);
+  // The chain's root point O2+0xD0 = the 12 bytes at `position12` (the man's position) and 1.0.
+  void WriteAnimeRootPoint(int slot, const uint8_t* position12);
+  // The player's joint block, PES's order in the player's tick: RunAdjusters leaves the pose in the chain's arrays; RunAnimeJoints writes
+  // the placement object (O2 rows and joint count) and runs FUN_141EB49B0 (P+0x538.. the joint positions, P+0x700.. the rotations).
+  // RunPlayerUpdate runs FUN_1406F6CE0 (the player update: P+0xB1C, the joint block P+0xB38..0xBA0, the per-tick flags).
+  void RunAnimeJoints(int slot, PesTrapExternals& ext);
   void RunPlayerUpdate(int slot, PesTrapExternals& ext);
   // A P-only translated function (rcx = P) on the window with the externals lent.
   void RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext);
@@ -1326,6 +1318,8 @@ class PesWorld {
   void BindSanction();
   // The side's AI object's context array: pointers to the window's records (kAi* above). Bound once, at construction.
   void BindAi(int side);
+  // A call over the match's PES memory with this world's window mapped: the engine chain's objects live in the memory's heap. Needs BindMemory.
+  PesState MemoryCall();
   PesTableEntry& Entry(WorldTable table, int index) {
     switch (table) {
       case WorldTable::kSideA: return image_->tables.sideA.at(index);
@@ -1339,6 +1333,7 @@ class PesWorld {
   std::unique_ptr<PesWorldImage, PesWindowDeleter> image_;
   std::array<TickPlan, kSlotCount> tickPlan_{};
   std::unique_ptr<PesHeap, PesHeapDeleter> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder, or the match's PES memory's (BindMemory); the BP lists live in it
+  PesMemory* memory_ = nullptr;  // the match's PES memory (BindMemory): the calls on the engine chain run over it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
   std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)
   PesImageTables imageTables_;     // the install's table bytes the window runs read at register-held addresses (BindImageTables)

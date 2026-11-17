@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "onthepitch/pesfoxworld.hpp"
+#include "pes_engine_harness.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes/clips.hpp"
 #include "pes/exe.hpp"
@@ -113,7 +114,7 @@ class AnimeEngine : public ::testing::Test {
       request.playback = playback;
       world_->IssueMotion(p, request);
     }
-    for (int f = 0; f < frames; ++f) world_->RunFrame(p);
+    for (int f = 0; f < frames; ++f) pes_test::RunEngineFrame(*world_, p);
     return world_->ReadPose(p);
   }
 
@@ -146,7 +147,7 @@ class AnimeEngine : public ::testing::Test {
     request.playback = 0.0f;
     world_->IssueMotion(p, request);
     constexpr int kSettleFrames = 30;
-    for (int f = 0; f < kSettleFrames; ++f) world_->RunFrame(p);
+    for (int f = 0; f < kSettleFrames; ++f) pes_test::RunEngineFrame(*world_, p);
     const pes::PesJointPose engine = world_->ReadPose(p);
     const auto q = [&](uint32_t j) { return Q{engine.rotation[j][0], engine.rotation[j][1], engine.rotation[j][2], engine.rotation[j][3]}; };
     bind->assign(kJointCount, Q{});
@@ -217,7 +218,7 @@ TEST_F(AnimeEngine, TheConstructorBuildsAPlayersControlAndItsParts) {
 TEST_F(AnimeEngine, AFrameLeavesAFinitePoseOfTwentyJointsWithUnitRotations) {
   const uint64_t p = NewPlayer();
   world_->ConstructAnime(p, 0);
-  world_->RunFrame(p);
+  pes_test::RunEngineFrame(*world_, p);
   const pes::PesJointPose pose = world_->ReadPose(p);
   bool any = false;
   for (uint32_t j = 0; j < kJointCount; ++j) {
@@ -238,8 +239,8 @@ TEST_F(AnimeEngine, TwoPlayersBuiltAndFramedTheSameWayHoldTheSamePose) {
   const uint64_t p = NewPlayer(), q = NewPlayer();
   world_->ConstructAnime(p, 0);
   world_->ConstructAnime(q, 0);
-  world_->RunFrame(p);
-  world_->RunFrame(q);
+  pes_test::RunEngineFrame(*world_, p);
+  pes_test::RunEngineFrame(*world_, q);
   const pes::PesJointPose a = world_->ReadPose(p), b = world_->ReadPose(q);
   EXPECT_EQ(std::memcmp(&a, &b, sizeof a), 0);
 }
@@ -289,8 +290,8 @@ TEST_F(AnimeEngine, EveryThirdMotionNumberTheMotionSetterAcceptsIsServedWithAFin
     pes::MotionRequest request;
     request.motion = motion;
     world_->IssueMotion(p, request);
-    world_->RunFrame(p);
-    world_->RunFrame(p);
+    pes_test::RunEngineFrame(*world_, p);
+    pes_test::RunEngineFrame(*world_, p);
     const pes::PesJointPose pose = world_->ReadPose(p);
     for (uint32_t j = 0; j < kJointCount; ++j) {
       float n = 0.0f;
@@ -368,7 +369,7 @@ TEST_F(AnimeEngine, TheHeapHoldsTheLoadAndTwentyTwoPlayers) {
   for (int i = 0; i < 22; ++i) {
     players.push_back(NewPlayer());
     world_->ConstructAnime(players.back(), 0);
-    world_->RunFrame(players.back());
+    pes_test::RunEngineFrame(*world_, players.back());
   }
   std::printf("anime world live heap bytes: %llu\n", static_cast<unsigned long long>(world_->HeapLiveBytes()));
   EXPECT_LT(world_->HeapLiveBytes(), kHeapBytes);
@@ -408,7 +409,7 @@ TEST_F(AnimeEngine, ASeriesFollowsTheMemberItsPositionNamesOnTheRateTable) {
     std::vector<Ground> out{Ground{0.0f, 0.0f}};
     Ground at{0.0f, 0.0f};
     for (int f = 0; f < kWalkFrames; ++f) {
-      world_->RunFrame(p);
+      pes_test::RunEngineFrame(*world_, p);
       const std::vector<float> root = Floats(world_->Read64(l1 + kStateOffset), 3);
       at.x += root[0];
       at.z += root[2];

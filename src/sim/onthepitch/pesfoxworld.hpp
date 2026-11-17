@@ -117,10 +117,6 @@ class PesFoxWorld final : public PesFileSource {
   // The player's anime constructor FUN_141EB5250(P, "body", collision, callback) on a player block `p` of the world's heap: the
   // BodyAnimControl at P+0xA08 and everything under it. `collision` is the player's collision object (FUN_1406E03D0 passes *(P+0x3AA0)).
   void ConstructAnime(uint64_t p, uint64_t collision);
-  // One engine frame of a constructed player: BodyAnimControl::Exec (FUN_141AF4650) for each phase of the frame in order (INF: the
-  // anime system's pipeline, FUN_141AE9010's loops, runs a phase over every control before the next; for one control that is this
-  // order). The control's frame time step is the one the constructor stored (FUN_141AF7A90, L2+0x44).
-  void RunFrame(uint64_t p);
   // SetMotion's flush into the control (FUN_1406E5FC0 at 0x1406E6268 and 0x1406E6283): the record pusher FUN_141AF61C0(A, record, params, layer 0)
   // that appends the clip's 0x30-byte layer record to the control's vector, then SetSpeed FUN_141AF6E40(A, rate, 0, -1) that sets the rate of
   // every record. `request` is SetMotion FUN_1406F0F70's argument list (motion, startTime, mirror, playback = rate, duration = blend and the

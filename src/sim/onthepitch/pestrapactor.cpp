@@ -16,7 +16,8 @@ struct Site {
   int dispOffset;
   int length;
 };
-// FUN_1406E03D0 (the constructor): `lea rax,[vtable]` before each of the two vtable stores.
+// FUN_1406E03D0 (the constructor): `lea rax,[vtable]` before each of the three vtable stores: P's own (+0), then the two interfaces.
+constexpr Site kOwnVtableSite{0x1406E0408, {0x48, 0x8D, 0x05}, 3, 7};
 constexpr Site kVtable0Site{0x1406E0412, {0x48, 0x8D, 0x05}, 3, 7};
 constexpr Site kVtable1Site{0x1406E0420, {0x48, 0x8D, 0x05}, 3, 7};
 // FUN_1406D8BF0: `movss xmm1,[standing speed]` (class 3 above it, 1 at or below).
@@ -72,8 +73,9 @@ std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::str
   const ImageView img{exe};
   PesActorConstants c;
   float again = 0.0f;
-  const uint64_t vt0 = img.Target(kVtable0Site), vt1 = img.Target(kVtable1Site);
-  bool ok = vt0 != 0 && vt1 != 0;
+  const uint64_t own = img.Target(kOwnVtableSite), vt0 = img.Target(kVtable0Site), vt1 = img.Target(kVtable1Site);
+  bool ok = own != 0 && vt0 != 0 && vt1 != 0;
+  c.ownVtable = own;
   c.interfaceVtable[0] = vt0;
   c.interfaceVtable[1] = vt1;
   for (int k = 0; k < 3; ++k) {
@@ -179,19 +181,13 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   // rate ceiling reads the same G (FUN_1406F99F0 via FUN_141AF3180).
   const float g = PhysiqueG(physique, {f.heightCm, f.legSlider, false});
   StoreF32(p, kPGOffset, g);
-  world.BindAnimeChain(f.slot);  // P+0xA08 -> A, A+0xF0 -> B, and the chain the kick's root-motion reader walks
-  StoreF32(world.PhysiqueB(f.slot), kPhysiqueGOffset, g);
+  world.WriteAnimeG(f.slot, g);  // B+0xC0 = G on the engine's chain (the caller bound it: PesWorld::BindAnimeChain)
   StoreF32(p, kPF377CScaleOffset, MoveTopRate(stamina, f.speedByte, f.stamina, g));  // FUN_1406F99F0 (0x1406F9B4C)
   std::memcpy(p + kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size());
   const uint64_t ctx = PesWorld::CtxVa(f.side);  // P+0x3AC0 = PM+0x7E0: the side's AI context (+0x18 MA, +0xE0 E)
   std::memcpy(p + kPPtr3AC0Offset, &ctx, sizeof ctx);
-  // The anime layer's objects the tick reaches (pestrapworld.hpp): the pointer structure, and the root's world point (x, y, z, 1)
-  // that SetMotion's solver reads (CONFIRMED against seq6634/seq126: O2+0xD0 equals the man's position and 1.0).
-  const uint64_t o1 = PesWorld::O1Va(f.slot), o2 = PesWorld::O2Va(f.slot), q = PesWorld::QVa(f.slot), r = PesWorld::RVa(f.slot),
-                 s = PesWorld::SVa(f.slot), rArray = r + kRArrayOffset;
-  uint8_t* a = world.PhysiqueA(f.slot);
-  std::memcpy(a + kAChildO1Offset, &o1, sizeof o1);
-  std::memcpy(a + kAChildO2Offset, &o2, sizeof o2);
+  // The anime layer's pointer structure: Q, R and S are the window's; the chain's O1 and O2 are the engine's own (its constructor's).
+  const uint64_t q = PesWorld::QVa(f.slot), r = PesWorld::RVa(f.slot), s = PesWorld::SVa(f.slot), rArray = r + kRArrayOffset;
   std::memcpy(p + kPQPtrOffset, &q, sizeof q);
   std::memcpy(world.Q(f.slot) + kQChainPtrOffset, &r, sizeof r);
   std::memcpy(world.R(f.slot) + kRArrayPtrOffset, &rArray, sizeof rArray);
@@ -200,12 +196,15 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
     std::memcpy(world.R(f.slot) + kRArrayOffset + sizeof joint * k, &joint, sizeof joint);
   }
   std::memcpy(p + kPSPtrOffset, &s, sizeof s);
-  uint8_t* point = world.O2(f.slot) + kO2PointOffset;
-  std::memcpy(point, man + kManPosXOffset, 12);
-  StoreF32(point, 12, 1.0f);
+  world.WriteAnimeRootPoint(f.slot, man + kManPosXOffset);
 }
 
 void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
+  uint8_t* p = world.P(slot);
+  // The constructor FUN_1406E03D0's first stores: P's class vtable (+0) and the two interface vtables (+0xAB8, +0xAC0).
+  std::memcpy(p, &c.ownVtable, sizeof(uint64_t));
+  std::memcpy(p + kPInterfaceVtable0Offset, &c.interfaceVtable[0], sizeof(uint64_t));
+  std::memcpy(p + kPInterfaceVtable1Offset, &c.interfaceVtable[1], sizeof(uint64_t));
   uint8_t* m = world.P(slot) + kPMemberOffset;  // FUN_141EB42B0's param_1
   StoreF32(m, kMemberRateOffset, c.memberRateNumerator / c.tickRate);
   for (int k = 0; k < 3; ++k) std::memcpy(m + kMemberVtableOffset[k], &c.memberVtable[k], sizeof(uint64_t));
@@ -218,7 +217,6 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
   for (std::size_t k = 0; k < kMemberUnitRunCount; ++k) StoreF32(m, kMemberUnitRunOffset + 4 * k, 1.0f);
   StoreF32(m, kMemberScaleOffset, 1.0f);
   StoreU32(m, kMemberPairOffset, kMemberPairInit);
-  uint8_t* p = world.P(slot);  // the constructor FUN_1406E03D0's tail stores
   for (const std::size_t at : kPTailNoneOffsets) StoreU32(p, at, 0xFFFFFFFFu);
   for (const std::size_t at : kPTailOneOffsets) StoreF32(p, at, 1.0f);
   ConstructActionTable(world, slot);
@@ -262,14 +260,6 @@ constexpr AnimPluginStore kActionTableStores[] = {
 };
 }  // namespace
 
-void ConstructAnimPlugin(PesWorld& world, int slot) {
-  uint8_t* o1 = world.O1(slot);
-  const uint64_t base = PesWorld::O1Va(slot);
-  for (const AnimPluginStore& s : kAnimPluginStores) {
-    const uint64_t v = s.kind == 1 ? base + s.value : s.value;
-    std::memcpy(o1 + s.offset, &v, sizeof v);
-  }
-}
 
 AnimPluginCell AnimPluginCellAt(std::size_t offset) {
   for (const AnimPluginStore& s : kAnimPluginStores) {

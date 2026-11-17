@@ -94,7 +94,6 @@ void Match::BindPesTrapWorld() {
   if (pesTrapBound) return;
   pes::PesMemory& memory = PesAnimeWorldOf().Memory();
   pesWorld->BindMemory(memory);
-  memory.Write64(pes::kWorldGlobalVa, pes::kWorldWindowVa);  // G's global holds the window's VA: the image's global, once per match
   pesTrapView.image = memory.Image();
   pesTrapView.imageBase = pes::PesMemory::kImageBase;
   pesTrapView.imageBytes = memory.ImageBytes();

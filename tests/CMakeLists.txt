@@ -99,6 +99,10 @@ add_executable(pes_anime_engine_test pes_anime_engine_test.cpp)
 target_link_libraries(pes_anime_engine_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_anime_engine_test)
 
+add_executable(pes_adjuster_tick_test pes_adjuster_tick_test.cpp)
+target_link_libraries(pes_adjuster_tick_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_adjuster_tick_test)
+
 add_executable(pes_fox_template_test pes_fox_template_test.cpp)
 target_link_libraries(pes_fox_template_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_fox_template_test)

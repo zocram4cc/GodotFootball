@@ -28,8 +28,6 @@ constexpr uint64_t kJobHandleOffset = 0x38, kHandleStateOffset = 8;
 // The player's anime object and its parts (docs/ports/pes-port-AnimeLayer3.md section 2): A = *(P+0xA08), L1 = *(A+0x88) the AnimControl,
 // the joint position array pointer at L1+0x50 and the joint rotation array pointer at A+0x20 (what FUN_141EB49B0 reads).
 constexpr uint64_t kAnimeOffset = 0xA08, kControlOffset = 0x88, kPosePointerOffset = 0x50, kQuatPointerOffset = 0x20;
-// The phases one frame runs on a body control, ascending (docs/ports/pes-port-AnimeLayer.md section 2: the driver's switch).
-constexpr uint32_t kFramePhases[] = {1, 2, 3, 4, 5, 7, 8, 9, 0xB, 0xD, 0xF, 0x10, 0x11};
 constexpr uint8_t kHandleQueuedRead = 2, kHandleQueuedDecode = 5;
 constexpr int kFinishSteps = 16;
 // The registry (FUN_141EC8C40's singleton DAT_1437F4F78) and the project registrars' once-flags (FUN_141ECA500 reads DAT_1437F4F82), which
@@ -250,11 +248,6 @@ bool PesFoxWorld::LoadBody(std::string* error) {
 
 void PesFoxWorld::ConstructAnime(uint64_t p, uint64_t collision) {
   Call(::pes_fn_141EB5250, {p, NewCString(kBodyName), collision, kBodyCallbackVa});
-}
-
-void PesFoxWorld::RunFrame(uint64_t p) {
-  const uint64_t a = Read64(p + kAnimeOffset);
-  for (uint32_t phase : kFramePhases) Call(::pes_fn_141AF4650, {a, phase});
 }
 
 void PesFoxWorld::IssueMotion(uint64_t p, const MotionRequest& request) {

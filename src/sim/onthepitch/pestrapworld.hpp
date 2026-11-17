@@ -139,11 +139,10 @@ inline constexpr std::size_t kFrameArg13Offset = 0x68;
 inline constexpr std::size_t kFrameRequestCopyOffset = 0xA8;  // the dispatcher's copy of request word 0 (r9)
 inline constexpr std::size_t kFrameOutWordOffset = 0x228;     // the out word: a refusal status, or the selected candidate's key
 
-// The physique chain P+0xA08 reaches (FUN_141AF3180: *(*(P+0xA08)+0xF0)+0xC0 is G): two small heap objects in PES, here one
-// after P in the window. Their other bytes are not read by the chain.
-inline constexpr std::size_t kPhysiqueObjectBytes = 0x200;  // 0x100 for the chain's reads; the tick reads A+0x118 and A+0x188
 inline constexpr std::size_t kPhysiqueNextOffset = 0xF0;  // object A +0xF0: the VA of object B
 inline constexpr std::size_t kPhysiqueGOffset = 0xC0;     // object B +0xC0: G (f32)
+inline constexpr std::size_t kBStrikeValidOffset = 0x81, kBYawValidOffset = 0x82, kBStepOffset = 0x90, kBYawSinOffset = 0xA4;
+inline constexpr std::size_t kBYawCosOffset = 0xAC, kBYawRateValidOffset = 0xB8, kBYawRateOffset = 0xBC;  // the trap side's B (A+0xF0): FUN_1406EEDF0's outputs
 inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clamped G FUN_141EB5810 stores beside the chain's copy
 inline constexpr std::size_t kPAnimeReadyOffset = 0xA04;   // P+0xA04: 1 once the anime player is built (FUN_141EB5250 0x141EB548B); FUN_141EB51A0 and FUN_141EB49B0 read it
 inline constexpr std::size_t kPTakingStateOffset = 0x245C;  // P+0x245C: FUN_140792E10's taking state (the vtable 0x20 getter); 1 = taking
@@ -187,20 +186,14 @@ inline constexpr std::size_t kFrameHeadingOffset = 0x744, kFrameKindOffset = 0x7
 inline constexpr std::size_t kFrameXHeadingOffset = 0x5E4;                           // F+0x868's target: f32 degrees at +0x5E4
 inline constexpr std::size_t kTickEntryFrameSlotOffset = 0x48;  // the tick's r8: a stack slot (entry rsp + 0x48) holding F
 
-// The window's trap member: P, then the physique chain's two objects and the layer objects the tick reaches.
+// The window's trap member: P, then the Q, R and S objects the tick reaches (the chain's O1 and O2 are the engine's own).
 struct PesTrapImage {
   std::array<uint8_t, kTrapPBytes> p{};
-  std::array<uint8_t, kPhysiqueObjectBytes> physiqueA{};
-  std::array<uint8_t, kPhysiqueObjectBytes> physiqueB{};
-  std::array<uint8_t, kO1Bytes> o1{};
-  std::array<uint8_t, kO2Bytes> o2{};
   std::array<uint8_t, kQBytes> q{};
   std::array<uint8_t, kRBytes> r{};
   std::array<uint8_t, kSBytes> s{};
 };
-inline constexpr std::size_t kTrapO1Offset = kTrapPBytes + 2 * kPhysiqueObjectBytes;
-inline constexpr std::size_t kTrapO2Offset = kTrapO1Offset + kO1Bytes;
-inline constexpr std::size_t kTrapQOffset = kTrapO2Offset + kO2Bytes;
+inline constexpr std::size_t kTrapQOffset = kTrapPBytes;
 inline constexpr std::size_t kTrapROffset = kTrapQOffset + kQBytes;
 inline constexpr std::size_t kTrapSOffset = kTrapROffset + kRBytes;
 

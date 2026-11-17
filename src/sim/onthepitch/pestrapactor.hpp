@@ -84,6 +84,7 @@ struct PesActorOpenInputs {
 // The image's bytes P is made from.
 struct PesActorConstants {
   uint64_t interfaceVtable[2] = {0, 0};  // P+0xAB8, +0xAC0 (the constructor 0x1406E03D0 stores them)
+  uint64_t ownVtable = 0;  // P+0: P's class vtable, the constructor's first store (FUN_1406E03D0 at 0x1406E0408)
   std::array<uint8_t, kLocomotionPhases> locomotionClass{};  // DAT_14344E1F0[4 * phase]: P+0xB08 (0x1406D8C92)
   float standingSpeedKmh = 0.0f;  // 0x14259222C: the root speed above which phase 0 is class 3, else 1 (0x1406D8C35)
   float tickRate = 0.0f;          // 0x14351AE54 (FUN_141E532D0): ticks per second
@@ -121,10 +122,6 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c);
 // ticks before a mid-action window, which a GF match runs itself. The vtables and the member rate are not state: they stay derived.
 bool IsMemberStateCell(std::size_t pOffset);
 
-// The AnimPlugin constructor FUN_141B158F0's stores into the slot's O1 (nine layer objects, the self-pointing layer array at +0xB0; a
-// recording of the constructor from the image, pesanimplugin_stores.inc), once per match. NOT built (the constructor's heap calls, OPEN):
-// the parameter blocks at +0x90/+0x98/+0xD40..+0xD88 and +0x1370, and the base-class fields FUN_142397EA0 / FUN_1403CF7E0 set.
-void ConstructAnimPlugin(PesWorld& world, int slot);
 // What a constructor cell is. The layers' weights and blend state the constructor also stores (kState) are rewritten by PES's animation
 // engine, which GF does not run; the other two are structure: a pointer into the object (window addresses differ from any capture's) and
 // an image VA (a vtable).
