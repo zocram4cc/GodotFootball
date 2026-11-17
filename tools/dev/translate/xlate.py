@@ -2317,6 +2317,13 @@ def stub_lines(do):
         return ["s.set_x_f32(0, pes_model_atan2f(s.x_f32(0), s.x_f32(1)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
+    if do == "return0":
+        # ponytail: atexit (0x14159F6C0) answers success (0) and records no destructor. PES's live onexit selector reads the
+        # cell 0x143706720 (cookie ^ cell rotated by cookie&63 == -1: branch 0x1415A18FA, a protector slot's target at
+        # 0x142530348, which no image holds and no capture maps), and the destructor list it would build is read only at
+        # process exit. Both of its branches are protector-owned code, not run (owner's .impdata ruling, 17-11-26); the
+        # cost is that exit-time destructors do not run (docs/re/pes-audit-BootDispatch.md, section 5: 721 OPEN).
+        return ["/* stub: atexit, return 0 (ponytail, docs/re/pes-audit-BootDispatch.md) */", "s.gpr[0] = 0;"]
     if do == "abort":
         # Tamper trap: reaching it aborts, exactly as the harness errors.
         return ["abort();"]

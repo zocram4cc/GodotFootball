@@ -171,7 +171,6 @@
 0x140A79180	stand-in	AI	callee
 0x140C6A100	stand-in	cutscene	callee
 0x1403FB8A0	stand-in	in-match menu	callee
-0x14159F6C0	stand-in	pre-match	callee
 0x14159F850	stand-in	pre-match	callee
 0x14159F8B0	stand-in	pre-match	callee
 0x1403FB610	stand-in	in-match menu	callee

@@ -3492,6 +3492,27 @@
    }
   },
   {
+   "va": "14159F6C0",
+   "callers": [
+    "14022D620",
+    "14038EE80",
+    "1403D2BB0",
+    "1403FB240"
+   ],
+   "used_by_closure": true,
+   "kind": "return-zero",
+   "why": [
+    "Ghidra name atexit at 0x14159F6C0: return (_onexit() != 0) - 1; the CRT exit-table registration",
+    "_onexit (0x14159F670) selects by ROR(cookie ^ cell 0x143706720, cookie & 63) == -1: branch 0x1415A18FA (live, every capture and the live process: enc == ~cookie), else 0x1415A18F4",
+    "both branches call through .rdata slots 0x142530348 / 0x142530318 whose targets are protector-owned RWX code (no image bytes, no capture mapping); owner's .impdata ruling (17-11-26): not run, not modelled",
+    "the destructor list is read only at process exit; no game code reads the cells (xrefs: _onexit and FUN_14159F4B8 only). Loss: exit-time destructors do not run (docs/re/pes-audit-BootDispatch.md, section 5, OPEN)"
+   ],
+   "model": {
+    "op": "atexit",
+    "effect": "returns 0 (success) and records no destructor (ponytail)"
+   }
+  },
+  {
    "va": "14159F3E0",
    "callers": [
     "14097FCE0",

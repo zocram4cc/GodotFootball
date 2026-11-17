@@ -320,7 +320,6 @@
 0x1403D2A90	stand-in	pre-match	callee
 0x1403D5170	stand-in	pre-match	callee
 0x1403D23F0	stand-in	pre-match	callee
-0x14159F6C0	stand-in	pre-match	callee
 0x14159F850	stand-in	pre-match	callee
 0x14159F8B0	stand-in	pre-match	callee
 0x1403DB4B0	stand-in	pre-match	callee

@@ -613,6 +613,10 @@ def install_hooks(mu, spec, RET_SENTINEL):
             # engine-noop (stubs.json): no effect on the success path; the
             # call is dropped, registers untouched, the return is popped below.
             pass
+        elif kind == "return0":
+            # return-zero (stubs.json, op atexit): the call answers 0 and records nothing (ponytail, see xlate.stub_lines);
+            # the return is popped below.
+            uc.reg_write(reg_const("rax"), 0)
         elif kind == "sqrt_xmm0":
             # return-input (stubs.json, op sqrtf): xmm0 low float = sqrtf(xmm0);
             # bits 32-127 kept, as sqrtss keeps them. IEEE-754 sqrt is correctly

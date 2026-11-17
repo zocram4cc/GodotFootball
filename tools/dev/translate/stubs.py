@@ -9,6 +9,7 @@ implement:
   logf_xmm0  libm: xmm0 = logf(xmm0), the host C library (pes_model_logf; see stubs.json caveat for the ucrtbase gap)
   powf_xmm0  libm: xmm0 = powf(xmm0, xmm1), the host C library (pes_model_powf; same caveat)
   noop       engine-noop: no effect on the success path; the call is dropped
+  return0    return-zero: rax = 0, nothing else changes (atexit: the call answers success and records no destructor)
   None       run-real kinds: the callee executes its image bytes, no stub
   unmodellable  blocked (see why): the function is not run
   abort      tamper trap: reaching it aborts on both sides
@@ -35,6 +36,7 @@ ABORT_SLOTS = {0x14252FDE0: "abort"}
 DO_BY_KIND = {
     "return-input": {"sqrtf": "sqrt_xmm0"},
     "engine-noop": {None: "noop"},
+    "return-zero": {"atexit": "return0"},
     "abort-trap": {"abort": "abort"},
     "libm": {"logf": "logf_xmm0", "powf": "powf_xmm0", "_isnan": "isnan_xmm0", "floorf": "floorf_xmm0",
              "sinf": "sinf_xmm0", "cosf": "cosf_xmm0", "tanf": "tanf_xmm0", "asinf": "asinf_xmm0",
@@ -43,7 +45,7 @@ DO_BY_KIND = {
     "run-real-closure": {None: None},
     "unmodellable": {None: "unmodellable"},
 }
-KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0",
+KNOWN_DO = {"sqrt_xmm0", "noop", "return0", "abort", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0",
             "cosf_xmm0", "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0",
             "unmodellable", None}
 
@@ -71,7 +73,7 @@ def load(path=DEFAULT):
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
 MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0", "cosf_xmm0",
-                       "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0", "noop", "abort"})
+                       "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0", "noop", "return0", "abort"})
 
 
 def models(table):
