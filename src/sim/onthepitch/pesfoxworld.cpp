@@ -314,7 +314,7 @@ void PesFoxWorld::IssueSeries(uint64_t p, const SeriesSpec& series, const Motion
   s.wr(desc + kDescByte20, kByte20, 1);
   s.wr(desc + kDescKind, known ? kKindByTransition[request.transition] : 0, 1);
   s.wr(desc + kDescFlags, kSeriesFlags, 1);
-  s.wr(desc + kDescBlend, FloatBits(request.duration), 4);
+  s.wr(desc + kDescBlend, FloatBits(series.position), 4);
   for (std::size_t i = 0; i < count; ++i) {
     const SeriesMember& member = series.members[i];
     const uint64_t entry = entries + i * kRecordBytes;

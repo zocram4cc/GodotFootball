@@ -374,19 +374,19 @@ TEST_F(AnimeEngine, TheHeapHoldsTheLoadAndTwentyTwoPlayers) {
   EXPECT_LT(world_->HeapLiveBytes(), kHeapBytes);
 }
 
-// H6's six-member series (TrapAdmit2, TrapContact 90213d5a report section 15: the H6 P at t10849): PES plays the members with every
-// weight 1.0. The member motions and start times are the captured call of live2/pid661338 seq002 (SetParametric's descriptor). The
-// first member alone is measured (not assumed) to turn about 0.023 rad over the walk; the blend must turn the body more than that.
+// H6's six-member series (TrapAdmit2, TrapContact 90213d5a section 15). The members, start times and rate table are the captured call of
+// live2/pid661338 seq002 (SetParametric's descriptor). PES's weights are the bracket rule of FUN_141AEE840: the position x (the descriptor's
+// +0x24) gives the two members around x on the rate table, and exactly 1.0 on the member whose rate equals x (seq002's x = 0.15 = member 1).
 constexpr std::size_t kMembers = 6;
 constexpr int kSeriesMotions[kMembers] = {3633, 3005, 3011, 3077, 3133, 3143};
 constexpr float kSeriesStarts[kMembers] = {0.9f, 0.5f, 0.55f, 0.525f, 0.35f, 0.325f};
 constexpr int kWalkFrames = 240;         // about 4.4 s at 54 Hz
-constexpr float kCapturedBlend = 0.15f;  // the captured series' blend (seq002's descriptor)
+constexpr float kRequestDuration = 0.15f;  // the request's duration: IssueMotion stores it as params+8; IssueSeries takes the position from SeriesSpec
 constexpr int kCapturedKind = 1;         // the captured series' transition kind (seq002's descriptor)
 // The series' rate table (the descriptor's +0x18 array, one f32 per member): identical in all eight captured calls (live2/pid661338 seq001-008).
 constexpr float kSeriesRates[kMembers] = {0.0f, 0.15f, 0.3f, 0.5f, 0.9f, 1.0f};
-constexpr uint8_t kCapturedParamKind = 1;           // the parameter block's kind byte at +0x4 (seq002 entry state, pid661338_002)
-constexpr float kCapturedParamBlend = 8.407790785948902e-45f;  // the block's word at +0x8 (seq002 holds 6), read as f32 by SetParametric
+constexpr uint8_t kCapturedParamKind = 0;  // the parameter block's kind byte at P+0x3B84 (seq002; the flush passes r8 = P+0x3B80, call.bin+64)
+constexpr float kCapturedParamBlend = 0.16666667f;  // the parameter block's blend at P+0x3B88 (seq002; the eight calls vary it, 0.17 to 0.30)
 constexpr float kMinTravel = 0.5f;       // a heading is measured once the body is this far from its start; nearer, float noise turns it
 constexpr double kTurnNoise = 1e-3;      // rounding of a heading computed from float positions (radians)
 constexpr double kPi = 3.14159265358979323846;
@@ -394,42 +394,55 @@ constexpr uint64_t kPlayerAnimeOffset = 0xA08;  // P+0xA08: the player's anime o
 constexpr uint64_t kAnimeLayerOffset = 0x88;    // A+0x88: the layer controller L1
 constexpr uint64_t kStateOffset = 0x10;         // L1+0x10: the state block L2
 
-TEST_F(AnimeEngine, ASeriesTurnsMoreThanItsFirstMemberAlone) {
+TEST_F(AnimeEngine, ASeriesFollowsTheMemberItsPositionNamesOnTheRateTable) {
   struct Ground {
     float x;
     float z;
   };
   // The body's path in the model frame: the running sum of the state's root vector (x, z) over the frames (L2+0x00, per frame).
-  const auto walk = [&](bool asSeries) {
+  const auto path = [&](auto&& issue) {
     const uint64_t p = NewPlayer();
     world_->ConstructAnime(p, 0);
     const uint64_t l1 = world_->Read64(world_->Read64(p + kPlayerAnimeOffset) + kAnimeLayerOffset);
-    pes::MotionRequest request;
-    request.playback = 1.0f;
-    request.duration = kCapturedBlend;
-    request.transition = kCapturedKind;
-    if (asSeries) {
-      pes::SeriesSpec series;
-      for (std::size_t i = 0; i < kMembers; ++i) series.members.push_back(pes::SeriesMember{kSeriesMotions[i], kSeriesStarts[i], 1.0f});
-      series.rates.assign(std::begin(kSeriesRates), std::end(kSeriesRates));
-      series.paramKind = kCapturedParamKind;
-      series.paramBlend = kCapturedParamBlend;
-      world_->IssueSeries(p, series, request);
-    } else {
-      request.motion = kSeriesMotions[0];
-      request.startTime = kSeriesStarts[0];
-      world_->IssueMotion(p, request);
-    }
-    std::vector<Ground> path{Ground{0.0f, 0.0f}};
+    issue(p);
+    std::vector<Ground> out{Ground{0.0f, 0.0f}};
     Ground at{0.0f, 0.0f};
     for (int f = 0; f < kWalkFrames; ++f) {
       world_->RunFrame(p);
       const std::vector<float> root = Floats(world_->Read64(l1 + kStateOffset), 3);
       at.x += root[0];
       at.z += root[2];
-      path.push_back(at);
+      out.push_back(at);
     }
-    return path;
+    return out;
+  };
+  // A lone member and the series take the same request (playback, transition kind): they differ only in what SetParametric weighs.
+  const auto request = [] {
+    pes::MotionRequest r;
+    r.playback = 1.0f;
+    r.duration = kRequestDuration;
+    r.transition = kCapturedKind;
+    return r;
+  };
+  const auto lone = [&](std::size_t member) {
+    return path([&](uint64_t p) {
+      pes::MotionRequest r = request();
+      r.motion = kSeriesMotions[member];
+      r.startTime = kSeriesStarts[member];
+      world_->IssueMotion(p, r);
+    });
+  };
+  // The series at position x on the rate table: the descriptor's +0x24 is x; the members, rates and parameter block are the captured ones.
+  const auto series = [&](float position) {
+    return path([&](uint64_t p) {
+      pes::SeriesSpec spec;
+      for (std::size_t i = 0; i < kMembers; ++i) spec.members.push_back(pes::SeriesMember{kSeriesMotions[i], kSeriesStarts[i], 1.0f});
+      spec.rates.assign(std::begin(kSeriesRates), std::end(kSeriesRates));
+      spec.position = position;
+      spec.paramKind = kCapturedParamKind;
+      spec.paramBlend = kCapturedParamBlend;
+      world_->IssueSeries(p, spec, request());
+    });
   };
   // The largest turn, in radians, of the direction from the start to the body at each frame, counted from the first frame it is
   // kMinTravel away.
@@ -448,14 +461,20 @@ TEST_F(AnimeEngine, ASeriesTurnsMoreThanItsFirstMemberAlone) {
     }
     return turn;
   };
-  const std::vector<Ground> single = walk(false);
-  const std::vector<Ground> series = walk(true);
-  const double singleTravel = std::hypot(single.back().x - single.front().x, single.back().z - single.front().z);
-  std::printf("first member alone: travelled %.3f m, largest turn %.6f rad; series: largest turn %.6f rad\n", singleTravel,
-              largestTurn(single), largestTurn(series));
-  EXPECT_GT(singleTravel, kMinTravel) << "the first member alone moves the body (its root vector accumulates)";
-  EXPECT_GT(largestTurn(series), largestTurn(single) + kTurnNoise)
-      << "the blend steers: the series turns more than its first member alone";
+  const std::vector<Ground> first = lone(0);
+  const double firstTravel = std::hypot(first.back().x - first.front().x, first.back().z - first.front().z);
+  EXPECT_GT(firstTravel, kMinTravel) << "the first member alone moves the body (its root vector accumulates)";
+  // Positions 0, 0.15 and 0.3 are the rates of members 0, 1 and 2. PES's weight is exactly 1.0 on the member whose rate equals the
+  // position (FUN_141AEE840), so the series turns the body as that member does alone. Seq002's captured position is 0.15 (member 1).
+  constexpr double kSameTurn = 1e-6;  // two walks of the same clip under the same request agree to float noise (radians)
+  double alone[3];
+  for (std::size_t k = 0; k < 3; ++k) {
+    alone[k] = largestTurn(lone(k));
+    EXPECT_NEAR(largestTurn(series(kSeriesRates[k])), alone[k], kSameTurn)
+        << "position " << kSeriesRates[k] << " is member " << k << "'s rate: the series turns the body as that member does alone";
+  }
+  // Members 0 and 1 turn differently, so the equality above is not vacuous.
+  EXPECT_GT(std::fabs(alone[0] - alone[1]), kTurnNoise) << "members 0 and 1 must turn the body differently for the check to mean anything";
 }
 
 // PES's layer holds eleven plugins once the match load has created the anime singleton (live2/pid661338 seq002: the layer list at L1+0x30,

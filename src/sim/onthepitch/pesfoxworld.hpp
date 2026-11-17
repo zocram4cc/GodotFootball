@@ -32,11 +32,12 @@ struct SeriesMember {
   float rate = 1.0f;
 };
 
-// A series as its caller passes it to SetParametric (FUN_141AF52B0): the members, the descriptor's rate table (one float per member) and the
-// parameter block's kind byte and blend.
+// A series as its caller passes it to SetParametric (FUN_141AF52B0): the members, the descriptor's rate table (one float per member), the
+// position on that table (the descriptor's +0x24), and the parameter block's kind byte and blend.
 struct SeriesSpec {
   std::vector<SeriesMember> members;
   std::vector<float> rates;
+  float position = 0.0f;  // the descriptor's +0x24: the series' position on the rate table (FUN_141AEE840's x)
   uint8_t paramKind = 0;
   float paramBlend = 0.0f;
 };
@@ -127,10 +128,10 @@ class PesFoxWorld final : public PesFileSource {
   // is dropped, as SetMotion's first test does.
   void IssueMotion(uint64_t p, const MotionRequest& request);
 
-// SetParametric's series (FUN_141AF52B0, reached from PES's parametric caller 0x1406E6303): one record per member, pushed to the control
-// and blended by the layer, looping. The request's playback is the rate every record takes (SetSpeed) and its duration the descriptor's
-// blend. ponytail: the caller supplies the series (members, rate table, parameter block); PES builds them from the blend group in
-// SetParametricBlendMotion (FUN_1406F14E0), which is not translated yet.
+// SetParametric's series (FUN_141AF52B0, called by the parametric flush FUN_1406E5FC0 at 0x1406E6325): one record per member, pushed to the control
+// and blended by the layer, looping. The request's playback is the rate every record takes (SetSpeed); the series' position on the rate table
+// is SeriesSpec.position (the descriptor's +0x24). ponytail: the caller supplies the series (members, rate table, position, parameter block);
+// PES builds them from the blend group in the request filler FUN_1406F14E0, which is not translated yet.
 void IssueSeries(uint64_t p, const SeriesSpec& series, const MotionRequest& request);
   // The pose the frame left in the control (L1+0x50: joint positions, A+0x20: joint rotations): the arrays FUN_141EB49B0 reads.
   PesJointPose ReadPose(uint64_t p);
