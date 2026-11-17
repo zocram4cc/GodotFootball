@@ -264,6 +264,22 @@ TEST(PlayerDatabaseWiring, SlotAbilityBasesComeFromThePesRecordOfAnImportedPlaye
   EXPECT_NEAR(stored(synthetic, pes::kAbilitySpeedId), gfSpeedByte, 8);
 }
 
+// The Acceleration byte the MOVESTEP playback reads (0x1406E6660 -> 0x140A489F0 -> 0x14124DAD0: the slot record's block at +0x70, id
+// 0x2B): a player with a PES id starts from his roster row's byte, and a player without one from GF's own Acceleration stat over 100
+// (the same stat the team's ability read takes). The value is read through the window's accessor, as the playback reads it.
+TEST(PlayerDatabaseWiring, TheAccelerationByteIsTheRosterRowsOrTheStatsForEveryPlayer) {
+  FixtureMatch fixture(nullptr);
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* synthetic = PlayerWithDatabaseId(*fixture.match, 0, 2);
+  ASSERT_NE(synthetic, nullptr);
+  pes::PesWorld& world = fixture.match->PesWorldOf();
+  const int slot = fixture.match->PesSlotOf(synthetic);
+  WriteSlotAbilities(*fixture.match, world, slot, *synthetic);
+  const float gfAcceleration = synthetic->GetPlayerData()->GetStat("physical_acceleration") * pes::kAbilityBytesPerStat;
+  EXPECT_NEAR(world.RunAbilityByte(slot, pes::kAbilityAccelerationId), gfAcceleration, 8)
+      << "a player with no roster row must still carry his Acceleration byte in the window";
+}
+
 // PES's copy of the roster row into the AI record (FUN_140922BC0 -> FUN_140A58F00): every one of the row's 0x50 bytes lands in the
 // slot's ability block, the bytes beside it do not, and a player without a row (the synthetic one) gets none of them.
 TEST(PlayerDatabaseWiring, ARowOfTheSaveIsCopiedWholeIntoTheSlotsAbilityBlock) {

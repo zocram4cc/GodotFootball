@@ -241,6 +241,10 @@ inline constexpr std::size_t kSlotByteA4Offset = 0xA4;      // u8
 inline constexpr std::size_t kSlotAbilityOffset = 0x70;
 inline constexpr uint32_t kAbilitySpeedId = 0x27;
 inline constexpr uint32_t kAbilityJumpId = 0x2C;
+// The Acceleration byte (0x2B, docs/re/pes-re-anim-select.md 1.3; movestep.hpp kAbilityAcceleration): the playback and the ramp of every
+// locomotion entry read it through the anime interface's accessor 0x1406E6660 (AbilityWeight -> TurnPlayback), so a window that leaves it 0
+// plays every single clip at the base playback.
+inline constexpr uint32_t kAbilityAccelerationId = 0x2B;
 inline constexpr uint32_t kAbilityHeightId = 0x31;
 // Block byte 0x34: 0..1 in the clamp table (0x142613C60) and different per player in every captured roster (INF: the stronger foot,
 // 1 = left; the captured rows are not Player.bin's, so the id is not checked against it). The store step leaves it unchanged (cells 1.0).

@@ -1076,6 +1076,11 @@ void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Play
   world.StoreLiveAbility(slot, pes::kAbilitySpeedId, bin ? bin->speed : byteOf("physical_velocity"),
                          cellsOf("physical_velocity", false));
   world.StoreLiveAbility(slot, pes::kAbilityJumpId, bin ? bin->jump : byteOf("physical_jump"), cellsOf("physical_jump", true));
+  // The Acceleration byte (0x2B): a player with a roster row takes his row's byte (LoadRosterRow copied it); one without takes GF's
+  // Acceleration stat over 100, the stat the team's ability read takes. PES's stat rebuild 0x14092AF10 stores it through the same
+  // cells as Jump (the fatigue factor covers 0x28..0x2C, pes-re-stamina-drain.md 4).
+  const uint8_t acceleration = bin && bin->row ? (*bin->row)[pes::kAbilityAccelerationId] : byteOf("physical_acceleration");
+  world.StoreLiveAbility(slot, pes::kAbilityAccelerationId, acceleration, cellsOf("physical_acceleration", true));
   world.StoreLiveAbility(slot, pes::kAbilityHeightId,
                          bin ? bin->heightCm : static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
   world.StoreLiveAbility(slot, pes::kAbilityStrongerFootId, match.LeftFootedOf(data) ? 1 : 0);
