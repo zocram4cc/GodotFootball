@@ -801,6 +801,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x1403E66A0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_adjtick.json",
+   "coverage": {
+    "0x141EB5E70": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded, two real runs of 0x141EB5E70 (closure_adjtick.json): walk-out seq061 and seq062 (res_adjtick.json: 2 calls, 0 mismatches, own-block 7/7, yaw branch) and in-play seq1128 and seq1171 (res_adjB.json: strike running at counts 6 and 16, yaw running, height not running; 2 calls, 0 mismatches, own-block 7/7). Strike and yaw proven on real calls, bit-exact. Named gaps: (1) height adjuster P+0x498 running (state 2) not observed in 19 captured calls; (2) chain X (FUN_141EBC820 -> FUN_141AF7A90(X), X->vt[+0x38] = FUN_141B00910): gate S+0x14 <= 255 closed in all 19 captures (S+0x14 = 256, DAT_1437F4CB0 = 1), X never ran; undecoded; no stand-in.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_animelayer.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141EB5E70",
+   "bounded": true
   }
  ]
 }
