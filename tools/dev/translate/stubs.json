@@ -24,6 +24,17 @@
  ],
  "stubs": [
   {
+   "va": "141AEB7C0",
+   "callers": ["141AE77B0"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "Anime singleton wrapper: guard on the global 0x1437CEA40 (0x141AEB7D1); allocates 0x2E0 bytes (0x141AEB7E6) and calls the setter 0x141AEA910, which publishes the global (0x141AEACB7). Called from FUN_141AE77B0 at 0x141AE7839 on the match-load branch (sil = cl = 1).",
+    "GF's seam (pes_service_anime_singleton, pes_native.cpp): the setter's Steam-dispatched calls (0x1415A1720, 0x14164FB10) and protection thunks are not part of GF (owner ruling 17-11-26); the object is built by meaning from the setter's own stores."
+   ],
+   "model": {"op": "anime_singleton", "effect": "creates the singleton once: the global holds the object after the setter's stores"}
+  },
+  {
    "va": "140421F40",
    "callers": [
     "1404F6C30"

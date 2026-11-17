@@ -71,7 +71,7 @@ void pes_fn_141AE77B0(PesState& s) {
     s.cf = false; s.of = false; }
   if (!s.cond("z")) {
     s.gpr[1] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[7]));
-    /*OUT-OF-SET CALL 0x141AEB7C0*/ pes_dispatch_missing(0x141AEB7C0);
+    pes_service_anime_singleton(s);
     { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_141AEBC10(s); s.gpr[4] += 8; }
     { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[5] >> 0))) & (uint64_t)(((uint64_t)(uint8_t)(s.gpr[5] >> 0)))) & 0xFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);

@@ -385,3 +385,107 @@ void pes_service_packer_array_ctor_b(PesState& s) { StoreObjectArray(s, s.gpr[1]
 
 // 0x141957C60(size): the graphics device's allocator; GF has no device, so the allocation fails (rax = 0) and the caller's own failure path runs.
 void pes_service_gfx_device_alloc(PesState& s) { s.gpr[0] = 0; }
+
+// ponytail: the anime singleton, built by GF (AnimeLayer7; owner ruling 17-11-26: PES builds it behind copy protection, which GF does
+// not run). PES's wrapper 0x141AEB7C0 allocates 0x2E0 bytes and calls the setter 0x141AEA910. The setter's Steam-dispatched calls
+// (0x1415A1720 at 0x141AEB096; 0x14164FB10 at 0x141AEAD8D, 0x141AEAE4C, 0x141AEAF03, 0x141AEAFBA) and its protection thunks are not
+// part of GF. GF makes every store the setter makes on its own path, in the setter's order, with the image constants it loads. The
+// objects the protection-dependent calls fill are not built: S+0x20, S+0x30..S+0x58, S+0x70, the vector's elements, and the context
+// global's fields. docs/ports/pes-port-AnimeLayer7.md lists them with their readers and the state diff against live captures.
+namespace {
+constexpr uint64_t kSingletonVtableVa = 0x142AB91C0ULL;  // the setter's vptr store (lea at 0x141AEA935)
+constexpr uint64_t kDriverVtableVa = 0x142AB9188ULL;     // the +0x28 record's vptr store (lea at 0x141AEB04A)
+constexpr uint64_t kSingletonGlobalVa = 0x1437CEA40ULL;  // the wrapper's guard (0x141AEB7D1) and the setter's publish (0x141AEACB7)
+constexpr uint64_t kSingletonBytes = 0x2E0;              // the wrapper's allocation (ecx at 0x141AEB7E6)
+constexpr uint64_t kDriverBytes = 0x6D0;                 // the +0x28 record's allocation (ecx at 0x141AEB020)
+constexpr uint64_t kAllocAlign = 0x10;                   // the edx of both allocations
+// The unit vectors the setter copies into +0x80..+0x17F (xmm0..xmm3 at 0x141AEAA74..0x141AEAA5F, cycled four times).
+constexpr uint64_t kUnitVectorVa[4] = {0x14253EE50ULL, 0x14253EE60ULL, 0x14253EE70ULL, 0x14253EE80ULL};
+constexpr uint64_t kVec4Bytes = 0x10, kBasisOff = 0x80, kBasisBlocks = 0x10;
+// The imm32 of the setter's and 0x1418801F0's stores, read from the install at those stores (ReadVa-style reads of the image, never typed):
+constexpr uint64_t kTickImmVa = 0x141AEABD1ULL;       // mov dword [r14+0x2c4], imm32 (0x141AEABCA): 1/60 s
+constexpr uint64_t kRateImmVa = 0x141AEABDCULL;       // mov dword [r14+0x2c8], imm32 (0x141AEABD5): 60 per second
+constexpr uint64_t kRecordHeaderImmVa = 0x1418801F5ULL;  // mov qword [rcx], imm32 (0x1418801F2): the record header (0x30)
+constexpr uint64_t kRecordFlagsImmVa = 0x141880207ULL, kRecordCountImmVa = 0x14188020EULL;  // mov dword [rcx+0x18/0x1C], imm32
+constexpr uint64_t kRecordOff = 0x190, kRecordStride = 0x28, kRecordCount = 4;
+constexpr uint64_t kCountOff = 0x10, kDriverOff = 0x28, kVectorCountOff = 0x60, kVectorCapOff = 0x64, kVectorDataOff = 0x68;
+constexpr uint64_t kTailBlockOff = 0x260, kEndNodeOff = 0x288, kListHeadOff = 0x290, kListNodeOff = 0x2A0;
+constexpr uint64_t kFlagsOff = 0x2C0, kTickOff = 0x2C4, kRateOff = 0x2C8, kModeOff = 0x2CC;
+constexpr uint64_t kVectorCapacity = 2, kVectorElementBytes = 8;
+}  // namespace
+
+void pes_service_anime_singleton(PesState& s) {
+  // The wrapper's guard (0x141AEB7D1): a created singleton stands.
+  if (s.rd(kSingletonGlobalVa, 8) != 0) return;
+  PesHeap& heap = HeapOf(s);
+  // The wrapper passes its ecx on as the setter's edx: the mode (0 at the match load).
+  const uint64_t mode = s.gpr[1] & 0xFFFFFFFFu;
+  const uint64_t obj = heap.Alloc(kSingletonBytes, kAllocAlign);
+  if (!obj) return;  // the wrapper skips the setter when the allocation returns 0 (0x141AEB7F8)
+  s.wr(obj, kSingletonVtableVa, 8);
+  s.wr(obj + kCountOff, 0, 4);
+  s.wr(obj + 0x18, 0, 8);
+  // The slots start empty: the setter's helpers store 0 into each (0x141AEA94C..0x141AEA9E4, 0x141AEAA54..0x141AEAA59, 0x141AEABF2).
+  const uint64_t slots[] = {0x20, kDriverOff, 0x30, 0x38, 0x40, 0x48, 0x50, 0x58, 0x70, 0x2D0};
+  for (uint64_t off : slots) s.wr(obj + off, 0, 8);
+  // +0x60..+0x68: the setter reserves two elements (0x141AEAA3B) and stores two null elements in its loop (0x141AEAC10).
+  const uint64_t elements = heap.Alloc(kVectorCapacity * kVectorElementBytes, kAllocAlign);
+  if (!elements) Die("anime singleton: the vector's elements; the arena is full; bytes", kVectorCapacity * kVectorElementBytes);
+  s.wr(obj + kVectorCountOff, kVectorCapacity, 4);
+  s.wr(obj + kVectorCapOff, kVectorCapacity, 4);
+  s.wr(obj + kVectorDataOff, elements, 8);
+  // +0x80..+0x17F: the setter copies the four unit vectors, cycled (0x141AEAA5F..0x141AEAB03).
+  for (uint64_t block = 0; block < kBasisBlocks; ++block) {
+    const uint64_t src = kUnitVectorVa[block % 4];
+    s.wr(obj + kBasisOff + kVec4Bytes * block, s.rd(src, 8), 8);
+    s.wr(obj + kBasisOff + kVec4Bytes * block + 8, s.rd(src + 8, 8), 8);
+  }
+  s.wr(obj + 0x180, 0, 8);
+  s.wr(obj + 0x188, 0, 8);
+  // Four records at +0x190, 0x28 apart: 0x1418801f0 writes the 0x30 header, and the setter zeroes the record's +0x20 (0x1B0, 0x1D8,
+  // 0x200); the last one's +0x20 (0x228) is -1 (0x141AEAB4E), and +0x230 is -1 (0x141AEAB59).
+  for (uint64_t k = 0; k < kRecordCount; ++k) {
+    const uint64_t rec = obj + kRecordOff + kRecordStride * k;
+    s.wr(rec, s.rd(kRecordHeaderImmVa, 4), 8);
+    s.wr(rec + 8, 0, 8);
+    s.wr(rec + 0x10, 0, 8);
+    s.wr(rec + 0x18, s.rd(kRecordFlagsImmVa, 4), 4);
+    s.wr(rec + 0x1C, s.rd(kRecordCountImmVa, 4), 4);
+    s.wr(rec + 0x20, k + 1 < kRecordCount ? 0 : ~0ULL, 8);
+  }
+  s.wr(obj + 0x230, ~0ULL, 8);
+  for (uint64_t off = 0x238; off <= 0x258; off += 8) s.wr(obj + off, 0, 8);
+  // +0x260..+0x2B8: three dwords zeroed (0x14184D5C0), then the list: a head at +0x290 pointing at its node at +0x2A0, whose link is the
+  // end node at +0x288 (0x141AEABBA..0x141AEABBE).
+  s.wr(obj + kTailBlockOff, 0, 4);
+  s.wr(obj + kTailBlockOff + 4, 0, 4);
+  s.wr(obj + kTailBlockOff + 8, 0, 4);
+  s.wr(obj + kEndNodeOff, 0, 8);
+  s.wr(obj + kEndNodeOff + 8, 0, 8);
+  s.wr(obj + kEndNodeOff + 0x10, 0, 8);
+  s.wr(obj + kListHeadOff, obj + kListNodeOff, 8);
+  s.wr(obj + kListNodeOff, obj + kEndNodeOff, 8);
+  s.wr(obj + kListNodeOff + 8, 0, 8);
+  s.wr(obj + kListNodeOff + 0x10, 0, 8);
+  s.wr(obj + kTailBlockOff + 0x58, 0, 4);
+  // The flags (bit 3 is set by the layer's match-branch OR, FUN_141AE77B0 at 0x141AE7848), the tick, the rate and the mode.
+  s.wr(obj + kFlagsOff, 0, 4);
+  s.wr(obj + kTickOff, s.rd(kTickImmVa, 4), 4);
+  s.wr(obj + kRateOff, s.rd(kRateImmVa, 4), 4);
+  s.wr(obj + kModeOff, mode, 4);
+  // The +0x28 record (0x141AEB013..0x141AEB0D7): its zero fill of [+0x44, +0x6A4) is the setter's call 0x1415A1720(+0x44, 0, 0x660),
+  // which is not part of GF and is modelled here as the zeros it leaves, by its arguments.
+  const uint64_t driver = heap.Alloc(kDriverBytes, kAllocAlign);
+  if (driver) {
+    s.wr(driver, kDriverVtableVa, 8);
+    s.wr(driver + 8, 1, 4);
+    s.wr(driver + 0x10, 0, 4);
+    for (uint64_t off = 0x18; off <= 0x38; off += 8) s.wr(driver + off, ~0ULL, 8);
+    s.wr(driver + 0x40, ~0ULL, 4);
+    for (uint64_t off = 0x6A4; off <= 0x6C4; off += 8) s.wr(driver + off, ~0ULL, 8);
+    s.wr(driver + 0x6CC, 1, 1);
+  }
+  s.wr(obj + kDriverOff, driver, 8);
+  // The publish (0x141AEACB7): the global holds the object from now on.
+  s.wr(kSingletonGlobalVa, obj, 8);
+}
