@@ -245,6 +245,7 @@ class TrapContactProbe : public pestest::Probe {
   // onto the ball's contact point one step a tick until its last tick A+0x10, when FUN_141EB3AF0's finish zeroes A+8..+0x1F. A man in the Trap action whose
   // adjuster has its mode set and steps left (A+0x10 > count) but whose state word reads 0 had it killed mid-run: the strike's walk stopped after its first step.
   long adjusterKilled = 0;
+  std::map<int, uint32_t> adjusterPrevState_;
   std::string adjusterSamples;
   std::string counterSamples;  // the first violations: last->now@slot/action
   // Match::Process advances the clock at its end (match.cpp, `actualTime_ms += kTick_ms`), after the bodies stamped this tick's
@@ -272,17 +273,21 @@ class TrapContactProbe : public pestest::Probe {
       for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
         if (!player->IsActive()) continue;
         const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player.get()));
-        if (p[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
         const uint8_t* adj = p + pes::kPAdjusterOffset;
         int16_t count, ticks;
         std::memcpy(&count, adj + pes::kAdjCountOffset, sizeof count);
         std::memcpy(&ticks, adj + pes::kAdjTicksOffset, sizeof ticks);
         uint32_t state;
         std::memcpy(&state, adj + pes::kAdjStateOffset, sizeof state);
-        if (adj[pes::kAdjModeOffset] == 1 && state == 0 && ticks > count) {
+        // A running adjuster (state 2) is stepped by PES's anime tick every frame whatever the man's action, and ends through its own finish, which clears the mode
+        // byte. A state word that reads 0 the next tick with the mode byte still 1 was zeroed by someone else mid-run. (A man admitted to the Trap action this
+        // tick has not run his start yet: his adjuster is the previous trap's leftover, not a running one, so only a state seen running counts.)
+        uint32_t& before = adjusterPrevState_[match.PesSlotOf(player.get())];
+        if (before == pes::kAdjRunning && state == 0 && adj[pes::kAdjModeOffset] == 1) {
           ++adjusterKilled;
-          if (adjusterSamples.size() < 120) adjusterSamples += " " + std::to_string(match.PesSlotOf(player.get())) + ":" + std::to_string(count) + "/" + std::to_string(ticks);
+          if (adjusterSamples.size() < 160) adjusterSamples += " t" + std::to_string(tickCount_) + " " + std::to_string(match.PesSlotOf(player.get())) + (p[pes::kPByteAC8Offset] == pes::kAnimeActionTrap ? ":trap " : ":left the trap ") + std::to_string(count) + "/" + std::to_string(ticks);
         }
+        before = state;
       }
     }
     {
@@ -656,7 +661,7 @@ TEST(PesStall, ATrapStrikeAdjusterRunsItsStepsToTheContactFrame) {
   ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
   pestest::Settle(contactCensus);
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
-  EXPECT_EQ(contactCensus.adjusterKilled, 0) << contactCensus.adjusterKilled << " ticks of a man in the Trap action had his strike adjuster's state zeroed mid-run (count/last tick:"
+  EXPECT_EQ(contactCensus.adjusterKilled, 0) << contactCensus.adjusterKilled << " ticks of a running strike adjuster had its state word zeroed mid-run, by a man leaving the Trap action or otherwise (tick, slot, count/last tick:"
                                               << contactCensus.adjusterSamples << ")";
 }
 

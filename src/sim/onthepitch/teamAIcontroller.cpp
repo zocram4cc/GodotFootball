@@ -3630,7 +3630,13 @@ void RunPesTrapTicks(Match& match) {
       ++written;
       const int slot = match.PesSlotOf(p.get());
       uint8_t* pb = world.P(slot);
-      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) {
+        // The anime tick steps a running strike adjuster whatever action the man is in: a Trap that switched out (trap end -> Dribble, a GF action) leaves the
+        // last steps of the walk onto the ball to it.
+        const pes::PesWorld::AdjusterStep tail = world.RunTrapAdjuster(slot);
+        if (tail.moved) p->CastHumanoid()->WarpRoot(Vector3(tail.x, tail.z, 0.0f), 0.0f);
+        continue;
+      }
       const uint8_t phaseBefore = pb[pes::kPPhaseOffset];
       // GF's heading is atan2(y, x); PES's yaw is atan2(x, y) (the man record's facing).
       const Vector3 dir = p->GetDirectionVec();
