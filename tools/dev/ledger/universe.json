@@ -1361292,6 +1361292,89 @@
    "vtables": [],
    "walked": true
   },
+  "142399800": {
+   "boundary": null,
+   "callees": {
+    "1415C34C0": "direct",
+    "1415CA5E0": "direct",
+    "1423A9350": "direct",
+    "1423AAF90": "direct",
+    "1423ADB30": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_142399800",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "headproof"
+   ],
+   "scope": "in",
+   "size": 133,
+   "source": "pdata",
+   "subsystem": "headproof",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14239A1D0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "14239A770": "direct",
+    "1423A9350": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239a1d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "headproof"
+   ],
+   "scope": "in",
+   "size": 135,
+   "source": "pdata",
+   "subsystem": "headproof",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "14239A770": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1423AAF90": "direct",
+    "1423ADB30": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_14239a770",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "headproof"
+   ],
+   "scope": "in",
+   "size": 50,
+   "source": "pdata",
+   "subsystem": "headproof",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "14239B440": {
    "boundary": null,
    "callees": {
@@ -1365241,6 +1365324,33 @@
    "source": "bridge",
    "subsystem": "animation",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "1423B2340": {
+   "boundary": null,
+   "callees": {
+    "142399800": "direct",
+    "14239A1D0": "direct",
+    "14239BB40": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1423b2340",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "headproof"
+   ],
+   "scope": "in",
+   "size": 132,
+   "source": "pdata",
+   "subsystem": "animation",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1414548,6 +1414658,12 @@
     "members": 27,
     "roots": [
      "0x142132E20"
+    ]
+   },
+   "headproof": {
+    "members": 12,
+    "roots": [
+     "0x1423B2340"
     ]
    },
    "motion": {

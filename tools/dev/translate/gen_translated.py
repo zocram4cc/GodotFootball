@@ -203,6 +203,21 @@ def subsystem_of(spec, name):
     return (spec.get("subsystem") or name).lower().replace(" ", "_").replace("-", "_")
 
 
+def ponytails():
+    """{VA: (parent VA, note)} for the closure members that a results row proves through its parent's snapdiff (the row field
+    `parent`, the note in `ponytail`). They are not recorded bit-exact on their own: the parent's replay ran them."""
+    out = {}
+    for fname, _ in SETS:
+        with open(os.path.join(HERE, fname)) as f:
+            for r in json.load(f)["results"]:
+                if r.get("parent"):
+                    out[r["va"]] = (r["parent"], r.get("ponytail", ""))
+    for va, (parent, _) in out.items():
+        if va not in closure_members(parent):
+            raise SystemExit("gen_translated: %s is not in the closure of its parent %s" % (va, parent))
+    return out
+
+
 def build(image):
     """{VA: member} for the whole layer; member = raw text, recorded flag, subsystem, harness status."""
     recs = records()
@@ -215,6 +230,9 @@ def build(image):
             sub_of[va] = subsystem_of(spec, name)
     for va, _, diffed, fc in recs:
         status.setdefault(va, "bit-exact" if diffed else (fc or "not diffed"))
+    parents = ponytails()
+    for va, (parent, _) in parents.items():
+        status[va] = "proved by parent %s" % parent
     # Each recorded function's closure (itself plus the callees it links), translated once.
     texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
@@ -255,7 +273,8 @@ def build(image):
             continue
         for cur in closure_of[va]:
             members.setdefault(cur, {"raw": texts[cur], "recorded": cur in bit_vas,
-                                     "sub": sub_of.get(cur, CLOSURE), "status": status.get(cur, "no record")})
+                                     "sub": sub_of.get(cur, CLOSURE), "status": status.get(cur, "no record"),
+                                     "ponytail": parents.get(cur, (None, ""))[1]})
     for cur, m in members.items():
         for c in CALLEE.findall(m["raw"]):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
@@ -280,8 +299,11 @@ def lint(members):
 def member_text(va, m):
     if m["recorded"]:
         return m["raw"]
-    return ("// Closure member: a direct callee of recorded functions, committed so they link. "
-            "Harness record: %s. Not recorded bit-exact on its own.\n" % m["status"]) + m["raw"]
+    head = ("// Closure member: a direct callee of recorded functions, committed so they link. "
+            "Harness record: %s. Not recorded bit-exact on its own.\n" % m["status"])
+    if m["ponytail"]:
+        head += "// ponytail: %s\n" % m["ponytail"]
+    return head + m["raw"]
 
 
 def layer_files(members):

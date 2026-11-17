@@ -740,6 +740,67 @@
    "stubs": [],
    "translated": true,
    "va": "0x141AFD3C0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_animelayer.json",
+   "coverage": {
+    "0x1423B2340": {
+     "reached": 20,
+     "total": 34,
+     "fraction": 0.5882
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: 5 REAL calls of 0x1423B2340 (the head of the walk's kind-2 branch: the series' root record, index 0 of a count-7 object; hook res_head_1423B2340, 16-byte window at entry, in-play), live2/pid3336339 seq001-005 (rcx = the series object, r8 = 0). Every replay runs the same 12 entered functions (27,373 instructions each); the one out-of-image transfer is 0x1415A1708 -> msvcrt.dll (a named export of the snapshot's module table). 0 protection events (the static PROT list is empty; the runtime rules pass). 0 mismatches, own block 20 of 34.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 5,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 20,
+     "total": 34,
+     "fraction": 0.5882
+    },
+    "replayed": 5,
+    "source": "tools/dev/translate/snapdiff.py --bounded (run_real4.sh head)"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1423B2340"
+  },
+  {
+   "bounded": false,
+   "diffed": false,
+   "failure_class": null,
+   "note": "Parent-proof row (no standalone snapshot: no hook on this VA). Proven through 0x141EC86D0: bounded snapdiff, 3 REAL calls of the registry insert, 0 mismatches (this file, row 0x141EC86D0), with translated 0x143E92380 in its replay member set (closure_animelayer.json). CLASSIFIED (owner ruling 17-11): relocated map insert plus allocator step. Entry block 0x143E92380..0x143E92459 (60 instructions, ret at 0x143E92459): CRT malloc 0x140227920 for the 0x38-byte node (key rdx, value r8, flag r9b, sentinel -1 at +0x30); tagged allocation 0x1403CF740 for the 0x18-byte node (tag = image constant @0x1540FE330 XOR 0x48073557 = 0x00010001); link through 0x1403CF7E0 (map insert; zero protection edges in its closure). Only null checks branch. No clock, environment, PEB, CPU, module-range, file, Steam or checksum read; the only non-stack read is the tag constant. Real PES state: the real insert call trace (live2 pid3332804 seq005, sd_ec8/gen/141EC8D30/snap_pid3332804_005/addrs.json, 10,471 executed addresses) runs 58 of the 60 entry instructions (the two that do not run are the allocation-null arms) and 0 of the 93 instructions after the int3 at 0x143E9245A. The tail jumps into .impdata (0x15B8C5D93, 0x15B804E70) and is not translated.",
+   "parent": "0x141EC86D0",
+   "ponytail": "relocated map insert plus allocator step (CRT malloc, tagged allocation, map link 0x1403CF7E0). No environment, timing, PEB, CPU or checksum read on this path. The tail after the int3 at 0x143E9245A (93 instructions into .impdata) never ran in PES's real insert (0 of 93 in the trace), so it is not translated; a transfer there has no dispatch entry and aborts loudly. Proof: parent 0x141EC86D0 snapdiff, 3 real calls, 0 mismatches.",
+   "proof": "parent",
+   "stubs": [],
+   "translated": true,
+   "va": "0x143E92380"
+  },
+  {
+   "bounded": false,
+   "diffed": false,
+   "failure_class": null,
+   "note": "Thunk: one instruction, jmp 0x143E92380 (.trace). The real PES insert call executes it (live2 pid3332804 seq005 trace). Proven through 0x141EC86D0 (bounded snapdiff, 3 REAL calls, 0 mismatches). Classified as 0x143E92380: relocated map insert plus allocator step.",
+   "parent": "0x141EC86D0",
+   "ponytail": "thunk jmp 0x143E92380; classified with 0x143E92380 (relocated map insert plus allocator step). Proof: parent 0x141EC86D0 snapdiff, 3 real calls, 0 mismatches.",
+   "proof": "parent",
+   "stubs": [],
+   "translated": true,
+   "va": "0x1403E66A0"
   }
  ]
 }
