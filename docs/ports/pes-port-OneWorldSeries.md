@@ -40,11 +40,12 @@
 5. Then delete the stand-in chain loader data (BuildAnimeChain, kAnimeChainVa segments, the kAnimeLayer/KeyTable/Quat VAs) that the trap path no longer reads.
 
 ## Named gaps kept
-- Height adjuster branch (`P+0x498`): state, counters and accumulator are all zero in `seq1128`, so it is **never
-  armed**, not armed late; who stores state 2 into the three adjusters is open. See the adjtick note.
+- Height adjuster branch (`P+0x498`): zero in every capture because it is the **jump** adjuster: it arms only for a
+  motion whose first hit frame lies inside its JumpData window (`FUN_140724620`, at the Kick start `FUN_140727230`).
+  Settle with a header in play. See the adjtick note.
 - Chain X: **open, not closed.** The gate `S+0x14` is 256 in 19/19 captures, but that means "no X chain selected":
-  `FUN_141ebced0`, reached through a second handle at `P+0x3AE8`, stores an index below 256 from the parametric-request
-  path. No stand-in. To settle it when the rig is back: hook `FUN_141ebced0`. See the adjtick note.
+  the wrapper `FUN_141ebc4d0`, reached through a second handle at `P+0x3AE8`, stores an index below 256 from the
+  parametric-request path. No stand-in. To settle it when the rig is back: hook `FUN_141ebc4d0`. See the adjtick note.
 - TrapAdmit2 item 1 (rewire onto the real control) and item 3 (planner) wait on this cut.
 
 ## Evidence files

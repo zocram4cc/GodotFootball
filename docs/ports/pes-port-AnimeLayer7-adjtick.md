@@ -1,8 +1,10 @@
 # FUN_141EB5E70 proof and chain gap (AnimeLayer7)
 
+Status (17-11): `pes_full.bin` is a flat image (file offset = VA − 0x140000000). Every instruction address below was re-checked by a `.pdata`-anchored decode (`/tmp/citecheck_flat.py`). Addresses from an earlier PE-table mapping were 0xA00 too high and are replaced here.
+
 ## Proof status
 - Walk-out run (done): pid3778393 seq061, seq062. calls 2, replayed 2, mismatches 0, own-block 1.0. Yaw branch only.
-- In-play run (tag adjB, `proof_adjB.log`): seq1128 and seq1171. Strike running in both (counts 6 and 16), yaw running. Pending when this note was written.
+- In-play run (tag adjB, `proof_adjB.log`): seq1128 and seq1171. Strike running in both (counts 6 and 16), yaw running. Proven: with the walk-out pair, 4 real calls bit-exact, strike and yaw branches (proof row `dee9d88c`).
 - Height branch (P+0x498 state 2): not observed in any of the 19 captured calls. Named gap until a capture shows it (watcher bg_252, remaining cap).
 
 ## Captures (pid3778393); states are (state, count)
@@ -16,103 +18,68 @@
 ## Gate (FUN_1408BFCF0)
 - P = [man+0x7D8]. FUN_141EB5E70(P, p2) runs if (P+0xA07 == 0 or P+0xA06 != 0) and P != 0 and man+0x7C8 != 0. Captures: P+0xA06 = 1, P+0xA07 = 1, man+0x7C8 = 1.
 
-## Second chain X (named gap, no stand-in)
-- Owner PM = 0x3D54D580 (vtable 0x1426329A8, +0x7D8 = P).
-- S = PM+0x940 = 0x3AF6C8E0 in all 19 captures. X = *S = 0x2FA967D0, vtable 0x142ABA840 (vt+0x18 = FUN_141794410, vt+0x20 = FUN_141AFF1F0, vt+0x38 = FUN_141B00910).
-- FUN_141EBC820(S, p2) runs FUN_141AF7A90(X, p2) and then tail-jumps X->vt[+0x38](X, p2) only if DAT_1437F4CB0 != 0, X != 0 and S+0x14 <= 255 (signed compare; 0x100 exits).
-- DAT_1437F4CB0 = 1 in all 12 walk-out captures.
-- S+0x14 = 256 in all 19 captures (12 walk-out, 7 in play). The gate is closed in every captured tick, so X never ran in the captured set.
-- GF: no coverage (docs/re/LEDGER.md:5371 undecoded; FUN_141B00910 untranslated).
+## Second chain X (flat image, 17-11)
+
+The wrapper S is 0x18 bytes at model+0x940, and the same handle is also stored at P+0x3AE8. S+0x0 holds the X object (0x180 bytes; vtable 0x142ABA840 in the captures). S+0x14 is the gate int.
+
+|role|function|verified facts|
+|---|---|---|
+|constructor|`FUN_141EBC1C0`|stores `S+0x14 = 0x100`|
+|gate writer (wrapper)|`FUN_141EBC4D0`|one caller, `0x1406F1147`. `cmp edx,0x100` at `0x141EBC4F0`; the `>=` path stores `0x100` at `0x141EBC4F8`; the `<` path stores the index (`edi`) at `0x141EBC54D`|
+|handle installer|`FUN_1406F0350`|`mov [rcx+0x3AE8], rdx; ret`. Callers `0x1408BE832` (in FUN_1408BE740) and `0x1408BEFFF` (in FUN_1408BED84): rcx = `[model+0x7D8]` = P, rdx = `[model+0x940]` = S|
+|handle reader|function at `0x1406F10E6` (no prologue; key in `ebp`)|`cmp [rsi+0x3AE8],0` at `0x1406F111D`; index call `FUN_1406B4E70` at `0x1406F1131` with edx = key; `mov rcx,[rsi+0x3AE8]` at `0x1406F1136`; wrapper call at `0x1406F1147` with edx = index|
+|index|`FUN_1406B4E70`|`cmp edx,0x1125; jae` → returns 0x100. Else reads the word at `table[key*4]` and returns it `& 0x1FF`; a null table returns 0x100. The table comes from holder `FUN_1406B4EA0`, not decoded further|
+|gate|`FUN_141EBC820`|`cmp [rbx+0x14],0x100` at `0x141EBC83A` (returns at >= 0x100). Per-tick call at `0x1408BFD49` in FUN_1408BFCF0|
+|query|`FUN_141EBC300`|`cmp [rdi+0x14],0x100` at `0x141EBC34A`; one caller, `0x1408BEBDD`|
+|release|`FUN_141EBC2A0`|frees X, `S+0x0 = 0`|
+
+Reading: 0x100 is the sentinel the index returns for a key ≥ 0x1125, a null table or an entry whose low 9 bits are ≥ 0x100, and the wrapper stores it for any index ≥ 0x100. An index below 0x100 reaches the wrapper's `<` path. The gate runs the chain only when the singleton flag is set, X is non-null and `S+0x14 <= 0xFF`. All 19 captures show 256, which means "no chain selected" in those ticks (INF). Whether a live request ever selects an entry below 256 is open. Not verified here: the holder table layout behind `FUN_1406B4EA0`, and the wrapper's `<` path callees (`FUN_141AFE750`, `FUN_141AFF770`, reported by the ChainXIndex agent).
+
+Cheapest settling capture, when the rig is back: a hook at `0x141EBC4D0` logging S, `*S`, the index and `S+0x14` before and after. One hit with an index below 256 settles it.
+
+## Retracted claims (17-11)
+- "Chain X is born closed / dead for player models": wrong. A second handle (P+0x3AE8) reaches the gate writer, so 256 is a "no selection" value, not a lock.
+- "At-rest vtable slots are obfuscated": wrong. The earlier reads mapped `pes_full.bin` through the PE section table, which is 0xA00 off for this flat file. Flat (file offset = VA − 0x140000000): the control VA `0x14256AE1C` holds `0x3F800000` (1.0f); the strike vtable's five slots (`0x141EB45E0, 0x141EB33E0, 0x141EB1A20, 0x141EB1BF0, 0x141794410`) sit at file offset `0x2B678F0`, the flat offset of VA `0x142B678F0`. They are plain pointers, identical to the capture.
+- Code addresses from the table map were 0xA00 too high. For example, the store reached as `0x1406F0D50` is the instruction at `0x1406F0350`.
+
+## The adjuster wrapper (FUN_141EB3AF0), flat-decoded
+Each adjuster struct: vtable at +0x0 (reset +0x10, step +0x18, finish +0x20); state int at +0x8; counter short at +0xC; end short at +0xE; limit short at +0x10; accumulators at +0x14/+0x18/+0x1C; value int at +0x20; active byte at +0x24.
+
+Stepper, decoded in full:
+1. The body runs only if the state (+0x8) is 2.
+2. If the counter is 1, fetch a value into +0x20 (call `FUN_141AF3AF0`).
+3. Fold the accumulators (call `FUN_141AF3CA0`).
+4. If counter < end: counter++ and return (a ramp).
+5. Else if counter > limit (+0x10): clear the state fields, call reset (+0x10) and finish (+0x20, tail jump).
+6. Else step (+0x18).
+
+In both running captures end = 0, so the stepper takes branch 5 or 6, not the ramp.
+
+## The three adjusters and the B block (seq1128)
+
+|adjuster|struct at|vtable (runtime)|state|counter / end|reset / step / finish|
+|---|---|---|---|---|---|
+|strike|P+0x428|0x142B678F0|2 (running)|6 / 0|0x141EB1A20 / 0x141EB1BF0 / 0x141794410|
+|height|P+0x498|0x142B67920|0 (unarmed)|0 / 0|0x141EB1A40 / 0x141EB2450 / 0x141794410|
+|yaw|P+0x4D0|0x142B67950|2 (running)|5 / 0|0x141EB1A10 / 0x141EB1A50 / 0x141794410|
+
+Constructor base, verified by decode: FUN_1406E03D0 calls FUN_141EB41B0 with rcx = P (call at 0x1406E0402). FUN_141EB41B0 does `add rcx, 8` and calls FUN_141EB42B0 (call at 0x141EB41C6). The constructor writes its vtables at its param + 0x420, which is P+0x428.
+
+B block (written by FUN_1406EEDF0, checked against seq1128): flags +0x80 = 1, +0x81 = 1, +0x82 = 1. B+0x90 = −15.5029 is the strike accumulator P+0x43C, and B+0x98 = −15.7650 is P+0x444. B+0xA4 = 0.9758 and B+0xAC = −0.2185 are sin and cos of P+0x4F0/2: with P+0x4F0 = 3.5822, sin(1.7911) = 0.97583 and cos(1.7911) = −0.21853. The 0.5 factors are the floats at `0x1425658B4` and `0x1425658BC`. B+0xB4 = 0 (height inactive). P+0x41C = 0.018519 = 1/54.
+
+Height (17-11): state 0 in seq1128 and in all 19 captured calls. The arm path is FUN_141EB3830 → FUN_141EB3AE0.
+- `FUN_141EB3AE0` (`cmp [rcx+8],1; jne; mov [rcx+8],2`) is the only 1 → 2 step.
+- `FUN_141EB3830` zeroes the state, calls reset, sets the counter to 1, and sets end and limit from its arguments, then stores state 1 (`mov [rdi+8], r8d` with `r8d = 1`, at `0x141EB38B6`).
+- It has eight call sites: 0x140727BC9, 0x14072AE61, 0x14072FEB4, 0x1407301D6, 0x140731790, 0x14075C2E3, 0x1407664C9, 0x1407EE361.
+- Site 0x140727BC9 is followed by the setter call at 0x140727BE1 (both verified).
+- All eight call sites arm `P+0x498` and each is followed at once by `FUN_141EB3AE0` (state 1 → 2). The height adjuster arms nowhere else.
+- Site A (`FUN_140727230`, decompiled 17-11): strike (`P+0x428`) is armed and stepped on every path that passes the motion check, then height is armed only if the request byte `req+0x1D == 0` and `FUN_140724620(motion)` is true. `FUN_140724620`: the motion record's count byte `+4` (JumpData, list `+0x90`) is nonzero, and jump start (`FUN_1406B11E0`) < first HitData frame (`FUN_1406B03D0`) < jump end (`FUN_1406B10D0`), all at rate 1.0. So the height adjuster is the **jump** adjuster: it runs only for a motion whose ball contact falls inside its jump window (headers, aerial traps). Its target comes from `FUN_14071C910`, which also takes ability byte `0x2C` through `FUN_1406E6660`.
+- Why height is 0 in all 19 captures: none of the captured ticks had a jump-contact motion selected (INF, consistent with the decode). Settling capture: the existing height-running watcher during a header; no new hook needed.
 
 ## Chain A
-- [P+0xA08] = 0x2CA7CB90, vtable 0x142ABA1A8 (vt+0x18 = 0x141AF4360, vt+0x20 = 0x141AF4650 driver, vt+0x38 = 0x141AFC4A0 runner).
+- `[P+0xA08]` = 0x2CA7CB90 (vtable 0x142ABA1A8). Slots: +0x18 = 0x141AF4360, +0x20 = 0x141AF4650 (driver; `.pdata` 141AF4650–141AF4878), +0x38 = 0x141AFC4A0 (runner; `.pdata` 141AFC4A0–141AFC69D). Ghidra has no function at the runner, so that is a Ghidra analysis gap, not an absent function.
 - GF's RunFrame (pesfoxworld.cpp:255) runs the driver on a = Read64(engineP + kAnimeOffset), not on the player block. So the chain for P+0xA08 is that `a`. Confirm before the cut.
 
-## Chain X: the earlier "born closed, dead" claim was WRONG (17-11, byte scan)
-
-The xref-graph argument above (ctor, dtor, tick only) missed a second handle, found by disassembling the whole code
-section (`capstone`, 10,514,410 instructions, every memory operand with `disp == 0x940`: 128 sites).
-
-|fact|evidence|
-|---|---|
-|The wrapper has a **second handle**: the anime object's `P+0x3AE8`|`FUN_1406f0d50` (`0x1406f0d50: mov [rcx+0x3AE8], rdx; ret`) is called from the model paths `0x1408bf224` and `0x1408bf9f1` with rcx = `[model+0x7d8]`, rdx = `[model+0x940]`. Six sites touch `+0x3AE8`.|
-|A fourth wrapper user exists, reached through that handle|`0x1406f1b36: mov rcx, [rsi+0x3AE8]; ... call 0x141ebced0` in the parametric-request path|
-|**`FUN_141ebced0` writes the gate**|`0x141ebcef0: cmp edx, 0x100` → `jge` path stores `mov dword [rbx+0x14], 0x100`; the `jl` path calls `FUN_141aff150` and `FUN_141b00170` on X, zeroes `S+0x8` and `S+0x10`, then `0x141ebcf4d: mov dword ptr [rbx+0x14], edi`|
-
-So `0x100` (256) is **"no X chain selected"**, not a permanent lock: a value below 256 is stored by
-`FUN_141ebced0` from the parametric request (its `edx` comes from `FUN_1406b5870`'s answer at `0x1406f1b31`). All 19
-captures show 256, i.e. X was unselected at every captured tick; whether it is ever selected in a match is **open
-again**, and the cut still carries no stand-in. The concrete thing to capture next, when the rig is back: a hook on
-`FUN_141ebced0` (or read `[P+0x3AE8]+0x14` after a parametric request).
-
-Method note, because it cost the wrong claim: an immediate-value scan finds nothing here — the arming store is
-`mov [rbx+0x14], edi`, a register. The image has 16 sites storing the immediate 2 into `[reg+0x14]` and 562 storing
-any immediate, none of them the wrapper. Only the handle scan (`disp == 0x940`, then `disp == 0x3AE8`) found the writer.
-
-## At-rest vtable slots are obfuscated (17-11)
-
-Read the same VA in the unpacked image and in a live capture:
-
-|slot|at rest (`pes_full.bin`)|at runtime (capture)|
-|---|---|---|
-|adjuster strike vtable `0x142b678f0` +0..0x18|`8000000000000000 8000000000000000 0000000080000000 0000000080000000`|`141eb45e0 141eb33e0 141eb1a20 141eb1bf0`|
-|chain-A vtable `0x142aba1a8` +0..0x10|`119930522 3281480 300000000`|`141af4360 141af4650 141afc4a0`|
-
-That is why `closure_check` misses `.rdata`-slot thunks, and why Ghidra has **no function** for `0x141afc4a0`,
-`0x141ebcd00` or `0x141ebced0`: their addresses never appear as static operands, so its analysis never creates them.
-Anything read out of `.rdata` in the file must be treated as encoded; the capture's runtime copy is the authority.
-
-## The adjuster wrapper (`FUN_141eb3af0`), the shape the cut needs
-
-Each of the three adjusters at `A+0x428` (strike), `A+0x498` (height), `A+0x4D0` (yaw) is this
-struct, stepped once per tick with the chain pointer as context:
-
-|field|role|
-|---|---|
-|`+0x0`|vtable: `+0x10` reset, `+0x18` step, `+0x20` finish|
-|`+0x8`|state; **the body runs only when it equals 2**|
-|`+0xa`|start frame, `+0xc` current frame, `+0xe` end frame|
-|`+0x14`,`+0x1c`|the two accumulators `FUN_141af3ca0` folds each tick into|
-|`+0x20` (int at `+0x10`),`+0x24`|the folded value and the active flag|
-
-At `current >= end` it clears state/counters/accumulator/flag, calls vtable `+0x10` (reset) and
-`+0x20` (finish) with the accumulators; while `current < end` it calls `+0x18` (step). So an
-adjuster's whole run is bounded by its frame window, and the state field is set to 2 by the
-clip/anime side — **who sets it to 2 is the remaining open item** for the height adjuster
-(strike and yaw are seen at 2 live; height never was).
-
-## The three adjusters and the B block, read out of a real in-play capture (17-11, static)
-
-`live2/pid3778393/seq1128`, unpacked with `capz.py unpack` (packed again after) and read from
-`mem.bin`, which is concatenated in `index.json` mapping order, not VA-indexed (its size equals the
-sum of the mapping sizes). `P` = `rcx` at the hook = the anime object.
-
-|adjuster|struct at|vtable|state `+0x8`|`+0xc` / `+0xe`|vtable `+0x10` reset / `+0x18` step / `+0x20` finish|
-|---|---|---|---|---|---|
-|strike|`P+0x428`|`0x142b678f0`|2 (running)|6 / 0|`0x141eb1a20` / `0x141eb1bf0` / `0x141794410`|
-|height|`P+0x498`|`0x142b67920`|0 (never armed)|0 / 0|`0x141eb1a40` / `0x141eb2450` / `0x141794410`|
-|yaw|`P+0x4D0`|`0x142b67950`|2 (running)|5 / 0|`0x141eb1a10` / `0x141eb1a50` / `0x141794410`|
-
-The vtables are installed by the anime-object constructor `FUN_141eb42b0`, which leaves every
-adjuster's state at 0; the stop/reset routines `FUN_141eb33e0` and `FUN_141eb3440` set the state
-back to 0. No arming site turned up in `FUN_141eb4650`, `FUN_141eb3bd0`, `FUN_141af52b0` or
-`FUN_1406f14e0`, so the open item stands, narrowed to: who stores 2 into `+0x8` of these three.
-
-**Height is never armed, not armed late:** its state, counters and accumulator are all zero in this
-capture, so the missing height branch is an arming decision upstream, not a timing difference.
-
-`FUN_1406EEDF0`'s writes into the chain's B block, checked against the same capture
-(`A = [P+0xA08] = 0x2ca7cb90`, `B = [A+0xF0] = 0x2f33d310`):
-
-|B field|observed|source|
-|---|---|---|
-|`+0x80` any-active|1|set by any active adjuster|
-|`+0x81` strike-active|1|`FUN_141eb3320(P+0x428)`|
-|`+0x82` yaw-active|1|`FUN_141eb3320(P+0x4D0)`|
-|`+0x90`, `+0x98`|−15.5029, −15.7650|the strike accumulators `P+0x43C`, `P+0x444` (they match exactly)|
-|`+0xA4`, `+0xAC`|0.9758, −0.2185|the yaw trig polynomial on `P+0x4F0` = 3.5822|
-|`+0xB4` height value|0|height inactive, so the `+0xB0`/`+0xB4` branch|
-|`P+0x41C` p2|0.018519 = 1/54|confirms the per-tick dt|
-
-These are the values the one-chain cut has to reproduce from the adjuster state: a checked
-expectation for `FUN_1406EEDF0` without replay.
+## Next
+- Proof row (`dee9d88c`): strike and yaw, in play and walk-out. Height pending: settle with the arm hook and the site A guards.
+- Cut: one chain A, as Main decided; X recorded as open (above).
