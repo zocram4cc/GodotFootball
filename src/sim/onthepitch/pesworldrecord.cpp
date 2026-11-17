@@ -82,7 +82,7 @@ void PesWorld::BindMemory(PesMemory& memory) {
   // The window's bytes move into the memory's own storage (per match). The window holds VAs only (no host pointers), so the copy is valid
   // at the new base. The heap becomes the memory's: the trap world's allocations and the anime engine's are one allocator.
   PesWorldImage* host = image_.release();
-  uint8_t* storage = memory.AddWindow(sizeof(PesWorldImage));
+  uint8_t* storage = memory.AddWindow(kWorldWindowVa, sizeof(PesWorldImage));
   std::memcpy(storage, host, sizeof(PesWorldImage));
   delete host;
   image_.reset(reinterpret_cast<PesWorldImage*>(storage));

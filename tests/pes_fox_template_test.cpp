@@ -13,6 +13,7 @@
 
 #include "onthepitch/pesfoxworld.hpp"
 #include "onthepitch/pesmemory.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "pes/vfs.hpp"
 
 namespace {
@@ -142,4 +143,55 @@ TEST(FoxTemplate, ACloneThatRunsLeavesAnotherCloneAndTheFreshBootUnchanged) {
   EXPECT_EQ(std::memcmp(a.Heap().ArenaData(), b.Heap().ArenaData(), a.Heap().ArenaBytes()), 0) << "the heap of a clone made after a run";
   EXPECT_EQ(std::memcmp(a.OsArena(), b.OsArena(), pes::PesMemory::kOsArenaBytes), 0) << "the OS arena of a clone made after a run";
   EXPECT_TRUE(SameBookkeeping(a.Heap().SaveBookkeeping(), b.Heap().SaveBookkeeping())) << "the heap's bookkeeping after a run";
+}
+
+// OneWorld cut 4: a player block (P) lives in the match's window, which the trap world's calls map. The anime engine's calls run on the same
+// memory, so they must map it too: a call that reads or writes a window VA reads or writes the window's bytes.
+TEST(FoxTemplate, ACallOfTheMemoryReadsAndWritesTheMatchWindow) {
+  const char* exe = nullptr;
+  const char* root = nullptr;
+  if (!Environment(&exe, &root)) GTEST_SKIP() << "PES_EXE and PES21_ROOT are needed";
+  std::string error;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &error)) << error;
+  pes::PesFoxWorld world(pes::AnimeWorldTemplate(exe, vfs, kHeapBytes), vfs);
+  pes::PesMemory& memory = world.Memory();
+  uint8_t* window = memory.AddWindow(pes::kWorldWindowVa, kPlayerBytes);
+  constexpr uint64_t kProbe = 0x123, kWritten = 0xFEEDFACE;
+  const uint64_t seen = 0x1122334455667788ull;
+  std::memcpy(window + kProbe * 8, &seen, sizeof seen);
+  EXPECT_EQ(memory.Read64(pes::kWorldWindowVa + kProbe * 8), seen) << "a call reads the host window's bytes";
+  memory.Write64(pes::kWorldWindowVa + kProbe * 8 + 8, kWritten);
+  uint64_t stored = 0;
+  std::memcpy(&stored, window + kProbe * 8 + 8, sizeof stored);
+  EXPECT_EQ(stored, kWritten) << "a call's write lands in the host window";
+}
+
+// The constructor FUN_141EB5250 builds a player's control on a block anywhere in PES's memory, the window's P included: the same fields as on
+// a heap block (the control's vtable, the ready flag, the name word, the constructor's none markers), written in place.
+TEST(FoxTemplate, ThePlayerConstructorBuildsTheControlOnABlockInTheMatchWindow) {
+  const char* exe = nullptr;
+  const char* root = nullptr;
+  if (!Environment(&exe, &root)) GTEST_SKIP() << "PES_EXE and PES21_ROOT are needed";
+  std::string error;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &error)) << error;
+  const pes::PesFoxWorldTemplate& frozen = pes::AnimeWorldTemplate(exe, vfs, kHeapBytes);
+  pes::PesFoxWorld onHeap(frozen, vfs), inWindow(frozen, vfs);
+  const uint64_t heapBlock = onHeap.Alloc(kPlayerBytes);
+  onHeap.ConstructAnime(heapBlock, 0);
+  uint8_t* window = inWindow.Memory().AddWindow(pes::kWorldWindowVa, kPlayerBytes);
+  inWindow.ConstructAnime(pes::kWorldWindowVa, 0);
+  constexpr size_t kAnimeFields = 0xA04, kAnimeFieldsEnd = 0xAB8, kControlPointer = 0xA08;
+  for (size_t at = kAnimeFields; at < kAnimeFieldsEnd; at += 4) {
+    if (at >= kControlPointer && at < kControlPointer + 8) continue;  // the control's address depends on the allocation order
+    uint32_t inPlace = 0;
+    std::memcpy(&inPlace, window + at, sizeof inPlace);
+    EXPECT_EQ(inPlace, onHeap.Memory().Read32(heapBlock + at)) << "P+0x" << std::hex << at;
+  }
+  uint64_t control = 0;
+  std::memcpy(&control, window + kControlPointer, sizeof control);
+  ASSERT_NE(control, 0u) << "the constructor stored no control at P+0xA08";
+  EXPECT_EQ(inWindow.Memory().Read64(control), onHeap.Memory().Read64(onHeap.Memory().Read64(heapBlock + kControlPointer)))
+      << "the control's vtable";
 }

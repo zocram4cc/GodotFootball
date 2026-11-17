@@ -225,9 +225,12 @@ std::vector<PesMem::Window> PesMemory::SharedWindows() const {
   return windows;
 }
 
-uint8_t* PesMemory::AddWindow(uint64_t bytes) {
+uint8_t* PesMemory::AddWindow(uint64_t va, uint64_t bytes) {
   windows_.push_back(std::make_unique<PesAnonMapping>(bytes, false));
-  return windows_.back()->data();
+  matchWindow_.base = va;
+  matchWindow_.size = bytes;
+  matchWindow_.rw = windows_.back()->data();
+  return matchWindow_.rw;
 }
 
 PesState PesMemory::NewCall() {
@@ -239,6 +242,7 @@ PesState PesMemory::NewCall() {
   s.mem.services.push_back({kStackVa, kStackBytes, nullptr, stack_.data()});
   s.mem.services.push_back({kTebVa, kTebBytes, nullptr, teb_.data()});
   s.mem.services.push_back({kOsArenaVa, kOsArenaBytes, nullptr, osArena_.data()});
+  if (matchWindow_.rw != nullptr) s.mem.services.push_back(matchWindow_);  // the match's window: the trap world's records and the players' blocks
   s.gs_base = kTebVa;
   s.gpr[4] = kStackVa + kStackBytes - kEntryFrameBytes;
   s.wr(s.gpr[4], 0, 8);  // the return address slot

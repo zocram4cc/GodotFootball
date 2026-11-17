@@ -144,8 +144,10 @@ class PesMemory {
   void AddSharedRegion(uint64_t va, const std::vector<uint8_t>& bytes);
   // The shared regions as host windows (translated code addresses them by VA; nothing is copied).
   std::vector<PesMem::Window> SharedWindows() const;
-  // Storage owned by this memory for a match's window: zeroed, `bytes` long, valid for the memory's lifetime. Not frozen.
-  uint8_t* AddWindow(uint64_t bytes);
+  // Storage owned by this memory for a match's window at `va`: zeroed, `bytes` long, valid for the memory's lifetime. Not frozen. Every call
+  // of the memory (NewCall) maps it, so the anime engine's calls on a player block inside the window (P) read and write the window's bytes,
+  // as the trap world's calls do.
+  uint8_t* AddWindow(uint64_t va, uint64_t bytes);
 
   // A call state over the memory: the image, the heap, the stack and thread block, the OS arena; rsp at a return slot.
   PesState NewCall();
@@ -172,6 +174,7 @@ class PesMemory {
   PesAnonMapping stack_, teb_, osArena_;
   std::vector<SharedRegion> shared_;
   std::vector<std::unique_ptr<PesAnonMapping>> windows_;
+  PesMem::Window matchWindow_;  // the match's window (AddWindow): mapped by every call
 };
 
 }  // namespace pes
