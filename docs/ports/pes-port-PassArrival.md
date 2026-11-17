@@ -51,3 +51,28 @@ None needed. The field's meaning is settled by the decompile, the anim-select do
 
 ## Final handover
 Landed: Acceleration byte written for every slot (faithful input, red/mutation/green tests). Not landed: root cause A, which must pair the controller routing with the trap touch (section 6). Both pass tests remain red on BK; the Acceleration fix alone does not move them (worse in stale time). Owners: the controller and TrapContact for A.
+
+## 9. Root cause A landed, 17-11-26 (branch `PassArrival` `5958a6f4`, pushed; ls-remote confirmed)
+Change: `elizacontroller.cpp` `RequestCommand` adds `passGetMan = PesLoop && PassGetReceiver() == player`. For him the on-ball branches stand aside (the designated `GetOnTheBallCommands` arm, and the `_BallControlCommand` gated on geometric `HasPossession`), and the movement route to `_PassGetApproach` no longer waits on `!hasPossession` (GF mode keeps `PassGetReceiver() == player && !hasPossession`). Removed: the `!hasPossession` route gate for the PES man, and the BallControl he used to queue while walking.
+
+1. Step 1, confirmed (MEASURED on the branch, `pesmovestep` MovementDecision + a queue probe, temporary, reverted): on ticks with the ball at rest (< 0.5 m/s) the receiver's queue held the PASS_GET command (`Movement` with pesWords) and, whenever `HasPossession()` (AI_HasPossession: ball within 1 m, height < 0.5 m, relative speed < 6 m/s) was true, a `BallControl` ahead of it. MovementDecision takes a BallControl when holds. Pre-fix: 628 of 630 holding ticks decided BallControl (on-ball override). PES side, static (Ghidra decompile of FUN_1409F8220 this session, project PES21; `docs/re/pes-re-receiving.md` 1.2/3): the receive contains no AI_HasPossession-style geometric test. Its gates are the man's own PASS_GET state (it refuses when `+0x5d0 == 5` and the anime sub-state bytes at +0x1457/+0x1458 are 3), the ball-distance table FUN_1409FA400 (carrier clause), the designated-owner refusal and the trap admission, then FUN_1409F8640 sets cmd+0x874=4 TRAP and cmd+0x878=7.
+2. The two PesPassTarget tests already isolate it (red before, same numbers reproduced): no new red test was needed.
+3. Measurement (seed 7, 2 min, pes_loop, PES21_ROOT=<workdrive>/PES21):
+
+| state | stale (bound 2.94 s) | episodes over 2.94 s | longest | median |
+|---|---|---|---|---|
+| 87acdf6d (before) | 15.89 s | 15 of 56 | 20.70 s | 1.59 s |
+| 5958a6f4 (after) | 11.33 s | 9 of 49 | 7.69 s | 1.20 s |
+
+Both PesPassTarget tests stay red (stale 11.33 > 2.94; 9 episodes over). `EveryPassInFlightHasItsOwnSidesReceiver` green.
+
+4. Remaining cause, named and evidenced (post-fix queue + state probe, `fix-A-diag.log`, seed 7 stale window t 8.8 to 15.2 s, slot 7): the receiver now walks with the PASS_GET command on every tick (queue `[Movement w]` only, no BallControl), reaches the resting ball (dist 0.3 to 1.4 m), and is admitted to TRAP (ac8 = 7) for 1 to 3 frames at 1.2 to 2.6 m. The ball speed stays 0.08 m/s through every trap, so the trap's touch never lands. The trap ends (ac8 back to 2 or 11) and the approach command walks him back out to 3.7 to 4.5 m. Owner: the trap's contact path (TrapContact / the body scan, `pes-re-trap-contact.md`), and the trap admission distance, not the controller routing. Not decoded here: why the contact misses at 1 to 2.6 m.
+5. Mutation: the change reverted is the 87acdf6d row above (red, 15.89 s); the change is the 11.33 s row. The test bites in the direction of the change.
+6. Tests (on `5958a6f4` build; the final rebuild after reverting the diagnostics compiled the same sources):
+   - `pes_playerdb_wiring_test`: 13/13 green.
+   - `pes_movestep_wire_test`: 44/44 green, including `MoveStepWire.TheKickoffTakerClosesToTheBall`.
+   - `pes_throwin_release_test`: 6/6 green (the ceremony case alone 3347 s wall on this loaded machine).
+   - `PesPassTarget`: 1 green, 2 red as above.
+7. Smoke: `gfsim_run --seed 7 --minutes 2 --pes-loop` on `5958a6f4`: `[determinism] d50b22118877a9f7`, 35962 sim ticks, longest stoppage 23.6 s, idle 8 episodes, stalls 8. Not compared with the BK-a baseline `3456abc4998e107e` in this run: the branch base is abe9f81d, so the hash moves with any PES-loop change; I did not run the 87acdf6d smoke. [INFERENCE] the hash difference is this change, not the base, but that is not measured.
+8. Hygiene: `git status` in this worktree fails on the `extern/godot-cpp` symlink, so the `commit` tool could not draft here; the commit was made with `git add <one file>` and `git commit` in this dedicated worktree (`--ignore-submodules=all` for status). `tools/check_pii.sh` exit 0. Scratch: `<workdrive>/gf-PassArrival-scratch/` (`diag-base.log`, `diag-queue.log`, `fix-A-pass.log`, `fix-A-smoke.log`, `fix-A-movestep.log`, `fix-A-throwin.log`, `fix-A-diag.log`).
+9. Not done: the trap contact (owner TrapContact) and the trap admission distance; stale and episodes remain red.
