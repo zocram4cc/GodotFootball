@@ -20,6 +20,11 @@ constexpr uint64_t kTebSelfOffset = 0x30;  // gs:[0x30]: the thread block's own 
 // block's window. The bits are the slots taken when PES's allocator started: its three TlsAlloc calls returned 9, 10 and 11 (the live dump holds
 // those at 0x143AC3DCC, 0x143AC2814 and 0x143AC2810, import_stubs.json), so slots 0..8 were taken.
 constexpr uint64_t kTebPebPointerOffset = 0x60, kPebOffsetInTeb = 0x1800, kPebTlsBitmapOffset = 0x328, kTlsSlotsTakenAtStart = 9;
+// gs:[0x58] is the thread's TLS array (one block pointer per module index). The exe's index is the image global DAT_1437067a0 (0 in the
+// image and in the live capture pid3778393/seq061); its block sits in the TEB window, and its +0x38 is the head of PES's scope list
+// (FUN_1403EFDF0 links a scope into it, FUN_1403EFEB0 pops it), empty between ticks (CONFIRMED in seq061).
+constexpr uint64_t kTebTlsPointerOffset = 0x58, kTlsArrayTebOffset = 0x1000, kTlsBlockTebOffset = 0x1100, kTlsIndexVa = 0x1437067A0ULL;
+constexpr uint64_t kTlsArrayEntries = (kTlsBlockTebOffset - kTlsArrayTebOffset) / sizeof(uint64_t);
 // The granule of a frozen region's dirty runs: the page.
 constexpr uint64_t kFrozenPage = 0x1000;
 const uint8_t kZeroPage[kFrozenPage] = {};
@@ -166,6 +171,13 @@ PesMemory::PesMemory(const std::string& imagePath, uint64_t heapBytes)
   const uint64_t pebVa = kTebVa + kPebOffsetInTeb, takenBits = (1ULL << kTlsSlotsTakenAtStart) - 1;
   std::memcpy(teb_.data() + kTebPebPointerOffset, &pebVa, sizeof pebVa);
   std::memcpy(teb_.data() + kPebOffsetInTeb + kPebTlsBitmapOffset, &takenBits, sizeof takenBits);
+  // The exe's TLS block (gs:[0x58] -> the array, array[index] -> the block; its +0x38 starts empty, as between the captured ticks).
+  uint32_t tlsIndex = 0;
+  std::memcpy(&tlsIndex, image_.data() + (kTlsIndexVa - kImageBase), sizeof tlsIndex);
+  if (tlsIndex >= kTlsArrayEntries) throw std::runtime_error("PES memory: the exe's TLS index is past the TEB's TLS array");
+  const uint64_t tlsArrayVa = kTebVa + kTlsArrayTebOffset, tlsBlockVa = kTebVa + kTlsBlockTebOffset;
+  std::memcpy(teb_.data() + kTebTlsPointerOffset, &tlsArrayVa, sizeof tlsArrayVa);
+  std::memcpy(teb_.data() + kTlsArrayTebOffset + tlsIndex * sizeof tlsBlockVa, &tlsBlockVa, sizeof tlsBlockVa);
 }
 
 PesMemory::PesMemory(const PesMemoryTemplate& frozen)

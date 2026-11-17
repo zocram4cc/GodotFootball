@@ -70,6 +70,10 @@ float RunBearing(uint8_t* world, uint64_t fromVa, uint64_t toVa) {
   ::pes_fn_140439EF0(s);
   return s.x_f32(0);
 }
+// The trap world's calls over the match's PES memory (MemoryCall) run on that memory's stack: a frame of `bytes` at its top. The window's own
+// stack (kStackBytes, 8 KB) is too small for the runner 0x141AFC4A0's scratch frame (a 0x8010-byte memset): a frame there overruns the trap
+// images below the stack (the slots' P blocks; found 17-11 on the match: slot 21's P+0 was zeroed by slot 0's driver call).
+uint64_t MemoryFrame(uint64_t bytes) { return PesMemory::kStackVa + PesMemory::kStackBytes - bytes; }
 
 }  // namespace
 
@@ -501,7 +505,7 @@ bool PesWorld::JointPosition(int slot, int joint, PesTrapExternals& ext, float o
   if (P(slot)[kPAnimeReadyOffset] == 0) return false;
   PesState st = MemoryCall();
   const std::size_t lent = LendExternals(st, ext);
-  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  const uint64_t entry = MemoryFrame(kJointFrameBytes);
   st.wr(entry, 0, 8);
   st.gpr[4] = entry;
   st.gpr[1] = PVa(slot);                      // rcx: P
@@ -592,7 +596,7 @@ void PesWorld::RunAnkleShove(int slot, float x, float y, float z, PesTrapExterna
 void PesWorld::RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext) {
   PesState st = MemoryCall();
   const std::size_t lent = LendExternals(st, ext);
-  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  const uint64_t entry = MemoryFrame(kJointFrameBytes);
   st.wr(entry, 0, 8);
   st.gpr[4] = entry;
   st.gpr[1] = PVa(slot);  // rcx: P
@@ -649,7 +653,7 @@ std::array<float, 4> PesWorld::RunRootMotion(int slot, uint32_t motion, float se
 
   // The geometry test's call (0x14082B02F): rcx = B, rdx = 0 (no second output), r8 = the output vector, xmm3 = the time in seconds
   // (frames / FUN_141E532D0's rate), the motion at [rsp + 0x20] and the sixth argument, a float, at [rsp + 0x28] of the caller: 0.
-  const uint64_t entry = kStackVa + kStackBytes - kRootMotionFrameBytes;
+  const uint64_t entry = MemoryFrame(kRootMotionFrameBytes);
   const uint64_t outVa = entry + kRootMotionOutOffset;
   s.wr(entry, 0, 8);
   s.wr(entry + kRootMotionArg5Offset, motion, 4);
@@ -791,7 +795,8 @@ PesWorld::AdjusterFrame PesWorld::ReadAdjusterFrame(int slot) {
     frame.yawRad = f32(b + kBYawRateOffset);
   } else {
     frame.yawStepped = (st.rd(b + kBYawValidOffset, 1) & 0xFFu) != 0;
-    frame.yawRad = std::atan2(f32(b + kBYawSinOffset), f32(b + kBYawCosOffset));
+    // B+0xA4 and B+0xAC are the sine and cosine of HALF the absolute yaw (the handover's values: P+0x4F0 = 3.5822, sin(1.7911) = 0.97583).
+    frame.yawRad = 2.0f * std::atan2(f32(b + kBYawSinOffset), f32(b + kBYawCosOffset));
   }
   return frame;
 }
@@ -799,7 +804,7 @@ PesWorld::AdjusterFrame PesWorld::ReadAdjusterFrame(int slot) {
 void PesWorld::RunAdjusters(int slot, float tickSeconds, PesTrapExternals& ext) {
   PesState st = MemoryCall();
   const std::size_t lent = LendExternals(st, ext);
-  const uint64_t entry = kStackVa + kStackBytes - kJointFrameBytes;
+  const uint64_t entry = MemoryFrame(kJointFrameBytes);
   st.wr(entry, 0, 8);
   st.gpr[4] = entry;
   st.gpr[1] = PVa(slot);         // rcx: P
