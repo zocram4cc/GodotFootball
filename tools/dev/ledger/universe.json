@@ -1169952,6 +1169952,61 @@
    "vtables": [],
    "walked": true
   },
+  "141EB3350": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141eb3350",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "adjtick"
+   ],
+   "scope": "in",
+   "size": 3,
+   "source": "pdata",
+   "subsystem": "adjtick",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141EB3360": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141EB3394",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "141EB33A5",
+     "text": "call qword ptr [rax + 0x20]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141eb3360",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "adjtick"
+   ],
+   "scope": "in",
+   "size": 26,
+   "source": "pdata",
+   "subsystem": "adjtick",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141EB33C0": {
    "boundary": null,
    "callees": {},
@@ -1387057,6 +1387112,14 @@
  "meta": {
   "bridge": "http://127.0.0.1:8080",
   "closures": {
+   "adjtick": {
+    "members": 10,
+    "roots": [
+     "0x141EB5E70",
+     "0x1406EEDF0",
+     "0x141AFC4A0"
+    ]
+   },
    "aiconcepts": {
     "members": 575,
     "roots": [
