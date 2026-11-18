@@ -60,3 +60,13 @@ Registry, check, refusal, tests: see Tests below. Broken oracle links: **207** (
 1. OneChainCut: share the minimal run's builder with `pes_trap_oracle_test` (one header) when that branch lands. Until then the two copies must agree.
 2. Main: confirm the registry statuses for the protected sets whose launch folders are gone; decide whether the 132 missing entries should be dropped from `run/capsets.json`.
 3. The GF-side run's reads are not yet tied to outputs. A stronger check would compare each arena read's value to PES's and report which reads change the output.
+
+## Round 2 (18-11, `aebe3181`)
+# EngineFixture round 2 (Main's decisions)
+
+Commit aebe31810c (pushed, ls-remote verified). Tests: capsets_test 24/24 (new refusal, default path, mark-gone, gone manifest cases), test_auto_slim and test_capz pass.
+
+1. capz pack refuses only status active (an agent replaying it); protected captures pack. auto_slim: slim refuses active and protected; pack refuses active only. No deletion path exists in these tools.
+2. GF_CAPSETS unset: the registry resolves to the standard run file beside the checkout (gf-Rendezvous-scratch/run/capsets.json). Test: the default and the override.
+3. Status gone. `registry.py mark-gone --write` marked 23 entries (132 captures) gone; none needed a split. Their docs are kept. check.py reports live-set missing (0 of 186) apart from gone (132 in 23 sets). Broken oracle links: 207 (unchanged).
+Registry backup before the write: gf-EngineFixture-scratch/capsets.before-gone.json.
