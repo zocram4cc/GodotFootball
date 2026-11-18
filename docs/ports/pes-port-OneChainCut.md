@@ -263,3 +263,43 @@ Open gaps (for the merge lane):
 6. Smoke: pes-loop e46129415a2bdc1b (the line's own work; baseline da3b1eff7174bc8b is on OneWorld-cut4, already merged in 16234a42).
 
 Scratch: trap_r7 holds the 72 manifests and the replay dirs; the mem links resolve only while a batch is unpacked (trap_r7 batch copies are packed). The baseline worktree <workdrive>/gf-AnimeLayer-base is removed.
+
+## Round 8 (17-11): result
+
+Branch OneWorld-series-wip, pushed. Head: 349b9931. Commit this round: 349b9931 (builder: capture bytes for the uncovered heap ranges).
+
+### 1. The 11 red cases (pid3727195 seq027-037): NOT FIXED
+- Method: a temporary diagnostic test (removed) compared, for each capture, (a) every T record range after Build against the capture's bytes, (b) every H and I manifest range against what GF's state holds (segment, global, image, or uncovered).
+- Findings (CONFIRMED on seq025 passing and seq027, seq031 failing):
+  - T record bytes: identical (0 mismatching) on every capture checked. The records are not the cause.
+  - I globals: identical manifest lines on passing and failing captures.
+  - H heap ranges: GF builds none of them (Build dropped H lines). The first differing byte is at 0x3440580 on the passing captures too. The manifest differs between the good and bad captures only in ranges: seq027 reads 0x2e4e59e0 for 16 bytes where seq025 reads 12; the bytes at 0x2e4e59e0 are identical in both captures (a position vector: -67.5, 67, 22.5, 0).
+- Fix attempt: Build now gives the capture's bytes for every H byte that no loader segment covers (the kick builder's rule). Result: the same 11 captures still refuse (out word 1); seq027 to seq037 unchanged. Kept as a faithful input (no regression on b07; b08 and b09 still 8 and 8 pass), not as the fix.
+- Named cause: OPEN. The discriminator is not in the record bytes, the globals, or the H bytes. Remaining untested candidates: (a) the trap call's register and frame inputs (R and S lines, which Build does not set beyond the request words), (b) the request words the call reads from the capture's frame at fixed offsets, (c) the anime chain's state (the fresh per-capture engine player vs the capture's chain: A/B/O2 are not copied, only derived), (d) the engine's booted globals in the match memory (the flat-image test did not change the refusal).
+- Since snapdiff replays the same captures bit-exact, the function is not at fault; the difference is in what the test builds. Candidate (c) is the strongest: the call reads the chain's objects (A, O2) that the builder does not copy from the capture, and the 11 are one launch.
+
+### 2. Trap-tick fixture (NOT DONE)
+- Not started this round: the O1 decode (what O1 is in PES's chain, and whether it is a field of A, B or O2, or of the slot record) and the 14 traptick_140797CD0 runs were not reached within the budget. The 4 tests stay #if 0.
+
+### 3. Merge-lane table (this line, OneWorld-series-wip at 349b9931)
+| Test | Pass / total | Notes |
+|---|---|---|
+| pes_adjuster_tick_test | 4 / 4 | engine chain |
+| pes_joint_block_test | 2 / 2 | engine chain |
+| pes_anime_engine_test | 14 / 15 | 1 skipped (render plots) |
+| pes_fox_template_test | 3 / 3 (my last run) | Main's post-merge run: 6 / 6 |
+| pes_ball_list_test | 2 / 2 | |
+| pes_kick_chooser_oracle_test | 1 / 1 | 3 of 12 captures of pid1152106 (seq299, 421, 152) |
+| pes_kick_header_oracle_test | 2 / 2 | 3 of 12 captures (seq011, 013, 027) |
+| pes_kick_root_test | 1 / 1 | 9 rows (3 real, 6 synthetic) from pid1152106 seq003-005 |
+| pes_trap_oracle_test, kind-0 (EveryCapturedCall) | 61 / 72 captures | 11 mismatches (pid3727195 seq027-037), cause open |
+| pes_trap_oracle_test, kind-0 (other 10 tests) | pass at set level | EachWindowBinding and MatchOwnMemory covered by union of batches |
+| pes_trap_oracle_test, trap-tick (4 tests) | compiled out (#if 0) | named gap |
+| traptick_140797CD0 (14 captures) | not run | depends on the trap-tick port |
+
+Open gaps for the merge lane:
+1. pid3727195 seq027-037 refusals (11 captures): cause open; candidates in the report.
+2. Trap-tick fixture (4 tests) and the 14 traptick captures: not ported (O1 undecoded).
+3. Tick-1 ulp: static analysis only; no live PES value; yaw separation not run.
+4. Kick chooser and header: 6 of 24 kept captures run; kick root: rdx-convention output not compared.
+5. Smokes: pes-loop e46129415a2bdc1b (this line's own work); switch-off c2016bf08fd0bc98.
