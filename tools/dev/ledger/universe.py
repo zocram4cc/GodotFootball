@@ -43,6 +43,8 @@ Per-row rules (meta.rules counts them; docs/re/LEDGER.md states them):
             vtable or dtable reference.                                                      -> leaf accessor
 Boundary rows are recorded, not walked: their callees are not expanded. WALK_EXCEPTIONS names match
 dispatchers walked anyway (with reasons); their rows are ordinary walked rows.
+Out-of-code targets without ledger evidence get no row (edges kept); INT3-leading capstone
+decodes are dropped as padding (CrawlFix C1).
 Engine namespaces are ENGINE_ROOTS. menu and flow are not among them (owner ruling 24-10-26: in-match menus and HUD are in scope).
 """
 import functools
@@ -440,6 +442,33 @@ MIN_PTR_RUN = 3  # shortest absolute-pointer run expanded as a dispatch table
 MAX_DTABLE = 64  # longest run expanded: bigger runs are service/import tables, not dispatch
 
 
+def evidence_vas(repo=REPO):
+    """Ledger-cited VAs (9-hex-digit keys) independent of the crawl: port/stand-in sites, recorded
+    proofs, committed translations, doc verdicts, hand list. None when joins.json is unreadable (the skip
+    rules that need evidence stay off then)."""
+    try:
+        with open(os.path.join(repo, "tools", "dev", "ledger", "joins.json")) as f:
+            joins = json.load(f)
+        with open(os.path.join(repo, "tools", "dev", "ledger", "hand.json")) as f:
+            hand = json.load(f)
+    except (OSError, ValueError):
+        return None
+    out = set()
+    for key in ("ports", "standins", "diffed", "translated", "synthetic"):
+        out.update(v for v in (joins.get(key) or {}) if len(v) == 9)
+    for va, e in (joins.get("decode") or {}).items():
+        if e.get("verdict") in ("CONFIRMED", "OBS", "DOC", "INF"):
+            out.add(va)
+    for e in hand.get("entries", []):
+        out.add(e["va"][2:].upper())
+    return out
+
+
+def int3_padding(insns, order, source):
+    """True when a capstone body starts with INT3 padding (not a real function entry)."""
+    return source == "capstone" and bool(order) and insns[order[0]].startswith("INT3")
+
+
 def runs_of(vals, base_va):
     """{run base VA: [code slot VAs]} for 8-aligned runs of >= MIN_PTR_RUN CODE-range u64s."""
     out, run = {}, []
@@ -481,7 +510,8 @@ def dtable_callees(drefs, DTN, PR, vtslots):
     """{slot VA: 'dtable'} for pointer-run members hit by address-taken refs. DTN maps every run
     member and base to its base; PR maps base to members. Slots owned by an RTTI vtable stay out
     (the vtable rule, with its out-of-scope cut, owns them). Callers apply setdefault after the
-    vtable loop, so an RTTI-vtable kind always wins on overlap."""
+    vtable loop, so an RTTI-vtable kind always wins on overlap (e.g. the 0x142BEE carrier block:
+    its slots arrive via the vtable rule, not dtable)."""
     out = {}
     for v in drefs:
         b = DTN.get(v)
@@ -508,13 +538,13 @@ def seed_decode(va, entry, edge, img, sorted_entries):
 
 
 def missing_callees(funcs, scope):
-    """[(caller, callee, kind)] for walked rows' direct/tail callees with no row (requeue set)."""
+    """[(caller, callee, kind)] for walked rows' direct/tail/table/dtable callees with no row."""
     out = []
     for k, r in funcs.items():
         if r.get("scope") != scope or not r.get("walked"):
             continue
         for t, kind in (r.get("callees") or {}).items():
-            if kind in ("direct", "tail") and t not in funcs:
+            if kind in ("direct", "tail", "table", "dtable") and t not in funcs:
                 out.append((k, t, kind))
     return sorted(out)
 
@@ -646,16 +676,17 @@ def boundary(entry, name, owner_of, doc_engine, crt):
 
 def crawl(seeds, scope, ctx):
     """BFS from the seeds [(va, subsystem, how)]. Returns (rows, out-vtable edges cut, sweep requeues).
-    When the queue drains, walked direct/tail callees still missing a row are requeued (bounded
-    passes): the crawl is lossless for direct edges across bridge hiccups."""
+    When the queue drains, walked direct/tail/table/dtable callees still missing a row are requeued
+    (bounded passes). Out-of-code targets without ledger evidence get no row (edges kept);
+    INT3-leading capstone decodes are dropped as padding."""
     names, img, VT, entries, limit = ctx["names"], ctx["img"], ctx["VT"], ctx["entries"], ctx["limit"]
     funcs, alias, owner_of, visited, cut = {}, {}, {}, set(), Counter()
     q = deque((va, sub, how, None, "root") for va, sub, how in seeds)
     done, sweeps = 0, 0
 
     def refill():
-        """Requeue walked direct/tail callees that never got a row (bridge hiccup or --max
-        truncation). Bounded passes; see missing_callees."""
+        """Requeue walked direct/tail/table/dtable callees that never got a row (bridge hiccup or
+        --max truncation). Bounded passes; see missing_callees."""
         nonlocal sweeps
         if (limit and done >= limit) or sweeps >= 3:
             return False
@@ -696,6 +727,10 @@ def crawl(seeds, scope, ctx):
         insns = {} if not txt or txt.startswith(("No function found", "error:")) else parse_listing(txt)
         if not insns:
             visited.add(va)
+            ev = ctx.get("evidence")
+            if not (CODE_LO <= va < CODE_HI) and ev is not None and key not in ev:
+                ctx["skipped"]["out-of-code"] += 1
+                continue
             funcs[key] = {"name": names.get(va, "FUN_%08x" % va), "size": 0, "subsystem": sub, "how": how,
                           "roots": [sub], "path": (base + [key])[-4:], "walked": False,
                           "boundary": None, "leaf": False, "unresolved": True, "source": source,
@@ -710,7 +745,10 @@ def crawl(seeds, scope, ctx):
         if red is not None:
             insns, order = red
             entry, source = order[0], "capstone"
-        ekey = "%08X" % entry
+        if int3_padding(insns, order, source):
+            visited.add(entry)
+            ctx["skipped"]["int3-padding"] += 1
+            continue
         if entry in visited:
             if sub not in funcs[ekey]["roots"]:
                 funcs[ekey]["roots"].append(sub)
@@ -781,7 +819,8 @@ def main():
     DTN.update({b: b for b in PR})
     VTADDR = {s for _td, slots in VT.values() for s in slots}
     ctx = {"img": img, "names": names, "entries": entries, "sorted": sorted(entries), "VT": VT,
-           "PR": PR, "DTN": DTN, "VTADDR": VTADDR,
+           "PR": PR, "DTN": DTN, "VTADDR": VTADDR, "evidence": evidence_vas(),
+           "skipped": Counter(),
            "doc_engine": doc_engine_vas(), "crt": crt_span(names), "limit": limit}
     in_seeds = [(va, sub, "doc") for va, sub, _cite in SEEDS]
     out_seeds, vt_in, vt_out = [], [], []
@@ -821,6 +860,8 @@ def main():
         rules["dtable rows"] += 1 if f.get("dtables") else 0
         rules["scope:" + f.get("scope", "?")] += 1
     rules["sweep requeues"] = sweep_in + sweep_out
+    for k, v in sorted(ctx["skipped"].items()):
+        rules["skipped: " + k] = v
     for k, v in sorted(cut_in.items()):
         rules["in crawl: out-of-scope vtable edges not expanded (%s)" % k] = v
     scope_rules = []

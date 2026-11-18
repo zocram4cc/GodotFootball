@@ -253,6 +253,39 @@ class DtableTests(unittest.TestCase):
         self.assertEqual(got, {0x140000100: [C + 0x1000, C + 0x2000, C + 0x3000]})
 
 
+class EvidenceTests(unittest.TestCase):
+    def test_evidence_vas_collects_ledger_cites(self):
+        repo = tempfile.mkdtemp(prefix="evidence-fixture-")
+        self.addCleanup(shutil.rmtree, repo, True)
+        led = os.path.join(repo, "tools", "dev", "ledger")
+        os.makedirs(led)
+        with open(os.path.join(led, "joins.json"), "w") as f:
+            json.dump({"ports": {"140001000": {}}, "standins": {},
+                       "diffed": {"140002000": "x"}, "translated": {"140003000": "y"},
+                       "synthetic": {}, "decode": {"140004000": {"verdict": "CONFIRMED"},
+                                                   "140005000": {"verdict": "OPEN"}}}, f)
+        with open(os.path.join(led, "hand.json"), "w") as f:
+            json.dump({"entries": [{"va": "0x14000600"}]}, f)
+        got = U.evidence_vas(repo)
+        self.assertEqual(got, {"140001000", "140002000", "140003000",
+                               "140004000", "14000600"})
+
+    def test_evidence_vas_missing_files_disables(self):
+        self.assertIsNone(U.evidence_vas("/nonexistent-repo-root"))
+
+
+class Int3Tests(unittest.TestCase):
+    def test_int3_leading_capstone_body_is_padding(self):
+        insns, order = listing("140c8c969: INT3\n140c8c96a: INT3")
+        self.assertTrue(U.int3_padding(insns, order, "capstone"))
+
+    def test_bridge_listing_never_counts_as_padding(self):
+        insns, order = listing("140c8c969: INT3\n140c8c96a: INT3")
+        self.assertFalse(U.int3_padding(insns, order, "bridge"))
+        insns2, order2 = listing("140000000: PUSH RBX\n140000001: RET")
+        self.assertFalse(U.int3_padding(insns2, order2, "capstone"))
+
+
 class ThunkTailTests(unittest.TestCase):
     def test_thunk_body_records_tail_target(self):
         insns, order = listing("14071d760: JMP 0x14071d770")
@@ -264,6 +297,7 @@ class ThunkTailTests(unittest.TestCase):
         funcs = {
             "00000001": {"scope": "in", "walked": True,
                           "callees": {"00000002": "direct", "00000003": "table",
+                                       "00000004": "dtable", "00000005": "vtable",
                                        "00000009": "tail"}},
             "0000000A": {"scope": "out", "walked": True,
                           "callees": {"0000000B": "direct"}},
@@ -272,6 +306,8 @@ class ThunkTailTests(unittest.TestCase):
         }
         self.assertEqual(U.missing_callees(funcs, "in"),
                          [("00000001", "00000002", "direct"),
+                          ("00000001", "00000003", "table"),
+                          ("00000001", "00000004", "dtable"),
                           ("00000001", "00000009", "tail")])
 
 class SeedDecodeTests(unittest.TestCase):
