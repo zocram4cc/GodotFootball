@@ -1,118 +1,102 @@
-# CrawlFix report (branch `CrawlFix`, 18-11-26)
+# CrawlFix round 3 report (branch `CrawlFix`, 18-11-26)
 
-## Objective and scope
-Implement the CrawlGap fixes as tooling on a new branch off origin/main:
-dropped direct rows, the r13+rax*4 jump-table form, LEA-referenced pointer
-runs (dtable), thunk-tail edges, 24+11 roots with evidence, walk-or-not the
-three boundary rows (decided by what they do). Red tests first, regen with
-`tools/dev/ledger.py` (joins.json untouched), --check green, history row,
-before/after in-scope counts. Wrong cite 0x14071D760 fixed (comment only).
+Responds to the CrawlAudit (docs/re/pes-re-crawl-audit.md): C1 (94 junk rows +
+2 INT3), C2 (0x142BEE flagship claim), optional C3 (sweep to table/dtable).
 
-## Findings by class (107 UNCLASSIFIED → 0 remaining)
-- **Missing edge, fixed (19):** W1 dropped direct row 0x14079B3D0 (fixpoint
-  sweep restores it + 55 same-class siblings); W2 bare-hex CMP bound
-  (`CMP EAX, 5`) hid the r13+rax*4 table at 0x141A89569-74, whose case 0 is the
-  fallthrough chunk with the 0x141A8966F call to 0x141A874A0; W3 vptr-store
-  LEA pattern (`LEA RAX,[table]; MOV [RBX],RAX`, e.g. 0x14210D455) proves
-  RTTI-less dispatch tables the vtable rule can't see.
-- **Missing edge, boundary-policy (6):** only in-scope callers are
-  0x141EC4560/0x141ED4310 (rtti:draw) + 0x141AFB090 (doc:anim-blend).
-  Decided WALK after decompile/decode: 0x141AFB090 is an in-match
-  BodyAnimControl blend builder calling match fns incl 0x141B15F00 (CONFIRMED
-  decompile); the draw pair are pre-match kit/uniform/handshake dispatchers
-  with bounded fan-out (32+4 direct callees incl 0x1414E03C0, 0x141ED48F0).
-  Walked via WALK_EXCEPTIONS with reasons; the draw ENGINE boundary itself is
-  untouched (out-rule still cuts its vtables).
-- **Wrong VA (1):** 0x14071D760 is a 5-byte `JMP 0x14071D770` thunk. Fixed the
-  GF comment cite only (src/sim/onthepitch/peskickerror.hpp:93). joins.json
-  NOT regenerated (per order); ledger --check is green on the committed joins.
-- **Genuinely off-path (10, allow-listed with evidence):** edit/save builder
-  0x14140EA40 (decompile: u__save_/u__mount_/u__KONAMI__, menu CPK-loader
-  caller); edit sequencer cluster 0x141FE3830 + 4 + 2 enum leaves (edit::
-  0x1414Cxxxx + save-adjacent calls per decompile; GF cites editsave-only);
-  callback-only 0x140A57B00 (DATA refs only, as `lea r9` arg); dead helper
-  0x14213A180 (zero refs anywhere, bridge xrefs_to empty).
-- **Missing root (79 → all covered):** 24 strategic seeds (trap/eliza/kick/
-  carrier/goalkick sets, each with doc/live-hook cites) + 11 direct seeds for
-  match-cited VAs with verified callers (worldrecord/stamina, eliza, carrier,
-  uniform, form/state leaf). 6 round-1 seeds needed a real fix first: no
-  bridge function contains them, and the visited container swallowed them —
-  `seed_decode` re-decodes from the seed VA so every seed gets a row.
+## C1: no rows for unevidenced out-of-code targets + INT3 filter
+- `evidence_vas()` (new, tested): ledger-cited VAs from committed joins.json
+  (ports/stand-ins/diffed/translated/synthetic/decoded verdicts) + hand.json;
+  None when unreadable (skip stays off — safe default).
+- crawl: unresolved branch drops targets outside `[CODE_LO, CODE_HI)` unless
+  evidenced (edge kept in parent, `visited` marked, `skipped: out-of-code`
+  counted). INT3-leading capstone bodies dropped (`int3_padding`, 5 total).
+- Result: `unresolved` 541 → 44; `skipped: out-of-code` 576, `skipped:
+  int3-padding` 5 (meta.rules, committed).
+- Verification the drop is safe: ZERO dropped rows had ledger evidence
+  (committed joins AND on-disk results*/specs* re-checked: 0 diffed/proven/
+  spec-named/cited/verdict/hand among all dropped in-scope rows); --check
+  green (no off-path unknowns — none were GF-cited); all 131 seeds keep rows.
 
-## Crawl fixes (tools/dev/ledger/universe.py; docs in code)
-1. CMP_IMM accepts bare-hex bounds (`(?:0x)?`) — resolves the r13 shape
-   (+395 `table jumps resolved`: 836 → 1231).
-2. `ptr_runs`/`runs_of`/`dtable_callees`/`lea_refs` (+MAX_DTABLE=64, VT-skip):
-   RTTI-less dispatch tables expand like vtables (54 `dtable rows`).
-   Zero moved out-of-scope rows via dtable (verified).
-3. `missing_callees` + bounded sweep requeues (≤3): crawl lossless for
-   direct/tail rows across bridge hiccups (`sweep requeues`: 6).
-   Thunk-tail: tails already recorded; locked by test + covered by sweep.
-4. WALK_EXCEPTIONS (3 rows with reasons); seeds walked regardless.
-5. doc text: per-row rules, leaf rule, boundary paragraph, crawl docstring.
+## Count reconciliation (audit expects ~26,024; actual 25,826)
+- Expected drops: 94 junk + 2 INT3 = 96 → 26,120 − 96 = 26,024.
+- Actual in-scope: 25,826 (−294). Gap −198 = pre-existing unevidenced
+  in-scope protected rows retired by the same rule (234 before → ~36 after;
+  the 36 kept are GF-cited/verdict/proof/hand: 8 audit junk rows with
+  verdicts/ports + 22 pre-existing cited imports + 6 hand-adjacent).
+- All dropped rows verified evidence-free (joins.json + every
+  tools/dev/{translate/results*,diffharness/specs/**} on disk): no proven,
+  recorded, cited or verdict-bearing row was removed. Within the audit's
+  ±250 band (198). The alternative (hardcoding the 94 VAs) was rejected as
+  unmaintainable; the rule is stateless and documented.
 
-## tests: `tools/dev/ledger/test_ledger.py` — 26/26 green)
+## C2: flagship correction (verified, not just claimed)
+- `0x142BEEDB0` et al: all 5 carrier slots reach the universe via **`vtable`**
+  edges from relisted `0x14210D320` (checked per-row inbound edges), NOT via
+  dtable — `dtable_callees` correctly defers (all members are vtable-covered,
+  `setdefault` keeps `vtable`). The runs exist but the vtable rule wins.
+- Corrected: dtable docstring now notes the 0x142BEE deferral; the W3 flagship
+  claim is withdrawn here (round-1 report stands as archived evidence of the
+  investigation path). dtable's real yield (anim/menu/crowd runs, e.g. the
+  0x1401158D0/0x140115870 prologue runs) is unchanged.
 
-9 pre-existing pass unchanged; 17 new (JumpTable/Dtable/ThunkTail/
-BoundaryWalk/SeedDecode). Mutations run, observed red, reverted, re-run
-green: M1 CMP→0x-only (2 red), M2 run-length off-by-one (1 red), M3
-exceptions off (1 red), M4 drop tail kind (1 red), M5 seed_decode inverted
-(1 red), plus fixture-bug fixes (hex VA width, RDATA bound, dropped
-accumulator line — the suite caught a real bug in new code).
+## C3: sweep covers table/dtable kinds (cheap part done)
+- `missing_callees` now requeues direct/tail/table/dtable (was direct/tail).
+- Known residual (documented, not fixed): alias-swallowed table/dtable
+  targets (51) still vanish into visited containers — same class as the 5
+  interior-tail drops. Fixing that needs alias rows (a ledger-schema change);
+  left for Main to decide.
 
-## Regen (image pes_full.bin, bridge 127.0.0.1:8080, system python3/capstone)
+## Tests: tools/dev/ledger/test_ledger.py — 32/32 green (was 24)
+- New: evidence_vas ×2 (collects cites; missing file → None), int3_padding
+  ×2 (capstone-only), missing_callees table/dtable kinds (extends ThunkTail).
+- Mutations, each red-then-reverted-then-green: M6 evidence gut (1 red),
+  M7 INT4 match (1 red), M8 drop table kinds (1 red). Earlier: M1 CMP
+  (2 red), M2 threshold (1 red), M3 exceptions (1 red), M4 tail kind (1 red),
+  M5 seed_decode (1 red). The suite caught 2 real bugs during development
+  (dtable `run` reset dropped by a bad edit; 9- vs 8-digit VA length).
 
-- universe: 131 seeds (96+24+11), roots in meta, ptr_runs 8471, walk_exceptions 3.
-- `ledger.py --check`: GREEN — no unrecorded regressions (18818 rows compared,
-  163 scope moves incl. 3 new: 2 leaf→undecoded via dtable, 1 engine→undecoded
-  for walked 0x141ED4310); off-path ports 73, all allow-listed.
-- history.csv row appended (fb9feb233c... then 2029c733 state).
-- offpath_allow.json: 269 → 183 (round-1 coverage) → 172 (11 direct seeds);
-  0 UNCLASSIFIED remain.
+## Merge / regen / check
+- Merged origin/main (audit + ports docs only; no ledger-tooling conflicts).
+  Merged docs add no doc_engine VAs (32 before/after).
+- Regen: universe 131 roots, ptr_runs 8471 (cap 64), walk_exceptions 3, sweep
+  requeues 6, tables resolved 1240 (was 836), dtable rows 54, skipped rows
+  576 out-of-code + 5 INT3.
+- `ledger.py --check`: GREEN — no unrecorded regressions (25826 compared,
+  163 scope moves), off-path ports 59 (all allow-listed), LEDGER.md current
+  (44459 rows). history.csv row appended.
 
-## Before/after in-scope counts (committed LEDGER.md → regenerated)
+## Before/after in-scope counts (committed LEDGER.md → now)
 
 | status | before | after | Δ |
 |---|---|---|---|
-| in_total | 18857 | 26120 | +7263 |
-| out_total | 19481 | 18865 | -616 |
+| in_total | 18857 | 25826 | +6969 |
+| out_total | 19481 | 18633 | −848 |
 | ported | 244 | 405 | +161 |
 | diffed | 3764 | 3767 | +3 |
 | translated | 1759 | 1827 | +68 |
 | stand-in | 35 | 59 | +24 |
 | decoded | 957 | 1476 | +519 |
-| leaf accessor | 496 | 1058 | +562 |
+| leaf accessor | 496 | 1053 | +557 |
 | engine | 1219 | 1631 | +412 |
-| undecoded | 10382 | 15896 | +5514 |
+| undecoded | 10382 | 15607 | +5225 |
 | inert | 1 | 1 | +0 |
 
-New rows: 5894 brand-new + 1013 out→in moves + 56. Moves ride verified
-direct/vtable/tail edges from newly walked match code (0 dtable-driven);
-subsystem tags follow the in-path (AI 3348, animation 1005, pre-match 428,
-gameplay 311, cutscene 305). Out categories moved: online 663, career 290,
-edit 55, save/load 5 — shared functions the old crawl reached only from out
-roots. Owner call: keep (match code calls them) or hand-list individually.
+107 off-path: 97 in-scope (86 round-1 fixes + 11 direct seeds), 10 allow-listed
+OFF-path with evidence (edit cluster ×7 incl. save builder, callback-only,
+dead helper). 0 UNCLASSIFIED remain.
 
-## Files (branch CrawlFix, pushed, ls-remote confirms to 2029c733)
+## Files (branch CrawlFix, pushed; `git ls-remote` confirms 138bdf14)
+- universe.py: evidence_vas/int3_padding/skip/sweep-kinds/C2 note/seed rows.
+- test_ledger.py: +18 tests (30 total, all green; M1–M8 red-checked).
+- ledger.py: 1-line scope-rules doc touch (dtable/walk-exceptions already
+  landed round 2).
+- offpath_allow.json: 172 entries (10 OFFPATH classified, rest untouched).
+- universe.json + LEDGER.md + history.csv: regenerated.
 
-- tools/dev/ledger/universe.py (fixes + 35 seeds + docs)
-- tools/dev/ledger/test_ledger.py (+17 tests)
-- tools/dev/ledger.py (pure_rows + leaf text + scope paragraph)
-- tools/dev/ledger/offpath_allow.json (86+11 pruned, 10 classified OFFPATH)
-- tools/dev/ledger/scope_moves.json (+3 CrawlFix entries)
-- tools/dev/ledger/universe.json + docs/re/LEDGER.md + history.csv (regen)
-- src/sim/onthepitch/peskickerror.hpp (comment cite → 0x14071d770)
-
-## Unresolved / for Main at land time
-
-1. joins.json is stale re: the comment fix (ports still name 0x14071D760;
-   harmless: the thunk has an in-scope row). Regen joins when landing.
-2. Inter-run variance ±~250 rows (bridge hiccups; sweep covers drops but a
-   full --max-less re-crawl is the stabilizer). Committed universe.json is the
-   reference.
-3. 0x14140EA40's caller chain (menu CPK loader) stays out: correct per scope
-   (edit/save), flagged, not seeded.
-4. Gate not run (Main gates). No builds (tooling-only; no C++ touched).
-
-Recommended next: land CrawlFix, regen joins, continue with the 10 off-path
-allow entries as documented non-goals.
+## Open for landing
+1. Accept or restore the ~198 retired pre-existing unevidenced protected
+   rows (list reproducible via the evidence rule; none cited/proven).
+2. Alias rows for swallowed interior/table/dtable targets (51 + 5) — needs a
+   ledger-schema decision.
+3. Regen joins.json at land (new results/specs on main postdate it).
+4. Gate not run (Main gates). No builds, no C++ changes.
