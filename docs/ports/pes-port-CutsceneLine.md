@@ -39,3 +39,34 @@ Main armed `recompute_471A80` on `A0+0xBC <= 1` for kinds 0 and 1 (D and F). No 
 
 - A `/tmp` write (a `cmake --build` log redirect) slipped in once and was removed.
 - Scratch: `gf-CutsceneLine-scratch/recompute/seq203` (unpacked copy, ~4 GB): delete once Main has the record.
+
+# CutsceneLine round 5: the five out-of-window traps are not yet explained; the branch stays red on three diff tests (ee383c13); no fix pushed
+
+Branch `CutsceneLine`, head `ee383c13` (unchanged this round). Labels: CONFIRMED = read or run this round; INF = inference; OPEN = blocker named.
+
+## 1. What the trap sites are (CONFIRMED by disassembly and the generated code)
+
+- **0x140A6E320 (ro 0x1426484F0, 380 B) and 0x140A6E340 (ro 0x1426484F2, 377 B).** Each is `cmp ecx, 0x5e; jl` (a SIGNED compare) then `movsxd rax, ecx; ... [table + rax*4]`. Any `ecx < 0x5e` passes the guard, including negative values, so PES reads before the table for negative `ecx`. The generated code bakes the window from the table base with no lower bound.
+- **Real PES callers can pass negative values.** `0x14052A7C0` calls 0x140A6E320 with `ecx = movsx byte [rax+1]` (a signed byte from a record: -128..127). So a negative index is a real PES read: the window must start at base-0x200 (4 * -128) for that caller. (INF for the other callers: `0x14052B888` passes `ecx = edx`, its origin not traced.)
+- **0x140A92C80 (ro 0x142655950, 2052 B).** Guarded by `cmp ecx, 0x1ff; ja` (unsigned), so it never reads negative. It did not trap.
+- **0x14038F0E0 (ro 0x14257F780, 7168 B).** The code is `r8 = round-up(rcx)`, `cmp r8, 0xe000; ja` (checked: the generated file has `cond("a")` on 57344 at line 215, before the read), then `byte [table + ((r8-1)>>3)]`. With that guard the index is at most 0x1BFF, inside the window. The trap offset 23058430 = 0x15FD7FE does not fit this guard.
+
+## 2. What the traps show (CONFIRMED)
+
+The driver's recorded check (`driver.py --check --record results_impure.json --seed-bank banks_union9l`, `--only` ignored, 34 functions attempted) reproduces the trap for `0x14052A820`: `PES_RO_OUT_OF_WINDOW: table at ... (380 bytes): read of 4 bytes at offset 184467440`. `184467440` (0xAFEBFF0) is POSITIVE and equals `gpr0*4`. A signed index of -k would appear as a wrapped 2^64-4k, not this value. So the five traps are NOT explained by the negative-index path in §1. The same value appears for the byte table, halved (23058430 = 184467440/8).
+
+The seed bank (`banks_union9l/<VA>.bank.jsonl`) holds memory regions only; register inputs come from the spec (`specs/impure/14052A820.json`, inputs from A0/A1 fields with generic domains: u8 0..255, f32 -50..50). So the failing index is produced by the generator, not read from PES state. (INF: the value is an artefact of how the generated inputs feed `edx`/`ecx`, not a PES value.)
+
+## 3. What is NOT done
+
+- No fix is pushed: the declared negative window for 0x1426484F0/F2 would be correct for PES's signed-byte caller, but it does not explain the positive 184467440 traps, so it cannot close the three red tests on its own.
+- The 14038F0E0 trap contradicts its own guard (§1); that needs the failing input (a per-case dump), not a window change.
+- Next step (round 6): instrument the diff run to dump the input registers and memory of the first trapping case of `0x14052A820` (the bank run above), find which input produces `gpr0 = 46116860`, and trace that input to its PES source (the spec field or the caller). Same for `0x14038F0E0`: print r8 at the read. Then either the spec input domain is wrong (fix the spec's generic domain to PES's real domain for that field) or the window/bake is wrong (fix the cause).
+
+## 4. Interjections noted
+
+- Main (after round 5): the kind-2 goal-anchor feed is decoded in `docs/re/pes-re-goal-anchor-feed.md` on main (GoalAnchorFeed). BC from `0x1404B88B0` via `0x1404B7F70`/`0x1404B6960`; kind 2 = scorer in the wide channel; the else arm iff `(BC-6)&~2 != 0`. Use it for the kind-2 anchor case once the gate is green.
+
+## 5. Status for the gate
+
+ee383c13 is RED on `diff_pilot_recorded`, `diff_core_recorded`, `diff_impure_recorded` (the five traps). It is not yet fixed. Main: do not re-gate until round 6 lands a cause fix.
