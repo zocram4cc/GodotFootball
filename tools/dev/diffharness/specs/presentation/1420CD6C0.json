@@ -21,6 +21,14 @@
   "A3": {
    "base": "0x20800000",
    "size": "0x200000"
+  },
+  "A4": {
+   "base": "0x20A00000",
+   "size": "0x1000"
+  },
+  "A5": {
+   "base": "0x20A01000",
+   "size": "0x1000"
   }
  },
  "args": {
@@ -118,16 +126,12 @@
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "stk0": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+   "kind": "const",
+   "value": "0x20A00000"
   },
   "stk1": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+   "kind": "const",
+   "value": "0x20A01000"
   }
  },
  "outputs": {
@@ -138,6 +142,16 @@
   },
   "w_A3_0": {
    "region": "A3",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "w_A4_0": {
+   "region": "A4",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "w_A5_0": {
+   "region": "A5",
    "offset": "0x0",
    "enc": "u32"
   },

@@ -1296,6 +1296,9 @@ def _rand_case(schema, rnd):
                 case[name] = f32_bits({"bits": rnd.choice(rule["edges"])})
             else:
                 case[name] = f32_bits(rnd.uniform(rule.get("lo", -50.0), rule.get("hi", 50.0)))
+        elif kind == "const":
+            # A fixed value (a region base the spec maps for a pointer argument; never drawn).
+            case[name] = int(rule["value"], 16)
         elif kind == "quirk_or_zero":
             if rnd.random() < 0.1:
                 blob = bytearray(struct.pack("<f", 0.0))
