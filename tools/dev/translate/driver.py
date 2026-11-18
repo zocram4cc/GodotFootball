@@ -17,7 +17,7 @@ Steps per function (deterministic order, sorted VAs):
   3. diffmain.gen writes the diff main; g++ builds fn + in-set callees +
      main; the binary compares the corpus bit for bit (floats by IEEE bits).
   4. results.json gains per function {va, translated, diffed, cases,
-     failure_class, note}. tools/dev/ledger/joins.py --pilot reads it;
+     failure_class, note}. tools/dev/ledger/joins.py reads every results_*.json (no flags);
      ledger.py --check stays green.
 
 Generated code and corpora live in the build tree only (never committed).
