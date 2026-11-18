@@ -7,6 +7,8 @@
 //  - the chooser answers the same kind, band, bucket, side and flag A on the builder's request as on PES's own request;
 //  - the order GF builds from the fields its decision holds (pes::KickOrderFor) gets the same chooser answer.
 //
+// Round 5 set (17-11): pid1152106 seq011, seq013, seq027 (kick_header_833CD0, kick spec 140833CD0; hooks PES21/rendezvous/hooks.cfg):
+// 2/2 PASS on the engine chain. The other nine kept captures of that launch are not run yet.
 // GF_PES_KICK_HEADER_ORACLE names a directory of per-capture directories (PES-derived, never committed), each made by
 // tools/dev/translate/trap_oracle.py from a snapdiff case of 0x140833CD0. PES_EXE names the unpacked image. Without either, skip.
 

@@ -8,6 +8,8 @@
 // GF_PES_KICK_ORACLE names a directory of per-capture directories (PES-derived, never committed), each made by
 // tools/dev/translate/trap_oracle.py from a snapdiff case of 0x1408364D0 (see docs/ports/pes-port-KickKind2.md). PES_EXE names the
 // unpacked image. Without either, skip. The request builder's side is pes_kick_header_oracle_test.
+// Round 5 set (17-11): pid1152106 seq299, seq421, seq152 (kick_chooser_8364D0, kickkind spec 1408364D0; hooks PES21/rendezvous/hooks.cfg):
+// 1/1 PASS on the engine chain, descriptor bit-exact on every reference byte. The other nine kept captures of that launch are not run yet.
 
 #include <gtest/gtest.h>
 
