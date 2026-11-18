@@ -381,6 +381,11 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
     }
     if (open) b.ext.segments.push_back(std::move(seg));
   }
+  // The ball's prediction table (250 samples, written by CalculatePrediction; this harness runs no tick, so the table is an open input,
+  // as the tick builder takes it). The manifest's T and H lines hold only some of its bytes: samples 2-8 lack their x and z, which the
+  // call copies into its frame at the gate (FUN_14085E270's ball entry), so the table is supplied whole from the capture.
+  for (std::size_t i = 0; i < static_cast<std::size_t>(pes::kBallSampleCount) * pes::kBallSampleStride; ++i)
+    w.BallRecord()[pes::kBallSamplesOffset + i] = static_cast<uint8_t>(Read(o, o.regs.at("r8") + pes::kBallSamplesOffset + i, 1));
   // The pad manager's connected-pad mask is the named open input (PesTrapLoaderData::padMaskVa): the capture's, as the live game polled it.
   const uint32_t padMask = static_cast<uint32_t>(Read(o, Read(o, pes::kPadManagerGlobalVa, 8) + pes::kPadMaskOffset, 4));
   // The pad object sits in the loader's own segment, which AddTo pushes first (the anime chain's segments follow it): the externals' copy
