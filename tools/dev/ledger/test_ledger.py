@@ -22,6 +22,23 @@ def _load(name, path):
 
 joins = _load("joins", os.path.join(HERE, "joins.py"))
 ledger = _load("ledger_gen", os.path.join(HERE, "..", "ledger.py"))
+U = _load("universe", os.path.join(HERE, "universe.py"))
+
+
+def listing(text):
+    """Bridge/capstone-format listing lines into universe (insns, order)."""
+    insns = {}
+    for line in text.strip().splitlines():
+        addr, _, body = line.partition(":")
+        insns[int(addr.strip(), 16)] = body.strip()
+    return insns, sorted(insns)
+
+
+def fake_img(offset, payload):
+    import io
+    buf = bytearray(b"\x00" * (offset + len(payload)))
+    buf[offset:offset + len(payload)] = payload
+    return io.BytesIO(bytes(buf))
 
 IN_SCOPE = {"scope": "in", "walked": True}
 
@@ -140,6 +157,132 @@ class HistoryTests(unittest.TestCase):
         self.assertIn("translated", lines[1])
         self.assertIn("+5", lines[1])
         self.assertIn("+0", lines[0])
+
+
+class JumpTableTests(unittest.TestCase):
+    R13_LISTING = """
+141a894fb: LEA R13, [0x140000000]
+141a89560: CMP EAX, 5
+141a89563: JA 0x141a89956
+141a89569: MOV EDX, dword ptr [R13 + RAX*0x4 + 0x1000]
+141a89571: ADD RDX, R13
+141a89574: JMP RDX
+141a89576: CALL 0x140002000
+"""
+
+    def r13_table(self):
+        import struct
+        insns, order = listing(self.R13_LISTING)
+        rva_fall = 0x141A89576 - 0x140000000
+        return U.jump_tables(insns, order,
+                             fake_img(0x1000, struct.pack("<6I", rva_fall, *[0x2000] * 5)))
+
+    def test_r13_absolute_table_with_bare_cmp_bound_resolves(self):
+        self.assertEqual(self.r13_table(), {0x141A89574: [0x140002000, 0x141A89576]})
+
+    def test_table_fallthrough_chunk_is_walked(self):
+        insns, order = listing(self.R13_LISTING)
+        tbl = self.r13_table()
+        pos = {a: i for i, a in enumerate(order)}
+        body, calls, _tails, _ext, _ind, _drefs, hits = U.closure(
+            0x141A894FB, insns, order, pos, set(), tbl)
+        self.assertEqual(hits, 1)
+        self.assertIn(0x141A89576, body)
+        self.assertIn(0x140002000, calls)
+
+    def test_rbase_table_with_hex_cmp_bound_still_resolves(self):
+        import struct
+        insns, order = listing("""
+1406ba800: LEA RBX, [0x140000000]
+1406ba810: CMP ECX, 0x6
+1406ba814: MOV EAX, dword ptr [RBX + RDI*0x4 + 0x1000]
+1406ba818: JMP RAX
+""")
+        tbl = U.jump_tables(insns, order,
+                            fake_img(0x1000, struct.pack("<7I", *[0x3000] * 7)))
+        self.assertEqual(tbl, {0x1406BA818: [0x140003000]})
+
+
+class DtableTests(unittest.TestCase):
+    def test_runs_of_finds_code_pointer_runs(self):
+        C = 0x140000000
+        vals = [C + 0x1000, C + 0x2000, C + 0x3000, 0,
+                C + 0x4000, C + 0x5000, C + 0x6000, 0x143D14000]
+        self.assertEqual(U.runs_of(vals, 0x142B00000),
+                         {0x142B00000: [C + 0x1000, C + 0x2000, C + 0x3000],
+                          0x142B00020: [C + 0x4000, C + 0x5000, C + 0x6000]})
+
+    def test_short_runs_and_non_code_ignored(self):
+        C = 0x140000000
+        self.assertEqual(U.runs_of([C + 1, C + 2], 0x142B0), {})
+        self.assertEqual(U.runs_of([0, 1, 2], 0x142B0), {})
+
+    def test_dtable_callees_vtable_kind_wins(self):
+        runs = {0x142B00000: [0x140001000, 0x140002000, 0x140003000]}
+        DTN = {m: b for b, ss in runs.items() for m in ss}
+        DTN.update({b: b for b in runs})
+        callees = {0x140001000: "vtable"}
+        for s, k in U.dtable_callees({0x142B00000, 0xDEADBEEF}, DTN, runs,
+                                       {0x140001000}).items():
+            callees.setdefault(s, k)
+        self.assertEqual(callees,
+                         {0x140001000: "vtable", 0x140002000: "dtable",
+                          0x140003000: "dtable"})
+
+    def test_lea_refs_only_takes_addresses(self):
+        insns, _order = listing("""
+140000000: LEA RAX, [0x142b00000]
+140000007: MOV RCX, [0x142b00010]
+14000000e: CALL 0x140002000
+""")
+        self.assertEqual(U.lea_refs(insns), {0x142B00000})
+
+    def test_ptr_runs_skips_oversize_runs(self):
+        import struct
+        C = 0x140000000
+        small = struct.pack("<3Q", C + 0x1000, C + 0x2000, C + 0x3000)
+        big = struct.pack("<%dQ" % (U.MAX_DTABLE + 1),
+                          *([C + 0x4000] * (U.MAX_DTABLE + 1)))
+        img = fake_img(0x100, small + b"\x00" * 8 + big)
+        import unittest.mock as mock
+        with mock.patch.object(U, "RDATA_LO", 0x140000000), \
+             mock.patch.object(U, "RDATA_HI", 0x140000000 + 0x100 + len(small) + 8 + len(big)), \
+             mock.patch.object(U, "CODE_LO", 0x140000000), \
+             mock.patch.object(U, "CODE_HI", 0x143000000):
+            got = U.ptr_runs(img)
+        self.assertEqual(got, {0x140000100: [C + 0x1000, C + 0x2000, C + 0x3000]})
+
+
+class ThunkTailTests(unittest.TestCase):
+    def test_thunk_body_records_tail_target(self):
+        insns, order = listing("14071d760: JMP 0x14071d770")
+        _body, _calls, tails, _ext, _ind, _drefs, _hits = U.closure(
+            0x14071D760, insns, order, {0x14071D760: 0}, set(), {})
+        self.assertEqual(tails, [0x14071D770])
+
+    def test_missing_direct_callees_listed_for_requeue(self):
+        funcs = {
+            "00000001": {"scope": "in", "walked": True,
+                          "callees": {"00000002": "direct", "00000003": "table",
+                                       "00000009": "tail"}},
+            "0000000A": {"scope": "out", "walked": True,
+                          "callees": {"0000000B": "direct"}},
+            "0000000C": {"scope": "in", "walked": False,
+                          "callees": {"0000000D": "direct"}},
+        }
+        self.assertEqual(U.missing_callees(funcs, "in"),
+                         [("00000001", "00000002", "direct"),
+                          ("00000001", "00000009", "tail")])
+
+
+class BoundaryWalkTests(unittest.TestCase):
+    def test_walk_exceptions_not_boundary(self):
+        for va in (0x141EC4560, 0x141ED4310, 0x141AFB090):
+            self.assertIsNone(U.boundary(va, "FUN_x", {va: "draw"}, {}, None))
+
+    def test_other_draw_rows_stay_boundary(self):
+        self.assertEqual(U.boundary(0x141EC0000, "FUN_bar", {0x141EC0000: "draw"}, {}, None),
+                         ("rtti", "draw"))
 
 
 if __name__ == "__main__":

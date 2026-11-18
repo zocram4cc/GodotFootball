@@ -107,9 +107,9 @@ def pure_rows(funcs):
     heap objects read at run time) is not judged."""
     ok = set()
     for va, f in funcs.items():
-        if not f.get("walked") or f.get("boundary") or f.get("unresolved") or f.get("indirect") or f.get("vtables"):
+        if not f.get("walked") or f.get("boundary") or f.get("unresolved") or f.get("indirect") or f.get("vtables") or f.get("dtables"):
             continue
-        if "vtable" in (f.get("callees") or {}).values():
+        if "vtable" in (f.get("callees") or {}).values() or "dtable" in (f.get("callees") or {}).values():
             continue
         ok.add(va)
     changed = True
@@ -305,7 +305,7 @@ def main():
              "that is not bit-exact, or a closure member; `proof` record or closure) / **ported** (GF code cites "
              "the VA) / **stand-in** (GF code cites the VA with a ponytail PES-site comment), **decoded** "
              "(a report gives a verdict), **leaf accessor** (<= %s instructions, no call, no jump "
-             "out, no vtable reference), **engine** (boundary: not walked, not match logic), "
+             "out, no vtable or dtable reference), **engine** (boundary: not walked, not match logic), "
              "**undecoded** (walked or unresolved, no verdict), **inert** (hand.json), "
              "**out of scope** (a rule below: edit mode, career, save/load, online). Precedence: inert, "
              "out of scope, diffed, translated, stand-in, ported, engine, leaf accessor, decoded, undecoded."

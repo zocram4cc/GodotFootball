@@ -35,12 +35,14 @@ Per-row rules (meta.rules counts them; docs/re/LEDGER.md states them):
             engine namespace (ENGINE_ROOTS) or a template. Its code slots are engine.           -> engine
   crt       a FUN_ function inside the address span of the CRT's named symbols.                 -> engine
   table     an indirect jump through a relative table (byte-index map and RVA table, read from the
-            image at the VAs in the code) takes the table's targets.
-  vtable    every code slot of a vtable a walked function references is a callee (in the in crawl,
-            not when the vtable is out of scope).
+            image at the VAs in the code) takes the table's targets. Bare-hex CMP bounds (capstone
+            prints small immediates without 0x) count like 0x-prefixed ones.
+  dtable    every code slot of an RTTI-less dispatch table (8-aligned run of code pointers in
+            .rdata) a walked function references is a callee, like the vtable rule.
   leaf      <= LEAF_MAX_INSNS instructions, no call, no jump out, no indirect or table jump, no
-            vtable reference.                                                                  -> leaf accessor
-Boundary rows are recorded, not walked: their callees are not expanded.
+            vtable or dtable reference.                                                      -> leaf accessor
+Boundary rows are recorded, not walked: their callees are not expanded. WALK_EXCEPTIONS names match
+dispatchers walked anyway (with reasons); their rows are ordinary walked rows.
 Engine namespaces are ENGINE_ROOTS. menu and flow are not among them (owner ruling 24-10-26: in-match menus and HUD are in scope).
 """
 import functools
@@ -76,7 +78,7 @@ IND_JMP = re.compile(r"^JMP\s+R\w+$")
 LEA_BASE = re.compile(r"LEA\s+R\w+,\s*\[0x140000000\]")
 TBL_BM = re.compile(r"MOVZX\s+\w+,\s*byte ptr \[R\w+ \+ R\w+\*0x1 \+ 0x([0-9a-fA-F]+)\]")
 TBL_RT = re.compile(r"MOV\s+\w+,\s*dword ptr \[R\w+ \+ R\w+\*0x4 \+ 0x([0-9a-fA-F]+)\]")
-CMP_IMM = re.compile(r"CMP\s+E\w+,\s*0x([0-9a-fA-F]+)")
+CMP_IMM = re.compile(r"CMP\s+E\w+,\s*(?:0x)?([0-9a-fA-F]+)")
 RIP_REL = re.compile(r"\[rip ([+-]) 0x([0-9a-fA-F]+)\]")
 SCALE = re.compile(r"\*(\d)\b")
 REGS = ({"rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "rip", "eax", "ebx", "ecx", "edx",
@@ -93,6 +95,15 @@ OUT_NS = {"edit": "edit mode", "savesystem": "save/load", "savesystembase": "sav
           "savedata": "save/load", "onlinesystem": "online", "onlinemode": "online",
           "onlinelogin": "online", "ntl": "online", "kps": "online",
           "commandautomake": "online", "multiplaycommandautomake": "online"}
+# Walked despite a boundary rule: match-presentation dispatchers the in crawl must expand.
+# 0x141EC4560/0x141ED4310 (rtti:draw): pre-match kit/uniform/handshake dispatchers; bounded
+# fan-out into match presentation, no bridge function (capstone bodies). 0x141AFB090 (doc:anim-blend):
+# in-match BodyAnimControl blend builder calling match fns incl 0x141B15F00. Cited: pes-re-crawl-gap.md §2.
+WALK_EXCEPTIONS = {
+    0x141EC4560: "rtti:draw pre-match kit/uniform dispatcher (crawl-gap §2)",
+    0x141ED4310: "rtti:draw pre-match handshake dispatcher (crawl-gap §2)",
+    0x141AFB090: "doc:anim-blend in-match BodyAnimControl builder (crawl-gap §2)",
+}
 
 # Function roots: (va, subsystem, doc cite). The cite is the report that names the VA; a VA marked
 # "bridge lists no function" is decoded with capstone from the image.
@@ -206,6 +217,33 @@ SEEDS = [
     (0x141EA54A0, "pre-match", "pes-kit-assembly.md §2 (per-kit loader; bridge lists no function)"),
     (0x141A89120, "pre-match", "pes-kit-assembly.md §3 (assembly function, 15-slot table 0x143517b30; bridge lists no function)"),
     (0x140EA93C0, "pre-match", "pes-re-dead-code.md §5.1 (Match General Settings ball-list query, menu wrapper)"),
+    # CrawlGap: 24 seeds for the off-path VAs (docs/re/pes-re-crawl-gap.md §4; each cite names the
+    # downstream GF port files and the live rendezvous hooks firing below it; no-bridge-function VAs
+    # decode from the image like the kit-assembly seeds above)
+    (0x140402B90, "AI", "pes-re-crawl-gap.md §4 (trap/eliza/editsave upstream; live hook trap_action_tick_797CD0 downstream; bridge lists no function)"),
+    (0x1408398D5, "gameplay", "pes-re-crawl-gap.md §4 (kick/humanoid cluster; live mot_kick_* hooks downstream; bridge lists no function)"),
+    (0x1404187FF, "AI", "pes-re-crawl-gap.md §4 (trap-actor cluster; hook-adjacent; bridge lists no function)"),
+    (0x1421339C8, "ball", "pes-re-crawl-gap.md §4 (carrier dispatch sub-cluster; bridge lists no function)"),
+    (0x1406AEE20, "AI", "pes-re-crawl-gap.md §4 (trapdata accessors; GF pestrapdata cites)"),
+    (0x141E823E0, "animation", "pes-re-crawl-gap.md §4 (trap-anim receive hub, 267 direct callers)"),
+    (0x1409224D0, "gameplay", "pes-re-crawl-gap.md §4 (worldrecord/stamina cluster; bridge lists no function)"),
+    (0x141FCEB1B, "ball", "pes-re-crawl-gap.md §4 (carrier pair; bridge lists no function)"),
+    (0x142136F4E, "restart", "pes-re-crawl-gap.md §4 (goal-kick chain; bridge lists no function)"),
+    (0x1423CBEC0, "cutscene", "pes-re-crawl-gap.md §4 (blend/anim ctor calls; covers the trap-actor VA 0x142397EA0)"),
+    (0x1406B4C80, "AI", "pes-re-crawl-gap.md §4 (trapdata; GF pestrapdata cites)"),
+    (0x140796E7F, "AI", "pes-re-crawl-gap.md §4 (trap end-handler caller; live hook trap_end_handler_79E5C0 downstream; bridge lists no function)"),
+    (0x1414F6C83, "pre-match", "pes-re-crawl-gap.md §4 (formation; GF formation cites; bridge lists no function)"),
+    (0x1416C7E12, "pre-match", "pes-re-crawl-gap.md §4 (lighting; GF pes_lighting cites; bridge lists no function)"),
+    (0x141805840, "pre-match", "pes-re-crawl-gap.md §4 (lighting; GF pes_lighting cites)"),
+    (0x141E681C0, "animation", "pes-re-crawl-gap.md §4 (trap-anim slot and table referrer)"),
+    (0x141E67B70, "animation", "pes-re-crawl-gap.md §4 (trap-anim slot; bridge lists no function)"),
+    (0x141E73720, "animation", "pes-re-crawl-gap.md §4 (trap-anim slot; bridge lists no function)"),
+    (0x1406F8518, "pre-match", "pes-re-crawl-gap.md §4 (handshake; GF handseq cites; bridge lists no function)"),
+    (0x14211A550, "ball", "pes-re-crawl-gap.md §4 (carrier init, twin 8-slot tables)"),
+    (0x142135EAF, "restart", "pes-re-crawl-gap.md §4 (goal-kick chain; bridge lists no function)"),
+    (0x142135E84, "restart", "pes-re-crawl-gap.md §4 (E9-tail goal-kick entry; bridge lists no function)"),
+    (0x141EB4650, "animation", "pes-re-crawl-gap.md §4 (FixDemo/anim queries; covers 0x141AF34B0)"),
+    (0x1406E6D10, "gameplay", "pes-re-crawl-gap.md §4 (kick-geometry search; covers 0x14081D8C0)"),
 ]
 
 
@@ -384,6 +422,75 @@ def jump_tables(insns, order, img):
     return out
 
 
+MIN_PTR_RUN = 3  # shortest absolute-pointer run expanded as a dispatch table
+MAX_DTABLE = 64  # longest run expanded: bigger runs are service/import tables, not dispatch
+
+
+def runs_of(vals, base_va):
+    """{run base VA: [code slot VAs]} for 8-aligned runs of >= MIN_PTR_RUN CODE-range u64s."""
+    out, run = {}, []
+    for i, v in enumerate(vals):
+        if CODE_LO <= v < CODE_HI:
+            run.append(v)
+            continue
+        if len(run) >= MIN_PTR_RUN:
+            out[base_va + 8 * (i - len(run))] = run
+        run = []
+    if len(run) >= MIN_PTR_RUN:
+        out[base_va + 8 * (len(vals) - len(run))] = run
+    return out
+
+
+def ptr_runs(img):
+    """{run base VA: [code slot VAs]} for RTTI-less dispatch tables: 8-aligned runs of code
+    pointers in .rdata, read from the image (no bridge). Runs longer than MAX_DTABLE are
+    service/import tables, not per-object dispatch: skipped here (the vtable rule covers big
+    RTTI classes at any size)."""
+    img.seek(RDATA_LO - IMAGE_BASE)
+    raw = img.read(RDATA_HI - RDATA_LO)
+    n = len(raw) // 8
+    return {b: ss for b, ss in
+            runs_of(struct.unpack("<%dQ" % n, raw[:n * 8]), RDATA_LO).items()
+            if len(ss) <= MAX_DTABLE}
+
+
+def lea_refs(insns):
+    """Data VAs taken by address (LEA) in a listing: vptr/table references, not bare data reads."""
+    out = set()
+    for t in insns.values():
+        if t.startswith("LEA"):
+            out.update(int(m.group(1), 16) for m in DREF.finditer(t))
+    return out
+
+
+def dtable_callees(drefs, DTN, PR, vtslots):
+    """{slot VA: 'dtable'} for pointer-run members hit by address-taken refs. DTN maps every run
+    member and base to its base; PR maps base to members. Slots owned by an RTTI vtable stay out
+    (the vtable rule, with its out-of-scope cut, owns them). Callers apply setdefault after the
+    vtable loop, so an RTTI-vtable kind always wins on overlap."""
+    out = {}
+    for v in drefs:
+        b = DTN.get(v)
+        if b is None:
+            continue
+        for s in PR[b]:
+            if s not in vtslots:
+                out.setdefault(s, "dtable")
+    return out
+
+
+def missing_callees(funcs, scope):
+    """[(caller, callee, kind)] for walked rows' direct/tail callees with no row (requeue set)."""
+    out = []
+    for k, r in funcs.items():
+        if r.get("scope") != scope or not r.get("walked"):
+            continue
+        for t, kind in (r.get("callees") or {}).items():
+            if kind in ("direct", "tail") and t not in funcs:
+                out.append((k, t, kind))
+    return sorted(out)
+
+
 def closure(entry, insns, order, pos, entries, tbl):
     """Body = instructions reachable from the entry by control flow inside the listing.
 
@@ -495,6 +602,8 @@ def rtti_engine(root):
 
 def boundary(entry, name, owner_of, doc_engine, crt):
     """(rule, reason) if the function is the engine boundary, else None (walked)."""
+    if entry in WALK_EXCEPTIONS:
+        return None
     own = owner_of.get(entry)
     if own is not None and rtti_engine(own):
         return ("rtti", own)
@@ -508,12 +617,30 @@ def boundary(entry, name, owner_of, doc_engine, crt):
 
 
 def crawl(seeds, scope, ctx):
-    """BFS from the seeds [(va, subsystem, how)]. Returns (rows keyed by entry VA, out-vtable edges cut)."""
+    """BFS from the seeds [(va, subsystem, how)]. Returns (rows, out-vtable edges cut, sweep requeues).
+    When the queue drains, walked direct/tail callees still missing a row are requeued (bounded
+    passes): the crawl is lossless for direct edges across bridge hiccups."""
     names, img, VT, entries, limit = ctx["names"], ctx["img"], ctx["VT"], ctx["entries"], ctx["limit"]
     funcs, alias, owner_of, visited, cut = {}, {}, {}, set(), Counter()
     q = deque((va, sub, how, None, "root") for va, sub, how in seeds)
-    done = 0
-    while q:
+    done, sweeps = 0, 0
+
+    def refill():
+        """Requeue walked direct/tail callees that never got a row (bridge hiccup or --max
+        truncation). Bounded passes; see missing_callees."""
+        nonlocal sweeps
+        if (limit and done >= limit) or sweeps >= 3:
+            return False
+        miss = [m for m in missing_callees(funcs, scope) if int(m[1], 16) not in visited]
+        if not miss:
+            return False
+        sweeps += 1
+        for caller, t, kind in miss:
+            prow = funcs[caller]
+            q.append((int(t, 16), prow["subsystem"], prow["how"], int(caller, 16), kind))
+        return True
+
+    while q or refill():
         if limit and done >= limit:
             break
         va, sub, how, parent, _edge = q.popleft()
@@ -545,7 +672,7 @@ def crawl(seeds, scope, ctx):
                           "roots": [sub], "path": (base + [key])[-4:], "walked": False,
                           "boundary": None, "leaf": False, "unresolved": True, "source": source,
                           "protected": va >= IMPDATA_LO, "error": bridge_msg, "callees": {},
-                          "indirect": [], "tables": 0, "vtables": [], "scope": scope}
+                          "indirect": [], "tables": 0, "vtables": [], "dtables": [], "scope": scope}
             continue
         order = sorted(insns)
         entry = order[0]  # the listing starts at the containing function's entry
@@ -565,6 +692,7 @@ def crawl(seeds, scope, ctx):
         vt_hits = [(v, VT[v]) for v in sorted(drefs) if v in VT]
         bnd = boundary(entry, name, owner_of, ctx["doc_engine"], ctx["crt"])
         callees = {}
+        dt_bases = []
         if bnd is None:
             for t in calls:
                 callees.setdefault(t, "direct")
@@ -581,8 +709,12 @@ def crawl(seeds, scope, ctx):
                 for s in slots:
                     callees.setdefault(s, "vtable")
                     owner_of.setdefault(s, root)
+            dt = dtable_callees(lea_refs(insns), ctx["DTN"], ctx["PR"], ctx["VTADDR"])
+            for s, k in dt.items():
+                callees.setdefault(s, k)
+            dt_bases = sorted({ctx["DTN"][s] for s in dt})
         leaf = (bnd is None and len(body) <= LEAF_MAX_INSNS and not calls and not tails
-                and not tbl_ext and not indirect and not tbl_hits and not vt_hits)
+                and not tbl_ext and not indirect and not tbl_hits and not vt_hits and not dt_bases)
         funcs[ekey] = {
             "name": name, "size": len(body), "subsystem": sub, "how": how, "roots": [sub],
             "path": (base + [ekey])[-4:], "walked": bnd is None,
@@ -592,11 +724,12 @@ def crawl(seeds, scope, ctx):
             "indirect": [{"site": "%X" % a, "text": t[:80]} for a, t in indirect],
             "tables": tbl_hits,
             "vtables": [{"va": "%X" % v, "root": rtti_root(td)} for v, (td, _s) in vt_hits],
+            "dtables": [{"va": "%X" % b, "slots": len(ctx["PR"][b])} for b in dt_bases],
             "overspill": True if len(body) >= MAX_INSNS else None,
         }
         for t, kind in callees.items():
             q.append((t, sub, how, entry, kind))
-    return funcs, cut
+    return funcs, cut, sweeps
 
 
 def opt(name, default=None):
@@ -611,7 +744,12 @@ def main():
     names = load_names()
     entries = set(names)
     VT = rtti_vtables(img) if img is not None else {}
+    PR = ptr_runs(img) if img is not None else {}
+    DTN = {m: b for b, ss in PR.items() for m in ss}
+    DTN.update({b: b for b in PR})
+    VTADDR = {s for _td, slots in VT.values() for s in slots}
     ctx = {"img": img, "names": names, "entries": entries, "sorted": sorted(entries), "VT": VT,
+           "PR": PR, "DTN": DTN, "VTADDR": VTADDR,
            "doc_engine": doc_engine_vas(), "crt": crt_span(names), "limit": limit}
     in_seeds = [(va, sub, "doc") for va, sub, _cite in SEEDS]
     out_seeds, vt_in, vt_out = [], [], []
@@ -625,8 +763,8 @@ def main():
         if r:
             vt_in.append((v, td, r, len(slots)))
             in_seeds.extend((s, r[0], "rtti") for s in slots)
-    fin, cut_in = crawl(in_seeds, "in", ctx)
-    fout, _cut_out = crawl(out_seeds, "out", ctx)
+    fin, cut_in, sweep_in = crawl(in_seeds, "in", ctx)
+    fout, _cut_out, sweep_out = crawl(out_seeds, "out", ctx)
     for k, row in fout.items():
         if k not in fin:
             fin[k] = row
@@ -648,7 +786,9 @@ def main():
             rules["capstone decoded"] += 1
         rules["table jumps resolved"] += f.get("tables", 0)
         rules["vtable rows"] += 1 if f.get("vtables") else 0
+        rules["dtable rows"] += 1 if f.get("dtables") else 0
         rules["scope:" + f.get("scope", "?")] += 1
+    rules["sweep requeues"] = sweep_in + sweep_out
     for k, v in sorted(cut_in.items()):
         rules["in crawl: out-of-scope vtable edges not expanded (%s)" % k] = v
     scope_rules = []
@@ -661,6 +801,8 @@ def main():
             scope_rules.append({"scope": name, "why": why, "vtables": c[why], "slots": s[why]})
     meta = {"bridge": BRIDGE, "image": bool(image), "named_symbols": len(names),
             "doc_engine_vas": len(ctx["doc_engine"]), "rtti_vtables": len(VT),
+            "ptr_runs": len(PR), "min_ptr_run": MIN_PTR_RUN,
+            "walk_exceptions": ["0x%08X" % va for va in sorted(WALK_EXCEPTIONS)],
             "crt_span": ["%X" % a for a in ctx["crt"]] if ctx["crt"] else None,
             "leaf_max_insns": LEAF_MAX_INSNS, "max_insns": MAX_INSNS, "image_cap": IMAGE_CAP,
             "roots": [{"va": "0x%08X" % va, "subsystem": s, "how": "doc", "cite": c} for va, s, c in SEEDS],
