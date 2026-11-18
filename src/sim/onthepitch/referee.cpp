@@ -736,7 +736,8 @@ void Referee::Process() {
         }
         clearingLogged = false;
         clearingAnnounced = false;
-        match->StartPlay();
+        // PES holds set-play ready (116C == 3) through the take; in-play starts at the release touch (docs/re/pes-re-taker-release.md 1.6),
+        // recorded by RecordReleaseTouch below, not here.
         match->StartSetPiece();
       }
     }
@@ -745,6 +746,9 @@ void Referee::Process() {
   if (match->IsInSetPiece()) {
     // check if set piece has been taken
     if (buffer.taker->TouchAnim() && !buffer.taker->TouchPending()) {
+      // The release touch (the taker's kick or throw contact): PES raises in-play here and the ball leaves the taker's hands here.
+      match->RecordReleaseTouch();
+      match->GetTeam(buffer.teamID)->GetController()->ReleaseHeldBall();
       if (buffer.desiredSetPiece == e_SetPiece_Penalty)
         match->SetPendingPenaltyTaken(buffer.teamID, buffer.taker);
       buffer.active = false;

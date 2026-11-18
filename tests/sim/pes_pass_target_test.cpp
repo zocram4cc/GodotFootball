@@ -25,6 +25,7 @@
 #endif
 
 #include "onthepitch/referee.hpp"
+#include "pes/movestep.hpp"
 namespace {
 
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
@@ -90,7 +91,11 @@ class PesPassTarget : public ::testing::Test {
       stats_.ran = true;
       const bool targetSet = match.GetTeam(0)->GetPassTarget() != nullptr || match.GetTeam(1)->GetPassTarget() != nullptr;
       stats_.targetTicks += targetSet ? 1 : 0;
-      const bool resting = match.IsInPlay() && match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms;
+      // PES's play state (MI+0x116C): 1 in play, 3 set-play ready (the take, from the awarded restart's readiness to the touch), 2 stopped.
+      // The in-play arm clears or renames the target at 1 and at 3; the stoppage keep is at 2 and is not bounded (docs/re/pes-re-taker-release.md 1.2-1.3).
+      const RefereeBuffer& buf = match.GetReferee()->GetBuffer();
+      const int playState = pes::PlayStateFor(match.IsInPlay(), buf.active, buf.ReadyForTake(match.GetActualTime_ms()) || buf.started);
+      const bool resting = (playState == 1 || playState == 3) && match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms;
       const double tick_s = static_cast<double>(Match::kTick_ms) / 1000.0;
       restingSinceTargetSet_s = targetSet && resting ? restingSinceTargetSet_s + tick_s : 0.0;
       stats_.worstStale_s = std::max(stats_.worstStale_s, restingSinceTargetSet_s);

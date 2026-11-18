@@ -886,8 +886,10 @@ void Match::Process() {
   if (pesLoop) {
     WritePesMovementRecords(*this);
     WritePesTrapActors(*this);
-    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
     RunPesTrapTicks(*this);
+    // PES's per-tick ankle shove (FUN_140792E10, call 0x14079355C) acts on the root the engine chain has just written, so it runs after
+    // RunPesTrapTicks. Hypothesis under test (docs/re/pes-re-throwin-ankle.md): running it before the chain let the chain's root win.
+    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
     RunPesBodyScans(*this);
   }
 

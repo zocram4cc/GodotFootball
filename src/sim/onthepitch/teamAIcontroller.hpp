@@ -145,6 +145,8 @@ public:
   // there until the release (FUN_140792E10 phase 1; pes-re-throwin-choreography.md 4.2, 5.3). Before the take the ball rides
   // at the taker's root (the carry pin in referee.cpp). The referee calls this from the start of the take until the touch.
   void PinBallAtRelease();
+  // The release touch (Match::RecordReleaseTouch): the ball leaves the taker's hands, so the hold ends (docs/re/pes-re-taker-release.md 1.6).
+  void ReleaseHeldBall() { pieceHeld = false; }
   // PES's pre-release push of a carried throw-in's taker (FUN_140792E10, before the release frame; pes-re-throwin-choreography.md 4.2):
   // of his two ankles (PES joints 3 and 6) the nearer by |z| must stand at least F[1] + DAT_142588200 from the centre line, else his
   // root moves outward by the shortfall (FUN_141EB5BB0, through the root adjuster A = P+0x428). Called after the trap actors are written

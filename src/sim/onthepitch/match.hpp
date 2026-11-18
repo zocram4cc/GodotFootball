@@ -97,6 +97,13 @@ public:
   // (docs/ports/pes-port-TeamTick7.md §3), so a ball in flight keeps flying until the prepare places it.
   void StopPlay() { inPlay = false; }
   bool IsInPlay() const { return inPlay; }
+  // The release touch: the taker's kick or throw contact that ends a set piece's take (docs/re/pes-re-taker-release.md 1.6). PES writes
+  // in-play (MI+0x116C 3 -> 1) here and never at the take's start, so play starts here. The touch is counted on the match for the tests.
+  void RecordReleaseTouch() {
+    StartPlay();
+    ++releaseTouches_;
+  }
+  int ReleaseTouches() const { return releaseTouches_; }
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
   Player* GetLastGoalScorer() const { return lastGoalScorer; }
@@ -689,6 +696,7 @@ protected:
   // by a previous in-process match mirrored every spawn.
   e_MatchPhase matchPhase = e_MatchPhase_PreMatch;  // then 1st/2nd half, extra time, penalties
   bool inPlay = false;
+  int releaseTouches_ = 0;
   bool inSetPiece = false;
   bool goalScored = false;  // true after goal scored, false again after next match state change
   bool ballIsInGoal = false;
