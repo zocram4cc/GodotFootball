@@ -132,3 +132,41 @@ The changed recorded functions (26), the five trapping roots (14052A820, 14063FD
 - Smokes were not run (Main gates).
 - No unit test for `SIGNED_JCC`. The proof is the recorded re-check of the 26 functions and the five roots. A unit test would need a synthetic emitter; not done in this round.
 - Kind-2 anchor case: not started (Main's feed doc `docs/re/pes-re-goal-anchor-feed.md` is the input for round 7).
+
+# CutsceneLine round 7: the SIGNED_JCC unit test is pushed (test-only, 74e180ba); the kind-2 anchor case is not started in code: every function of its chain is translated, so the gap is GF's arena feed
+
+Branch `CutsceneLine`, pushed head `74e180bafc65c2...`. The gate on 708e37a1 is still running; the lock `/tmp/gf-build.lock` was held by another agent's build at the time of the check, so this round built nothing. Labels: CONFIRMED = run or read this round; INF = inference.
+
+## 1. SIGNED_JCC unit test (DONE, test-only)
+
+`tools/dev/translate/test_bake_signed.py`, registered as `translate_bake_signed` in `tests/pilot/CMakeLists.txt`. Four behavioural checks on synthetic functions over a fake image whose bytes are a function of the address:
+- signed fixture (`cmp ecx,0x5e; jl READ`, the 1426484F0 shape): `bake_ro` declines a window from the table base; `mem_val` takes a window that covers ids -0x80..0x5D (the declared hull, `ro_tables.json` 0x1426482F0); the window's bytes equal the image's at each id (-128, -53, -17, -1, 0, 93).
+- unsigned control (`cmp ecx,0x5e; ja`): the bake keeps its window from the base, 95 entries, first entry equal to the image.
+
+All 4 pass on the committed translator (`python3 test_bake_signed.py`, harness venv). Mutation (CONFIRMED, run and reverted): the `if mn in SIGNED_JCC: continue` skip disabled in both bound searches → 3 of 4 fail (`declines`, `covers`, `holds the image bytes`); the control still passes. `xlate.py` reverted to the committed file (`git checkout`), and the tests pass again.
+
+The ctest entry runs the same script under `GF_DIFF_PYTHON` (exit 77 when unset), like the other translator tests. It has not been run through ctest: no build this round.
+
+## 2. Kind-2 goal-anchor case (NOT STARTED in code)
+
+What the chain needs is already translated (CONFIRMED by `ls src/pes/translated`):
+- `0x1404B88B0` (the BC writer): `restart/` (recorded);
+- `0x1404B7F70` (its zone decision), `0x1404B6960` (the scorer-zone transform), `0x1404B6400`, `0x1404B6ED0`, `0x1404B9B70`, `0x14047AB20`: `closure/`;
+- `0x140A901E0` (the quad test, a signed-area point-in-quad check: decompiled, CONFIRMED): `cutscene/`;
+- `0x1404B6BD0` (the else arm's list and T): `cutscene/`;
+- `0x140471A80` (the recompute, else arm proven at `ee383c13`): `cutscene/`.
+
+So the kind-2 case is a GF arena feed, not a translation gap. GF must, before the anchor: (1) write the inputs the writer reads (G slot table G+0x180, the squad table, MI pair 0x1588/0x1590 and side/key, G+0x2AA8 field info, the scorer man/assist records, the ball object G+0x40, the `ctx+0x18 -> +0x22E4C` slot tables, the DC counter A0+0xDC); (2) run `0x1404B88B0` on the arena; (3) run `0x140471A80` gated by EA; (4) then the anchor. Doc `pes-re-goal-anchor-feed.md` §3 lists these gaps; its §5 item 1 (the decision-tick inputs for BC = 2, i.e. the scorer position in the wide channel at DC in [5,171]) is still OPEN, because every captured pre-decision state gives BC 8.
+
+Why I did not write a red test this round: a kind-2 case needs its cut list and the scene list from the decision, and the decision's inputs are not captured (doc §2). A red test built on the recorded post-state (BC 2, C0 8, EA 1, 14h 162) would test a state GF does not compute from inputs, which is the copy-the-answer test the brief forbids. The zone rule's unknowns are also real: `0x1404B6960` reads the field table through `DAT_1436F3DC8+0x2AA8` and builds corner candidates (decompiled above), and I did not establish the coordinate frame it returns; a hand port would be a guess.
+
+## 3. What would unblock it
+
+1. A `bcwriter_4B88B0` capture armed on its return value (the doc's open item 1): the decision tick's inputs with BC = 2. Main can arm it with `--when` on the return, or a DC-windowed hook.
+2. A GF arena feed for the writer's inputs (doc §3), replacing the G+0x180 0xFF stand-in (it diverges from the live table on this goal).
+3. Then: a kind-2 `Case` (the anchorH.json values: scene 0x300D9, slot 19, pos (-41.5502, 0, 29.5574), half (52.56, 34.06), target (-41.6211, 0, 35.56), radius 0.0, PES pos (-41.5502, 0, 34.0), rotY 0) with a `DISABLED_` test until the feed lands, and the flip from `0x140478FF0` (not in the anchor capture; needs its own read).
+
+## 4. Notes
+
+- No build this round (lock held). The round-6 translator change and this test are both on the branch; the gate on 708e37a1 does not include the test file.
+- Nothing pushed other than 74e180ba.
