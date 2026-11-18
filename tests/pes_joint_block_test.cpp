@@ -1,11 +1,11 @@
 // PES's anime joint writer FUN_141EB49B0 (translated, set kick; proven bit-exact on real full-capture states) run on GF's world window
-// through PesWorld::RunAnimeJoints: the pose in the anime player's layout (model-space joint positions and rotations, the placement
-// matrix of the player's heading and position) comes out as the world joint block P+0x538.. and the world rotations P+0x700..
-// that FUN_141EB51A0 and the Kick gate read. The test poses a player, runs the writer, and checks the block against an independent
-// recompute (position = model * heading rotation + player position; rotation = RotY(heading) * model rotation), through the joint
-// map and the validity table the image holds.
+// through PesWorld::RunAnimeJoints, over the engine player's own chain (the cut's shared fixture, pes_engine_trap.hpp). The pose in the anime
+// player's layout (model-space joint positions and rotations, the placement matrix of the player's heading and position) comes out as the
+// world joint block P+0x538.. and the world rotations P+0x700.. that FUN_141EB51A0 and the Kick gate read. The test poses the engine chain's
+// joint arrays, runs the writer, and checks the block against an independent recompute (position = model * heading rotation + player
+// position; rotation = RotY(heading) * model rotation), through the joint map and the validity table the install's image holds.
 //
-// PES_EXE names the unpacked image. Without it, skip.
+// PES_EXE names the unpacked image and PES21_ROOT the install. Without either, skip.
 
 #include <gtest/gtest.h>
 
@@ -15,17 +15,21 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <vector>
+#include <string>
 
 #include "onthepitch/pesanimechain.hpp"
 #include "onthepitch/pesworldrecord.hpp"
-#include "pes_kick_oracle_common.hpp"
+#include "pes_engine_trap.hpp"
 
 namespace {
 
 constexpr int kSlot = 3;
+constexpr uint64_t kPlayerIndex = 0;
 constexpr uint64_t kValidTableVa = 0x14351E540ULL, kJointMapVa = 0x1437F4E60ULL;  // FUN_141EB51A0's validity bytes, FUN_141EBC930's map
 constexpr uint64_t kImageBaseVa = 0x140000000ULL;
+// BodyAnimControl's layer and placement pointers (pesfoxworld.cpp ReadPose): A+0x88 names the layer controller L1, whose +0x50 is the joint
+// position array (pesanimechain.hpp kL1PoseOffset); A+0x20 is the joint rotation array (kAQuatOffset).
+constexpr uint64_t kControlOffset = 0x88;
 constexpr std::size_t kPositionBlockOffset = 0x538, kRotationBlockOffset = 0x700, kPositionStride = 12, kRotationStride = 16;
 constexpr int kBlockJoints = 0x13;  // the writer's loop bound
 constexpr float kTolerance = 1e-5f;
@@ -39,25 +43,34 @@ Quat Mul(const Quat& a, const Quat& b) {  // Hamilton product, (x, y, z, w)
           a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]};
 }
 
+uint32_t Bits(float f) {
+  uint32_t b;
+  std::memcpy(&b, &f, sizeof b);
+  return b;
+}
+
 class JointBlock : public ::testing::Test {
  protected:
-  void SetUp() override {
+  static void SetUpTestSuite() {
     const char* exe = std::getenv("PES_EXE");
-    if (exe == nullptr || *exe == '\0') GTEST_SKIP() << "PES_EXE unset (the writer reads its tables from the image)";
-    ASSERT_TRUE(image_.Open(exe));
-    world_ = std::make_unique<pes::PesWorld>();
-    ext_.image = image_.bytes;
-    ext_.imageBytes = image_.size;
-    pes::PesTrapSegment chain;
-    chain.va = pes::kAnimeChainVa;
-    chain.bytes.assign(0x1100, 0);
-    pes::InitAnimeJointPose(chain.bytes);
-    ext_.segments.push_back(std::move(chain));
-    world_->BindAnimeChain(kSlot);
-    pes::StoreU64(world_->PhysiqueA(kSlot), pes::kAChildO2Offset, pes::PesWorld::O2Va(kSlot));
-    pes::StoreF32(world_->P(kSlot), pes::kPHeadingOffset, kHeadingDeg);
-    for (std::size_t k = 0; k < 3; ++k) pes::StoreF32(world_->O2(kSlot), pes::kO2PointOffset + 4 * k, kPlayerAt[k]);
-    pes::StoreF32(world_->O2(kSlot), pes::kO2PointOffset + 12, 1.0f);
+    const char* root = std::getenv("PES21_ROOT");
+    if (!exe || !*exe || !root || !*root) return;
+    std::string error;
+    et_ = pes_engine::EngineTrap::Open(exe, root, 1, &error);
+    if (!et_) {
+      loadError_ = error;
+      return;
+    }
+    trap_ = std::make_unique<pes::PesWorld>();
+    et_->BindWorld(*trap_, kSlot);
+  }
+  static void TearDownTestSuite() {
+    trap_.reset();
+    et_.reset();
+  }
+  void SetUp() override {
+    if (!et_) GTEST_SKIP() << "PES_EXE / PES21_ROOT unset (the writer reads its tables from the image)";
+    ASSERT_TRUE(loadError_.empty()) << loadError_;
     // A pose no two joints share: positions spread over the body, rotations about different axes.
     for (std::size_t j = 0; j < pes::kAnimeJointCount; ++j) {
       const float f = static_cast<float>(j);
@@ -67,22 +80,43 @@ class JointBlock : public ::testing::Test {
       for (float& v : q) v /= n;
       pose_.rotation[j] = q;
     }
+    // The engine chain of the player: its position and rotation arrays hold the pose the phases would have left.
+    p_ = et_->Player(kPlayerIndex);
+    trap_->BindAnimeChain(kSlot, p_);
+    pes::PesFoxWorld& engine = et_->Engine();
+    const uint64_t a = engine.Read64(p_ + pes::kPScalePtrOffset);
+    const uint64_t positions = engine.Read64(engine.Read64(a + kControlOffset) + pes::kL1PoseOffset);
+    const uint64_t rotations = engine.Read64(a + pes::kAQuatOffset);
+    for (uint32_t j = 0; j < pes::kAnimeJointCount; ++j)
+      for (uint32_t k = 0; k < 4; ++k) {
+        engine.Write32(positions + j * pes::kJointEntryBytes + 4 * k, Bits(pose_.position[j][k]));
+        engine.Write32(rotations + j * pes::kJointEntryBytes + 4 * k, Bits(pose_.rotation[j][k]));
+      }
+    pes::StoreF32(trap_->P(kSlot), pes::kPHeadingOffset, kHeadingDeg);
+    trap_->WriteAnimeRootPoint(kSlot, reinterpret_cast<const uint8_t*>(kPlayerAt.data()));
   }
-  uint8_t ValidByte(int joint) const { return image_.bytes[kValidTableVa - kImageBaseVa + static_cast<uint64_t>(joint)]; }
-  uint32_t MapEntry(int joint) const {
+  // The image's validity byte for joint `joint` and its map entry (the engine's image, the same bytes the writer reads).
+  static uint8_t ValidByte(int joint) { return et_->Externals().image[kValidTableVa - kImageBaseVa + static_cast<uint64_t>(joint)]; }
+  static uint32_t MapEntry(int joint) {
     uint32_t v;
-    std::memcpy(&v, image_.bytes + (kJointMapVa - kImageBaseVa) + 4 * static_cast<uint64_t>(joint), sizeof v);
+    std::memcpy(&v, et_->Externals().image + (kJointMapVa - kImageBaseVa) + 4 * static_cast<uint64_t>(joint), sizeof v);
     return v;
   }
-  pes_kick_oracle::Image image_;
-  std::unique_ptr<pes::PesWorld> world_;
-  pes::PesTrapExternals ext_;
+
+  static std::unique_ptr<pes_engine::EngineTrap> et_;
+  static std::string loadError_;
+  static std::unique_ptr<pes::PesWorld> trap_;
   pes::PesJointPose pose_;
+  uint64_t p_ = 0;
 };
 
+std::unique_ptr<pes_engine::EngineTrap> JointBlock::et_;
+std::string JointBlock::loadError_;
+std::unique_ptr<pes::PesWorld> JointBlock::trap_;
+
 TEST_F(JointBlock, EachValidJointLandsWhereTheHeadingAndPositionPutTheModelJoint) {
-  world_->RunAnimeJoints(kSlot, pose_, ext_);
-  const uint8_t* p = world_->P(kSlot);
+  trap_->RunAnimeJoints(kSlot, et_->Externals());
+  const uint8_t* p = trap_->P(kSlot);
   const float h = kHeadingDeg * pes::kDegToRad, c = std::cos(h), s = std::sin(h);
   int checked = 0;
   for (int i = 0; i < kBlockJoints; ++i) {
@@ -100,8 +134,8 @@ TEST_F(JointBlock, EachValidJointLandsWhereTheHeadingAndPositionPutTheModelJoint
 }
 
 TEST_F(JointBlock, TheWorldRotationIsTheHeadingTurnedModelRotation) {
-  world_->RunAnimeJoints(kSlot, pose_, ext_);
-  const uint8_t* p = world_->P(kSlot);
+  trap_->RunAnimeJoints(kSlot, et_->Externals());
+  const uint8_t* p = trap_->P(kSlot);
   const Quat heading = {0.0f, std::sin(0.5f * kHeadingDeg * pes::kDegToRad), 0.0f, std::cos(0.5f * kHeadingDeg * pes::kDegToRad)};
   for (int i = 0; i < kBlockJoints; ++i) {
     if (ValidByte(i) == 0) continue;
