@@ -82,3 +82,32 @@ Status: decode done for the release and the slide predicate; the re-slide hypoth
 
 ### 7.6 Next step (one line)
 - Probe slide starts from a man whose previous clip is a stand-up or a slide, expect >0 on this tree, then type the rise as FALL_DOWN (17) in GF during phase 1 of the get-up (decode 7.1) so that `_SlideCandidate` can refuse by the install class word.
+
+## 8. Round 3 (Main): slide starts by prior state, class gate, mutation
+
+Result: no fix landed and nothing new pushed. `StallBreaker` is still `a9cda8669b` (`git ls-remote` confirmed); the worktree matches HEAD (`git diff` empty). Reason: the class gate does not touch the measured re-slides, and the PES refusal that does is a different rule (8.2).
+
+### 8.1 Counts (full seed-7 match, `abe9f81d` tree, the shared census run)
+- Strict prior state (the tick before the slide start was a fall, a stand-up or a slide): **0** slide starts. `PesStall.NoSlideStartsFromAManWhoIsDownOrSliding` PASSED (865 s), so the strict rule holds on this tree.
+- Window of one second (100 ticks of 10 ms, the census's own clock): **126 of 243** slide starts had the man down or sliding within the second: 111 from a slide, 15 from a fall, **0 from a stand-up**; 117 had no down state in the second. Run FAILED as red (1,166 s). This is a proxy, not a PES fact: the window is my choice.
+- Round 2: sliding-to-sliding clip restarts: 0.
+- Reading: the stall re-slides are men who leave the slide for at least one tick (not a stand-up) and slide again within a second. The class gate tests the class at the decision tick, so it cannot remove them (the class is back to MOVE by then). Strict count 0 both with and without the gate.
+
+### 8.2 The PES refusal that does cover this (CONFIRMED decompile of `FUN_140971BA0`, `p_140971BA0.txt` around the loop at lines 105-120)
+- The predicate scans the man's own newest four events of the event store (`FUN_140A3E8C0` count, `FUN_140A3E190` entry: type at [0], frame at [4]; the store is `anime record +0xE0`, from `lVar20 = local_2b8` = the man's anime record). It breaks when the event is older than `fps * DAT_142588210 + DAT_142565600` frames (`fVar29 = FUN_141E532D0()`), and returns **false** when an event of type **0xB** (slide) is in the window and `FUN_140A60300` matches its actor.
+- This is refusal (d) in `docs/re/pes-re-getup-recovery.md` §1. GF's `_SlideCandidate` has `_AnyTeammateSliding()` only; it has no own-slide-event window. This is the missing PES rule for the re-slide loop.
+- OPEN: the window constants (`DAT_142588210`, `DAT_142565600`, not read), `FUN_140A60300`'s actor test, and whether GF's translated event store writes kind-0xB events for slides.
+
+### 8.3 Class gate (drafted, measured, NOT landed)
+- Drafted and reverted: `pes::AnimeClassBlocksSlide` over bits {5, 6, 7, 9, 13, 15} (the four decoded class tests: `FUN_140A6E4B0` bit 7, `FUN_140A6E0D0` bits 6/7/9, `FUN_140A6E5E0` bit 5, `FUN_140A6E3C0` bit 13, `FUN_140A6E300` bit 15; `FUN_140A6E3C0`'s anime+8 flag not modelled); `AnimeClassOf` maps a Movement clip of animType `special` (the stand-up) to FALL_DOWN (17); `_SlideCandidate` gate; the teamAI record byte carries `AnimeClassOf` for non-keepers.
+- Not landed: it changes no measured count (8.1), and the record byte is read by `pesoffball.cpp` (the halved-reach check) and the translated PES readers, so landing it changes trajectories without a measured gain. No mutation or full run was done for it.
+
+### 8.4 Item 3 (which of the 76 callers of `FUN_1406B4580` admits a resting-ball touch for a MOVE man): OPEN
+- The callers are the generic admission; the TRAP starters `0x1407B0C33` / `0x1407B35DA` have no direct caller (indirect calls). Not decoded this round.
+
+### 8.5 Verification run this round
+- `PesStall.NoSlideStartsFromAManWhoIsDownOrSliding` (probe discarded after measuring, diff kept at `<scratch>/r3-probe.diff`): 0 strict, 126/243 windowed (red), on `abe9f81d`. No production change, so no movestep or throw-in run.
+
+### 8.6 Next steps (in order)
+1. Read the window constants and `FUN_140A60300` (decompile), confirm GF writes kind-0xB slide events in the translated store. Then the red test is the PES fact itself: no slide start inside the man's own kind-0xB window (expected 0 on PES by refusal (d)).
+2. Land the own-event window in `_SlideCandidate` (one rule), mutation, then the class gate from 8.3 as a separate commit.
