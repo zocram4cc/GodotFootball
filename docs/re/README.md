@@ -382,3 +382,4 @@ Agent port and fix reports moved to `../ports/` (index: `../ports/README.md`).
 |---|---|
 |`../plans/engine-port-plan.md`|Port GameplayFootball to Godot 4 (GDExtension)|
 |`../plans/godotfootball-foundation-plan.md`|GodotFootball — foundation|
+|`../plans/pes-plan-integration-map.md`|IntegrationMap (18-11): remaining subsystems with roots, stand-ins, coverage, state, captures and files; cost drivers from the anime/trap chain (mapping and state ~5 of 12 OneChainCut rounds); tooling T1 engine-memory fixture from the replay read set, T2 capture-set registry, T3 spec-driven oracle generator, T4 regenerate the layer in the merge lane, T5 first-divergence tool; the wave plan|
