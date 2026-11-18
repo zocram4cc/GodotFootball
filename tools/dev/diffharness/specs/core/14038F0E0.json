@@ -26,15 +26,23 @@
  "input_schema": {
   "scalar_rcx": {
    "kind": "u8",
-   "lo": 0,
+   "lo": 1,
    "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+   "domain": "size >= 1 (caller 0x14038E3E0: rcx = r8 if nonzero else 1)"
   },
   "scalar_rdx": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+   "kind": "choice",
+   "values": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+   ],
+   "domain": "alignment: a power of two (caller 0x14038E3E0 tests rdi & (rdi-1)); rdx=0 excluded (INF)"
   }
  },
  "outputs": {

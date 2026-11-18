@@ -222,6 +222,11 @@ def find_guards(lines):
     return out
 
 
+# Signed conditional jumps: a guard that uses one bounds the index from above only (a negative index passes it), so no
+# window that starts at the table base may be baked from it (1426484F0's anime class table: CMP 0x5E; JL admits -0x80..-1).
+SIGNED_JCC = {"JL", "JNGE", "JLE", "JNG", "JG", "JNLE", "JGE", "JNL"}
+
+
 def _bounded_by_copy(em, p, ia):
     """How many index values (0..n-1) the guard before access ia admits for
     index register parent p, or None when no guard governs the access."""
@@ -237,6 +242,8 @@ def _bounded_by_copy(em, p, ia):
     acc = lines[ia][0]
     count = None
     for _, greg, bound, ji, mn, tgt in em.guards:
+        if mn in SIGNED_JCC:  # a signed guard bounds the index from above only: the window needs its lower bound (ro_tables)
+            continue
         if greg != src or ji >= k:
             continue
         if any(lines[x][2] and
@@ -269,6 +276,8 @@ def _bounded_by_self(em, p, ia):
     acc = lines[ia][0]
     count = None
     for _, greg, bound, ji, mn, tgt in em.guards:
+        if mn in SIGNED_JCC:  # signed: no lower bound (see _bounded_by_copy)
+            continue
         if greg != p or ji >= ia or not (lines[ji][0] < acc < tgt):
             continue
         if any(lines[x][2] and PARENT.get(lines[x][2][0].strip().lower()) == p and lines[x][1] not in ("CMP", "TEST")
