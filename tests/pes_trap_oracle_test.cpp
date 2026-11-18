@@ -752,6 +752,26 @@ TEST_F(TrapOracle, TheActionTableResolvesEveryIdToThisMansOwnObject) {
       << "each man's table names its own P";
 }
 
+// A trap call reads a player's chain through the memory it lends the call (the trap externals' shared windows). The chain lives in the
+// match's heap (the OS arena, where PesMemory::Alloc puts it); the call must map that arena as the engine does. Without it, A+0xF0 (B)
+// reads as zero in the call: on capture pid3727195 seq027, B+0xC0 (1.0 in PES) read zero through FUN_141AF3180, which set the candidate
+// float and the sample index, and the trap answered 1 where PES answers 4.
+TEST(TrapCallMemory, TheCallMapsThePlayersChainInTheHeap) {
+  const uint64_t p = TrapEngine()->NewPlayer();
+  const uint64_t b = TrapEngine()->Engine().Read64(TrapEngine()->ChainOf(p) + pes::kPhysiqueNextOffset);
+  ASSERT_NE(b, 0u) << "the engine's chain has its physique object B";
+  TrapEngine()->Engine().Write32(b + pes::kPhysiqueGOffset, 0x3F800000u);  // G = 1.0
+  bool lent = false;
+  for (const auto& w : TrapEngine()->Externals().borrowed) {
+    if (w.rw == nullptr || b < w.base || b + pes::kPhysiqueGOffset + 4 > w.base + w.size) continue;
+    lent = true;
+    uint32_t g = 0;
+    std::memcpy(&g, w.rw + (b - w.base) + pes::kPhysiqueGOffset, sizeof g);
+    EXPECT_EQ(g, 0x3F800000u) << "the call's window of B reads the engine's G";
+  }
+  EXPECT_TRUE(lent) << "no shared window of the trap externals covers the player's B: a trap call reads zeros there";
+}
+
 // Every fact lands in its own field of P. The captures have action id == sub id (and the previous pair equal too), so only
 // distinct values tell those bytes apart; position, previous position and heading come from the man record's own fields.
 TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {

@@ -142,7 +142,8 @@ class PesMemory {
   // A region outside the image and the heap, at `va`, copied from `bytes` (the trap world's loader data). Before Freeze: the template
   // freezes it, and every clone maps it. A call of a trap world on the memory maps it as a borrowed window (SharedWindows).
   void AddSharedRegion(uint64_t va, const std::vector<uint8_t>& bytes);
-  // The shared regions as host windows (translated code addresses them by VA; nothing is copied).
+  // The shared regions and the OS arena (the match's heap, where a player's chain objects live) as host windows: translated code addresses
+  // them by VA; nothing is copied. A trap call maps these, as the engine's calls map the arena.
   std::vector<PesMem::Window> SharedWindows() const;
   // Storage owned by this memory for a match's window at `va`: zeroed, `bytes` long, valid for the memory's lifetime. Not frozen. Every call
   // of the memory (NewCall) maps it, so the anime engine's calls on a player block inside the window (P) read and write the window's bytes,

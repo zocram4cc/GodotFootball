@@ -234,6 +234,13 @@ std::vector<PesMem::Window> PesMemory::SharedWindows() const {
     w.rw = r.map->data();
     windows.push_back(w);
   }
+  // The match's heap (PesMemory::Alloc takes it from the OS arena): a player's chain objects (A, B, O2) and their layers live there.
+  // A trap call maps it as the engine's calls do, so it reads what the engine built (the chain's fields, not zeros).
+  PesMem::Window arena;
+  arena.base = kOsArenaVa;
+  arena.size = kOsArenaBytes;
+  arena.rw = OsArena();
+  windows.push_back(arena);
   return windows;
 }
 
