@@ -83,6 +83,9 @@ class PesFoxWorld final : public PesFileSource {
   uint64_t Call(void (*fn)(PesState&), std::initializer_list<uint64_t> args);
 
   uint64_t Read64(uint64_t va);
+  // The host bytes of the engine's memory at `va` inside the OS arena (where Alloc's blocks live: a player's chain and its layers). The
+  // trap call borrows the same bytes (PesMemory::SharedWindows), so a write here is a write the call sees. nullptr outside the arena.
+  uint8_t* ArenaBytes(uint64_t va);
   void Write64(uint64_t va, uint64_t value);
   std::string ReadCString(uint64_t va, uint64_t max = 4096);
   // Writes `text` and its NUL in the heap and returns its VA (a path argument).

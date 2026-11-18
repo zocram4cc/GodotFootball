@@ -153,6 +153,11 @@ uint64_t PesFoxWorld::Read64(uint64_t va) { return impl_->memory.Read64(va); }
 
 void PesFoxWorld::Write64(uint64_t va, uint64_t value) { impl_->memory.Write64(va, value); }
 
+uint8_t* PesFoxWorld::ArenaBytes(uint64_t va) {
+  if (va < PesMemory::kOsArenaVa || va - PesMemory::kOsArenaVa >= PesMemory::kOsArenaBytes) return nullptr;
+  return impl_->memory.OsArena() + (va - PesMemory::kOsArenaVa);
+}
+
 std::string PesFoxWorld::ReadCString(uint64_t va, uint64_t max) {
   PesState s = NewCall();
   std::string out;
