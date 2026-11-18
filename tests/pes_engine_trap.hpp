@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include <optional>
@@ -60,6 +61,13 @@ class EngineTrap {
   pes::PesFoxWorld& Engine() { return *engine_; }
   // The engine player k (constructed before any window bound).
   uint64_t Player(int k) const { return players_.at(static_cast<std::size_t>(k)); }
+  // A new engine player, constructed as the others are: each capture takes its own chain, so no call sees another capture's chain state.
+  uint64_t NewPlayer() {
+    const uint64_t p = engine_->Alloc(kPlayerBytes);
+    if (p == 0) throw std::runtime_error("the engine heap is full");
+    engine_->ConstructAnime(p, 0);
+    return p;
+  }
   // A player's BodyAnimControl: the chain the trap path binds (BindAnimeChain).
   uint64_t ChainOf(uint64_t p) { return engine_->Read64(p + pes::kPScalePtrOffset); }
   pes::PesTrapExternals& Externals() { return ext_; }
