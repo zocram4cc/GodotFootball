@@ -9,6 +9,7 @@
 
 #include "gdext/pes_library.hpp"
 #include "pes/fdc.hpp"
+#include "pes/fixdemo_camera_list.hpp"
 #include "pes/fixdemo_camera_rig.hpp"
 
 namespace godot {
@@ -23,8 +24,15 @@ class PesCutsceneCamera : public RefCounted {
   GDCLASS(PesCutsceneCamera, RefCounted)
 
  public:
+  // Starts the FixDemo scene whose steps these cameras belong to: PES's scene generators (0x141F55110) seeded from `seed`
+  // (ponytail: PES seeds them from the clock through its global generator, 0x141F4C950; the caller passes GF's match seed). Call
+  // it on the scene's first step before load_step, and continue_scene on every later step, so the steps share one generator
+  // sequence as the steps of one PES scene do.
+  Error begin_scene(const Ref<PesLibrary>& library, int64_t seed);
+  void continue_scene(const Ref<PesCutsceneCamera>& previous);
   // Opens every camera record of every named layer of the category's cut_data folder (a variant's .fdc names, in the order
-  // the FixDemo request lists them) and the Cut records they carry. OK even when no layer has a camera.
+  // the FixDemo request lists them) and builds each layer's record list as PES's layer player does (pes::BuildCameraList).
+  // ERR_UNCONFIGURED without a scene.
   Error load_step(const Ref<PesLibrary>& library, int category, const PackedStringArray& names);
   // Opens vfs_path (a common/demo/fixdemo/... .fdc) and takes its camera record camera_index (the --fdc-file debug track).
   Error load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
@@ -66,6 +74,21 @@ class PesCutsceneCamera : public RefCounted {
   };
   Error AddTrack(const Ref<PesLibrary>& library, const pes::fdc::File& file, const pes::fdc::CameraRecord& cam);
   std::vector<Track> tracks_;
+  // One FixDemo layer player: its tracks are tracks_[first .. first + records.size()), `list` is PES's built camera list
+  // (indices into the layer's records, pes::BuildCameraList).
+  struct Layer {
+    size_t first = 0;
+    std::vector<pes::fdc::CameraRecord> records;
+    std::vector<size_t> list;
+  };
+  std::vector<Layer> layers_;
+  // The scene's generators and the constants they borrow, shared by the steps of one scene.
+  struct SceneState {
+    pes::FixDemoRandomConstants k;
+    pes::FixDemoScene scene;
+    SceneState(const pes::FixDemoRandomConstants& constants, uint32_t seed) : k(constants), scene(k, seed) {}
+  };
+  std::shared_ptr<SceneState> scene_;
   const Track* InForce(float clock) const;
   std::shared_ptr<pes::FixDemoCameraRig> rig_;
   std::vector<int> deadRigs_;  // rigs whose engine frame hit an uncaptured call: they pose nothing (the broadcast camera stays)
