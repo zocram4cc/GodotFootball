@@ -1,69 +1,54 @@
-# CutsceneLine: CutsceneSelect, CutsceneTiming and CameraSelect on one branch; CutAnchor6 not closed (its captures are gone)
+# CutsceneLine round 2: the cut-over is on main; goal pid2024691 is kind 2 (not D/F); the recompute replay stops at an encoded import slot; D/F stay blocked
 
-Branch `CutsceneLine` (worktree `<workdrive>/gf-CutsceneLine`). Pushed head `6b154632` (`git ls-remote origin CutsceneLine` = `6b1546321f8d681373b8bba647ee5d13c075141b`). Base `origin/main` `1235c3d4`. Commits: `361baea1` (merge of origin/CameraSelect, no rebase), `6b154632` (rename fixing the extension build). Labels: CONFIRMED = decompile, git output, test or smoke run this session; INF = inference; OPEN = blocker named.
+Branch `CutsceneLine` (worktree `<workdrive>/gf-CutsceneLine`). Pushed head `12c3c64a` (`git ls-remote origin CutsceneLine` = `12c3c64a363c0fc8ef08f1ca3597408574279d53`). Commits this round: `293d0e70` (merge of origin/main, which carries CutsceneTiming6's cut-over), `12c3c64a` (full_snapshot: code pages from the image). Earlier: `361baea1`, `6b154632`. Labels: CONFIRMED = decompile, capture read, test or run this session; INF = inference; OPEN = blocker named.
 
-## 0. Does FixDemoHuman's anime blend (0x141EB9640) read the player anime chain? NO (CONFIRMED for direct reads; INF for leaf callees)
+## 0. Answers to Main's questions
 
-- `FUN_141EB9640` (VA `0x141EB9640`, 6236 bytes, Ghidra decompile): inputs are an output struct `param_1` (writes `+0x50..+0x128`), a motion id `param_2` (bounded `< 0x122D`), a float time `param_3` (`0.0 <= t`), and two flags. No player, chain or `P+0xA08` pointer is an input.
-- Globals read by the blend: `FUN_141ED6640()` returns `DAT_1437F4FF0` (the motion DB); `FUN_141ED66E0` reads `DAT_1437F53A8` (+0x6B + id*0x70) and the bound table `DAT_142B906F0`. Nothing else in `0x141EB9640`.
-- The four sub-samplers `0x141EBA8C0`, `0x141EBAC80`, `0x141EBB160`, `0x141EBB640` take `(output*, float, int, int, byte*)` and read only the tables `DAT_14256AE1C`, `DAT_142591140`, `DAT_1425E49F0`. None reads the anime singleton `0x1437CEA40` or `P+0xA08`.
-- INF: the leaf accessors `FUN_141ED6xxx` (DB reads) were not all decompiled.
-- Consequence: nothing in this round waits on the one-chain cut (OneWorld-series-wip). The whole round is the non-anime scope.
+1. **Is goal pid2024691 kind 3 (D/F)?** NO. At recompute_471A80 entry (seq203) A0 = rcx = 0x31C53DB8, **A0+0xBC = 2** (CONFIRMED, index.json + snapshot read). D and F hold 0 and 1 (CutAnchor4 §3). BC=2 takes the else arm of `0x140471A80` (BC not in {6, 8}). Scene 0x300D9, side 1, scorer slot 19. At the calc (seq204) radius = 0.0, PES anchor pos (-41.55, 0, 34.0), rotY 0.0. So it is a new kind (call it kind 2), not D/F.
+2. **Do these captures unblock D/F (7/7)?** NO. The D/F inputs (`pid132854` seq3783, seq4721) are gone from disk and from every deletion list. Kind 2 gives no D/F case.
+3. **Cut-over of the cut list?** ALREADY ON MAIN. CutsceneTiming6 (`a9d1d18b`, an ancestor of origin/main's base) makes GF play the builder's list (`0x140477BC0` on GF's arena) and deletes `PickGoalScene`, `kGoalRule` and `f.cuts = {sceneId}`. My earlier "NOT done" came from the stale CutAnchor6 doc and is WRONG. Verified: `git grep -n 'PickGoalScene\|f\.cuts *=' origin/main -- src godot` finds nothing in src/godot. Remaining `f.cuts` uses are in `tests/pes_goal_anchor_test.cpp` only.
+4. **Arm for D/F:** sent to Main: `--when 'recompute_471A80=d(rcx+0xbc)<=1'` (rcx = A0 at entry), cap 12, FULL, armed by cut_anchor_calc_474F00.
 
-## 1. Inventory (CONFIRMED by `git merge-base --is-ancestor` and `rev-list --count`)
+## 1. Finding: sider patches in captured code (CONFIRMED)
 
-| branch | head | on main? | open |
-|---|---|---|---|
-| CutsceneSelect | `3bb1e6bd` | YES (ancestor of origin/main); doc `docs/ports/pes-port-CutAnchor6.md` on main | D/F 7/7 (not asserted: `tests/pes_goal_anchor_test.cpp` pins A, B, C, E, G); the GF cut-over of the list (`src/pes/fixdemo_select.cpp:449 std::vector<uint32_t> scenes = f.cuts;` stays) |
-| CutsceneTiming | `ff362f40` | YES (ancestor of origin/main; ProcCamera1-8 reports and the CameraKeeper head are on main) | none new in this round |
-| CameraSelect | `a1860bbd` | NO before this round: 4 commits (`cc86cc22`, `ab22076f`, `a1860bbd`, merge `32cc9f18`); report `docs/ports/pes-port-CameraSelect.md` on main | translated builder `0x141F2DD80` not proven (its §2); the cross-layer choice `0x141EB0570` and which layer shows: OPEN |
-| OneWorld-series-wip | `2be76714` | NO: 291 commits not on main | out of scope for this round (the one-chain cut) |
+Main's ruling: `pes_full.bin` code is the image; a capture's code pages can hold other patches. Measured on seq203: **28 of 9524 captured code pages differ from the image.** Three are rendezvous hook pages (recompute 0x140471000, anchor 0x140474000, bcwriter 0x1404B8000; the hook config restores them). The rest are the sider-hosted patches (e.g. 0x1414C0000, 0x141440000, 0x141ea5000).
 
-## 2. What this round did
+Fix (commit `12c3c64a`, `tools/dev/translate/full_snapshot.py`): `PeImage.is_code()` and `SnapMem.read()` serve every executable, non-writable image page from the image file, never from the capture. Hook restores still apply on top. Data pages still come from the capture. Tests: `test_image_identity.py` OK, `test_image_reads.py` 9 OK, `test_libm_models.py` OK (1 skip), `test_snapmem_holes.py` 5 OK (1 skip), `test_goal_cast.py` rc 0.
 
-- Created `CutsceneLine` from `origin/main`. Merged `origin/CameraSelect` (`--no-ff`). Conflict: `tests/CMakeLists.txt`, both sides additive (main's `simslot_queue_test`, `branch_select_test`, `translate_*`; CameraSelect's `pes_camera_list_test`). Kept both.
-- SnapMem patch: CameraSelect's `tools/dev/translate/full_snapshot.py` change (full-capture holes read as zero pages) is reverted. The file equals `origin/main` (`git diff origin/main -- tools/dev/translate/full_snapshot.py` is empty). Main's `capz unpack` already restores sparse holes (brief 03-11-26).
-- Build break found and fixed (CONFIRMED by the build log, `gdext-build.log`): the merged `godotfootball` target failed with 3 errors. CameraSelect's scene-generator class `pes::FixDemoScene` (`src/pes/fixdemo_camera_list.hpp:58`) clashed with main's table struct `pes::FixDemoScene` (`src/pes/fixdemo_table.hpp:46`), and the `SceneState` constructor (`src/gdext/pes_cutscene_camera.hpp:89`) then resolved to the struct. Fix (commit `6b154632`): renamed the camera class to `pes::FixDemoCameraScene` in the five camera files (`fixdemo_camera_list.hpp/.cpp`, `pes_cutscene_camera.hpp/.cpp` comment and member, `tests/pes_camera_list_test.cpp`). The table struct and its users are untouched. Rebuilt: `godotfootball` linked (`gdext-build2.log`, rc 0).
-- `tools/dev/ledger.py` run (rc 0): no tracked file changed.
-- Layer not regenerated: the merge changes no translator input (CameraSelect's report: "no layer change"). `gen_translated.py --check` not run.
-- `extern/godot-cpp` symlink in the worktree restored after the merge (git rejects a symlinked submodule path during merge; swapped for an empty dir around the commit).
+Before the fix the recorded recompute call died in the sider-patched code (`fetch inside sider.dll`). After the fix the recorded call returns cleanly (rax 1, `err null`).
 
-## 3. Tests (`flock /tmp/gf-build.lock nice -n 19 cmake --build build ... -j8`)
+## 2. Recompute else arm (kind 2): replay reaches an encoded import slot (CONFIRMED; not proven)
 
-| binary | result (head `6b154632` unless noted) |
+- Trace recorded (`frame_trace.py recorded seq203 --hooks hooks.cfg.97hooks --out ... --spec-dir scratch/impure-spec`, one call of `0x140471A80`). snapdiff on the core spec set: translated body reached `0x1404B8290` (the switch). Its `mov ebx,7; cmp r8d,ebx; ja` bound is a register, which the translator's jump-table prepass did not resolve (only `cmp reg, imm`). **Fix written, not committed**: patch `<workdrive>/gf-CutsceneLine-scratch/xlate-bound-fix.patch` (26 lines, `tools/dev/translate/xlate.py`); after it the switch resolves. Reverted in the worktree (not on the branch) because `gen_translated --check` drift has not been measured.
+- Then the translated body aborts with `PES_DISPATCH_UNTRANSLATED: 0x6ffffec77e00`. Path: `0x140471A80` → `0x14047C500` → `0x141F514D0` (fixdemo_ctx_init, hooked) → `0x141F51630` → `0x141F50B90` → `0x141F50D80` → `0x1408C75E0`, whose `call qword ptr [rip+0x1c68fe2]` reads slot **VA 0x142530664**.
+- The slot is **not in `tools/dev/translate/import_slots.json`** (its neighbours 0x1425304B0..0x142530538 are ucrtbase exports). Its value is **0x94A6851000006F6C in the capture and 0xFEC7851000006FFF in the image file**: neither is a module pointer, so the value is encoded at rest. The call would need the protector's decode to reach a target, which the 17-11-26 rule forbids. **OPEN, decision needed from Main:** classify slot 0x142530664 (an import whose name we can recover, or protector-encoded). If it is protector-encoded, the else arm stops here and D/F's recompute cannot be proven in this design.
+
+Consequence for the cut-over and the goal-anchor test: GF runs only the builder (BC=8 default arm). For kind-2 goals PES's T and radius come from the else arm, so GF's answer differs. No red test is added for kind 2 yet: the expected values need the else arm, which is blocked (item 2).
+
+## 3. Tests run this round (head `293d0e70`; the full_snapshot commit touches tools only)
+
+| binary | result |
 |---|---|
-| godotfootball (gdext extension) | BUILT (rc 0) after the rename; it did NOT build at `361baea1` (section 2) |
-| pes_camera_list_test | 5/5 PASS (rebuilt after the rename) |
-| pes_goal_anchor_test | 20/20 PASS (at `361baea1`; 7 scene cases, D and F not asserted) |
-| pes_fixdemo_select_test | 6/6 PASS (at `361baea1`) |
-| pes_goal_scene_hold_test | 3/3 PASS (at `361baea1`) |
-| pes_camera_test | 17/17 PASS (at `361baea1`) |
-| pes_cutscene_timeline_test | 7 PASS, 1 SKIP: `CutsceneTimeline.CapturedGoalsReplay` (its goal capture is gone, section 5) |
-| gfsim_run | built (at `361baea1`) |
+| pes_camera_list_test | 5/5 PASS |
+| pes_goal_anchor_test | 20/20 PASS (D and F not asserted) |
+| pes_fixdemo_select_test | 6/6 PASS |
+| pes_camera_test | 17/17 PASS |
+| pes_cutscene_timeline_test | 7 PASS, 1 SKIP (`CapturedGoalsReplay`, capture gone) |
+| pes_goal_scene_hold_test | 3/3 PASS |
+| godotfootball (gdext) | builds (rc 0) at `293d0e70` |
+| gfsim_run | builds (rc 0) at `293d0e70` |
 
-Not run: the GDScript / godot-side tests (`tools/godot.sh ... -s res://tests/...`); none were identified for the camera wiring in this round. The full gate was not run (Main gates).
+Mutations: none this round (no GF logic changed; the only GF change is the earlier rename, compile-only).
 
-Mutations: none. This round wrote no new GF logic or test. The rename is compile-only.
+## 4. Smokes
 
-## 4. Smokes (2 min, seed 7, `gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --seed 7 --minutes 2`, in sim slots via `tools/dev/simslot.sh`)
+Last run: at `361baea1` (before the merge of origin/main): switch-off `a0fbe2d5cd445a52` and pes-loop `17941efc16b4a6a5`, both identical to origin/main `1235c3d4`. **Not re-run on `293d0e70`/`12c3c64a`**: the merge brought CutsceneTiming6 (a gf_match change) and the budget ran out. Main gates: please smoke the merged head. The full_snapshot change does not affect gfsim.
 
-| run | CutsceneLine `361baea1` | origin/main `1235c3d4` | ticks |
-|---|---|---|---|
-| switch-off | `[determinism] a0fbe2d5cd445a52` | `a0fbe2d5cd445a52` | 24539 both |
-| pes-loop (`--pes-loop`) | `[determinism] 17941efc16b4a6a5` | `17941efc16b4a6a5` | 29532 both |
+## 5. Open items (numbered)
 
-Identical on both. The same stalemate and restart lines appear in both (no new stall). The rename commit `6b154632` is not re-smoked: `src/pes/fixdemo_camera_list.cpp` is not in gfsim's source list (`CMakeLists.txt:36`); it is in the extension list (`CMakeLists.txt:68`). INF: the smokes are headless sim only. CameraSelect's extension wiring (`PesCutsceneCamera`, `match.gd`) is not exercised by them, and no frames were taken.
-
-## 5. Open items (numbered, each with its evidence)
-
-1. **CutAnchor6 D/F 7/7: blocked by missing captures.** The D and F goal cases (`pid132854` seq3783 for D, seq4721 for F) are not asserted, and the recompute chain `0x140471A80` / `0x1404B88B0` else arm has no full kind-3 replay. Needed: a goal capture with `recompute_471A80` and `bcwriter_4B88B0` FULL (plus `cut_anchor_calc_474F00` as the arm). Those hooks were dropped from the watcher allowlist on 04-11-26 (rvwatch56, brief log). Main must arm them for the next goal.
-2. **Capture evidence gone (CONFIRMED):** `<workdrive>/gf-Rendezvous-scratch/live2/` has no `pid132854`, `pid2621613`, `pid2122415`, `pid3061186`, `pid3234533`, `pid3439759`, `pid3741448`, `pid1043691`, `pid2738437`, `pid2580963`. The cited seqs (`pid132854/seq3783`, `seq4721`; `pid2621613/seq1531`, `seq1532`; `pid3741448/seq70461`, `seq71718`; `pid1043691/seq16574`) are in no `deleted_*.txt`. The 09-11-26 handover says "live2 was emptied". The StoppageFlow scratch copy `<workdrive>/gf-StoppageFlow-scratch/full12/roots/pid3741448/` holds dangling symlinks into `live2/pid3741448`. Any replay of these inputs cannot run from this disk.
-3. **GF cut-over of the list: NOT done.** `f.cuts = {sceneId}` and the goal-scene picker remain (`src/pes/fixdemo_select.cpp:449`; `tests/pes_goal_anchor_test.cpp:144/265/270/554` set `f.cuts`). Blocker: the builder's arena (CutAnchor6 §3 read set) is not written, and goal A's full capture (item 2) is gone, so a red test from PES facts cannot be proven. No stand-in added.
-4. **CameraSelect translated builder `0x141F2DD80`: not proven** (its report §2: harness import model for `VirtualAlloc`, the `0x25a3900` call, the stub `0x6ffffa6619a0`; or a FULL entry hook). The camera-list GF port is wired into `PesCutsceneCamera` and `match.gd` on this branch. The cross-layer choice `0x141EB0570` and which layer shows: OPEN (`src/gdext/pes_cutscene_camera.cpp:149` says "ponytail: ... this stands in").
-5. **CutsceneTiming `CapturedGoalsReplay`: SKIP** (item 2).
-6. **OneWorld-series-wip (291 commits, one-chain cut):** not merged. Not needed: item 0 says the anime blend does not read the chain.
-7. Frames: none taken (no visual claim).
-
-## 6. Pushed
-
-`git push origin HEAD:refs/heads/CutsceneLine` → `6b154632`, confirmed with `git ls-remote origin CutsceneLine`.
+1. **Slot 0x142530664 classification (decision for Main).** See §2. Blocks the kind-2 else arm and so D/F.
+2. **Translator bound fix** (`xlate-bound-fix.patch`): commit only after `gen_translated.py --check` shows no unexpected drift, and after the recompute proof.
+3. **D/F (kinds 0/1):** needs a goal captured with recompute_471A80 armed on `A0+0xBC <= 1` (sent). Without it D/F stay not asserted.
+4. **Goal-anchor test kind-2 case:** pins PES's T and radius from seq204 (calc entry state, radius 0.0). Add when item 1 is decided.
+5. **Captures in `live2/pid2024691`:** auto_slim repacked seq203 twice while I read it. Scratch copies live in `gf-CutsceneLine-scratch/recompute/seq203` (unpacked, ~4 GB). Delete them when the proof is recorded.
+6. Smokes on the merged head: not run (§4).

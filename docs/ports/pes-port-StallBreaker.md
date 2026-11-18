@@ -111,3 +111,39 @@ Result: no fix landed and nothing new pushed. `StallBreaker` is still `a9cda8669
 ### 8.6 Next steps (in order)
 1. Read the window constants and `FUN_140A60300` (decompile), confirm GF writes kind-0xB slide events in the translated store. Then the red test is the PES fact itself: no slide start inside the man's own kind-0xB window (expected 0 on PES by refusal (d)).
 2. Land the own-event window in `_SlideCandidate` (one rule), mutation, then the class gate from 8.3 as a separate commit.
+
+## 9. Round 4 (Main): window constants, actor test, kind-0xB writes, verdict
+
+Result: no fix landed, nothing pushed. `StallBreaker` is still `a9cda8669b`; the worktree matches HEAD (`git diff` empty). Reason: the kind-0xB event that the window scans is written by a ball-state detector whose inputs GF does not model, so the write cannot be made faithful yet (9.3). Round-3 section 8.2 said the window belongs to the slide action; that was WRONG (9.2 corrects it).
+
+### 9.1 Constants (VERIFIED from the flat image, `pes_full.bin`, offset = VA - 0x140000000)
+- `0x142588210` = **10.0** (float `0000 2041`); `0x142565600` = **0.5** (float `0000 003F`). Both are the reads Main gave.
+- Frame rate `0x14351AE54` = 54 (`FUN_141E532D0` returns `DAT_14351AE54`; GF's `kPesTickHz` = 54.0, `pesball.hpp:61`).
+- Window = `(uint)(54 x 10.0 + 0.5)` = **540 frames** (10 s). Break when `(uint)(now - frame) > 540` (PES compares unsigned).
+
+### 9.2 The scan (CONFIRMED decompile of `FUN_140971BA0`, lines ~105-120 of `p_140971BA0.txt`)
+- The actor test `FUN_140A60300(a, b)` (CONFIRMED): true when the two 8-byte keys are equal (`a[0]==b[0] && a[1]==b[1]`). `FUN_140A62FE0(man)` is the man's actor key.
+- The scan visits the event log entries `n = 0..3` (`FUN_140A3E190(E, n)`, `E = anime record +0xE0`; count from `FUN_140A3E8C0`). Payload: kind at +0 (`ActionKind()` = record +0x14), actor at +4/+8, frame at +0x10 (`ActionFrame()` = record +0x24). Break on age > 540; return false on kind 0xB with the man's actor.
+- GF's `pes::EventAt(store, n)` reads the same newest-first log (`NewestOrRing0`), so the scan ports directly.
+- CORRECTION: kind 0xB is NOT the slide action. It is a **ball-state event**: `FUN_140A18690` (the ball's second state, GF `BuildSecondBallEvent`, `pesevents.cpp:578`) writes kind 0xB when the ball state byte `G+0x40+0x2914` is nonzero and the toucher's anime class has bit 7 (`FUN_140A6E4B0`, the SLIDING class). The other kinds: 0xC when the class has bit 6 (`FUN_140A6E580`) and the holder byte 5 is in range, 10 when bit 8 (`FUN_140A6E070`) with the same range, else 0xD; state 0 or above 6 gives 0xD (`FUN_140A18690` decompile).
+
+### 9.3 Does GF write kind-0xB events? NO (CONFIRMED by code reading and by the test)
+- `Team::SetLastTouchPlayer` queues every touch with `PesActionKindOf(function)` (`team.cpp:33`): kicks 1, high kick 2, shot 5, **everything else 7 (touch)**. A slide touch is therefore a 7, never a 0xB; the store's `in.actionKind` cannot carry the class.
+- The second-state inputs are never set by any caller (`holder` = G+0x2910 defaults to -1, `holderFlag` = G+0x2914 to 0, `holderByte5` to 0, `holderClassKind` to 0xD; grep: no writer outside `pesevents.hpp`). So `BuildSecondBallEvent` returns 0xD for every GF ball event. GF never writes 0xB.
+- MEASURED: the windowed probe `NoSlideStartsInsideItsOwnSlideEventWindow` PASSED on `abe9f81d` (873 s) with 0 slides inside the window. That zero is BLIND: GF has no kind-0xB events to be inside. It is not a red test, so it was discarded (diff kept at `<scratch>/r4-window-probe.diff`).
+
+### 9.4 Why the fix stops here
+- A faithful kind-0xB write needs the ball-state bytes G+0x2910 (holder slot), G+0x2914 (state byte, nonzero in play), G+0x2915 (byte 5). GF's world record has no such fields and their writer is NOT decoded. Deriving them from GF's possession or ball state would be a stand-in on the input of a PES predicate, which the brief forbids.
+- The class mapping itself is decoded (bits 7 / 6 / 8 above, with the 0xB > 0xC > 10 > 0xD order: bVar4 block overrides 0xB). It is ready to port once the state bytes exist.
+
+### 9.5 Class gate (Main's round-4 option): NOT committed
+- The class gate writes an anime-record byte that PES readers consume (`pesoffball.cpp:1437`, the translated readers). That byte is PES's own write (`lane-units2 S12`, not decoded). GF's `AnimeClassOf` would be a stand-in on it, so it is not PES-correct on that field yet. Not committed; no measurement of it has changed the stall.
+
+### 9.6 Verification this round
+- Red/green probe: PASSED (blind, 0 by construction; discarded). PesStall full binary, movestep and throw-in: not run (no production change).
+- Worktree clean; no push.
+
+### 9.7 Next steps
+1. Decode the writer of G+0x2910 / G+0x2914 / G+0x2915 (the ball-holder and ball-state records, `FUN_140A18690`'s inputs), find which GF state they map to, and wire them in `matchevents.cpp` (`BallEventInput`): then the own-window rule is real and its red test is "a slide touch with ball state nonzero writes kind 11".
+2. Then `_SlideCandidate` gate on the window (constants 10.0 and 0.5 read from `0x142588210` / `0x142565600`, the scan as `EventAt(n)`, n < 4).
+3. Item 3 (the 76 callers of `FUN_1406B4580`) remains OPEN.
