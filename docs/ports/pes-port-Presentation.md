@@ -1,102 +1,101 @@
-# pes-port-Presentation: presentation subsystems through the pipeline, one translator fix round (25-10-26)
+# pes-port-Presentation: HUD clock minute from the translated HMS (FUN_140A6BD80), B2 round 1
 
-Branch `Presentation`, head `19a8e25` (ls-remote confirmed). Commits: `d3c15e9` (set, specs, driver `--set`, gate test, pre-fix full run), `6f7795e` (merge of origin/main: docs only, at that time), `dffb103` (fix round, post-fix record), `1be821b` (branch-target guard, final record), `07b795a` (merge of origin/main at the translated-layer commit), `19a8e25` (layer regenerated with the presentation record). Worktree `<workdrive>/gf-Presentation`, scratch `<workdrive>/gf-Presentation-scratch`. Base `origin/CutsceneFix` `e7d3414`. Image `pes_full.bin`; harness Python `DiffHarnessRE-scratch/venv` (unicorn, capstone). Gate not run (Main gates). `check_pii.sh` not run in the worktree (symlink); the changed files were grepped for machine paths: no hits.
+Branch `Presentation`, pushed `e835e2cb` (`git ls-remote origin Presentation` = `e835e2cb69d76a11ac4826181585841764e2ac30`). Base: origin/main `b3c24920` (the origin/Presentation branch was already an ancestor of main: its translated layer had landed). Worktree `<workdrive>/gf-Presentation` (detached, from origin/main), scratch `<workdrive>/gf-Presentation-scratch`.
+Labels: CONFIRMED = read in tool output, a live read, a probe run, or the Ghidra decompile. INF = inferred, reason given. OPEN = blocked, blocker named.
 
-## Result
+## 0. Summary
 
-| set | first pass (base translator) | final (1be821b) | lost | gained |
-|---|---|---|---|---|
-| presentation, all 639 rows | 456 | **472** | 0 | 16 (seeds) + 40 callees |
-| presentation seeds, 594 | 416 (70.0%) | **432 (72.7%)** | 0 | 16 |
-| pilot `--check` (183) | 183 | 183 | 0 | 0 |
-| impure `--check` (8) | 8 | 8 | 0 | 0 |
-| cutscene `--check` (549) | 549 | 549 | 0 | 0 |
+- Subsystem: **HUD clock** (scorebug clock minute). Chosen over replay, audio and crowd: its helpers are translated and bit-exact, while replay/audio/crowd entry points are not in the layer (section 2).
+- Ported: GF's `ClockDisplay` minute now comes from the translated `pes_fn_140A6BD80` run on PES-layout memory (`pes::SplitHms`). The GF arithmetic and a dead `>= 100` wrap are deleted (clean cutover).
+- **Not visible in the game yet.** `PesClock::Display`/`ClockDisplay` has no caller in the game. No frame is claimed for this change. A readout needs a new godot node and a match.gd hook (Main), see section 6.
+- The HUD clock builder `0x1420EFEC0` is NOT ported. Its outputs disagree with the HMS slot reading (section 3), so the displayed-second source is OPEN.
+- Tests: `pes_clock_test` 43 passed / 9 skipped without an install; 52 passed with `PES21_ROOT=<workdrive>/PES21`. Red-first and three mutations run (section 5).
 
-The three older records were re-checked on the fixed translator; their records are unchanged. The fix round's gains in those sets are not recorded yet (no full run of those sets).
+## 1. Repo changes (commit e835e2cb)
 
-## Sets
+| file | change |
+|---|---|
+| `src/pes/hud_clock.hpp`, `hud_clock.cpp` (new) | `pes::HmsSplit {hours, minute}`, `pes::SplitHms(float)`. Runs `pes_fn_140A6BD80(PesState&)`: float in xmm0, rdx = hours slot, r8 = minute slot, both in one `PesMem` host window at PES VA `0x20000000` (`+4` for minute). |
+| `src/sim/onthepitch/pesclock.cpp` | `ClockDisplay`: minute = `SplitHms(...).minute`; second = `int(total) % 60` with a `ponytail:` comment naming the open second source. |
+| `src/sim/onthepitch/pesclock.hpp` | Deleted `kDisplayMinuteWrap` (only use was the dead wrap). |
+| `CMakeLists.txt` | `src/pes/hud_clock.cpp` added to `pesfmt` (which links `pestranslated`). |
+| `tests/pes_clock_test.cpp` | Include; comment on the 60:00 test corrected (minute is mod 60, no wrap); new `HmsSplitsHoursAndMinutesFromASecondsCount` (3599 s, 3600 s, 5400 s). |
 
-- Seeds: pure in-scope rows tagged replay 182, camera 149, crowd 42, HUD 53, audio 168 (594). These match the brief's counts from `ledger.pure_rows`.
-- Closure over pure callees, per subsystem: replay 202, camera 163, crowd 59, HUD 57, audio 181. The union is 639 rows (594 seeds + 45 callees).
-- `specgen select --subsystem replay camera crowd HUD audio` writes `specgen/sets/presentation.txt` with columns VA, status, subsystem, role. The subsystem is the first subsystem to reach a row, and seeds keep their own tag. Single-subsystem selection gives the old closure. The driver's `--set` writes `subsystem` and `role` on each result; all 639 rows carry them.
-- Specs: 639 pilot-mode specs from the image into `tools/dev/diffharness/specs/presentation/` (3.7 s).
+Commit path: the `commit` namespace failed on the worktree's `extern/godot-cpp` symlink (git: "expected submodule path ... not to be a symbolic link"). I committed with path-limited git (`-c status.submodule=none`, explicit paths, brief identity). The worktree is private to this round.
 
-## Commentary: excluded 0 rows, with evidence
+## 2. Decode gaps and coverage (HUD clock chain)
 
-Match commentary is out (owner ruling 25-10-26). No pure in-scope audio row, and no callee of one, is commentary code. The walked universe does not contain the commentary code at all.
+| VA | what | status | evidence |
+|---|---|---|---|
+| `0x140A6BD80` | HMS split (`hours`, `(s/60)%60`) | **translated, bit-exact** (64 cases, own-block 1.00) | `tools/dev/translate/results_presentation.json` (`va` 0x140A6BD80, diffed true); layer `src/pes/translated/hud/pes_fn_140A6BD80.cpp` |
+| `0x1420BDFD0`, `0x1420BDF50`, `0x1420BE050`, `0x1420BE140`, `0x1420BE780` | half-length, minute offset, live-half test | translated, bit-exact (results rows, diffed true) | ledger rows 10983–10988 |
+| `0x1420CE3D0`, `0x1420CE460` | builder callees (scoreboard attention) | translated, bit-exact | ledger rows 10991–10992 |
+| `0x1420CD6C0` | builder callee (attention test) | **undecoded** in ledger; a results row exists, not in layer | ledger row 10990; results (1 row, not in layer) |
+| `0x1420EFA10` | builder callee (103 instructions) | **undecoded** | ledger row 10998 |
+| `0x1420EFEC0` | HUD clock-state builder (301 instructions) | **decoded only**, not translated | Ghidra decompile (live, CONFIRMED), `pes-re-clock-record.md` 2.2 |
+| `0x1420F1750` | clock digit renderer | decoded, not translated; writes AFP sprite objects | `pes-re-hud-ui.md` 3.1 |
+| `0x1420F0EB0` | scorebug update (per frame) | not in layer | results: no row |
+| `0x14217DEF0` | ReplayHuman frame read | not in layer, not in presentation results | grep of results and layer: 0 |
+| `0x1414406A0` | chant config loader | not in layer, not in results | grep: 0 |
+| `0x14048FDAE` | ball-hit tier picker (not hookable, mid-function) | not in layer | grep: 0 |
 
-- RTTI class `Commentary@ai@app@sound@@` (type name at VA `0x14366CB30`). Its vtable is at `0x14294D068`, with 4 code slots: `0x14143D020`, `0x14143D0A0`, `0x14143E0D0` (no universe row), and `0x141794410` (in-match menu, shared with the PA-announcement and Chant vtables). The two code sites that reference the vtable, `0x14143CEAB` and `0x14143D02A`, lie in functions with no universe row (0 rows in `0x14143CC00`-`0x14143D200`).
-- Speech-bank loader classes: `Loader@TeamName@edit@sys@sound@@` (vtable `0x142962FE0`, site `0x1414846E9`), `Loader@PlayerName@edit@sys@sound@@` (vtable `0x142962D08`, site `0x141483FF9`), `Loader@TeamDirectionName@sys@sound@@` (vtable `0x1429657C8`, site `0x14148CA0E`). Their private slots (`0x141484140`, `0x141483AC0`, `0x14148C720`) have no universe row; the shared slot `0x1414901A0` is a crowd row.
-- Speech-bank strings: `00_TEAM` `0x142963778`, `10_PLAYER` `0x142963780`, `20_MAIN` to `50_MAIN` `0x142963790`-`0x1429637A8`, `/sound/acb/` `0x1429637C0` and `0x142963968`, `CommentaryLanguage` `0x142959178`, `CommentatorKind` `0x142958DD8`, `SdCommandForCommentary` `0x142959190`, `CheckCommentaryLanguage` `0x142955640`. No universe function references them, directly (RIP-relative LEA) or through a pointer table within 0x400 bytes. Their references come from code outside the universe.
-- The LEA scan covers 102,097 RIP-relative targets in code. It is live: 2,181 universe functions reference strings. None of the 168 pure audio seeds, and none of the 13 audio-closure callees, references a string.
-- Kept, not commentary: `PAannouncement@ai@app@sound@@` (stadium announcements, `SA_*` banks; report `pes-re-audio.md` §2.8 lists them apart from commentary), two audio rows (`0x14143F880`, `0x14143F8C0`).
-- Residual risk (INF): the audit uses RTTI, strings and LEA references. Commentary reached only through computed names or data tables would not show here. The pure rule still applies to any such row.
+Builder dependency that blocks a full port (CONFIRMED from the decompile): the tail calls `(**(code **)(*param_1 + 0x48))(param_1)` (vtable slot 9 on the builder's first argument, not identified) and reads the global `DAT_1437f968a` (replay flag).
 
-## Specs and the gate
+## 3. The clock slot question (OPEN)
 
-- `tests/pilot/CMakeLists.txt`: `diff_presentation_recorded`, mirroring `diff_cutscene_recorded` (driver `--check`, `specs/presentation`, `results_presentation.json`). Run by hand with the same command: 472/472. Not run through ctest (Main gates).
+Facts (CONFIRMED):
+- Translated `0x140A6BD80`, run by a probe (`<workdrive>/gf-Presentation-scratch/probe/probe.cpp`) on PES-layout memory:
 
-## Measurements per subsystem (final record; first pass in brackets)
+  | seconds | rdx result (hours) | r8 result (minute) |
+  |---|---|---|
+  | 0, 59 | 0 | 0, 0 |
+  | 60 | 0 | 1 |
+  | 2699 | 0 | 44 |
+  | 2700 | 0 | 45 |
+  | 3599 | 0 | 59 |
+  | 3600 | 1 | 0 |
+  | 5400 | 1 | 30 |
 
-| subsystem | seeds | bit-exact at floor | seeds + callees (closure) | coverage median (p25 / p75) | seed failures by class |
-|---|---|---|---|---|---|
-| replay | 182 | 140 (76.9%) [131, 72.0%] | 159 / 202 | 1.00 (0.68 / 1.00) | struct map gap 35; harness cannot run 6; translator bug 1 |
-| camera | 149 | 127 (85.2%) [126, 84.6%] | 139 / 163 | 1.00 (1.00 / 1.00) | struct map gap 16; harness cannot run 5; translator bug 1 |
-| crowd | 42 | 33 (78.6%) [33, 78.6%] | 47 / 59 | 1.00 (0.53 / 1.00) | struct map gap 3; harness cannot run 6 |
-| HUD | 53 | 50 (94.3%) [47, 88.7%] | 54 / 57 | 1.00 (0.74 / 1.00) | struct map gap 2; harness cannot run 1 |
-| audio | 168 | 82 (48.8%) [79, 47.0%] | 95 / 181 | 0.43 (0.00 / 1.00) | struct map gap 81; harness cannot run 3; translator bug 2 |
-| all seeds | 594 | 432 (72.7%) [416, 70.0%] | 472 / 639 (all rows) | 1.00 (0.34 / 1.00) | struct map gap 137; harness cannot run 21; translator bug 4 |
+- Decompile of `0x1420EFEC0`, live-half branch (`E+0xa4 == 0`): `FUN_140a6bd80(*(f32*)(E+0xa0), &local_88, &iStack_84)`, then `param_2[3] = local_80 + local_88` (the displayed minute) and `param_2[4] = ... + iStack_84`. So the builder reads the **rdx result (hours)** as the minute and the **r8 result (minute)** as the second. The other branch does the same with `E+0x11c`.
+- Read-only live sample (pid 2024691, 10:19:23–10:19:50): `E = *(G+0x2C0)`, `G = q(0x1436F3DC8)` (CONFIRMED: E+0x58 = 10.0, the match-minutes setting, as in `pes-re-clock-record.md`). `E+0xa4 = 2` (so the `E+0x11c` branch), `E+0xa0 = 0.0`, `E+0x11c = 0.0`. The frame counter `MI+0x1198` advanced 2300 → 2378.
+- Screenshot at 10:19:38 and 10:19:44 (`<workdrive>/gf-Presentation-scratch/clock/clkboth.png`): the on-screen clock reads **5:20**, unchanged across six seconds, score 0–0. So in this state the displayed clock is neither `E+0xa0` nor `E+0x11c`.
 
-"Harness cannot run" here is every row bit-exact below the 50% own-block floor (21 seeds, all of them bit-exact on their cases). Callees: 40 of 45 bit-exact.
+Inference (INF): either the displayed clock comes from another field/object, or the builder's `E` is not the object the HUD reads. The hours-as-minute reading of the decompile cannot be right for a 45-minute display, so the decompile's slot naming is unresolved. A capture of the builder during live play (E+0xa4 == 0, in-play) and the matching frame would settle it (section 6). Until then the minute port (r8 = `(s/60)%60`) is CONFIRMED by execution; the seconds source is OPEN.
 
-## First pass against the cutscene set
+## 4. Captures (live2/pid2024691, read only)
 
-- Cutscene: first pass 59.5% (447 of 751, translator before CutsceneFix); current 64.3% (483 of 751, same translator as this set).
-- Presentation first pass: 70.0% overall, on the translator after CutsceneFix (`e7d3414`). The like-for-like baseline is the cutscene's current 64.3%.
-- Per subsystem, first pass: replay 72.0%, camera 84.6%, crowd 78.6%, HUD 88.7% (all above 64.3%); audio 47.0% (below both).
-- Failure shares, both on the same translator, seeds: presentation (final) struct map gap 23.0%, translator bug 0.7%, harness cannot run 3.5%; cutscene (current) map gap 26.8%, translator bug 2.1%, harness cannot run 6.8%.
-- Answer: translator fixes carry over. The translator-bug class is small in the new subsystems (22 of 594 seeds on the first pass). The fix round recovered 16 of those. The new subsystems exposed classes that the cutscene set did not hit (listed below). Subsystem spread is set by the struct-map gap, which concentrates in audio (81 of 168 seeds). That is generator work, not translator work.
+- `seq001`: `chant_load_1414406A0`, 1 call, paused 8.45 s (`watch.log` 10:14:41). Read but not usable yet: the chant loader is not translated.
+- `seq002`: `scorebug_1420F0EB0`, 1 call, paused 24.1 s (10:15:52). Its snapshot holds the same `E` (E+0x58 = 10.0, E+0xa4 = 2, E+0xa0 = 0.0) and MI (period 1, in-play 1, frame 256). It is the scorebug's own state at kick-off, not a live-play clock.
+- No replay capture yet (Main: replay needs a replay, likely after a goal).
+- The snapshot reader I used is scratch (`<workdrive>/gf-Presentation-scratch/clock/snapread.py`, `livepread.py`, `scan.py`), not committed.
 
-## Fix round: before and after
+## 5. Verification
 
-Before: translator at `e7d3414`, presentation first pass 456 of 639, 22 translator-bug seeds. After: 472 of 639, 4 translator-bug seeds. Lost 0.
+- **Red first (CONFIRMED):** before the port, `tests/pes_clock_test.cpp` failed to compile on origin/main: `fatal error: pes/hud_clock.hpp: No such file or directory` (ninja, object `pes_clock_test.cpp.o`).
+- **Green:** `build/tests/pes_clock_test`: 43 passed, 9 skipped (install-dependent; no PES21_ROOT in the shell). With `PES21_ROOT=<workdrive>/PES21`: **52 passed**, 0 failed.
+- **Mutations** (each applied with the edit tool, rebuilt, run, reverted; tree then equals the commit, `git status` clean in `src`, `tests`, `CMakeLists.txt`):
+  - M1: HMS result slots swapped (minute read from `out`, hours from `out+4`): FAILED `HmsSplitsHoursAndMinutesFromASecondsCount`, `DisplayMinuteAndSecondFromASecondsCount`, `DisplayWrapsTheMinuteAtSixty` (3 of 3 relevant).
+  - M2: minute slot = hours slot (`kMinuteVa = kHoursVa`): FAILED the same 3.
+  - M3: `ClockDisplay` minute read from `.hours`: FAILED `DisplayMinuteAndSecondFromASecondsCount`, `DisplayWrapsTheMinuteAtSixty` (2).
+- **Gate:** `GATE_TIER=branch tools/dev/gate.sh` launched in the background (log `<workdrive>/gf-Presentation-scratch/gate_branch.log`, 2400 s timeout). **Result pending at the time of writing** (not observed to finish). Main should gate the merge.
+- **PII:** grep of the changed files for machine paths: no hits. `tools/check_pii.sh` not run (worktree symlink).
+- **Visual:** none claimed. The new clock is not drawn anywhere. Frames taken for context only (section 3).
 
-Changes in `tools/dev/translate/xlate.py` (general lifts; no spec was edited):
-- DIV / IDIV (8 to 64 bit, unsigned and signed; #DE traps via `__builtin_trap`): bit-exact on `0x14195D0E0`, `0x1420B0580`, `0x1420B2630` (provisional: live-state globals at on-disk values), `0x1420B2770`, `0x1421738E0`, `0x1421761C0`.
-- REP STOSB/W/D/Q, plus single STOS and MOVSB/W/Q (MOVSD only with REP, since SSE MOVSD is the common form): bit-exact on `0x14042D610`, `0x140A8A550`, `0x142321C00`, `0x142321D34`, `0x142321D6C`.
-- SSE: CMPNLTSS bit-exact on `0x1400EEF10`; MOVQ between GPR and xmm, MOVHLPS, MOVLHPS, PUNPCKLQDQ, PUNPCKHQDQ, PADDQ, MINPS, MAXPS, HADDPS, SQRTPS, RCPPS, RSQRTPS. Bit-exact on `0x14002A5C0`, `0x140049DE0`, `0x142178CB0`.
-- `0x141EAF270` (RSQRTPS) now matches on 92 cases but sits below the floor (own-block 0.32). It is no longer a translator bug.
-- LOOP: lifted with a label. No bit-exact function in these sets uses it (its only site, in `0x141B50460`, has 0 executed coverage).
-- A branch whose target lies outside the decoded body now traps when taken instead of naming an undefined label. That recovered `0x14149F5E0` (camera, bit-exact on 64 cases, provisional) and kept `0x141B50460` at its pre-fix below-floor class. The first version of the LOOP lift had turned `0x141B50460` into a compile error; the guard is the fix for that regression.
-- `0x14088FE50`: timeout to struct map gap (UC_ERR_MAP). The translator now runs through.
+## 6. Hook and wiring requests for Main
 
-Not fixed, translator bugs remaining (4 seeds): `0x14089C270` (camera; `ret_rax` 7FFFFFFFFFFFFFFF vs FFFFFFFFFFFFFFFF on 64 of 64 cases), `0x1414536C0` (audio; `ret_rax` on 25 of 64), `0x141B88200` (audio; timeout), `0x1420AF8E0` (replay; timeout). Not diagnosed beyond that.
+1. **Clock-state builder** `0x1420EFEC0` (the open slot question): entry hook, `--when 'b(q(q(0x1436F3DC8)+0x2C0)+0xA4)==0 and b(q(q(0x1436F3DC8)+0x270)+0x116C)==1'` (live half, in play), EVERY 1000, cap 6, FULL. The output struct is the builder's `param_2`, so a replay gives PES's outputs. Pair it with a frame at the same time.
+2. Match.gd hook: a readout node for the clock (new file `godot/match/hud_clock_readout.gd` once the slot question is settled). Needs one hook point in match.gd (Main to add or approve).
 
-## Verification (exercised)
+## 7. Next subsystem plan
 
-- Pre-fix full run, presentation: 639 attempted, 639 translated, 456 bit-exact (1,581 s, `--jobs 3`).
-- Baseline checks before the first commit, untouched translator: pilot 183/183, impure 8/8, cutscene 549/549.
-- Targeted run of the 22 translator-bug functions after the lifts: 15 bit-exact, 2 reclassified (`0x141EAF270`, `0x14088FE50`), 5 still failing.
-- Post-fix full run: 471 bit-exact; checks pilot 183/183, impure 8/8, cutscene 549/549; presentation check 471/471.
-- Final full run (after the branch guard): 472 bit-exact (1,812 s). Checks: pilot 183/183, impure 8/8, cutscene 549/549, presentation 472/472. No row lost against either earlier pass.
-- Mutations: none run. The 22 translator-bug functions served as the red set (all failing before the lifts), and the record checks as the green set.
-- Unverified by any bit-exact function in these sets: LOOP, REP MOVS.
-- RCPPS and RSQRTPS are emitted as IEEE single-precision `1/x` and `1/sqrt(x)`. They match the unicorn oracle on the sets. Silicon's table approximation is not modelled here.
+- **Round 2 (HUD clock, builder slice):** (a) translate `0x1420CD6C0` and `0x1420EFA10` (undecoded; synthetic-case pipeline, no capture needed), (b) name the object behind vtable slot `+0x48` on the builder's first argument, (c) when capture 1 lands, settle the minute/second slot against a frame, (d) then translate `0x1420EFEC0` on GF-filled E state (E+0x58, E+0x9E/E+0xB0 limits, E+0xA0/E+0x11C floats, E+0xA4, E+0x114/E+0x118, E+0x2DA8) and retire `ClockDisplay` in favour of the builder output.
+- **Alternative, bigger:** replay (ReplayHuman `0x14217DEF0`). Its frame layout is decoded (`pes-re-cutscenes.md` section 6: 0x264 header + 25 × 300-byte human records). It needs a replay capture (Main) and a GF recorder that does not exist (INF: a new feature, not a port).
+- Crowd and audio: no entry point is live-located yet (`pes-port-PresReplay.md` open items 4); audio tier picker is not hookable.
 
-## Open items
+## 8. Open items
 
-1. Struct map gap: 137 seeds (81 in audio). It is the largest class, and the cutscene report's classes 1 to 3 still apply: pointer origin through `sub`/`add`, table-indexed pointers, stack arguments modelled as scalars. Generator work (`specgen/analyze.py`), not in this round.
-2. Translator bugs left: 4 seeds (listed above).
-3. Below-floor bit-exact: 21 seeds (`harness cannot run`). These need input coverage from the generator.
-4. Pilot, impure and cutscene records are unchanged (checks only). A full run of the cutscene set would record the fix round's gains there.
-5. The ledger (`ledger.py`, `joins.py`) reads only `results.json`, so presentation statuses in `LEDGER.md` are unchanged.
-6. `BSWAP` (3 functions in the presentation pass) and `PREFETCHT0` are still unhandled.
-7. The gate has not run; `diff_presentation_recorded` is new and unrun there.
-
-## Merged state and the translated layer (19a8e25)
-
-- origin/main now carries the translated layer (`src/pes/translated/`, `gen_translated.py`, gate test `diff_translated_drift`). Main moved the translator runtime headers (`pes_state.hpp`, `pes_cond.inl`, `pes_dispatch.hpp`, `pes_stubs.hpp`) into `src/pes/translated/`; the driver reads them from there. The merge had no conflicts.
-- `gen_translated.py` `SETS` gains `results_presentation.json` (spec subdirectory `presentation`). The layer's subsystem directories come from each spec's subsystem tag, so the presentation functions land in `replay/`, `camera/`, `crowd/`, `hud/` and `audio/`.
-- Regenerated layer: 1189 functions (1140 recorded bit-exact, 49 closure members), 18.6 s. `gen_translated.py --check` is byte-identical.
-- Against main's layer: 320 recorded functions are added (presentation). Four closure members (`14044E020`, `140A489A0`, `140A73E40`, `140A76240`) are now recorded bit-exact in the presentation set and moved from `closure/` to `camera/`. `cutscene/pes_fn_140005530.cpp` is re-translated by the fixed translator; the cutscene record's check (549/549) covers it.
-- Checks on the merged tree (`19a8e25`), driver `--check`: pilot 183/183, impure 8/8, cutscene 549/549, presentation 472/472. `gen_translated.py --check`: byte-identical, 1189 functions. The `diff_translated_drift` gate test was run by hand with the same command; the gate itself has not run (Main gates).
+1. Displayed clock source (section 3): OPEN, needs capture 1 in section 6.
+2. Seconds: GF's `total % 60` stays as a `ponytail:` until (1) is settled.
+3. `0x1420CD6C0`, `0x1420EFA10`, vtable slot `+0x48` (section 2): OPEN.
+4. Gate `GATE_TIER=branch`: pending (section 5).
+5. No visual proof for any change in this round.
