@@ -121,3 +121,31 @@ Branch OneWorld-series-wip, pushed. `git ls-remote`: 4ac3c3893f0701eb54c1d184202
 3. Same-hash determinism rerun of the pes-loop smoke (15 min).
 4. The memcpy/memmove per-byte loops in the translator (lines 501-513) could take the same span fill; not changed here.
 5. Chain X (key 302 -> index 0x40 in play, Main): named gap of the cut.
+
+## Round 4 (17-11): result
+
+Branch OneWorld-series-wip, pushed. `git ls-remote`: 7a88d07e6a3c460b80788b5991a07ac8bc22078f (head). Commits: 31f5c77f (engine fixture, joint and adjuster ports), 7a88d07e (step 5 + kick ports).
+
+### 1. Determinism (DONE)
+- Pes-loop rerun on 4ac3c389, seed 7, 2 min: `[determinism] e46129415a2bdc1b`, 49001 ticks, rc 0. Repeats round 3 exactly.
+- Move from da3b1eff7174bc8b (INF, not measured): the first divergence is not located. I did not record which tick or man first differs from the baseline, so the paragraph below is code-level reasoning, not a traced divergence. The trap path changed in order: PES's driver now runs on the engine chain (round 1), the yaw is read as the half angle (round 2), trap calls use the memory stack (round 2), and the runner's guarded branch runs (round 2). The bulk fill (round 3) is output-identical by the write-record proof. A trace of the first differing (tick, slot) against the baseline binary is still open.
+
+### 2. Snapshot-replay proof of the runner (NOT DONE)
+- Budget ran out before the snapdiff run. The guard inputs on all 25 captures are recorded (round 3). The height branch (pid848145 seq8934-8939) is in the same 25.
+- Open: snapdiff --bounded on 0x141AFC4A0 and the FUN_141EB5E70 proof row (height branch added).
+
+### 3. Test ports
+- DONE: pes_joint_block_test (2/2 PASS) and pes_adjuster_tick_test (4/4 PASS) run on the engine chain via tests/pes_engine_trap.hpp (shared fixture). Joint pose is written into the engine chain's own arrays (L1+0x50 positions, A+0x20 rotations).
+- DONE (compile + skip-clean, NOT verified against PES): pes_kick_oracle_common.hpp (Build takes the engine: BindWorld, kicker chain = engine player 0; SharedEngine), pes_kick_chooser_oracle_test, pes_kick_header_oracle_test, pes_kick_root_test (renamed TheEngineChainGivesPesRootMotion...). pes_ball_list_test builds and passes 2/2 (it does not use Build).
+  - Blocker found: every PES oracle set on disk (TrapOpen/oracle, KickKind/oracle2, TrapS5, StoppageFlow) has mem.bin symlinked into deleted capture folders (pid615629, pid1467004 seq019). Kick tests skip without GF_PES_KICK_ORACLE. Main is capturing kick_chooser_8364D0, kick_header_833CD0 and kick_root_141AFDF10 (in play).
+- NOT DONE: pes_trap_oracle_test. It compares writes against the window's PhysiqueA/B, O1 and O2 (CapturedObjects/WindowObjects, Classify, ReferenceWrites), and those objects now live in the engine's heap. Porting it needs the object spans redesigned (A, B and O2 read through the engine chain; O1 has no engine counterpart in the cut). Main reports the trap oracle inputs exist (trapopen_14079A470 x72, traptick_140797CD0 x14). The test's env (GF_PES_TRAP_ORACLE) expects per-capture oracle directories made by tools/dev/translate/trap_oracle.py; not generated this round.
+
+### 4. Step 5 (DONE)
+- Deleted src/sim/onthepitch/pesanimechain.cpp (BuildAnimeChain, InitAnimeJointPose, the stand-in chain builder). Removed PesAnimeChain and its AddTo, the chain objects (kAnimeChainVa, kAnimeLayerVa, kAnimeKeyTableVa, kAnimePosArrayVa/QuatArrayVa and offsets, kAnimeKeyTableOffset, kPhysiqueAnimeOffset), the loader's animeChain (pestrapdata.hpp/cpp), and GfAnimeChain. Kept: the joint layout, PesJointPose, the root-motion frame, kClipDatabaseGlobalVa, kAnimeLayerOffset (used by the anime engine test).
+- Verified: gfsim_run, pes_joint_block_test, pes_adjuster_tick_test, pes_anime_engine_test (14 passed, 1 skipped), pes_fox_template_test (3/3), pes_ball_list_test (2/2) all build and pass; kick tests build and skip.
+
+### Open items
+1. Snapdiff replay of the runner on the 25 captures (round-4 item 2), plus the height branch in the FUN_141EB5E70 proof row.
+2. pes_trap_oracle_test port: redesign the object spans around the engine chain; generate oracle dirs from the Main trap captures (trap_oracle.py); record the set in the test doc.
+3. Verify the kick tests on Main's new captures (kick_chooser_8364D0, kick_header_833CD0, kick_root_141AFDF10).
+4. First-divergence trace of pes-loop against da3b1eff7174bc8b (which tick and man first differ, and why).
