@@ -17623,6 +17623,1052 @@
    "subsystem": "in-match menu",
    "translated": true,
    "va": "0x1420F04B0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 73,
+   "coverage": {
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14041B640": {
+     "fraction": 0.5,
+     "reached": 4,
+     "total": 8
+    },
+    "0x14041B870": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x141B55730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x141B55850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x141B55F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 1,
+   "failure_class": null,
+   "icount_max": 15,
+   "nonreturn": 0,
+   "note": "73 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.50; 73 valid of 64 requested; 1 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "gameplay",
+   "translated": true,
+   "va": "0x14041B640"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 72,
+   "coverage": {
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14041B870": {
+     "fraction": 0.1818,
+     "reached": 2,
+     "total": 11
+    },
+    "0x141B55730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x141B55850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x141B55F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 3,
+   "failure_class": null,
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.18; 72 valid of 64 requested; 3 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "gameplay",
+   "translated": true,
+   "va": "0x14041B870"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 34,
+   "coverage": {
+    "0x1403FB710": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x141978300": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 30,
+   "failure_class": "translator bug",
+   "icount_max": 162,
+   "nonreturn": 0,
+   "note": "diff: PES_DISPATCH_UNTRANSLATED: 0; 34 valid of 64 requested; 30 failed skipped",
+   "requested": 64,
+   "role": "seed",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "cutscene",
+   "translated": true,
+   "va": "0x141978300"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x141957C50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1419DC800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 66,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 66 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x1419DC800"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 1,
+   "coverage": {
+    "0x141957C50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1419DC9D0": {
+     "fraction": 0.4,
+     "reached": 2,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 70,
+   "failure_class": "harness cannot run",
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "1 valid of 64 requested; 70 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x1419DC9D0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x141EB6840": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 74
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 111,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 111 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "cutscene",
+   "translated": true,
+   "va": "0x141EB6840"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141978300": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x141EB6FF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 64,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 64 failed skipped",
+   "requested": 64,
+   "role": "seed",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "cutscene",
+   "translated": true,
+   "va": "0x141EB6FF0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 64,
+   "coverage": {
+    "0x14184D5C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x141EBEB30": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 113,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x141EBEB30"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x141EBF4A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 69,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 69 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x141EBF4A0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1419F4D00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141EBF6F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 92,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 92 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x141EBF6F0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x141EBF760": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 64,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 64 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x141EBF760"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x1403FB410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 15
+    },
+    "0x1403FB5B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1403FB860": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140401EE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x140402370": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x1414DB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14159EFF8": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1415A1708": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 87
+    },
+    "0x14184D5C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141957C50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1419DC800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x141E9B140": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x141E9BA30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x141E9BA90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x141EBFB60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 97,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 97 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x141EBFB60"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 114,
+   "coverage": {
+    "0x1403FB410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 15
+    },
+    "0x1403FB5B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB860": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140401EE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x140402370": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x14041B640": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x14041B870": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A3F530": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A928A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1414DB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14159EFF8": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1415A1708": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 87
+    },
+    "0x14184D5C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141957C50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1419DC800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1419F4D00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141B55730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x141B55850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x141B55F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E534F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x141E53520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141E9B140": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x141E9BA30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x141E9BA90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x141EB6840": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 74
+    },
+    "0x141EBEB30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x141EBF4A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x141EBF6F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x141EBF760": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x141EBFB60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x14217DB10": {
+     "fraction": 0.1707,
+     "reached": 7,
+     "total": 41
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 23,
+   "nonreturn": 0,
+   "note": "114 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.17; 114 valid of 64 requested",
+   "requested": 64,
+   "role": "seed",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x14217DB10"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140227930": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141978300": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x141EB6FF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14217DE20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 72,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 72 failed skipped",
+   "requested": 64,
+   "role": "seed",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x14217DE20"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 62,
+   "coverage": {
+    "0x14217DEF0": {
+     "fraction": 0.7692,
+     "reached": 10,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 4,
+   "failure_class": null,
+   "icount_max": 64,
+   "nonreturn": 0,
+   "note": "62 cases bit-exact; own-block coverage 0.77; 62 valid of 64 requested; 4 failed skipped",
+   "requested": 64,
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "translated": true,
+   "va": "0x14217DEF0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x141957C50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1423D53B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 66,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 66 failed skipped",
+   "requested": 64,
+   "role": "callee",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "replay",
+   "translated": true,
+   "va": "0x1423D53B0"
   }
  ]
 }

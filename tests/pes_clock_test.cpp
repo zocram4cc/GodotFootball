@@ -288,15 +288,15 @@ TEST(PesClock, DisplayMinuteAndSecondFromASecondsCount) {
   EXPECT_EQ(second, 0);
 }
 
-// The minute is the seconds count mod 60 (FUN_140A6BD80's minute slot), so 60:00 reads
-// minute 0 and nothing wraps here.
-TEST(PesClock, DisplayWrapsTheMinuteAtSixty) {
+// The HUD shows the whole minute count (no wrap at sixty): the translated builder's hours word is count / 3600
+// of the 1/60-second units, so 60:00 reads minute 60 and 89:59 reads minute 89, second 59.
+TEST(PesClock, DisplayCountsMinutesPastSixty) {
   int minute = -1, second = -1;
-  pes::ClockDisplay(3600.0f, &minute, &second);  // 60:00 -> minute wraps
-  EXPECT_EQ(minute, 0);
+  pes::ClockDisplay(3600.0f, &minute, &second);  // 60:00
+  EXPECT_EQ(minute, 60);
   EXPECT_EQ(second, 0);
   pes::ClockDisplay(5399.0f, &minute, &second);  // 89:59
-  EXPECT_EQ(minute, 29);
+  EXPECT_EQ(minute, 89);
   EXPECT_EQ(second, 59);
 }
 

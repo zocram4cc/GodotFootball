@@ -256,7 +256,12 @@ def compare(label, corpus_rows, trans_path, mismatches):
             rec = {"snapshot": label, "case": w["case"], "fields": fields,
                    "harness": {f: w[f][:120] for f in fields}, "translated": {f: g[f][:120] for f in fields}}
             if "w" in fields:
-                rec["first_write_diff"] = first_write_diff(w["w"], g["w"])
+                d = first_write_diff(w["w"], g["w"])
+                rec["first_write_diff"] = d
+                # The write records (18 hex digits each: a u64 address and a u8 value) around the divergence, both sides.
+                lo, hi = max(0, d - 4) * 18, (d + 4) * 18
+                rec["harness_at"] = w["w"][lo:hi]
+                rec["translated_at"] = g["w"][lo:hi]
             mismatches.append(rec)
     return len(want)
 

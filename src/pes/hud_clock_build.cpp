@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "pes/exe.hpp"
+#include "pes/install_sections.hpp"
 #include "pes_state.hpp"
 
 void pes_fn_1420EFEC0(PesState& s);
@@ -12,11 +13,6 @@ void pes_fn_1420EFEC0(PesState& s);
 namespace pes {
 
 namespace {
-
-// Section bounds of the install's image (the same sections the FixDemo camera rig maps).
-constexpr uint64_t kRdataVa = 0x14252F000, kRdataBytes = 0xE6C000;
-constexpr uint64_t kDataVa = 0x14339B000, kDataBytes = 0x72A000;
-constexpr uint64_t kReadChunk = 0x10000;
 
 // Image globals the builder reads: G (MI at +0x270, E at +0x2C0), the DS object FUN_14149A470
 // returns (the FUN_1420EFA10 scale), and the replay flag byte.
@@ -53,17 +49,6 @@ void PutU64(std::vector<uint8_t>& b, uint64_t off, uint64_t v) { std::memcpy(b.d
 void PutU32(std::vector<uint8_t>& b, uint64_t off, uint32_t v) { std::memcpy(b.data() + off, &v, 4); }
 void PutU8(std::vector<uint8_t>& b, uint64_t off, uint8_t v) { b[off] = v; }
 void PutF32(std::vector<uint8_t>& b, uint64_t off, float v) { std::memcpy(b.data() + off, &v, 4); }
-
-// Reads a section sector by sector; a chunk the install does not map stays zero. Returns the bytes mapped.
-uint64_t ReadSection(const PeImage& exe, uint64_t va, uint64_t n, std::vector<uint8_t>* out) {
-  out->assign(n, 0);
-  uint64_t mapped = 0;
-  for (uint64_t off = 0; off < n; off += kReadChunk) {
-    const uint64_t len = std::min<uint64_t>(kReadChunk, n - off);
-    if (exe.ReadVa(va + off, len, out->data() + off)) mapped += len;
-  }
-  return mapped;
-}
 
 }  // namespace
 
