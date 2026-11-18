@@ -244,6 +244,20 @@ SEEDS = [
     (0x142135E84, "restart", "pes-re-crawl-gap.md §4 (E9-tail goal-kick entry; bridge lists no function)"),
     (0x141EB4650, "animation", "pes-re-crawl-gap.md §4 (FixDemo/anim queries; covers 0x141AF34B0)"),
     (0x1406E6D10, "gameplay", "pes-re-crawl-gap.md §4 (kick-geometry search; covers 0x14081D8C0)"),
+    # CrawlGap round 2: direct seeds for off-path VAs with GF match-sim cites and verified direct
+    # callers (CrawlGap §4 table) but no walked path. Bridge-listed entries get rows; the crawl then
+    # expands their callees. Edit/save-only helpers stay off-path (see offpath_allow.json).
+    (0x140922BC0, "gameplay", "pes-re-crawl-gap.md §4 (worldrecord; GF pesworldrecord/playerdb cites; caller 0x14041A628)"),
+    (0x140A3CCF0, "AI", "pes-re-crawl-gap.md §4 (eliza controller; GF elizacontroller cites; caller 0x141FB1903)"),
+    (0x140A58F00, "gameplay", "pes-re-crawl-gap.md §4 (worldrecord/stamina; GF cites; caller 0x140922CE1)"),
+    (0x140A592B0, "gameplay", "pes-re-crawl-gap.md §4 (worldrecord; GF cites; caller 0x140922D03)"),
+    (0x140A595C0, "gameplay", "pes-re-crawl-gap.md §4 (stamina; GF pesstamina/pesattrs cites; caller 0x140922F6F)"),
+    (0x1419112B0, "pre-match", "pes-re-crawl-gap.md §4 (uniform; GF uniform cites; caller 0x14195856F)"),
+    (0x141FB1880, "AI", "pes-re-crawl-gap.md §4 (eliza controller; GF elizacontroller cites; caller 0x141FD53FE)"),
+    (0x141FB9FB0, "ball", "pes-re-crawl-gap.md §4 (carrier; GF pescarrier cites; caller 0x141FE37F5)"),
+    (0x141FBE480, "ball", "pes-re-crawl-gap.md §4 (carrier; GF pescarrier cites; caller 0x141FBF1B4)"),
+    (0x141FD5200, "AI", "pes-re-crawl-gap.md §4 (eliza controller; GF elizacontroller cites; caller 0x141FBE30A)"),
+    (0x141FC1380, "gameplay", "pes-re-crawl-gap.md §4 (form/state leaf; GF formstate/team/condition cites; callers 0x141FE3984/0x141FE4113)"),
 ]
 
 

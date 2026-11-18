@@ -1424,301 +1424,6 @@
   {
    "cite": "-",
    "files": [
-    "src/sim/onthepitch/pestrapdata.hpp",
-    "src/sim/onthepitch/pestrapdata.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406AC4D0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406AC660"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406AC990"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406AD810"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp",
-    "src/sim/onthepitch/pestrapdata.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406B4D40"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp",
-    "src/sim/onthepitch/pestrapactor.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406D8BF0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406D9040"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406DF630"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp",
-    "src/sim/onthepitch/pestrapworld.hpp",
-    "src/sim/onthepitch/pestrapactor.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406E03D0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapworld.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406E0540"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapworld.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406E6D10"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1406EB210"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14071D760"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14071E520"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1407205A0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140723DE0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp",
-    "src/sim/onthepitch/peskickerror.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1407240F0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp",
-    "src/sim/onthepitch/peskickerror.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1407241A0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp",
-    "src/sim/onthepitch/peskickerror.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140724590"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1407245D0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp",
-    "src/sim/onthepitch/peskickerror.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140726610"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.cpp",
-    "src/sim/onthepitch/peskickerror.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140726640"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp",
-    "src/sim/onthepitch/pesworldrecord.hpp",
-    "src/sim/onthepitch/pestrapworld.hpp",
-    "src/sim/onthepitch/player/controller/playercontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140797CD0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pesreceive.hpp",
-    "src/sim/onthepitch/player/controller/playercontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14079B3D0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapworld.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14079E5C0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapworld.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14081D8C0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1408272A0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/peskickerror.hpp",
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140829E80"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1408360F0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1408364D0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1408371A0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140837670"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140837FC0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14085E3C0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140862530"
-  },
-  {
-   "cite": "-",
-   "files": [
     "src/sim/onthepitch/pesworldrecord.cpp",
     "src/sim/onthepitch/pesworldrecord.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp",
@@ -1741,7 +1446,7 @@
    "files": [
     "src/sim/onthepitch/pesstamina.hpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): stamina cell-key initializer reached only as a callback argument (lea r9) from absent template twins 0x14042F2D0/0x140A443D0; no static call edge. GF cite is a ponytail stand-in comment (pesstamina.hpp:206).",
    "va": "0x140A57B00"
   },
   {
@@ -1779,43 +1484,8 @@
    "files": [
     "src/pes/editsave.cpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-save path builder (u__save_/u__mount_/u__KONAMI__ per decompile); save/load, out of scope. Caller chain is the menu CPK loader (FUN_1404040d0). GF editsave.cpp ports edit functionality PES exposes only via menus.",
    "va": "0x14140EA40"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/pes/uniform.hpp",
-    "src/pes/uniform.cpp",
-    "src/gdext/pes_library.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1414E03C0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/pes/formation.hpp",
-    "src/pes/formation.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1414F5120"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/gdext/pes_lighting.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1416C7930"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/gdext/pes_lighting.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141805840"
   },
   {
    "cite": "-",
@@ -1824,157 +1494,6 @@
    ],
    "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
    "va": "0x1419112B0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/gdext/pes_character.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141A874A0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/pes/editsave.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141AD9220"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp",
-    "src/sim/onthepitch/pestrapactor.hpp",
-    "src/sim/onthepitch/pesmovestep.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141AD98B0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp",
-    "src/sim/onthepitch/pestrapworld.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141AF34B0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp",
-    "src/sim/onthepitch/pestrapworld.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141B158F0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141B51400"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141B51E80"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141B53060"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp",
-    "src/sim/onthepitch/pestrapdata.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141E67B70"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pesreceive.cpp",
-    "src/sim/onthepitch/pesreceive.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141E681C0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.hpp",
-    "src/sim/onthepitch/pestrapdata.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141E73720"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapdata.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141E823E0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp",
-    "src/sim/onthepitch/pestrapworld.hpp",
-    "src/sim/onthepitch/pestrapactor.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141EB42B0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp",
-    "src/sim/onthepitch/pestrapworld.hpp",
-    "src/sim/onthepitch/pestrapactor.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141EB4650"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pesmovestep.cpp",
-    "src/sim/onthepitch/pestrapworld.hpp",
-    "src/sim/onthepitch/pestrapactor.cpp",
-    "src/pes/physique.cpp",
-    "src/pes/physique.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141EB5810"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/pes/handseq.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141EB9A30"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/pes/handseq.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141ED48F0"
   },
   {
    "cite": "-",
@@ -2010,7 +1529,7 @@
     "src/pes/editsave.cpp",
     "src/pes/editsave.hpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): enum-mapping leaf called only from the edit sequencer cluster (0x141FE9xxx callers); GF cites are editsave-only, no match-path evidence.",
    "va": "0x141FC0AD0"
   },
   {
@@ -2019,7 +1538,7 @@
     "src/pes/editsave.cpp",
     "src/pes/editsave.hpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): enum-mapping leaf called only from the edit sequencer cluster (0x141FE9xxx callers); GF cites are editsave-only, no match-path evidence.",
    "va": "0x141FC0C40"
   },
   {
@@ -2037,24 +1556,6 @@
   {
    "cite": "-",
    "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141FCDA30"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141FCF130"
-  },
-  {
-   "cite": "-",
-   "files": [
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
    "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
@@ -2065,7 +1566,7 @@
    "files": [
     "src/pes/editsave.hpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer (edit:: 0x1414Cxxxx + save-adjacent calls per decompile); edit/save, out of scope. GF editsave.cpp ports edit functionality. Entry for the 0x141FE9xxx cluster (kept off-path as a group).",
    "va": "0x141FE3830"
   },
   {
@@ -2074,7 +1575,7 @@
     "src/pes/editsave.cpp",
     "src/pes/editsave.hpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
    "va": "0x141FE9B00"
   },
   {
@@ -2083,7 +1584,7 @@
     "src/pes/editsave.cpp",
     "src/pes/editsave.hpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
    "va": "0x141FE9F40"
   },
   {
@@ -2091,7 +1592,7 @@
    "files": [
     "src/pes/editsave.cpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
    "va": "0x141FEA000"
   },
   {
@@ -2099,268 +1600,16 @@
    "files": [
     "src/pes/editsave.hpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
    "va": "0x141FEA250"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14211A550"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14211F090"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14211FE20"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142120E60"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142121920"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1421225E0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1421226C0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1421240B0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142124950"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142125140"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142125AB0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142125C80"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1421265C0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142126A80"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142126B70"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142127FF0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142128490"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142128A20"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142128C10"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/peslane.hpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142129590"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14212A700"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14212ABA0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x14212AEB0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pesgoalkick.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142132660"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pesgoalkick.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142135230"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142135700"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp",
-    "src/sim/onthepitch/pesgoalkick.cpp",
-    "src/sim/onthepitch/pessetpiecetaker.cpp",
-    "src/sim/onthepitch/pessetpiecetaker.hpp",
-    "src/sim/onthepitch/teamAIcontroller.hpp",
-    "src/sim/onthepitch/pesgoalkick.hpp",
-    "src/sim/onthepitch/referee.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142136F00"
   },
   {
    "cite": "-",
    "files": [
     "src/pes/fdc.cpp"
    ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
+   "reason": "OFFPATH (CrawlFix, 18-11-26): real clamp/lerp helper with zero code/data/vtable refs anywhere (bridge xrefs_to empty); dead or engine-registered in this build. GF fdc.cpp cites it from behavior.",
    "va": "0x14213A180"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pestrapactor.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x142397EA0"
   }
  ]
 }
