@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <map>
+#include <cstdio>
+#include <cstdlib>
 
 #include "base/log.hpp"
 #include "onthepitch/match.hpp"
@@ -105,9 +107,14 @@ class BreakerCensusProbe : public pestest::Probe {
           liveFiringsDuringFreeze++;
         } else {
           const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : -1;
+          if (std::getenv("GF_STALL_DUMP")) {
+            const std::string name = clip && clip->anim ? clip->anim->GetName() : std::string("-");
+            std::fprintf(stderr, "STALLDUMP t=%ld man=%s clip=%s family=%d ac8=%d owned=%d fn=%d ball=%.3f series=%u\n", tick_, std::string(who->GetPlayerData()->GetLastName()).c_str(), name.c_str(), family, int(p[pes::kPByteAC8Offset]), match.PesOwnsDribble(*who) ? 1 : 0, int(who->GetCurrentFunctionType()), double((who->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength()), seriesCount);
+          }
           liveFiringsOther["ac8 " + std::to_string(p[pes::kPByteAC8Offset]) + (match.PesOwnsDribble(*who) ? ", PES-owned dribbler" : ", not a PES dribbler") + ", body family " + std::to_string(family) + ", function " + std::to_string(int(who->GetCurrentFunctionType()))]++;
         }
       }
+      else if (std::getenv("GF_STALL_DUMP")) std::fprintf(stderr, "STALLDUMP t=%ld man=none\n", tick_);
     }
     else
       unarmedFirings++;
