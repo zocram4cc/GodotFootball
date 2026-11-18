@@ -248,3 +248,56 @@ What is not done:
 5. `gen_translated --check` on the current layer: pending at the time of writing (section 0).
 6. GF wiring: none. A readout node and a match.gd hook point are needed (Main).
 7. `EngineFixture` (branch `aebe3181`): the commit on that ref is the capsets tooling, not the fixture; the fixture was not used.
+
+# pes-port-Presentation round 4: replay frame read 0x14217DEF0, partly proven (18-11-26)
+
+Pushed: `2a854599` (harness fixes, `specs/presentation/14217DEF0.json`, closure set files). Everything else from round 4 is uncommitted in `<workdrive>/gf-Presentation` (listed in section 4). Labels: CONFIRMED = read in tool output or decompile; INF; OPEN.
+
+## 0. Summary
+
+- **Real-call proof, seq205 (CONFIRMED):** `snapdiff.py` replayed `0x14217DEF0` on the recorded call of seq205: 1 call, 0 mismatches, own-block coverage 1.0, `proven=True`. The recording was made with `frame_trace.py recorded` and the replay hook line `hook replay_frame_14217DEF0 0x14217def0 15 1 1 488974242041564883ec2080791800`.
+- **seq206, seq207, seq208: 3 mismatches (OPEN).** All three differ in the written-bytes field `w` (not rax or xmm0) at a write-record index: 22260 (seq206), 40366 (seq207), 65964 (seq208), with 18 hex digits per record (u64 address, u8 value). The stored strings keep only the first six records, so the divergent record is not visible in `local://`/`results.json`. `proven=False` for the set of four.
+- **Harness proof (CONFIRMED, earlier driver run):** `0x14217DEF0` bit-exact on 62 of 64 valid cases (own-block 0.77). 4 cases are "harness cannot run": the copy path allocates a PES heap object and the unicorn harness has no arena for it.
+- **Slot function `0x14217DB10`:** bit-exact on 114 cases (own-block 0.17).
+- **GF port:** written (`src/pes/replay_human.*`, `src/pes/install_sections.*`, `tests/pes_replay_human_test.cpp`), NOT built. Blocked by the layer (below). Uses GF's `PesHeap` (the native allocator service) and `gs_base` for the TLS slot.
+- **Layer regeneration failed (CONFIRMED):** `gen_translated.py` exited rc=1 after `function 0x141EB6840 site 0x141EB6DF3 reads image 0x142B67EF0`. The generator's rule for that case is not diagnosed. Until it passes, `pes_fn_14217DEF0.cpp` is not in the layer and the GF port cannot link.
+- **Clock slot:** waiting on `clockbuild_1420EFEC0` (Main, next PES launch).
+
+## 1. Decode (CONFIRMED from the decompile of `0x14217DEF0`)
+
+- Guard: record `R+0x18` (active) and `L+0x10` (frame array F). The frame's word at `F + human*300 + 0x30C` must not be `0x7FFF`.
+- Unit U = `[M + 0x6A8]` where `M = [0x1436F5118]`. Palette P = `[U + 0x20]`; frame table G2 = `[U + 0x40]`; the frame's palette byte at `G2 + human*300 + 0x36B`.
+- Copy when the byte is below `0x27` and the entry's dword at `P + 0x80 + b*0xA0 + 0x84` is non-zero (`DAT_14351AE34 == 0`). The copy is the 0xA0-byte entry from `P + 0x80 + b*0xA0` into `R + 0x50`.
+- After the copy: `FUN_14217DE20` (release: `R+0x48` and `R+0x118`, then the virtual slot `+0x28` = `FUN_14217DB10`). The copy sets `R+0x54` from the entry, so the slot function takes the allocation path (`FUN_1403FB410`, PES heap) and ends with `R+0x1C = -1`.
+- TLS: `FUN_1403FB710/730` read `gs:[0x58]` (TLS array) at index `DAT_1437067A0 = 0`.
+
+## 2. Closure
+
+`closure.py` (tags `replay14217`, `replay14217b`): 12 + 45 members. Of the 45, 30 were already in the layer; 15 were translated by the driver in this round (`<workdrive>/gf-Presentation-scratch/drv4/results.json`):
+- diffed: `14217DEF0` (62), `14217DB10` (114), `14041B640` (73), `14041B870` (72), `141EBEB30` (64);
+- not diffed, translator bug: `141978300` (34 valid; PES_DISPATCH_UNTRANSLATED through the object's vtable);
+- not diffed, harness cannot run (empty corpus): `14217DE20`, `141EB6FF0`, `141EB6840`, `141EBF4A0`, `141EBF6F0`, `141EBF760`, `141EBFB60`, `1423D53B0`, `1419DC800`, `1419DC9D0`.
+
+Note: `141978300` is a closure callee of `14217DE20` (the release path). It is a translator-bug row, so the generator may hold `14217DEF0` out of the layer; that is one possible cause of the rc=1.
+
+## 3. Fixes committed in `2a854599`
+
+- `run.py`: a `gs:[disp]` slot (patch below one page) maps page 0 (the spec-driven path could not write `0x58` before).
+- `run.py`: output region reads take their size from the encoding (u64 outputs were read as 4 bytes, `struct.error`).
+- Spec: `14217DEF0.json` (hand spec; the closure's pilot spec crashed the harness with an unmapped write).
+
+## 4. Uncommitted (worktree `<workdrive>/gf-Presentation`)
+
+1. `tools/dev/translate/results_presentation.json`: 16 driver rows (merged, original formatting). Must not land before the layer regenerates.
+2. Layer: not regenerated (rc=1). `src/pes/translated/*` unchanged in this round.
+3. `src/pes/hud_clock_build.cpp`: refactored to use `pes::ReadSection` (`install_sections.*`). Not rebuilt since the refactor.
+4. `src/pes/install_sections.{hpp,cpp}` (new), `src/pes/replay_human.{hpp,cpp}` (new), `CMakeLists.txt` (sources), `tests/CMakeLists.txt` (`pes_replay_human_test`).
+5. `tests/pes_replay_human_test.cpp` (new): **currently does not compile.** It has two defects: (a) braced `std::array<...>{}` inside `EXPECT_EQ` split into three macro arguments (4 sites); (b) an unintended `sed` edit (against the rule: source is edited with the edit tool only) replaced those four sites with `kZero`, which is not defined. The fix is to define `kZero` (a `std::array<uint8_t, pes::kPaletteEntryBytes>` in the anonymous namespace) with the edit tool.
+6. Closure outputs not committed: untracked specs for the closure members (`140227930`, `1403FB2E0`, `1403FB410`, …), `specgen/sets/closure-clockslot.txt` is committed; `closure-replay14217b.txt` committed.
+
+## 5. Next steps
+
+1. Diagnose gen rc=1 (`0x141EB6840`, "reads image"): either the rule for undiffed closure members or the translator-bug row `141978300`. Fix, regenerate, `gen_translated --check`.
+2. Fix `tests/pes_replay_human_test.cpp` (define `kZero`, drop the braces in macros) with the edit tool; build `pes_replay_human_test` and `pes_hud_clock_test`; run with `PES21_ROOT`; mutations (copy offset +0x84 vs +0x80; guard inverted).
+3. seq206–208: find the write-record divergence (index 22260 in seq206): run the replay with a full write log (not the 120-char prefix) and compare the first differing record's address and value. Candidates: the allocator's zeroing or the record copy.
+4. Commit the records and the port per green step; push.

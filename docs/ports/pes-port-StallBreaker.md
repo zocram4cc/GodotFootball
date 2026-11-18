@@ -147,3 +147,37 @@ Result: no fix landed, nothing pushed. `StallBreaker` is still `a9cda8669b`; the
 1. Decode the writer of G+0x2910 / G+0x2914 / G+0x2915 (the ball-holder and ball-state records, `FUN_140A18690`'s inputs), find which GF state they map to, and wire them in `matchevents.cpp` (`BallEventInput`): then the own-window rule is real and its red test is "a slide touch with ball state nonzero writes kind 11".
 2. Then `_SlideCandidate` gate on the window (constants 10.0 and 0.5 read from `0x142588210` / `0x142565600`, the scan as `EventAt(n)`, n < 4).
 3. Item 3 (the 76 callers of `FUN_1406B4580`) remains OPEN.
+
+## 10. Round 5 (Main): writers of G+0x2910 / G+0x2914 / G+0x2915, and the stop
+
+Result: no fix landed, nothing pushed. `StallBreaker` is still `a9cda8669b` and the worktree matches HEAD. The writer map below is decoded; the port needs the PES motion-table and possession machinery that GF does not carry, so it is a multi-round job, not a round-5 patch (10.4).
+
+### 10.1 Method (pes-image-field-scan, sections 1-3)
+- Control: flat offset of 0x14256AE1C = 1.0f (passed). Displacement scan of `.trace` (0x1000..0x252E800) for disp32 0x2910 (30 raw hits), 0x2914 (18), 0x2915 (3). Each hit decoded from its `.pdata` function start: 46 decoded, 2 outside any `.pdata` range. Script: `<scratch>/r5/dispscan.py`, output `hits.tsv`.
+- Ghidra decompiles used only to read the bodies of the functions the scan found (not for xrefs; the xref list of 0x140A571F0 and 0x141F524F0 was used as a caller check only).
+
+### 10.2 The record (CONFIRMED)
+- G+0x40 is the ball record pointer (GF `kBallPtrOffset = 0x40`). `FUN_140A18690` reads the holder at `*(G+0x40)+0x2910` (dword), the state byte at `+0x2914`, and byte 5 at `+0x2915`. The ball owner is also at `+0x279C` (GF `pesbodyscan.hpp:53`), the kick word at `+0x27DC`, the last toucher at `+0x290C`.
+
+### 10.3 Writers (VA-cited)
+| VA | Writes | Evidence |
+|---|---|---|
+| `0x140A571F0` (`FUN_140a571f0`, reset) | `+0x2910` qword = 0xFF (holder 0xFF, state byte and byte 5 = 0), `+0x2924` = 0, `+0x290C` = 0xFF, `+0x2928` = 1, `+0x2930` = 1 | CONFIRMED decompile; callers `0x14046DC6D` (`FUN_14046dc00`), two DATA refs |
+| `0x140A57900` (translated `pes_fn_140A57900`, restart) | `+0x2910` dword = 255, `+0x291C` = rax, `+0x2914` byte = low byte of the argument, `+0x290C` = 255 | CONFIRMED translated body; GF calls none; PES caller not decoded |
+| `0x141F524F0` (`FUN_141f524f0`, 10 KB) | `+0x2914` dword = `(rec+0x420 >> 26) & 7`, `+0x2920` byte = bit 25 of rec+0x420; `rec = FUN_1414BB580(table, byte at param+0x2924)` | CONFIRMED decompile of lines ~100-104; callers 141F51CB3/CDB (FUN_141f51c40), 141F51D73 (FUN_141f51d00), 141F51E00/E22 (FUN_141f51d90), 141F51EAF (FUN_141f51e40) |
+| `0x141F516A3` (inside the translated `pes_fn_141F4D2F0`, impure sample) | `+0x2910` byte (holder low byte) | scan hit (mov byte [rdi+0x2910], al); the stored value is not read |
+| `+0x2915` | no direct writer found | scan: 3 raw hits, all reads (`0x140A187E5`); a pointer write is not excluded |
+
+- `0x141F524F0` takes `(param_1, param_2, ...)` and works on `param_1 + param_2 * 0x2830`: a per-index record of stride 0x2830, not the single ball record. Whether that index is the ball is INF (not established).
+- The state word's source is a PES motion record: `FUN_1414BB580(param_1, handle)` resolves a 14-bit handle through `FUN_1414B6A60()` (`DAT_143705E10`) and the `+0x50` table, or a 0x690-stride array at `param_1 + 0xadf4bc` (`*(int*)(param_1+0x183789c) == 2` decides which). The row's `+0x420` word carries the state in bits 26..28.
+
+### 10.4 Why the stop
+- Porting `+0x2914` needs the PES motion-table handle system (`FUN_1414BB580`, `FUN_1414B6A60`, the 0x690-stride motion array and its loader), which GF does not carry. Porting `+0x2910` needs the possession writer `FUN_141F4D2F0`, translated but impure (it runs on a whole `PesState`). Neither is a field write GF can copy without these.
+- A live value would not remove this: it would give the state's in-play value, not the writer. No live hook was requested.
+- Consequence for the rule: the kind-0xB write (`FUN_140A18690`, state nonzero and class bit 7) cannot be made faithful in GF yet, so the 540-frame window in `_SlideCandidate` has no faithful input. No red test and no gate are committed.
+
+### 10.5 Next steps
+1. Port the motion-table handle system behind `FUN_1414BB580` (or confirm GF already has it translated) and the state row `+0x420` bits 26..28 for the ball's current table handle.
+2. Decode `FUN_141F4D2F0`'s holder value (the byte it stores at `+0x2910`) and which record `param_1 + param_2*0x2830` is.
+3. Then wire `BallEventInput.holder` / `holderFlag` / `holderByte5` / `holderClassKind` in `matchevents.cpp` and make the kind-0xB red test (a slide touch with ball state nonzero writes 0xB).
+4. Item 3 (76 callers of `FUN_1406B4580`) stays OPEN.
