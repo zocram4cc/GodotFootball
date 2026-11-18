@@ -520,7 +520,7 @@ def import_model_lines(op, jump):
                 " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
                 " uint64_t _dst = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2];"
                 " s.gpr[9] = _dst;"
-                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, _c, 1);"
+                " s.fill(_dst, _c, _n);"
                 " s.gpr[0] = _dst; s.gpr[1] = 0; s.gpr[4] += 8;%s }" % pop_ret]
     if e["do"] == "vsprintf_s":
         # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
@@ -648,7 +648,7 @@ def import_model_lines(op, jump):
         return ["{ " + push_ret +
                 " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
                 " uint64_t _dst = s.gpr[1], _n = s.gpr[8];"
-                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.gpr[2] & 0xFFULL, 1);"
+                " s.fill(_dst, (uint8_t)(s.gpr[2] & 0xFFULL), _n);"
                 " s.gpr[9] = _dst; s.gpr[0] = _dst; s.gpr[1] = 0;"
                 " s.gpr[4] += 8;%s }" % pop_ret]
     if e["do"] == "isnan":

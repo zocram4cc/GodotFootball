@@ -111,6 +111,63 @@ struct PesMem {
       return flat + (addr - flat_base);
     return nullptr;
   }
+  // The host pointer wfind(addr, 1) answers, and how many bytes from addr it holds: the same region up to the next region start above
+  // addr (every region's start is a boundary, so no byte in the span would resolve to another region). Null: no region takes a write at
+  // addr, and the span's bytes take none either. `len` is at least 1 (the span is never empty).
+  uint8_t* WriteSpan(uint64_t addr, uint64_t& len) {
+    uint64_t next = ~0ULL;   // the first region start above addr
+    uint64_t own = ~0ULL;    // the end of the region wfind picks for addr
+    uint8_t* hit = nullptr;
+    bool picked = false;
+    const auto boundary = [&](uint64_t base) { if (base > addr && base < next) next = base; };
+    for (const Window& w : services) {
+      boundary(w.base);
+      if (!picked && w.rw && w.base <= addr && addr < w.base + w.size) {
+        picked = true; hit = w.rw + (addr - w.base); own = w.base + w.size;
+      }
+    }
+    boundary(window.base);
+    if (window.ro || window.rw) {
+      if (!picked && window_hit(addr, 1)) {
+        picked = true; hit = window.rw ? window.rw + (addr - window.base) : nullptr; own = window.base + window.size;
+      }
+    }
+    for (auto& s : segs) {
+      boundary(s.base);
+      if (!picked && s.base <= addr && addr < s.base + s.bytes.size()) {
+        picked = true; hit = s.bytes.data() + (addr - s.base); own = s.base + s.bytes.size();
+      }
+    }
+    if (flat) {
+      boundary(flat_base);
+      if (!picked && flat_base <= addr && addr < flat_base + flat_size) {
+        picked = true; hit = flat + (addr - flat_base); own = flat_base + flat_size;
+      }
+    }
+    len = std::min(own, next) - addr;
+    return hit;
+  }
+  // n one-byte writes of the low byte of c from addr (the translated memset): one region lookup per span, not per byte. Each written byte
+  // logs exactly as wr(addr + i, c, 1) does (wlog), and a byte no region takes is dropped, as wr drops it. The snapshot mode keeps the
+  // per-byte path, which walks the snapshot's pages.
+  void wfill(uint64_t addr, uint8_t c, uint64_t n) {
+    if (snap) {
+      for (uint64_t i = 0; i < n; ++i) wr(addr + i, c, 1);
+      return;
+    }
+    while (n > 0) {
+      uint64_t len = 0;
+      uint8_t* p = WriteSpan(addr, len);
+      const uint64_t k = std::min(len, n);
+      if (p) {
+        std::memset(p, c, k);
+        if (wlog)
+          for (uint64_t i = 0; i < k; ++i) wlog->push_back({addr + i, c});
+      }
+      addr += k;
+      n -= k;
+    }
+  }
   uint64_t rd(uint64_t addr, unsigned n) const {
     if (const uint8_t* p = service_at(addr, n)) {
       uint64_t v = 0;
@@ -196,6 +253,7 @@ struct PesState {
   // Emitted-code memory shorthands (forward to mem).
   uint64_t rd(uint64_t a, unsigned n) const { return mem.rd(a, n); }
   void wr(uint64_t a, uint64_t v, unsigned n) { mem.wr(a, v, n); }
+  void fill(uint64_t a, uint8_t c, uint64_t n) { mem.wfill(a, c, n); }
   float rdf(uint64_t a) const { return mem.rdf(a); }
   void wrf(uint64_t a, float f) { mem.wrf(a, f); }
   double rdd(uint64_t a) const { return mem.rdd(a); }
