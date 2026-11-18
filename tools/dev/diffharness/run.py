@@ -337,6 +337,9 @@ def build_emu(spec, image_path, sections):
     for rname, r in (spec.get("regions") or {}).items():
         mu.mem_map(int(r["base"], 16), align_up(int(r["size"], 16)))
     stack = spec.get("stack", {"base": "0x10000000", "size": "0x20000"})
+    # GS base is 0 in this harness, so a gs:[disp] slot (patch_addrs below one page) lives on page 0.
+    if any(int(va_s, 16) < PAGE for va_s in (spec.get("patch_addrs") or {})):
+        mu.mem_map(0, PAGE)
     mu.mem_map(int(stack["base"], 16), align_up(int(stack["size"], 16)))
     RET_SENTINEL = 0xDEAD0000
     mu.mem_map(RET_SENTINEL & ~(PAGE - 1), PAGE)
@@ -428,7 +431,8 @@ def decode(mu, spec):
                     else bits & 0xFFFFFFFFFFFFFFFF
         elif "region" in loc:
             base = int(regions[loc["region"]]["base"], 16)
-            blob = bytes(mu.mem_read(base + int(loc["offset"], 16), loc.get("size", 4)))
+            size = loc.get("size", _FIELD_SIZE.get(loc.get("enc", "u32"), 4))
+            blob = bytes(mu.mem_read(base + int(loc["offset"], 16), size))
             out[name] = decode_blob(blob, loc.get("enc", "u32"))
     if getattr(mu, "_draws", None):
         out["_draws"] = mu._draws

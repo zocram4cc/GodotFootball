@@ -1,0 +1,92 @@
+{
+ "name": "replay_frame_14217DEF0",
+ "va": "0x14217DEF0",
+ "entry": "0x14217DEF0",
+ "note": "hand spec (round 4, Presentation-2). ReplayHuman frame read: FUN_14217DEF0 copies a human's appearance palette entry into the ReplayHuman record when the frame's human is present. Pointer chains: rcx = ReplayHuman R (vtable at R+0x0 = image 0x142BF7D58; R+0x18 active flag; R+0x28 human index); rdx = list L (L+0x10 = frame array F); r8 = key K (u16 frame index, u16 second word). Image global 0x1436F5118 (manager) -> M; M+0x6a8 = unit U; U+0x20 = palette base P (0xa0-byte entries from +0x80); U+0x40 = frame table G2 (0x1FB0-byte frames). TLS: gs:[0x58] (address 0x58 with GS base 0) = T; T[DAT_1437067A0 = 0] = S (the slot block, +0x58 saved word). Image global DAT_14351AE30 = 0xFFFF, DAT_14351AE34 = 0 (the palette compare then tests entry+0x84 != 0). FUN_14217DE20 calls the virtual slot +0x28 of R (image code at 0x14217DB10). Vary only the fields the function branches on; coverage is recorded, not gated.",
+ "status": "hand-spec",
+ "subsystem": "replay",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "R": {"base": "0x20000000", "size": "0x1000"},
+  "L": {"base": "0x20010000", "size": "0x1000"},
+  "F": {"base": "0x20020000", "size": "0x10000"},
+  "K": {"base": "0x20030000", "size": "0x1000"},
+  "U": {"base": "0x20040000", "size": "0x1000"},
+  "P": {"base": "0x20050000", "size": "0x4000"},
+  "G2": {"base": "0x20060000", "size": "0x10000"},
+  "M": {"base": "0x20070000", "size": "0x1000"},
+  "T": {"base": "0x20080000", "size": "0x1000"},
+  "S": {"base": "0x20090000", "size": "0x1000"}
+ },
+ "args": {
+  "rcx": "R",
+  "rdx": "L",
+  "r8": "K"
+ },
+ "regions_init": {},
+ "patch_addrs": {
+  "0x1436F5118": "M",
+  "0x58": "T"
+ },
+ "inputs": {
+  "R_vt": {"region": "R", "offset": "0x0", "enc": "u64"},
+  "R_active": {"region": "R", "offset": "0x18", "enc": "u8"},
+  "R_human": {"region": "R", "offset": "0x28", "enc": "u32"},
+  "K_key": {"region": "K", "offset": "0x0", "enc": "u32"},
+  "L_frames": {"region": "L", "offset": "0x10", "enc": "u64"},
+  "F_guard": {"region": "F", "offset": "0x30C", "enc": "u32"},
+  "M_unit": {"region": "M", "offset": "0x6A8", "enc": "u64"},
+  "U_palette": {"region": "U", "offset": "0x20", "enc": "u64"},
+  "U_frames": {"region": "U", "offset": "0x40", "enc": "u64"},
+  "T_slot": {"region": "T", "offset": "0x0", "enc": "u64"},
+  "G2_palidx": {"region": "G2", "offset": "0x36B", "enc": "u8"},
+  "P_entry0_80": {"region": "P", "offset": "0x80", "enc": "u32"},
+  "P_entry0_84": {"region": "P", "offset": "0x84", "enc": "u32"}
+ },
+ "input_schema": {
+  "R_vt": {"kind": "const", "value": "0x142BF7D58"},
+  "R_active": {"kind": "const", "value": "0x1"},
+  "R_human": {"kind": "const", "value": "0x0"},
+  "K_key": {"kind": "const", "value": "0x0"},
+  "L_frames": {"kind": "const", "value": "0x20020000"},
+  "F_guard": {"kind": "choice", "values": [0, 32767]},
+  "M_unit": {"kind": "const", "value": "0x20040000"},
+  "U_palette": {"kind": "const", "value": "0x20050000"},
+  "U_frames": {"kind": "const", "value": "0x20060000"},
+  "T_slot": {"kind": "const", "value": "0x20090000"},
+  "G2_palidx": {"kind": "choice", "values": [0, 1, 38, 39]},
+  "P_entry0_80": {"kind": "const", "value": "0x0"},
+  "P_entry0_84": {"kind": "choice", "values": [0, 1, 2]}
+ },
+ "outputs": {
+  "o1C": {"region": "R", "offset": "0x1C", "enc": "u32"},
+  "o21": {"region": "R", "offset": "0x21", "enc": "u8"},
+  "o50": {"region": "R", "offset": "0x50", "enc": "u64"},
+  "o58": {"region": "R", "offset": "0x58", "enc": "u64"},
+  "o60": {"region": "R", "offset": "0x60", "enc": "u64"},
+  "o68": {"region": "R", "offset": "0x68", "enc": "u64"},
+  "o70": {"region": "R", "offset": "0x70", "enc": "u64"},
+  "o78": {"region": "R", "offset": "0x78", "enc": "u64"},
+  "o80": {"region": "R", "offset": "0x80", "enc": "u64"},
+  "o88": {"region": "R", "offset": "0x88", "enc": "u64"},
+  "o90": {"region": "R", "offset": "0x90", "enc": "u64"},
+  "o98": {"region": "R", "offset": "0x98", "enc": "u64"},
+  "oA0": {"region": "R", "offset": "0xA0", "enc": "u64"},
+  "oA8": {"region": "R", "offset": "0xA8", "enc": "u64"},
+  "oB0": {"region": "R", "offset": "0xB0", "enc": "u64"},
+  "oB8": {"region": "R", "offset": "0xB8", "enc": "u64"},
+  "oC0": {"region": "R", "offset": "0xC0", "enc": "u64"},
+  "oC8": {"region": "R", "offset": "0xC8", "enc": "u64"},
+  "oD0": {"region": "R", "offset": "0xD0", "enc": "u64"},
+  "oD8": {"region": "R", "offset": "0xD8", "enc": "u64"},
+  "oE0": {"region": "R", "offset": "0xE0", "enc": "u64"},
+  "oE8": {"region": "R", "offset": "0xE8", "enc": "u64"},
+  "oF0": {"region": "R", "offset": "0xF0", "enc": "u64"}
+ },
+ "ret_note": "void; the record R+0x50..0xF0 is the copied palette entry",
+ "seed": 1421,
+ "count": 64
+}
