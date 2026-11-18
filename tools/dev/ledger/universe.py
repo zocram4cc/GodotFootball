@@ -479,6 +479,20 @@ def dtable_callees(drefs, DTN, PR, vtslots):
     return out
 
 
+def seed_decode(va, entry, edge, img, sorted_entries):
+    """Capstone (insns, order) from the seed VA itself when the bridge normalized a seed into an
+    already-listed body (entry != va); else None (keep the bridge listing). Guarantees every seed
+    a row: bridge/ghidra and .pdata partition functions differently, so a seed can vanish into a
+    visited container without this."""
+    if edge == "root" and entry != va and img is not None and CODE_LO <= va < CODE_HI:
+        i = bisect_right(sorted_entries, va)
+        end = sorted_entries[i] if i < len(sorted_entries) else va + IMAGE_CAP
+        insns = parse_listing(image_listing(img, va, end))
+        if insns:
+            return insns, sorted(insns)
+    return None
+
+
 def missing_callees(funcs, scope):
     """[(caller, callee, kind)] for walked rows' direct/tail callees with no row (requeue set)."""
     out = []
@@ -678,6 +692,10 @@ def crawl(seeds, scope, ctx):
         entry = order[0]  # the listing starts at the containing function's entry
         if entry != va:
             alias[va] = entry
+        red = seed_decode(va, entry, _edge, img, ctx["sorted"])
+        if red is not None:
+            insns, order = red
+            entry, source = order[0], "capstone"
         ekey = "%08X" % entry
         if entry in visited:
             if sub not in funcs[ekey]["roots"]:

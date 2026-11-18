@@ -274,6 +274,20 @@ class ThunkTailTests(unittest.TestCase):
                          [("00000001", "00000002", "direct"),
                           ("00000001", "00000009", "tail")])
 
+class SeedDecodeTests(unittest.TestCase):
+    def test_swallowed_seed_redecodes_from_itself(self):
+        import struct
+        img = fake_img(0x1000, struct.pack("<2I", 0xE8, 0) + b"\xc3")
+        got = U.seed_decode(0x140001000, 0x140000000, "root", img, [0x14000000])
+        self.assertIsNotNone(got)
+        insns, order = got
+        self.assertEqual(order[0], 0x140001000)
+        self.assertIn("CALL", insns[0x140001000])
+
+    def test_non_seed_or_matching_entry_keeps_listing(self):
+        self.assertIsNone(U.seed_decode(0x140001000, 0x140001000, "root", None, []))
+        self.assertIsNone(U.seed_decode(0x140001000, 0x140000000, "direct", None, []))
+
 
 class BoundaryWalkTests(unittest.TestCase):
     def test_walk_exceptions_not_boundary(self):
