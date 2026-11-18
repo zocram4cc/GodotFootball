@@ -32,6 +32,7 @@
 #include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "onthepitch/pesdodge.hpp"
+#include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/matchpressure.hpp"
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/setpiecelaws.hpp"
@@ -2607,7 +2608,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   pes::ShootInput shoot;
   shoot.zone = zone;
   shoot.ballHeight_m = ballHeight;
-  shoot.height_m = CastPlayer()->GetStat("physical_height") * 100.0f;
+  shoot.height_m = pesmovestep::PhysiqueHeightCmOf(*match, *CastPlayer());
   shoot.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
   shoot.planId = carrierImage.id;
   shoot.aimVsFacing_deg = aimVsFacing;
@@ -2902,7 +2903,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       pes::LongMate m;
       m.index = mate->GetID();
       m.advance_m = attackSign * mate->GetPosition().coords[0];
-      m.height_cm = mate->GetStat("physical_height") * 100.0f;
+      m.height_cm = pesmovestep::PhysiqueHeightCmOf(*match, *mate);
       longIn.mates.push_back(m);
     }
     longPass = pes::PassLongUnit(longIn, carrier);
@@ -3148,7 +3149,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // DirectHighBall gate below.
     pes::VolatileBallInput volatileIn;
     volatileIn.ballHeight_m = ctxPoint.y;  // K+0x44
-    volatileIn.carrierHeight_m = CastPlayer()->GetStat("physical_height");
+    volatileIn.carrierHeight_m = pesmovestep::PhysiqueHeightCmOf(*match, *CastPlayer()) / 100.0f;
     volatileIn.ballTrackFlag = sample0.valid;
     volatileIn.anchor = sample0.xz;
     volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};

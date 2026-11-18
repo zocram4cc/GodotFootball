@@ -53,8 +53,10 @@ std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue, b
 int CommandIdFor(const PlayerCommand* cmd);
 // PES's move kind (cmd[0x16], req[0]) for a player's move: the near keeper kind (4) for a keeper, else the mid kind (0).
 int MoveKindFor(bool keeper);
-// The physique block's height in whole cm (PM+0x30; GF's physical_height is that /100, so rounding restores it).
-float PhysiqueHeightCmOf(const Player& player);
+// The man's height in whole cm: the physique block's and the trap world's height input (P+0x3B18 = this / 180, the writer FUN_1406EB210).
+// PES's own height byte when he has a PES record (the roster row's 0x31, the byte the EDIT save carries), else his database height in
+// metres. GF's `physical_height` stat is not the height: CalculateStat runs it through the development curve (1.8 reads 0.6).
+float PhysiqueHeightCmOf(const Match& match, Player& player);
 // The Speed ability byte (slot record +0x97, 40..99). ponytail: no GF source for PES's base row; physical_velocity stands in.
 float SpeedByteOf(const Player& player);
 

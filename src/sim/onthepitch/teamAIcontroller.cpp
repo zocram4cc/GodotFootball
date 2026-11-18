@@ -3476,11 +3476,11 @@ void WritePesManMovement(Player& pl, uint8_t* man) {
 namespace {
 
 // The facts P's fields are made from (pestrapactor.hpp), read from the player's own state. `p` is P's bytes as the last tick left them.
-pes::PesActorFacts TrapFactsOf(Player& pl, int slot, bool carrier, const uint8_t* p) {
+pes::PesActorFacts TrapFactsOf(const Match& match, Player& pl, int slot, bool carrier, const uint8_t* p) {
   pes::PesActorFacts f;
   f.slot = slot;
   f.side = slot / pes::kSlotsPerSide;
-  f.heightCm = pesmovestep::PhysiqueHeightCmOf(pl);
+  f.heightCm = pesmovestep::PhysiqueHeightCmOf(match, pl);
   const pes::MoveStepRecord& rec = pl.GetMoveStep();
   f.phase = static_cast<uint8_t>(rec.state);  // P+0x245C is the MOVESTEP record's state
   // P+0xAC8..0xACB: the PES action the body runs (pes::AnimeActionOfClip, from the clip it plays), stored the way FUN_1406EEBB0 stores it
@@ -3560,7 +3560,7 @@ void WritePesTrapActors(Match& match) {
       for (std::size_t k = 0; k < pes::kVelocityRingEntries; ++k)
         std::memcpy(open.velocityRing.data() + k * pes::kVelocityRingEntryBytes, man + pes::kManVelXOffset,
                     pes::kVelocityRingEntryBytes);
-      pes::PesActorFacts facts = TrapFactsOf(*p, slot, match.GetPesHolder() == p.get(), match.PesWorldOf().P(slot));
+      pes::PesActorFacts facts = TrapFactsOf(match, *p, slot, match.GetPesHolder() == p.get(), match.PesWorldOf().P(slot));
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
       // PES-owned dribble: P says Dribble and the body's clip is not GF's own dribble (GfOwnsDribble). GF-derived Dribble stays GF's
       // (rewritten below, no runner); a PES switch (trap end -> act4 start) puts P in Dribble, and only those men get the runner.
