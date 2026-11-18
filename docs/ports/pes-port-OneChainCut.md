@@ -181,3 +181,35 @@ Branch OneWorld-series-wip, pushed. `git ls-remote`: e29bcd15fe7e2f96d03c09972a7
 2. Trap oracle: object-model port to engine A/B/O2, generate the trapopen/traptick oracle dirs, then run.
 3. First-divergence trace (needs the cut4 baseline; see above).
 4. Run the other nine kept captures for chooser and header.
+
+## Round 6 (17-11): result
+
+Branch OneWorld-series-wip, pushed. `git ls-remote`: 88ea37bd0e37921ff9743ab4c9e4bc6cba75fc27 (head). Commit this round: 88ea37bd (rootrd.py and the root test). The first divergence work used a debug-only dump that was removed from the repo (see 1).
+
+### 1. First divergence, 4791bbbe vs 16234a42 (DONE)
+- Method: a debug-only dump after match.Process() in apps/gfsim_run.cpp, env GF_TICK_DUMP=path, one line per man per tick: tick, team, player id, then GetGeomPosition() x, y, z as hex floats. Built in both trees (baseline worktree <workdrive>/gf-AnimeLayer-base at 4791bbbe, kept for reproduction; current at 16234a42). Each run: pes-loop, seed 7, 2 min, PES_EXE = pes_full.bin.
+- Both hashes reproduce with the dump on: current e46129415a2bdc1b (49001 ticks), baseline da3b1eff7174bc8b (29193 ticks). So the dump has no effect on the sim.
+- Result (CONFIRMED on the dumps): tick 0 identical for all 32 entries. First difference at tick 1: 16 men differ on x and 20 on y, max 3.81e-06, mean 1.9e-06. Growth: tick 2 max 4.45e-05; tick 5 2.96e-03; tick 10 1.55e-02; tick 20 0.217 (all 22 on-pitch men differ on x and y, one on z); tick 60 0.323.
+- The first difference is one float ulp: the float spacing at x = 38 m is 2^-18 = 3.81e-06, equal to the max difference at tick 1. So the first divergence is single-ulp rounding of a root displacement computed from a 38 m absolute coordinate, not a behavioural change.
+- Cause (INF, not yet traced in code): the displacement source changed in round 1. The baseline's StepAdjusters computed the strike displacement from the adjuster accumulator (A+0x14 minus the root point O2+0xD0); the cut's ReadAdjusterFrame takes it from PES's own step B+0x90/0x98 minus O2+0xD0. The two absolute bases round differently at 38 m. Growth after tick 2 is the usual amplification through the men's own dynamics (positions feed the next tick's decisions).
+- PES-faithful? INF. The cut reads PES's step values (its own float arithmetic), so it is the closer reproduction of PES's displacement. Not verified against a live PES position for the same tick: that needs a capture of the step at tick 1 and the man's position, which the rig did not hold this round.
+- Named cause to check next: the yaw half-angle (round 2) changes heading from tick 1 when the yaw adjuster is running; the 0.2 m spread by tick 20 may include that. Not separated.
+- Dump removed from the repo (kept only as this report and the scratch files tick_cur.txt, tick_base.txt).
+
+### 2. Kick root oracle (DONE, bit-exact)
+- tools/dev/translate/rootrd.py (new): rootmotion.tsv rows from a capture call (motion at [rsp+0x28], time bits from xmm3) and the snapdiff case's PES bytes at the output pointer.
+- Finding (CONFIRMED): the real calls (rdx set, r8 = 0) write their four-float vector at rdx; GF's RunRootMotion reads the vector at r8 with rdx = 0. These are two different output pointers of FUN_1423A3FD0, and the real call writes a different vector at rdx (e.g. (-0.000521, 0, -0.0105, 0) for motion 3621), not the identity. So the real-call rows cannot be compared with GF's r8 vector directly. The oracle rows therefore use the r8 convention: the real capture's state with rdx = 0 and r8 = rsp+0x100 (mapped), replayed by PES's own bytes (snapdiff, kickroot spec).
+- Set pid1152106 seq003, seq004, seq005 (kick_root_141AFDF10), real states (motions 3621, 3621, 4194 at 1/54 s) and, for seq003, six synthetic states (motion 100 at 0.25, 0.5, 1.0 s; 3983 at 1/3 s; 2447 and 3621 at 0.5 s). Synthetic states by synth.py (static spec, scratch; the spec is not committed because its output pointer is per capture).
+- Replay: snapdiff bounded, 9 of 9 calls bit-exact (own-block 13/13 = 1.0). A first attempt put two states with the same name in one snapdiff run and reported one mismatch; that was a label collision (both captures' states named real_m3621), not a translation error. Renamed; 0 mismatches.
+- pes_kick_root_test: rewritten on the engine chain (the reader's inputs are the chain B and the call's own motion and time; no manifest, no Build). 1/1 PASS on the 9 rows (3 real identity rows, 6 synthetic including 3 turning rows).
+- Not compared: the real calls' rdx-convention output (the vector at rdx); GF's RunRootMotion returns only the r8 vector.
+
+### 3. pes_trap_oracle_test on engine memory (NOT DONE)
+- Trap sets found: trapopen_14079A470 in pid2286718 (24 full), pid2523621 (8 full), pid2571173 (24 packed), pid3727195 (16 packed); traptick_140797CD0 in pid2523621 (14 packed).
+- Not started: needs (a) a snapdiff case of 14079A470 over the trapopen captures (frame_trace recorded with the trapaction spec for 14079A470, bounded replay), (b) trap_oracle.py per case for manifest.tsv, (c) the object model of pes_trap_oracle_test moved from the window's PhysiqueA/B and O1/O2 to the engine's A (P+0xA08), B (A+0xF0) and O2 (A+0x188), with O1 handled as the cut leaves it. Budget ran out before (a)-(c).
+
+### Open items
+1. Trace the first ulp step at tick 1 in code (which of the cut's root-step vs the baseline accumulator gives the PES value): needs a capture of the step and the man's position at tick 1 (PES-side), or the baseline's StepAdjusters value for the same tick.
+2. Separate the yaw half-angle effect from the displacement effect: rerun the current tree with the yaw read as before (1 line) and compare the dump; one more 15-minute smoke pair.
+3. Trap oracle (item 3 above, steps a–c).
+4. The real calls' rdx-convention output: decide whether GF's kick path needs that vector (it is not compared now).
