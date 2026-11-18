@@ -63,18 +63,18 @@ class KickRoot : public ::testing::Test {
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory with rootmotion.tsv under " << dir;
     exe_ = exe;
     std::string why;
-    chain_ = GfAnimeChain(&why);
-    if (chain_ == nullptr) GTEST_SKIP() << "the anime chain is built from the install: " << why;
+    engine_ = pes_kick_oracle::SharedEngine(&why);
+    if (engine_ == nullptr) GTEST_SKIP() << "the engine boots from PES_EXE and PES21_ROOT: " << why;
   }
   std::vector<std::string> dirs_;
   std::string exe_;
-  const pes::PesAnimeChain* chain_ = nullptr;
+  pes_engine::EngineTrap* engine_ = nullptr;
 };
 
 // The recorded calls of each capture (rootmotion.tsv: the reader's real calls inside the chooser's run) and, beside the first
 // capture, PES's own bytes asked other motions and times on the same memory (rootmotion_synthetic.tsv, SYNTHETIC: 72 motions at
 // four times, the clips that turn the mover included).
-TEST_F(KickRoot, TheChainGfBuildsGivesPesRootMotionOnEveryCapturedKick) {
+TEST_F(KickRoot, TheEngineChainGivesPesRootMotionOnEveryCapturedKick) {
   size_t real = 0, synthetic = 0, turning = 0;
   const char* only = std::getenv("GF_PES_KICK_ROOT_MOTION");  // one motion only (a bisect of the closure's reach)
   for (const std::string& dir : dirs_) {
@@ -84,7 +84,7 @@ TEST_F(KickRoot, TheChainGfBuildsGivesPesRootMotionOnEveryCapturedKick) {
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b, chain_);
+    Build(o, image.bytes, image.size, b, engine_);
     for (const char* file : {"rootmotion.tsv", "rootmotion_synthetic.tsv"}) {
       for (const ReaderCall& c : LoadCalls(dir + "/" + file)) {
         if (only != nullptr && c.motion != static_cast<uint32_t>(std::atoi(only))) continue;

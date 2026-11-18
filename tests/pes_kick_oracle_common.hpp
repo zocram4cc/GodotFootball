@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "onthepitch/pesanimechain.hpp"
+#include "pes_engine_trap.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
@@ -31,6 +32,7 @@ using namespace pes_oracle;
 
 constexpr uint64_t kImageG = 0x1436F3DC8ULL;  // the image global that holds G
 constexpr int kSlot = 0;  // the window's P that stands for the capture's kicker (any slot: the request names it)
+constexpr int kKickerPlayer = 0;  // the engine player whose chain stands for the capture's kicker (the cut: the engine's own BodyAnimControl)
 
 inline uint8_t* RecordOf(pes::PesWorld& w, const std::string& kind, int idx) {
   if (kind == "B") return w.BallRecord();
@@ -104,9 +106,15 @@ inline void CopyNamed(const Oracle& o, uint64_t g, Built& b, const std::vector<s
 
 // `requestReg` names the register that holds the request's address in the captured call (the chooser's r8; the builder's rcx): the
 // Kick start's two callers (FUN_140724CC0, FUN_1407253D0) keep the request at different offsets from rsp (0xD8 and 0xC8 above it).
-inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b, const pes::PesAnimeChain* chain,
+inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b, pes_engine::EngineTrap* engine,
                   const char* requestReg = "r8") {
   pes::PesWorld& w = *b.world;
+  // The window moves into the engine's PES memory before any write (BindMemory copies what the window holds), and the kicker's anime
+  // chain is the engine player's own BodyAnimControl (the cut): the calls that read it run over that memory (its shared regions lent).
+  if (engine != nullptr) {
+    engine->BindWorld(w, -1);
+    b.ext.borrowed = engine->Externals().borrowed;
+  }
   const uint64_t g = Read(o, kImageG, 8);
   for (int k = 0; k < pes::kSlotCount; ++k) w.BindSlot(k);
   for (int k = 0; k < pes::kOfficialCount; ++k) w.BindOfficial(pes::kRefereeOfficialIndex + k);
@@ -165,32 +173,27 @@ inline void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Bu
     uint8_t* dst = w.RosterRecord();
     for (size_t i = 0; i < pes::kRosterEntries * pes::kRosterEntryBytes; ++i) dst[i] = static_cast<uint8_t>(Read(o, roster + i, 1));
   }
-  if (chain != nullptr) {
-    w.BindAnimeChain(kSlot);
-    chain->AddTo(b.ext);  // after the capture's own globals: the chain's database global wins
-  }
+  if (engine != nullptr) w.BindAnimeChain(kSlot, engine->Player(kKickerPlayer));  // the engine's own chain for the kicker (the cut)
   b.ext.image = const_cast<uint8_t*>(image);
   b.ext.imageBytes = imageBytes;
 }
 
-// The anime chain GF builds from the install (PES21_ROOT): the body archives, the key table, the layer objects. Built once.
-inline const pes::PesAnimeChain* GfAnimeChain(std::string* why) {
-  static std::optional<pes::PesAnimeChain> chain;
+
+// The engine the kick tests share: booted once per process from PES_EXE and PES21_ROOT (the fixture of pes_engine_trap.hpp). Null, with `why`
+// set, when either is unset or the engine cannot start.
+inline pes_engine::EngineTrap* SharedEngine(std::string* why) {
+  static std::unique_ptr<pes_engine::EngineTrap> engine;
   static std::string error;
   static bool tried = false;
   if (!tried) {
     tried = true;
     const char* root = std::getenv("PES21_ROOT");
-    if (root == nullptr || *root == '\0') {
-      error = "PES21_ROOT unset";
-    } else {
-      static pes::PesVfs vfs;
-      auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &error);
-      if (exe && vfs.Mount(root, &error)) chain = pes::BuildAnimeChain(*exe, vfs, &error);
-    }
+    const char* exe = std::getenv("PES_EXE");
+    if (root == nullptr || *root == '\0' || exe == nullptr || *exe == '\0') error = "PES_EXE / PES21_ROOT unset";
+    else engine = pes_engine::EngineTrap::Open(exe, root, 1, &error);
   }
   *why = error;
-  return chain ? &*chain : nullptr;
+  return engine.get();
 }
 
 struct Image {

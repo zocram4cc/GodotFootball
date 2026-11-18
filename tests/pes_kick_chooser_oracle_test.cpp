@@ -53,12 +53,12 @@ class KickChooserOracle : public ::testing::Test {
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
     exe_ = exe;
     std::string why;
-    chain_ = GfAnimeChain(&why);
-    if (chain_ == nullptr) GTEST_SKIP() << "the anime chain is built from the install: " << why;
+    engine_ = pes_kick_oracle::SharedEngine(&why);
+    if (engine_ == nullptr) GTEST_SKIP() << "the engine boots from PES_EXE and PES21_ROOT: " << why;
   }
   std::vector<std::string> dirs_;
   std::string exe_;
-  const pes::PesAnimeChain* chain_ = nullptr;
+  pes_engine::EngineTrap* engine_ = nullptr;
 };
 
 TEST_F(KickChooserOracle, EveryCapturedCallOnGfsWindowGivesPesDescriptor) {
@@ -70,7 +70,7 @@ TEST_F(KickChooserOracle, EveryCapturedCallOnGfsWindowGivesPesDescriptor) {
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b, chain_);
+    Build(o, image.bytes, image.size, b, engine_);
     const pes::PesKickDescriptor got = b.world->RunKickChooser(kSlot, b.request, b.ext);
     const std::map<size_t, uint8_t> want = ReferenceWrites(o);
     ASSERT_FALSE(want.empty()) << dir << ": the reference wrote no descriptor byte";

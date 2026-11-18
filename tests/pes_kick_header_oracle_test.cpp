@@ -94,9 +94,13 @@ class KickHeaderOracle : public ::testing::Test {
     std::sort(dirs_.begin(), dirs_.end());
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
     exe_ = exe;
+    std::string why;
+    engine_ = pes_kick_oracle::SharedEngine(&why);
+    if (engine_ == nullptr) GTEST_SKIP() << "the engine boots from PES_EXE and PES21_ROOT: " << why;
   }
   std::vector<std::string> dirs_;
   std::string exe_;
+  pes_engine::EngineTrap* engine_ = nullptr;
 };
 
 // The builder on GF's window reproduces PES's request on every byte the reference call wrote (15 real kick_header captures, 04-11-26:
@@ -111,7 +115,7 @@ TEST_F(KickHeaderOracle, EveryCapturedOrderOnGfsWindowGivesPesRequest) {
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b, nullptr, "rcx");
+    Build(o, image.bytes, image.size, b, engine_, "rcx");
     SetKickStamp(o, b);
     const pes::PesKickRequest got = b.world->RunKickRequest(kSlot, CapturedOrder(o), b.ext);
     const std::map<size_t, uint8_t> want = ReferenceRequest(o);
@@ -135,7 +139,7 @@ TEST_F(KickHeaderOracle, TheChooserAnswersAsPesDoesOnTheBuiltRequestAndOnGfsOrde
     Image image;
     ASSERT_TRUE(image.Open(exe_));
     Built b;
-    Build(o, image.bytes, image.size, b, nullptr, "rcx");
+    Build(o, image.bytes, image.size, b, engine_, "rcx");
     SetKickStamp(o, b);
     // PES's answer: the proven chooser on PES's own request.
     pes::PesKickRequest pes_request;
