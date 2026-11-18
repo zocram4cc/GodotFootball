@@ -149,3 +149,35 @@ Branch OneWorld-series-wip, pushed. `git ls-remote`: 7a88d07e6a3c460b80788b5991a
 2. pes_trap_oracle_test port: redesign the object spans around the engine chain; generate oracle dirs from the Main trap captures (trap_oracle.py); record the set in the test doc.
 3. Verify the kick tests on Main's new captures (kick_chooser_8364D0, kick_header_833CD0, kick_root_141AFDF10).
 4. First-divergence trace of pes-loop against da3b1eff7174bc8b (which tick and man first differ, and why).
+
+## Round 5 (17-11): result
+
+Branch OneWorld-series-wip, pushed. `git ls-remote`: e29bcd15fe7e2f96d03c09972a7322a3f8df435f (head). Commit this round: e29bcd15 (set notes in the chooser and header tests; no behaviour change).
+
+### 3. Snapshot-replay proof of the runner and the adjuster (DONE, bit-exact)
+- Six real anime_tick captures (copies of pid3778393 seq061, seq062, seq1128, seq1171 and pid848145 seq8934, seq8935; unpacked copies in scratch, now packed again). Trace: frame_trace.py recorded with hooks PES21/rendezvous/hooks.cfg and spec dir diffharness/specs/kick. Replay: snapdiff.py --bounded.
+- FUN_141AFC4A0 (the runner, spec kick/141AFC4A0.json): calls 6, replayed 6, mismatches 0, own-block 0.5897 (recorded, not gated). Result file: scratch pb_runner2/res.json.
+- FUN_141EB5E70 (the driver, spec kick/141EB5E70.json): calls 6, replayed 6, mismatches 0, own-block 7/7 (1.0). Result: pb_runner2/res_adj.json.
+- Height branch (the row Main asked for): read from the unpacked capture memory (P+0x498): height state 2 running in pid848145 seq8934 (count 2, delay 15, ticks 30) and seq8935 (count 4). The other four captures have height state 0. So the height branch is covered by two of the six replayed calls, bit-exact.
+- Guard: 0x141AE8950 returns *(u64*)(&DAT_1437cea30 + idx*8), idx = dword [A+0x60] = 0 in all 25 captures; [ret+0x350] = 0 in all 25, so 0x141AEF890 is not called. The replay does not enter it (members list has no 0x141AEF890). Named gap: other states.
+- prove_bounded.py was NOT used: its SPEC_DIR is trapaction, and these roots' specs live in kick/ (no trapaction spec for them). The equivalent chain (frame_trace + snapdiff --spec-dir kick) was run directly. No closure file was merged.
+
+### 1. Kick oracles and tests (PARTIAL: chooser and header bit-exact; root not runnable)
+- Chain built per capture (scratch kick_r5/chooser_chain.sh, gen_chain.sh): copy of the packed capture, unpack, frame_trace.py recorded (hooks PES21/rendezvous/hooks.cfg, spec kickkind for 1408364D0, kick for 140833CD0, kickroot for 141AFDF10), snapdiff.py --bounded for the root, trap_oracle.py for manifest.tsv, then assembled as the oracle dir (corpus.jsonl, manifest.tsv, maps.txt, mem.bin, ok_calls.bin, ok_delta.bin, pages.bin, teb.txt).
+- Chooser (1408364D0), set pid1152106 seq299, seq421, seq152: pes_kick_chooser_oracle_test 1/1 PASS on the engine chain. Descriptor bit-exact on every reference byte. No differing case.
+- Header (140833CD0), set pid1152106 seq011, seq013, seq027: pes_kick_header_oracle_test 2/2 PASS (request bytes and chooser answer). No differing case.
+- Root (141AFDF10), set pid1152106 seq003, seq004, seq005: snapdiff proves the reader bit-exact (1 call each), but trap_oracle.py fails on all three: "P+0x3B18 is not a whole-cm height / 180". That check is the kind-0 trap layout; the reader's call has rcx = B and rdx = 0, so it is not a P-based oracle. Also pes_kick_root_test needs rootmotion.tsv, from rootrd.py, which is not in the repo (it lived in the deleted gf-KickMotion-scratch). So the root test is not runnable. To finish: redesign the root oracle around the reader's own arguments (the reference output is in the snapdiff corpus rows), or regenerate it from the chooser runs that enter the reader.
+- The other nine kept captures of each set are not run.
+
+### 2. pes_trap_oracle_test on engine memory (NOT DONE)
+- Not started. Its object model (PhysiqueA/B, O1, O2 window objects; Classify, ReferenceWrites, CapturedObjects) needs redesign onto the engine's A/B/O2 (B = A+0xF0, O2 = A+0x188; O1 has no engine counterpart in the cut). The trapopen_14079A470 and traptick_140797CD0 sets are not generated yet. trap_oracle.py was built for this kind-0 trap, so the generator path is known; the test redesign is the cost.
+
+### 4. First diverging tick/man vs da3b1eff7174bc8b (NOT DONE; the baseline is not on this line)
+- da3b1eff7174bc8b was recorded at commit 4791bbbe ("OneWorld cut 4 (2)"), which lives on the OneWorld-cut4 branch, not on this branch. Merge-base with HEAD: efa4410e. The baseline has 5 commits this branch lacks, including WritePesTrapActors calling PesWorld::BuildDemoInfoRef (a second trap-path change). This branch has 27 commits after efa4410e (the cut, the memset, the fixtures, the TLS and memory-stack fixes).
+- So the 49001 vs baseline difference is not attributable to the one-chain cut alone. A first-divergence trace would need: a worktree at 4791bbbe, a debug-only per-tick dump of the 22 player positions in Match's tick (identical text in both trees, not committed), two traced 2-min smokes, and a diff. Estimated: about one hour of builds plus two 15-minute smokes.
+
+### Open items
+1. Root oracle: redesign around the reader's arguments, or regenerate from chooser runs that enter the reader; rootmotion.tsv from snapdiff corpus rows.
+2. Trap oracle: object-model port to engine A/B/O2, generate the trapopen/traptick oracle dirs, then run.
+3. First-divergence trace (needs the cut4 baseline; see above).
+4. Run the other nine kept captures for chooser and header.
