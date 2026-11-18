@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include "onthepitch/pesclock.hpp"
+#include "pes/hud_clock.hpp"
 #include <optional>
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
@@ -287,8 +288,8 @@ TEST(PesClock, DisplayMinuteAndSecondFromASecondsCount) {
   EXPECT_EQ(second, 0);
 }
 
-// FUN_140A6BD80 takes hours/minutes/seconds off a seconds count, so the clock
-// never exceeds 59 minutes before the wrap: PES wraps it to 0 instead.
+// The minute is the seconds count mod 60 (FUN_140A6BD80's minute slot), so 60:00 reads
+// minute 0 and nothing wraps here.
 TEST(PesClock, DisplayWrapsTheMinuteAtSixty) {
   int minute = -1, second = -1;
   pes::ClockDisplay(3600.0f, &minute, &second);  // 60:00 -> minute wraps
@@ -297,6 +298,20 @@ TEST(PesClock, DisplayWrapsTheMinuteAtSixty) {
   pes::ClockDisplay(5399.0f, &minute, &second);  // 89:59
   EXPECT_EQ(minute, 29);
   EXPECT_EQ(second, 59);
+}
+
+// FUN_140A6BD80 (translated, src/pes/translated/hud) splits a seconds count into hours and
+// the minute within the hour; the test pins the division, not the code path.
+TEST(PesClock, HmsSplitsHoursAndMinutesFromASecondsCount) {
+  const pes::HmsSplit before_hour = pes::SplitHms(3599.0f);
+  EXPECT_EQ(before_hour.hours, 0u);
+  EXPECT_EQ(before_hour.minute, 59u);
+  const pes::HmsSplit hour = pes::SplitHms(3600.0f);
+  EXPECT_EQ(hour.hours, 1u);
+  EXPECT_EQ(hour.minute, 0u);
+  const pes::HmsSplit later = pes::SplitHms(5400.0f);  // 90:00
+  EXPECT_EQ(later.hours, 1u);
+  EXPECT_EQ(later.minute, 30u);
 }
 
 // --- stoppage: the linear formula, evaluated once at half end (report 3.2) ---

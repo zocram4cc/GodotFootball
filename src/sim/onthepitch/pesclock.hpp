@@ -43,8 +43,6 @@ constexpr uint64_t LIMIT_CAP_VA = 0x142647c60;           // .rdata 21600.0 (LIMI
 constexpr uint64_t SECOND_UNITS_VA = 0x14259a764;         // .rdata 60.0 (seconds per minute, units per second)
 constexpr uint64_t MATCH_SPEED_BASE_VA = 0x14259be5c;     // .rdata 90.0: the match-speed numerator (A6Writers 6)
 
-// Report 2.2: the HUD wraps the displayed minute at 100.
-constexpr int kDisplayMinuteWrap = 100;
 // Report 3.1: the HUD shows at most nine minutes of added time.
 constexpr int kMaxAnnouncedAddedMinutes = 9;
 // The added-time formula's own clock: 960 ticks per game-minute and 1000 units

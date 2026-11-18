@@ -1,5 +1,7 @@
 #include "onthepitch/pesclock.hpp"
 
+#include "pes/hud_clock.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -262,13 +264,12 @@ bool TimeUpWhistle(TimeUpCounters& c, const TimeUpInput& in, int rate) {
 }
 
 void ClockDisplay(float totalSeconds, int* minute_db_pitch, int* second) {
-  // FUN_140A6BD80: h = total/3600, m = (total/60)%60, and the HUD block's
-  // `if minute >= 100: minute = 0`.
-  const int total = static_cast<int>(std::floor(totalSeconds));
-  int minute = (total / 60) % 60;
-  if (minute >= kDisplayMinuteWrap) minute = 0;
-  if (minute_db_pitch) *minute_db_pitch = minute;
-  if (second) *second = total % 60;
+  // The minute is the translated FUN_140A6BD80's minute result (SplitHms).
+  // ponytail: the second is GF's count mod 60. PES's source for the displayed second is open:
+  // FUN_140A6BD80 returns no second, and the HUD builder 0x1420EFEC0 reads the same call's r8
+  // slot as its second (docs/re/pes-re-clock-record.md 2.2).
+  if (minute_db_pitch) *minute_db_pitch = static_cast<int>(SplitHms(totalSeconds).minute);
+  if (second) *second = static_cast<int>(totalSeconds) % 60;
 }
 
 double AddedTimeUnits(const PesClockConstants& c, e_AddedTimePhase phase, float elapsedSeconds,
