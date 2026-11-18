@@ -174,7 +174,35 @@ uint64_t PesBoot(PesMemory& memory, const std::string& installRoot) {
   // The havok object exists before the anime init in PES's boot (boot capture pid900228: [0x1436D0030] = 0x1FE0400 at 0x141AE77B0's entry).
   BuildHavokSubobject(memory);
   memory.Call(::pes_fn_141AE77B0, {kBootArgs[0], kBootArgs[1], kBootArgs[2], kBootArgs[3]});
+  CreateRegistry(memory);
   return initializers;
+}
+
+// FUN_140401420's stores into the config block (rsp+0x40 is the block's +0): +0x0C = 4 (esi at 0x140401462's `mov [rsp+0x4C], esi`), +0x10 = 0x100000
+// (0x140401466), +0x18 = 0 (0x14040146E), +0x20 = 1 (0x14040147C), +0x24 = 2 (0x140401478 region: `mov dword [rsp+0x64], 2`), the pool vector at
+// +0x28 (FUN_141B49C80 at 0x140401489: ten dwords, two qwords 0x20000 at +0x18 and +0x20 of it), its thread count at +0x28 (0x1404014BA) and 1
+// at +0x2C (0x1404014BE), then 6 and 6 at +0x50 / +0x54, FUN_141794410 at +0x58 and +0x60 (the decompile's local_98, local_94, local_90,
+// local_88) and the flags at +0x78 (bit 0 set; bit 2 set when the option FUN_141B34850 answers nonzero).
+constexpr uint64_t kRegistryConfigU32[][2] = {{0x0C, 4}, {0x10, 0x100000}, {0x20, 1}, {0x24, 2}, {0x2C, 1}, {0x50, 6}, {0x54, 6}, {0x78, 1}};
+constexpr uint64_t kRegistryThreadCountOffset = 0x28, kRegistryThreads = 4, kRegistryPoolVectorOffset = 0x28;
+constexpr uint64_t kPlatformInitCountVa = 0x1437F0564;
+constexpr uint64_t kRegistryTaskFunctionVa = 0x141794410, kRegistryTaskFunctionOffsets[2] = {0x58, 0x60};
+
+uint64_t CreateRegistry(PesMemory& memory) {
+  const uint64_t config = memory.Alloc(kRegistryConfigBytes);
+  if (config == 0) throw std::runtime_error("PES boot: the heap is full");
+  memory.Call(::pes_fn_141B49C80, {config + kRegistryPoolVectorOffset});
+  for (const auto& store : kRegistryConfigU32) memory.Write32(config + store[0], static_cast<uint32_t>(store[1]));
+  memory.Write32(config + kRegistryThreadCountOffset, static_cast<uint32_t>(kRegistryThreads));
+  for (const uint64_t at : kRegistryTaskFunctionOffsets) memory.Write64(config + at, kRegistryTaskFunctionVa);
+  // ponytail: the platform layer's init count DAT_1437F0564 (FUN_141B37EE0, called first by the file layer's FUN_14140EA40 and by FUN_141B3FCE0, FUN_1420556E0,
+  // FUN_1420565C0 in PES's engine start, then by the creator's FUN_141B6DAA0): the first call runs FUN_141B37F00 (the platform init), every later one
+  // returns 0x1000002. GF's boot does not run that first caller, so the count is 0 here and the creator's call would run the platform init; on the
+  // real call (live2/pid3319119 seq001) the count was already 1 and the proof ran the 0x1000002 arm. The count is set to that value.
+  // Removed by running the first caller with FUN_141B37F00 translated.
+  memory.Write32(kPlatformInitCountVa, 1);
+  memory.Call(::pes_fn_141B55E70, {config});
+  return config;
 }
 
 }  // namespace pes

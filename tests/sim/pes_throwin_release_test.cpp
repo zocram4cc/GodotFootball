@@ -15,6 +15,7 @@
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/pesgoalkick.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/pessetpiecetaker.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/team.hpp"
@@ -225,6 +226,38 @@ class LiftProbe : public pestest::Probe {
   bool wasArrived_[2] = {true, true};
 };
 
+// EveryManHasHisDemoInfoRef: PES's actor setup builds each man's DemoInfoRef (P+0x3AC8) and PLAYER object (P+0x3AD0) once, FUN_1406EB250 from
+// FUN_1406EB670. The throw-in's bookkeeping block (FUN_140792E10 after FUN_1406EC260) calls through that object, so a man without one is a
+// block PES would run and GF skips (PesWorld::BookkeepingSkips). The probe reads every active man's two pointers on every tick after the
+// first, and the process's skip count at the end of the match.
+class DemoInfoProbe : public pestest::Probe {
+ public:
+  explicit DemoInfoProbe(unsigned int seed)
+      : Probe("EveryManHasHisDemoInfoRef", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
+  int menWithout = 0, menSeen = 0, aliasedObjects = 0;
+  unsigned long skips = 0;
+  void OnStart(Match&) override { skipsAtStart_ = pes::PesWorld::BookkeepingSkips(); }
+  void OnTick(Match& match) override {
+    skips = pes::PesWorld::BookkeepingSkips() - skipsAtStart_;
+    if (++ticks_ < 2) return;  // the first tick builds the actors
+    for (int t = 0; t < 2; ++t)
+      for (const auto& player : match.GetTeam(t)->GetAllPlayers()) {
+        if (!player->IsActive()) continue;
+        const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player.get()));
+        uint64_t info = 0, object = 0;
+        std::memcpy(&info, p + pes::kPBookkeepingObjectOffset, sizeof info);
+        std::memcpy(&object, p + pes::kPBookkeepingObjectOffset + sizeof info, sizeof object);
+        ++menSeen;
+        if (info == 0 || object == 0) ++menWithout;
+        if (info != 0 && info == object) ++aliasedObjects;
+      }
+  }
+
+ private:
+  int ticks_ = 0;
+  unsigned long skipsAtStart_ = 0;
+};
+
 // One probe per entry of kThrowInSeeds, in the order the tests search them. The list's repeated seed is a second probe on
 // the same match: the shared run feeds it the same ticks, as the old second run of that seed saw them.
 BehindLineProbe behindLine[] = {BehindLineProbe(kThrowInSeeds[0]), BehindLineProbe(kThrowInSeeds[1]),
@@ -233,6 +266,7 @@ CarriedHoldProbe carriedHold[] = {CarriedHoldProbe(kThrowInSeeds[0]), CarriedHol
                                   CarriedHoldProbe(kThrowInSeeds[2]), CarriedHoldProbe(kThrowInSeeds[3])};
 LiftProbe lift[] = {LiftProbe(kThrowInSeeds[0]), LiftProbe(kThrowInSeeds[1]), LiftProbe(kThrowInSeeds[2]),
                     LiftProbe(kThrowInSeeds[3])};
+DemoInfoProbe demoInfo(kThrowInSeeds[0]);  // the first searched match: the one the ankle test reads first
 
 }  // namespace
 
@@ -294,6 +328,18 @@ TEST(PesThrowInRelease, TheThrowInTakersAnklesStayBehindTheLine) {
   ASSERT_GT(ticks, 0) << "no carried throw-in taker stood ready in any searched match";
   EXPECT_EQ(persistent, 0) << persistent << " of " << ticks << " taking ticks kept the nearer ankle short of F[1] + 0.1 m past one tick (worst by "
                            << worst_m << " m)";
+}
+
+// Every man PES builds has his DemoInfoRef and PLAYER object (distinct heap objects), and no bookkeeping block of the match ran without one.
+TEST(PesThrowInRelease, EveryManHasHisDemoInfoRef) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  pestest::Run(demoInfo);
+  ASSERT_TRUE(demoInfo.setupError.empty()) << demoInfo.setupError;
+  pestest::Settle(demoInfo);
+  ASSERT_GT(demoInfo.menSeen, 0);
+  EXPECT_EQ(demoInfo.menWithout, 0) << demoInfo.menWithout << " of " << demoInfo.menSeen << " man-ticks had no DemoInfoRef or PLAYER object";
+  EXPECT_EQ(demoInfo.aliasedObjects, 0) << "a man's DemoInfoRef and PLAYER object are the same object";
+  EXPECT_EQ(demoInfo.skips, 0u) << demoInfo.skips << " bookkeeping blocks ran with no DemoInfoRef";
 }
 
 // A ceremony taker's ball is in his hand when he releases (pes-re-throwin-choreography.md 3.1, 3.3: PES places him with the

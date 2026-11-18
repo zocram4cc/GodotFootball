@@ -1073,6 +1073,16 @@ class PesWorld {
   void RunPlayerUpdate(int slot, PesTrapExternals& ext);
   // A P-only translated function (rcx = P) on the window with the externals lent.
   void RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext);
+  // PES's DemoInfoRef writer FUN_1406EB250 (translated; SYNTHETIC proof over the throw-in captures, results_trapaction.json) on `slot`'s P: it
+  // allocates the DemoInfoRef at P+0x3AC8 and the PLAYER object at P+0x3AD0 in PES's heap and registers the player's name (PLAYER_<side><index>) in
+  // the registry singleton DAT_1437F0AC8, which the match memory's boot built. PES calls it once per man from its actor setup FUN_1406EB670
+  // (0x1406EBA84), after the slot byte P+0x2458 is stored. No-op when the object exists. Runs on the match's PES memory (PesMemory::Call: its
+  // heap, stack and thread block, which PES's allocator wrapper reads), so the world must be bound (BindMemory).
+  void BuildDemoInfoRef(int slot);
+  // The bookkeeping block of FUN_140792E10 after FUN_1406EC260 answers true (0x140793425..0x14079341E): P+0x2460 |= 0x80, then on the
+  // DemoInfoRef at P+0x3AC8: W = FUN_1404511E0(it); if FUN_140A605E0(W) (the byte W+0x8E) then FUN_140A607D0(W, 0) clears it; FUN_140445750(it).
+  // Returns false (and counts a skip) when the man has no DemoInfoRef.
+  bool RunBookkeeping(int slot);
   // PES's joint reader FUN_141EB51A0 (translated) for joint `joint` of `slot`'s P: the joint's (x, y, z) into out, read from the joint
   // block the last tick wrote (P+0x538 + 12 * joint). False when the anime is not built (P+0xA04 == 0): PES's reader would answer zeros.
   bool JointPosition(int slot, int joint, PesTrapExternals& ext, float out[3]);
@@ -1090,6 +1100,8 @@ class PesWorld {
   // table every tick for every man: FUN_1409F1640 (the man tick) -> FUN_1409F1E70 -> FUN_1408BE100 (gated by P+0xA07/A06) ->
   // FUN_141EB4650. GF does not run that writer, so the table is empty and e reads 0: test B stays open where PES's closes (e = 20 or 34).
   // The writer's source is the BodyAnimControl at P+0xA08, which GF builds in the fox world (PesAnimePlayerOf), not in this trap record.
+  // FUN_141EB4650 is translated and proven (SYNTHETIC 4/4 over the throw-in captures, results_trapaction.json, closure_animeupd.json, in the layer); GF
+  // runs it per man once P+0xA08 is the real control (the match memory now maps the window, so ConstructAnime builds it on P in place).
   // Upgrade: the two-worlds item (one PES address space, the trap world on the fox mapping), then the writer runs per tick in this record.
   // A block reached with no P+0x3AC8 object is counted (BookkeepingSkips) and its calls are not run; the count must read 0 after that port.
   bool PushGateOpen(int slot, PesTrapExternals& ext);
@@ -1332,8 +1344,8 @@ class PesWorld {
 
   std::unique_ptr<PesWorldImage, PesWindowDeleter> image_;
   std::array<TickPlan, kSlotCount> tickPlan_{};
+  PesMemory* memory_ = nullptr;  // the match's PES memory once BindMemory has run: the calls that need PES's runtime (allocator, TLS) and the engine chain's calls run over it
   std::unique_ptr<PesHeap, PesHeapDeleter> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder, or the match's PES memory's (BindMemory); the BP lists live in it
-  PesMemory* memory_ = nullptr;  // the match's PES memory (BindMemory): the calls on the engine chain run over it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
   std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)
   PesImageTables imageTables_;     // the install's table bytes the window runs read at register-held addresses (BindImageTables)

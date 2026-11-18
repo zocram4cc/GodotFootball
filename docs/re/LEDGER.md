@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 7b443936823e62bc -->
+<!-- LEDGER-STAMP ed15beaa271fc8b6 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -13,15 +13,15 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 21804 | 19481 | 41285 |
+| total | 21810 | 19481 | 41291 |
 | ported | 421 | 0 | 421 |
 | diffed | 154 | 0 | 154 |
 | translated | 63 | 0 | 63 |
 | stand-in | 102 | 0 | 102 |
 | decoded | 1275 | 0 | 1275 |
-| leaf accessor | 2122 | 0 | 2122 |
+| leaf accessor | 2123 | 0 | 2123 |
 | engine | 1242 | 0 | 1242 |
-| undecoded | 16424 | 0 | 16424 |
+| undecoded | 16429 | 0 | 16429 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 19481 | 19481 |
 
@@ -148,7 +148,7 @@ Rows per subsystem and status:
 | AI | 1362 | 90 | 128 | 56 | 48 | 383 | 112 | 12 | 533 | 0 |
 | referee | 101 | 12 | 2 | 1 | 2 | 34 | 29 | 0 | 21 | 0 |
 | restart | 678 | 38 | 7 | 1 | 13 | 122 | 148 | 4 | 345 | 0 |
-| animation | 837 | 75 | 1 | 1 | 8 | 44 | 58 | 49 | 601 | 0 |
+| animation | 838 | 75 | 1 | 1 | 8 | 44 | 58 | 49 | 602 | 0 |
 | camera | 568 | 9 | 3 | 1 | 2 | 13 | 71 | 26 | 443 | 0 |
 | replay | 740 | 0 | 0 | 0 | 0 | 8 | 88 | 91 | 553 | 0 |
 | audio | 556 | 1 | 0 | 0 | 0 | 0 | 52 | 6 | 497 | 0 |
@@ -157,6 +157,7 @@ Rows per subsystem and status:
 | cutscene | 3846 | 2 | 4 | 0 | 0 | 71 | 256 | 456 | 3057 | 0 |
 | in-match menu | 3777 | 9 | 4 | 0 | 3 | 26 | 398 | 60 | 3276 | 1 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
+| adjtick | 2 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
 | aiconcepts | 11 | 0 | 0 | 0 | 0 | 3 | 3 | 0 | 5 | 0 |
 | animelayer | 7 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 5 | 0 |
 | animelayer10a | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
@@ -184,6 +185,7 @@ Rows per subsystem and status:
 | dribblereset | 5 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 2 | 0 |
 | gkdribble | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
+| headproof | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 |
 | motion | 2 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 |
 | proccam | 8 | 0 | 0 | 0 | 0 | 0 | 5 | 0 | 3 | 0 |
 | rootmotion | 4 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 3 | 0 |
@@ -197,7 +199,7 @@ Rows per subsystem and status:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
 | trapkind | 13 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 12 | 0 |
 | trapscan | 91 | 4 | 0 | 0 | 0 | 34 | 7 | 0 | 46 | 0 |
-| total | 21804 | 421 | 154 | 63 | 102 | 1275 | 2122 | 1242 | 16424 | 1 |
+| total | 21810 | 421 | 154 | 63 | 102 | 1275 | 2123 | 1242 | 16429 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -209,7 +211,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | AI | 1362 | 810 | 266 | 165 | 1362 | 0 | 0 |
 | referee | 101 | 65 | 16 | 11 | 96 | 0 | 0 |
 | restart | 678 | 324 | 58 | 32 | 649 | 0 | 0 |
-| animation | 837 | 259 | 84 | 22 | 837 | 0 | 0 |
+| animation | 838 | 259 | 84 | 22 | 837 | 0 | 0 |
 | camera | 568 | 149 | 14 | 12 | 72 | 496 | 0 |
 | replay | 740 | 182 | 0 | 0 | 4 | 736 | 0 |
 | audio | 556 | 168 | 1 | 1 | 556 | 0 | 0 |
@@ -218,6 +220,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | cutscene | 3846 | 751 | 6 | 6 | 808 | 3038 | 0 |
 | in-match menu | 3777 | 973 | 16 | 10 | 131 | 3646 | 0 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 289 |
+| adjtick | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | aiconcepts | 11 | 4 | 0 | 0 | 0 | 0 | 0 |
 | animelayer | 7 | 2 | 0 | 0 | 0 | 0 | 0 |
 | animelayer10a | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -245,6 +248,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | dribblereset | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | endclear | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | gkdribble | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| headproof | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | motion | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
 | proccam | 8 | 6 | 0 | 0 | 0 | 0 | 0 |
 | rootmotion | 4 | 1 | 0 | 0 | 0 | 0 | 0 |
@@ -258,7 +262,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | trapfinish | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapkind | 13 | 5 | 0 | 0 | 0 | 0 | 0 |
 | trapscan | 91 | 15 | 4 | 2 | 0 | 0 | 0 |
-| total | 21804 | 6165 | 677 | 384 | 9941 | 8139 | 289 |
+| total | 21810 | 6166 | 677 | 384 | 9941 | 8139 | 289 |
 
 ## Roots
 
@@ -466,7 +470,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 2122 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 2123 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 466 | 465 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -7174,7 +7178,7 @@ Not found (owner's list):
 | 0x1414C1E20 | FUN_1414c1e20 | leaf accessor | - | - | - | 3 | 2 | y | doc | 1405069A0>140504990>1414C1E20 |
 | 0x14159EF7C | ?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z | engine | - | - | - | 1 | 15 | - | doc | 140AC4900>140AC4BA0>14159EF7C |
 | 0x14159EFF8 | ??_L@YAXPEAX_K1P6AX0@Z2@Z | engine | - | - | - | 110 | 35 | - | doc | 14051E970>14159EFF8 |
-| 0x14159F3E0 | __security_check_cookie | engine | - | - | - | 3833 | 8 | - | doc | 1404F6C30>14159F3E0 |
+| 0x14159F3E0 | __security_check_cookie | engine | - | - | - | 3835 | 8 | - | doc | 1404F6C30>14159F3E0 |
 | 0x14159FA0C | ??_M@YAXPEAX_K1P6AX0@Z@Z | engine | - | - | - | 198 | 36 | - | doc | 14051E970>14159FA0C |
 | 0x14159FB70 | _alloca_probe | engine | - | - | - | 44 | 19 | - | doc | 140500B90>14159FB70 |
 | 0x1415A1714 | FUN_1415a1714 | engine | - | - | - | 16 | 1 | - | doc | 1404FEDC0>140A58550>1415A1714 |
@@ -8008,7 +8012,7 @@ Not found (owner's list):
 | 0x144288690 | FUN_144288690 | undecoded | - | - | - | 1 | 0 | - | doc | 140447B50>140A74100>144288690 |
 | 0x15B2B2B40 | FUN_15b2b2b40 | undecoded | - | - | - | 1 | 0 | - | doc | 140447B50>141E53310>15B2B2B40 |
 
-## animation (837)
+## animation (838)
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -8775,7 +8779,7 @@ Not found (owner's list):
 | 0x141EB84C0 | FUN_141eb84c0 | leaf accessor | - | - | - | 2 | 6 | y | doc | 1406E5FC0>1406F9B70>141EB84C0 |
 | 0x1422B3350 | FUN_1422b3350 | leaf accessor | - | - | - | 2 | 2 | y | doc | 141AF52B0>141B109C0>1422B3350 |
 | 0x142398690 | FUN_142398690 | leaf accessor | - | - | - | 1 | 4 | y | doc | 141AF28F0>1423A2A90>142398690 |
-| 0x14239BB40 | FUN_14239bb40 | undecoded | - | - | - | 3 | 5 | - | doc | 141AF52B0>141B11EE0>14239BB40 |
+| 0x14239BB40 | FUN_14239bb40 | undecoded | - | - | - | 4 | 5 | - | doc | 141AF52B0>141B11EE0>14239BB40 |
 | 0x14239BD80 | FUN_14239bd80 | undecoded | - | - | - | 1 | 176 | - | doc | 1423A2C10>1423A30C0>14239BD80 |
 | 0x14239C000 | FUN_14239c000 | undecoded | - | - | - | 1 | 49 | - | doc | 1423A2C10>1423A75C0>14239C000 |
 | 0x14239D020 | FUN_14239d020 | undecoded | - | - | - | 1 | 85 | - | doc | 1423B27A0>1423B1810>14239D020 |
@@ -8834,6 +8838,7 @@ Not found (owner's list):
 | 0x1423B1810 | FUN_1423b1810 | undecoded | - | - | - | 3 | 236 | - | doc | 14239F970>1423B27A0>1423B1810 |
 | 0x1423B1D50 | FUN_1423b1d50 | leaf accessor | - | - | - | 1 | 4 | y | doc | 14239FFC0>1423B2BC0>1423B1D50 |
 | 0x1423B1D70 | FUN_1423b1d70 | leaf accessor | - | - | - | 1 | 3 | y | doc | 14239FFC0>1423B2BC0>1423B1D70 |
+| 0x1423B2340 | FUN_1423b2340 | undecoded | - | - | - | 0 | 132 | - | closure |  |
 | 0x1423B27A0 | FUN_1423b27a0 | undecoded | - | - | - | 2 | 52 | - | doc | 1423A2C10>14239F970>1423B27A0 |
 | 0x1423B2860 | FUN_1423b2860 | undecoded | - | - | - | 2 | 38 | y | doc | 1423A2C10>14239F970>1423B2860 |
 | 0x1423B2BC0 | FUN_1423b2bc0 | undecoded | - | - | - | 1 | 158 | - | doc | 1423A2C10>14239FFC0>1423B2BC0 |
@@ -18977,6 +18982,13 @@ Not found (owner's list):
 | 0x1423E26E0 | FUN_1423e26e0 | engine | - | - | - | 1 | 41 | - | owner | 141F824A0>1423E26C0>1423E26E0 |
 | 0x1423E28A0 | FUN_1423e28a0 | engine | - | - | - | 1 | 35 | - | owner | 141F824A0>1423E2870>1423E28A0 |
 
+## adjtick (2)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x141EB3350 | FUN_141eb3350 | leaf accessor | - | - | - | 1 | 3 | y | closure |  |
+| 0x141EB3360 | FUN_141eb3360 | undecoded | - | - | - | 1 | 26 | - | closure |  |
+
 ## aiconcepts (11)
 
 | VA | name | status | decode | cite | port | callers | size | pure | how | path |
@@ -19074,13 +19086,13 @@ Not found (owner's list):
 |---|---|---|---|---|---|---|---|---|---|---|
 | 0x1415BF920 | FUN_1415bf920 | undecoded | - | - | - | 2 | 683 | - | closure |  |
 | 0x1415C0390 | FUN_1415c0390 | undecoded | - | - | - | 1 | 2813 | - | closure |  |
-| 0x1415C34C0 | FUN_1415c34c0 | undecoded | - | - | - | 1 | 920 | - | closure |  |
+| 0x1415C34C0 | FUN_1415c34c0 | undecoded | - | - | - | 2 | 920 | - | closure |  |
 | 0x1415C43A0 | FUN_1415c43a0 | undecoded | - | - | - | 2 | 809 | - | closure |  |
 | 0x1415C58F0 | FUN_1415c58f0 | undecoded | - | - | - | 0 | 182 | - | closure |  |
 | 0x1415C6580 | FUN_1415c6580 | undecoded | - | - | - | 1 | 2813 | - | closure |  |
 | 0x1415C92D0 | FUN_1415c92d0 | undecoded | - | - | - | 1 | 988 | - | closure |  |
 | 0x1415CA190 | FUN_1415ca190 | undecoded | - | - | - | 1 | 159 | - | closure |  |
-| 0x1415CA5E0 | FUN_1415ca5e0 | undecoded | - | - | - | 1 | 1770 | - | closure |  |
+| 0x1415CA5E0 | FUN_1415ca5e0 | undecoded | - | - | - | 2 | 1770 | - | closure |  |
 | 0x1415CC2D0 | FUN_1415cc2d0 | undecoded | - | - | - | 2 | 812 | - | closure |  |
 | 0x1415CE4E0 | FUN_1415ce4e0 | undecoded | - | - | - | 0 | 199 | - | closure |  |
 | 0x1419C98A0 | FUN_1419c98a0 | undecoded | - | - | - | 1 | 89 | - | closure |  |
@@ -19109,13 +19121,13 @@ Not found (owner's list):
 | 0x1423A27A0 | FUN_1423a27a0 | undecoded | - | - | - | 0 | 9 | - | closure |  |
 | 0x1423A3160 | FUN_1423a3160 | undecoded | - | - | - | 0 | 150 | - | closure |  |
 | 0x1423A5600 | FUN_1423a5600 | undecoded | - | - | - | 0 | 92 | - | closure |  |
-| 0x1423A9350 | FUN_1423a9350 | undecoded | - | - | - | 1 | 615 | - | closure |  |
-| 0x1423AAF90 | FUN_1423aaf90 | leaf accessor | - | - | - | 1 | 208 | y | closure |  |
+| 0x1423A9350 | FUN_1423a9350 | undecoded | - | - | - | 3 | 615 | - | closure |  |
+| 0x1423AAF90 | FUN_1423aaf90 | leaf accessor | - | - | - | 3 | 208 | y | closure |  |
 | 0x1423AB2F0 | FUN_1423ab2f0 | undecoded | - | - | - | 1 | 161 | - | closure |  |
 | 0x1423AB970 | FUN_1423ab970 | undecoded | - | - | - | 0 | 72 | - | closure |  |
 | 0x1423ABB80 | FUN_1423abb80 | undecoded | - | - | - | 1 | 116 | - | closure |  |
 | 0x1423AC530 | FUN_1423ac530 | undecoded | - | - | - | 1 | 188 | - | closure |  |
-| 0x1423ADB30 | FUN_1423adb30 | undecoded | - | - | - | 1 | 329 | - | closure |  |
+| 0x1423ADB30 | FUN_1423adb30 | undecoded | - | - | - | 3 | 329 | - | closure |  |
 | 0x1423AE0A0 | FUN_1423ae0a0 | leaf accessor | - | - | - | 1 | 37 | y | closure |  |
 | 0x1423B3310 | FUN_1423b3310 | undecoded | - | - | - | 1 | 8 | y | closure |  |
 | 0x1423B3950 | FUN_1423b3950 | leaf accessor | - | - | - | 1 | 7 | y | closure |  |
@@ -22082,6 +22094,14 @@ Not found (owner's list):
 |---|---|---|---|---|---|---|---|---|---|---|
 | 0x142132E20 | FUN_142132e20 | undecoded | - | - | - | 0 | 169 | - | closure |  |
 | 0x1421334D0 | FUN_1421334d0 | undecoded | - | - | - | 1 | 75 | - | closure |  |
+
+## headproof (3)
+
+| VA | name | status | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0x142399800 | FUN_142399800 | undecoded | - | - | - | 1 | 133 | - | closure |  |
+| 0x14239A1D0 | FUN_14239a1d0 | undecoded | - | - | - | 1 | 135 | - | closure |  |
+| 0x14239A770 | FUN_14239a770 | undecoded | - | - | - | 1 | 50 | - | closure |  |
 
 ## motion (2)
 

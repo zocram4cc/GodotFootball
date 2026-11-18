@@ -3634,6 +3634,9 @@ void WritePesTrapActors(Match& match) {
       match.PesWorldOf().BindAnimeChain(slot, match.PesAnimePlayerOf(slot));
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
+      // PES's actor setup builds the man's DemoInfoRef once (FUN_1406EB670 -> FUN_1406EB250, after the slot byte WriteActorP stored): the
+      // writer runs on the boot's registry (pes::CreateRegistry), inside the match memory.
+      match.PesWorldOf().BuildDemoInfoRef(slot);
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
       // cell whose hash does not match (0x140A58550). The ring index's clock dword has no GF source: the match's clock stands in
       // (WriteSlotStamina's ponytail).
