@@ -172,3 +172,34 @@ The mutation changes the match trajectory: the receiver never appears as a PASS_
 - **Where it stands:** no single input identified as the blocker. Excluded: root (<12 mm), bone mode, bone-6 yaw alone, scale. Not excluded: the other joints' pose (the hit selection could depend on them), the hit record choice (`hits[0]` vs the frame-matched hit), the constant displacement `FUN_14085C1B0`, and the ball sample 1 (not swept correctly). Joint pose is therefore NOT proven to be the cause, and I stop short of calling it pose.
 - **Next step (needs no hook):** redo the joint and ball sweeps along the right directions (joint shifted by `ball - predicted`, ball shifted by `predicted - ball`), and sweep the hit choice (each `Hits(motion)` record, not only index 0). If the flip needs a shift beyond about 0.1 m in joint space, the miss is pose.
 - **Separate fix to schedule:** `pesmovestep::PhysiqueHeightCmOf` / `PlayerHeightCm` and `pestrapactor` `heightCm` read `physical_height * 100` as cm, but GF's stat is a 0.4 to 0.99 rating. Fix at the roster source (PES's height in cm), with a test on the stat value.
+
+**Round 5: the height input. The fix is done and tested, but NOT landed: it regresses one movestep test. Branch `f8aa8e41` (red test only). Worktree at HEAD. Fix patch: `<workdrive>/gf-PassArrival-scratch/r5/height_fix_NOT_LANDED.patch` (apply on `f8aa8e41`).**
+
+**1. What the height input is (sourced).**
+- GF's `physical_height` stat is not a height. `PlayerData` loads the XML stats through `CalculateStat` (the development curve, `src/sim/utils.cpp:525`), so the XML's 1.80 reads about 0.6. Every height consumer read `GetStat("physical_height") * 100`: `PhysiqueG` (the body's G, playback, clip hit distance), `P+0x3B18` (the trap world's scale, `pestrapactor.cpp:233`), the shot and mate heights in `elizacontroller`, the carrier height.
+- The DB's own height is `PlayerData::GetHeight()` (metres, default 1.8, `playerdata.cpp:32/51`), and a PES record's height is `PlayerTraits::heightCm` (`src/pes/playerdb.cpp:56`, bias 100 + the 8-bit field at bit 216). The roster row byte 0x31 equals the EDIT save's Height (34 of 34 captured players, `pes-port-DribbleProposal7` section 1).
+- PES's formula for `P+0x3B18` (the writer `FUN_1406EB210`, store at `0x1406EB23E`, divisor 180.0 at `0x142598580`): `P+0x3B18 = height_cm / 180`, so a 180 cm man is 1.0. The live readings 1.0, 1.0278, 0.9722, 1.05 (TrapReach doc) match this.
+
+**2. The change (not landed).** `PhysiqueHeightCmOf(const Match&, Player&)` (`pesmovestep.cpp`, declared in `pesmovestep.hpp`): the PES record's `heightCm` when `Match::PesTraitsOf` finds one, else `round(GetHeight() * 100)`. Callers switched: `pesmovestep` StepHost `PhysiqueG` and `PlayerHeightCm`; `teamAIcontroller.cpp` `TrapFactsOf` (now takes the match, call in `WritePesTrapActors`); `elizacontroller.cpp` shot height (line 2610), long-pass mate height (2905), carrier height (3151, metres). `elizacontroller.cpp` gets `#include "onthepitch/pesmovestep.hpp"`.
+
+**3. Red test (`tests/sim/pes_playerdb_wiring_test.cpp`, `PlayerDatabaseWiring.TheHeightThatScalesAManIsHisHeightInCm`).** A PES-id man with record height 197 must give 197; a database man of 1.8 m must give 180. RED before the fix on the old API (both assertions failed; GF read 0.6 * 100 for both). Expected-reason failure, not a compile error.
+
+**4. Mutation.** Dropping the PES-record branch (`if (... ; false)`): the imported-man assertion RED ("a man with a PES record must scale by his record's height"). Restored; GREEN.
+
+**5. Measured with the change (seed 7, 2 min, pes_loop, `r5/` logs).**
+
+| test | before (`f8aa8e41`) | with height fix |
+|---|---|---|
+| `IsSetInFlightAndNeverStaleWhileTheBallRests` stale | 11.33 s | 8.30 s (still red) |
+| `EveryPassGetEpisodeIsWithinPesLiveRange` | 9 of 49 over 2.94 s, longest 7.69 s, median 1.20 s | 7 of 24 over 2.94 s, longest 7.87 s, median 1.30 s |
+| `ATrapsRootMovesByExactlyTheStrikeAdjusterStep` | red, 0.098 m | red, 0.110 m (no handoff on this branch: expected red) |
+| `EveryPassInFlightHasItsOwnSidesReceiver` | green | green |
+| `pes_playerdb_wiring_test` (14 tests, incl. the new one) | green | 14/14 green |
+| `pes_throwin_release_test` (6 cases, incl. the ceremony case) | not run on HEAD this round | 6/6 green |
+| `pes_movestep_wire_test` (44 tests) | 44/44 (round 3, handoff build) | 43/44: **`MoveStepWire.AShootoutKeeperSavesAKickInTheShootoutOnlyRun` RED**: "the keeper saved none of 6 kicks" (expects > 0). `TheKickoffTakerClosesToTheBall` green. |
+
+The episode count dropped from 49 to 24, so the match trajectory changed; the pair numbers are not a clean before/after comparison.
+
+**6. Why it is not landed.** The shootout failure is a real behaviour change. `PhysiqueG` now uses a 180 cm G instead of about 0.6 * 100 = 60, so every clip's playback, turn and hit distance changes (`movestep_issue.cpp:36/75`, `movestep_group_a.cpp:296`). The keeper's shootout saves go from more than zero to zero. I did not find out whether that is a PES-faithful consequence (a 180 cm keeper with the same clips) or a fault elsewhere; the test was calibrated on the wrong G. Per your rule (land only if nothing else regresses) it stays unlanded. The next check is the keeper's save path under PES's G: which clip playback or hit distance changes the save, and whether the old value of G was compensating for something.
+
+**7. Step 2 (the sweeps) and step 3 (hit frame): NOT done this round.** The sweep needs a probe build; I ran out of request budget after the height work. Step 3 is also open: the probe's `hits[0].frame` = 10 for all six trap motions. The HitData decode is `w >> 13 & 0xff` (`mbinfo.cpp:186`), and the filing at `motion + 0x11` is documented and tested (`pes-re-hitdata-index.md`). So the probe's hit lookup is the PES motion's record, and 10 may be real for these motions. The reach test reads its hit bone from the image directly, not from `Mbinfo`, so the frame is not one of its inputs. I have not checked the raw bytes. Joint-pose verdict: still open.
