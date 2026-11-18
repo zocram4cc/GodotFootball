@@ -250,3 +250,25 @@ The joint-shift column is the same as the ball-shift column to 1 cm (joint and b
 **7. Verdict.** The miss is the predicted contact point: the bone's joint position and its rotation (the hit offset is rotated by that bone's quaternion), posed by GF's skeleton at the contact frame. The shift needed is 0.18 to 0.64 m, or no flip within 0.8 m, so this is far above the 0.1 m bar. Root (at most 12 mm), hit choice (one record, same table), scale (now PES's), ball (sample 1 is the simulated ball), and the constant displacement (same image bytes) are excluded. The pose is GF's own skeleton at GF's clip frame: the contact happens at GF clip frame 31 to 32 (see round 4b), and the posed joint at that frame is the source. Per your rule, this belongs to the engine-chain line (OneWorld-series-wip), not the BK line.
 
 **8. Not done.** The raw HitData byte check (item 2, last point), and the per-frame sync between PES's contact frame and GF's clip frame 31–32 (round 4b lead), which is the most direct way to confirm pose vs timing.
+
+**15. Round 8: the height fix landed; the shoot-out test rewritten on PES facts; the near01 check. Pushed: `fa941953` (height + tests), `fb3f144f` (comments). Branch tip `fb3f144f`, `ls-remote` confirmed.**
+
+**1. Height fix (`fa941953`).** `PhysiqueHeightCmOf(match, player)` (PES record height, else `GetHeight()*100`), readers switched as in section 12. PES facts: G(180 cm, neutral leg) = 1.0 (KeeperDive section 4, `0x142598580` anchor, clamp `0x1425DDF78..80`); `P+0x3B18 = height_cm/180` (FUN_1406EB210).
+- Red test `PlayerDatabaseWiring.TheHeightThatScalesAManIsHisHeightInCm`: red before the fix, GREEN after. Mutation (drop the PES-record branch): RED on "a man with a PES record must scale by his record's height", restored GREEN.
+- Pair (seed 7, 2 min, `r8/pair.log`): stale 8.30 s (was 11.33 s), episodes 7 of 24 over 2.94 s, longest 7.87 s, median 1.30 s (was 9 of 49, 7.69 s, 1.20 s). Still red, as before. The root test is 0.110 m (was 0.098 m): still red, the trajectory moved.
+
+**2. Shoot-out test (`fa941953`, `MoveStepWire.AShootoutKeeperSavesAKickInTheShootoutOnlyRun`).** The loop runs the shoot-out to its end, as before. "saves > 0" is removed. The save count is printed, not asserted; the comment names GF's stand-in gate `Player::KeeperAttemptsSave` (player.cpp:128-180, called from playercontroller.cpp:240) as the open gap. Asserted (PES facts):
+- each keeper's height is 180 cm (the fixture's 1.8 m);
+- `PhysiqueG(180 cm, neutral leg) == 1.0`;
+- `StepPlayback(1.0) == 1.024955` (FUN_1406BA070 with the install's ramp, KeeperDive section 4).
+- **Verified and NOT asserted:** "the step playback he issues == StepPlayback(G)". Measured: on 4 keeper ticks in the step state that issued a clip (issue serial advanced), the issued playback is 1.0, not 1.024955 (gap 0.0250). So the keeper's issue path does not carry the step playback; his mover is GF's stand-in (PES moves him through its KP actions, not translated). The check is reported as open, not asserted. KeeperDive's "the step playback he issues" needs a PES decode of which clip the keeper issues.
+
+**3. The near01 check (Main's question on group_a.cpp:746).** The runtime value is 10.0: `near01` is loaded from 0x142588210 (`movestep_common.cpp:165`), which reads 10.0. PES's own IdleRow compare is at 0x1406B96C0, `movss xmm1, [0x142588210]` (ripscan over the flat image, 2,103 RIP reads of the two candidates), in FUN_1406B93A0's default arm: `if (dist < DAT_142588210)` (Ghidra decompile, same function). So PES and GF both use 10.0 m. The value is right; only the comment said 0.1 m. Comment fixed (`fb3f144f`). No separate defect, no red test needed.
+- Same finding for `RunConstants::turnP2`: loaded from 0x142588210 (10.0), and unused. PES's turn p^2 term is `PlaybackConstants::turnP2` = 0.1 at 0x142588200 (`movestep.cpp:33`, verified in the flat image). Comment corrected (`fb3f144f`); the unused field is left for a separate cleanup.
+- The `turnP2` at movestep.hpp:356 that KeeperDive cited as 0x142588210 is that unused `RunConstants` field, so the "value 0.1 at 0x142588210" was a name clash, not a wrong constant in use.
+
+**4. Test runs (`r8/`).** wiring 14/14 green; throw-in 6/6 green; movestep: 43 of 44 green in the full run, and the 44th (the shoot-out test) green on its own after the rewrite (`[shootout-keeper] 6 kicks, 0 saved`, the four PES-fact assertions pass). Pair: as in item 1, red as before.
+
+**5. Not done (open).** The KeeperDive dive reach at the kick's arrival and the keeper's issued clip (above); the sweeps (section 14 is the round-7 verdict; the sweep items in round 8's brief were not repeated); the raw HitData byte check.
+
+**Commit notes for the merge.** `fa941953` touches `pesmovestep.cpp` (`PhysiqueHeightCmOf`, `PhysiqueG`/`PlayerHeightCm` in StepHost), `pesmovestep.hpp`, `teamAIcontroller.cpp` (`TrapFactsOf` now takes the match), `elizacontroller.cpp` (shot, mate, carrier heights + include), and the two tests. OneChainCut's `pestrapactor.*` is not touched.
