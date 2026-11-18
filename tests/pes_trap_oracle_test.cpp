@@ -865,21 +865,23 @@ RunOut RunForked(const Oracle& o, const std::string& exe, const std::function<vo
 
 // The record indices the call reads (first and last of a kind in the manifest): the actor's slot and its man records.
 struct Indices {
-  int slot = 0, manFirst = 0, manLast = 0;
+  int slot = 0, manFirst = 0, manLast = 0, manVel = 0;  // manVel: the first man the call reads a velocity from (+0x574)
 };
 Indices IndicesOf(const Oracle& o) {
   Indices idx;
-  bool seenMan = false;
+  bool seenMan = false, seenVel = false;
   for (const auto& line : o.manifest) {
     if (line[0] != "T") continue;
     const int i = std::atoi(line[2].c_str());
     if (line[1] == "slot") idx.slot = i;
     if (line[1] == "man") {
       if (!seenMan) idx.manFirst = i;
+      if (!seenVel && std::strtoul(line[3].c_str(), nullptr, 16) == pes::kManVelXOffset) idx.manVel = i, seenVel = true;
       idx.manLast = i;
       seenMan = true;
     }
   }
+  if (!seenVel) idx.manVel = idx.manFirst;  // no capture reads a man's velocity: the binding then reads nothing and is not claimed
   return idx;
 }
 
@@ -910,7 +912,7 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
       {"ball velocity x", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallVelocityOffset + 2; }, 0x40},
       {"MI frame", [](Built& b, const Indices&) { return b.world->MatchInfo() + pes::kMiFrameOffset; }},
       {"man A position x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManPosXOffset; }},
-      {"man A velocity x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManVelXOffset; }},
+      {"man velocity x (the man the call reads at +0x574)", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manVel) + pes::kManVelXOffset + 3; }, 0x40},
       {"slot +0x9B", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x9B; }},
       {"slot +0xC8", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0xC8; }},
       {"slot +0x104", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x104; }},
@@ -940,10 +942,10 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
 
 }  // namespace
 
-// The match runs the chain on its own memory: a private copy of the install's image slice (not the flat image) and of the loader
-// data (PesTrapMemory, built once). On every capture that memory gives the flat image's output, and on every issued capture it commits
-// the clip the flat image commits: PES's own bytes, the flat run being the reference. The issued captures are whichever the set holds
-// (no capture is named); at least one must issue, or the clip commit is not proved on this set.
+// The match runs the chain on its own memory: the anime world's memory, whose shared windows (SharedWindows: the loader regions and the
+// OS arena, where the players' chains live) every trap call borrows (matchevents' BindPesTrapWorld; here Build's externals). On every
+// capture that memory gives the flat image's output, and on every issued capture it commits the clip the flat image commits. The issued
+// captures are whichever the set holds (no capture is named); at least one must issue, or the clip commit is not proved on this set.
 TEST_F(TrapOracle, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) {
   int issued = 0;
   for (const std::string& dir : dirs_) {
@@ -957,11 +959,7 @@ TEST_F(TrapOracle, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) {
     flatBuilt.world->RunTrapKind0(flatBuilt.slot, flatBuilt.request, flatBuilt.ext);
     Built b;
     Build(o, image.bytes, image.size, b);
-    pes::PesTrapMemory memory(*g_source);
-    pes::PesTrapExternals& ext = memory.Externals();
-    for (const pes::PesTrapSegment& seg : b.ext.segments)  // the captured table-B squad records (SBn), not the loader
-      if (seg.va != g_source->loader.segment.va) ext.segments.push_back(seg);
-    const pes::PesTrapResult r = b.world->RunTrapKind0(b.slot, b.request, ext);
+    const pes::PesTrapResult r = b.world->RunTrapKind0(b.slot, b.request, b.ext);
     EXPECT_EQ(r.issued, flat.result.issued) << dir;
     EXPECT_EQ(r.out, flat.result.out) << dir;
     if (!r.issued) continue;

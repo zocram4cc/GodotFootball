@@ -263,14 +263,4 @@ std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vf
   source.imageBytes = static_cast<uint64_t>(st.st_size);
   return source;
 }
-
-PesTrapMemory::PesTrapMemory(const PesTrapSource& source) : image_(source.imagePath, "trap") {
-  ext_.image = image_.data();
-  ext_.imageBase = kImageBaseVa;
-  ext_.imageBytes = image_.bytes();
-  source.loader.AddTo(ext_);
-}
-
-PesTrapMemory::~PesTrapMemory() = default;
-
 }  // namespace pes
