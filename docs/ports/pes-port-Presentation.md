@@ -169,3 +169,82 @@ Builder outputs are a 17-u32 struct (`param_2`). The clock-slot question (`pes-p
 5. `0x1420EFA10` provisional globals: check whether PES's live values differ (ledger convention).
 6. Replay: spec for `0x14217DEF0`, then snapdiff on `seq205`–`seq208` (section 4).
 7. Hook and wiring: the GF-side readout still needs a match.gd hook point (Main).
+
+# pes-port-Presentation round 3: HUD clock builder translated and run on PES-layout state; replay not proven (18-11-26)
+
+Branch `Presentation`: `b28f8504` (translation: spec, record, layer), `e4508380` (GF port and test). Both pushed; `git ls-remote origin Presentation` = `e4508380`. Labels: CONFIRMED = read in tool output, a live read, or a probe; INF = inference; OPEN = blocked.
+
+## 0. Summary
+
+- **Builder `0x1420EFEC0` translated, bit-exact on 104 cases** (own-block coverage 0.75). It is run from the translated layer on PES-layout state by `pes::ClockStateBuilder` (`src/pes/hud_clock_build.*`). Tests: 4 of 4 pass with the install (`tests/pes_hud_clock_test.cpp`).
+- **Slot +0x48 identified (CONFIRMED):** the controller's vtable slot 9 is `FUN_1420F04B0`, which returns the constant 6. Its only caller is `FUN_1420F10D0` (unconditional, decompile xref), which passes the scorebug `this` as the builder's `param_1`. Read from the live process (read-only pread): the scorebug object's vtable is `0x142BE70B8` (the same as `rax` in `seq002`'s call record), slot 9 at `+0x48` = `0x1420F04B0`.
+- **Replay `0x14217DEF0`: NOT proven.** Spec not written; the four captures are packed (one decompressed into scratch). Details and the next steps are in section 4.
+- **Drift check (`gen_translated --check`):** the round-2 run finished `rc=0` (5654 functions byte-identical) on the round-2 layer. The current layer (5656 functions) has a new check running now (log `<workdrive>/gf-Presentation-scratch/gen_check3.log`, last line `gen_check rc=`). Reported at the end of this message.
+- **Round-1 gate (`GATE_TIER=branch`)** is not reported: its log never reached a verdict, and its tree changed mid-run (round 2 regenerated the layer). Treat as not run.
+- **Visual:** none. The clock is still not drawn; the port is not wired to a node.
+
+## 1. Repo changes (round 3)
+
+| commit | files | change |
+|---|---|---|
+| `b28f8504` | `tools/dev/diffharness/run.py` | Stop the guided-case solver crashing on rip-relative memory keys (`mk[3]` on a 2-tuple; such keys never match a region input, so `None` is the right answer). Unmodelled-access messages name the faulting RIP. |
+| | `specs/presentation/1420EFEC0.json` | Hand spec for the builder (replaces the closure's pilot spec, which could not run). Regions C, X, E, GO, M, V, O, DS; `patch_addrs` for G (`0x1436F3DC8`) and DS (`0x143704E38`); inputs for the fields the builder branches on. Runs: 122 valid, 0 failed. |
+| | `specs/presentation/1420F04B0.json`, `specgen/sets/closure-clockslot.txt`, `tools/dev/ledger/universe.json` | Closure output for the slot-9 target. |
+| | `tools/dev/translate/results_presentation.json` | Two records (1420EFEC0 bit-exact 104 cases, coverage 0.75; 1420F04B0 bit-exact 64 cases, coverage 1.00). Original formatting kept. |
+| | `src/pes/translated/hud/pes_fn_1420EFEC0.cpp`, `in_match_menu/pes_fn_1420F04B0.cpp`, `pes_dispatch_gen.cpp`, `translated.hpp` | Generated. `gen_translated.py` wrote 5656 functions (3762 recorded bit-exact, 1894 closure; was 3760). |
+| `e4508380` | `src/pes/hud_clock_build.{hpp,cpp}` (new), `tests/pes_hud_clock_test.cpp` (new), `CMakeLists.txt`, `tests/CMakeLists.txt` | GF port and tests (section 2). |
+
+Scratch (not committed): `<workdrive>/gf-Presentation-scratch/` (drivers' logs, the clock probes, `replay/seq205/mem.bin`, 3.9 GB, to delete after the replay proof).
+
+## 2. The builder port
+
+`pes::ClockStateBuilder::Create(PeImage)` reads the install's `.rdata` (`0x14252F000`, 0xE6C000) and `.data` (`0x14339B000`, 0x72A000), and keeps them as PES image runs. `Build(ClockEnvInputs)` zeroes eight host regions at PES VAs (`0x20000000`..`0x20070000`, outside the image and the stack), writes the controller (vtable, attention, E), the vtable slot 9 (`0x1420F04B0`), G (MI, E), MI (period `+0x1168`, in-play `+0x116C`), E (`+0x9E/9F`, `+0xA0`, `+0xA4`, `+0xB0/B1`, `+0x114`, `+0x11C`, `+0x2DA8`), and patches G, DS and the replay flag in the `.data` run. It enters `pes_fn_1420EFEC0` as the dispatch does (return address at `[rsp]`, `rcx` = C, `rdx` = O) and returns the 17 output words.
+
+Tests (CONFIRMED with `PES21_ROOT=<workdrive>/PES21`, 4 of 4 pass):
+
+| test | input | asserted |
+|---|---|---|
+| `LiveHalfMinuteIsTheMinuteOfTheSecondsCount` | live 1350 s, period 1 | out[4] (minute) = 22, out[3] (hours) = 0 |
+| `LiveHalfHoursFromTheSecondsCount` | live 3600 s | out[3] = 1, out[4] = 0 |
+| `FrozenPathReadsItsOwnFloat` | flag 1, frozen 2700 s, live 100 s | out[4] = 45 (the live float does not reach this path) |
+| `DigitVariantFollowsTheHoursWord` | live 1350 s | out[5] = 2 (`1 + (out[3] < 10)`, decompile) |
+
+Expectations come from the PES code's structure (decompile of `0x1420EFEC0`: the live branch writes the HMS hours into the hours word and the minute into the minute word; `FUN_1420BE140` adds 0 for period 1, decompile). They are not copied from GF's output.
+
+Mutations (each applied with the edit tool, built, run, reverted; tree restored):
+- M1: live seconds written to `E+0x11C` (the frozen slot): `LiveHalfMinuteIsTheMinuteOfTheSecondsCount`, `LiveHalfHoursFromTheSecondsCount` FAILED (2 of 4).
+- M2: live flag forced to 0: `FrozenPathReadsItsOwnFloat` FAILED (1 of 4).
+- After revert: `pes_hud_clock_test` 4 passed; `pes_clock_test` 52 passed.
+
+Clock slot (CONFIRMED vs OPEN): the decompile names the hours word as the displayed minute. A 45-minute display cannot come from that reading, so the naming is wrong or the displayed minute comes from another word. The test pins the words the translated code writes, not which one the HUD shows. Settling it needs the armed capture `clockbuild_1420EFEC0` (Main, next PES launch).
+
+Not wired to any node. The port has no visible effect.
+
+## 3. Hand spec: what it varies and what it does not
+
+- Varies: MI period (0..10) and in-play (0..3); the E fields listed above (bytes 0..255 or 0..1; floats -10..200); DS `+0x94/+0x98`; the replay flag.
+- Fixed: the controller pointers, the vtable slot, G's MI and E pointers, DS's pointer. The attention table (`X+0x440..`) and the E table at `+0x1B0` are zero (the first table entry is varied: `E+0x1B8`, `E+0x1BD`). These are the coverage gaps (own-block 0.75).
+- Per owner ruling, coverage is recorded, not gated: a case set is proven when every case is bit-exact.
+
+## 4. Replay `0x14217DEF0`: NOT proven (state for the next round)
+
+What is confirmed:
+- Captures `live2/pid2024691/seq205`–`seq208`: one call each. `call.bin` is `CALL_REC` (`tools/dev/translate/frame_trace.py`: 16 GPRs in `rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi, r8..r15` order, then 16 XMM lo/hi, then the return address). `rax` = `0x142BF7D58` (the ReplayHuman vtable, matches `pes-re-cutscenes.md` section 6), `rcx` (`this`) = `0x37774EA0` in seq205.
+- The decompile (`FUN_14217def0`, CONFIRMED): `param_1` = ReplayHuman (`+0x18` flag, `+0x28` human index, copies the record `+0x50..+0xD0`), `param_2` = a unit list (`+0x10` frame pointer; `DAT_1436F5118 + 0x6A8` holds the replay manager), `param_3` = a `ushort[2]` (unit index, frame index). It calls `FUN_1420B6A30`, `FUN_1408BDF70` (a compare/copy), and reads a palette byte at `+0x36B`.
+- Closure (`closure.py --dry-run --tag replayframe`): 12 functions. None is in the layer for `0x14217DEF0`.
+- seq205 is decompressed to `replay/seq205/` in scratch (`zstd -d`, 5 s). seq206–208 are still packed.
+- `capz.py unpack` in place refused: `PermissionError` creating `.capz.lock` in the capture directory (CONFIRMED, two captures). Scratch decompression is the workaround.
+
+What is not done:
+- No spec for `0x14217DEF0` or its 12 closure members; no `snapdiff` proof (`snapdiff.py --hooks <cfg> --snapshot SNAP=TRACE`, with `frame_trace.py recorded` producing the trace; the hook line is `hook replay_frame_14217DEF0 0x14217def0 15 1 1 …` in `<workdrive>/PES21/rendezvous/hooks.cfg`).
+- The replay's inputs include a global manager and a unit list with pointer chains (the same class as the builder's), so a hand spec is needed, as for the builder. That is the next step.
+
+## 5. Gaps and what is OPEN
+
+1. Clock slot (hours word vs minute word): OPEN until `clockbuild_1420EFEC0` lands.
+2. `0x1420EFA10`'s provisional globals (on-disk values): OPEN (ledger convention).
+3. Builder coverage 0.75 (attention table and E table are zero): not gated.
+4. Replay: spec and proof (section 4).
+5. `gen_translated --check` on the current layer: pending at the time of writing (section 0).
+6. GF wiring: none. A readout node and a match.gd hook point are needed (Main).
+7. `EngineFixture` (branch `aebe3181`): the commit on that ref is the capsets tooling, not the fixture; the fixture was not used.
