@@ -373,3 +373,49 @@ Localized (CONFIRMED from disassembly): the two sides take different paths insid
 2. Fix that function's translation (or declare its read-only input), then re-run the 26-callee replay.
 3. `0x141978300`: translate its vtable target into the closure (the destructor path for `R+0x48 != 0`), then the layer holds `0x14217DEF0`.
 4. Build and test the replay port, then push.
+
+# pes-port-Presentation round 7: seq206 mismatch found and fixed (reciprocal table window); 0x141978300 blocked (18-11-26)
+
+Pushed: `ce6b19b8` (Presentation). Labels: CONFIRMED = read in tool output or a replay; INF; OPEN.
+
+## 1. The first mismatch and its fix (CONFIRMED)
+
+Replay of the Fox functions on seq206 (one at a time, then all callees):
+- 0x141AFED20 (17 calls), 0x141AFEB40 (3), 0x141AFE2A0 (3): bit-exact.
+- 0x141AFF8E0 (3 calls): 2 mismatch. This was a caller, not the cause.
+- All 221 callees of the seq206 call: 26 mismatch. Every mismatching function sits above 0x1403AE220, and 0x1403AE220 is the leaf with the first wrong value (its rax: harness 0x3FC7, translated 0xFE3FC1FF).
+
+Cause (CONFIRMED by hand, from the snapshot, not from either emulator): 0x1403AE220 computes a region index with a reciprocal-table multiply, entry r8 at 0x142581374 + 4*r8 (r8 = 5 here). Computed from the recorded call and the snapshot: index 0x62, so the word is 0x23EC001C (the harness). The translated side got index 0 (0x23EC0010).
+- The generated code reads the table through a baked window, k_t14257F780_1C00, 7168 bytes long, which ends at 0x142581380. Entry 5 is at 0x142581388, outside the window. ro_rd returns 0 for an out-of-window read, so the translated side silently used 0.
+- The table was not declared in ro_tables.json (the OneWorld branch has it, as a CONFIRMED 0x80-byte table). The window is derived from the reads it sees, so the declaration is what sizes it.
+
+Fix: ro_tables.json declares 0x142581374 (0x80 bytes, evidence: `lea rax,[0x142581380]; mov eax,[rax+r8*4-0xC]`, r8 in 2..0x1F). Regenerated: only pes_fn_1403AE220.cpp changes (window 7168 -> 7284 bytes).
+
+After the fix, the 26 callees replay bit-exact on seq206 (0 mismatches, 0 excluded; `<workdrive>/gf-Presentation-scratch/replay/verify7/results.json`). This includes 0x14217DEF0, 0x14217DB10, 0x14217DE20 and 0x141EB6840 (the seq206 chain).
+
+Earlier round-6 hypotheses, refuted: REP MOVS lowering (0x141EBEB30 is bit-exact on seq206); the ro word 0x142B67EF0 (same in image and snapshot; declared in round 5).
+
+## 2. 0x141978300 (OPEN, blocked on object state)
+
+The vtable target of the destructor path is 0x1408BE090 (slot 0 of the vtable 0x142612F98, which FUN_14217DB10 writes into the new object). It is not in the layer. Its closure is 4 members (dry run).
+- Pinning the destructor object's vtable in 141978300.json (const 0x142612F98) gives 0 valid cases: 0x1408BE090 reads an object field the spec doesn't model (unmodelled read at 0x1F3D58B0 from RIP 0x141E99BD6). The spec change is reverted; the committed spec still runs 34 cases.
+- Needed: the destructor's object state (its fields from the heap object of a real call), not the vtable. In seq206 the destructor isn't on the path (R+0x48 = 0), so this matters for the release path only (the next frame's R+0x48 != 0).
+- Consequence: the generator still holds 0x14217DEF0 out of the layer.
+
+## 3. Not done in round 7 (OPEN)
+
+- seq205 through seq208 bit-exact on all four: seq206 is clean on the callees; seq207 and seq208 not re-run after the fix.
+- The GF replay port and its five tests: not built (uncommitted in the worktree). Blocked by section 2 (no layer entry for 0x14217DEF0).
+- Clean-up: the Fox and destructor closures wrote 544 + 4 untracked specs; all removed, and the universe rows they added were cut. The working tree is clean except the untracked replay port files (src/pes/replay_human.*, install_sections.* is committed, tests/pes_replay_human_test.cpp).
+
+## 4. Open items for the translator
+
+- ro_rd (pes_state.hpp): returns 0 for an out-of-window read. It should trap. The silent zero is what turned a missing declaration into a wrong result instead of a loud failure. Not changed in this round; it needs a check that the window covers every declared table.
+- The ro window is derived from observed reads. The declaration in ro_tables.json should decide its extent (not the observed reads), or the generator should refuse a window shorter than the declared table.
+
+## 5. Next
+
+1. 0x141978300: capture or synthesize a destructor object (R+0x48 != 0 path) from a seq with the object, then prove 0x1408BE090 on it. Only then does 0x14217DEF0 enter the layer.
+2. Replay seq207 and seq208 on the verified callees; then seq205 through seq208 on the layer.
+3. Build the GF replay port and its five tests; mutations; push.
+4. ro_rd trap and window check (section 4).
