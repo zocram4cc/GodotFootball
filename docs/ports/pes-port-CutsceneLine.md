@@ -1,54 +1,48 @@
-# CutsceneLine round 2: the cut-over is on main; goal pid2024691 is kind 2 (not D/F); the recompute replay stops at an encoded import slot; D/F stay blocked
+# CutsceneLine round 3: slot 0x142530660 is ucrtbase!strcpy_s (not a swapped pointer); the else-arm recompute replays bit-exact with two translator fixes that are NOT yet landable; D/F and the kind-2 anchor case stay open
 
-Branch `CutsceneLine` (worktree `<workdrive>/gf-CutsceneLine`). Pushed head `12c3c64a` (`git ls-remote origin CutsceneLine` = `12c3c64a363c0fc8ef08f1ca3597408574279d53`). Commits this round: `293d0e70` (merge of origin/main, which carries CutsceneTiming6's cut-over), `12c3c64a` (full_snapshot: code pages from the image). Earlier: `361baea1`, `6b154632`. Labels: CONFIRMED = decompile, capture read, test or run this session; INF = inference; OPEN = blocker named.
+Branch `CutsceneLine` (worktree `<workdrive>/gf-CutsceneLine`). Pushed head `12c3c64a363c0fc8ef08f1ca3597408574279d53` (`git ls-remote origin CutsceneLine`). Round 3 adds no commit: the translator work is a patch (section 4), because it regenerates 51 recorded functions that need re-proof. Labels: CONFIRMED = decompile, capture read, test or run this round; INF = inference; OPEN = blocker named.
 
-## 0. Answers to Main's questions
+## 0. Answers
 
-1. **Is goal pid2024691 kind 3 (D/F)?** NO. At recompute_471A80 entry (seq203) A0 = rcx = 0x31C53DB8, **A0+0xBC = 2** (CONFIRMED, index.json + snapshot read). D and F hold 0 and 1 (CutAnchor4 §3). BC=2 takes the else arm of `0x140471A80` (BC not in {6, 8}). Scene 0x300D9, side 1, scorer slot 19. At the calc (seq204) radius = 0.0, PES anchor pos (-41.55, 0, 34.0), rotY 0.0. So it is a new kind (call it kind 2), not D/F.
-2. **Do these captures unblock D/F (7/7)?** NO. The D/F inputs (`pid132854` seq3783, seq4721) are gone from disk and from every deletion list. Kind 2 gives no D/F case.
-3. **Cut-over of the cut list?** ALREADY ON MAIN. CutsceneTiming6 (`a9d1d18b`, an ancestor of origin/main's base) makes GF play the builder's list (`0x140477BC0` on GF's arena) and deletes `PickGoalScene`, `kGoalRule` and `f.cuts = {sceneId}`. My earlier "NOT done" came from the stale CutAnchor6 doc and is WRONG. Verified: `git grep -n 'PickGoalScene\|f\.cuts *=' origin/main -- src godot` finds nothing in src/godot. Remaining `f.cuts` uses are in `tests/pes_goal_anchor_test.cpp` only.
-4. **Arm for D/F:** sent to Main: `--when 'recompute_471A80=d(rcx+0xbc)<=1'` (rcx = A0 at entry), cap 12, FULL, armed by cut_anchor_calc_474F00.
+1. **The slot and the "halves swap".** My round-2 slot address was wrong. The `call qword ptr [rip+0x1c68fe2]` at 0x1408C7678 is 6 bytes, so the next IP is 0x1408C767E and the slot is **0x142530660**, not 0x142530664 (CONFIRMED by capstone). The call is a plain `call [slot]`, no rol/ror or two-dword load. The slot is not swapped: image 0x6FFFFEC77E00 (a stale loader value), capture 0x6F6C94A67E00 (live). **Resolved live address: `ucrtbase.dll!strcpy_s`** (CONFIRMED: `export_of` on seq203 gives an exact export match). The slot is already in `tools/dev/translate/import_slots.json` as `ucrtbase.dll!strcpy_s`.
+2. **Classification: modelled (owner's ruling).** strcpy_s is a CRT string copy with errno returns. It checks no integrity, licence or environment. Its code_hex (import_stubs.json) decodes to: `rcx=dst, rdx=size, r8=src`; dst or size zero → EINVAL, no write; src zero → `*dst=0`, EINVAL; copy through NUL → 0; size exhausted → `*dst=0`, ERANGE (0x22). This matches its `why` text.
+3. **Why the translation trapped.** The translator's named-slot path needs a translator mirror (a `"do"` key), and strcpy_s had none, so the call fell through to dispatch on the baked image value → `PES_DISPATCH_UNTRANSLATED: 0x6ffffec77e00`. Patch in §4 adds `"do": "strcpy_s"` and the mirror.
+4. **The recompute replay (kind 2, seq203; CONFIRMED).** With the strcpy mirror, snapdiff runs the full call: one mismatch class, **5 bytes** in a bitmap at 0x277a0010..13. PES writes it in `0x1403AE2D0` (`btc eax, edx` on a dword, bit index from `edx` after `imul` by a table value). The translated read `[rax + r8*4 - 0xc]` (table base `0x142581380`, after `cmp r8, 0x1f; ja`) got the wrong bit (bit 0 instead of 15).
 
-## 1. Finding: sider patches in captured code (CONFIRMED)
+## 1. Root cause in the translator (CONFIRMED by the generated code and a register trace)
 
-Main's ruling: `pes_full.bin` code is the image; a capture's code pages can hold other patches. Measured on seq203: **28 of 9524 captured code pages differ from the image.** Three are rendezvous hook pages (recompute 0x140471000, anchor 0x140474000, bcwriter 0x1404B8000; the hook config restores them). The rest are the sider-hosted patches (e.g. 0x1414C0000, 0x141440000, 0x141ea5000).
+- The PES register trace for this read: `r8 = 7`, table value `0x4924a`, `edx` 0x69 → bit 15. The translated read is correct in address (`0x142581380 + 7*4 - 0xc = 0x142581390`).
+- `bake_ro` (the guard path) does not fire: `bounded_index` takes a guard only on a register a `MOV` copied from. Here the guard is `cmp r8, 0x1f; ja` on the index register itself, after its last write (`shr r8, cl`).
+- `bake_window` (the declared-table hull) then bakes the declared table `ro_tables.json` `0x14257F780` (0x1C00 bytes, another function's table). It checks only the start address (0x142581374 is inside), not the index span (start+0x80 is outside). `ro_rd` returns **0** for an out-of-window read, so the value silently becomes 0.
 
-Fix (commit `12c3c64a`, `tools/dev/translate/full_snapshot.py`): `PeImage.is_code()` and `SnapMem.read()` serve every executable, non-writable image page from the image file, never from the capture. Hook restores still apply on top. Data pages still come from the capture. Tests: `test_image_identity.py` OK, `test_image_reads.py` 9 OK, `test_libm_models.py` OK (1 skip), `test_snapmem_holes.py` 5 OK (1 skip), `test_goal_cast.py` rc 0.
+## 2. What the fix does (CONFIRMED by snapdiff, not yet landed)
 
-Before the fix the recorded recompute call died in the sider-patched code (`fetch inside sider.dll`). After the fix the recorded call returns cleanly (rax 1, `err null`).
+Fallback `_bounded_by_self` in `tools/dev/translate/xlate.py` (`bounded_index` = copy path, else self-guard path). With it, `snapdiff --only 0x140471A80` on seq203: **calls 1, replayed 1, mismatches 0, proven = True**, own-block 54/138 (not gated). Result file: `gf-CutsceneLine-scratch/round3/results_snapdiff_recompute.json`, also `recompute/snapdiff4/results.json`.
 
-## 2. Recompute else arm (kind 2): replay reaches an encoded import slot (CONFIRMED; not proven)
+But it changes the generated text of **51 recorded (proven) functions** and holds out 3 more (`gen_translated.py` log: 0x1403BB670, 0x1405549C0, 0x14202BA30, each reaching a "mistranslated callee"). Those re-proofs are not in this round's budget, so nothing of it is committed.
 
-- Trace recorded (`frame_trace.py recorded seq203 --hooks hooks.cfg.97hooks --out ... --spec-dir scratch/impure-spec`, one call of `0x140471A80`). snapdiff on the core spec set: translated body reached `0x1404B8290` (the switch). Its `mov ebx,7; cmp r8d,ebx; ja` bound is a register, which the translator's jump-table prepass did not resolve (only `cmp reg, imm`). **Fix written, not committed**: patch `<workdrive>/gf-CutsceneLine-scratch/xlate-bound-fix.patch` (26 lines, `tools/dev/translate/xlate.py`); after it the switch resolves. Reverted in the worktree (not on the branch) because `gen_translated --check` drift has not been measured.
-- Then the translated body aborts with `PES_DISPATCH_UNTRANSLATED: 0x6ffffec77e00`. Path: `0x140471A80` → `0x14047C500` → `0x141F514D0` (fixdemo_ctx_init, hooked) → `0x141F51630` → `0x141F50B90` → `0x141F50D80` → `0x1408C75E0`, whose `call qword ptr [rip+0x1c68fe2]` reads slot **VA 0x142530664**.
-- The slot is **not in `tools/dev/translate/import_slots.json`** (its neighbours 0x1425304B0..0x142530538 are ucrtbase exports). Its value is **0x94A6851000006F6C in the capture and 0xFEC7851000006FFF in the image file**: neither is a module pointer, so the value is encoded at rest. The call would need the protector's decode to reach a target, which the 17-11-26 rule forbids. **OPEN, decision needed from Main:** classify slot 0x142530664 (an import whose name we can recover, or protector-encoded). If it is protector-encoded, the else arm stops here and D/F's recompute cannot be proven in this design.
+Next fix (not written): in `bake_window`, when the access is guard-bounded, accept the hull only if it covers `start .. start + count*scale + n`; otherwise leave the read to a self-guard bake. This keeps every function that baked correctly unchanged. Then regenerate, list the changed recorded functions, and re-prove each.
 
-Consequence for the cut-over and the goal-anchor test: GF runs only the builder (BC=8 default arm). For kind-2 goals PES's T and radius come from the else arm, so GF's answer differs. No red test is added for kind 2 yet: the expected values need the else arm, which is blocked (item 2).
+## 3. Tests
 
-## 3. Tests run this round (head `293d0e70`; the full_snapshot commit touches tools only)
+Nothing committed this round, so no branch test was re-run. The round-2 tests stand (camera list 5/5, goal anchor 20/20, fixdemo select 6/6, camera 17/17, goal scene hold 3/3, timeline 7 + 1 skip; Python SnapMem tests OK).
 
-| binary | result |
-|---|---|
-| pes_camera_list_test | 5/5 PASS |
-| pes_goal_anchor_test | 20/20 PASS (D and F not asserted) |
-| pes_fixdemo_select_test | 6/6 PASS |
-| pes_camera_test | 17/17 PASS |
-| pes_cutscene_timeline_test | 7 PASS, 1 SKIP (`CapturedGoalsReplay`, capture gone) |
-| pes_goal_scene_hold_test | 3/3 PASS |
-| godotfootball (gdext) | builds (rc 0) at `293d0e70` |
-| gfsim_run | builds (rc 0) at `293d0e70` |
+## 4. Patches (not on the branch)
 
-Mutations: none this round (no GF logic changed; the only GF change is the earlier rename, compile-only).
+- `gf-CutsceneLine-scratch/round3/translator-and-record.patch` (150 lines): `xlate.py` (the switch-bound register-compare fix in the jump-table prepass; the `strcpy_s` mirror in `import_model_lines`; `_bounded_by_self` and `bounded_index`), `import_stubs.json` (`"do": "strcpy_s"`), `results_core.json` (the 0x140471A80 snapdiff record, `proof: snapdiff`). Do not land the record without the translator change: the record is only true with it.
+- `gf-CutsceneLine-scratch/round3/results_snapdiff_recompute.json` (the proof).
+- Known duplicate: `import_model_lines` has a second `memset` branch (about line 579 before this round's edit), unreachable because the first one returns. Remove it in the same change that lands the mirror.
 
-## 4. Smokes
+## 5. Open items
 
-Last run: at `361baea1` (before the merge of origin/main): switch-off `a0fbe2d5cd445a52` and pes-loop `17941efc16b4a6a5`, both identical to origin/main `1235c3d4`. **Not re-run on `293d0e70`/`12c3c64a`**: the merge brought CutsceneTiming6 (a gf_match change) and the budget ran out. Main gates: please smoke the merged head. The full_snapshot change does not affect gfsim.
+1. Land the `bake_window` coverage fix; regenerate; re-prove the changed recorded functions (51, list from the regeneration) and the 3 held-out ones.
+2. Land the strcpy mirror and the recompute record together (§4).
+3. **Kind-2 anchor case** (`pes_goal_anchor_test`): GF runs only the builder (BC=8). PES's T and radius for BC=2 come from the else arm, which is now replayable. Add the GF else arm (per-tick recompute, the same translated function) before the case can pass; the calc inputs for the case are seq204's entry state (radius 0.0, pos (-41.55, 0, 34.0), rotY 0.0, scene 0x300D9).
+4. **D/F (kinds 0/1):** Main has armed `recompute_471A80` on `d(rcx+0xbc)<=1`; no capture yet.
+5. The seq203 capture is repacked by auto_slim within minutes. The proof used the scratch copy (`gf-CutsceneLine-scratch/recompute/seq203`, ~4 GB): delete after the record lands.
+6. Smokes: not re-run this round (no branch code change).
 
-## 5. Open items (numbered)
+## 6. Facts for Main
 
-1. **Slot 0x142530664 classification (decision for Main).** See §2. Blocks the kind-2 else arm and so D/F.
-2. **Translator bound fix** (`xlate-bound-fix.patch`): commit only after `gen_translated.py --check` shows no unexpected drift, and after the recompute proof.
-3. **D/F (kinds 0/1):** needs a goal captured with recompute_471A80 armed on `A0+0xBC <= 1` (sent). Without it D/F stay not asserted.
-4. **Goal-anchor test kind-2 case:** pins PES's T and radius from seq204 (calc entry state, radius 0.0). Add when item 1 is decided.
-5. **Captures in `live2/pid2024691`:** auto_slim repacked seq203 twice while I read it. Scratch copies live in `gf-CutsceneLine-scratch/recompute/seq203` (unpacked, ~4 GB). Delete them when the proof is recorded.
-6. Smokes on the merged head: not run (§4).
+- `strcpy_s` (slot 0x142530660, ucrtbase) is modelled by owner rule; the translator needs its mirror (§4).
+- Sider patches in captured code: fixed in `full_snapshot.py` (round 2, `12c3c64a`).
