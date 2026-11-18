@@ -81,3 +81,43 @@ Branch OneWorld-series-wip, pushed. `git ls-remote`: 3066f71c587d1f2b76cf3174bc8
 4. Port the three test files and delete the stand-in chain data (handover steps 2 and 5).
 5. Chain X: in play, key 302 -> index 0x40 (Main); named gap of the cut, no stand-in.
 6. Worktree: `git status`/`git add` need `-c status.submodule=none` (godot-cpp symlink).
+
+## Round 3 (17-11, Main's items): result
+
+Branch OneWorld-series-wip, pushed. `git ls-remote`: 4ac3c3893f0701eb54c1d184202414d95adc87dd (head). Round 3 commit: 4ac3c389 (bulk memset).
+
+### 1. Bulk memset (DONE, output proven unchanged)
+- `PesMem::WriteSpan` + `PesMem::wfill` (src/pes/translated/pes_state.hpp): one region lookup per contiguous span. The span is the region `wfind(addr,1)` picks, cut at the next region start above addr (every region start is a boundary), so no byte in a span would resolve to a different region. The byte log (`wlog`) is written per byte exactly as `wr(addr+i,c,1)` writes it; a byte no region takes is dropped as before. Snapshot mode keeps the per-byte path.
+- `PesState::fill` wraps it. `xlate.py`: both memset models (the CALL/JMP import model at ~645 and the CALL/JMP `memset` model at ~515) now emit `s.fill`. The memcpy/memmove loops (lines 501-513) are NOT changed (outside this item; they still loop per byte).
+- Regeneration (`gen_translated`, 10056 functions): the layer diff is exactly one body, `pes_fn_1415A1720` (the memset thunk), plus pes_state.hpp. Checked with `git diff` on the layer: 60 changed lines, all in those two files (the other memset sites are reached only through this thunk). Not run as `--check` (it is the regeneration itself).
+- Byte-identical proof: a temporary dump of `ext_.writeLog` for the three driver calls of `OneDriverCallWritesTheYawThatTheAdjusterHolds` (slot 3): 189,967 writes before (binary from commit 3066f71c layer) and after (4ac3c389 layer): `cmp` identical. The temporary dump was removed before commit.
+- `test_memset_model.py`: 6/6 OK (it tests the unicorn model from import_stubs.json, which is unchanged).
+- Tests after the change: pes_adjuster_tick_test 4/4, pes_anime_engine_test 14 passed (1 skipped, render plots), pes_fox_template_test 3/3.
+- Build note: pes_state.hpp is included by every translated TU, so the change rebuilt the whole layer (about 20 min under the lock).
+
+### 2. Smokes (seed 7, 2 min, PES_EXE = pes_full.bin)
+- Pes-loop: `[determinism] e46129415a2bdc1b`, 49001 ticks to full time, rc 0. Baseline `da3b1eff7174bc8b`: MOVED. Run took 15 min.
+  - Why it moved (CONFIRMED by the lineage, INF on the exact causes): the baseline predates the one-chain cut. The trap path now runs PES's own driver FUN_141EB5E70 on the engine chain (round 1), reads the yaw half-angle correctly (round 2), uses the memory stack for trap calls (round 2: the window's 8 KB stack overran into the trap images and zeroed slot 21's P), and runs the runner's guarded memset branch (round 2). The bulk fill (this round) does NOT move the output: its write record is byte-identical, so it cannot be the cause.
+  - Caveat: no rerun for the same-hash determinism check (one more 15 min run). The determinism line is the smoke's own hash.
+  - Not done: the earlier round-2 pes-loop timeouts are gone (the run completes in 15 min); the bulk fill did not make the pes-loop faster by itself (not measured separately).
+- Switch-off: `[determinism] c2016bf08fd0bc98`, 29807 ticks, rc 0. UNCHANGED (baseline c2016bf08fd0bc98).
+
+### 3. The 0x141AE8950 guard (DONE, on the 25 captures)
+- 0x141AE8950 is `return *(u64*)(&DAT_1437cea30 + (param_1 & 0xffffffff) * 8)` (Ghidra decompile, CONFIRMED). Its argument is the dword at [A+0x60] (rcx = A on the runner's entry; the runner's `s.gpr[3] = s.gpr[1]` after the 0x8070 store). The guard tests the qword at [ret+0x350]; nonzero calls 0x141AEF890.
+- Read (script <workdrive>/gf-AnimeLayer-scratch/guard_read.py, capread.py on the packed captures):
+  - pid3778393: 19 anime_tick captures (seq061..075, seq1128..1191): P = 0x3af71500, A = 0x2ca7cb90, idx = 0, entry = 0x1fe0e90, guard qword [entry+0x350] = 0x0.
+  - pid848145 seq8934..8939 (6 height-adjuster captures): P = 0x37c03990, A = 0x227ec810, idx = 0, entry = 0x1fe0e90, guard = 0x0.
+  - All 25: guard zero, so 0x141AEF890 is not called on any captured tick. CONFIRMED on these 25 (read from the capture at tick entry; the guard's inputs are not written by the memset/scope path before the call: they touch the stack and the TLS block).
+- Named gap: other states (idx != 0 or a nonzero [entry+0x350]) are not observed. The layer keeps its loud abort for 0x141AEF890 on those.
+
+### 4. Not done (budget)
+- Snapshot-replay proof of the runner on the captures: not done.
+- Test ports (pes_joint_block_test, pes_kick_oracle_common.hpp + four kick tests, pes_trap_oracle_test): not done.
+- Step 5 (delete stand-in chain loader data): not done.
+
+### Open items (numbered)
+1. Snapshot-replay (snapdiff --bounded) of 0x141AFC4A0 on the 25 captures, to make the runner bit-exact on real calls.
+2. Test ports (handover step 2) and stand-in deletion (step 5).
+3. Same-hash determinism rerun of the pes-loop smoke (15 min).
+4. The memcpy/memmove per-byte loops in the translator (lines 501-513) could take the same span fill; not changed here.
+5. Chain X (key 302 -> index 0x40 in play, Main): named gap of the cut.
