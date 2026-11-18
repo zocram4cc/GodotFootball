@@ -213,3 +213,53 @@ Branch OneWorld-series-wip, pushed. `git ls-remote`: 88ea37bd0e37921ff9743ab4c9e
 2. Separate the yaw half-angle effect from the displacement effect: rerun the current tree with the yaw read as before (1 line) and compare the dump; one more 15-minute smoke pair.
 3. Trap oracle (item 3 above, steps a–c).
 4. The real calls' rdx-convention output: decide whether GF's kick path needs that vector (it is not compared now).
+
+## Round 7 (17-11): result
+
+Branch OneWorld-series-wip, pushed. Head: dd04dcbd (trap oracle on engine memory). Earlier this round: none (the tick-1 analysis is static, no commit).
+
+### 1. Trap oracle on the engine chain (DONE for the kind-0 suite; trap-tick section a named gap)
+- Snapdiff case for 0x14079A470 over all 72 trapopen captures (pid2286718 x24, pid2523621 x8, pid2571173 x24, pid3727195 x16), in nine batches of eight (scratch trap_r7/batch.sh, chain.sh). Hooks: PES21/rendezvous/hooks.cfg.97hooks (the trap_kind0_79A470 displaced bytes). Packed captures were copied, unpacked, and packed again after each batch.
+- Replay (snapdiff --bounded, all 72): 72 of 72 calls bit-exact (return value and every written byte), 0 mismatches, own-block per batch 0.13 to 0.58 (recorded, not gated).
+- Manifests: trap_oracle.py, 72 of 72 written (trap_r7/oracle_bNN/<pid>_<seq>).
+- pes_trap_oracle_test: the object model moved onto the engine. Build binds the window into the engine's memory (BindWorld), gives each capture a fresh engine player's chain for its slot (BindAnimeChain before WriteActorP; ConstructAnimPlugin gone with the cut), and lends the engine's shared regions. The physique assertions read the engine chain (A = P+0xA08, B = A+0xF0, G = B+0xC0). The motion-table, action-table and WriteActorP tests bind the same way.
+- Per batch (run in turn, captures unpacked for the run, then packed):
+  - Batches b01 to b07: 9 of 11 pass, and the two that fail are set-coverage checks only.
+  - Batches b08 and b09: 8 of 11 pass; the EveryCaptured failure is a real mismatch (below).
+- Set level (union over the nine batches): EveryCapturedCallOnGfsWindowGivesPesOutput 61 of 72 captures bit-exact; 11 mismatch. The coverage checks pass at set level: every binding of EachWindowBindingChangesTheCall is read by at least one capture, and TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures has issuing captures.
+- The 11 mismatches, all from pid3727195 seq027 to seq037 (11 of that launch's 16 captures): GF's call returns out word 1 (a refusal) where PES's reference returns 4 (seq027, 028), 10 (seq029 to 032), 6 (seq035, 036) or 0 (seq037); on seq033 and 034 the issued flag and action bytes also differ. Named cause: OPEN. Tested and rejected: loader image from the engine's booted memory instead of the flat file (same refusal on seq027, 029, 031). Remaining candidates: the fresh per-capture chain's state (clip/motion table reads in the chain) or a state of this launch (the 16-capture pid3727195 set is a different launch from the other three), not separated.
+- Gap (compiled out, #if 0): TrapTickOracle, 4 tests (EveryCapturedTickOnGfsWindowEqualsPes, TheCapturesCoverTheStartAndBothMirrors, ListWhatTheOverlaySupplies, LoaderDataTheTickReadsEqualsTheCapture). Its window objects are still the window's physique A, O1 and O2 (WindowObjects, WindowBytes, BuildTick); O1 has no engine counterpart in the cut.
+- traptick_140797CD0 captures (14, pid2523621): not run (they are the tick oracle's inputs, which is the gap above).
+
+### 2. The tick-1 ulp (STATIC analysis; no live position)
+- The difference is one float ulp at x = 38 m (2^-18 = 3.81e-06), on the strike displacement x and z of the root point.
+- New path (cut): frame.x = B+0x90.x - O2+0xD0.x, with B+0x90 written by PES's own translated FUN_1406EEDF0 (rootmotion/pes_fn_1406EEDF0.cpp). That writer does no float arithmetic on the strike branch: its SIMD lines are unpcklps interleaves (xmm3 = [d0,s0,d1,s1], then xmm2, then xmm3 again), so B+0x90 holds the bits the caller stored at [rsp+0x30] and [rsp+0x38]. The subtraction O2+0xD0 is the only float operation GF makes on it.
+- Old path (baseline 4791bbbe): frame.x = A+0x14.x - O2+0xD0.x, where A+0x14 is written by the adjuster step (FUN_141EB3AF0 / FUN_141AF3CA0 fold, the layer's root point plus the step). Same subtraction.
+- So the two sides read different stages of the same value: the baseline read the adjuster's own accumulator (A+0x14), while the cut reads the value PES's step writer copied into B. Their bits can differ by one ulp at 38 m because the value is rounded at different stages.
+- Which matches PES: the cut. PES's own consumer of the displacement reads B+0x90 (the writer's output), so the cut reproduces what PES's downstream reads. The baseline reproduced an earlier stage, which PES does not consume directly.
+- Not verified: a live PES value at tick 1 (not captured); the caller of FUN_1406EEDF0 (reached through the dispatch table, not a direct call, so not identified statically).
+- Yaw half-angle separation: NOT run (it needs a code change and a smoke pair; not cheap within this round).
+
+### 3. Merge-lane list (this line, OneWorld-series-wip at dd04dcbd)
+| Test | Pass / total | Notes |
+|---|---|---|
+| pes_adjuster_tick_test | 4 / 4 | engine chain; PES_EXE, PES21_ROOT |
+| pes_joint_block_test | 2 / 2 | engine chain |
+| pes_anime_engine_test | 14 / 15 | 1 skipped (render plots, unrelated) |
+| pes_fox_template_test | 3 / 3 (my last run) | Main's post-merge run reports 6 / 6 |
+| pes_ball_list_test | 2 / 2 | |
+| pes_kick_chooser_oracle_test | 1 / 1 | pid1152106 seq299, 421, 152 (GF_PES_KICK_ORACLE) |
+| pes_kick_header_oracle_test | 2 / 2 | pid1152106 seq011, 013, 027 |
+| pes_kick_root_test | 1 / 1 | pid1152106 seq003-005: 3 real rows, 6 synthetic (9 rows) |
+| pes_trap_oracle_test (kind-0 suite) | 10 / 11 at set level | EveryCapturedCall 61 of 72 captures; the 11 mismatches are named above |
+| pes_trap_oracle_test (trap-tick, 4 tests) | compiled out | named gap |
+
+Open gaps (for the merge lane):
+1. pid3727195 seq027-037 out-word mismatch (11 captures): cause open (see above).
+2. Trap-tick oracle (4 tests) and traptick_140797CD0 captures: not ported to engine memory.
+3. The tick-1 ulp: static analysis only; no live PES position; yaw half-angle separation not run.
+4. Kick chooser and header: 6 of 24 captures run (the rest of pid1152106's kept sets).
+5. Kick root: real rows use the r8 convention; the rdx-convention output of the real calls is not compared.
+6. Smoke: pes-loop e46129415a2bdc1b (the line's own work; baseline da3b1eff7174bc8b is on OneWorld-cut4, already merged in 16234a42).
+
+Scratch: trap_r7 holds the 72 manifests and the replay dirs; the mem links resolve only while a batch is unpacked (trap_r7 batch copies are packed). The baseline worktree <workdrive>/gf-AnimeLayer-base is removed.
