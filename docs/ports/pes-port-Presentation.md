@@ -419,3 +419,34 @@ The vtable target of the destructor path is 0x1408BE090 (slot 0 of the vtable 0x
 2. Replay seq207 and seq208 on the verified callees; then seq205 through seq208 on the layer.
 3. Build the GF replay port and its five tests; mutations; push.
 4. ro_rd trap and window check (section 4).
+
+# pes-port-Presentation round 8: seq205-208 bit-exact on the post-fix chain; destructor case needs a hook (18-11-26)
+
+Nothing new pushed in round 8 (the verification runs change no code). Last pushed: `ce6b19b8`. Labels: CONFIRMED = read in a replay or a capture; OPEN = blocked.
+
+## 1. Replay of the chain on all four captures (CONFIRMED)
+
+snapdiff, bounded, spec set `<workdrive>/gf-Presentation-scratch/replay/specs7u` (the presentation set plus the Fox probe specs, scratch only), the 26 callees of the chain plus `0x14217DEF0`:
+- seq207 and seq208 (`verify8/results.json`): 26 functions, 0 mismatches, 0 excluded; 14217DEF0 1 call per capture.
+- seq205 (`verify8b`): 14217DEF0, 14217DB10, 14217DE20, 141EB6840 bit-exact on their calls (1 each, 0 mismatches). 1403AE220 and 141AFF8E0 are not called in seq205 (rc=1 comes from them).
+- seq206 (`verify7`, after the ro-table fix): 26 functions, 0 mismatches.
+
+So `0x14217DEF0` replays bit-exact on all four captures (seq205-208, one call each), and its chain of 25 callees does too.
+
+## 2. The destructor case (OPEN, one hook requested)
+
+- The four captures all have R+0x48 = 0 at entry: they are first copies. None exercises `0x141978300` (the release path) or its target `0x1408BE090`. The capset registry (`run/capsets.json`) has no entry for either.
+- `FUN_14217DE20` releases an existing object (`R+0x48`) through its vtable before a new copy. A human read a second time therefore runs `0x141978300` and then `0x1408BE090` on a real object. That case is a second read of the same human within one replay.
+- Hook requested from Main (sent): `hook replay_frame_14217DEF0 0x14217def0 15 1 20 488974242041564883ec2080791800` (the 15 displaced bytes match the armed replay line at the same entry), predicate `replay_frame_14217DEF0=q(rcx+0x48)!=0`, cap 6. EVERY 20, because the predicate holds only from a human's second read.
+
+## 3. GF replay port (pieces that do not need the layer entry)
+
+- `src/pes/replay_human.{hpp,cpp}` and `tests/pes_replay_human_test.cpp`: both compile (`g++ -fsyntax-only`, C++17, against `src` and `src/pes/translated`). Not linked: `pes_fn_14217DEF0` is not in the layer, so `pesfmt` cannot include `replay_human.cpp` yet. The test target stays out of CMake.
+- Not done: the five-test run and the mutations (they need the link).
+
+## 4. Next
+
+1. When Main arms the hook: take the captured destructor case (R+0x48 != 0), replay `0x141978300` and `0x1408BE090` on it (snapdiff, bounded; the object's vtable is in the capture); fix the spec if the destructor needs more state; prove.
+2. With 0x141978300 proven, regenerate the layer: 0x14217DEF0 leaves the held-out list.
+3. Add `replay_human.cpp` to `pesfmt` and the test target to CMake; build; the five tests with `PES21_ROOT`; the mutations (copy offset +0x84 vs +0x80; guard inverted; record not released); push.
+4. The ro_rd trap and window check (CutsceneLine's xlate change, round 7 note).
