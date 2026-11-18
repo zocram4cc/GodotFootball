@@ -749,6 +749,7 @@ def crawl(seeds, scope, ctx):
             visited.add(entry)
             ctx["skipped"]["int3-padding"] += 1
             continue
+        ekey = "%08X" % entry
         if entry in visited:
             if sub not in funcs[ekey]["roots"]:
                 funcs[ekey]["roots"].append(sub)
