@@ -1,14 +1,19 @@
-// The kick geometry test's root-motion reader FUN_141AFDF10 (translated, set kickroot) on the anime chain GF builds from the install
-// (pesanimechain.hpp): the body archives as PES's loaded packs, the motion -> clip key table, one layer whose pose slot the reader
-// evaluates the clip into. For every recorded call of the kick chooser's runs the vector must equal the one PES's own bytes returned
-// on the capture's chain (rootmotion.tsv beside each oracle directory: motion, the time's float bits, the 16 output bytes).
+// The kick geometry test's root-motion reader FUN_141AFDF10 (translated, set kickroot) run on the engine player's own anime chain (the cut,
+// PesWorld::BindAnimeChain). The reader's output is a function of the chain B and the call's own inputs (the motion, the time), so each
+// oracle row holds only those inputs and PES's answer: rootmotion.tsv (the reader's real calls in the kick chooser's runs) and
+// rootmotion_synthetic.tsv (PES's own bytes asked other motions and times on the same memory). Rows are written by tools/dev/translate/
+// rootrd.py. For every row the vector must equal PES's on every output byte.
 //
-// GF_PES_KICK_ORACLE names a directory of per-capture oracle directories (PES-derived, never committed), PES_EXE the unpacked image,
-// PES21_ROOT the install. Without any of them, skip.
-
+// GF_PES_KICK_ROOT_ORACLE names a directory of per-capture directories (PES-derived, never committed), each holding rootmotion.tsv (and
+// optionally rootmotion_synthetic.tsv). PES_EXE names the unpacked image, PES21_ROOT the install. Without any of them, skip.
+// Round 6 set (17-11): pid1152106 seq003, seq004, seq005 (kick_root_141AFDF10). Rows use the reader's r8 output convention (rdx = 0, r8 =
+// the output vector in the caller's frame, as RunRootMotion calls it): PES's bytes for each real state (motion and time as captured) and,
+// for seq003, six synthetic states (motions 100, 3983, 2447, 3621). The real calls' own convention (rdx set, r8 = 0) writes a different
+// vector at rdx; it is not compared here. 1/1 PASS on the engine chain.
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -52,39 +57,32 @@ std::vector<ReaderCall> LoadCalls(const std::string& path) {
 class KickRoot : public ::testing::Test {
  protected:
   void SetUp() override {
-    const char* dir = std::getenv("GF_PES_KICK_ORACLE");
+    const char* dir = std::getenv("GF_PES_KICK_ROOT_ORACLE");
     const char* exe = std::getenv("PES_EXE");
     if (dir == nullptr || *dir == '\0' || exe == nullptr || *exe == '\0')
-      GTEST_SKIP() << "GF_PES_KICK_ORACLE / PES_EXE unset (PES-derived captures and image, not committed)";
+      GTEST_SKIP() << "GF_PES_KICK_ROOT_ORACLE / PES_EXE unset (PES-derived captures and image, not committed)";
     for (const auto& e : std::filesystem::directory_iterator(dir))
-      if (std::filesystem::exists(e.path() / "manifest.tsv") && std::filesystem::exists(e.path() / "rootmotion.tsv"))
-        dirs_.push_back(e.path().string());
+      if (std::filesystem::exists(e.path() / "rootmotion.tsv")) dirs_.push_back(e.path().string());
     std::sort(dirs_.begin(), dirs_.end());
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory with rootmotion.tsv under " << dir;
-    exe_ = exe;
     std::string why;
     engine_ = pes_kick_oracle::SharedEngine(&why);
     if (engine_ == nullptr) GTEST_SKIP() << "the engine boots from PES_EXE and PES21_ROOT: " << why;
   }
   std::vector<std::string> dirs_;
-  std::string exe_;
   pes_engine::EngineTrap* engine_ = nullptr;
 };
 
-// The recorded calls of each capture (rootmotion.tsv: the reader's real calls inside the chooser's run) and, beside the first
-// capture, PES's own bytes asked other motions and times on the same memory (rootmotion_synthetic.tsv, SYNTHETIC: 72 motions at
-// four times, the clips that turn the mover included).
-TEST_F(KickRoot, TheEngineChainGivesPesRootMotionOnEveryCapturedKick) {
+// The recorded and the synthetic rows of each capture (rootmotion.tsv: the reader's real calls inside the chooser's run;
+// rootmotion_synthetic.tsv: PES's own bytes asked other motions and times on the same memory), on the kicker's engine chain.
+TEST_F(KickRoot, TheEngineChainGivesPesRootMotionOnEveryOracleRow) {
   size_t real = 0, synthetic = 0, turning = 0;
   const char* only = std::getenv("GF_PES_KICK_ROOT_MOTION");  // one motion only (a bisect of the closure's reach)
+  Built b;
+  engine_->BindWorld(*b.world, -1);
+  b.world->BindAnimeChain(kSlot, engine_->Player(kKickerPlayer));
+  b.ext = engine_->Externals();
   for (const std::string& dir : dirs_) {
-    Oracle o;
-    ASSERT_TRUE(Load(dir, o)) << dir;
-    SetOverlay(o);
-    Image image;
-    ASSERT_TRUE(image.Open(exe_));
-    Built b;
-    Build(o, image.bytes, image.size, b, engine_);
     for (const char* file : {"rootmotion.tsv", "rootmotion_synthetic.tsv"}) {
       for (const ReaderCall& c : LoadCalls(dir + "/" + file)) {
         if (only != nullptr && c.motion != static_cast<uint32_t>(std::atoi(only))) continue;
