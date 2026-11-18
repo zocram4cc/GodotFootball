@@ -219,3 +219,34 @@ The episode count dropped from 49 to 24, so the match trajectory changed; the pa
 **4. Next step to unblock:** decode the keeper's dive clip playback and hit distance at PES's G for a 180 cm keeper (`StepPlayback` / `ClipHitDistance` from the translated `pes_fn_*` for the step-kind keeper dive), and compare the keeper's dive reach to the kick's arrival time (the shot's flight time from the kick decision). A PES-faithful dive reach then gives the test's expectation. Until then the test stays as it is and the height fix stays out.
 
 **5. Steps not done this round:** the sweeps (step 2: right directions, every hit record, `FUN_14085C1B0`, ball sample 1) and the hit-frame raw bytes (step 2's last item). Out of request budget again. The joint-pose verdict is still open.
+
+**14. Round 7: the contact sweeps with the height fix applied. VERDICT: POSE (the joint of the contact bone). Stop, per your rule. Nothing landed (branch `f8aa8e41`, red test only; worktree at HEAD). Probe log `r7-probe.log`, patch `r7_height_plus_sweep_probe.patch` (height fix + probe, not committed).**
+
+**Setup.** Height fix applied, so `P+0x3B18` = 1.000 on every row (PES's 180 cm value). Probe at every refused contact (`pend = 1`, action 7, receiver), reading the translated scan's own inputs from the window: the motion (`P+0xAE0`), the hit records `Mbinfo::Hits(motion)`, the bone's joint `P+0x538+12b` and rotation `P+0x700+16b`, the scale, the mirror byte, and ball sample 1 (`ball+0xB0`). The predicted contact is `joint + rot(q) * (hit offset * scale / 100, z negated when mirrored)`, the same formula the translated reach test uses. 11 refused contact rows in the run.
+
+**1. Hit choice: NOT a difference.** Every trap motion in the rows has exactly one hit record (`nHits = 1`). The reach test's hit is the translated code's own choice (bone from hit 0's word, read from the image), so GF and PES use the same record.
+
+**2. Hit-frame raw check: the field is a real spread, not a constant.** Histogram over all 2,925 install hit records (`Mbinfo::Hits(0..8191)`, frame = `w >> 13 & 0xff`): frame 10 is the most common value (1,438 of 2,925), but the other values run 0 to 92 (f0 125, f6 152, f8 277, f9 135, f14 95, ...). So "10 for every motion" was a fact about these six trap motions, not a parse fault in the histogram. I did NOT read the raw HitData bytes from the install file (the decode formula is the documented one, `mbinfo.cpp:186`, `pes-re-hitdata-index.md`). The reach test does not read the frame, so it does not change the verdict.
+
+**3. Scale and the root: NOT the cause.** `P+0x3B18` = 1.000 on all 11 rows, PES's value for a 180 cm man. The root residual is at most 11.7 mm (round 4). Neither input can account for the misses below.
+
+**4. Ball sample 1: NOT the cause (INF: not compared numerically).** Ball sample 1 (`ball+0xB0`) reads as the ball's own position on the field (x 3.08 to 28.9, height 0.11, z the pitch position). I did not compare it with GF's ball position to the millimetre. The ball is simulated by GF and is the same ball PES sees, so it has no reason to differ. The ball-side sweep (moving sample 1 toward the predicted point) needs the same shift as the joint sweep, see 6.
+
+**5. FUN_14085C1B0 (constant displacement): NOT a GF input.** The reach test adds the per-motion displacement from the image's constant table; GF runs the same image bytes, so it is equal by construction. Not measured separately.
+
+**6. The miss, and the shift needed for a flip (translated reach test on GF's inputs, sweep moves joint or ball 1 cm per run).**
+
+| t (s) | motion | dxz (pred vs ball 1) | dy | joint shift needed for touch |
+|---|---|---|---|---|
+| 52.94 | 3513 | 0.389 | 0.068 | 0.64 m |
+| 53.55 | 3509 | 0.336 | 0.085 | 0.26 m |
+| 112.67 | 3333 | 1.106 | 0.373 | 0.18 m |
+| 233.20 | 812 | 0.360 | 0.029 | (within 0.8 m of the ball: no flip) |
+| 146.94 | - | 0.463 | - | no flip within 0.8 m |
+| 49.98, 51.59, 168.83, 232.63, 289.02, 292.30, 295.41 | 688, 563, 3599, 561, 3424, 610, 3498 | 1.3 to 3.5 | 0.03 to 1.27 | no flip within 0.8 m |
+
+The joint-shift column is the same as the ball-shift column to 1 cm (joint and ball moves are equivalent here), so the sweep is consistent. Joint shift moves the predicted point one-for-one (the rotation stays fixed), so the shift needed is about the predicted-to-ball gap minus the reach bound (0.26 to 0.41 m). Three of the rows need 0.18 to 0.64 m; the rest need more than 0.8 m. Your threshold is about 0.1 m.
+
+**7. Verdict.** The miss is the predicted contact point: the bone's joint position and its rotation (the hit offset is rotated by that bone's quaternion), posed by GF's skeleton at the contact frame. The shift needed is 0.18 to 0.64 m, or no flip within 0.8 m, so this is far above the 0.1 m bar. Root (at most 12 mm), hit choice (one record, same table), scale (now PES's), ball (sample 1 is the simulated ball), and the constant displacement (same image bytes) are excluded. The pose is GF's own skeleton at GF's clip frame: the contact happens at GF clip frame 31 to 32 (see round 4b), and the posed joint at that frame is the source. Per your rule, this belongs to the engine-chain line (OneWorld-series-wip), not the BK line.
+
+**8. Not done.** The raw HitData byte check (item 2, last point), and the per-frame sync between PES's contact frame and GF's clip frame 31–32 (round 4b lead), which is the most direct way to confirm pose vs timing.
