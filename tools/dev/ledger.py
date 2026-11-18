@@ -345,7 +345,9 @@ def main():
     L.append("In scope: the match roots. Function roots are doc-cited (*Roots*); vtable roots are "
              "named by RTTI class (*Roots*). Out of scope: the vtables below are roots of the out crawl; "
              "rows reached only from them are out of scope. The in crawl does not expand these vtables, "
-             "so an in-scope call into one stays a single row, not a walk.")
+             "so an in-scope call into one stays a single row, not a walk. RTTI-less dispatch tables "
+             "(.rdata code-pointer runs) expand like vtables (dtable rows); the WALK_EXCEPTIONS rows in "
+             "universe.py meta are walked despite matching a boundary rule.")
     L.append("")
     table(L, ["scope", "RTTI rule (why)", "vtables", "slots"],
           [(x["scope"], x["why"], x["vtables"], x["slots"]) for x in meta.get("scope_rules", [])])
