@@ -1,48 +1,41 @@
-# CutsceneLine round 3: slot 0x142530660 is ucrtbase!strcpy_s (not a swapped pointer); the else-arm recompute replays bit-exact with two translator fixes that are NOT yet landable; D/F and the kind-2 anchor case stay open
+# CutsceneLine round 4: the translator fixes are landed on the branch with the recompute proof; the kind-2 anchor case is not done (GF needs the bc writer and the else arm)
 
-Branch `CutsceneLine` (worktree `<workdrive>/gf-CutsceneLine`). Pushed head `12c3c64a363c0fc8ef08f1ca3597408574279d53` (`git ls-remote origin CutsceneLine`). Round 3 adds no commit: the translator work is a patch (section 4), because it regenerates 51 recorded functions that need re-proof. Labels: CONFIRMED = decompile, capture read, test or run this round; INF = inference; OPEN = blocker named.
+Branch `CutsceneLine`, pushed head `ee383c13` (`git ls-remote origin CutsceneLine` = `ee383c13ec06...`). Round 4 adds one commit on `12c3c64a`. Labels: CONFIRMED = run or read this round; INF = inference; OPEN = blocker named.
 
-## 0. Answers
+## 1. What landed (commit ee383c13)
 
-1. **The slot and the "halves swap".** My round-2 slot address was wrong. The `call qword ptr [rip+0x1c68fe2]` at 0x1408C7678 is 6 bytes, so the next IP is 0x1408C767E and the slot is **0x142530660**, not 0x142530664 (CONFIRMED by capstone). The call is a plain `call [slot]`, no rol/ror or two-dword load. The slot is not swapped: image 0x6FFFFEC77E00 (a stale loader value), capture 0x6F6C94A67E00 (live). **Resolved live address: `ucrtbase.dll!strcpy_s`** (CONFIRMED: `export_of` on seq203 gives an exact export match). The slot is already in `tools/dev/translate/import_slots.json` as `ucrtbase.dll!strcpy_s`.
-2. **Classification: modelled (owner's ruling).** strcpy_s is a CRT string copy with errno returns. It checks no integrity, licence or environment. Its code_hex (import_stubs.json) decodes to: `rcx=dst, rdx=size, r8=src`; dst or size zero → EINVAL, no write; src zero → `*dst=0`, EINVAL; copy through NUL → 0; size exhausted → `*dst=0`, ERANGE (0x22). This matches its `why` text.
-3. **Why the translation trapped.** The translator's named-slot path needs a translator mirror (a `"do"` key), and strcpy_s had none, so the call fell through to dispatch on the baked image value → `PES_DISPATCH_UNTRANSLATED: 0x6ffffec77e00`. Patch in §4 adds `"do": "strcpy_s"` and the mirror.
-4. **The recompute replay (kind 2, seq203; CONFIRMED).** With the strcpy mirror, snapdiff runs the full call: one mismatch class, **5 bytes** in a bitmap at 0x277a0010..13. PES writes it in `0x1403AE2D0` (`btc eax, edx` on a dword, bit index from `edx` after `imul` by a table value). The translated read `[rax + r8*4 - 0xc]` (table base `0x142581380`, after `cmp r8, 0x1f; ja`) got the wrong bit (bit 0 instead of 15).
+- **bake_window coverage.** A declared-table hull is used only if it covers every byte the guard-bounded index can reach. Otherwise the read falls to bake_ro's self-guard window (`bounded_index` gains a fallback: a guard on the index register itself, `cmp r8, 0x1f; ja`). Order in `mem_val`: copy-guard bake, hull (coverage-checked), self-guard bake, else live.
+- **ro_rd traps.** An out-of-window baked read aborts with `PES_RO_OUT_OF_WINDOW: table at <addr> (<len> bytes): read of <n> bytes at offset <off>` (`src/pes/translated/pes_state.hpp`). It no longer reads 0. The message names the table by its load address, not its image VA. The generated call does not carry the VA, and adding it would change every function's text; the VA is in the generated window name (`k_t<VA>_<len>`).
+- **ro_tables.json.** Presentation's two declarations (ce6b19b8): `0x142581374` (0x80 bytes) and `0x142B67EF0` (2 bytes).
+- **Switch bound through a register.** `mov ebx,7; cmp r8d,ebx; ja` resolves the jump table (jump-table prepass).
+- **strcpy_s.** `ucrtbase.dll!strcpy_s` (slot 0x142530660) is modelled by the owner's rule: a CRT string copy with errno returns. `import_stubs.json` has `"do": "strcpy_s"`, and `xlate.import_model_lines` mirrors its code_hex register for register. The contract test `tools/dev/translate/test_strcpy_model.py` runs the model's seven paths (OK). The mirror itself is checked by the snapdiff proof below, not by a separate C++ test.
+- **Duplicate memset branch removed** (the second `do == "memset"` in `import_model_lines`, unreachable).
+- **Recompute proof recorded.** `0x140471A80` (cutscene) is recorded in `results_core.json` with `proof: snapdiff`, source `results_snapdiff_recompute.json`.
 
-## 1. Root cause in the translator (CONFIRMED by the generated code and a register trace)
+## 2. Verification (CONFIRMED)
 
-- The PES register trace for this read: `r8 = 7`, table value `0x4924a`, `edx` 0x69 → bit 15. The translated read is correct in address (`0x142581380 + 7*4 - 0xc = 0x142581390`).
-- `bake_ro` (the guard path) does not fire: `bounded_index` takes a guard only on a register a `MOV` copied from. Here the guard is `cmp r8, 0x1f; ja` on the index register itself, after its last write (`shr r8, cl`).
-- `bake_window` (the declared-table hull) then bakes the declared table `ro_tables.json` `0x14257F780` (0x1C00 bytes, another function's table). It checks only the start address (0x142581374 is inside), not the index span (start+0x80 is outside). `ro_rd` returns **0** for an out-of-window read, so the value silently becomes 0.
+- **Re-proof of the recompute** (`snapdiff --only 0x140471A80` on the final tree, pid2024691 seq203 = BC 2, the else arm): 1 call, 1 replayed, **0 mismatches**, proven. Own-block 54/138 (recorded, not gated). It runs `0x1404B6BD0` and its callees, including `0x1404B8290` (the switch), so those are re-proved on this call.
+- **Layer changes.** `gen_translated.py` (before the fixes it reported 51 recorded changes): now **0 recorded functions change text**. Changed closure members: `1403AE220`, `1404B8290`, `1408C75E0`, `1415A1708`, `1415A1720`, `1415A1726`; plus 43 new closure files. Their proof is the root proof above. The only recorded caller of a changed member is `0x1404B6BD0` (calls `1404B8290`), re-proved on the same call.
+- **Held out** (same three as main, not in main's layer): `0x1403BB670`, `0x1405549C0`, `0x14202BA30`.
+- **gen_translated --check:** 5695 functions regenerate byte-identical.
+- **Ledger:** `tools/dev/ledger.py` rc 0, no tracked change.
+- **Tests:** `pes_goal_anchor_test` 20/20, `pes_fixdemo_select_test` 6/6, `pes_camera_list_test` 5/5 (rebuilt after the layer and header change, `godotfootball`, `gfsim_run` and these three link: rc 0). Python: `test_strcpy_model`, `test_memset_model`, `test_memmove_model`, `test_memchr_model`, `test_fdtest_model`, `test_image_reads` (9/9), `test_snapmem_holes` all OK.
+- **Not run:** the other `pes_*` binaries and the `godot_*` tests; the gate; smokes. The layer header change touches every translated function; Main, please gate and smoke the merged head.
 
-## 2. What the fix does (CONFIRMED by snapdiff, not yet landed)
+Mutations: none this round (no GF logic changed).
 
-Fallback `_bounded_by_self` in `tools/dev/translate/xlate.py` (`bounded_index` = copy path, else self-guard path). With it, `snapdiff --only 0x140471A80` on seq203: **calls 1, replayed 1, mismatches 0, proven = True**, own-block 54/138 (not gated). Result file: `gf-CutsceneLine-scratch/round3/results_snapdiff_recompute.json`, also `recompute/snapdiff4/results.json`.
+## 3. Not done: the kind-2 anchor case (OPEN)
 
-But it changes the generated text of **51 recorded (proven) functions** and holds out 3 more (`gen_translated.py` log: 0x1403BB670, 0x1405549C0, 0x14202BA30, each reaching a "mistranslated callee"). Those re-proofs are not in this round's budget, so nothing of it is committed.
+`pes_goal_anchor_test` pins GF's `PlaceGoal` against PES. GF's arena takes the builder default arm (BC = 8). PES's pid2024691 goal is BC = 2 (`0x1404B88B0` wrote 2 from the scorer state), and its T and radius come from the else arm (`0x140471A80`), which is now proven. A kind-2 case needs GF to:
+1. run the bc writer `0x1404B88B0` (inputs: the scorer's man record, the clock draw `0x141E532E0` against A0+0xDC, `0x1414C1300`, `0x140478FE0`, `0x1404B6960`) so A0+0xBC comes out 2 in GF's arena, and
+2. run the else arm `0x140471A80` (per tick when A0+0xEA is set) before the anchor.
+Both are in the layer, but step 1 means feeding the bc writer's world reads into GF's arena, which is a new feed like the builder's. Not started: it does not fit the round's budget with a red test and mutations. Round 5 candidate.
 
-Next fix (not written): in `bake_window`, when the access is guard-bounded, accept the hull only if it covers `start .. start + count*scale + n`; otherwise leave the read to a self-guard bake. This keeps every function that baked correctly unchanged. Then regenerate, list the changed recorded functions, and re-prove each.
+## 4. D/F
 
-## 3. Tests
+Main armed `recompute_471A80` on `A0+0xBC <= 1` for kinds 0 and 1 (D and F). No kind-0/1 capture yet. When it lands: replay its recompute with `frame_trace.py recorded --spec-dir <impure spec with args>` and `snapdiff --only 0x140471A80` (the method in §2). The D/F anchor cases then need the same GF feed as §3.
 
-Nothing committed this round, so no branch test was re-run. The round-2 tests stand (camera list 5/5, goal anchor 20/20, fixdemo select 6/6, camera 17/17, goal scene hold 3/3, timeline 7 + 1 skip; Python SnapMem tests OK).
+## 5. Notes
 
-## 4. Patches (not on the branch)
-
-- `gf-CutsceneLine-scratch/round3/translator-and-record.patch` (150 lines): `xlate.py` (the switch-bound register-compare fix in the jump-table prepass; the `strcpy_s` mirror in `import_model_lines`; `_bounded_by_self` and `bounded_index`), `import_stubs.json` (`"do": "strcpy_s"`), `results_core.json` (the 0x140471A80 snapdiff record, `proof: snapdiff`). Do not land the record without the translator change: the record is only true with it.
-- `gf-CutsceneLine-scratch/round3/results_snapdiff_recompute.json` (the proof).
-- Known duplicate: `import_model_lines` has a second `memset` branch (about line 579 before this round's edit), unreachable because the first one returns. Remove it in the same change that lands the mirror.
-
-## 5. Open items
-
-1. Land the `bake_window` coverage fix; regenerate; re-prove the changed recorded functions (51, list from the regeneration) and the 3 held-out ones.
-2. Land the strcpy mirror and the recompute record together (§4).
-3. **Kind-2 anchor case** (`pes_goal_anchor_test`): GF runs only the builder (BC=8). PES's T and radius for BC=2 come from the else arm, which is now replayable. Add the GF else arm (per-tick recompute, the same translated function) before the case can pass; the calc inputs for the case are seq204's entry state (radius 0.0, pos (-41.55, 0, 34.0), rotY 0.0, scene 0x300D9).
-4. **D/F (kinds 0/1):** Main has armed `recompute_471A80` on `d(rcx+0xbc)<=1`; no capture yet.
-5. The seq203 capture is repacked by auto_slim within minutes. The proof used the scratch copy (`gf-CutsceneLine-scratch/recompute/seq203`, ~4 GB): delete after the record lands.
-6. Smokes: not re-run this round (no branch code change).
-
-## 6. Facts for Main
-
-- `strcpy_s` (slot 0x142530660, ucrtbase) is modelled by owner rule; the translator needs its mirror (§4).
-- Sider patches in captured code: fixed in `full_snapshot.py` (round 2, `12c3c64a`).
+- A `/tmp` write (a `cmake --build` log redirect) slipped in once and was removed.
+- Scratch: `gf-CutsceneLine-scratch/recompute/seq203` (unpacked copy, ~4 GB): delete once Main has the record.
