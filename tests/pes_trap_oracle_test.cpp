@@ -772,6 +772,24 @@ TEST(TrapCallMemory, TheCallMapsThePlayersChainInTheHeap) {
   EXPECT_TRUE(lent) << "no shared window of the trap externals covers the player's B: a trap call reads zeros there";
 }
 
+// The chain's layer objects, as the trap-tick oracle needs them: O1 is A+0x118 and O2 is A+0x188 (pestrapworld.hpp), both built by PES's own
+// constructor (ConstructAnime -> FUN_141EB5250), so they are heap objects of the engine, not window records. A trap call reads them through the
+// shared windows (the arena), so each lies inside a window the call borrows.
+TEST(TrapCallMemory, TheChainsLayersO1AndO2AreHeapObjectsTheCallBorrows) {
+  const uint64_t p = TrapEngine()->NewPlayer();
+  const uint64_t a = TrapEngine()->ChainOf(p);
+  const uint64_t o1 = TrapEngine()->Engine().Read64(a + pes::kAChildO1Offset);
+  const uint64_t o2 = TrapEngine()->Engine().Read64(a + pes::kAChildO2Offset);
+  ASSERT_NE(o1, 0u) << "A+0x118 (O1) is built by the constructor";
+  ASSERT_NE(o2, 0u) << "A+0x188 (O2) is built by the constructor";
+  for (const uint64_t object : {o1, o2}) {
+    bool lent = false;
+    for (const auto& w : TrapEngine()->Externals().borrowed)
+      if (w.rw != nullptr && object >= w.base && object + pes::kO2Bytes <= w.base + w.size) lent = true;
+    EXPECT_TRUE(lent) << "layer object at " << std::hex << object << " is not in a window the trap call borrows";
+  }
+}
+
 // Every fact lands in its own field of P. The captures have action id == sub id (and the previous pair equal too), so only
 // distinct values tell those bytes apart; position, previous position and heading come from the man record's own fields.
 TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
