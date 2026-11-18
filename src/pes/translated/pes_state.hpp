@@ -168,6 +168,9 @@ struct PesMem {
       n -= k;
     }
   }
+  // Test seam (tests/pes_engine_fixture.hpp): called with (addr, n) for every read that finds no region. Such a read returns zero, as
+  // it always has; the seam only lets a test see it. Null in production: a miss costs one branch.
+  static inline void (*read_miss)(uint64_t addr, unsigned n) = nullptr;
   uint64_t rd(uint64_t addr, unsigned n) const {
     if (const uint8_t* p = service_at(addr, n)) {
       uint64_t v = 0;
@@ -183,6 +186,7 @@ struct PesMem {
     const uint8_t* p = find(addr, n);
     uint64_t v = 0;
     if (p) std::memcpy(&v, p, n);
+    else if (read_miss) read_miss(addr, n);
     return v;
   }
   void wr(uint64_t addr, uint64_t v, unsigned n) {

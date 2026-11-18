@@ -22,6 +22,8 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import capz  # noqa: E402  (UNPACKED_MARKER)
+sys.path.insert(0, os.path.join(HERE, "..", "capsets"))
+import registry  # noqa: E402  (active and protected captures are never slimmed or packed)
 FULL_BYTES = 200 << 20  # a slim capture keeps a few thousand pages (~30-40 MB); a full one is ~3.8 GB
 
 
@@ -37,7 +39,7 @@ def hook_of(d):
         return None
 
 
-def candidates(live2, launches, keep, min_age, refused):
+def candidates(live2, launches, keep, min_age, refused, guarded=frozenset()):
     """Full captures to slim: older than min_age, not refused before, hook not kept, and never packed (a capture with
     capz's unpacked marker was kept or cited, and an agent is reading it)."""
     folders = sorted(glob.glob(os.path.join(live2, "pid*")), key=os.path.getmtime)[-launches:]
@@ -45,7 +47,7 @@ def candidates(live2, launches, keep, min_age, refused):
     out = []
     for f in folders:
         for d in sorted(glob.glob(os.path.join(f, "seq*"))):
-            if d in refused or now - os.path.getmtime(d) < min_age or not full(d):
+            if d in refused or os.path.realpath(d) in guarded or now - os.path.getmtime(d) < min_age or not full(d):
                 continue
             if os.path.exists(os.path.join(d, capz.UNPACKED_MARKER)):
                 continue
@@ -67,13 +69,13 @@ def read_keep_files(paths):
     return hooks
 
 
-def stale_full(live2, launches, pack_after, pin=frozenset()):
+def stale_full(live2, launches, pack_after, pin=frozenset(), guarded=frozenset()):
     """Captures still full pack_after seconds after landing, except those of pinned hooks (an agent is replaying them;
     packing removes the mem.bin under it)."""
     folders = sorted(glob.glob(os.path.join(live2, "pid*")), key=os.path.getmtime)[-launches:]
     now = time.time()
     return [d for f in folders for d in sorted(glob.glob(os.path.join(f, "seq*")))
-            if full(d) and now - os.path.getmtime(d) >= pack_after and hook_of(d) not in pin]
+            if full(d) and now - os.path.getmtime(d) >= pack_after and hook_of(d) not in pin and os.path.realpath(d) not in guarded]
 
 
 def main():
@@ -89,11 +91,15 @@ def main():
     ap.add_argument("--pack-after", type=float, default=0.0, help="pack captures still full this long after landing (0: never)")
     ap.add_argument("--pin", default="", help="comma-separated hooks never packed (an agent is replaying them now)")
     a = ap.parse_args()
+    try:
+        guarded = registry.guarded_dirs(registry.load())
+    except registry.RegistryError as e:
+        sys.exit("auto_slim: %s" % e)
     keep = {h for h in a.keep.split(",") if h}
     refused_path = os.path.join(a.live2, "auto_slim_refused.txt")
     while True:
         refused = set(open(refused_path).read().split()) if os.path.exists(refused_path) else set()
-        todo = candidates(a.live2, a.launches, keep | read_keep_files(a.keep_file), a.min_age, refused)
+        todo = candidates(a.live2, a.launches, keep | read_keep_files(a.keep_file), a.min_age, refused, guarded)
         if todo:
             print(time.strftime("%H:%M:%S"), "slimming", len(todo), flush=True)
             subprocess.run([sys.executable, os.path.join(HERE, "slim.py"), "--min-age", "0", "--hooks", a.hooks] + todo)
@@ -102,7 +108,7 @@ def main():
                     if full(d):
                         r.write(d + "\n")
         if a.pack_after:
-            stale = stale_full(a.live2, a.launches, a.pack_after, {h for h in a.pin.split(",") if h})
+            stale = stale_full(a.live2, a.launches, a.pack_after, {h for h in a.pin.split(",") if h}, guarded)
             if stale:
                 print(time.strftime("%H:%M:%S"), "packing", len(stale), flush=True)
                 subprocess.run([sys.executable, os.path.join(HERE, "capz.py"), "pack"] + stale)

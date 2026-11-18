@@ -115,6 +115,10 @@ add_executable(pes_trap_data_test pes_trap_data_test.cpp)
 target_link_libraries(pes_trap_data_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_trap_data_test)
 
+add_executable(pes_engine_fixture_test pes_engine_fixture_test.cpp)
+target_link_libraries(pes_engine_fixture_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_engine_fixture_test)
+
 add_executable(pes_physique_test pes_physique_test.cpp)
 target_link_libraries(pes_physique_test PRIVATE pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_physique_test)
@@ -416,6 +420,18 @@ set_tests_properties(pes_capd_test PROPERTIES TIMEOUT 60)
 add_test(NAME auto_slim_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/rendezvous/test_auto_slim.py)
 set_tests_properties(auto_slim_test PROPERTIES TIMEOUT 60)
+
+# Capture-set registry: the slim and pack refusal, the broken-link check, the oracle manifests (small fixture trees).
+add_test(NAME capsets_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/capsets/test_capsets.py)
+set_tests_properties(capsets_test PROPERTIES TIMEOUT 60)
+
+# readset.py's --windows classification: imports unicorn, so it runs under the harness Python (GF_DIFF_PYTHON) only.
+if(DEFINED ENV{GF_DIFF_PYTHON})
+  add_test(NAME readset_windows_test
+    COMMAND $ENV{GF_DIFF_PYTHON} ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_readset_windows.py)
+  set_tests_properties(readset_windows_test PROPERTIES TIMEOUT 120)
+endif()
 
 # Adding one translated function must not recompile the layer: no pes_fn TU includes translated.hpp or the dispatch
 # table, and one added member changes only its TU, translated.hpp and pes_dispatch_gen.cpp. Plain python3.

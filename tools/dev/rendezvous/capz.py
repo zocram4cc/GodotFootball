@@ -19,6 +19,9 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "capsets"))
+import registry  # noqa: E402  (the capsets registry: active and protected captures are never packed)
+
 SLIM_BYTES = 200 << 20  # auto_slim.FULL_BYTES, on allocated blocks: a slim mem.bin is sparse, its apparent size is full
 
 
@@ -40,7 +43,9 @@ def captures(paths):
 UNPACKED_MARKER = ".unpacked"
 
 
-def pack(d):
+def pack(d, guarded=frozenset()):
+    if os.path.realpath(d) in guarded:
+        return "refused"
     raw, zst = os.path.join(d, "mem.bin"), os.path.join(d, "mem.bin.zst")
     if not os.path.exists(raw) or allocated(raw) < SLIM_BYTES:
         return "skip"
@@ -87,7 +92,13 @@ def locked(op, d):
 def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ("pack", "unpack", "status"):
         sys.exit(__doc__)
-    op = {"pack": pack, "unpack": unpack, "status": status}[sys.argv[1]]
+    guarded = frozenset()
+    if sys.argv[1] == "pack":
+        try:
+            guarded = frozenset(registry.guarded_dirs(registry.load()))
+        except registry.RegistryError as e:
+            sys.exit("capz: %s" % e)
+    op = {"pack": lambda d: pack(d, guarded), "unpack": unpack, "status": status}[sys.argv[1]]
     for d in captures(sys.argv[2:]):
         print(d, op(d) if op is status else locked(op, d), flush=True)
 
