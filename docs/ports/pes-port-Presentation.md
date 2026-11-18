@@ -339,3 +339,37 @@ The same byte stream is written at a different address sequence in a heap block:
 1. `0x141978300` (translator bug, vtable destructor): the object's vtable target is untranslated. Translate the target into the closure, then the generator stops holding `0x14217DEF0` out.
 2. Then build `pes_replay_human_test`, run with `PES21_ROOT`, mutations, commit.
 3. seq206–208: check the REP MOVS lowering on the record copy (section 3); fix in the translator, not the spec.
+
+# pes-port-Presentation round 6 (partial): seq206 divergence localized; REP MOVS hypothesis refuted (18-11-26)
+
+Nothing new pushed in round 6. Labels: CONFIRMED = read in tool output or a replay; INF; OPEN.
+
+## 1. The seq206 divergence (CONFIRMED by replay)
+
+A replay of every callee of the seq206 call (`snapdiff --only <26 VAs> --bounded` on the trace), 26 functions:
+- 25 bit-exact on their recorded calls (e.g. 1403FB410 112/112, 1408D5800 28/28, 141EBEB30 1/1, 1420B6A30 1/1).
+- Mismatch: `0x141EB6840` (1 call, the written bytes). Its callers `0x14217DB10`, `0x14217DE20`, `0x14217DEF0` fail only because they include it.
+
+Refuted: the REP MOVS hypothesis. `0x141EB6840`'s callee `0x141EBEB30` (the record copy) is bit-exact on seq206's real call (own-block 1.0). The translator's `do_string` lowering (`REP` as a forward loop, rcx to zero) is correct for MOVS/STOS. The ro word `0x142B67EF0` is identical in the snapshot and the image (`0x0A04`).
+
+Localized (CONFIRMED from disassembly): the two sides take different paths inside `0x141EB6840` before the store `mov qword ptr [rdi+0x10], rax` at `0x141EB6A70`. The preceding code is a loop, `mov rsi,rbx; … call 0x141AFED20; sub rsi,1; jne`, with the earlier calls `0x141AFEB40`, `0x141AFE2A0`, `0x141AFF8E0`. The translated side writes at object `+0x10` first; the harness writes at `+0x1C`, so the loop count or a call's result differs.
+
+## 2. The cause is not yet named (OPEN)
+
+- `0x141AFED20`, `0x141AFEB40`, `0x141AFF8E0` are not committed in the layer (`layer=none`). `0x141AFE2A0` is in a results row only (`diffed false`, 3 cases). They are Fox-side functions with a `param_6` branch (`FUN_141afed20`: a zero argument takes a constant return).
+- snapdiff builds its own closure for these, so the probe ran them without aborting. The committed layer has no build for them, so the replay as the layer would run it cannot be checked yet.
+- Next probe: replay `0x141AFED20` alone on seq206 (it is not in the recorded call list, so the trace needs a hook or the layer needs the record first), then `0x141AFEB40`, `0x141AFE2A0`.
+
+## 3. Not started in this round
+
+- `0x141978300` (vtable destructor, translator bug; `PES_DISPATCH_UNTRANSLATED`): not on the seq206 path (`R+0x48 = 0` there), so it blocks the layer's closure, not this capture.
+- The REP MOVS lowering: the hypothesis is refuted, no translator change made.
+- Replay into the layer (`0x14217DEF0` held out by `0x141978300`), seq205–208 proofs, and the GF replay port with its five tests: all waiting on sections 2 and 3.
+- The worktree still has the uncommitted replay port and its test (`tests/pes_replay_human_test.cpp`); the test target is out of CMake.
+
+## 4. Next
+
+1. Replay `0x141AFED20`, `0x141AFEB40`, `0x141AFE2A0` on seq206 (add them to the trace via a hook or a bounded run); find the first mismatching one.
+2. Fix that function's translation (or declare its read-only input), then re-run the 26-callee replay.
+3. `0x141978300`: translate its vtable target into the closure (the destructor path for `R+0x48 != 0`), then the layer holds `0x14217DEF0`.
+4. Build and test the replay port, then push.
