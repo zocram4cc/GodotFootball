@@ -301,3 +301,41 @@ Note: `141978300` is a closure callee of `14217DE20` (the release path). It is a
 2. Fix `tests/pes_replay_human_test.cpp` (define `kZero`, drop the braces in macros) with the edit tool; build `pes_replay_human_test` and `pes_hud_clock_test`; run with `PES21_ROOT`; mutations (copy offset +0x84 vs +0x80; guard inverted).
 3. seq206–208: find the write-record divergence (index 22260 in seq206): run the replay with a full write log (not the 120-char prefix) and compare the first differing record's address and value. Candidates: the allocator's zeroing or the record copy.
 4. Commit the records and the port per green step; push.
+
+# pes-port-Presentation round 5: clock slot settled, layer rc fixed, replay held out (18-11-26)
+
+Pushed: `fd7c1bf9` (Presentation). Labels: CONFIRMED = read in tool output, a live read, or a decode; OPEN = blocked.
+
+## 1. Clock slot (CONFIRMED)
+
+The HUD clock float counts 60 units per second (SECOND_UNITS_VA, .rdata 60.0). The translated builder's hours word (count / 3600) is the displayed minute and its r8 word ((count / 60) % 60) is the displayed second.
+- Live, read-only: E+0xA0 = 15377.5 and 15382.5, five seconds apart, both screenshots show **4:16** (`<workdrive>/gf-Presentation-scratch/clock/kk.png`).
+- Captured builder call (`pid2435078/seq002`, call 1): E+0xA0 = 890.0, E+0xA4 = 0, the controller's env at `[C+0x38]`.
+- The decompile's field naming was right. The earlier "hours" reading came from a probe that treated the words as hours.
+
+GF fix (committed): `ClockDisplay` takes the minute from `SplitHms(s*60).hours` and the second from `.minute`. The round-1 minute-of-hour wrap is gone. Tests: `pes_clock_test` 52/52 with the install (`DisplayCountsMinutesPastSixty` replaces the wrap test). Mutation (minute and second swapped): 2 tests fail; reverted.
+
+## 2. Layer rc=1 (CONFIRMED cause)
+
+The lint refused `0x141EB6840` for a live read of `0x142B67EF0`. Decode: `0x141EB6D79 lea r14,[rip+0xcb1170]` = `0x142B67EF0`, r14 never advanced; `0x141EB6DF3 cmp word ptr [r14], ax` compares one fixed word in a row loop. This is a single word, not the TENTATIVE 0x42-byte table on the OneWorld branch (`0x142B67EF2`, from site 0x141EB9C07), which I did not copy. Fix: `ro_tables.json` declares `0x142B67EF0` (2 bytes), evidence as decoded. Layer regenerated: rc 0, 3766 recorded bit-exact.
+
+Consequence: the generator now holds `0x14217DEF0` out of the layer ("its closure reaches a mistranslated callee 0x141978300"). That is the replay port's blocker.
+
+## 3. seq206 divergence (OPEN, narrowed)
+
+With the write-window diagnostic (`snapdiff.py` now records `harness_at` / `translated_at`): first differing write record 22260 (18 hex digits each: u64 address, u8 value).
+- harness: `0x23EC001C = 0xC7`, `0x23EC001D = 0x3F`, `0x23EC001E = 0x00`, `0x23EC001F = 0x00`
+- translated: `0x23EC0010 = 0xFF`, `0x23EC0011 = 0xC1`, `0x23EC0012 = 0x3F`, `0x23EC0013 = 0xFE`
+The same byte stream is written at a different address sequence in a heap block: a block copy (`FUN_141EBEB30`, which copies the record into the new object) with a different order or stride on one side. The translator's REP MOVS lowering is unverified (pes-port-PresReplay: "LOOP, REP MOVS unverified"). Suspect, not confirmed. Next probe: run `pes_fn_141EBEB30` alone on that copy's inputs against the harness.
+
+## 4. GF replay port (uncommitted, not built)
+
+- `src/pes/replay_human.{hpp,cpp}` and `src/pes/install_sections.*` (the loader is committed): the port uses GF's PesHeap for the record's object and `gs_base` for the TLS slot.
+- `tests/pes_replay_human_test.cpp`: the sed damage is fixed with the edit tool (`kZero` defined, four asserts). Five tests: copy when present; absent human; inactive record; palette index past the count; entry without the compare word. The test target is removed from `tests/CMakeLists.txt` and the sources from `pesfmt` until `pes_fn_14217DEF0` is in the layer; they are untracked.
+- Not built, not run, no mutations.
+
+## 5. Next
+
+1. `0x141978300` (translator bug, vtable destructor): the object's vtable target is untranslated. Translate the target into the closure, then the generator stops holding `0x14217DEF0` out.
+2. Then build `pes_replay_human_test`, run with `PES21_ROOT`, mutations, commit.
+3. seq206–208: check the REP MOVS lowering on the record copy (section 3); fix in the translator, not the spec.
