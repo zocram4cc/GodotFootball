@@ -2,10 +2,11 @@
 """check.py: report broken oracle links and the registry's captures missing on disk. Exit 2 only when the registry is invalid.
 
 A broken oracle link is a symlink named mem.bin (an oracle directory's link to a capture) whose target is gone: the same set as
-`find ROOT -maxdepth 4 -xtype l -name mem.bin`. Nothing is removed. A registry capture missing on disk is reported, not fatal.
+`find ROOT -maxdepth 4 -xtype l -name mem.bin`. Nothing is removed. A live set's capture missing on disk is reported as missing;
+captures of sets marked gone (documented, not on disk) are counted apart. The exit status is 0 for any report.
 
 Usage: check.py [--registry PATH] [--root DIR]... [--maxdepth 4] [--list]
-Gate: tools/dev/gate.sh runs it as a fast step and prints the count line.
+Gate: tools/dev/gate.sh runs it as a fast step.
 """
 import argparse
 import os
@@ -14,8 +15,6 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import registry  # noqa: E402
-
-# The roots default to the scratch area the registry's captures live in (live2's grandparent), so no path is written here.
 
 
 def broken_links(roots, maxdepth=4):
@@ -36,13 +35,20 @@ def broken_links(roots, maxdepth=4):
 
 
 def missing_captures(reg):
-    """{set name: [capture folders of the set that are not on disk]}, for the sets that have any."""
+    """{set name: [capture folders not on disk]} for the sets that are not gone (a gone set is documented, not checked)."""
     out = {}
     for s in reg["sets"]:
+        if s["status"] == "gone":
+            continue
         gone = [d for d in (os.path.join(reg["live2"], s["launch"], q) for q in s["seqs"]) if not os.path.isdir(d)]
         if gone:
             out[s["name"]] = gone
     return out
+
+
+def gone_sets(reg):
+    """{set name: number of captures} of the sets marked gone."""
+    return {s["name"]: len(s["seqs"]) for s in reg["sets"] if s["status"] == "gone"}
 
 
 def main(argv=None):
@@ -50,26 +56,31 @@ def main(argv=None):
     ap.add_argument("--registry", default=None)
     ap.add_argument("--root", action="append", default=None)
     ap.add_argument("--maxdepth", type=int, default=4)
-    ap.add_argument("--list", action="store_true", help="print every broken link and missing capture, not only the counts")
+    ap.add_argument("--list", action="store_true", help="print every broken link, missing capture and gone set")
     a = ap.parse_args(argv)
     try:
         reg = registry.load(a.registry)
     except registry.RegistryError as e:
         print("CAPSETS: registry invalid: %s" % e)
         return 2
+    # The roots default to the directory above the rendezvous scratch area, where the captures and their links live.
     roots = a.root or [os.path.dirname(os.path.dirname(reg["live2"]))]
     links = broken_links(roots, a.maxdepth)
-    gone = missing_captures(reg)
-    total = sum(len(v) for v in gone.values())
-    slots = sum(len(s["seqs"]) for s in reg["sets"])
+    missing = missing_captures(reg)
+    gone = gone_sets(reg)
+    live = [s for s in reg["sets"] if s["status"] != "gone"]
     print("CAPSETS: %d broken oracle links (mem.bin under %s, maxdepth %d)" % (len(links), ", ".join(roots), a.maxdepth))
-    print("CAPSETS: %d of %d registry captures missing on disk, in %d sets" % (total, slots, len(gone)))
+    print("CAPSETS: %d of %d live-set captures missing on disk, in %d sets" % (
+        sum(len(v) for v in missing.values()), sum(len(s["seqs"]) for s in live), len(missing)))
+    print("CAPSETS: %d captures in %d sets marked gone (documented, not on disk)" % (sum(gone.values()), len(gone)))
     if a.list:
         for p in links:
             print("broken: " + p)
-        for name in sorted(gone):
-            for d in gone[name]:
+        for name in sorted(missing):
+            for d in missing[name]:
                 print("missing: %s (%s)" % (d, name))
+        for name in sorted(gone):
+            print("gone: %s (%d captures)" % (name, gone[name]))
     return 0
 
 

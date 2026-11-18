@@ -21,6 +21,8 @@ def manifest_of(reg, name):
     if not matches:
         raise registry.RegistryError("no set named %r" % name)
     s = matches[0]
+    if s["status"] == "gone":
+        raise registry.RegistryError("set %r is marked gone: no captures on disk to generate from" % name)
     captures, missing = [], []
     for q in s["seqs"]:
         d = os.path.join(reg["live2"], s["launch"], q)

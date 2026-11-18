@@ -20,7 +20,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "capsets"))
-import registry  # noqa: E402  (the capsets registry: active and protected captures are never packed)
+import registry  # noqa: E402  (the capsets registry: an active capture is never packed; packing is lossless, so protected ones are)
 
 SLIM_BYTES = 200 << 20  # auto_slim.FULL_BYTES, on allocated blocks: a slim mem.bin is sparse, its apparent size is full
 
@@ -95,7 +95,7 @@ def main():
     guarded = frozenset()
     if sys.argv[1] == "pack":
         try:
-            guarded = frozenset(registry.guarded_dirs(registry.load()))
+            guarded = frozenset(registry.guarded_dirs(registry.load(), "pack"))
         except registry.RegistryError as e:
             sys.exit("capz: %s" % e)
     op = {"pack": lambda d: pack(d, guarded), "unpack": unpack, "status": status}[sys.argv[1]]

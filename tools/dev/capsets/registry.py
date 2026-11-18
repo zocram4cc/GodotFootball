@@ -3,31 +3,41 @@
 
 Registry JSON: {"version": 1, "live2": DIR, "sets": [{"name", "hook", "launch", "seqs", "status", "owner", "doc"}, ...]}.
   launch: a folder under live2 (pidN); seqs: the capture folders (seqNNN) of that launch that the set names.
-  status: active (an agent is replaying them now), cited (a doc or oracle names them), protected (a brief keeps them).
-Guarded statuses are active and protected: auto_slim.py and capz.py refuse to slim or pack them. Cited captures may still be
-packed or slimmed by the tools (a cited capture's oracle is regenerated from the registry by gen_oracle.py).
+  status:
+    active    an agent is replaying these captures now (a live pin): never slimmed, deleted or packed.
+    protected a brief keeps them: never slimmed or deleted. Packing is lossless and keeps the disk above its floor, so it is allowed.
+    cited     a doc or an oracle names them: any tool may slim or pack them.
+    gone      the captures are no longer on disk; the doc citation is kept. check.py reports them apart from missing captures.
+Refusals (guarded_dirs): slim and delete refuse active and protected; pack refuses active only.
 
-Usage (module): load(), validate(), guarded_dirs(reg), is_guarded(path, reg).
+Usage (module): load(), validate(), guarded_dirs(reg, action), default_path(), mark_gone(reg).
+CLI: registry.py mark-gone [--registry PATH] [--write]: sets status gone on the entries whose captures are not on disk.
 """
+import argparse
 import json
 import os
+import sys
 
 VERSION = 1
-STATUSES = ("active", "cited", "protected")
-GUARDED = ("active", "protected")
+STATUSES = ("active", "cited", "protected", "gone")
 FIELDS = ("name", "hook", "launch", "seqs", "status", "owner", "doc")
-ENV = "GF_CAPSETS"  # the registry file (run/capsets.json, outside the repo): set it in the environment of every tool that uses it
+REFUSED = {"slim": ("active", "protected"), "delete": ("active", "protected"), "pack": ("active",)}
+ENV = "GF_CAPSETS"  # the registry file; unset, the standard run file (default_path) is used
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 
 
 class RegistryError(ValueError):
     pass
 
 
+def default_path():
+    """The standard run file: the rendezvous scratch area beside the repository's checkout (the parent of the repo or worktree)."""
+    return os.path.join(os.path.dirname(REPO), "gf-Rendezvous-scratch", "run", "capsets.json")
+
+
 def path_of(path=None):
-    p = path or os.environ.get(ENV)
-    if not p:
-        raise RegistryError("set %s to the capture registry (run/capsets.json)" % ENV)
-    return p
+    return path or os.environ.get(ENV) or default_path()
 
 
 def validate(reg):
@@ -78,11 +88,66 @@ def capture_dirs(reg, statuses=None):
     return out
 
 
-def guarded_dirs(reg):
-    """The realpaths of the capture folders a tool must not slim or pack (active or protected)."""
-    return {os.path.realpath(d) for d in capture_dirs(reg, GUARDED)}
+def guarded_dirs(reg, action):
+    """The realpaths of the capture folders `action` (slim, delete or pack) must not touch."""
+    if action not in REFUSED:
+        raise ValueError("action must be one of %s, not %r" % (", ".join(REFUSED), action))
+    return {os.path.realpath(d) for d in capture_dirs(reg, REFUSED[action])}
 
 
-def is_guarded(path, guarded):
-    """True when the capture folder `path` is one of the guarded realpaths."""
-    return os.path.realpath(path) in guarded
+def mark_gone(reg, exists=os.path.isdir):
+    """(registry, changes): an entry none of whose captures is on disk becomes gone; a partly present entry is split, its missing
+    seqs moving to a set named NAME-gone with status gone (same owner and doc). Present captures are untouched.
+    changes: [(set name, "gone" or "split", number of missing captures)]."""
+    out = dict(reg, sets=[])
+    changes = []
+    for s in reg["sets"]:
+        if s["status"] == "gone":
+            out["sets"].append(s)
+            continue
+        here = [q for q in s["seqs"] if exists(os.path.join(reg["live2"], s["launch"], q))]
+        gone = [q for q in s["seqs"] if q not in here]
+        if not gone:
+            out["sets"].append(s)
+        elif not here:
+            out["sets"].append(dict(s, status="gone"))
+            changes.append((s["name"], "gone", len(gone)))
+        else:
+            out["sets"].append(dict(s, seqs=here))
+            out["sets"].append(dict(s, name=s["name"] + "-gone", seqs=gone, status="gone"))
+            changes.append((s["name"], "split", len(gone)))
+    return validate(out), changes
+
+
+def write_atomic(path, reg):
+    tmp = path + ".part"
+    with open(tmp, "w") as f:
+        json.dump(reg, f, indent=1)
+        f.write("\n")
+    os.replace(tmp, path)
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    mg = sub.add_parser("mark-gone", help="mark the entries whose captures are not on disk as gone")
+    mg.add_argument("--registry", default=None)
+    mg.add_argument("--write", action="store_true", help="write the registry (default: print what would change)")
+    a = ap.parse_args(argv)
+    try:
+        reg = load(a.registry)
+    except RegistryError as e:
+        print("registry: %s" % e)
+        return 2
+    new, changes = mark_gone(reg)
+    for name, how, n in changes:
+        print("%s: %s (%d captures not on disk)" % (name, how, n))
+    print("registry: %d entries change" % len(changes))
+    if a.write and changes:
+        write_atomic(path_of(a.registry), new)
+        print("registry: written %s" % path_of(a.registry))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

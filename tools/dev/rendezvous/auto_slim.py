@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import capz  # noqa: E402  (UNPACKED_MARKER)
 sys.path.insert(0, os.path.join(HERE, "..", "capsets"))
-import registry  # noqa: E402  (active and protected captures are never slimmed or packed)
+import registry  # noqa: E402  (active and protected captures are never slimmed; active ones are never packed)
 FULL_BYTES = 200 << 20  # a slim capture keeps a few thousand pages (~30-40 MB); a full one is ~3.8 GB
 
 
@@ -92,14 +92,15 @@ def main():
     ap.add_argument("--pin", default="", help="comma-separated hooks never packed (an agent is replaying them now)")
     a = ap.parse_args()
     try:
-        guarded = registry.guarded_dirs(registry.load())
+        reg = registry.load()
+        slim_guard, pack_guard = registry.guarded_dirs(reg, "slim"), registry.guarded_dirs(reg, "pack")
     except registry.RegistryError as e:
         sys.exit("auto_slim: %s" % e)
     keep = {h for h in a.keep.split(",") if h}
     refused_path = os.path.join(a.live2, "auto_slim_refused.txt")
     while True:
         refused = set(open(refused_path).read().split()) if os.path.exists(refused_path) else set()
-        todo = candidates(a.live2, a.launches, keep | read_keep_files(a.keep_file), a.min_age, refused, guarded)
+        todo = candidates(a.live2, a.launches, keep | read_keep_files(a.keep_file), a.min_age, refused, slim_guard)
         if todo:
             print(time.strftime("%H:%M:%S"), "slimming", len(todo), flush=True)
             subprocess.run([sys.executable, os.path.join(HERE, "slim.py"), "--min-age", "0", "--hooks", a.hooks] + todo)
@@ -108,7 +109,7 @@ def main():
                     if full(d):
                         r.write(d + "\n")
         if a.pack_after:
-            stale = stale_full(a.live2, a.launches, a.pack_after, {h for h in a.pin.split(",") if h}, guarded)
+            stale = stale_full(a.live2, a.launches, a.pack_after, {h for h in a.pin.split(",") if h}, pack_guard)
             if stale:
                 print(time.strftime("%H:%M:%S"), "packing", len(stale), flush=True)
                 subprocess.run([sys.executable, os.path.join(HERE, "capz.py"), "pack"] + stale)
