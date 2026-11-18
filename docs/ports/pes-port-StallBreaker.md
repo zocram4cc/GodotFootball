@@ -181,3 +181,31 @@ Result: no fix landed, nothing pushed. `StallBreaker` is still `a9cda8669b` and 
 2. Decode `FUN_141F4D2F0`'s holder value (the byte it stores at `+0x2910`) and which record `param_1 + param_2*0x2830` is.
 3. Then wire `BallEventInput.holder` / `holderFlag` / `holderByte5` / `holderClassKind` in `matchevents.cpp` and make the kind-0xB red test (a slide touch with ball state nonzero writes 0xB).
 4. Item 3 (76 callers of `FUN_1406B4580`) stays OPEN.
+
+## 11. Round 6 (walker touch, Main's WalkerTouch decode): PARKED, resume point
+
+Status: parked at Main's request (OneWorld fix has the implementation slot). No code changed, no commit, no push this round. `StallBreaker` stays at `a9cda8669b`; worktree clean (`git diff` empty). Background scans cancelled.
+
+### 11.1 Main's claim checked against the image (CONFIRMED by byte scans and vtable reads)
+- `FUN_1407B05F0` and `FUN_1407B3470` are in the translated layer, but as CLOSURE members, "not recorded bit-exact on its own" (file headers, `src/pes/translated/closure/`). Neither is proven.
+- The MOVE-tick premise does NOT hold for these two. Upward walk of direct E8 callers (`<scratch>/r5/up.py`, depth 4, 27 functions):
+  - `FUN_1407B05F0` and `FUN_1407B2450` are called only from `FUN_1407B37D0`.
+  - `FUN_1407B37D0` is the **DRIBBLE** action's phase dispatcher: slot `0x1425E2460` = DRIBBLE vtable base `0x1425E2440` + 0x20 (DRIBBLE +0x70 is `0x1407B9280` at `0x1425E24B0`). It has no direct caller; it runs only through `call [vt+0x20]` on a man whose current action is DRIBBLE (4).
+  - `FUN_1407B3470` has five callers (`0x1407A7E9D`, `0x1407A9177`, `0x1407AB71F`, `0x1407AD283` in functions `1407A7E40`, `1407A8F60`, `1407AA4E0`, `1407AD150`, and `0x1407B2558` in `1407B2450`). Every path from them, by direct calls, also ends at `FUN_1407B37D0`.
+  - MOVE's own phase dispatcher is `0x1407824A0` (MOVE vtable `0x1425E13F0` + 0x20); MOVE +0x70 is `0x140782570`. Neither is on the walked graph.
+- So the decoded EDX=7 admission is a DRIBBLE-tick path, not a MOVE-tick path, as far as direct calls show. Roots reached only through indirect calls (function-pointer tables, not vtable slots) were NOT resolved, so "no MOVE path" is INF, not proven.
+- Census (section 2) walkers are MOVE/idle (ac8 2, fn 14) and not DRIBBLE, so this decode does not by itself cover the walker class.
+- Caller count: the EDX scan of `FUN_1406B4580` (`<scratch>/r5/edx7.py`, written, never finished: cancelled) was not run to completion. Doc's 74 vs brief's 76 remains open.
+
+### 11.2 What is established for the walker class
+- GF withholds the touch at `humanoid.cpp:584-597` (walk-away condition) and `AI_HasPossession` 1.0 m (`AIfunctions.cpp:1089-1116`, no PES VA). Both are stand-ins, per Main's WalkerTouch decode §2. Not changed.
+
+### 11.3 Resume plan (when the implementation slot is free)
+1. Finish the EDX=7 caller classification for all `FUN_1406B4580` callers (`edx7.py`): which owner vtable each EDX=7 caller sits in. Settle whether any MOVE (base `0x1425E13F0`) or STEP_MOVE action path reaches an admission; resolve indirect-only roots from the function-pointer tables (`pes_dispatch_gen.cpp` `case` table is one source).
+2. Only then write the red test. Recommended form: a seed-7 census, not a constructed scenario: a designated MOVE man within 0.5 m of a ball at rest, no TRAP start for him within 54 ticks, counted over the shared match (same harness as `ALiveBall...`). State the unmodelled gates (`+0x5C3` ball-present, `+0x35` plan byte, facing) as OPEN.
+3. Port: the admission must come from a proven translation or a cited hand port; `FUN_1407B05F0` / `FUN_1407B3470` need their own bit-exact records before any GF call. Delete `humanoid.cpp:586-597` and the 1.0 m `AI_HasPossession` band only when the replacement lands.
+
+### 11.4 Standing blockers (unchanged from sections 8-10)
+- Slide own-event window (540 frames): no faithful kind-0xB write; needs the ball-state writers (section 10.5).
+- Class gate: the anime record byte is PES's own write (not decoded).
+- Item: stand-up track counts (not read).
