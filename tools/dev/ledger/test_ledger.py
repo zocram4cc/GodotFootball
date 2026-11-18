@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""Ledger join, status and history tests. No bridge, no image, no PES bytes.
+
+Run: python3 -m unittest tools/dev/ledger/test_ledger.py
+"""
+import importlib.util
+import json
+import os
+import shutil
+import tempfile
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+joins = _load("joins", os.path.join(HERE, "joins.py"))
+ledger = _load("ledger_gen", os.path.join(HERE, "..", "ledger.py"))
+
+IN_SCOPE = {"scope": "in", "walked": True}
+
+
+class JoinFixture(unittest.TestCase):
+    def setUp(self):
+        self.repo = tempfile.mkdtemp(prefix="ledger-fixture-")
+        self.addCleanup(shutil.rmtree, self.repo, True)
+        # 141AF3CA0: committed in the layer and recorded bit-exact, and also cited by a stand-in.
+        self.write("src/pes/translated/gameplay/pes_fn_141AF3CA0.cpp", "// fixture\n")
+        # 141EB5E70: committed only as a closure member (never recorded), cited by a stand-in too.
+        self.write("src/pes/translated/closure/pes_fn_141EB5E70.cpp", "// fixture\n")
+        self.write("src/gf_stub.cpp",
+                   "// ponytail: stand-in for 0x141AF3CA0 until the PES site lands\n"
+                   "// ponytail: stand-in for 0x141EB5E70 until the PES site lands\n"
+                   "// ponytail: stand-in for 0x142999999 until the PES site lands\n")
+        self.write("docs/re/fixture.md", "**CONFIRMED** the flag is set at 0x141EB5E70.\n")
+        self.write("tools/dev/translate/results_core.json", json.dumps({"results": [
+            {"va": "0x141AF3CA0", "translated": True, "diffed": True, "synthetic": False},
+            {"va": "0x141EB5E70", "translated": True, "diffed": False},
+            {"va": "0x14211BF10", "translated": True, "diffed": False, "proven": True},
+            {"va": "0x14211BF20", "translated": True, "diffed": True, "synthetic": True},
+        ]}))
+
+    def write(self, rel, text):
+        path = os.path.join(self.repo, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(text)
+
+    def build(self, **kw):
+        return joins.build(self.repo, **kw)
+
+
+class JoinTests(JoinFixture):
+    def test_a_committed_and_recorded_va_is_diffed(self):
+        j = self.build()
+        self.assertIn("141AF3CA0", j["diffed"])
+        self.assertEqual(ledger.classify("141AF3CA0", IN_SCOPE, j, {}), "diffed")
+
+    def test_a_committed_va_with_no_bit_exact_record_is_translated(self):
+        j = self.build()
+        self.assertEqual(j["translated"]["141EB5E70"], "src/pes/translated/closure/pes_fn_141EB5E70.cpp")
+        self.assertEqual(ledger.classify("141EB5E70", IN_SCOPE, j, {}), "translated")
+
+    def test_a_proven_snapdiff_record_is_recorded_bit_exact(self):
+        j = self.build()
+        self.assertEqual(j["diffed"]["14211BF10"], "tools/dev/translate/results_core.json")
+        self.assertEqual(ledger.classify("14211BF10", IN_SCOPE, j, {}), "diffed")
+
+    def test_a_synthetic_proof_is_diffed_and_flagged(self):
+        j = self.build()
+        self.assertEqual(ledger.classify("14211BF20", IN_SCOPE, j, {}), "diffed")
+        self.assertIn("14211BF20", j["synthetic"])
+        self.assertNotIn("141AF3CA0", j["synthetic"])
+        self.assertEqual(ledger.proof_label("14211BF20", "diffed", j), "synthetic")
+        self.assertEqual(ledger.proof_label("141AF3CA0", "diffed", j), "real")
+        self.assertEqual(ledger.proof_label("141EB5E70", "translated", j), "closure")
+
+    def test_recorded_and_translated_beat_a_stand_in_citation(self):
+        j = self.build()
+        self.assertEqual(ledger.classify("141EB5E70", IN_SCOPE, j, {}), "translated")
+        self.assertEqual(ledger.classify("142999999", IN_SCOPE, j, {}), "stand-in")
+
+    def test_a_141_va_in_a_doc_gets_its_verdict(self):
+        j = self.build()
+        self.assertEqual(j["decode"]["141EB5E70"]["verdict"], "CONFIRMED")
+        self.assertIn("141EB5E70", j["ports"])
+
+    def test_a_bare_run_keeps_the_committed_spec_map_and_bridge_list(self):
+        carried = {"diffed": {"140A3A500": "tools/dev/diffharness/specs/band.json",
+                              "141111111": "tools/dev/translate/results.json"},
+                   "funclist": ["141AF3CA0"]}
+        j = self.build(carried=carried)
+        self.assertEqual(j["diffed"]["140A3A500"], "tools/dev/diffharness/specs/band.json")
+        self.assertNotIn("141111111", j["diffed"])  # results-sourced entries are re-read, never carried
+        self.assertEqual(j["funclist"], ["141AF3CA0"])
+
+    def test_a_spec_map_entry_outranks_its_recorded_source(self):
+        j = self.build(diff_map={"141AF3CA0": "tools/dev/diffharness/specs/band.json"})
+        self.assertEqual(j["diffed"]["141AF3CA0"], "tools/dev/diffharness/specs/band.json")
+        self.assertNotIn("141AF3CA0", j["synthetic"])
+
+
+class HistoryTests(unittest.TestCase):
+    def test_regeneration_appends_one_row_per_count_change(self):
+        cur = {"in_total": 3, "ported": 1}
+        rows, appended = ledger.append_if_changed([], cur, "abc123", "2026-11-18")
+        self.assertTrue(appended)
+        self.assertEqual(len(rows), 1)
+        rows, appended = ledger.append_if_changed(rows, dict(cur), "def456", "2026-11-19")
+        self.assertFalse(appended)
+        self.assertEqual(len(rows), 1)
+        rows, appended = ledger.append_if_changed(rows, {"in_total": 3, "ported": 2}, "def456", "2026-11-19")
+        self.assertTrue(appended)
+        self.assertEqual(len(rows), 2)
+
+    def test_a_history_behind_the_counts_fails_the_check(self):
+        rows = [{"base": "a", "date": "d", "in_total": "3", "ported": "1"}]
+        self.assertTrue(ledger.history_current(rows, {"in_total": 3, "ported": 1}))
+        self.assertFalse(ledger.history_current(rows, {"in_total": 3, "ported": 2}))
+        self.assertFalse(ledger.history_current([], {"in_total": 3, "ported": 1}))
+
+    def test_a_delta_line_names_each_status_with_its_change(self):
+        prev = {"base": "a", "date": "d", "ported": "1", "translated": "0"}
+        cur = {"base": "b", "date": "e", "ported": "1", "translated": "5"}
+        lines = ledger.delta_lines(prev, cur, ["ported", "translated"])
+        self.assertEqual(len(lines), 2)
+        self.assertIn("translated", lines[1])
+        self.assertIn("+5", lines[1])
+        self.assertIn("+0", lines[0])
+
+
+if __name__ == "__main__":
+    unittest.main()
