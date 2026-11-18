@@ -316,3 +316,14 @@ Open gaps for the merge lane:
 - Copying the I globals (manifest I lines except G) as open inputs: seq027 still 1 vs 4 (not committed; reverted).
 - Remaining named causes for the 11: the first candidate's float (-0.1029 PES vs -0.1033 GF, from the candidate's own computation) follows from the zeroed ball velocity (B+0x2948) on the GF side; the GF-side writer is not yet found. Next: write-watch on B+0x2948 from the chain entry to the first candidate in GF.
 - Item 2 (O1, trap-tick tests, 14 captures): not started.
+
+## Round 11 (the 11 seq027-037 refusals: root cause and fix; commit 8c678c72, pushed)
+- Write-watch on B+0x2948 (gdb, hardware watchpoint on the window's host address, ASLR off): no writer in the chain. The round 10 "zeroed velocity" was a probe address typo (decimal 2000188228 for hex 0x2000188228); PES's own read at 0x17fb44c equals B+0x2948 and GF agrees.
+- Real chain of causes, located by replay probe plus GF prints: the first candidate float (PES 0.133464, GF 0.220964) is written by 1407987F0 = t^2*c + FUN_1406E7BC0(xmm1), and xmm1 is xmm6 = xmm0 from FUN_141AF3180 (returns B+0xC0). PES's B+0xC0 = 1.0; GF's read 0 because A+0xF0 (B) read 0 inside the trap call. The engine's copy of the same bytes was non-zero.
+- Cause: the trap call maps the image, window, stack, and shared regions, but not PesMemory's OS arena (0x3000000000, the match's heap). A player's chain objects (A, B, O2, layers) live there. Every chain field read by the trap call was zero. The round 9 chain-copy experiment wrote into the engine heap, which the call never read: that is why it changed nothing.
+- Fix: PesMemory::SharedWindows() lends the OS arena as a shared window (matchevents' pesTrapView takes the same list, so production trap calls see the match's heap too). Result: seq027 passes; EveryCaptured passes on all batches b01-b09 (72 captures; the 11 seq027-037 included).
+- Regression test: TrapCallMemory.TheCallMapsThePlayersChainInTheHeap (plain TEST, data-free: a player's B must be covered by a trap-externals window with the engine's G). Mutation (arena window removed): FAILS with "no shared window ... covers the player's B". Restored; PASSES.
+- Gate checks after the fix: pes_adjuster_tick_test 4/4; pes_joint_block_test 2/2; pes_anime_engine_test 14/14; pes_kick_chooser_oracle_test 1/1 (GF_PES_KICK_ORACLE=kick_r5/oracle_chooser); pes_kick_header_oracle_test 2/2 (oracle_hdr); pes_kick_root_test 1/1 (oracle_root).
+- Smokes (2 min, seed 7): switch-off c2016bf08fd0bc98 (29807 ticks) and pes-loop e46129415a2bdc1b (49001 ticks): both UNCHANGED; no hash moved.
+- Per-batch coverage tests (EachWindowBindingChangesTheCall, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) still fail per batch by design (union-covered); not re-run as a union this round.
+- Item 2 (O1, trap-tick tests, 14 traptick captures): not started.
