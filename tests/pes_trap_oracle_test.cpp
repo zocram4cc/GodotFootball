@@ -359,6 +359,28 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   b.ext.imageBytes = imageBytes;
   b.ext.borrowed = TrapEngine()->Externals().borrowed;  // the engine's shared regions (the template's loader regions), as a match lends them
   g_loader->AddTo(b.ext);  // the loader data (motion table, Animetable, registry, trap.o): built from the install, never copied from the capture
+  // The heap ranges the call reads (the manifest's H lines) that no segment holds: the capture's own bytes, as the open inputs the kick
+  // builder takes (pes_kick_oracle_common.hpp). Bytes the install's loader data already covers are not overwritten.
+  for (const auto& line : o.manifest) {
+    if (line[0] != "H") continue;
+    const uint64_t va = std::strtoull(line[1].c_str(), nullptr, 16);
+    const size_t n = std::strtoul(line[2].c_str(), nullptr, 10);
+    pes::PesTrapSegment seg;
+    bool open = false;
+    for (size_t i = 0; i < n; ++i) {
+      const uint64_t a = va + i;
+      const bool covered = std::any_of(b.ext.segments.begin(), b.ext.segments.end(),
+                                       [a](const pes::PesTrapSegment& s) { return a >= s.va && a < s.va + s.bytes.size(); });
+      if (!covered) {
+        if (!open) seg = pes::PesTrapSegment{}, seg.va = a, open = true;
+        seg.bytes.push_back(static_cast<uint8_t>(Read(o, a, 1)));
+      } else if (open) {
+        b.ext.segments.push_back(std::move(seg));
+        open = false;
+      }
+    }
+    if (open) b.ext.segments.push_back(std::move(seg));
+  }
   // The pad manager's connected-pad mask is the named open input (PesTrapLoaderData::padMaskVa): the capture's, as the live game polled it.
   const uint32_t padMask = static_cast<uint32_t>(Read(o, Read(o, pes::kPadManagerGlobalVa, 8) + pes::kPadMaskOffset, 4));
   // The pad object sits in the loader's own segment, which AddTo pushes first (the anime chain's segments follow it): the externals' copy
