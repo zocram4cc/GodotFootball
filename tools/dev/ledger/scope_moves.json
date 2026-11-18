@@ -1119,6 +1119,27 @@
    "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
    "to": "diffed",
    "va": "0x140A92B90"
+  },
+  {
+   "va": "0x14013A6E0",
+   "from": "leaf accessor",
+   "to": "undecoded",
+   "reason": "CrawlFix dtable rule: the row LEA-references 8-aligned run 0x1429CA400 (35 code slots), so it was never a leaf; its 35 dispatch callees are walked now.",
+   "cite": "docs/re/pes-re-crawl-gap.md \u00a71 (W3) and CrawlFix branch"
+  },
+  {
+   "va": "0x14114B850",
+   "from": "leaf accessor",
+   "to": "undecoded",
+   "reason": "CrawlFix dtable rule: the row LEA-references runs 0x142885918/0x142885938 (3 slots each), so it was never a leaf.",
+   "cite": "docs/re/pes-re-crawl-gap.md \u00a71 (W3) and CrawlFix branch"
+  },
+  {
+   "va": "0x141ED4310",
+   "from": "engine",
+   "to": "undecoded",
+   "reason": "CrawlFix WALK_EXCEPTIONS: pre-match handshake dispatcher (rtti:draw) walked deliberately; bounded fan-out into match presentation (handshake 0x141ED48F0).",
+   "cite": "docs/re/pes-re-crawl-gap.md \u00a72 and CrawlFix branch"
   }
  ]
 }

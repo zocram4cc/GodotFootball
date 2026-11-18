@@ -1424,26 +1424,6 @@
   {
    "cite": "-",
    "files": [
-    "src/sim/onthepitch/pesworldrecord.cpp",
-    "src/sim/onthepitch/pesworldrecord.hpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp",
-    "src/pes/editsave.hpp",
-    "src/pes/playerdb.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140922BC0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140A3CCF0"
-  },
-  {
-   "cite": "-",
-   "files": [
     "src/sim/onthepitch/pesstamina.hpp"
    ],
    "reason": "OFFPATH (CrawlFix, 18-11-26): stamina cell-key initializer reached only as a callback argument (lea r9) from absent template twins 0x14042F2D0/0x140A443D0; no static call edge. GF cite is a ponytail stand-in comment (pesstamina.hpp:206).",
@@ -1452,76 +1432,10 @@
   {
    "cite": "-",
    "files": [
-    "src/sim/onthepitch/pesworldrecord.cpp",
-    "src/sim/onthepitch/pesworldrecord.hpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp",
-    "src/pes/editsave.hpp",
-    "src/pes/playerdb.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140A58F00"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pesworldrecord.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140A592B0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pesstamina.cpp",
-    "src/sim/onthepitch/pesstamina.hpp",
-    "src/sim/onthepitch/pesattrs.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x140A595C0"
-  },
-  {
-   "cite": "-",
-   "files": [
     "src/pes/editsave.cpp"
    ],
    "reason": "OFFPATH (CrawlFix, 18-11-26): edit-save path builder (u__save_/u__mount_/u__KONAMI__ per decompile); save/load, out of scope. Caller chain is the menu CPK loader (FUN_1404040d0). GF editsave.cpp ports edit functionality PES exposes only via menus.",
    "va": "0x14140EA40"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/pes/uniform.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x1419112B0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141FB1880"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141FB9FB0"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141FBE480"
   },
   {
    "cite": "-",
@@ -1540,26 +1454,6 @@
    ],
    "reason": "OFFPATH (CrawlFix, 18-11-26): enum-mapping leaf called only from the edit sequencer cluster (0x141FE9xxx callers); GF cites are editsave-only, no match-path evidence.",
    "va": "0x141FC0C40"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/data/formstate.hpp",
-    "src/sim/data/formstate.cpp",
-    "src/sim/onthepitch/team.cpp",
-    "src/pes/condition.cpp",
-    "src/pes/condition.hpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141FC1380"
-  },
-  {
-   "cite": "-",
-   "files": [
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "UNCLASSIFIED (LedgerCredit, 18-11-26): a GF port cites this real function, but the universe crawl does not reach it. Not yet classed as off the match path or added as a crawl root; the owner decides.",
-   "va": "0x141FD5200"
   },
   {
    "cite": "-",
