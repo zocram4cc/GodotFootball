@@ -327,3 +327,13 @@ Open gaps for the merge lane:
 - Smokes (2 min, seed 7): switch-off c2016bf08fd0bc98 (29807 ticks) and pes-loop e46129415a2bdc1b (49001 ticks): both UNCHANGED; no hash moved.
 - Per-batch coverage tests (EachWindowBindingChangesTheCall, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) still fail per batch by design (union-covered); not re-run as a union this round.
 - Item 2 (O1, trap-tick tests, 14 traptick captures): not started.
+
+## Round 12 (coverage, issued, smoke counter, O1; commits 6ae5130b, ab5de93b)
+1. Coverage and issued tests, union over the 9 batches (72 captures). ctest registers them by name only and they SKIP without GF_PES_TRAP_ORACLE (the gate does not set it), so ctest is not red; a single batch fails by design.
+   - EachWindowBindingChangesTheCall: 20/20 bindings change the call in some capture (union). Fixed the man-velocity binding (it named man 2, which never reads velocity; now the man the manifest reads at +0x574, exponent-byte flip).
+   - TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures: union 1/1 issuing capture (pid3727195 seq037) commits the clip. The test had been running PesTrapMemory (no user left: removed) instead of the match's externals.
+   - The full 72-capture union cannot be unpacked at once (about 3.9 GB per capture; disk floor), so the union is computed from the per-batch results.
+2. Smoke counter (pes-loop, 2 min, seed 7): 90,351 trap kind-0 calls, 277 issued. With the OS arena removed from SharedWindows, all 90,351 calls have identical issued, out and P hash, and the smoke hash is unchanged (e46129415a2bdc1b). So in the match the arena content changes no observable trap result. I did not count arena reads directly; the identity is the evidence. Production and the oracle differed only in the oracle's captured candidate state, which the match does not reproduce.
+3. Item 3 (O1): O1 = A+0x118 (O2 = A+0x188), built by PES's constructor (ConstructAnime -> FUN_141EB5250); in the engine chain both are heap objects in the OS arena (test TrapCallMemory.TheChainsLayersO1AndO2AreHeapObjectsTheCallBorrows, pass). NOT done: the 4 TrapTickOracle tests stay #if 0 (their window A/O1/O2 must be redirected to these engine addresses), and the 14 traptick captures (pid2523621 seq022, 023, 053, 054, 074, 095, 096, 097, 111, 112, 124, 228, 245, 246; hook traptick_140797CD0 in PES21/rendezvous/hooks.cfg.pre202611150540; spec specs/trapaction/140797CD0.json) need a tick variant of trap_oracle.py (kind-0 only today) before they can run.
+4. Merge lane (current results): see the table in the reply to Main.
+Disk: freed 11.7 GB of my own diagnostic snapshots and packed 9 kick captures; 339 GB free.
