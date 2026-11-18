@@ -17539,6 +17539,90 @@
    "subsystem": "HUD",
    "translated": true,
    "va": "0x1420EFA10"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 104,
+   "coverage": {
+    "0x1420EFEC0": {
+     "fraction": 0.7528,
+     "reached": 67,
+     "total": 89
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 8660,
+   "nonreturn": 0,
+   "note": "104 cases bit-exact; own-block coverage 0.75; 104 valid of 64 requested",
+   "requested": 64,
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "translated": true,
+   "va": "0x1420EFEC0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 64,
+   "coverage": {
+    "0x1420F04B0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
+   "role": "seed",
+   "stubs": [
+    "0x14159F3E0",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C"
+   ],
+   "subsystem": "in-match menu",
+   "translated": true,
+   "va": "0x1420F04B0"
   }
  ]
 }

@@ -667,8 +667,8 @@ def install_hooks(mu, spec, RET_SENTINEL):
                        or "unmapped %s at %#x (size %d, last RIP %#x): a snapshot hole or outside the process"
                        % (kind, address, size, uc._last_rip))
         else:
-            uc._bad = ("unmodelled %s at %#x (size %d): no region or global covers it; "
-                       "extend the spec" % (kind, address, size))
+            uc._bad = ("unmodelled %s at %#x (size %d, last RIP %#x): no region or global covers it; "
+                       "extend the spec" % (kind, address, size, uc._last_rip))
         uc.emu_stop()
         return True
 
@@ -1383,7 +1383,7 @@ def guided_cases(spec, seed, count, image_path, want_addrs):
                     continue
                 mk = _mem_key(half)
                 full = {v[1]: n for n, v in _input_addrs(spec).items()}
-                hn = full.get(mk[3]) if mk else None
+                hn = full.get(mk[3]) if mk and len(mk) == 4 else None
                 if hn is None or schema.get(hn, {}).get("kind") != "f32":
                     continue
                 lo = schema.get(hn, {}).get("lo", -50.0)
@@ -1413,7 +1413,7 @@ def guided_cases(spec, seed, count, image_path, want_addrs):
         for half in sop[:2]:
             if "[" in half:
                 mk = _mem_key(half)
-                hn = in_by_off.get(mk[3]) if mk else None
+                hn = in_by_off.get(mk[3]) if mk and len(mk) == 4 else None
                 if hn is None:
                     continue
                 hrule = schema.get(hn, {})
@@ -1458,7 +1458,7 @@ def guided_cases(spec, seed, count, image_path, want_addrs):
                         for half in psop[:2]:
                             if '[' in half:
                                 mk = _mem_key(half)
-                                hn = full_by_off.get(mk[3]) if mk else None
+                                hn = full_by_off.get(mk[3]) if mk and len(mk) == 4 else None
                                 if hn and hn not in plan:
                                     hrule = schema.get(hn, {})
                                     if hrule.get('kind') in ('u8', 'all_u8', 'i32'):

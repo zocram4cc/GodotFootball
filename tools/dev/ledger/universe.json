@@ -1303439,6 +1303439,12 @@
      "0x1420CD6C0"
     ]
    },
+   "clockslot": {
+    "members": 1,
+    "roots": [
+     "0x1420F04B0"
+    ]
+   },
    "cutanchor": {
     "members": 175,
     "roots": [
