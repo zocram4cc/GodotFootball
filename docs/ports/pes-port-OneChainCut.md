@@ -303,3 +303,16 @@ Open gaps for the merge lane:
 3. Tick-1 ulp: static analysis only; no live PES value; yaw separation not run.
 4. Kick chooser and header: 6 of 24 kept captures run; kick root: rdx-convention output not compared.
 5. Smokes: pes-loop e46129415a2bdc1b (this line's own work); switch-off c2016bf08fd0bc98.
+
+## Round 9 (item 1: elimination on seq027; no fix)
+- Excluded as the cause (seq027 PES out 4, GF out 1; seq025 passes): A/B/O2 chain verbatim; the differing P bytes (bad set is a subset of the passing set); loader segments (0 mismatches); manifest I globals; DAT_14351ae54 (captured = image 54.0); request copy at r9; ball record at r8; XMM0-15 from call.bin; caller stack words (out-pointer slot excluded: it is a PES stack address). All together: still out 1.
+- Divergence located: FUN_14085E270 (builds the trap object from the ball record: writes only obj+0x10/+0x14), FUN_1408586A0 (mode loop over [obj+0x14, min(obj+0x10,5)] calling FUN_14085B900), FUN_14085F150 (candidate result buffer). Scratch notes: trap_r7/round9_findings.md.
+
+## Round 10 (item 1 continued: replay of PES's call path; partial)
+- Probe (scratch, trap_r7/r10/probe.py): unicorn replay of the captured trap call (specs/core/14079A470, rendezvous hooks restored) with hooks on 14079A470, 14085E270, 1408586A0, 14085B900, 14085F150; logs the trap object, candidate buffers, non-stack reads, stack window and XMM.
+- Trap object (rsp-0x1c8): bounds obj+0x10/+0x14 = 2/1 on both; obj+0x20/+0x21/+0x22 identical in GF and PES on both captures (obj+0x21 = 0 on seq027, 1 on seq025, written by FUN_14085F240 from the G-held vector: matches). Not the cause.
+- First candidate test (FUN_14085B900, first f150 at index 0): XMM0-3 identical; 24 non-stack reads: all equal between GF and PES except (a) GF's ball velocity word B+0x2948 reads 0 at the candidate entry while PES's capture reads -8.33 (seq027; the ENTRY print of GF shows the captured value at 14079A470 entry, so a GF-side write zeroes it in between: not located), and (b) the I global at 0x1436F2378 (PES heap pointer 0x3441250; GF image value 0x21000000E0).
+- Ball prediction table: GF entries 2-8 hold x=z=0 (y correct). Real gap. Fixed in kind-0 Build (commit 5cda8300, pushed): the capture's 250-sample table is the open input, as the tick builder takes it. Regression: EveryCaptured passes batches b01-b07 (61 captures); b08/b09 fail as before (seq027-037).
+- Copying the I globals (manifest I lines except G) as open inputs: seq027 still 1 vs 4 (not committed; reverted).
+- Remaining named causes for the 11: the first candidate's float (-0.1029 PES vs -0.1033 GF, from the candidate's own computation) follows from the zeroed ball velocity (B+0x2948) on the GF side; the GF-side writer is not yet found. Next: write-watch on B+0x2948 from the chain entry to the first candidate in GF.
+- Item 2 (O1, trap-tick tests, 14 captures): not started.
