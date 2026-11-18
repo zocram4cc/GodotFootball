@@ -534,7 +534,7 @@
       "code_hex": "48b8433a5c5045533230488902c7420832312e6566c7420c7865c6420e00b80e000000c3",
       "why": [
         "DWORD GetModuleFileNameA(HMODULE, LPSTR buf, DWORD size): luaopen_package's setpath (FUN_1403A2850, called through the IAT slot 0x14252F4A0 and its .tls$ copy 0x15B960B40) asks for the executable's path and only cuts it at its last backslash to replace ';;' in package.path; it raises a Lua error when the call returns 0.",
-        "Model: writes the 15 bytes `C:\\PES2021.exe` and returns 14 (the length without the terminator), rax only. The real path is the install's (the live process's PEB ImagePathName); the translated code uses only its directory part to build package.path, which GF's scripts never read. A stand-in value for an OS answer, named: replace it with the install path when a script that reads package.path exists."
+        "Model: writes a 15-byte stand-in image path (a drive-root prefix, then PES2021.exe; the bytes are in code_hex) and returns 14 (the length without the terminator), rax only. The real path is the install's (the live process's PEB ImagePathName); the translated code uses only its directory part to build package.path, which GF's scripts never read. A stand-in value for an OS answer, named: replace it with the install path when a script that reads package.path exists."
       ]
     },
     {
@@ -574,7 +574,7 @@
       "code_hex": "48b843003a005c000000488902b803000000c3",
       "why": [
         "DWORD GetCurrentDirectoryW(DWORD size, LPWSTR buf): PES's start-up initializers read the working directory (a path string kept in a static).",
-        "Model: writes L\"C:\\\" (3 wide chars and the terminator, 8 bytes at rdx) and returns 3. The real directory is the install's; the translated code keeps the string only. A named stand-in for an OS answer."
+        "Model: writes the wide stand-in for a drive root (3 wide chars and the terminator, 8 bytes at rdx; the bytes are in code_hex) and returns 3. The real directory is the install's; the translated code keeps the string only. A named stand-in for an OS answer."
       ]
     },
     {
