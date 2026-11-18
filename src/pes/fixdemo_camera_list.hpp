@@ -55,9 +55,9 @@ class FixDemoGenerator {
 // each seeded by A's next draw; the scene's set word (+0x1A0) and the previous layer's pick (+0x1A4) are R1's first two picks.
 // ponytail: PES seeds its global generator from the clock (0x141F4C950: 0x141B34AD0 % 10000 into 0x141F51FD0); the caller names the
 // seed here (GF's match seed), so a replay of a match plays the same scenes.
-class FixDemoScene {
+class FixDemoCameraScene {
  public:
-  FixDemoScene(const FixDemoRandomConstants& k, uint32_t globalSeed);
+  FixDemoCameraScene(const FixDemoRandomConstants& k, uint32_t globalSeed);
   // 0x141F5D2E0: the layer player's +0x78. `mode` is the byte of the layer's own record map (player+0xAE8 key 0, +0x48):
   // 0 a fresh pick of R1, 1 the scene's word, 2 a pick that avoids the previous one. `setCount` is the player's +0x7C.
   uint32_t LayerSetWord(uint32_t mode, uint32_t setCount);

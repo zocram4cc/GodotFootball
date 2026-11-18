@@ -1,4 +1,4 @@
-// GF's port of PES's FixDemo camera record list (pes::BuildCameraList, FixDemoScene::LayerSetWord, CameraListIndex): the builder
+// GF's port of PES's FixDemo camera record list (pes::BuildCameraList, FixDemoCameraScene::LayerSetWord, CameraListIndex): the builder
 // inside the cut start 0x141F2DD80, the set word writer 0x141F5D2E0 and the scene generators of 0x141F55110.
 //
 // Relation tests over records of the shape the install's layers have, plus the PES oracle: cases whose inputs are read from a live
@@ -99,7 +99,7 @@ TEST_F(CameraListTest, TheIndexWalksTheListAsTheClockReachesEachStart) {
 }
 
 TEST_F(CameraListTest, ASetWordModeOneIsTheScenesAndModeTwoAvoidsThePreviousPick) {
-  pes::FixDemoScene scene(k_, 777);
+  pes::FixDemoCameraScene scene(k_, 777);
   const uint32_t first = scene.LayerSetWord(1, 3);
   EXPECT_EQ(scene.LayerSetWord(1, 3), first);  // the scene's word is shared by every layer that asks for it
   uint32_t previous = 0;

@@ -136,7 +136,7 @@ Error PesCutsceneCamera::load_step(const Ref<PesLibrary>& library, int category,
     }
     // The layer player's creation: its set word (0x141F5D2E0), then at its cut start the list (0x141F2DD80).
     // ponytail: the word's mode byte (player+0xAE8 key 0, +0x48) is 0 in all 16 captured layers; its loader is not located, so
-    // every layer takes mode 0 (a fresh pick); modes 1 and 2 are ported in FixDemoScene::LayerSetWord.
+    // every layer takes mode 0 (a fresh pick); modes 1 and 2 are ported in FixDemoCameraScene::LayerSetWord.
     const uint32_t word = scene_->scene.LayerSetWord(0, pes::CameraSetCount(built.records));
     built.list = pes::BuildCameraList(built.records, word, scene_->scene.listRandom());
     layers_.push_back(std::move(built));

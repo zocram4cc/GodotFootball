@@ -85,7 +85,7 @@ class PesCutsceneCamera : public RefCounted {
   // The scene's generators and the constants they borrow, shared by the steps of one scene.
   struct SceneState {
     pes::FixDemoRandomConstants k;
-    pes::FixDemoScene scene;
+    pes::FixDemoCameraScene scene;
     SceneState(const pes::FixDemoRandomConstants& constants, uint32_t seed) : k(constants), scene(k, seed) {}
   };
   std::shared_ptr<SceneState> scene_;

@@ -85,7 +85,7 @@ FixDemoGenerator MakeGlobal(const FixDemoRandomConstants& k, uint32_t seed) {
 
 // The constructor 0x141F55110 in order: A takes the global generator's draw + 1; R1 and R2 take A's next two draws + 1; R1's
 // first two picks are the scene's set word (+0x1A0) and the previous-pick cell (+0x1A4).
-FixDemoScene::FixDemoScene(const FixDemoRandomConstants& k, uint32_t globalSeed)
+FixDemoCameraScene::FixDemoCameraScene(const FixDemoRandomConstants& k, uint32_t globalSeed)
     : a_([&] {
         FixDemoGenerator g = MakeGlobal(k, globalSeed);
         return FixDemoGenerator(k, static_cast<uint32_t>(g.Raw(k.seedRange)) + 1u);
@@ -97,7 +97,7 @@ FixDemoScene::FixDemoScene(const FixDemoRandomConstants& k, uint32_t globalSeed)
   setRange_ = k.setRange;
 }
 
-uint32_t FixDemoScene::LayerSetWord(uint32_t mode, uint32_t setCount) {
+uint32_t FixDemoCameraScene::LayerSetWord(uint32_t mode, uint32_t setCount) {
   uint32_t word = r1_.Pick(setRange_);
   if (mode == 1) {
     word = sceneWord_;
