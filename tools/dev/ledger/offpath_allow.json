@@ -1420,6 +1420,90 @@
    ],
    "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1409931C0"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/sim/onthepitch/pesstamina.hpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): stamina cell-key initializer reached only as a callback argument (lea r9) from absent template twins 0x14042F2D0/0x140A443D0; no static call edge. GF cite is a ponytail stand-in comment (pesstamina.hpp:206).",
+   "va": "0x140A57B00"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.cpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-save path builder (u__save_/u__mount_/u__KONAMI__ per decompile); save/load, out of scope. Caller chain is the menu CPK loader (FUN_1404040d0). GF editsave.cpp ports edit functionality PES exposes only via menus.",
+   "va": "0x14140EA40"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.cpp",
+    "src/pes/editsave.hpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): enum-mapping leaf called only from the edit sequencer cluster (0x141FE9xxx callers); GF cites are editsave-only, no match-path evidence.",
+   "va": "0x141FC0AD0"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.cpp",
+    "src/pes/editsave.hpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): enum-mapping leaf called only from the edit sequencer cluster (0x141FE9xxx callers); GF cites are editsave-only, no match-path evidence.",
+   "va": "0x141FC0C40"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.hpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer (edit:: 0x1414Cxxxx + save-adjacent calls per decompile); edit/save, out of scope. GF editsave.cpp ports edit functionality. Entry for the 0x141FE9xxx cluster (kept off-path as a group).",
+   "va": "0x141FE3830"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.cpp",
+    "src/pes/editsave.hpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
+   "va": "0x141FE9B00"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.cpp",
+    "src/pes/editsave.hpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
+   "va": "0x141FE9F40"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.cpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
+   "va": "0x141FEA000"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/editsave.hpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): edit-scene/condition sequencer cluster with 0x141FE3830 (edit:: helpers, save-adjacent); edit/save, out of scope.",
+   "va": "0x141FEA250"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/pes/fdc.cpp"
+   ],
+   "reason": "OFFPATH (CrawlFix, 18-11-26): real clamp/lerp helper with zero code/data/vtable refs anywhere (bridge xrefs_to empty); dead or engine-registered in this build. GF fdc.cpp cites it from behavior.",
+   "va": "0x14213A180"
   }
  ]
 }

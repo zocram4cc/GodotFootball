@@ -30,13 +30,13 @@ GPR_ORDER = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
 
 def call_matches(pid, cap, expr):
     """Evaluate a --when predicate on the parked call: entry GPRs by name, ret (the return address, i.e. the caller
-    site) and b/d/q(addr) reads of the live process. An unreadable address counts as no match. The expression is the
-    operator's own CLI text."""
+    site) and b/d/q(addr) integer and f(addr) float32 reads of the live process. An unreadable address counts as no match.
+    The expression is the operator's own CLI text."""
     import struct
     rec = fs.RV_REC.unpack(fs.rv_read(pid, cap["page"] + fs.RV_REC_OFF, fs.RV_REC.size))
     env = dict(zip(GPR_ORDER, rec[:16]), ret=rec[48])
     rd = lambda fmt, n: lambda a: struct.unpack(fmt, fs.rv_read(pid, a, n))[0]
-    env.update(b=rd("<B", 1), d=rd("<I", 4), q=rd("<Q", 8))
+    env.update(b=rd("<B", 1), d=rd("<I", 4), q=rd("<Q", 8), f=rd("<f", 4))
     try:
         return bool(eval(expr, {"__builtins__": {}}, env))
     except (struct.error, OSError):
@@ -110,7 +110,8 @@ def main():
                          "entrance's varying number of calls cannot use up their cap)")
     ap.add_argument("--when", action="append", default=[],
                     help="NAME=EXPR (repeatable): snapshot a call of NAME only when EXPR is true on the parked call; "
-                         "EXPR sees the entry GPRs (rcx, r8, ...) and b/d/q(addr) reads of the live process, e.g. "
+                         "EXPR sees the entry GPRs (rcx, r8, ...), b/d/q(addr) integer and f(addr) float32 reads of the "
+                         "live process, e.g. "
                          "'carrier_clear_2109EB0=b(q(r8+0x28)+0x31C1)!=0' (a rare state, not a call count)")
     a = ap.parse_args()
     only = {h for h in a.only.split(",") if h}

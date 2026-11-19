@@ -5,6 +5,8 @@
 // comparisons set flags like COMISS/UCOMISS (NaN -> ZF=PF=CF=1).
 #pragma once
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 #include <algorithm>
@@ -228,13 +230,17 @@ struct PesMem {
   }
 };
 
-// Read n bytes at offset off of a baked read-only image window of len bytes
-// (build-time bytes of PES's image). Offsets outside the window read 0; the
-// window's bound comes from the translator's guard analysis (xlate.bounded_index).
-static inline uint64_t ro_rd(const uint8_t* t, uint64_t len, uint64_t off,
-                             unsigned n) {
+// Read n bytes at offset off of a baked read-only image window of len bytes (build-time bytes of PES's image). A read outside the
+// window is a translator defect (the window was sized short of the access), never a value: it aborts naming the table's address,
+// the offset, the length and the width. (Round 4: 1403AE220 read 0 this way before its window was sized by its guard.)
+static inline uint64_t ro_rd(const uint8_t* t, uint64_t len, uint64_t off, unsigned n) {
+  if (!(off <= len && n <= len - off)) {
+    std::fprintf(stderr, "PES_RO_OUT_OF_WINDOW: table at %p (%llu bytes): read of %u bytes at offset %llu\n", (const void*)t,
+                 (unsigned long long)len, n, (unsigned long long)off);
+    std::abort();
+  }
   uint64_t v = 0;
-  if (off <= len && n <= len - off) std::memcpy(&v, t + off, n);
+  std::memcpy(&v, t + off, n);
   return v;
 }
 
