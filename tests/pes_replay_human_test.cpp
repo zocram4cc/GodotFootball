@@ -113,3 +113,16 @@ TEST(PesReplayHuman, ASequenceKeepsTheLastCopiedEntryAndReleasesAfterEachCopy) {
   EXPECT_EQ(rec.word1c, 0xFFFFFFFFu);
   EXPECT_EQ(rec.byte21, 1);
 }
+
+// The frame table holds 300-byte human records (FUN_14217DEF0 strides by 300). Human 0 sits at offset 0, so only another
+// index shows the stride. Human 2 is marked absent in its own record; a port that wrote it at another stride would leave
+// the function reading an unmarked record there, take the copy, and fail.
+TEST(PesReplayHuman, AnAbsentHumanAtAnIndexOtherThanZeroIsFoundAtItsOwnFrameRecord) {
+  auto f = MakeFrame();
+  if (!f) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::ReplayFrameInputs in = PresentHuman();
+  in.human = 2;
+  in.guard = 0x7FFF;
+  const pes::ReplayHumanRecord rec = f->Read(in);
+  EXPECT_EQ(rec.bytes, kZero);
+}

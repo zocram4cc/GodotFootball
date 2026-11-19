@@ -78,6 +78,10 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
   std::unique_ptr<ReplayHumanFrame> f(new ReplayHumanFrame());
   Impl& m = *f->impl_;
   PesState& s = m.s;
+  // PesHeap::Attach replaces s.mem.services, so it runs before the host windows are pushed (the reverse order dropped
+  // every region: the record read as zero and the function returned at its first gate).
+  m.heap = std::make_unique<PesHeap>();
+  m.heap->Attach(s);
   for (int r = 0; r < kRegions; ++r) {
     m.host[r].assign(kLayout[r].size, 0);
     s.mem.services.push_back(PesMem::Window{kLayout[r].va, kLayout[r].size, nullptr, m.host[r].data()});
@@ -88,9 +92,6 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
   std::vector<uint8_t> stack(kStackBytes, 0);
   s.mem.segs.push_back({kStackVa, std::move(stack)});
 
-  // The allocator the record's object comes from (PES's pool table, GF's arena).
-  m.heap = std::make_unique<PesHeap>();
-  m.heap->Attach(s);
   // The thread block: gs:[0x58] is the TLS array; its index 0 is the slot block.
   s.gs_base = kLayout[kTeb].va;
   return f;
