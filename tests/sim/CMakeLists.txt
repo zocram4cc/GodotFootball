@@ -141,6 +141,10 @@ add_executable(pes_scorerows_test pes_scorerows_test.cpp)
 target_link_libraries(pes_scorerows_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_scorerows_test)
 
+add_executable(pes_nearest_contract_test pes_nearest_contract_test.cpp)
+target_link_libraries(pes_nearest_contract_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_nearest_contract_test)
+
 add_executable(pes_image_test pes_image_test.cpp)
 target_link_libraries(pes_image_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_image_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

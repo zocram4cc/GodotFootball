@@ -33,7 +33,6 @@ constexpr std::size_t kMaScoreOffset[2] = {0x228EC, 0x22AD4};
 constexpr std::size_t kMaListOffset[2] = {0x229B4, 0x22B9C};
 constexpr std::size_t kMaAngleOffset[2] = {0x22A7C, 0x22C64};
 constexpr std::size_t kMaPairOffset[2] = {0x22CBC, 0x22D84};
-constexpr std::size_t kMaNearestOffset = 0x22E4C;
 constexpr std::size_t kMaBearingOffset = 0x23F7C;
 constexpr std::size_t kBearingRowStride = 0x58;
 static_assert(kMaListTeamStride == kRowTeamStride, "the list blocks are the sorted blocks");
@@ -46,7 +45,15 @@ uint8_t* EntryAt(uint8_t* block, int team, int rank) {
 
 void SortedRow::Clear() {
   if (block_ == nullptr) return;
-  std::memset(block_, kRowUnlisted, kRowBytes);
+  for (int team = 0; team < 2; ++team)
+    for (int rank = 0; rank < lane::kSideSize; ++rank) {
+      uint8_t* entry = EntryAt(block_, team, rank);
+      const uint32_t slot = lane::kNoSlot;
+      const float noDistance = 0.0f;
+      std::memcpy(entry, &slot, 4);
+      std::memcpy(entry + 4, &noDistance, 4);
+    }
+  std::memset(block_ + kRowRankOffset, kRowAbsentRank, lane::kSlots);
   block_[kRowCountOffset] = block_[kRowCountOffset + 1] = 0;
 }
 
@@ -95,7 +102,7 @@ float SortedRow::ValueOf(int id) const {
 int SortedRow::RankOf(int id) const {
   if (block_ == nullptr || id < 0 || id >= lane::kSlots) return -1;
   const uint8_t rank = block_[kRowRankOffset + id];
-  return rank == kRowUnlisted ? -1 : rank;
+  return rank >= kRowAbsentRank ? -1 : rank;
 }
 
 int SortedRow::Nearest(int side) const { return Count(side) > 0 ? Entry(side, 0).id : lane::kNoSlot; }

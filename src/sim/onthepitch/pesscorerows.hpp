@@ -47,14 +47,18 @@ struct RowEntry {
   float value = 0.0f;
 };
 
-// A sorted block's layout in MA (pes-re-A4Carrier.md section 4: the 200-byte per-player block): team t's 11 entries of
-// (slot id u32, value f32) at +0x58 t, the two count bytes at +0xB0, the rank bytes at +0xB2 + id. The unlisted fill is
-// 0xFF (INF: the count and rank bytes' width is the NearestEntry layout of pesoffball.hpp).
+// A sorted block's layout in MA (pes-re-teamtick.md section 3.1: the 200-byte per-player block): team t's 11 entries of
+// (slot id u32, d^2 f32) at +0x58 t, the two count bytes at +0xB0, the rank bytes at +0xB2 + id. An empty entry is id 0xFF with
+// d^2 0.0; an id that is not listed has rank kRowAbsentRank.
 inline constexpr std::size_t kRowBytes = 200;
 inline constexpr std::size_t kRowTeamStride = 0x58;
 inline constexpr std::size_t kRowCountOffset = 0xB0;
 inline constexpr std::size_t kRowRankOffset = 0xB2;
-inline constexpr uint8_t kRowUnlisted = 0xFF;
+// PES's rank byte for an id not listed in its own team's list: 10, the team's 11th slot, which no listed id can take (a team lists
+// at most 10 others). pes-re-teamtick.md section 3.1 ("10 = absent", CONFIRMED live).
+inline constexpr uint8_t kRowAbsentRank = lane::kSideSize - 1;
+// The per-player nearest lists: owner i's block at kMaNearestOffset + kRowBytes * i (pes-re-teamtick.md section 3.1; PES's MA+0x22E4C).
+inline constexpr std::size_t kMaNearestOffset = 0x22E4C;
 
 // A PES row, a view over its block in the world window: each team's listed players ascending by value (team 1 is slots
 // 11..21), and each id's position within its team (the rank byte at +0xB2 + id). The block is the store; the view holds
