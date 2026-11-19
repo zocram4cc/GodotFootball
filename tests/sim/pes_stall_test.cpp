@@ -1,11 +1,13 @@
 #include <gtest/gtest.h>
 
+#include <cstdio>
 #include <map>
 
 #include "base/log.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/player/humanoid/humanoid.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/pestrapworld.hpp"
 #include "onthepitch/team.hpp"
 #include "pes_match_constants.hpp"
 #include "pes_shared_match.hpp"
@@ -42,10 +44,34 @@ class BreakerCensusProbe : public pestest::Probe {
     if (!fired) return;
     if (match.GetRefereeBuffer().active)
       armedFirings++;
-    else if (match.IsInPlay() && !match.IsInSetPiece())
+    else if (match.IsInPlay() && !match.IsInSetPiece()) {
       liveFirings++;
-    else
+      if (std::getenv("GF_STALL_DUMP")) Dump(match);
+    } else {
       unarmedFirings++;
+    }
+  }
+
+  // GF_STALL_DUMP=1: one line per live firing, the forced man with his clip, body action bytes, holder state and distance.
+  static void Dump(Match& match) {
+    Player* who = match.GetDesignatedPossessionPlayer();
+    if (!who) {
+      std::printf("STALLDUMP t=%lu man=none\n", match.GetActualTime_ms());
+      return;
+    }
+    const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(who));
+    const Anim* clip = who->GetCurrentAnim();
+    const auto& ms = who->GetMoveStep();
+    const Player* holder = match.GetPesHolder();
+    std::printf("STALLDUMP t=%lu man=%d team=%d clip=%s fn=%d frame=%d/%d ac8=%d ac9=%d holder=%d retainer=%d ms=%d<-%d dist=%.2f ballv=%.2f owner=%d pesHolder=%d\n",
+                match.GetActualTime_ms(), who->GetID(), who->GetTeamID(), clip->anim ? clip->anim->GetName().c_str() : "-",
+                int(who->GetCurrentFunctionType()), clip->frameNum, clip->anim ? clip->anim->GetFrameCount() : 0,
+                int(p[pes::kPByteAC8Offset]), int(p[pes::kPByteAC9Offset]), match.GetPesHolder() == who ? 1 : 0,
+                match.GetBallRetainer() == who ? 1 : 0, int(ms.state), int(ms.previous),
+                double((who->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength()),
+                double(match.GetBall()->GetMovement().GetLength()),
+                match.GetPesDesignatedOwner() == match.PesActorKeyOf(who) ? 1 : 0,
+                holder ? holder->GetTeamID() * 100 + holder->GetID() : -1);
   }
 
  private:
