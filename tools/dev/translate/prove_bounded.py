@@ -24,7 +24,7 @@ SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness", "specs", "trapactio
 RESULTS = os.path.join(HERE, "results_trapaction.json")
 
 
-def main():
+def build_parser():
     ap = argparse.ArgumentParser()
     ap.add_argument("root")
     ap.add_argument("work")
@@ -33,7 +33,22 @@ def main():
     ap.add_argument("--synth", action="append", default=[], help="a SYNTHETIC state of the root (synth.py output)")
     ap.add_argument("--note", default="", help="added to the record's note")
     ap.add_argument("--merge", action="store_true")
-    a = ap.parse_args()
+    ap.add_argument("--spec-dir", default=SPEC_DIR, help="the root's spec directory (default: the trapaction set)")
+    ap.add_argument("--results", default=RESULTS, help="the results file the record merges into (default: results_trapaction.json)")
+    return ap
+
+
+def merge_record(results_path, rec):
+    """Write rec into results_path, replacing the record of the same VA and keeping every other record."""
+    doc = json.load(open(results_path))
+    doc["results"] = [r for r in doc["results"] if r["va"].upper() != rec["va"].upper()] + [rec]
+    with open(results_path, "w") as f:
+        json.dump(doc, f, indent=1)
+        f.write("\n")
+
+
+def main(argv=None):
+    a = build_parser().parse_args(argv)
     root = a.root.upper().replace("0X", "0x")
     image, hooks = os.environ["PES_EXE"], os.environ["RV_HOOKS"]
     os.makedirs(a.work, exist_ok=True)
@@ -41,11 +56,11 @@ def main():
     for d in a.real + a.synth:
         trace = os.path.join(a.work, "tr_" + os.path.basename(d.rstrip("/")))
         subprocess.check_call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", d, "--hooks", hooks, "--out", trace,
-                               "--spec-dir", SPEC_DIR], stdout=subprocess.DEVNULL)
+                               "--spec-dir", a.spec_dir], stdout=subprocess.DEVNULL)
         snaps += ["--snapshot", "%s=%s" % (d, trace)]
     res = os.path.join(a.work, "res.json")
     out_dir = os.path.join(a.work, "build")
-    subprocess.call([sys.executable, os.path.join(HERE, "snapdiff.py"), "--image", image, "--out-dir", out_dir, "--spec-dir", SPEC_DIR,
+    subprocess.call([sys.executable, os.path.join(HERE, "snapdiff.py"), "--image", image, "--out-dir", out_dir, "--spec-dir", a.spec_dir,
                      *snaps, "--only", root, "--hooks", hooks, "--bounded", "--results", res])
     raw = next((r for r in json.load(open(res))["results"] if r["va"].upper() == root.upper()), None)
     print("%s: proven=%s calls=%s replayed=%s excluded=%s mismatches=%s own_block=%s" % (
@@ -63,7 +78,7 @@ def main():
            "dead_blocks": {}, "diffed": True, "failed": 0, "failure_class": None, "icount_max": 0, "nonreturn": 0, "note": note,
            "proof": "snapdiff", "requested": 0,
            "snapdiff": {"calls": raw["calls"], "mismatches": len(raw["mismatches"]), "own_block": own, "replayed": raw["replayed"],
-                        "source": "tools/dev/translate/results_trapaction.json"},
+                       "source": os.path.relpath(a.results, REPO)},
            "stubs": [], "translated": True, "va": root}
     if a.synth:
         rec["synthetic"] = True
@@ -73,11 +88,7 @@ def main():
         json.dump({"note": "the functions the capture-bounded proof of %s entered (prove_bounded.py). VAs only." % root, "root": root,
                    "members": members}, f, indent=1)
         f.write("\n")
-    doc = json.load(open(RESULTS))
-    doc["results"] = [r for r in doc["results"] if r["va"].upper() != root.upper()] + [rec]
-    with open(RESULTS, "w") as f:
-        json.dump(doc, f, indent=1)
-        f.write("\n")
+    merge_record(a.results, rec)
 
 
 if __name__ == "__main__":
