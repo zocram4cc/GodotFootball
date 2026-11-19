@@ -35,18 +35,16 @@ constexpr int kMinutes = 2;
 // clip records; batch BB merged): seeds 1..12, two-minute pes-loop matches, each throw-in whose release ends counted as a
 // ceremony taker (IsPieceTakerHeld, path B) or a carried one (IsCarryingBall, path A) (docs/ports/pes-port-MotionClips2.md
 // section 8). Every cutover that moves the matches needs a new census.
-// Carried throw-ins (path A): seeds 5, 6, 7, 10 and 11 release one (first at ticks 22628, 4573, 25018, 14048 and 10588), fastest
-// first. The tests search matches in turn until one has a throw-in.
-// Re-checked on the RestingBall3 merge (the same census): carried releases on 6 (first at frame 6358), 11 (10223), 10
-// (10797) and 5 (30381), in that order, so the list stands.
-constexpr unsigned int kThrowInSeeds[] = {6u, 11u, 10u, 5u};
-// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take. Census on the RestingBall3 merge
-// (MergeBatchBI; seeds 1..24, two-minute pes-loop matches, one process per seed; a taker is counted when IsPieceTakerHeld
-// at the throw-in's start and its release ends the throw-in): ceremony releases on seeds 18 (first at frame 7237, two
-// releases), 12 (7525), 11 (11290), 23 (27409), 22 (31775) and 10 (42655); none on 1-9, 13-15, 17, 19-21 and 24. Seed 16
-// aborts in PES_DISPATCH_UNTRANSLATED 0x14079E0B0, not counted. No release missed the key. Fastest first; the table is in
-// docs/ports/pes-merge-BI.md section 3.
-constexpr unsigned int kCeremonySeeds[] = {18u, 12u, 11u, 23u, 22u, 10u};
+// Census on the OneWorld r18 merge (19-11-26; seeds 1..30, two-minute pes-loop matches, one process per seed, the census probe of
+// docs/ports/pes-merge-BI.md section 3; `first` is Match::GetPesFrame() at the throw-in's start). The in-play changes of r18 (PES's
+// holder for hasIt, the unquantised presser, the held throw-in taker) and the merged boot moved every earlier list's matches.
+// Carried throw-ins (path A) release first on seeds 2 (frame 3827), 29 (4966), 28 (5901), 4 (6044), 30 (6923) and 1 (7592); the four
+// fastest are searched in that order. The tests search matches in turn until one has a throw-in.
+constexpr unsigned int kThrowInSeeds[] = {2u, 29u, 28u, 4u};
+// Ceremony takers (path B) need a match with a throw-in no seamless candidate can take (a taker counted when IsPieceTakerHeld at the
+// throw-in's start and its release ends the throw-in): releases on seeds 14 (2062), 25 (7275), 3 (9225), 26 (9320), 20 (11874), 24
+// (12167, two), 9 (24574), 8 (31163) and 28 (44657); none on the other seeds. Seed 11 did not finish within the census's 40 minutes.
+constexpr unsigned int kCeremonySeeds[] = {14u, 25u, 3u, 26u, 20u, 24u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).
@@ -306,8 +304,7 @@ class DemoInfoProbe : public pestest::Probe {
   unsigned long skipsAtStart_ = 0;
 };
 
-// One probe per entry of kThrowInSeeds, in the order the tests search them. The list's repeated seed is a second probe on
-// the same match: the shared run feeds it the same ticks, as the old second run of that seed saw them.
+// One probe per entry of kThrowInSeeds, in the order the tests search them.
 BehindLineProbe behindLine[] = {BehindLineProbe(kThrowInSeeds[0]), BehindLineProbe(kThrowInSeeds[1]),
                                  BehindLineProbe(kThrowInSeeds[2]), BehindLineProbe(kThrowInSeeds[3])};
 CarriedHoldProbe carriedHold[] = {CarriedHoldProbe(kThrowInSeeds[0]), CarriedHoldProbe(kThrowInSeeds[1]),
