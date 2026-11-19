@@ -17768,59 +17768,6 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 34,
-   "coverage": {
-    "0x1403FB710": {
-     "fraction": 1.0,
-     "reached": 1,
-     "total": 1
-    },
-    "0x1403FB730": {
-     "fraction": 1.0,
-     "reached": 1,
-     "total": 1
-    },
-    "0x141978300": {
-     "fraction": 1.0,
-     "reached": 6,
-     "total": 6
-    }
-   },
-   "dead_blocks": {},
-   "diffed": false,
-   "failed": 30,
-   "failure_class": "translator bug",
-   "icount_max": 162,
-   "nonreturn": 0,
-   "note": "diff: PES_DISPATCH_UNTRANSLATED: 0; 34 valid of 64 requested; 30 failed skipped",
-   "requested": 64,
-   "role": "seed",
-   "stubs": [
-    "0x14159F3E0",
-    "0x14159FB70",
-    "0x14159FCCC",
-    "0x1415A01DC",
-    "0x1415A1714",
-    "0x1415A1780",
-    "0x1415A178C",
-    "0x1415A1792",
-    "0x1415A1798",
-    "0x1415A179E",
-    "0x1415A17A4",
-    "0x1415A17AA",
-    "0x1415A17C8",
-    "0x1415A17CE",
-    "0x1415A17D4",
-    "0x1415A1876",
-    "0x1415A187C"
-   ],
-   "subsystem": "cutscene",
-   "translated": true,
-   "va": "0x141978300"
-  },
-  {
-   "aborted": 0,
-   "capped": 0,
    "cases": 0,
    "coverage": {
     "0x141957C50": {
@@ -18584,47 +18531,6 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 62,
-   "coverage": {
-    "0x14217DEF0": {
-     "fraction": 0.7692,
-     "reached": 10,
-     "total": 13
-    }
-   },
-   "dead_blocks": {},
-   "diffed": true,
-   "failed": 4,
-   "failure_class": null,
-   "icount_max": 64,
-   "nonreturn": 0,
-   "note": "62 cases bit-exact; own-block coverage 0.77; 62 valid of 64 requested; 4 failed skipped",
-   "requested": 64,
-   "stubs": [
-    "0x14159F3E0",
-    "0x14159FB70",
-    "0x14159FCCC",
-    "0x1415A01DC",
-    "0x1415A1714",
-    "0x1415A1780",
-    "0x1415A178C",
-    "0x1415A1792",
-    "0x1415A1798",
-    "0x1415A179E",
-    "0x1415A17A4",
-    "0x1415A17AA",
-    "0x1415A17C8",
-    "0x1415A17CE",
-    "0x1415A17D4",
-    "0x1415A1876",
-    "0x1415A187C"
-   ],
-   "translated": true,
-   "va": "0x14217DEF0"
-  },
-  {
-   "aborted": 0,
-   "capped": 0,
    "cases": 0,
    "coverage": {
     "0x141957C50": {
@@ -18669,6 +18575,84 @@
    "subsystem": "replay",
    "translated": true,
    "va": "0x1423D53B0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_destr14217.json",
+   "coverage": {
+    "0x14217DEF0": {
+     "reached": 13,
+     "total": 13,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 10 of 10: 5 REAL captured calls + 5 SYNTHETIC states (synth2.py). REAL captures (live2/pid2998104 replay_frame_14217DEF0, R+0x48 != 0; seq567/960/1464/1954/1955): the copy gate (FUN_1408bdf70) finds the stored entry equal to the palette entry, so these calls skip the copy and the release (14217DE20 is not entered). SYNTHETIC: the same five snapshots with one stored-record byte (R+0x50 byte 0) flipped, so the copy and the release (14217DE20 -> 1408BE090 via the record's vtable; 141EB6FF0 -> 141978300) run on real PES memory (synth2.py). The closure is capture-bounded: every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "synthetic": true,
+   "synthetic_cases": 5,
+   "snapdiff": {
+    "calls": 10,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 13,
+     "total": 13,
+     "fraction": 1.0
+    },
+    "replayed": 10,
+    "source": "tools/dev/translate/results_presentation.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14217DEF0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_destr141978.json",
+   "coverage": {
+    "0x141978300": {
+     "reached": 6,
+     "total": 6,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 15 of 15: 5 REAL captured calls + 5 SYNTHETIC states (synth2.py). REAL captures (live2/pid2998104 replay_frame_14217DEF0, R+0x48 != 0; seq567/960/1464/1954/1955): the copy gate (FUN_1408bdf70) finds the stored entry equal to the palette entry, so these calls skip the copy and the release (14217DE20 is not entered). SYNTHETIC: the same five snapshots with one stored-record byte (R+0x50 byte 0) flipped, so the copy and the release (14217DE20 -> 1408BE090 via the record's vtable; 141EB6FF0 -> 141978300) run on real PES memory (synth2.py). The closure is capture-bounded: every other call aborts loudly. Root of the layer's 14217DEF0 destructor chain (141EB6FF0 -> 141978300 -> [0x142612F98 slot 0] -> 1408BE090).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "synthetic": true,
+   "synthetic_cases": 5,
+   "snapdiff": {
+    "calls": 15,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 6,
+     "total": 6,
+     "fraction": 1.0
+    },
+    "replayed": 15,
+    "source": "tools/dev/translate/results_presentation.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141978300"
   }
  ]
 }

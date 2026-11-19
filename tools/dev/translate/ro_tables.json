@@ -1,4 +1,5 @@
 [
+  {"va": "0x142B635D0", "bytes": "0x100", "evidence": "CONFIRMED 0x141E99BEB `lea rdx,[rip+0xcc99de]` = 0x142B635D0 and 0x141E99BF2 `movzx r8d, byte ptr [rsi+rdx]`, rsi = movsxd of edx (0x141E99BC5), the slot index of the array rcx+rsi*8 (0x141E99BD2). INF: the window is 0x100 bytes (one byte per slot, the byte domain); the index range the callers pass is not measured"},
   {"va": "0x142581374", "bytes": "0x80", "evidence": "CONFIRMED 0x1403AE29A: `lea rax,[0x142581380]; mov eax,[rax+r8*4-0xC]` (0x1403AE2A1) reads entry r8 at 0x142581374 + r8*4, with r8 in 2..0x1F (0x1403AE28E `cmp r8,1; je` takes the shift path for r8 = 1; 0x1403AE294 `cmp r8,0x1F; ja`): the heap's region-size reciprocals"},
   {"va": "0x142B67EF0", "bytes": "0x2", "evidence": "CONFIRMED 0x141EB6D79 `lea r14,[rip+0xcb1170]` = 0x142B67EF0 (r14 is not advanced); 0x141EB6DF3 `cmp word ptr [r14], ax` compares the one fixed word against the helper's value in a row loop (0x141EB6DE0..0x141EB6E02): a single word, not a walked table"},
   {"va": "0x142998540", "bytes": "0x550", "evidence": "CONFIRMED 0x14000C0A0: do/while over 0x55 rows of 0x10 bytes (dword key at +8, qword at +0)"},
