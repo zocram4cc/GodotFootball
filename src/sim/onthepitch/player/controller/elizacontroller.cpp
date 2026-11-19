@@ -651,11 +651,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // does. So step onto it first - once he has it, the branch below is
       // business as usual.
       const float ballSpeed_ms = match->GetBall()->GetMovement().GetLength();
-      // On the PES path the man who has the ball is PES's holder (MA+0x2601C, Match::GetPesHolder), not GF's 1 m possession band:
-      // a non-holder beside a resting ball reaches it through reaction entry 3's TRAP (pes-re-walker-touch.md R2), and the band
-      // ran the carrier brain for him instead, hovering him 0.9-1.2 m off the ball (the seed-7 stale pass targets).
-      const bool hasIt = match->GetBallRetainer() == player ||
-                         (match->PesLoop() ? match->GetPesHolder() == CastPlayer() : CastPlayer()->HasPossession());
+      const bool hasIt = match->GetBallRetainer() == player || CastPlayer()->HasPossession();
       // Not gated on the stalemate clock. The inPlay-1 stalls this exists for
       // idle at 5-14 s, well under ShouldReleaseBall's 15, so gating on it would
       // leave the measured case untouched. Close, designated, and without it:
