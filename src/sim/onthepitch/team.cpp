@@ -441,9 +441,7 @@ void Team::RunPesPassTarget() {
   world.SetBallVelocity(ballMove.coords[0], ballMove.coords[2], ballMove.coords[1]);
   world.SetMaBall(id, ball.coords[0], ball.coords[2], ball.coords[1]);
   world.RunArrivalList(id);
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
-  world.RunPassTarget(id, static_cast<uint32_t>(pes::PlayStateFor(match->IsInPlay(), buffer.active,
-                                                                  buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started)));
+  world.RunPassTarget(id, static_cast<uint32_t>(match->PesPlayState()));
 }
 
 Player* Team::PassGetReceiver() {

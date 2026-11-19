@@ -194,6 +194,54 @@ class CarriedHoldProbe : public pestest::Probe {
   Vector3 heldBall_, heldRoot_, rootEndingLastTick_;
 };
 
+// ThePlayStateIsSetPlayReadyUntilTheReleaseTouch: one searched seed's two-minute match. PES holds MI+0x116C at 3 (set-play ready)
+// through a throw-in's take and writes 1 (in play) at the taker's release touch, never at the take's start
+// (docs/re/pes-re-taker-release.md 1.6). Every tick of a take (restart awarded and started, not yet touched) must read 3 in the
+// state PES's code reads (Match::PesPlayState), and the first tick after the touch must read 1.
+class ReleaseTouchProbe : public pestest::Probe {
+ public:
+  explicit ReleaseTouchProbe(unsigned int seed)
+      : Probe("ThePlayStateIsSetPlayReadyUntilTheReleaseTouch", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
+  int takes = 0, takeTicksNotReady = 0, touchesNotLive = 0;
+  void OnTick(Match& match) override {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) {
+      if (!taking_) {
+        taking_ = true;
+        takes++;
+      }
+      if (match.PesPlayState() != pes::kPlayStateSetPlayReady) takeTicksNotReady++;
+      return;
+    }
+    if (!taking_) return;
+    taking_ = false;
+    if (match.PesPlayState() != pes::kPlayStateInPlay) touchesNotLive++;
+  }
+
+ private:
+  bool taking_ = false;
+};
+
+ReleaseTouchProbe releaseTouch[] = {ReleaseTouchProbe(kThrowInSeeds[0]), ReleaseTouchProbe(kThrowInSeeds[1]),
+                                    ReleaseTouchProbe(kThrowInSeeds[2]), ReleaseTouchProbe(kThrowInSeeds[3])};
+
+TEST(PesThrowInRelease, ThePlayStateIsSetPlayReadyUntilTheReleaseTouch) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  int takes = 0, takeTicksNotReady = 0, touchesNotLive = 0;
+  for (ReleaseTouchProbe& p : releaseTouch) {
+    pestest::Run(p);
+    ASSERT_TRUE(p.setupError.empty()) << p.setupError;
+    pestest::Settle(p);
+    takes += p.takes;
+    takeTicksNotReady += p.takeTicksNotReady;
+    touchesNotLive += p.touchesNotLive;
+    if (takes > 0) break;
+  }
+  ASSERT_GT(takes, 0) << "no throw-in take ran in any searched match";
+  EXPECT_EQ(takeTicksNotReady, 0) << takeTicksNotReady << " take ticks did not read set-play ready (3)";
+  EXPECT_EQ(touchesNotLive, 0) << touchesNotLive << " takes did not read in play (1) on the tick after the release touch";
+}
+
 // TheLiftTurnsACarriedThrowInTakerToFaceThePitch: one searched seed's two-minute match, the facing of each lifted taker.
 class LiftProbe : public pestest::Probe {
  public:

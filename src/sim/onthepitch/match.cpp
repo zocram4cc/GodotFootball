@@ -639,6 +639,12 @@ void Match::GameOver() {
     ApplyPostMatchForfeits();
 }
 
+int Match::PesPlayState() {
+  const RefereeBuffer& buf = GetRefereeBuffer();
+  const bool ready = buf.ReadyForTake(GetActualTime_ms()) || buf.started;
+  return pes::PlayStateFor(IsInPlay() && !IsInSetPiece(), buf.active, ready);
+}
+
 bool Match::SideBelowMinimumPlayers() {
   // The count runs in a period with a clock only: a break, the shoot-out and full time have none.
   if (!pes::PeriodHasClock(pesClock->Record().period)) return false;
@@ -886,8 +892,10 @@ void Match::Process() {
   if (pesLoop) {
     WritePesMovementRecords(*this);
     WritePesTrapActors(*this);
-    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
     RunPesTrapTicks(*this);
+    // PES's per-tick ankle shove (FUN_140792E10, call 0x14079355C) acts on the root the engine chain has just written, so it runs after
+    // RunPesTrapTicks. Hypothesis under test (docs/re/pes-re-throwin-ankle.md): running it before the chain let the chain's root win.
+    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
     RunPesBodyScans(*this);
   }
 

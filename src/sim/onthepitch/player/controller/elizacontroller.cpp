@@ -557,6 +557,26 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       }
     }
 
+    // PES's ThrowinLoop (id 26, docs/re/pes-re-throwin-choreography.md 4.1; Update 0x140793590) owns the lifted taker until the throw:
+    // an in-place turn loop on the stored spot, no locomotion from the AI. He holds the ball from the pickup's contact on (3.2 phase 2,
+    // ap+0x2460 |= 0x300), which is GF's retainer: GF's throw clip (pass/idle/special/000_throw) is selected only for the retainer, and
+    // GF's ball-control walk below was what made him one (the possession band), walking him after the ball he holds and over the line
+    // (TheThrowInTakersAnklesStayBehindTheLine: nearer ankle 34.43 -> 33.86 m on Movement clips at 1.5-3.3 m/s).
+    // ponytail: the loop's parametric turn (group 94) and its side step are not ported; standing stands in for them.
+    if (match->PesLoop() && restart == e_SetPiece_ThrowIn && team->GetController()->HoldsRoot(CastPlayer()) &&
+        team->GetController()->IsCarryingBall()) {
+      if (match->GetBallRetainer() != player) match->SetBallRetainer(CastPlayer());
+      PlayerCommand stand;
+      stand.desiredFunctionType = e_FunctionType_Movement;
+      stand.useDesiredMovement = true;
+      stand.desiredDirection = player->GetDirectionVec();
+      stand.desiredVelocityFloat = idleVelocity;
+      stand.useDesiredLookAt = true;
+      stand.desiredLookAt = player->GetPosition() + player->GetDirectionVec() * 10.0f;
+      commandQueue.push_back(stand);
+      return;
+    }
+
     if (match->GetBallRetainer() != player) {  // must be set piece taker, then
       PlayerCommand command;
       command.desiredFunctionType = e_FunctionType_Movement;
@@ -631,7 +651,11 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // does. So step onto it first - once he has it, the branch below is
       // business as usual.
       const float ballSpeed_ms = match->GetBall()->GetMovement().GetLength();
-      const bool hasIt = match->GetBallRetainer() == player || CastPlayer()->HasPossession();
+      // On the PES path the man who has the ball is PES's holder (MA+0x2601C, Match::GetPesHolder), not GF's 1 m possession band:
+      // a non-holder beside a resting ball reaches it through reaction entry 3's TRAP (pes-re-walker-touch.md R2), and the band
+      // ran the carrier brain for him instead, hovering him 0.9-1.2 m off the ball (the seed-7 stale pass targets).
+      const bool hasIt = match->GetBallRetainer() == player ||
+                         (match->PesLoop() ? match->GetPesHolder() == CastPlayer() : CastPlayer()->HasPossession());
       // Not gated on the stalemate clock. The inPlay-1 stalls this exists for
       // idle at 5-14 s, well under ShouldReleaseBall's 15, so gating on it would
       // leave the measured case untouched. Close, designated, and without it:
@@ -935,7 +959,10 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
                                                      distanceToVelocityMultiplier);
     }
 
-    inputVelocityFloat = RangeVelocity(inputVelocityFloat);  // emulate controller quantization
+    // GF's controller quantisation stands in for a human's stick; PES's presser is planned (FUN_1406788B0 returns max(1, fps*dist) ticks,
+    // docs/re/pes-re-press-life.md 9) and is never commanded to a stop short of an unreached target: quantised, 2.6*dist fell under
+    // RangeVelocity's 1.8 m/s step inside 0.69 m and stood him beside a resting ball (docs/re/pes-re-approach.md G1).
+    if (!pressTarget) inputVelocityFloat = RangeVelocity(inputVelocityFloat);  // emulate controller quantization
 
     // PES's PASS_GET receiver runs ActionPassGet's approach (BallFollow): to
     // the ball path's nearest point, clamped onto the pitch. GF's magnet

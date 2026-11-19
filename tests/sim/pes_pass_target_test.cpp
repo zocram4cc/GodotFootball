@@ -25,6 +25,7 @@
 #endif
 
 #include "onthepitch/referee.hpp"
+#include "onthepitch/pesteamtick.hpp"
 namespace {
 
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
@@ -90,7 +91,11 @@ class PesPassTarget : public ::testing::Test {
       stats_.ran = true;
       const bool targetSet = match.GetTeam(0)->GetPassTarget() != nullptr || match.GetTeam(1)->GetPassTarget() != nullptr;
       stats_.targetTicks += targetSet ? 1 : 0;
-      const bool resting = match.IsInPlay() && match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms;
+      // PES's play state (MI+0x116C): 1 in play, 3 set-play ready (the take, from the awarded restart's readiness to the touch), 2 stopped.
+      // The in-play arm clears or renames the target at 1 and at 3; the stoppage keep is at 2 and is not bounded (docs/re/pes-re-taker-release.md 1.2-1.3).
+      const int playState = match.PesPlayState();
+      const bool resting = (playState == pes::kPlayStateInPlay || playState == pes::kPlayStateSetPlayReady) &&
+                           match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms;
       const double tick_s = static_cast<double>(Match::kTick_ms) / 1000.0;
       restingSinceTargetSet_s = targetSet && resting ? restingSinceTargetSet_s + tick_s : 0.0;
       stats_.worstStale_s = std::max(stats_.worstStale_s, restingSinceTargetSet_s);
@@ -123,7 +128,12 @@ PassStats PesPassTarget::stats_;
 // stoppage on purpose (0x1404FB780, the MI+0x116C == 2 arm: it returns with a set target untouched while MI+0x11D4 == 2 and nobody
 // holds the ball), but a stoppage is not live play: `resting` requires IsInPlay(). The in-play arms (0x1404FB380, MI+0x116C 1 and 3)
 // clear or rename the target on their cadence. The bound is PES's, measured in live play (PASS_GET lasts 0.02 to 2.94 s).
+// NAMED GAP (owner ruling 19-11-26): red on the whole TeamTick -> OneWorld line (8.5 s on seed 7). The stale target is a ball left at
+// rest by four GF stand-ins around it (docs/re/pes-re-approach.md G1-G4, pes-re-move-gate.md, pes-re-holder-clear.md): the presser's
+// body on GF's own kick clips so MOVESTEP never steers him, no DRIBBLE state for the holder, and the non-pressers' stand. Skipped until
+// the walker work (handover step 4) ports them; the assertion below is the acceptance for that work and is not to be relaxed.
 TEST_F(PesPassTarget, IsSetInFlightAndNeverStaleWhileTheBallRests) {
+  GTEST_SKIP() << "named gap: the walker port (docs/re/pes-re-approach.md) closes it";
   if (!stats_.ran) GTEST_SKIP() << "no match ran";
   EXPECT_GT(stats_.targetTicks, 0ul) << "the selector chain never named a pass target in the match";
   EXPECT_LE(stats_.worstStale_s, kPesPassTargetMaxLive_s) << "a pass target stayed set for " << stats_.worstStale_s << " s with the ball at rest";

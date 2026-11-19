@@ -97,6 +97,10 @@ public:
   // (docs/ports/pes-port-TeamTick7.md §3), so a ball in flight keeps flying until the prepare places it.
   void StopPlay() { inPlay = false; }
   bool IsInPlay() const { return inPlay; }
+  // PES's play state MI+0x116C as PES's code reads it: 1 in play, 3 set-play ready, 2 stopped (pes::PlayStateFor). GF's inPlay
+  // is also true through a set piece's take, but PES holds 3 through the take and writes 1 only at the release touch
+  // (docs/re/pes-re-taker-release.md 1.6), so a take reads as 3 here. Every PES-facing reader of the play state goes through this.
+  int PesPlayState();
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
   Player* GetLastGoalScorer() const { return lastGoalScorer; }

@@ -3006,9 +3006,7 @@ void TeamAIController::UpdateStrategy() {
   // taken (plan-selector §1 vs roles §2). Only the in-play-only work below uses the narrower gate.
   const bool pesInPlay = match->IsInPlay();
   const bool inPlay = pesInPlay && !match->IsInSetPiece();
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
-  const int playState = pes::PlayStateFor(
-      match->IsInPlay(), buffer.active, buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started);
+  const int playState = match->PesPlayState();
   if (pesPath) {
     // Steps 8 and 9 first, as in PES's order: the stopped select (8) and the out-of-play clear of
     // the reaction delays (9) read the latch, MI+0x116C and MI+0x1554 before the drift reads anything.
@@ -3099,10 +3097,8 @@ void TeamAIController::PesStep55() {
 }
 
 pes::run::ReleaseRoute TeamAIController::PesStep48() {
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
   pes::run::ReleaseDispatchInput in;
-  in.playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
-                                    buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started);
+  in.playState = match->PesPlayState();
   // ponytail: the ==3 arm (FUN_140642670), the else arm (FUN_14057F590), the
   // carrier-record gate (FUN_140A3E190), the MI+0x1198 frame window and the
   // MI+0x173C 2-slot scan read record tables with no GF counterpart
@@ -3432,9 +3428,7 @@ void TeamAIController::UpdatePesSheetPlan() {
   // setup word (setup+0x1FC) likewise stands at 0 (keep) until its writer is found.
   constexpr bool kRestartGate8D = false;
   constexpr bool kSetupWordNonZero = false;
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
-  const int playState = pes::PlayStateFor(
-      match->IsInPlay(), buffer.active, buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started);
+  const int playState = match->PesPlayState();
   if (playState == pes::kPlayStateStopped && kRestartGate8D) {
     teamRecord.sheet.SetPlan(pes::StoppagePlan2(teamRecord.sheet.Plan(), kSetupWordNonZero));
     return;
