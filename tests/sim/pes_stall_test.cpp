@@ -100,7 +100,7 @@ TrapRestartProbe trapCensus;
 // A PES trap's touch is the body contact scan's grant (FUN_1406EDCE0, docs/ports/pes-port-TrapContact.md): the trap tick sets the
 // contact-pending bit on the clip's contact frame, the scan's reach test passes or refuses it, and only a pass touches the ball. Every
 // tick, each man in a PES trap clip is filed by whether the scan granted him a touch this tick (the grant counter moved) and whether he
-// touched the ball this tick (his last-touch time is now).
+// touched the ball this tick (his last-touch time is the tick's start: Match::Process has moved the clock on by the time the probe runs).
 class TrapContactProbe : public pestest::Probe {
  public:
   TrapContactProbe()
@@ -109,6 +109,7 @@ class TrapContactProbe : public pestest::Probe {
   long restingGrants = 0;        // those with the ball at rest (under a metre per second) at the tick's start
   long touchesWithoutGrant = 0;  // a man in a trap clip touched the ball with no grant: a touch with no PES source
   long grantsWithoutTouch = 0;   // a grant that did not touch the ball
+  void OnStart(Match& match) override { tickStart_ms_ = match.GetActualTime_ms(); }
   void OnTick(Match& match) override {
     const float restingSpeed_mps = 1.0f;
     const float speed = match.GetBall()->GetMovement().GetLength();
@@ -119,7 +120,7 @@ class TrapContactProbe : public pestest::Probe {
         const unsigned taken = match.PesTouchesTaken(slot);
         const bool granted = taken != taken_[slot];
         taken_[slot] = taken;
-        const bool touched = player->GetLastTouchTime_ms() == match.GetActualTime_ms();
+        const bool touched = player->GetLastTouchTime_ms() == tickStart_ms_;
         if (granted) {
           grants++;
           if (previousSpeed_ < restingSpeed_mps) restingGrants++;
@@ -130,11 +131,13 @@ class TrapContactProbe : public pestest::Probe {
       }
     }
     previousSpeed_ = speed;
+    tickStart_ms_ = match.GetActualTime_ms();  // the next tick's start: the time this tick's touches are stamped with
   }
 
  private:
   std::map<int, unsigned> taken_;
   float previousSpeed_ = 0.0f;
+  unsigned long tickStart_ms_ = 0;
 };
 
 TrapContactProbe contactCensus;
