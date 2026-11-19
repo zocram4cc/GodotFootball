@@ -90,7 +90,7 @@ struct SituationConstants {
 };
 
 // The kicker-record fields Q reads (ap+offset), the launch vector's horizontal components (param_6 of the scatter)
-// and the kick quality `a` (FUN_14071d760). Distances in metres per PES tick (not per second).
+// and the kick quality `a` (FUN_14071d770; 0x14071d760 is a 5-byte JMP thunk to it). Distances in metres per PES tick (not per second).
 struct KickSituation {
   int kind = 0;                // ap+0x2752: row of the kind table, 1..0x96
   int8_t b2754 = 0;            // ap+0x2754: result[1] of FUN_140829E80

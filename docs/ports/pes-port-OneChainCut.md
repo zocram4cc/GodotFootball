@@ -337,3 +337,60 @@ Open gaps for the merge lane:
 3. Item 3 (O1): O1 = A+0x118 (O2 = A+0x188), built by PES's constructor (ConstructAnime -> FUN_141EB5250); in the engine chain both are heap objects in the OS arena (test TrapCallMemory.TheChainsLayersO1AndO2AreHeapObjectsTheCallBorrows, pass). NOT done: the 4 TrapTickOracle tests stay #if 0 (their window A/O1/O2 must be redirected to these engine addresses), and the 14 traptick captures (pid2523621 seq022, 023, 053, 054, 074, 095, 096, 097, 111, 112, 124, 228, 245, 246; hook traptick_140797CD0 in PES21/rendezvous/hooks.cfg.pre202611150540; spec specs/trapaction/140797CD0.json) need a tick variant of trap_oracle.py (kind-0 only today) before they can run.
 4. Merge lane (current results): see the table in the reply to Main.
 Disk: freed 11.7 GB of my own diagnostic snapshots and packed 9 kick captures; 339 GB free.
+
+## Round 14-15 (gate red: PII, PesPassTarget, throw-in; baseline and bisects)
+- Round 14, PII (pushed 8a65de72): repo_pii_scan flagged drive-letter paths in the prose of two OS-stub models (tools/dev/translate/import_stubs.json) and two comments in xlate.py. Reworded; emitted bytes unchanged; check_pii.sh exits 0.
+- Baseline 4791bbbe (scratch worktree wt4791, Release, Ninja):
+  - PesPassTarget.IsSetInFlightAndNeverStaleWhileTheBallRests: RED (worst stale 15.3 s vs 2.94).
+  - pes_throwin_release_test: GREEN, 8/8 (54 min).
+- Head 8a65de72: PesPassTarget RED (9.06 s); pes_throwin_release_test 7/8: PesThrowInRelease.TheThrowInTakersAnklesStayBehindTheLine RED (29 of 168 taking ticks keep the nearer ankle 1.06 m short of the line). Green at 4791bbbe, so the ankle regression entered in 4791bbbe..8a65de72 (37 commits).
+- PesPassTarget history: test added in a0c22c97; 58350848 scoped the stale bound to live play (restart-pending reported separately, the taker-release stall); a936c452 restored it unscoped. At a936c452 the match aborts on an untranslated dispatch (0x14211A340, the carrier-unit vfunc), so that commit cannot measure; the red at 4791bbbe is the stale bound covering set-piece restarts.
+- Bisect (unattended, scratch worktree): PesThrowInRelease.TheThrowInTakersAnklesStayBehindTheLine, good 4791bbbe, bad 8a65de72 (bisect_throwin.sh, log throwin_steps.log).
+- Full ctest (in progress): 1473 of 2488 reported so far; first failure Loops/GoalSceneHold...PesLoop timed out at its 900 s limit.
+
+## Round 17 (release touch: StartPlay moves to the touch; PES meaning of IsInPlay)
+Changes (uncommitted until the build and runs pass):
+- referee.cpp take start: StartPlay() removed (StartSetPiece() kept). In-play no longer begins at take start.
+- referee.cpp touch block (taker TouchAnim && !TouchPending): Match::RecordReleaseTouch() (StartPlay + touch count) and TeamAIController::ReleaseHeldBall() (pieceHeld = false, the ball leaves the taker's hand).
+- match.hpp: RecordReleaseTouch(), ReleaseTouches().
+- PlayStateFor (movestep.hpp) already gives 3 for an awarded, readied or started restart while not in play: the take now stages 3, because inPlay is false through it.
+- Tests: PesThrowInRelease.InPlayOnlyFromTheReleaseTouch (new probe: no take tick in play; each take records exactly one touch, in play at it). PesPassTarget measures the rest in PES states 1 and 3 (PlayStateFor), not in play alone: the in-play arm clears at 1 and 3, the stoppage keep is state 2 (pes-re-taker-release.md 1.2-1.3).
+Consumers of IsInPlay() that see the change (IsInPlay is now PES 116C == 1, decided to PES's meaning):
+- match.cpp:678 IsSubstitutionWindow: open during the take now (not in play). PES's substitution rule in state 3 is unverified: OPEN.
+- match.cpp:864, 1061, 1109, 1260 (ball and time processing gated on IsInPlay alone): not live during the take, as PES (state 3 is not play).
+- humanoid.cpp:685 bodyContactLive (PesLoop): contact is not live during the take, as PES.
+- team.cpp:420, 688 PassGetReceiver only in play: no receiver during the take, as PES (the in-play receiver rule; match.cpp:1949 "MI+0x116C == 1 only").
+- elizacontroller.cpp:122-150 (!IsInPlay branches): the take now runs the not-in-play branches, the stopped/set-play branches of the AI. Reviewed at the file level only: OPEN for a run.
+- Everything else tests IsInSetPiece() alongside IsInPlay() (about 120 sites): unchanged, because the take is IsInSetPiece.
+Open (not in this round): the fixed gates kCornerReleaseFrames 365 / kFreeKickReleaseFrames 355 (pessequencer.cpp:22-23) and the throw-in arming on takerArrived alone (:94-96); the throw-in counter >= 81 and FK/corner fps*3 gates from pes-re-taker-release.md 1.4-1.5 are not yet translated into the arming.
+
+## Round 17 stop: resume point (session ended by owner)
+State: OneWorld-series-wip stays at 8a65de72 (pushed, unchanged). Round-17 WIP is committed on
+wip/round17-release-touch = c26fafda9b1f514eb7cc82a90d637b38864d4d23 (pushed; ls-remote confirmed). Built by plumbing on a
+private index (commit namespace refuses: extern/godot-cpp is a symlink). NOT green; do not merge as done.
+
+Coded (in c26fafda):
+- referee.cpp take start: StartPlay removed; touch block calls Match::RecordReleaseTouch() and TeamAIController::ReleaseHeldBall().
+- match.hpp: RecordReleaseTouch() (StartPlay + count), ReleaseTouches(). teamAIcontroller.hpp: ReleaseHeldBall() clears pieceHeld.
+- match.cpp:886-894: RunPesTrapTicks moved before PushPieceTakerBehindLine (ankle hypothesis, pes-re-throwin-ankle.md; NOT verified).
+- Tests: PesThrowInRelease.InPlayOnlyFromTheReleaseTouch (new probe, 4 seeds); PesPassTarget measures PES states 1 and 3.
+
+Tested:
+- Build (lock): pes_throwin_release_test and pes_pass_target_test build clean (rc 0) before and after the reorder.
+- InPlayOnlyFromTheReleaseTouch: first run killed by my 3000 s timeout (rc 124), no result. Not red-verified before the fix.
+- TheThrowInTakersAnklesStayBehindTheLine on the fixed+reorder build: unfinished at stop (>1 h, no result).
+- Both still running at stop: PIDs 3196835 (release touch) and 3196836 (ankle); logs r17_rt2.log, r17_ankle2.log in gf-AnimeLayer-scratch.
+- PesPassTarget, smokes, restart tests: NOT run.
+
+Consumers (IsInPlay now = PES 116C == 1): see the consumer list above in this file. Open: elizacontroller !IsInPlay branches, match.cpp:678 substitution window during the take, humanoid.cpp:685.
+Still open from the round-16/17 plan: pessequencer.cpp:22-23 fixed gates (365/355) and :94-96 takerArrived-only arming; the >=81 throw counter and fps*3 / fps*3.5 FK/corner gates; ThrowInTargetMate stand-in.
+
+Bisect (throw-in ankle), scratch wt4791, logs throwin_steps.log / throwin_test.log:
+- ff86210d good; ee5d956e good; e29bcd15 RED for real (rc 1, ankle shortfall message).
+- edf2d4f0 and 4d6eff7d ABORTED rc 134 on PES_DISPATCH_UNTRANSLATED: a crash, not an ankle measurement; the script counted them bad.
+- git bisect reports first bad = 4d6eff7d, which rests on that abort. It is NOT a verified ankle cause; the first real ankle red is e29bcd15 (its position relative to 4d6eff7d is not checked here).
+- Next: fix the script to treat 134 as skip (125), re-bisect; check 4d6eff7d's ankle directly with the reorder build.
+Bisect pid 2904800 may still be alive when Main stops it.
+
+## Round 17 final: both runs timed out
+RT (InPlayOnlyFromTheReleaseTouch) rc=124 and ANKLE (TheThrowInTakersAnklesStayBehindTheLine) rc=124, both under timeout 7000 with no assertion output. No verdict on either. The new test is still not red-verified; the ankle fix is untested.

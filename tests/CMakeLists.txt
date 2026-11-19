@@ -384,3 +384,8 @@ set_tests_properties(translate_pes_survey_test PROPERTIES TIMEOUT 300)
 add_test(NAME translate_untranslated_callees_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_untranslated_callees.py)
 set_tests_properties(translate_untranslated_callees_test PROPERTIES TIMEOUT 120)
+
+# FixDemo camera record list (pes::BuildCameraList and the scene generators); pesrandom lives in gfsim, so the module's source is built in.
+add_executable(pes_camera_list_test pes_camera_list_test.cpp ${CMAKE_SOURCE_DIR}/src/pes/fixdemo_camera_list.cpp)
+target_link_libraries(pes_camera_list_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_camera_list_test)

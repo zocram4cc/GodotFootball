@@ -107,9 +107,9 @@ def pure_rows(funcs):
     heap objects read at run time) is not judged."""
     ok = set()
     for va, f in funcs.items():
-        if not f.get("walked") or f.get("boundary") or f.get("unresolved") or f.get("indirect") or f.get("vtables"):
+        if not f.get("walked") or f.get("boundary") or f.get("unresolved") or f.get("indirect") or f.get("vtables") or f.get("dtables"):
             continue
-        if "vtable" in (f.get("callees") or {}).values():
+        if "vtable" in (f.get("callees") or {}).values() or "dtable" in (f.get("callees") or {}).values():
             continue
         ok.add(va)
     changed = True
@@ -305,7 +305,7 @@ def main():
              "that is not bit-exact, or a closure member; `proof` record or closure) / **ported** (GF code cites "
              "the VA) / **stand-in** (GF code cites the VA with a ponytail PES-site comment), **decoded** "
              "(a report gives a verdict), **leaf accessor** (<= %s instructions, no call, no jump "
-             "out, no vtable reference), **engine** (boundary: not walked, not match logic), "
+             "out, no vtable or dtable reference), **engine** (boundary: not walked, not match logic), "
              "**undecoded** (walked or unresolved, no verdict), **inert** (hand.json), "
              "**out of scope** (a rule below: edit mode, career, save/load, online). Precedence: inert, "
              "out of scope, diffed, translated, stand-in, ported, engine, leaf accessor, decoded, undecoded."
@@ -345,7 +345,9 @@ def main():
     L.append("In scope: the match roots. Function roots are doc-cited (*Roots*); vtable roots are "
              "named by RTTI class (*Roots*). Out of scope: the vtables below are roots of the out crawl; "
              "rows reached only from them are out of scope. The in crawl does not expand these vtables, "
-             "so an in-scope call into one stays a single row, not a walk.")
+             "so an in-scope call into one stays a single row, not a walk. RTTI-less dispatch tables "
+             "(.rdata code-pointer runs) expand like vtables (dtable rows); the WALK_EXCEPTIONS rows in "
+             "universe.py meta are walked despite matching a boundary rule.")
     L.append("")
     table(L, ["scope", "RTTI rule (why)", "vtables", "slots"],
           [(x["scope"], x["why"], x["vtables"], x["slots"]) for x in meta.get("scope_rules", [])])

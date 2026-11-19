@@ -222,7 +222,12 @@ def find_guards(lines):
     return out
 
 
-def bounded_index(em, p, ia):
+# Signed conditional jumps: a guard that uses one bounds the index from above only (a negative index passes it), so no
+# window that starts at the table base may be baked from it (1426484F0's anime class table: CMP 0x5E; JL admits -0x80..-1).
+SIGNED_JCC = {"JL", "JNGE", "JLE", "JNG", "JG", "JNLE", "JGE", "JNL"}
+
+
+def _bounded_by_copy(em, p, ia):
     """How many index values (0..n-1) the guard before access ia admits for
     index register parent p, or None when no guard governs the access."""
     lines = em.lines
@@ -237,6 +242,8 @@ def bounded_index(em, p, ia):
     acc = lines[ia][0]
     count = None
     for _, greg, bound, ji, mn, tgt in em.guards:
+        if mn in SIGNED_JCC:  # a signed guard bounds the index from above only: the window needs its lower bound (ro_tables)
+            continue
         if greg != src or ji >= k:
             continue
         if any(lines[x][2] and
@@ -259,6 +266,35 @@ def bounded_index(em, p, ia):
             elif mn in ("JBE", "JNA", "JLE", "JNG"):
                 count = bound + 1
     return count
+
+
+def _bounded_by_self(em, p, ia):
+    """The count the index register p is guarded to before access ia when the guard compares p itself (`cmp r8, 0x1f ; ja`)
+    and nothing writes p between the guard and the access: bound + 1 on the fall-through of a JA (1403AE220: the table
+    `[rax + r8*4 - 0xc]` after `cmp r8, 0x1f ; ja`). None otherwise."""
+    lines = em.lines
+    acc = lines[ia][0]
+    count = None
+    for _, greg, bound, ji, mn, tgt in em.guards:
+        if mn in SIGNED_JCC:  # signed: no lower bound (see _bounded_by_copy)
+            continue
+        if greg != p or ji >= ia or not (lines[ji][0] < acc < tgt):
+            continue
+        if any(lines[x][2] and PARENT.get(lines[x][2][0].strip().lower()) == p and lines[x][1] not in ("CMP", "TEST")
+               for x in range(ji + 1, ia)):
+            continue
+        if any(lines[x][0] in em.labels for x in range(ji + 1, ia + 1)):
+            continue
+        if mn in ("JA", "JNBE", "JG", "JNLE"):
+            count = bound + 1
+    return count
+
+
+def bounded_index(em, p, ia):
+    """How many index values (0..n-1) the guard before access ia admits for index register parent p, or None: a guard on
+    the register a MOV copied from (_bounded_by_copy), else a guard on p itself (_bounded_by_self)."""
+    count = _bounded_by_copy(em, p, ia)
+    return count if count is not None else _bounded_by_self(em, p, ia)
 
 
 # Instructions that write registers their operand list does not name; a CALL clobbers the caller-saved set.
@@ -576,15 +612,22 @@ def import_model_lines(op, jump):
         # RtlSetLastWin32Error(ecx): TEB.LastErrorValue (gs:[0x30]+0x68) = ecx; rax = the TEB self pointer (the machine code).
         return ["{ " + push_ret + " uint64_t _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[0] = _self;"
                 " s.wr(_self + 0x68ULL, s.gpr[1] & 0xFFFFFFFFULL, 4);%s }" % pop_ret]
-    if e["do"] == "memset":
-        # memset(rcx=dst, edx=c, r8=n), the code_hex model register for register: mov r9,rcx; push rdi; rep stosb (n bytes of the low
-        # byte of c from dst, direction flag clear); mov rax,r9; pop rdi. rcx ends 0, r9 = rax = dst, rdi restored.
+    if e["do"] == "strcpy_s":
+        # errno_t strcpy_s(rcx = dst, rdx = size, r8 = src), the code_hex model register for register: dst or size zero ->
+        # EINVAL with no write; src zero -> *dst = 0 and EINVAL; else copy src to dst through its NUL (eax 0), or when size
+        # runs out first *dst = 0 and ERANGE (0x22). Left: r8 = src - dst, r9 = the copy's end, rdx = the size left; rcx kept.
         return ["{ " + push_ret +
-                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
-                " uint64_t _dst = s.gpr[1], _n = s.gpr[8];"
-                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.gpr[2] & 0xFFULL, 1);"
-                " s.gpr[9] = _dst; s.gpr[0] = _dst; s.gpr[1] = 0;"
-                " s.gpr[4] += 8;%s }" % pop_ret]
+                " uint64_t _dst = s.gpr[1], _size = s.gpr[2], _src = s.gpr[8], _rc = 0x16;"
+                " if (_dst != 0 && _size != 0) {"
+                "   if (_src == 0) s.wr(_dst, 0, 1);"
+                "   else {"
+                "     uint64_t _p = _dst; _rc = 0x22; s.gpr[8] = _src - _dst;"
+                "     do { uint8_t _b = (uint8_t)s.rd(s.gpr[8] + _p, 1); s.wr(_p, _b, 1); ++_p;"
+                "          if (_b == 0) { _rc = 0; break; } } while (--_size != 0);"
+                "     if (_rc == 0x22) s.wr(_dst, 0, 1);"
+                "     s.gpr[9] = _p; s.gpr[2] = _size;"
+                "   } }"
+                " s.gpr[0] = _rc;%s }" % pop_ret]
     if e["do"] == "isnan":
         # ucrtbase _isnan(xmm0 = double): the code_hex model register for register. The caller's home slot [rsp+8] (the
         # callee's rsp+8 after the return address) takes the bits of x; rcx = |x| bits; rdx = +inf bits; rax = 0 or 1.
@@ -708,6 +751,11 @@ class Emitter:
         n = 4 if (flt == "f32" or width == 32) else width // 8
         if flt == "f64":
             n = 8
+        # A guard bounds the index: the hull must hold every byte the read can reach (its last index), else the read is not this
+        # table's and the window would read 0 past its end (ro_rd). 1403AE220: a 0x1C00 table of another function, 0x80 short.
+        count = bounded_index(self, PARENT.get(mp["index"], mp["index"]), self.cur) if mp["index"] else None
+        if count is not None and max(starts) + (count - 1) * mp["scale"] + n > max(h for _, h in fit):
+            return None
         self.ro_tabs[(lo, span)] = self.img.read(lo, span)
         rd = "ro_rd(k_t%X_%X, %d, (uint64_t)(%s) - 0x%XULL, %d)" % (lo, span, span, self.addr_expr(mp), lo, n)
         if flt == "f32":
@@ -716,15 +764,14 @@ class Emitter:
             return "PesState::f64(%s)" % rd
         return rd
 
-    def bake_ro(self, mp, width, flt):
+    def bake_ro(self, mp, width, flt, self_guard=False):
         """A register-indexed read of a read-only image table whose base is a
         LEA constant and whose index a guard bounds: bake the window the guard
         admits (build-time bytes, VA-cited). None when any part is unknown."""
         if self.cur is None or width == 128 or mp.get("seg"):  # a segment-relative read is never a baked table
             return None
         base = image_pointer(self, PARENT.get(mp["base"], mp["base"]), self.cur)
-        count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
-                              self.cur)
+        count = (bounded_index if self_guard else _bounded_by_copy)(self, PARENT.get(mp["index"], mp["index"]), self.cur)
         if base is None:
             return None
         n = 4 if (flt == "f32" or width == 32) else width // 8
@@ -804,6 +851,11 @@ class Emitter:
         baked = self.bake_window(mp, width, flt)
         if baked is not None:
             return baked
+        if mp["base"] is not None and mp["index"] is not None:
+            # The hull (bake_window) does not cover a guard-bounded span (1403AE220): the window is the guard's own span.
+            baked = self.bake_ro(mp, width, flt, self_guard=True)
+            if baked is not None:
+                return baked
         self.note_live_ro(mp)
         a = self.addr_expr(mp)
         if width == 128:
@@ -2246,9 +2298,19 @@ def prepass(lines, img):
                 default = imm_val(ops2[0])
                 if j - 1 >= 0:
                     mn3, ops3 = byaddr[order[j - 1]]
-                    if mn3.upper() == "CMP" and len(ops3) == 2 and \
-                            is_imm(ops3[1]):
+                    bound = ops3[1].strip().lower() if len(ops3) == 2 else ""
+                    if mn3.upper() == "CMP" and len(ops3) == 2 and is_imm(ops3[1]):
                         count = imm_val(ops3[1]) + 1
+                    elif mn3.upper() == "CMP" and PARENT.get(bound) is not None:
+                        # The bound sits in a register the code loaded with an immediate just before (`mov ebx, 7; cmp r8d, ebx`,
+                        # 1404B8290): the count is that immediate + 1. Any other writer of the register leaves count unknown.
+                        for k in range(j - 2, max(-1, j - 12), -1):
+                            mn4, ops4 = byaddr[order[k]]
+                            if not ops4 or PARENT.get(ops4[0].strip().lower()) != PARENT.get(bound):
+                                continue
+                            if mn4.upper() == "MOV" and len(ops4) == 2 and is_imm(ops4[1]):
+                                count = imm_val(ops4[1]) + 1
+                            break
                 break
         if baseva is not None and tdisp is not None and count is not None:
             tva = baseva + tdisp
