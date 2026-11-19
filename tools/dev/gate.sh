@@ -40,6 +40,8 @@ export GF_DIFF_JOBS=$diff_jobs
 echo "GATE diff jobs: $diff_jobs (cores $(nproc), load $(cut -d' ' -f1 /proc/loadavg))"
 save=$(find ~/Documents/KONAMI/'eFootball PES 2021 SEASON UPDATE' -name EDIT00000000 2>/dev/null | head -1)
 echo "GATE tier: $tier (ctest -j $jobs)"
+# Capture-set registry (run/capsets.json): reports broken oracle links; exits non-zero only when the registry is invalid.
+python3 "$repo/tools/dev/capsets/check.py" || { echo "GATE $tier: RED capset registry invalid"; exit 1; }
 
 nice -n 19 cmake --build "$build" -j3 > "$build/gate.build.log" 2>&1 || {
   echo "BUILD FAILED"; grep -m5 -E "error" "$build/gate.build.log"; exit 1; }
