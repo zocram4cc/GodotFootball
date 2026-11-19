@@ -5883,6 +5883,7 @@ void pes_native_heap_alloc(PesState& s);
 void pes_native_heap_free(PesState& s);
 void pes_native_heap_owns(PesState& s);
 void pes_native_heap_trim(PesState& s);
+void pes_native_kernel32_cs_init(PesState& s);
 void pes_native_registry_find(PesState& s);
 void pes_native_registry_insert(PesState& s);
 PesDispatch pes_dispatch_lookup(uint64_t t) {
@@ -11771,6 +11772,7 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x141B34DB0ULL: return {pes_native_heap_trim};
     case 0x2500000068ULL: return {pes_native_registry_insert};
     case 0x2500000070ULL: return {pes_native_registry_find};
+    case 0x6FFFFF9CF314ULL: return {pes_native_kernel32_cs_init};
     default: return pes_survey_absent(t, __builtin_return_address(0));
   }
 }
