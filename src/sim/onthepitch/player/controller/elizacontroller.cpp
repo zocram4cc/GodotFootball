@@ -2854,8 +2854,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // the state's owned byte reads, so it is written first.
   pes::PesWorld& pesWorld = match->PesWorldOf();
   const int sideIndex = team->GetID();
-  Player* ballOwner = match->GetBallRetainer();
-  pesWorld.SetMaOwner(sideIndex, ballOwner != nullptr ? static_cast<uint32_t>(match->PesSlotOf(ballOwner)) : pes::kMiNoSlot);
+  Player* pesHolder = match->GetPesHolder();
+  pesWorld.SetMaOwner(sideIndex, pesHolder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(pesHolder)) : pes::kMiNoSlot);
   // ponytail: the CPU tier setting (side record +0xA294, written by the menus' 0x140A424E0 callers 0x141FBE480 / 0x141FB9FB0)
   // is the live play setting, tier 5 (docs/re/pes-re-A4Carrier.md 3); GF has no such menu.
   pesWorld.SetSideTier(sideIndex, static_cast<uint32_t>(pes::kBpTierLive));

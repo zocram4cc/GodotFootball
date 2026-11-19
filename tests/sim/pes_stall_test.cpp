@@ -8,6 +8,7 @@
 #include "onthepitch/player/humanoid/humanoid.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/team.hpp"
 #include "pes_match_constants.hpp"
 #include "pes_shared_match.hpp"
@@ -62,7 +63,7 @@ class BreakerCensusProbe : public pestest::Probe {
     const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(who));
     const Anim* clip = who->GetCurrentAnim();
     const auto& ms = who->GetMoveStep();
-    const Player* holder = match.GetPesHolder();
+    Player* holder = match.GetPesHolder();
     std::printf("STALLDUMP t=%lu man=%d team=%d clip=%s fn=%d frame=%d/%d ac8=%d ac9=%d holder=%d retainer=%d ms=%d<-%d dist=%.2f ballv=%.2f owner=%d pesHolder=%d\n",
                 match.GetActualTime_ms(), who->GetID(), who->GetTeamID(), clip->anim ? clip->anim->GetName().c_str() : "-",
                 int(who->GetCurrentFunctionType()), clip->frameNum, clip->anim ? clip->anim->GetFrameCount() : 0,
@@ -72,6 +73,14 @@ class BreakerCensusProbe : public pestest::Probe {
                 double(match.GetBall()->GetMovement().GetLength()),
                 match.GetPesDesignatedOwner() == match.PesActorKeyOf(who) ? 1 : 0,
                 holder ? holder->GetTeamID() * 100 + holder->GetID() : -1);
+    if (holder) {
+      const uint8_t* hp = match.PesWorldOf().P(match.PesSlotOf(holder));
+      const Anim* hc = holder->GetCurrentAnim();
+      std::printf("STALLHOLDER t=%lu holder=%d team=%d dist=%.2f clip=%s fn=%d ac8=%d ac9=%d ms=%d\n", match.GetActualTime_ms(),
+                  holder->GetID(), holder->GetTeamID(), double((holder->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength()),
+                  hc->anim ? hc->anim->GetName().c_str() : "-", int(holder->GetCurrentFunctionType()), int(hp[pes::kPByteAC8Offset]),
+                  int(hp[pes::kPByteAC9Offset]), int(holder->GetMoveStep().state));
+    }
   }
 
  private:
@@ -272,4 +281,36 @@ TEST(PesStall, ATrapReachesABallAtRest) {
   pestest::Settle(contactCensus);
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
   EXPECT_GT(contactCensus.restingGrants, 0) << "no trap touched a ball at rest in the whole match";
+}
+
+namespace {
+// PES's holder field MA+0x2601C is the W1 holder: the actor of the newest touch key, and nothing clears it on a loose ball (HolderRE
+// section 2; 0x140457070 writes it, 0x140A627E0 reads it as the ball owner). GF writes this field from the ball retainer, which clears
+// as soon as the ball is loose, so the trap-end admission (0x14079EE70 / 0x1406EC5F0) compares a trapper with "no owner". Every tick,
+// both sides' field must hold the PES holder's slot (or the no-slot value when no holder exists).
+class HolderWorldProbe : public pestest::Probe {
+ public:
+  HolderWorldProbe() : Probe("PesStallHolderWorld", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
+  long ticks = 0;
+  long mismatches = 0;  // side-ticks whose MA+0x2601C is not the PES holder's slot
+  void OnTick(Match& match) override {
+    ++ticks;
+    const Player* holder = match.GetPesHolder();
+    const uint32_t want = holder ? static_cast<uint32_t>(match.PesSlotOf(holder)) : pes::kMiNoSlot;
+    for (int side = 0; side < 2; ++side) {
+      if (pes::LoadU32(match.PesWorldOf().Ma(side), pes::kMaOwnerOffset) != want) mismatches++;
+    }
+  }
+};
+HolderWorldProbe holderWorld;
+}  // namespace
+
+TEST(PesStall, TheWorldHolderFieldIsThePesHolderEveryTick) {
+  pestest::Run(holderWorld);
+  if (holderWorld.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(holderWorld.setupError.empty()) << holderWorld.setupError;
+  pestest::Settle(holderWorld);
+  ASSERT_TRUE(holderWorld.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(holderWorld.mismatches, 0) << holderWorld.mismatches << " of " << 2 * holderWorld.ticks
+                                       << " side-ticks had MA+0x2601C other than the PES holder";
 }
