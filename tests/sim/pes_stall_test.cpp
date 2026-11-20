@@ -96,11 +96,11 @@ class BreakerCensusProbe : public pestest::Probe {
       const Anim* pc = pressOwn->GetCurrentAnim();
       const PlayerCommand& pcmd = pc->originatingCommand;
       const Vector3 ballNow = match.GetBall()->Predict(0);
-      std::printf("STALLPRESSER t=%lu id=%d team=%d dist=%.2f cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f fn=%d ms=%d\n", match.GetActualTime_ms(),
+      std::printf("STALLPRESSER t=%lu id=%d team=%d dist=%.2f cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f fn=%d ms=%d motion=%d\n", match.GetActualTime_ms(),
                   pressOwn->GetID(), pressOwn->GetTeamID(), double((pressOwn->GetPosition() - ballNow).Get2D().GetLength()),
                   double(pcmd.desiredVelocityFloat), pcmd.useDesiredTarget ? 1 : 0,
                   double((pcmd.desiredTarget - ballNow).Get2D().GetLength()), double(pressOwn->GetMovement().GetLength()),
-                  int(pressOwn->GetCurrentFunctionType()), int(pressOwn->GetMoveStep().state));
+                  int(pressOwn->GetCurrentFunctionType()), int(pressOwn->GetMoveStep().state), pesmovestep::CurrentMotionOf(*pressOwn));
     }
     if (holder) {
       const uint8_t* hp = match.PesWorldOf().P(match.PesSlotOf(holder));
