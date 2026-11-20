@@ -31,6 +31,10 @@
 namespace {
 
 constexpr int kMinutes = 2;
+// The tick cap of one match: about twice a full two-minute PES match (seeds 14 and 3 end at 34,975 and 49,980 ticks). A match that
+// never reaches full time fails at this cap instead of running forever: seed 25 stalls its first throw-in (the taker never releases;
+// pes-port-StallLive10 section 3).
+constexpr unsigned long kMatchTickCap = 100000ul;
 // The two lists below are results of a census on the MotionClips tree (TurnStop's stop test, idle exit and class word read PES's
 // clip records; batch BB merged): seeds 1..12, two-minute pes-loop matches, each throw-in whose release ends counted as a
 // ceremony taker (IsPieceTakerHeld, path B) or a carried one (IsCarryingBall, path A) (docs/ports/pes-port-MotionClips2.md
@@ -69,7 +73,7 @@ void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
 // always played it; the carried-throw-in tests play the same matches through their probes below.
 void RunMatch(unsigned int seed, const std::function<void(Match&)>& onTick) {
   pestest::CallbackProbe probe(::testing::UnitTest::GetInstance()->current_test_info()->name(), {true, kMinutes, seed},
-                               pestest::kNoTickCap, /*stallStops=*/false, /*judgeEnd=*/false, onTick, nullptr);
+                               kMatchTickCap, /*stallStops=*/false, /*judgeEnd=*/false, onTick, nullptr);
   pestest::Run(probe);
   ASSERT_FALSE(probe.skipped) << "PES21_ROOT not set";
   ASSERT_TRUE(probe.setupError.empty()) << probe.setupError;
