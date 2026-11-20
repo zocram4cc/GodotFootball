@@ -15,7 +15,6 @@ static constexpr double k_c14252FA28_d = 6.0841817103142e-310; // 6.084181710314
 void pes_fn_1403F2F60(PesState& s);
 void pes_fn_140227920(PesState& s);
 void pes_fn_140227930(PesState& s);
-void pes_fn_14037FDB0(PesState& s);
 void pes_fn_1403DB240(PesState& s);
 void pes_fn_1403DB520(PesState& s);
 void pes_fn_1403DB6E0(PesState& s);
@@ -148,7 +147,10 @@ void pes_fn_1403F2F60(PesState& s) {
     s.gpr[2] = (uint64_t)(uint32_t)(_r);
   }
   s.gpr[1] = (uint64_t)(s.gpr[7]);
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14037FDB0(s); s.gpr[4] += 8; }
+  { uint64_t _t = (uint64_t)(0x14037FDB0ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   s.gpr[7] = (uint64_t)(s.gpr[3]);
   goto L_1403F303F;
   L_1403F3035:;

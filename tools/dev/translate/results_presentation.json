@@ -18634,7 +18634,7 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. PresReplay19: six REAL calls (seq205 copy; pid2998104 seq567/960/1464/1954/1955 second reads) and five SYNTHETIC copy states (stored R+0x50 byte 0 flipped, PES-replayed: copy from other registry entries, release run); the synthetic states reach 86 functions the real calls do not",
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 6 REAL captured call(s) and 5 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. PresReplay20: region release entry 14037FDB0 is a boundary service (op free)",
    "proof": "snapdiff",
    "requested": 0,
    "snapdiff": {

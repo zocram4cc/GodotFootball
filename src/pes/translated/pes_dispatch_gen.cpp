@@ -213,7 +213,6 @@ void pes_fn_14037F020(PesState& s);
 void pes_fn_14037F7D0(PesState& s);
 void pes_fn_14037FD90(PesState& s);
 void pes_fn_14037FDA0(PesState& s);
-void pes_fn_14037FDB0(PesState& s);
 void pes_fn_14037FE70(PesState& s);
 void pes_fn_14037FE90(PesState& s);
 void pes_fn_1403812F0(PesState& s);
@@ -6095,7 +6094,6 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x14037F7D0ULL: return {pes_fn_14037F7D0};
     case 0x14037FD90ULL: return {pes_fn_14037FD90};
     case 0x14037FDA0ULL: return {pes_fn_14037FDA0};
-    case 0x14037FDB0ULL: return {pes_fn_14037FDB0};
     case 0x14037FE70ULL: return {pes_fn_14037FE70};
     case 0x14037FE90ULL: return {pes_fn_14037FE90};
     case 0x1403812F0ULL: return {pes_fn_1403812F0};
@@ -11756,6 +11754,7 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x144A7AAA0ULL: return {pes_fn_144A7AAA0};
     case 0x15B596C70ULL: return {pes_fn_15B596C70};
     case 0x15B59A840ULL: return {pes_fn_15B59A840};
+    case 0x14037FDB0ULL: return {pes_native_free};
     case 0x14038E3E0ULL: return {pes_native_region_alloc};
     case 0x1403CF740ULL: return {pes_native_malloc};
     case 0x1403CF770ULL: return {pes_native_free};
