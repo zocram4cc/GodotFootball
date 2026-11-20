@@ -11,6 +11,7 @@
 // pes_native_heap_* (pes_native.cpp), which allocate in the arena.
 #pragma once
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <vector>
 
@@ -51,6 +52,13 @@ struct PesHeap {
   // The allocation contract: a block of at least `size` bytes (a zero size still gets a block), aligned to `align`
   // rounded up to a power of two (at least kMinAlign; above kMinAlign PES's heap takes at least 0x20), or 0 when the
   // arena cannot hold it. The contents are zero. Never moves, never overlaps a live block.
+  // The frame replay's recorded answers for the outermost allocator entries (the pool alloc and malloc services; the
+  // setup helpers and the region allocator carve from Alloc directly). While any are left, AllocEntry answers the next
+  // one instead: its requested size must equal the recorded one (a different size means the replay has diverged from the
+  // capture, and aborts), and the block is the recorded address, whose contents the caller maps.
+  struct RecordedAnswer { uint64_t size, va; };
+  void ReplayAnswers(std::vector<RecordedAnswer> answers);
+  uint64_t AllocEntry(uint64_t size, uint64_t align);
   uint64_t Alloc(uint64_t size, uint64_t align);
   // Frees a block Alloc returned (null is a no-op). Any other pointer is a bug in the caller: aborts loudly, as PES's
   // heap corrupts. A freed kMinAlign-aligned block is reused by a later allocation of its size class.
@@ -73,6 +81,7 @@ struct PesHeap {
   std::map<uint64_t, Block> live_;                       // block VA -> its size, and whether Free may reuse it
   std::map<uint64_t, std::vector<uint64_t>> freeList_;  // block bytes -> reusable kMinAlign-aligned blocks
   uint64_t allocs_ = 0, frees_ = 0;
+  std::deque<RecordedAnswer> replay_;
 };
 
 // The dispatch table's native targets (stubs.json native_services ops). Registers as PES calls them: rcx = the pool's

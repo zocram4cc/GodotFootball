@@ -72,7 +72,9 @@ ReplayHumanFrame::ReplayHumanFrame() : impl_(std::make_unique<Impl>()) {}
 ReplayHumanFrame::~ReplayHumanFrame() = default;
 
 std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, std::string* error,
-                                                           const std::vector<PreStatePage>& pre) {
+                                                           const std::vector<PreStatePage>& pre,
+                                                           const std::vector<AllocAnswer>& answers,
+                                                           const std::vector<uint8_t>& record) {
   std::vector<uint8_t> rdata, data;
   const uint64_t rdataMapped = ReadSection(exe, kRdataVa, kRdataBytes, &rdata);
   const uint64_t dataMapped = ReadSection(exe, kDataVa, kDataBytes, &data);
@@ -88,8 +90,12 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
   // every region: the record read as zero and the function returned at its first gate).
   m.heap = std::make_unique<PesHeap>();
   m.heap->Attach(s);
+  std::vector<PesHeap::RecordedAnswer> recorded;
+  for (const AllocAnswer& a : answers) recorded.push_back({a.size, a.va});
+  m.heap->ReplayAnswers(std::move(recorded));
   for (int r = 0; r < kRegions; ++r) {
     m.host[r].assign(kLayout[r].size, 0);
+    if (r == kR) std::copy_n(record.begin(), std::min<size_t>(record.size(), m.host[kR].size()), m.host[kR].begin());
     s.mem.services.push_back(PesMem::Window{kLayout[r].va, kLayout[r].size, nullptr, m.host[r].data()});
   }
   s.mem.img.push_back({kRdataVa, std::move(rdata)});

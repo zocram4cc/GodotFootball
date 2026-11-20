@@ -62,6 +62,18 @@ uint64_t PesHeap::LiveBytes() const {
   return n;
 }
 
+void PesHeap::ReplayAnswers(std::vector<RecordedAnswer> answers) { replay_.assign(answers.begin(), answers.end()); }
+
+uint64_t PesHeap::AllocEntry(uint64_t size, uint64_t align) {
+  if (replay_.empty()) return Alloc(size, align);
+  const RecordedAnswer answer = replay_.front();
+  replay_.pop_front();
+  if (answer.size != size) Die("replayed allocation size differs from the capture:", size);
+  live_[answer.va] = {size, false};  // PES's block, not carved from the arena: live until PES frees it, never reused
+  ++allocs_;
+  return answer.va;
+}
+
 uint64_t PesHeap::Alloc(uint64_t size, uint64_t align) {
   uint64_t a = kMinAlign;
   if (align > kMinAlign) {  // 0x1403FDB10: over-aligned requests take the next power of two, at least 0x20
@@ -102,7 +114,7 @@ void PesHeap::Free(uint64_t va) {
 
 // The dispatch table's native targets. Registers follow PES's call: rcx = the pool's object, rdx = size or pointer,
 // r8 = alignment; the answer is rax. Every pool is backed by the one arena, so the forwarder and heap VAs share these.
-void pes_native_heap_alloc(PesState& s) { s.gpr[0] = HeapOf(s).Alloc(s.gpr[2], s.gpr[8]); }
+void pes_native_heap_alloc(PesState& s) { s.gpr[0] = HeapOf(s).AllocEntry(s.gpr[2], s.gpr[8]); }
 
 void pes_native_heap_free(PesState& s) {
   HeapOf(s).Free(s.gpr[2]);
@@ -128,7 +140,7 @@ void pes_native_malloc(PesState& s) {
   const uint64_t size = s.gpr[1], x = s.gpr[2];
   const uint64_t align = ((x & 0xFFFFFFE0ULL) | 0x10ULL) & ~(x - 1);
   if (align == 0 || (align & (align - 1)) != 0) { s.gpr[0] = 0; return; }
-  s.gpr[0] = HeapOf(s).Alloc(size ? size : 1, align);
+  s.gpr[0] = HeapOf(s).AllocEntry(size ? size : 1, align);
 }
 
 // 0x1403CF770: the free entry. rcx = the block; a null block is a no-op. A block the GF arena holds is released to it. Any

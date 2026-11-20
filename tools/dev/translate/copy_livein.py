@@ -4,15 +4,18 @@
 CAPDIR is an unpacked rendezvous capture (call.bin, index.json, mem.bin). The frame is replayed with PES's own bytes
 (frame_trace.run_recorded). Writes into CAPDIR (PES-derived, never committed):
   maps.txt      the capture's VA runs, "va size off" hex per line (the snapshot memory the tests read through SnapView);
-  livein.tsv    "P <page VA>" for every 4 KB page the frame reads before it writes (its pre-state), and
-                "S <VA>" for each palette-entry source the copy stores into the record (the rdx of FUN_1402647D0's
-                xchg, in call order, zero values skipped).
+  livein.tsv    "P <page VA>": every 4 KB page the frame reads before it writes it, plus every page of each block the
+                allocator answers (the blocks keep PES's contents: a recycled block carries its previous ones);
+                "S <VA>": each palette-entry source the copy stores into the record (the rdx of FUN_1402647D0's xchg,
+                in call order, zero skipped); "A <size> <VA>": the frame's outermost allocator answers in call order
+                (the pool alloc FUN_1403FB410 and the malloc FUN_1403CF740, with the requested size and the block).
+  after.bin     PES's record palette entry (R+0x50, 0xA0 bytes) after the frame call: the copy tests' expected bytes.
 Usage: PES_EXE=<pes_full.bin> copy_livein.py CAPDIR
 """
+import collections
 import json
 import os
 import sys
-import collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -22,7 +25,12 @@ from unicorn import UC_HOOK_MEM_READ  # noqa: E402
 
 FRAME = 0x14217DEF0       # FUN_14217DEF0: the ReplayHuman frame read
 SET_SOURCE = 0x1402647D0  # the xchg that stores the copy source into the record slot (rcx = slot, rdx = source)
+POOL_ALLOC = 0x1403FB410  # the pool allocation (rdx = size)
+MALLOC = 0x1403CF740      # the aligned allocation entry (rcx = size; a zero size is one byte)
 IMAGE_BASE = 0x140000000
+PAGE = 0x1000
+RECORD_PALETTE_OFF = 0x50  # R+0x50..+0xF0: the copied palette entry (ReplayHumanRecord::bytes)
+PALETTE_BYTES = 0xA0
 
 
 def main():
@@ -34,7 +42,8 @@ def main():
         raise SystemExit("copy_livein: PES_EXE (the unpacked image) is required")
     with open(image_path, "rb") as f:
         img = f.read()
-    orig = {FRAME: img[FRAME - IMAGE_BASE:FRAME - IMAGE_BASE + 15]}
+    entries = (FRAME, POOL_ALLOC, MALLOC)
+    orig = {va: img[va - IMAGE_BASE:va - IMAGE_BASE + 15] for va in entries}
 
     index = json.load(open(os.path.join(cap, "index.json")))
     with open(os.path.join(cap, "maps.txt"), "w") as f:
@@ -46,35 +55,65 @@ def main():
     first = {}
     reads = collections.Counter()
     sources = []
+    answers = []        # (size, va) of the outermost allocations, in call order
+    record = {}         # the frame's record (rcx at FUN_14217DEF0's entry): its bytes are the frame's pre-state
+    pending = {}        # return address -> (size) of an outermost allocation in flight
+    outer = {"depth": 0}
     hooked = {"done": False}
 
     def on_read(u, access, addr, size, value, _d):
-        pg = addr & ~0xFFF
+        pg = addr & ~(PAGE - 1)
         reads[pg] += 1
         first.setdefault(pg, "R")
 
     def on_write(u, access, addr, size, value, _d):
-        first.setdefault(addr & ~0xFFF, "W")
+        first.setdefault(addr & ~(PAGE - 1), "W")
 
     def on_code(u, addr, size, _d):
+        if addr == FRAME and "va" not in record:
+            record["va"] = u.reg_read(xc.UC_X86_REG_RCX)
         if not hooked["done"]:
             hooked["done"] = True
             u.hook_add(UC_HOOK_MEM_READ, on_read)
+        if addr in pending:
+            want = pending.pop(addr)
+            outer["depth"] -= 1
+            answers.append((want, u.reg_read(xc.UC_X86_REG_RAX)))
         if addr == SET_SOURCE:
             src = u.reg_read(xc.UC_X86_REG_RDX)
             if src:
                 sources.append(src)
+        if addr in (POOL_ALLOC, MALLOC):
+            rsp = u.reg_read(xc.UC_X86_REG_RSP)
+            ret = int.from_bytes(bytes(u.mem_read(rsp, 8)), "little")
+            if addr == POOL_ALLOC:
+                size = u.reg_read(xc.UC_X86_REG_RDX)
+            else:
+                size = u.reg_read(xc.UC_X86_REG_RCX) or 1
+            if outer["depth"] == 0:
+                pending[ret] = size
+            outer["depth"] += 1
 
-    ft.run_recorded(cap, orig=orig, budget=300000000, on_code=on_code, on_write=on_write,
-                    models=ft.load_import_models())
-    live = sorted(p for p, k in first.items() if k == "R")
+    _uc, err = ft.run_recorded(cap, orig=orig, budget=300000000, on_code=on_code, on_write=on_write,
+                               models=ft.load_import_models())
+    if err is not None:
+        raise SystemExit("copy_livein: the frame's replay failed: %s" % err)
+    with open(os.path.join(cap, "after.bin"), "wb") as f:
+        f.write(bytes(_uc.mem_read(record["va"] + RECORD_PALETTE_OFF, PALETTE_BYTES)))
+    live = set(p for p, k in first.items() if k == "R")
+    for size, va in answers:
+        for pg in range(va & ~(PAGE - 1), va + size, PAGE):
+            live.add(pg)
     with open(os.path.join(cap, "livein.tsv"), "w") as f:
-        f.write("# PES ReplayHuman frame pre-state (copy_livein.py): P = page read before written, S = copy source\n")
-        for p in live:
+        f.write("# PES ReplayHuman frame pre-state (copy_livein.py): P = page, S = copy source, A = allocator answer\n")
+        for p in sorted(live):
             f.write("P\t%x\n" % p)
+        f.write("R\t%x\n" % record["va"])
         for s in sources:
             f.write("S\t%x\n" % s)
-    print("pages read first", len(live), "copy sources", ["%x" % s for s in sources])
+        for size, va in answers:
+            f.write("A\t%x\t%x\n" % (size, va))
+    print("pages", len(live), "copy sources", ["%x" % s for s in sources], "allocator answers", len(answers))
 
 
 if __name__ == "__main__":

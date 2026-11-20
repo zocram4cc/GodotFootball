@@ -38,14 +38,26 @@ struct PreStatePage {
   uint64_t va = 0;
   std::vector<uint8_t> bytes;  // 4096 bytes
 };
+// One allocator answer of the frame's capture: the outermost allocation the frame made (its requested size) and the block
+// the allocator handed out (PES's address). The frame answers its allocations with these in order, so the blocks keep
+// their contents as PES left them (a recycled block carries its previous content, which the copy reads).
+struct AllocAnswer {
+  uint64_t size = 0;
+  uint64_t va = 0;
+};
 
 class ReplayHumanFrame {
  public:
   // The install supplies the constants and globals the translated code reads. Returns null and sets error
   // when the image does not map them. pre is the frame's pre-state beyond the install (a capture's pages, see
-  // PreStatePage); it is mapped after the frame's own windows, which keep precedence.
+  // PreStatePage); it is mapped after the frame's own windows, which keep precedence. answers are the capture's outermost
+  // allocator answers (AllocAnswer). record is the frame's record as PES holds it (its first 0x1000 bytes, from the
+  // record's address): it seeds the record window (sub-objects the frame reads, such as the one at +0x148, are not written
+  // by the frame), and Read's inputs overwrite the fields it sets.
   static std::unique_ptr<ReplayHumanFrame> Create(const PeImage& exe, std::string* error,
-                                                  const std::vector<PreStatePage>& pre = {});
+                                                  const std::vector<PreStatePage>& pre = {},
+                                                  const std::vector<AllocAnswer>& answers = {},
+                                                  const std::vector<uint8_t>& record = {});
   ~ReplayHumanFrame();
   ReplayHumanFrame(const ReplayHumanFrame&) = delete;
   ReplayHumanFrame& operator=(const ReplayHumanFrame&) = delete;

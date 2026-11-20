@@ -94,4 +94,23 @@ TEST(PesNativePool, FreeAcceptsWhatTheAllocReturnedAndReleasesIt) {
   EXPECT_FALSE(f.heap.Owns(block));
 }
 
+// The frame replay answers the outermost allocations from the capture: the block is PES's recorded address, and PES's later
+// free of it is answered as one of the arena's.
+TEST(PesNativePool, AReplayedAnswerIsTheRecordedBlockAndFreeReleasesIt) {
+  Fixture f;
+  constexpr uint64_t kRecorded = 0x2400000040ULL;
+  f.heap.ReplayAnswers({{0x30, kRecorded}});
+  f.s.gpr[1] = kOutVa;
+  f.s.gpr[2] = 0x30;
+  f.s.gpr[8] = 0x10;
+  pes_native_pool_alloc(f.s);
+  EXPECT_EQ(f.s.gpr[0], kRecorded);
+  EXPECT_TRUE(f.heap.Owns(kRecorded));
+  f.s.gpr[1] = kOutVa;
+  f.s.gpr[2] = kRecorded;
+  pes_native_pool_free(f.s);
+  EXPECT_EQ(f.s.gpr[0], 1u);
+  EXPECT_FALSE(f.heap.Owns(kRecorded));
+}
+
 }  // namespace

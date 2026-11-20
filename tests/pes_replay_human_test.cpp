@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -23,15 +24,25 @@ namespace {
 constexpr uint64_t kCapturePage = 0x1000;
 
 // The capture the copy tests take their pre-state from: GF_PES_COPY_CAPTURE names an unpacked rendezvous capture of a
-// frame that copies. tools/dev/translate/copy_livein.py writes its maps.txt (the VA runs) and livein.tsv (the pages the
-// frame reads before writing them, and the copy sources). PES-derived and never committed: the tests skip without it.
+// frame that copies. tools/dev/translate/copy_livein.py writes its maps.txt (the VA runs) and livein.tsv: the pages the
+// frame reads before writing them (plus the blocks its allocator answers), the copy sources, and the outermost allocator
+// answers in call order. PES-derived and never committed: the tests skip without it.
 struct CopyCapture {
   SnapView snap;
   std::vector<pes::PreStatePage> pages;
   std::vector<uint64_t> sources;
+  std::vector<pes::AllocAnswer> answers;
+  std::vector<uint8_t> record;  // the frame's record: kCapturePage bytes from the record's address
+  std::vector<uint8_t> after;   // PES's record palette entry after the call (after.bin)
 };
 
 bool LoadCopyCapture(const std::string& dir, CopyCapture& cap, std::string* error) {
+  std::ifstream afterFile(dir + "/after.bin", std::ios::binary);
+  cap.after.assign(std::istreambuf_iterator<char>(afterFile), std::istreambuf_iterator<char>());
+  if (cap.after.size() != pes::kPaletteEntryBytes) {
+    *error = "no after.bin in " + dir;
+    return false;
+  }
   cap.snap.fd = open((dir + "/mem.bin").c_str(), O_RDONLY);
   if (cap.snap.fd < 0) {
     *error = "no mem.bin in " + dir;
@@ -57,6 +68,20 @@ bool LoadCopyCapture(const std::string& dir, CopyCapture& cap, std::string* erro
       cap.sources.push_back(value);
       continue;
     }
+    if (kind == 'R') {
+      cap.record.resize(kCapturePage);
+      for (uint64_t i = 0; i < kCapturePage; ++i) {
+        const uint8_t* b = cap.snap.at(value + i);
+        cap.record[i] = b != nullptr ? *b : 0;
+      }
+      continue;
+    }
+    if (kind == 'A') {
+      unsigned long long va = 0;
+      row >> va;
+      cap.answers.push_back({value, va});
+      continue;
+    }
     if (kind != 'P') continue;
     if (cap.snap.at(value) == nullptr) continue;  // a page the capture does not map: the frame reads nothing there
     pes::PreStatePage page;
@@ -71,8 +96,9 @@ bool LoadCopyCapture(const std::string& dir, CopyCapture& cap, std::string* erro
   return true;
 }
 
-// The frame, over the copy capture's pre-state when GF_PES_COPY_CAPTURE names one. Returns null (the caller skips) without
-// PES21_ROOT, and when the capture is named but cannot be read.
+// The frame. With out (the copy tests), it runs over GF_PES_COPY_CAPTURE's pre-state, which the caller names with the env
+// var; without out it is the synthetic frame the gating tests use. Returns null (the caller skips) without PES21_ROOT, and
+// when the capture is named but cannot be read.
 std::unique_ptr<pes::ReplayHumanFrame> MakeFrame(CopyCapture* out = nullptr) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) return nullptr;
@@ -80,10 +106,12 @@ std::unique_ptr<pes::ReplayHumanFrame> MakeFrame(CopyCapture* out = nullptr) {
   auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
   if (!exe) return nullptr;
   CopyCapture cap;
-  if (const char* dir = std::getenv("GF_PES_COPY_CAPTURE"); dir != nullptr && *dir != '\0') {
+  if (out != nullptr) {
+    const char* dir = std::getenv("GF_PES_COPY_CAPTURE");
+    if (dir == nullptr || *dir == '\0') return nullptr;
     if (!LoadCopyCapture(dir, cap, &err)) return nullptr;
   }
-  auto f = pes::ReplayHumanFrame::Create(*exe, &err, cap.pages);
+  auto f = pes::ReplayHumanFrame::Create(*exe, &err, cap.pages, cap.answers, cap.record);
   if (out != nullptr) *out = std::move(cap);
   return f;
 }
@@ -99,14 +127,19 @@ pes::ReplayFrameInputs PresentHuman() {
 
 // The record's bytes when nothing was copied.
 const std::array<uint8_t, pes::kPaletteEntryBytes> kZero{};
+
+std::vector<uint8_t> AsVector(const std::array<uint8_t, pes::kPaletteEntryBytes>& a) { return {a.begin(), a.end()}; }
 }  // namespace
 
+// The copy the capture's call makes. PES's own post-call record (after.bin) is the expected value, not the palette source:
+// the copy routine writes parts of the entry it copies (zeroes some fields, takes others), so the source bytes differ.
 TEST(PesReplayHuman, CopiesThePaletteEntryWhenTheHumanIsPresent) {
-  auto f = MakeFrame();
+  if (!std::getenv("GF_PES_COPY_CAPTURE")) GTEST_SKIP() << "GF_PES_COPY_CAPTURE not set: the copy needs the seq205 pre-state";
+  CopyCapture cap;
+  auto f = MakeFrame(&cap);
   if (!f) GTEST_SKIP() << "PES21_ROOT not set";
-  const pes::ReplayFrameInputs in = PresentHuman();
-  const pes::ReplayHumanRecord rec = f->Read(in);
-  EXPECT_EQ(rec.bytes, in.entry);
+  const pes::ReplayHumanRecord rec = f->Read(PresentHuman());
+  EXPECT_EQ(AsVector(rec.bytes), cap.after);
   // The release at the end of the copy leaves the record in its released state (-1).
   EXPECT_EQ(rec.word1c, 0xFFFFFFFFu);
 }
@@ -148,36 +181,29 @@ TEST(PesReplayHuman, AnEntryWithoutTheCompareWordIsNotCopied) {
   EXPECT_EQ(rec.bytes, kZero);
 }
 
-// The record keeps the last copied entry across reads, as PES's record does: an absent human and an inactive record
-// leave it alone, and a changed entry replaces it. After a copy the release leaves +0x1C at -1 and +0x21 at 1, the state
-// the five real destructor-case captures show at entry (live2/pid2998104 replay_frame_14217DEF0).
+// The record keeps the copied entry across reads, as PES's record does: an absent human and an inactive record leave it
+// alone. The expected bytes are PES's own post-call record (copy_livein.py on the capture). After the copy the release
+// leaves +0x1C at -1 and +0x21 at 0. A second copy (a changed palette entry) is not covered: the capture holds one call.
 TEST(PesReplayHuman, ASequenceKeepsTheLastCopiedEntryAndReleasesAfterEachCopy) {
-  auto f = MakeFrame();
+  if (!std::getenv("GF_PES_COPY_CAPTURE")) GTEST_SKIP() << "GF_PES_COPY_CAPTURE not set: the copy needs the seq205 pre-state";
+  CopyCapture cap;
+  auto f = MakeFrame(&cap);
   if (!f) GTEST_SKIP() << "PES21_ROOT not set";
   const pes::ReplayFrameInputs first = PresentHuman();
-  pes::ReplayFrameInputs changed = PresentHuman();
-  for (uint32_t i = 0; i < pes::kPaletteEntryBytes; ++i) changed.entry[i] = static_cast<uint8_t>(i * 11 + 5);
-  changed.entry[4] = 1;
-
   pes::ReplayHumanRecord rec = f->Read(first);
-  EXPECT_EQ(rec.bytes, first.entry);
-  EXPECT_EQ(rec.word1c, 0xFFFFFFFFu);
-  EXPECT_EQ(rec.byte21, 0);  // PES's release clears +0x21 (reference run of the real entry state: 0 after the call)
-
-  pes::ReplayFrameInputs absent = changed;
-  absent.guard = 0x7FFF;
-  rec = f->Read(absent);
-  EXPECT_EQ(rec.bytes, first.entry);
-
-  pes::ReplayFrameInputs inactive = changed;
-  inactive.active = 0;
-  rec = f->Read(inactive);
-  EXPECT_EQ(rec.bytes, first.entry);
-
-  rec = f->Read(changed);
-  EXPECT_EQ(rec.bytes, changed.entry);
+  EXPECT_EQ(AsVector(rec.bytes), cap.after);
   EXPECT_EQ(rec.word1c, 0xFFFFFFFFu);
   EXPECT_EQ(rec.byte21, 0);
+
+  pes::ReplayFrameInputs absent = first;
+  absent.guard = 0x7FFF;
+  rec = f->Read(absent);
+  EXPECT_EQ(AsVector(rec.bytes), cap.after);
+
+  pes::ReplayFrameInputs inactive = first;
+  inactive.active = 0;
+  rec = f->Read(inactive);
+  EXPECT_EQ(AsVector(rec.bytes), cap.after);
 }
 
 // The frame table holds 300-byte human records (FUN_14217DEF0 strides by 300). Human 0 sits at offset 0, so only another
