@@ -78,6 +78,11 @@ struct PesHeap {
 // The dispatch table's native targets (stubs.json native_services ops). Registers as PES calls them: rcx = the pool's
 // object, rdx = size (alloc) or pointer (free, owns), r8 = alignment; the answer is rax. They need s.heap attached.
 void pes_native_heap_alloc(PesState& s);
+// The boundary services (stubs.json native_services): the region allocator 0x14038E3E0 (rcx = out slot, rdx = alignment,
+// r8 = size, r9 = minimum alignment; status in rax, the zeroed block at *out) and the pool entries 0x1403FB410/0x1403FB5B0.
+void pes_native_region_alloc(PesState& s);
+void pes_native_pool_alloc(PesState& s);
+void pes_native_pool_free(PesState& s);
 void pes_native_heap_free(PesState& s);
 void pes_native_heap_owns(PesState& s);
 void pes_native_heap_trim(PesState& s);

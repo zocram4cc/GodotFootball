@@ -1,10 +1,8 @@
 #include "pes/replay_human.hpp"
 
 #include <algorithm>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <new>
 #include <vector>
 
 #include "pes/exe.hpp"
@@ -51,7 +49,7 @@ constexpr RegionLayout kLayout[kRegions] = {
     {0x20050000, 0x4000},   // kP: the palette (0xA0-byte entries from +0x80)
     {0x20060000, 0x10000},  // kG2: the unit's frame table (0x1FB0-byte frames)
     {0x20070000, 0x1000},   // kM: the replay manager (+0x6A8 = the unit)
-    {0x20080000, 0x2000},   // kTeb: the thread block (+0x58 = the TLS array, +0x1480 = the 64 TLS slots of 8 bytes)
+    {0x20080000, 0x1000},   // kTeb: the thread block (+0x58 = the TLS array)
     {0x20090000, 0x1000},   // kTls: the TLS array (index 0 = the slot block)
     {0x200A0000, 0x1000},   // kSlot: the slot block (+0x58 = the saved word)
 };
@@ -67,7 +65,6 @@ struct ReplayHumanFrame::Impl {
   std::vector<uint8_t> host[kRegions];
   std::unique_ptr<PesHeap> heap;
   size_t dataSeg = 0;
-  std::unique_ptr<uint8_t, void (*)(void*)> boot{nullptr, std::free};  // the block the VirtualAlloc model returns (the allocator boot's regions)
 };
 
 ReplayHumanFrame::ReplayHumanFrame() : impl_(std::make_unique<Impl>()) {}
@@ -93,22 +90,13 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
     m.host[r].assign(kLayout[r].size, 0);
     s.mem.services.push_back(PesMem::Window{kLayout[r].va, kLayout[r].size, nullptr, m.host[r].data()});
   }
-  // The boot window: zeroed, at the VA the VirtualAlloc model names. Its bump cell is its first qword (xlate BOOT_CELL).
-  // 1 GB of address space: the boot's VirtualAlloc calls (8 MB regions, six or more) run well past 16 MB. calloc'd pages
-  // commit on first touch, so the untouched part costs no memory.
-  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x40000000;
-  m.boot.reset(static_cast<uint8_t*>(std::calloc(kBootBytes, 1)));
-  if (!m.boot) throw std::bad_alloc();
-  const uint64_t firstBlock = kBootVa + 0x1000;  // the blocks VirtualAlloc hands out start after the cell's page
-  std::memcpy(m.boot.get(), &firstBlock, 8);
-  s.mem.services.push_back(PesMem::Window{kBootVa, kBootBytes, nullptr, m.boot.get()});
   s.mem.img.push_back({kRdataVa, std::move(rdata)});
   m.dataSeg = s.mem.segs.size();
   s.mem.segs.push_back({kDataVa, std::move(data)});
   std::vector<uint8_t> stack(kStackBytes, 0);
   s.mem.segs.push_back({kStackVa, std::move(stack)});
-  // The allocator's thresholds are set by PES's one-time init (0x14038EE80, guarded by the flag at 0x1436DCEE0), which
-  // runs on the first allocation through the allocator; the port does not run it earlier, so it runs once, as in PES.
+  // The allocator entry 0x14038E3E0 is a boundary service (pes_native_region_alloc): the region manager, its thresholds and
+  // its VirtualAlloc boot are not run, so the replay needs no boot window.
 
   // The thread block: gs:[0x58] is the TLS array; its index 0 is the slot block.
   s.gs_base = kLayout[kTeb].va;

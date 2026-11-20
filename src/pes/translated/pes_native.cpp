@@ -109,6 +109,24 @@ void pes_native_heap_free(PesState& s) {
   s.gpr[0] = 1;  // 0x1403FBCB0 answers true for every pointer it is handed
 }
 
+// The region allocator's entry 0x14038E3E0 (E6B0 calls it with rcx = the out slot, rdx = alignment, r8 = size, r9 = 1 as
+// the minimum alignment): status in rax (0 = success, 160 = bad alignment, 8 = no memory), the block at *out on success.
+void pes_native_region_alloc(PesState& s) {
+  const uint64_t out = s.gpr[1], align = s.gpr[2], size = s.gpr[8], minAlign = s.gpr[9];
+  if (align < minAlign || (align & (align - 1)) != 0) { s.gpr[0] = 160; return; }
+  const uint64_t block = HeapOf(s).Alloc(size ? size : 1, align);
+  if (block == 0) { s.gpr[0] = 8; return; }
+  s.wr(out, block, 8);
+  s.gpr[0] = 0;
+}
+
+// 0x1403FB410 (pool alloc) and 0x1403FB5B0 (pool free) take rcx = &poolId, which the GF arena does not need: every pool
+// is the one arena. The rest of their register contract (rdx = size or pointer, r8 = alignment) is the heap's, so they run
+// the heap's services. The answer is rax as PES's callers read it.
+void pes_native_pool_alloc(PesState& s) { pes_native_heap_alloc(s); }
+void pes_native_pool_free(PesState& s) { pes_native_heap_free(s); }
+
+
 // 0x1403FBD00 answers true for a pool whose flags (+0x48) bit 0 is clear, which is every live pool's state.
 void pes_native_heap_owns(PesState& s) { s.gpr[0] = 1; }
 

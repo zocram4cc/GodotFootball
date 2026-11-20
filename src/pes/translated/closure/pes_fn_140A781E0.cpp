@@ -133,7 +133,10 @@ void pes_fn_140A781E0(PesState& s) {
   if (s.cond("z")) goto L_140A782F1;
   s.wr(((s.gpr[4]) + (0x20ULL)), (uint64_t)((2ULL)), 4);
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x20ULL)));
-  /*OUT-OF-SET CALL 0x1403FB5B0*/ pes_dispatch_missing(0x1403FB5B0);
+  { uint64_t _t = (uint64_t)(0x1403FB5B0ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   (void)0;
   L_140A782F1:;
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[4]) + (0x150ULL)), 8));

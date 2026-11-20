@@ -22,6 +22,7 @@ Usage:
 A committed function whose first three lines contain "hand-refined" is not
 compared: its bit-exact proof is the harness check, not this regeneration.
 """
+import mmap
 import argparse
 import glob
 import json
@@ -108,13 +109,21 @@ def link_universe(universe, members):
     return universe | members | recorded_vas()
 
 
+def layer_stubs():
+    """driver.MODEL_MAP plus the boundary services (stubs.json native_services): a call from the layer to one of them
+    goes through the dispatch table to its GF-native implementation, and its body is not translated."""
+    out = dict(driver.MODEL_MAP)
+    for va, op in driver.stub_table.natives().items():
+        out["0x%X" % va] = {"va": "0x%X" % va, "do": "native", "op": op}
+    return out
+
 def context(name, va, image):
     """Spec, stub map and universe that a diff run of va in set name translates under."""
     sdir = spec_dir(name)
     spec, _ = driver.load_spec(sdir, va)
     if spec is None:
         raise SystemExit("gen_translated: no spec for %s in %s" % (va, name))
-    stubs = driver.MODEL_MAP
+    stubs = layer_stubs()
     base = driver.universe_of(sdir)
     tails = None if va in bounded_roots() else base
     universe = base | set(driver.runnable_extra(spec, image, universe=tails)[0])
@@ -186,10 +195,19 @@ def subsystem_of(spec, name):
     return (spec.get("subsystem") or name).lower().replace(" ", "_").replace("-", "_")
 
 
+def flat_reader(path):
+    """read(va, n) over the flat image dump (file offset = VA - the image base 0x140000000), as the translator reads it."""
+    f = open(path, "rb")
+    mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+    return lambda va, n: mm[va - 0x140000000:va - 0x140000000 + n]
+
+
 def build(image):
     """{VA: member} for the whole layer; member = raw text, recorded flag, subsystem, harness status."""
+    driver.stub_table.check_boundary_code(flat_reader(image))
     recs = records()
-    bit = [(va, name) for va, name, diffed, _ in recs if diffed]
+    natives = {"0x%X" % va for va in driver.stub_table.natives()}  # the boundary services: dispatched, never translated
+    bit = [(va, name) for va, name, diffed, _ in recs if diffed and va not in natives]
     bit_vas = {va for va, _ in bit}
     sub_of, status = {}, {}
     for va, name in bit:
@@ -207,6 +225,8 @@ def build(image):
         queue, seen = [va] + sorted(members - {va}), {va} | members
         while queue:
             cur = queue.pop(0)
+            if cur in natives:
+                continue
             text = translate(cur, image, stubs, universe)
             old = texts.get(cur)
             if old is not None and old != text:
@@ -237,6 +257,8 @@ def build(image):
         if va in held:
             continue
         for cur in closure_of[va]:
+            if cur in natives:
+                continue
             members.setdefault(cur, {"raw": texts[cur], "recorded": cur in bit_vas,
                                      "sub": sub_of.get(cur, CLOSURE), "status": status.get(cur, "no record")})
     for cur, m in members.items():

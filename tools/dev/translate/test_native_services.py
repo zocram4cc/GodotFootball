@@ -26,11 +26,13 @@ class NativeServices(unittest.TestCase):
         self.assertFalse(set(nat) & set(stubs.load()))  # the harness never sees them
 
     def test_production_table_routes_native_vas_and_the_harness_table_does_not(self):
-        translated = ["0x1403FB410"]
+        translated = ["0x1403FB860"]  # the pool trim: translated; the pool alloc/free entries are boundary services now
         prod = gen_dispatch.text(translated, gen_dispatch.natives())
         self.assertIn("case 0x1403FBC10ULL: return {pes_native_heap_alloc};", prod)
         self.assertIn("case 0x141B34CB0ULL: return {pes_native_heap_alloc};", prod)
-        self.assertIn("case 0x1403FB410ULL: return {pes_fn_1403FB410};", prod)
+        self.assertIn("case 0x1403FB410ULL: return {pes_native_pool_alloc};", prod)
+        self.assertIn("case 0x1403FB5B0ULL: return {pes_native_pool_free};", prod)
+        self.assertIn("case 0x14038E3E0ULL: return {pes_native_region_alloc};", prod)
         harness = gen_dispatch.text(translated)
         self.assertNotIn("pes_native_", harness)
         self.assertNotIn("0x1403FBC10ULL", harness)  # the harness table keeps PES's bytes for the allocator targets

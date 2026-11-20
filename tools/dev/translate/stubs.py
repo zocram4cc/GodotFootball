@@ -88,8 +88,12 @@ def check_spec_refs(spec, table, where):
             raise SystemExit("%s: stub_refs %s disagrees with stubs.json (%s)" % (where, ref, got))
 
 
-# The ops a native service may name: each is a GF-native C++ implementation pes_native_<op> (pes_native.cpp).
-KNOWN_NATIVE_OPS = frozenset({"heap_alloc", "heap_free", "heap_owns", "heap_trim", "registry_find", "registry_insert"})
+# The ops a native service may name: each is a GF-native C++ implementation pes_native_<op> (pes_native.cpp). The
+# BOUNDARY_OPS replace a PES function whose body the port does not run (the system boundary of the owner's ruling):
+# their entries carry code_hex, the image bytes at the entry, and the generator refuses a changed image.
+KNOWN_NATIVE_OPS = frozenset({"heap_alloc", "heap_free", "heap_owns", "heap_trim", "registry_find", "registry_insert",
+                              "region_alloc", "pool_alloc", "pool_free"})
+BOUNDARY_OPS = frozenset({"region_alloc", "pool_alloc", "pool_free"})
 
 
 def natives(path=DEFAULT):
@@ -105,4 +109,26 @@ def natives(path=DEFAULT):
         if e["op"] not in KNOWN_NATIVE_OPS:
             raise SystemExit("stubs.json: native service %s: unknown op %r" % (e["va"], e["op"]))
         out[va] = e["op"]
+        if e["op"] in BOUNDARY_OPS:
+            code = e.get("code_hex") or ""
+            if len(code) < 32 or len(code) % 2 or any(c not in "0123456789abcdefABCDEF" for c in code):
+                raise SystemExit("stubs.json: boundary service %s needs code_hex (the image bytes at its entry)" % e["va"])
     return out
+
+
+def boundary_code(path=DEFAULT):
+    """{VA (int): code bytes} for the boundary services (stubs.json code_hex)."""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return {int(e["va"], 16): bytes.fromhex(e["code_hex"]) for e in data.get("native_services", [])
+            if e["op"] in BOUNDARY_OPS}
+
+
+def check_boundary_code(read, path=DEFAULT):
+    """Refuses the layer when the image bytes at a boundary service's entry differ from its code_hex: the boundary
+    model stands for the bytes it was written against, so a changed image is a different program. read(va, n) -> bytes."""
+    for va, code in sorted(boundary_code(path).items()):
+        got = bytes(read(va, len(code)))
+        if got != code:
+            raise SystemExit("stubs.json: boundary service 0x%X: the image bytes at its entry differ from code_hex "
+                             "(%s != %s); re-derive the model from this image" % (va, got.hex(), code.hex()))

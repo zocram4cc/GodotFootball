@@ -2056,6 +2056,10 @@ class Emitter:
                         "  s.gpr[4] += 8; }"]
             tgt = "0x%X" % imm_val(ops[0])
             stub = (ctx.get("stubs") or {}).get(tgt)
+            if stub is not None and stub.get("do") == "native":
+                # A boundary service (stubs.json native_services): the call goes through the dispatch table, which
+                # routes this VA to its GF-native implementation; the body is not translated.
+                return native_call_lines(tgt)
             if stub is not None and stub.get("do") != "unmodellable":
                 # Stubbed callee: its modelled effect on the caller (stubs.py),
                 # then the call returns, as the harness pops the return.
@@ -2089,6 +2093,8 @@ class Emitter:
                 if not addrs or imm_val(o) in addrs:
                     return ["goto L_%X;" % imm_val(o)]
                 stub = (ctx.get("stubs") or {}).get(tgt)
+                if stub is not None and stub.get("do") == "native":
+                    return native_call_lines(tgt) + ["return;"]
                 if stub is not None and stub.get("do") != "unmodellable":
                     return stub_lines(stub["do"]) + ["return;"]
                 if tgt in self.pilot:
@@ -2420,6 +2426,14 @@ def prepass(lines, img):
         else:
             jmpreg[addr] = {"table": None, "tail": None}
     return labels, jmpreg
+
+def native_call_lines(tgt):
+    """C++ for a call to a boundary service VA (stubs.json native_services): the caller's return address is pushed as
+    for any call, then the dispatch table runs the GF-native implementation (pes_dispatch_gen.cpp names the VA)."""
+    return ["{ uint64_t _t = (uint64_t)(%sULL); PesDispatch _d = pes_dispatch_lookup(_t);" % tgt,
+            "  if (_d.fn == 0) pes_dispatch_missing(_t);",
+            "  s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);",
+            "  s.gpr[4] += 8; }"]
 
 def stub_lines(do):
     """C++ for one stubbed callee's modelled effect (names: stubs.py DO)."""

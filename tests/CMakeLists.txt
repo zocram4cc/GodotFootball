@@ -392,3 +392,7 @@ set_tests_properties(translate_untranslated_callees_test PROPERTIES TIMEOUT 120)
 add_executable(pes_camera_list_test pes_camera_list_test.cpp ${CMAKE_SOURCE_DIR}/src/pes/fixdemo_camera_list.cpp)
 target_link_libraries(pes_camera_list_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_camera_list_test)
+
+add_executable(pes_native_service_test pes_native_service_test.cpp)
+target_link_libraries(pes_native_service_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_native_service_test)
