@@ -7,6 +7,7 @@
 #include "onthepitch/match.hpp"
 #include "onthepitch/player/humanoid/humanoid.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/teamAIcontroller.hpp"
 #include "onthepitch/pestrapworld.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/team.hpp"
@@ -73,6 +74,12 @@ class BreakerCensusProbe : public pestest::Probe {
                 double(match.GetBall()->GetMovement().GetLength()),
                 match.GetPesDesignatedOwner() == match.PesActorKeyOf(who) ? 1 : 0,
                 holder ? holder->GetTeamID() * 100 + holder->GetID() : -1);
+    // The press state of the forced man's side: is he the loose PRESS man, and is there any PRESS man at all.
+    TeamAIController* ctl = who->GetTeam()->GetController();
+    const Player* pressMan = ctl->GetLoosePressMan();
+    std::printf("STALLPRESS t=%lu forcedIsPresser=%d sidePress=%d sidePressId=%d sideHasPressMan=%d\n", match.GetActualTime_ms(),
+                ctl->IsLoosePresser(who) ? 1 : 0, pressMan ? 1 : 0, pressMan ? pressMan->GetID() : -1,
+                match.GetTeam(1 - who->GetTeamID())->GetController()->GetLoosePressMan() ? 1 : 0);
     if (holder) {
       const uint8_t* hp = match.PesWorldOf().P(match.PesSlotOf(holder));
       const Anim* hc = holder->GetCurrentAnim();

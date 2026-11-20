@@ -1498,7 +1498,7 @@ void Humanoid::Process() {
   // GF's retainer takes the same touch as its possession hand-off, as before. PES path only.
   const bool touchedThisTick = match->PesLoop() && CastPlayer()->GetLastTouchTime_ms() == match->GetActualTime_ms();
   if (touchedThisTick &&
-      pes::CarrierFromTouch(touchedThisTick, AI_HasPossession(match->GetBall(), CastPlayer())) == pes::CarrierChange::kToucher) {
+      pes::CarrierFromTouch(touchedThisTick, AI_HasPossession(match->GetBall(), CastPlayer()) || team->PassGetReceiver() == CastPlayer()) == pes::CarrierChange::kToucher) {
     match->SetBallRetainer(CastPlayer());
     match->SetPesKeyActor(CastPlayer());
   }

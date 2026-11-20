@@ -2524,24 +2524,14 @@ void TeamAIController::PesLooseWriterTick() {
     }
     for (int i = 0; i < 4; ++i) pressState.pressSlot[i] = -1;
   };
-  if (!match->PesLoop() || !match->IsInPlay() || match->IsInSetPiece() ||
-      match->GetBallRetainer() != nullptr) {
+  // PES's loose writer runs only with no carrier: MA+0x2601C is none (pes-re-approach.md 1.1; first-touch section 7.1). The carrier is
+  // Match::GetPesHolder (W1's holder), not GF's ball retainer, which clears on a loose ball and so misses the kick-released ball.
+  if (!match->PesLoop() || !match->IsInPlay() || match->IsInSetPiece() || match->GetPesHolder() != nullptr) {
     resetAll();
     return;
   }
-  // Owned is not loose. ponytail: PES reads its carrier (MA+0x2601c); GF's
-  // retainer misses dribblers, so ownership is proximity plus the newest touch
-  // being his. Any owner's ball stops both sides' loose pick.
   const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
   Player* newestMan = newest.present ? match->GetPesActorPlayer(newest.actor) : nullptr;
-  for (int s = 0; s < 2; ++s) {
-    for (const auto& p : match->GetTeam(s)->GetAllPlayers()) {
-      if (p->HasPossession() && p.get() == newestMan) {
-        resetAll();
-        return;
-      }
-    }
-  }
   // The pick: the §6 pass-1 score over the enrolled men, winner within the
   // (18+7r) radius. Enrolment is the §5 table's shape (on-pitch, outfield,
   // not owning); the §5 tally itself serves the skipped §3.2 multi-press.

@@ -125,6 +125,9 @@ public:
   };
   void RecordPassEvent(int kind, const Vector3& from, Player* target, Player* passer) {
     lastPassEvent = PassEvent{true, kind, from, target, GetActualTime_ms(), passer};
+    // PES: MA+0x2601C is none (0xFF) during every kick flight; the kick's ring-1 key is the none key (pes-port-StallLive6 section 2).
+    pesKeyActor = nullptr;
+    pesHolder = nullptr;
   }
   const PassEvent& GetLastPassEvent() const { return lastPassEvent; }
 
