@@ -9,6 +9,8 @@ CAPDIR is an unpacked rendezvous capture (call.bin, index.json, mem.bin). The fr
                 "S <VA>": each palette-entry source the copy stores into the record (the rdx of FUN_1402647D0's xchg,
                 in call order, zero skipped); "A <size> <VA>": the frame's outermost allocator answers in call order
                 (the pool alloc FUN_1403FB410 and the malloc FUN_1403CF740, with the requested size and the block).
+                "I <human> <guard> <active> <palette>": the call's ReplayFrameInputs read at the entry (human = R+0x28; the
+                frame's guard, active byte and palette byte for that human).
   after.bin     PES's record palette entry (R+0x50, 0xA0 bytes) after the frame call: the copy tests' expected bytes.
 Usage: PES_EXE=<pes_full.bin> copy_livein.py CAPDIR
 """
@@ -31,6 +33,18 @@ IMAGE_BASE = 0x140000000
 PAGE = 0x1000
 RECORD_PALETTE_OFF = 0x50  # R+0x50..+0xF0: the copied palette entry (ReplayHumanRecord::bytes)
 PALETTE_BYTES = 0xA0
+HUMAN_STRIDE = 300        # the frame's human records (FUN_14217DEF0 strides by 300)
+FRAME_GUARD_OFF = 0x30C   # the frame's word for a human: 0x7FFF marks the human absent
+FRAME_PALETTE_OFF = 0x36B # the frame's palette byte for a human (0..0x26 are valid)
+
+
+def frame_inputs(u, rec, lst):
+    """The ReplayFrameInputs of one call, read from PES's memory at the frame's entry: (human, guard, active, palette)."""
+    rd = lambda a, n: bytes(u.mem_read(a, n))
+    human = int.from_bytes(rd(rec + 0x28, 4), "little")
+    frames = int.from_bytes(rd(lst + 0x10, 8), "little")
+    fr = frames + human * HUMAN_STRIDE
+    return (human, int.from_bytes(rd(fr + FRAME_GUARD_OFF, 4), "little"), rd(rec + 0x18, 1)[0], rd(fr + FRAME_PALETTE_OFF, 1)[0])
 
 
 def main():
@@ -72,6 +86,7 @@ def main():
     def on_code(u, addr, size, _d):
         if addr == FRAME and "va" not in record:
             record["va"] = u.reg_read(xc.UC_X86_REG_RCX)
+            record["lst"] = u.reg_read(xc.UC_X86_REG_RDX)
         if not hooked["done"]:
             hooked["done"] = True
             u.hook_add(UC_HOOK_MEM_READ, on_read)
@@ -98,6 +113,7 @@ def main():
                                models=ft.load_import_models())
     if err is not None:
         raise SystemExit("copy_livein: the frame's replay failed: %s" % err)
+    record["in"] = frame_inputs(_uc, record["va"], record["lst"])
     with open(os.path.join(cap, "after.bin"), "wb") as f:
         f.write(bytes(_uc.mem_read(record["va"] + RECORD_PALETTE_OFF, PALETTE_BYTES)))
     live = set(p for p, k in first.items() if k == "R")
@@ -109,6 +125,7 @@ def main():
         for p in sorted(live):
             f.write("P\t%x\n" % p)
         f.write("R\t%x\n" % record["va"])
+        f.write("I\t%d\t%x\t%d\t%d\n" % record["in"])
         for s in sources:
             f.write("S\t%x\n" % s)
         for size, va in answers:

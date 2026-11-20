@@ -49,15 +49,17 @@ struct PesHeap {
   // Maps the page and the arena into s.mem.services and points s.heap here. Idempotent per state.
   void Attach(PesState& s);
 
+  // TEST MODE ONLY: the capture-driven frame (ReplayHumanFrame::Create with recorded answers, tests/pes_replay_human_test.cpp)
+  // installs the recorded answers for the outermost allocator entries (the pool alloc and malloc services). Each answer is
+  // given in place of a carve: the requested size must equal the recorded one (else the replay has diverged and it aborts),
+  // and the block is the recorded address. Every runtime heap (fixdemo_select.cpp, fixdemo_camera_rig.cpp) never calls
+  // ReplayAnswers and carves every block. The setup helpers and the region allocator always carve from Alloc.
+  struct RecordedAnswer { uint64_t size, va; };
+  void ReplayAnswers(std::vector<RecordedAnswer> answers);
+
   // The allocation contract: a block of at least `size` bytes (a zero size still gets a block), aligned to `align`
   // rounded up to a power of two (at least kMinAlign; above kMinAlign PES's heap takes at least 0x20), or 0 when the
   // arena cannot hold it. The contents are zero. Never moves, never overlaps a live block.
-  // The frame replay's recorded answers for the outermost allocator entries (the pool alloc and malloc services; the
-  // setup helpers and the region allocator carve from Alloc directly). While any are left, AllocEntry answers the next
-  // one instead: its requested size must equal the recorded one (a different size means the replay has diverged from the
-  // capture, and aborts), and the block is the recorded address, whose contents the caller maps.
-  struct RecordedAnswer { uint64_t size, va; };
-  void ReplayAnswers(std::vector<RecordedAnswer> answers);
   uint64_t AllocEntry(uint64_t size, uint64_t align);
   uint64_t Alloc(uint64_t size, uint64_t align);
   // Frees a block Alloc returned (null is a no-op). Any other pointer is a bug in the caller: aborts loudly, as PES's
@@ -82,6 +84,7 @@ struct PesHeap {
   std::map<uint64_t, std::vector<uint64_t>> freeList_;  // block bytes -> reusable kMinAlign-aligned blocks
   uint64_t allocs_ = 0, frees_ = 0;
   std::deque<RecordedAnswer> replay_;
+  bool foreignFreesOk_ = false;  // set by ReplayAnswers: a free of a block PES allocated before the call releases nothing
 };
 
 // The dispatch table's native targets (stubs.json native_services ops). Registers as PES calls them: rcx = the pool's

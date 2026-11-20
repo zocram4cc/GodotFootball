@@ -113,4 +113,15 @@ TEST(PesNativePool, AReplayedAnswerIsTheRecordedBlockAndFreeReleasesIt) {
   EXPECT_FALSE(f.heap.Owns(kRecorded));
 }
 
+// The copy's release frees the object PES allocated before the captured call: the replay answers no such block, so in the
+// test mode (recorded answers installed) a free of a block this heap did not hand out releases nothing and answers true.
+TEST(PesNativePool, InTestModeAFreeOfABlockBeforeTheCallReleasesNothing) {
+  Fixture f;
+  f.heap.ReplayAnswers({});
+  f.s.gpr[1] = kOutVa;
+  f.s.gpr[2] = 0x2400000080ULL;  // an arena address the heap never handed out
+  pes_native_pool_free(f.s);
+  EXPECT_EQ(f.s.gpr[0], 1u);
+}
+
 }  // namespace

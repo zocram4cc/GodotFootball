@@ -62,7 +62,10 @@ uint64_t PesHeap::LiveBytes() const {
   return n;
 }
 
-void PesHeap::ReplayAnswers(std::vector<RecordedAnswer> answers) { replay_.assign(answers.begin(), answers.end()); }
+void PesHeap::ReplayAnswers(std::vector<RecordedAnswer> answers) {
+  replay_.assign(answers.begin(), answers.end());
+  foreignFreesOk_ = true;
+}
 
 uint64_t PesHeap::AllocEntry(uint64_t size, uint64_t align) {
   if (replay_.empty()) return Alloc(size, align);
@@ -105,7 +108,10 @@ uint64_t PesHeap::Alloc(uint64_t size, uint64_t align) {
 void PesHeap::Free(uint64_t va) {
   if (!va) return;
   auto it = live_.find(va);
-  if (it == live_.end()) Die("free of a pointer this heap did not allocate:", va);
+  if (it == live_.end()) {
+    if (foreignFreesOk_) return;  // a block PES allocated before the captured call: nothing of this heap to release
+    Die("free of a pointer this heap did not allocate:", va);
+  }
   // ponytail: over-aligned blocks are not recycled (their padding is not tracked); only kMinAlign-aligned ones are.
   if (it->second.recyclable) freeList_[it->second.bytes].push_back(va);
   live_.erase(it);
