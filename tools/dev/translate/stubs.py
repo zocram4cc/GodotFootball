@@ -92,8 +92,8 @@ def check_spec_refs(spec, table, where):
 # BOUNDARY_OPS replace a PES function whose body the port does not run (the system boundary of the owner's ruling):
 # their entries carry code_hex, the image bytes at the entry, and the generator refuses a changed image.
 KNOWN_NATIVE_OPS = frozenset({"heap_alloc", "heap_free", "heap_owns", "heap_trim", "registry_find", "registry_insert",
-                              "region_alloc", "pool_alloc", "pool_free"})
-BOUNDARY_OPS = frozenset({"region_alloc", "pool_alloc", "pool_free"})
+                              "region_alloc", "pool_alloc", "pool_free", "malloc", "free"})
+BOUNDARY_OPS = frozenset({"region_alloc", "pool_alloc", "pool_free", "malloc", "free"})
 
 
 def natives(path=DEFAULT):

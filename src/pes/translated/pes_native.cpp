@@ -120,6 +120,25 @@ void pes_native_region_alloc(PesState& s) {
   s.gpr[0] = 0;
 }
 
+// 0x1403CF740: the aligned allocation entry, the outermost allocator call on the copy path. rcx = the size, rdx = the
+// requested class x. It computes the alignment m & ~(x - 1), with m = (x & 0xFFFFFFE0) | 0x10, and tail-calls 0x14037FDA0
+// -> E6B0 (the region allocator, behind the boundary) with rcx = that alignment and rdx = the size. Answers rax = the block
+// (aligned and sized, zero-filled), or 0 when the alignment is not usable or the arena is full.
+void pes_native_malloc(PesState& s) {
+  const uint64_t size = s.gpr[1], x = s.gpr[2];
+  const uint64_t align = ((x & 0xFFFFFFE0ULL) | 0x10ULL) & ~(x - 1);
+  if (align == 0 || (align & (align - 1)) != 0) { s.gpr[0] = 0; return; }
+  s.gpr[0] = HeapOf(s).Alloc(size ? size : 1, align);
+}
+
+// 0x1403CF770: the free entry. rcx = the block; a null block is a no-op. A block the GF arena holds is released to it. Any
+// other pointer names PES state the port never allocated (the boundary's objects, e.g. a record's pre-state): nothing is
+// released for it, since the arena cannot hold a block it did not hand out.
+void pes_native_free(PesState& s) {
+  const uint64_t block = s.gpr[1];
+  if (block != 0 && HeapOf(s).Owns(block)) HeapOf(s).Free(block);
+}
+
 // 0x1403FB410 (pool alloc) and 0x1403FB5B0 (pool free) take rcx = &poolId, which the GF arena does not need: every pool
 // is the one arena. The rest of their register contract (rdx = size or pointer, r8 = alignment) is the heap's, so they run
 // the heap's services. The answer is rax as PES's callers read it.

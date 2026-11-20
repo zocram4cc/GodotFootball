@@ -64,13 +64,15 @@ struct ReplayHumanFrame::Impl {
   PesState s;
   std::vector<uint8_t> host[kRegions];
   std::unique_ptr<PesHeap> heap;
+  std::vector<std::vector<uint8_t>> pre;  // the caller's pre-state pages (reserved: their data() stays valid)
   size_t dataSeg = 0;
 };
 
 ReplayHumanFrame::ReplayHumanFrame() : impl_(std::make_unique<Impl>()) {}
 ReplayHumanFrame::~ReplayHumanFrame() = default;
 
-std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, std::string* error) {
+std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, std::string* error,
+                                                           const std::vector<PreStatePage>& pre) {
   std::vector<uint8_t> rdata, data;
   const uint64_t rdataMapped = ReadSection(exe, kRdataVa, kRdataBytes, &rdata);
   const uint64_t dataMapped = ReadSection(exe, kDataVa, kDataBytes, &data);
@@ -95,6 +97,13 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
   s.mem.segs.push_back({kDataVa, std::move(data)});
   std::vector<uint8_t> stack(kStackBytes, 0);
   s.mem.segs.push_back({kStackVa, std::move(stack)});
+  // The caller's pre-state pages, after the frame's own windows (which keep precedence where they overlap) and over the
+  // install's bytes (they shadow the data segment, as the runtime values PES holds there).
+  m.pre.reserve(pre.size());
+  for (const PreStatePage& p : pre) {
+    m.pre.push_back(p.bytes);
+    s.mem.services.push_back(PesMem::Window{p.va, p.bytes.size(), nullptr, m.pre.back().data()});
+  }
   // The allocator entry 0x14038E3E0 is a boundary service (pes_native_region_alloc): the region manager, its thresholds and
   // its VirtualAlloc boot are not run, so the replay needs no boot window.
 

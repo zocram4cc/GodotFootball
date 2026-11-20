@@ -10,8 +10,6 @@
 
 
 void pes_fn_1403DB8A0(PesState& s);
-void pes_fn_1403CF740(PesState& s);
-void pes_fn_1403CF770(PesState& s);
 void pes_fn_1403DB4B0(PesState& s);
 void pes_fn_1403DB6E0(PesState& s);
 void pes_fn_141F17660(PesState& s);
@@ -88,7 +86,10 @@ void pes_fn_1403DB8A0(PesState& s) {
   s.gpr[1] = (uint64_t)((((s.gpr[0])*8ULL)));
   s.gpr[2] = (uint64_t)(uint32_t)((16ULL));
   s.gpr[8] = (uint64_t)(uint32_t)((524289ULL));
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403CF740(s); s.gpr[4] += 8; }
+  { uint64_t _t = (uint64_t)(0x1403CF740ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   s.gpr[12] = (uint64_t)(s.gpr[0]);
   s.gpr[13] = (uint64_t)(s.rd(((s.gpr[14]) + (0x10ULL)), 8));
   s.gpr[7] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x2CULL)), 4));
@@ -106,7 +107,10 @@ void pes_fn_1403DB8A0(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(s.rd(((s.gpr[14]) + (0x22ULL)), 2));
   s.gpr[1] = (uint64_t)((uint64_t)((__int128)(int64_t)(s.gpr[1]) * (int64_t)(s.gpr[8])));
   s.gpr[8] = (uint64_t)(uint32_t)((524289ULL));
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403CF740(s); s.gpr[4] += 8; }
+  { uint64_t _t = (uint64_t)(0x1403CF740ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   s.gpr[6] = (uint64_t)(s.gpr[0]);
   s.wr(((s.gpr[4]) + (0x20ULL)), (uint64_t)(s.gpr[0]), 8);
   s.gpr[9] = (uint64_t)(s.rd(((s.gpr[14]) + (0x28ULL)), 8));
@@ -191,10 +195,16 @@ void pes_fn_1403DB8A0(PesState& s) {
   L_1403DBA13:;
   s.gpr[2] = (uint64_t)(uint32_t)((524289ULL));
   s.gpr[1] = (uint64_t)(s.gpr[9]);
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403CF770(s); s.gpr[4] += 8; }
+  { uint64_t _t = (uint64_t)(0x1403CF770ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   s.gpr[2] = (uint64_t)(uint32_t)((524289ULL));
   s.gpr[1] = (uint64_t)(s.gpr[13]);
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403CF770(s); s.gpr[4] += 8; }
+  { uint64_t _t = (uint64_t)(0x1403CF770ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[5])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[5]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false; }
@@ -241,7 +251,10 @@ void pes_fn_1403DB8A0(PesState& s) {
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[14]) + (0x22ULL)), 2));
   s.gpr[1] = (uint64_t)((uint64_t)((__int128)(int64_t)(s.gpr[1]) * (int64_t)(s.gpr[0])));
   s.gpr[8] = (uint64_t)(uint32_t)((524289ULL));
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403CF740(s); s.gpr[4] += 8; }
+  { uint64_t _t = (uint64_t)(0x1403CF740ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[2]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;
@@ -323,7 +336,10 @@ void pes_fn_1403DB8A0(PesState& s) {
   L_1403DBAD6:;
   s.gpr[2] = (uint64_t)(uint32_t)((524289ULL));
   s.gpr[1] = (uint64_t)(s.gpr[13]);
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403CF770(s); s.gpr[4] += 8; }
+  { uint64_t _t = (uint64_t)(0x1403CF770ULL); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
+    s.gpr[4] += 8; }
   L_1403DBAE3:;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[5])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[5]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

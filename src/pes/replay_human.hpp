@@ -10,6 +10,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
 #include <string>
 
 namespace pes {
@@ -31,12 +32,20 @@ struct ReplayHumanRecord {
   uint32_t word1c = 0;                              // R+0x1C
   uint8_t byte21 = 0;                               // R+0x21
 };
+// One 4 KB page of the frame's pre-state beyond the install, as a capture holds it at the frame's entry (the copy tests read
+// the capture's pages; the frame reads them before it writes them).
+struct PreStatePage {
+  uint64_t va = 0;
+  std::vector<uint8_t> bytes;  // 4096 bytes
+};
 
 class ReplayHumanFrame {
  public:
   // The install supplies the constants and globals the translated code reads. Returns null and sets error
-  // when the image does not map them.
-  static std::unique_ptr<ReplayHumanFrame> Create(const PeImage& exe, std::string* error);
+  // when the image does not map them. pre is the frame's pre-state beyond the install (a capture's pages, see
+  // PreStatePage); it is mapped after the frame's own windows, which keep precedence.
+  static std::unique_ptr<ReplayHumanFrame> Create(const PeImage& exe, std::string* error,
+                                                  const std::vector<PreStatePage>& pre = {});
   ~ReplayHumanFrame();
   ReplayHumanFrame(const ReplayHumanFrame&) = delete;
   ReplayHumanFrame& operator=(const ReplayHumanFrame&) = delete;

@@ -2157,6 +2157,8 @@ class Emitter:
                 # a bounded closure leaves targets no replay entered as aborts).
                 t = "0x%X" % tgt
                 stub = (ctx.get("stubs") or {}).get(t)
+                if stub is not None and stub.get("do") == "native":
+                    return ["if (s.cond(\"%s\")) { %s return; }" % (cc, " ".join(native_call_lines(t)))]
                 if stub is not None and stub.get("do") != "unmodellable":
                     return ["if (s.cond(\"%s\")) { %s return; }" % (cc, " ".join(stub_lines(stub["do"])))]
                 if t in self.pilot:

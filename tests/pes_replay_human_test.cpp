@@ -4,22 +4,88 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <fcntl.h>
+#include <unistd.h>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "pes/exe.hpp"
 #include "pes/replay_human.hpp"
+#include "pes_state.hpp"
 
 namespace {
 
-std::unique_ptr<pes::ReplayHumanFrame> MakeFrame() {
+constexpr uint64_t kCapturePage = 0x1000;
+
+// The capture the copy tests take their pre-state from: GF_PES_COPY_CAPTURE names an unpacked rendezvous capture of a
+// frame that copies. tools/dev/translate/copy_livein.py writes its maps.txt (the VA runs) and livein.tsv (the pages the
+// frame reads before writing them, and the copy sources). PES-derived and never committed: the tests skip without it.
+struct CopyCapture {
+  SnapView snap;
+  std::vector<pes::PreStatePage> pages;
+  std::vector<uint64_t> sources;
+};
+
+bool LoadCopyCapture(const std::string& dir, CopyCapture& cap, std::string* error) {
+  cap.snap.fd = open((dir + "/mem.bin").c_str(), O_RDONLY);
+  if (cap.snap.fd < 0) {
+    *error = "no mem.bin in " + dir;
+    return false;
+  }
+  std::ifstream maps(dir + "/maps.txt");
+  unsigned long long va = 0, size = 0, off = 0;
+  std::string line;
+  while (std::getline(maps, line)) {
+    std::istringstream row(line);
+    if (row >> std::hex >> va >> size >> off) cap.snap.runs.push_back({va, size, off});
+  }
+  std::sort(cap.snap.runs.begin(), cap.snap.runs.end(),
+            [](const SnapView::Run& a, const SnapView::Run& b) { return a.va < b.va; });
+  std::ifstream livein(dir + "/livein.tsv");
+  while (std::getline(livein, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    std::istringstream row(line);
+    char kind = 0;
+    unsigned long long value = 0;
+    row >> kind >> std::hex >> value;
+    if (kind == 'S') {
+      cap.sources.push_back(value);
+      continue;
+    }
+    if (kind != 'P') continue;
+    if (cap.snap.at(value) == nullptr) continue;  // a page the capture does not map: the frame reads nothing there
+    pes::PreStatePage page;
+    page.va = value;
+    page.bytes.resize(kCapturePage);
+    for (uint64_t i = 0; i < kCapturePage; ++i) {
+      const uint8_t* b = cap.snap.at(value + i);
+      page.bytes[i] = b != nullptr ? *b : 0;
+    }
+    cap.pages.push_back(std::move(page));
+  }
+  return true;
+}
+
+// The frame, over the copy capture's pre-state when GF_PES_COPY_CAPTURE names one. Returns null (the caller skips) without
+// PES21_ROOT, and when the capture is named but cannot be read.
+std::unique_ptr<pes::ReplayHumanFrame> MakeFrame(CopyCapture* out = nullptr) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) return nullptr;
   std::string err;
   auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
   if (!exe) return nullptr;
-  return pes::ReplayHumanFrame::Create(*exe, &err);
+  CopyCapture cap;
+  if (const char* dir = std::getenv("GF_PES_COPY_CAPTURE"); dir != nullptr && *dir != '\0') {
+    if (!LoadCopyCapture(dir, cap, &err)) return nullptr;
+  }
+  auto f = pes::ReplayHumanFrame::Create(*exe, &err, cap.pages);
+  if (out != nullptr) *out = std::move(cap);
+  return f;
 }
 
 // A palette entry whose compare word (+0x4, the dword at entry+0x84) is non-zero, so the copy is taken.
