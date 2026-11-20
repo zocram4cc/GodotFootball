@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""The import models the ReplayHuman create path calls (import_stubs.json, the code_hex the harness runs), one contract test
+each: kernel32!InitializeCriticalSectionAndSpinCount, kernel32!SetLastError, ucrtbase!getenv, winmm!timeGetTime. Each model is
+loaded by its (module, export) key, as frame_trace.LazyMap does, and run in unicorn. Plain python3 with unicorn.
+Usage: GF_DIFF_PYTHON=<venv python> python3 test_create_path_models.py"""
+import os
+import struct
+import sys
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import frame_trace as ft  # noqa: E402
+from unicorn import Uc, UC_ARCH_X86, UC_MODE_64  # noqa: E402
+from unicorn.x86_const import (UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_RSP,  # noqa: E402
+                               UC_X86_REG_GS_BASE)
+
+CODE, DATA, STACK = 0x10000, 0x20000, 0x30000
+RET = CODE + 0x800  # the address the model returns to (never executed)
+CS = DATA + 0x100   # the critical section
+TEB = DATA + 0x400  # the thread block: gs:[0x30] holds its own address
+SENTINEL = 0xAA
+
+
+def run(module, export, rcx=0, rdx=0, prefill=None):
+    """Runs the model's code_hex once; returns (mu, rax, rcx, rdx) after its ret."""
+    code = ft.load_import_models()[(module, export)]
+    mu = Uc(UC_ARCH_X86, UC_MODE_64)
+    mu.mem_map(CODE, 0x1000)
+    mu.mem_write(CODE, code)
+    mu.mem_map(DATA, 0x2000)
+    mu.mem_write(TEB + 0x30, struct.pack("<Q", TEB))
+    if prefill is not None:
+        mu.mem_write(CS, prefill)
+    mu.mem_map(STACK, 0x1000)
+    rsp = STACK + 0x800
+    mu.mem_write(rsp, struct.pack("<Q", RET))
+    mu.reg_write(UC_X86_REG_RCX, rcx)
+    mu.reg_write(UC_X86_REG_RDX, rdx)
+    mu.reg_write(UC_X86_REG_RSP, rsp)
+    mu.reg_write(UC_X86_REG_GS_BASE, TEB)
+    mu.emu_start(CODE, RET, count=100)
+    return mu, mu.reg_read(UC_X86_REG_RAX), mu.reg_read(UC_X86_REG_RCX), mu.reg_read(UC_X86_REG_RDX)
+
+
+class CriticalSectionInit(unittest.TestCase):
+    """Win64 CRITICAL_SECTION (40 bytes) on one thread: DebugInfo 0, LockCount -1, RecursionCount 0, OwningThread 0,
+    LockSemaphore 0, SpinCount = the spin count, zero-extended from edx. Returns TRUE."""
+
+    def test_fields_of_a_free_single_thread_section(self):
+        mu, rax, _, _ = run("kernel32.dll", "InitializeCriticalSectionAndSpinCount", CS, 0x0C, prefill=b"\xAA" * 40)
+        f = bytes(mu.mem_read(CS, 40))
+        self.assertEqual(f[0:8], b"\x00" * 8)  # DebugInfo
+        self.assertEqual(struct.unpack("<i", f[8:12])[0], -1)  # LockCount: free
+        self.assertEqual(f[12:16], b"\x00" * 4)  # RecursionCount
+        self.assertEqual(f[16:32], b"\x00" * 16)  # OwningThread, LockSemaphore
+        self.assertEqual(struct.unpack("<Q", f[32:40])[0], 0x0C)  # SpinCount
+
+    def test_returns_true_and_keeps_the_section_pointer(self):
+        _, rax, rcx, _ = run("kernel32.dll", "InitializeCriticalSectionAndSpinCount", CS, 0x0C, prefill=b"\xAA" * 40)
+        self.assertEqual(rax, 1)
+        self.assertEqual(rcx, CS)
+
+    def test_spin_count_is_the_low_dword_of_the_argument(self):
+        mu, _, _, rdx = run("kernel32.dll", "InitializeCriticalSectionAndSpinCount", CS, 0xDEAD_BEEF_0000_0007,
+                            prefill=b"\xAA" * 40)
+        self.assertEqual(struct.unpack("<Q", bytes(mu.mem_read(CS + 0x20, 8)))[0], 7)
+        self.assertEqual(rdx, 7)
+
+
+class SetLastErrorModel(unittest.TestCase):
+    """SetLastError(ecx = code): TEB.LastErrorValue (self pointer at gs:[0x30], +0x68) = code; rax = the TEB self pointer."""
+
+    def test_stores_the_code_in_the_thread_block(self):
+        mu, rax, _, _ = run("kernel32.dll", "SetLastError", rcx=0x57)
+        self.assertEqual(struct.unpack("<I", bytes(mu.mem_read(TEB + 0x68, 4)))[0], 0x57)
+        self.assertEqual(rax, TEB)
+
+
+class ConstantZeroModels(unittest.TestCase):
+    """getenv (no name set in this process) and timeGetTime (a fixed clock of 0) both return 0 and touch nothing."""
+
+    def test_getenv_returns_null(self):
+        _, rax, _, _ = run("ucrtbase.dll", "getenv", rcx=CS)
+        self.assertEqual(rax, 0)
+
+    def test_time_get_time_returns_zero(self):
+        _, rax, _, _ = run("winmm.dll", "timeGetTime")
+        self.assertEqual(rax, 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

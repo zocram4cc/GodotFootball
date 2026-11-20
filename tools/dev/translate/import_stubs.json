@@ -2,6 +2,36 @@
   "contract": "OS import models for frame_trace.py --snapshot and xlate.py. A snapshot run maps a loaded OS module's export entries on first call: an export listed here runs its model (its code is written at the entry); any other export is int3 and stops the run with its name. do values: return (mov rax, imm64; ret: the export returns value and has no other effect); memcpy (Win64 memcpy(dst, src, n): returns dst, copies n bytes forward); qpc (QueryPerformanceCounter: stores value at *rcx, returns TRUE); tls_get / tls_set (TlsGetValue / TlsSetValue on the thread's own TEB slots); tebread (returns the DWORD at gs:[offset], zero-extended: GetLastError). Keyed by module file name and export name. Each entry carries the evidence for its model; a wrong model is a divergence, not a default.",
   "imports": [
     {
+      "module": "kernel32.dll",
+      "export": "InitializeCriticalSectionAndSpinCount",
+      "do": "cs_init",
+      "code_hex": "48c70100000000c74108ffffffffc7410c0000000048c741100000000048c741180000000089d248895120b801000000c3",
+      "why": ["kernel32!InitializeCriticalSectionAndSpinCount(rcx = LPCRITICAL_SECTION, edx = spin count): the Win64 section's fields, single thread (LockCount -1, the rest 0, SpinCount = edx), returns TRUE. Reached by the ReplayHuman create path (0x14217DB10 -> 0x141EB6840 -> 0x1403AB2B0, IAT 0x14252F440). The code_hex: mov [rcx],0; mov dword [rcx+8],-1; mov dword [rcx+0xC],0; mov [rcx+0x10],0; mov [rcx+0x18],0; mov edx,edx; mov [rcx+0x20],rdx; mov eax,1; ret.", "Hand-encoded; disassembly checked with capstone (test_create_path_models.py)."]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "SetLastError",
+      "do": "setlasterror",
+      "code_hex": "65488b042530000000894868c3",
+      "why": ["kernel32!SetLastError(ecx = code): TEB.LastErrorValue = ecx (the TEB self pointer from gs:[0x30], +0x68). The same contract as ntdll!RtlSetLastWin32Error, which kernel32 forwards to; the code_hex is that model's bytes (INF for the kernel32 export itself: its own bytes are not in the install's kernel32 copy checked here). Called from 0x14038E6B0 on the create path (IAT 0x14252F6B8)."]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "getenv",
+      "do": "return",
+      "value": 0,
+      "code_hex": "31c0c3",
+      "why": ["ucrtbase!getenv(name): NULL for a name the process does not set. The create path reads an environment name (0x14038E7B0, IAT 0x1425300C8) and the GF test process has none of PES's names. INF: the name itself is not decoded here, so the model is the absent-name answer."]
+    },
+    {
+      "module": "winmm.dll",
+      "export": "timeGetTime",
+      "do": "return",
+      "value": 0,
+      "code_hex": "31c0c3",
+      "why": ["winmm!timeGetTime(): the millisecond clock, modelled as 0 (a fixed clock, as the harness's QueryPerformanceCounter model holds one value). INF: the caller (0x1403E8800, IAT 0x14252FE88) uses it for a timer; the model fixes the timer at zero."]
+    },
+    {
       "module": "ntdll.dll",
       "export": "RtlEnterCriticalSection",
       "do": "return",

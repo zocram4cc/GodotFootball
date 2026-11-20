@@ -11,7 +11,6 @@
  },
  "native_services_contract": "PES VAs the production dispatch table (pes_dispatch_gen.cpp, gen_translated.py) sends to a GF-native implementation pes_native_<op> (pes_native.cpp) instead of a translated body: va, op, why. Not stubs: stubs.load() and the harness never see them (the harness runs PES's bytes for these VAs). The PES allocator 0x1403FB410 reads its pool object from the table at [0x1436EF2C8] and calls vtable +0x10 (alloc), the free path 0x1403FB5B0 vtable +8, and 0x1403FB860 vtable +0x50; the live pool objects' vtables are 0x14258E390 (heap) and 0x142AC0090 (forwarder to pool 1), CONFIRMED by script over pid1694737/seq009 (docs/ports/pes-port-NativeSeam.md).",
  "native_services": [
-  {"va": "6FFFFF9CF314", "op": "kernel32_cs_init", "why": ["kernel32!InitializeCriticalSectionAndSpinCount, IAT slot 0x14252F440 (docs/re/pes-re-import-slots.md row 7): the Win64 CRITICAL_SECTION init on a single thread (no semaphore), returns TRUE. Reached on the ReplayHuman record create path (0x14217DB10 -> 0x141EB6840 -> 0x1403AB2B0), which runs on every palette copy: the release clears +0x48 first"]},
   {"va": "1403FBC10", "op": "heap_alloc", "why": ["heap vtable 0x14258E390 +0x10: alloc(this, size, align) -> ptr or 0"]},
   {"va": "1403FBCB0", "op": "heap_free", "why": ["heap vtable 0x14258E390 +0x08: free(this, ptr) -> 1"]},
   {"va": "1403FBD00", "op": "heap_owns", "why": ["heap vtable 0x14258E390 +0x30: owns(this, ptr); returns 1 for the live pools (flags +0x48 bit 0 clear)"]},

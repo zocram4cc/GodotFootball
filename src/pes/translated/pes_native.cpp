@@ -115,20 +115,6 @@ void pes_native_heap_owns(PesState& s) { s.gpr[0] = 1; }
 // 0x1403FBEB0 hands free pages back to the OS: nothing to give back from a GF arena.
 void pes_native_heap_trim(PesState&) {}
 
-// kernel32!InitializeCriticalSectionAndSpinCount: the Win64 CRITICAL_SECTION (40 bytes) is DebugInfo +0, LockCount +8
-// (-1: free), RecursionCount +0xC, OwningThread +0x10, LockSemaphore +0x18 (no semaphore until a contended wait, none
-// on one thread), SpinCount +0x20. Returns TRUE.
-void pes_native_kernel32_cs_init(PesState& s) {
-  const uint64_t cs = s.gpr[1];
-  s.wr(cs + 0x00, 0, 8);
-  s.wr(cs + 0x08, 0xFFFFFFFFu, 4);
-  s.wr(cs + 0x0C, 0, 4);
-  s.wr(cs + 0x10, 0, 8);
-  s.wr(cs + 0x18, 0, 8);
-  s.wr(cs + 0x20, s.gpr[2], 8);
-  s.gpr[0] = 1;
-}
-
 namespace {
 
 // The registry objects' layout (0x141B55730's reads): GameImpl +0 vtable (slot +0x38 = 0x14217D310, which returns this + 0x20)

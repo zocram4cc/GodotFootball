@@ -123,6 +123,3 @@ struct PesCameraRegistry {
 // ({char* ptr, u64 length}), r8 = the type key; the answer is rax = the slot's handle, 0 for an unknown name.
 void pes_native_registry_find(PesState& s);
 void pes_native_registry_insert(PesState& s);
-// kernel32!InitializeCriticalSectionAndSpinCount (IAT key 0x6FFFFF9CF314): rcx = LPCRITICAL_SECTION, rdx = spin count.
-// Initialises the Win64 section's fields on a single thread and returns TRUE in rax.
-void pes_native_kernel32_cs_init(PesState& s);
