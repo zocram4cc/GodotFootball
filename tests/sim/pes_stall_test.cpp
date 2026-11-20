@@ -89,6 +89,19 @@ class BreakerCensusProbe : public pestest::Probe {
     std::printf("STALLPRESS t=%lu forcedIsPresser=%d sidePress=%d sidePressId=%d sideHasPressMan=%d\n", match.GetActualTime_ms(),
                 ctl->IsLoosePresser(who) ? 1 : 0, pressMan ? 1 : 0, pressMan ? pressMan->GetID() : -1,
                 match.GetTeam(1 - who->GetTeamID())->GetController()->GetLoosePressMan() ? 1 : 0);
+    Player* pressOwn = nullptr;
+    for (const auto& p : who->GetTeam()->GetAllPlayers())
+      if (p.get() == pressMan) pressOwn = p.get();
+    if (pressOwn) {
+      const Anim* pc = pressOwn->GetCurrentAnim();
+      const PlayerCommand& pcmd = pc->originatingCommand;
+      const Vector3 ballNow = match.GetBall()->Predict(0);
+      std::printf("STALLPRESSER t=%lu id=%d team=%d dist=%.2f cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f fn=%d ms=%d\n", match.GetActualTime_ms(),
+                  pressOwn->GetID(), pressOwn->GetTeamID(), double((pressOwn->GetPosition() - ballNow).Get2D().GetLength()),
+                  double(pcmd.desiredVelocityFloat), pcmd.useDesiredTarget ? 1 : 0,
+                  double((pcmd.desiredTarget - ballNow).Get2D().GetLength()), double(pressOwn->GetMovement().GetLength()),
+                  int(pressOwn->GetCurrentFunctionType()), int(pressOwn->GetMoveStep().state));
+    }
     if (holder) {
       const uint8_t* hp = match.PesWorldOf().P(match.PesSlotOf(holder));
       const Anim* hc = holder->GetCurrentAnim();
