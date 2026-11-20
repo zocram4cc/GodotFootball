@@ -88,3 +88,30 @@ TEST(PesPressApproach, ALoosePresserCommandNamesTheActionPressTarget) {
   EXPECT_GT(steered, 0ul) << "no loose presser was steered in the match";
   EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << steered << " loose-presser movement commands named no target";
 }
+
+// A loose ball at rest with no PES holder is approached by its designated man when he is within reach of it: PES's ActionPress
+// names a target (the ball, or his base when the base is nearer the ball's sample), in reach as well as out of it. Scope: an
+// outfield designated man within 2 m (the band the stall census measured the men in, pes-port-StallLive13 section 3) whose decision
+// is a movement or none; a keeper plays PES's KP actions (pes-re-goalkeeper.md), and a slide or special is a reaction action, not
+// the approach. A movement with no target is the failure.
+TEST(PesPressApproach, ADesignatedManWithNoHolderIsCommandedToTheRestingBall) {
+  constexpr float kReach_m = 2.0f;
+  unsigned long chased = 0, unnamed = 0;
+  RunPesLoopMatch([&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() && !match.GetPesHolder() &&
+                       match.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
+    if (!loose) return;
+    Player* designated = match.GetDesignatedPossessionPlayer();
+    const Vector3 ball = match.GetBall()->Predict(0);
+    if (!designated || designated->HasPossession() || designated->GetTeam()->PassGetReceiver() == designated ||
+        designated->GetFormationEntry().role == e_PlayerRole_GK)
+      return;
+    if ((designated->GetPosition() - ball).Get2D().GetLength() > kReach_m) return;
+    const std::optional<PlayerCommand>& command = designated->GetPesDecision().command;
+    if (command && command->desiredFunctionType != e_FunctionType_Movement) return;
+    ++chased;
+    if (!command || !command->useDesiredTarget) ++unnamed;
+  });
+  EXPECT_GT(chased, 0ul) << "no loose ball at rest with a designated man in reach was seen in the match";
+  EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << chased << " designated-man movement ticks in reach named no target";
+}
