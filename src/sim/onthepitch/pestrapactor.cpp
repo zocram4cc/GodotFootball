@@ -287,31 +287,4 @@ bool IsActionTablePointer(std::size_t pOffset) {
   return false;
 }
 
-uint8_t PesActionOfFunction(e_FunctionType functionType) {
-  switch (functionType) {
-    case e_FunctionType_ShortPass:
-      return kAnimeActionShortPass;
-    case e_FunctionType_LongPass:
-    case e_FunctionType_HighPass:
-      return kAnimeActionLongPass;
-    case e_FunctionType_Shot:
-      return kAnimeActionShoot;
-    case e_FunctionType_Sliding:
-      return kAnimeActionSliding;
-    case e_FunctionType_Trip:
-      return kAnimeActionTackle;
-    case e_FunctionType_Catch:
-      return kAnimeActionKpCatch;
-    case e_FunctionType_Deflect:
-      return kAnimeActionKpDeflect;
-    default:
-      return kAnimeActionMove;
-  }
-}
-
-bool IsMoveFamilyAction(uint8_t action) {
-  return action == kAnimeActionMove || action == kAnimeActionStepMove || action == kAnimeActionDribbleStepMove ||
-         action == kAnimeActionDemoMove;
-}
-
 }  // namespace pes

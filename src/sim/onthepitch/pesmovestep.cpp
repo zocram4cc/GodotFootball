@@ -615,9 +615,9 @@ void ProcessMoveStep(Player& player, Match& match) {
   // their Update functions FUN_1407824A0, FUN_140789DD0, FUN_1407D1E60 and the thunk at 0x1407347B0 are the entry FUN_1406B8340's
   // only callers (call sites 0x140782552, 0x140789E42, 0x1407D23A2, jump 0x1407347B6). A dodge, tackle, trap or kick owns the body
   // in its own action, so the FSM does not tick while such a clip plays.
-  // The gate reads the body's action id (P+0xAC8, written this tick by WritePesTrapActors from the clip's kind: PesActionOfFunction).
-  const uint8_t action = match.PesWorldOf().P(match.PesSlotOf(&player))[pes::kPByteAC8Offset];
-  if (!pes::IsMoveFamilyAction(action)) {
+  // ponytail: GF has no PES action id for the body (PES's +0xAC8). IsMovementClip stands in for "in MOVE": a Movement function,
+  // or a PES locomotion clip the FSM itself issued. Remove when the body carries its action id.
+  if (!player.CastHumanoid()->IsMovementClip()) {
     // A clip at its last frame hands the body back. The FSM is frozen while such a clip plays, so a hold (STOP or ACCELERATE)
     // would block the end-of-clip switch (humanoid.cpp PesPoseHeld). ponytail: PES's state after the action is not decoded; IDLE
     // stands in.

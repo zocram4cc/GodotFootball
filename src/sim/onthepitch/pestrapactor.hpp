@@ -24,32 +24,11 @@ namespace pes {
 
 inline constexpr std::size_t kLocomotionPhases = 0x18;  // P+0x245C below this indexes the class table (0x1406D8C59)
 
-// PES's anime action ids (P+0xAC8). The names are read from the image's action-name table at 0x1434A5470 (index = id; pes_full.bin,
-// CONFIRMED): 2 ANIME_MOVE, 3 ANIME_STEP_MOVE, 6 ANIME_DRIBBLE_STEP_MOVE, 7 ANIME_TRAP, 8 ANIME_LONG_PASS, 9 ANIME_SHORT_PASS,
-// 10 ANIME_SHOOT, 11 ANIME_SLIDING, 13 ANIME_TACKLE, 56 ANIME_KP_CATCH, 58 ANIME_KP_DEFLECT, 74 ANIME_DEMO_MOVE. The "no motion"
-// sentinel of P+0x2810 (0xBE5, FUN_1406EB670) is also the Animetable's row count.
+// PES's anime action id for MOVE (P+0xAC8; names read from 0x1434A5470: 2 MOVE, 3 STEP_MOVE, 7 TRAP) and the "no motion"
+// sentinel of P+0x2810 (0xBE5, FUN_1406EB670; also the Animetable's row count).
 inline constexpr uint8_t kAnimeActionMove = 2;
-inline constexpr uint8_t kAnimeActionStepMove = 3;
-inline constexpr uint8_t kAnimeActionDribbleStepMove = 6;
-inline constexpr uint8_t kAnimeActionTrap = 7;
-inline constexpr uint8_t kAnimeActionLongPass = 8;
-inline constexpr uint8_t kAnimeActionShortPass = 9;
-inline constexpr uint8_t kAnimeActionShoot = 10;
-inline constexpr uint8_t kAnimeActionSliding = 11;
-inline constexpr uint8_t kAnimeActionTackle = 13;
-inline constexpr uint8_t kAnimeActionKpCatch = 56;
-inline constexpr uint8_t kAnimeActionKpDeflect = 58;
-inline constexpr uint8_t kAnimeActionDemoMove = 74;
 inline constexpr uint16_t kPNoMotion = 0xBE5;
-
-// The PES action a GF clip of this function type stands for. A kick, shot, slide, tackle, catch or deflect clip is its PES action;
-// a movement clip and a PES locomotion clip (Special) are MOVE. Types with no name in the table above keep MOVE.
-// ponytail: GF's control (BallControl), header, interfere and trip clips keep MOVE; their PES actions (the control's TRAP, and the
-// header and trip rows) are not mapped yet.
-uint8_t PesActionOfFunction(e_FunctionType functionType);
-// The actions MOVESTEP runs in: its entry callers are the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and DEMO_MOVE tick functions
-// (pes-re-move-gate section 1.3, CONFIRMED).
-bool IsMoveFamilyAction(uint8_t action);
+inline constexpr uint8_t kAnimeActionTrap = 7;
 
 // One motion of the anime player's list, as FUN_141EB4650 reads it (FUN_141AF3070 id, FUN_141AF4160 flag byte, FUN_141AF3100
 // seconds played, FUN_141AF3330 the layer's rate).
