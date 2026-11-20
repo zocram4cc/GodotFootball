@@ -30,6 +30,7 @@ struct Rig;
 #include "pessetpieceteam.hpp"
 #include "pesstoppage.hpp"
 #include "peskickerror.hpp"
+#include "peskickmotion.hpp"
 #include "pesoffball.hpp"
 #include "pesstamina.hpp"
 // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).
@@ -106,6 +107,8 @@ struct MatchSetup {
   const pes::RestartSpotConstants* pesRestartSpotConstants = nullptr;
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md). Required.
   const pes::KickErrorConstants* pesKickErrorConstants = nullptr;
+  // PES 2021's kick motion pick (docs/ports/pes-port-KickMotion.md): the clip table, the row fix-ups, the descriptor. Required.
+  const pes::KickMotionConstants* pesKickMotionConstants = nullptr;
   // PES 2021's set-piece taker wait (docs/re/pes-re-setpiece-choreography.md 9
   // item 2): how long the AI holds a restart before the kicker takes it, as a
   // frame-rate multiple read from the install's exe. Required like the rest:
@@ -199,6 +202,9 @@ struct MatchSetup {
   // PES 2021's Trap action chain's inputs from the install (pestrapdata.hpp LoadTrapSource): the image slice, the actor
   // constants and the loader data. Required: the reaction trap's clip is the chain's commit, and there is no GF picker.
   const pes::PesTrapSource* pesTrapSource = nullptr;
+  // The install's file system, which PES's translated fox file layer reads the animation files through (pesfoxworld.hpp). Required in
+  // the PES loop: the player's engine graph is built from the install's own body animation files.
+  const pes::PesVfs* pesVfs = nullptr;
   // The install's own table bytes the translated window runs read at register-held image addresses (pesimagetables.hpp:
   // the anime class table, the quarter sine table, the frame-rate cells), read from the install's exe. Required: the danger
   // builder's lane lists differ from PES's without them.

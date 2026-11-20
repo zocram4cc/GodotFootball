@@ -327,6 +327,9 @@ int main(int argc, char** argv) {
   if (!animetable) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
   if (!mbinfo) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's kick motion pick (docs/ports/pes-port-KickMotion.md): the clip table from the VFS, the swap tables from the exe.
+  auto kickMotionConstants = pes::LoadKickMotionConstants(*exe, vfs, &err);
+  if (!kickMotionConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // PES 2021's standing-tackle sub-kind (pes-re-contact-port.md stage C): the
   // per-kind group tables and the readiness mask's constants.
   auto tackleConstants = pes::LoadTackleConstants(*exe, &err);
@@ -390,6 +393,7 @@ int main(int argc, char** argv) {
   setup.pesForfeitConstants = &*forfeitConstants;
   setup.pesRestartSpotConstants = &*restartSpotConstants;
   setup.pesKickErrorConstants = &*kickErrorConstants;
+  setup.pesKickMotionConstants = &*kickMotionConstants;
   setup.pesCarrierConstants = &*carrierConstants;
   setup.pesDefensiveShapeConstants = &*defensiveShapeConstants;
   setup.pesDefenderDecisionConstants = &*defenderDecisionConstants;
@@ -409,6 +413,7 @@ int main(int argc, char** argv) {
   setup.pesMoveStepConstants = &*moveStepConstants;
   setup.pesMarkTableConstants = &*markTableConstants;
   setup.pesTrapSource = &*trapSource;
+  setup.pesVfs = &vfs;
   setup.pesImageTables = &*imageTables;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
@@ -453,6 +458,9 @@ int main(int argc, char** argv) {
               inPlaySeconds, holdTicks, holdSeconds);
   std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
   std::printf("[idle] %lu episodes, stalls %lu\n", watch.IdleEpisodes(), watch.IdleStallEpisodes());
+  const pes::KickMotionStats& kicks = match.PesKickMotionStats();
+  std::printf("[kickmotion] %u kicks, no clip %u, descriptor 1 %u, in-flight Q %u, Kick start tries %u none %u\n", kicks.kicks,
+              kicks.noClip, kicks.descriptorOne, kicks.inFlight, kicks.tries, kicks.answeredNone);
   if (parityLog) parity.Print(match, stdout);
   return 0;
 }

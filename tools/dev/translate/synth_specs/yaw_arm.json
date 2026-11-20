@@ -1,0 +1,181 @@
+{
+ "label": "yawarm_synth",
+ "seed": 3,
+ "as": "0x141EB35A0",
+ "fields": [
+  {
+   "name": "adj",
+   "at": "rcx",
+   "type": "u64",
+   "values": [
+    811980144
+   ]
+  },
+  {
+   "name": "from",
+   "at": "xmm1",
+   "type": "f32",
+   "values": [
+    0.0
+   ]
+  },
+  {
+   "name": "to",
+   "at": "xmm2",
+   "type": "f32",
+   "values": [
+    0.0
+   ]
+  },
+  {
+   "name": "ticks",
+   "at": "r9d",
+   "type": "u32",
+   "values": [
+    1
+   ]
+  },
+  {
+   "name": "a5",
+   "at": "reg:rsp+0x28",
+   "type": "u8",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "a6",
+   "at": "reg:rsp+0x30",
+   "type": "u8",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "a7",
+   "at": "reg:rsp+0x38",
+   "type": "u8",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "ret",
+   "at": "ret",
+   "type": "u64",
+   "values": [
+    5400909596
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "plain",
+   "from": 100.0,
+   "to": 130.0,
+   "ticks": 28,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "to_above_360",
+   "from": 10.0,
+   "to": 400.0,
+   "ticks": 10,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "to_negative",
+   "from": 350.0,
+   "to": -20.0,
+   "ticks": 10,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "from_negative",
+   "from": -30.0,
+   "to": 20.0,
+   "ticks": 10,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "from_above_360",
+   "from": 370.0,
+   "to": 20.0,
+   "ticks": 10,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "error_above_180",
+   "from": 0.0,
+   "to": 300.0,
+   "ticks": 12,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "error_below_minus_180",
+   "from": 350.0,
+   "to": 10.0,
+   "ticks": 12,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "flag7_positive_error",
+   "from": 10.0,
+   "to": 50.0,
+   "ticks": 12,
+   "a5": 0,
+   "a6": 0,
+   "a7": 1
+  },
+  {
+   "name": "flag7_negative_error",
+   "from": 50.0,
+   "to": 10.0,
+   "ticks": 12,
+   "a5": 0,
+   "a6": 0,
+   "a7": 1
+  },
+  {
+   "name": "flags5_6",
+   "from": 20.0,
+   "to": 60.0,
+   "ticks": 9,
+   "a5": 1,
+   "a6": 2,
+   "a7": 0
+  },
+  {
+   "name": "ticks_zero",
+   "from": 20.0,
+   "to": 60.0,
+   "ticks": 0,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  },
+  {
+   "name": "one_tick",
+   "from": 20.0,
+   "to": 60.0,
+   "ticks": 1,
+   "a5": 0,
+   "a6": 0,
+   "a7": 0
+  }
+ ]
+}

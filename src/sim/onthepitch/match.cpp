@@ -149,6 +149,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES kick error constants missing: read them from the install with "
         "pes::LoadKickErrorConstants into MatchSetup::pesKickErrorConstants");
   pesKickErrorConstants = *setup.pesKickErrorConstants;
+  if (setup.pesKickMotionConstants == nullptr)
+    throw std::runtime_error(
+        "PES kick motion constants missing: read them from the install with "
+        "pes::LoadKickMotionConstants into MatchSetup::pesKickMotionConstants");
+  pesKickMotionConstants = *setup.pesKickMotionConstants;
   if (setup.pesJudgeConstants == nullptr)
     throw std::runtime_error(
         "PES judge constants missing: read them from the install with "
@@ -292,6 +297,8 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
     pes::ConstructAnimPlugin(*pesWorld, slot);
   }
   pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
+  pesVfs = setup.pesVfs;
+  pesImagePath = setup.pesTrapSource->imagePath;
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;
   if (setup.pesSheetConstants) pesSheetConstants = *setup.pesSheetConstants;
@@ -331,6 +338,9 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES image tables missing: read them from the install with "
         "pes::LoadPesImageTables into MatchSetup::pesImageTables");
   pesWorld->BindImageTables(*setup.pesImageTables);
+  for (int k = 0; k < 3; ++k)
+    pesWorld->AddImageSegment(pesActorConstants.memberVtable[k], pesActorConstants.memberVtableSlots[k].data(),
+                              pesActorConstants.memberVtableSlots[k].size());
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);
@@ -609,17 +619,6 @@ void Match::SetMatchPhase(e_MatchPhase newMatchPhase) {
     }
 #endif
   }
-
-  // Ends have just changed, so put both teams back out on the ones they swapped to.
-  // The referee prepares its kickoff at prepareTime and fires the phase change from
-  // the same tick, in that order - so the marks it computed belonged to the ends the
-  // teams were leaving, and nothing re-prepared afterwards. The second half kicked
-  // off with everyone standing wherever the whistle caught him, on the wrong side of
-  // a pitch that had turned round underneath him.
-  if (MatchProgression::SwapsEnds(matchPhase)) {
-    ResetSituation(Vector3(0, 0, 0));
-    if (referee) referee->PrepareSetPiece(e_SetPiece_KickOff);
-  }
 }
 
 void Match::SetScore(int teamID, int goals) {
@@ -886,7 +885,9 @@ void Match::Process() {
   if (pesLoop) {
     WritePesMovementRecords(*this);
     WritePesTrapActors(*this);
+    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
     RunPesTrapTicks(*this);
+    RunPesBodyScans(*this);
   }
 
   if (pesLoop) {
@@ -1012,10 +1013,11 @@ void Match::Process() {
           if (!who) continue;
           const pes::MoveStepRecord& ms = who->GetMoveStep();
           const Anim* a = who->CastHumanoid()->GetCurrentAnim();
-          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f\n",
+          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f | %.1f m from the ball, %.1f m/s\n",
                  who->GetPlayerData()->GetLastName().c_str(), who->GetID(), int(ms.state), int(ms.previous),
                  int(a->functionType), a->anim ? a->anim->GetName().c_str() : "-", a->frameNum,
-                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate);
+                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate, (who->GetPosition() - ballNow).Get2D().GetLength(),
+                 who->GetMovement().GetLength());
         }
       }
     }

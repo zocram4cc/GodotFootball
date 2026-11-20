@@ -111,18 +111,60 @@ float DisplacementKmh(const MoveHost& host, const RunConstants& k) {
 
 }  // namespace
 
-// FUN_1406d1390: the idle family's turn exit into IDLE_TURN. PES's row table at 0x1425dda30 is
-// not decoded; the shared IdleRow is the port's stand-in until it lands.
-// ponytail: 0x1425dda30's row table removes this stand-in.
+// FUN_1406d1390 (the IDLE_TURN entry, d_1406d1390.c): the idle family's turn exit. Two blocks and the issue.
+//  * The look-bucket flip arm (open play, look bucket 4 or 9, a facing error past 168.75): when no man owns the ball, the look
+//    heading folds into [0, 360) if it is 22.5 to 157.5 degrees off the facing; the ball's bearing 18 ticks ahead (20/60 s at the
+//    tick rate) stands in when it is not. If that bearing sits 22.5 to 157.5 degrees to the side opposite the facing error, the
+//    bucket flips (4 <-> 9), the error becomes -/+167.5 and the look heading is the facing +/- 167.5 (0x1406D1434 COMISS XMM0,[0x1425ddfcc]
+//    = 168.75 .. 0x1406D15AB MOVSS XMM0,[0x1425ddff8] = -167.5; 0x1406D13DD MOVSS XMM10,[0x1425ddfc8] = 167.5).
+//  * The look heading is stepped from the facing by at most 167.5 (FUN_140a92950).
+//  * The turn row is DAT_1425dda30[kind] at the column DAT_1425dd988[look bucket] (the replay action, and kind 3 while the match
+//    is stopped or MA+0x25930 is set, take row 0x54c), issued with the 1/6 s blend at playback 1; the cell is FUN_1406abb30 and its
+//    mirror FUN_1406abd60 (host.Cell).
+// The tail call (P+0x4d0 vt+0x08) is the AdjustAngle adjuster's apply, a no-op in this port (AdjustAngleApply, movestep_turn.cpp).
 void EnterIdleTurn(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
+  const RunTables& t = host.RunTablesView();
+  const TeamAi& team = host.Team();
   const int kind = static_cast<int>(req.U(moveword::kKind));
-  const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
-  SetIdleClip(host, req, row, k.blend1667, 0.1667f);
-  req.SetF(moveword::kDwellLimit2, 0.1667f);
+  const uint32_t lookBucket = req.U(moveword::kLookBucketAlt);
+  const float facingError = req.F(moveword::kFacingError);
+  if (host.MatchPhase() == 1 && (lookBucket == 4 || lookBucket == 9) && k.deg168p75 < std::fabs(facingError)) {
+    float ball[3], own[3];
+    host.BallSample(static_cast<int>(host.TicksPerSecond() * k.ballSampleTicks / k.kmh60 + k.half), ball);
+    host.OwnPosition(own);
+    const float dx = ball[0] - own[0], dz = ball[2] - own[2];
+    const float lookHeading = req.F(moveword::kLookHeading);
+    // FUN_140439e50: the heading of the offset, 0 when the two points coincide.
+    float bearing = (dx == 0.0f && dz == 0.0f) ? 0.0f : FoldFull(std::atan2(dx, dz) * host.StyleConstantsView().radToDeg, k);
+    const float lookOff = std::fabs(PesAngleDiff(req.F(moveword::kFacing), lookHeading, k));
+    if (0x15 < static_cast<uint32_t>(team.BallOwnerSlot()) && k.deg225 < lookOff && lookOff < k.deg1575) {
+      bearing = 0.0f <= lookHeading ? (k.full <= lookHeading ? lookHeading + k.wrapFull : lookHeading) : lookHeading + k.full;
+    }
+    bearing -= host.FacingDeg();
+    if (k.half_turn < std::fabs(bearing)) bearing -= (bearing < 0.0f ? k.neg : k.one) * k.full;
+    if (k.deg225 < std::fabs(bearing) && std::fabs(bearing) < k.deg1575) {
+      const float errorSign = (facingError <= 0.0f && facingError != 0.0f) ? k.neg : k.one;
+      const float sideSign = 0.0f <= bearing ? k.one : k.neg;
+      if (errorSign != sideSign) {
+        const uint32_t flipped = lookBucket == 4 ? 9 : 4;
+        const float facing = req.F(moveword::kFacing);
+        req.SetU(moveword::kLookBucketAlt, flipped);
+        req.SetF(moveword::kFacingError, flipped == 4 ? k.negDeg167p5 : k.deg167p5);
+        req.SetF(moveword::kLookHeading, flipped == 4 ? facing + k.deg167p5 : facing - k.deg167p5);
+      }
+    }
+  }
+  req.SetF(moveword::kLookHeading, StepHeading(req.F(moveword::kFacing), req.F(moveword::kLookHeading), k.deg167p5, k));
+  int row = t.idleTurnRow.at(static_cast<std::size_t>(kind));
+  if (host.IsReplay() || (kind == 3 && (host.MatchPhase() == 2 || team.MaFlag25930()))) row = kIdleTurnReplayRow;
+  const MoveCell cell = host.Cell(row, t.bucketColumn.at(req.U(moveword::kLookBucketAlt)), false);
+  host.Issue(MotionRequest{cell.motionNo, cell.mirror, 0, k.blend1667, k.one, 0.0f, -1, 0.0f, 0.0f, 0});
+  req.SetU(moveword::kRecordStampB, req.U(moveword::kLookHeading));
   req.SetF(moveword::kDwellElapsed2, 0.0f);
-  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
+  req.SetF(moveword::kDwellLimit2, k.blend1667);
   RequestState(req, MoveState::kIdleTurn);
+  req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
   req.SetByte(moveword::kTurnLockFlag, 0);
 }
 

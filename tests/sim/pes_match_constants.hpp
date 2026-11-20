@@ -60,6 +60,7 @@ struct PesMatchConstants {
   std::optional<pes::DodgeConstants> dodge;
   std::optional<pes::Animetable> animetable;
   std::optional<pes::Mbinfo> mbinfo;
+  std::optional<pes::KickMotionConstants> kickMotion;
   std::optional<pes::TackleConstants> tackle;
   std::optional<pes::StrategyConstants> strategy;
   std::optional<pes::TeamConceptConstants> teamConcepts;
@@ -75,6 +76,7 @@ struct PesMatchConstants {
   std::optional<pes::formation::SheetConstants> sheetConstants;
   std::optional<pes::PlayerDatabase> playerDatabase;
   std::optional<pes::PesTrapSource> trap;
+  pes::PesVfs vfs;  // the mounted install, kept for MatchSetup::pesVfs (the engine's file layer reads through it)
 };
 
 inline const PesMatchConstants& SharedPesMatchConstants() {
@@ -87,7 +89,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   std::string err;
   auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
   if (!exe) return c;
-  pes::PesVfs vfs;
+  pes::PesVfs& vfs = c.vfs;
   const bool mounted = vfs.Mount(root, &err);
   c.clock = pes::LoadPesClockConstants(*exe, &err);
   if (mounted) c.ball = pes::LoadPesBallConstants(*exe, vfs, &err);
@@ -112,6 +114,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted) c.dodge = pes::LoadDodgeConstants(*exe, &err);
   if (mounted) c.animetable = pes::LoadAnimetable(*exe, vfs, &err);
   if (mounted) c.mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  if (mounted) c.kickMotion = pes::LoadKickMotionConstants(*exe, vfs, &err);
   if (mounted) c.tackle = pes::LoadTackleConstants(*exe, &err);
     c.strategy = pes::LoadStrategyConstants(*exe, &err);
     c.substitutions = pes::LoadSubstitutionConstants(*exe, &err);
@@ -148,6 +151,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesForfeitConstants, c.forfeit);
   fill(setup->pesRestartSpotConstants, c.restartSpot);
   fill(setup->pesKickErrorConstants, c.kickError);
+  fill(setup->pesKickMotionConstants, c.kickMotion);
   fill(setup->pesSetPieceTakerConstants, c.setPieceTaker);
   fill(setup->pesSetPieceTeamConstants, c.setPieceTeam);
   fill(setup->pesStaminaConstants, c.stamina);
@@ -174,6 +178,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesMarkTableConstants, c.markTable);
   fill(setup->pesTrapSource, c.trap);
   fill(setup->pesImageTables, c.imageTables);
+  if (!setup->pesVfs) setup->pesVfs = &c.vfs;
   return ok;
 }
 

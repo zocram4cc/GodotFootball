@@ -133,11 +133,12 @@ CONFIRMED:
 
 INF h: the per-tick set/clear pair for MI and the roster is elsewhere, in the code that calls H (the listener path). Next step: find the function that writes `[G+0x270]` with a register value obtained from the listener's record, and the function that writes zero to it after H returns. My qword-store scan (`binder_stores.txt`, 2642 hits) was not filtered by G-base; the filter needs G tracked through callee-saved registers.
 
-### 4.2 `T+0x78` (designated pass target): writer OPEN
+### 4.2 `T+0x78` (designated pass target): writer CONFIRMED (TeamTick/TeamTick2, 05-11-26)
 
-- Not written by the team tick body (CONFIRMED). Read by the side planner `FUN_1404405d0` (CONFIRMED) and by `FUN_140536fc0`, `FUN_1406cbf70`.
+- The team tick body does not store it; the per-side tick's step 40c (`0x1404F784B CALL 0x1404FB2A0`, rcx = Y) does, through the chain `0x1404FB2A0` -> `0x1404FB380` (phases 1 and 3) / `0x1404FB780` (phase 2) -> `0x1404F0E50` (the recompute). Phase map and clear predicate (assembly): `pes-re-lane-leaves.md` section 4 (corrected) and `docs/ports/pes-port-TeamTick.md` section 1: a man owning the ball (`MA+0x2601C <= 0x15`, `0x1404FB3E7`) or an inactive ball clears `T+0x78` to 0xFF; the target is recomputed only while the ball is loose. All four roots are proven bit-exact on real captures (`results_teampass.json`).
+- The earlier "not written by the team tick body" is right of the body; the writer is the chain above. Read by the side planner `FUN_1404405d0` (CONFIRMED) and by `FUN_140536fc0`, `FUN_1406cbf70`.
 - Live: `T_s+0x78` (u32) changes during play (side 0: 255, 7, 5, 4, 0; side 1: 255, 16, 18). 255 = none.
-- Candidate `0x14093a089` in `FUN_140939cc0` is **refuted** (INF h): the decompile of `FUN_140939cc0` (the receiver/position-hold function, reads `brain+0x59c…`, `param_1+0x5b8/0x5dc`) has no store to `T+0x78`; the `0x78(%rbp)` store is to the frame. Next step: a live write-watch on `T+0x78` at a kick (read-only probe already reads it), or find the kick code that writes the pass target id.
+- Candidate `0x14093a089` in `FUN_140939cc0` is **refuted** (the `0x78(%rbp)` store is to the frame).
 
 ### 4.3 `X+0x18` (MA pointer on the player context): setter OPEN
 

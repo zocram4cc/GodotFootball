@@ -23,6 +23,9 @@ struct PesHeap {
   static constexpr uint64_t kTableSlotVa = 0x1436EF2C8;
   static constexpr uint64_t kFailHandlerSlotVa = 0x1436EF2B8;  // 0x1403FB410's last resort; null: no handler
   static constexpr uint64_t kTableVa = 0x1436EF300;
+  // The pool manager's init count (FUN_1403FB610: `if (count++ == 0) { build the table }`): 1 once PES's start-up has built the table, which GF's
+  // page stands for; at 0 a later call of FUN_1403FB610 (a guarded static's constructor, FUN_1403FB8A0) would rebuild the table over GF's heap.
+  static constexpr uint64_t kInitCountVa = 0x1436EF2D0;
   static constexpr uint64_t kPageVa = 0x1436EF000, kPageBytes = 0x1000;
   static constexpr unsigned kPools = 0x32, kPoolBytes = 0x40;
   // Pool occupancy of the live game (snapshot pid1694737/seq009, table walked by script): ids 1, 2, 4, 5, 6 and 9 hold
@@ -142,3 +145,18 @@ struct PesCameraRegistry {
 // ({char* ptr, u64 length}), r8 = the type key; the answer is rax = the slot's handle, 0 for an unknown name.
 void pes_native_registry_find(PesState& s);
 void pes_native_registry_insert(PesState& s);
+
+// The file seam: where PES's file layer touches the OS, GF answers from the user's install. The file handle's reader (FUN_1414A9280)
+// asks the CRI Fs API for a file's size (0x1415A2FD0) and reads it into the handle's buffer through an operation object
+// (0x1415A6CA8 create, 0x1415A734C callback, 0x1415A71B8 read, 0x1415A70B4 status, 0x1415A6CBC destroy). PES's side stays translated;
+// these six calls are the pes_service_fs_* functions (stubs.json "gf-service"), answered by the PesFileSource set below. The
+// source is the sim library's PesVfs (it owns the install's cpks and mods); this layer cannot name it.
+struct PesFileSource {
+  virtual ~PesFileSource() = default;
+  // The file's size in bytes, or -1 when the path names no file. `path` is the CRI path as PES's reader formed it (FUN_1414A22E0).
+  virtual int64_t Size(const char* path) = 0;
+  // Copies up to n bytes of the file from `offset` to dst; returns the byte count, or -1 on failure.
+  virtual int64_t Read(const char* path, uint64_t offset, uint8_t* dst, uint64_t n) = 0;
+};
+// The source every service answers from (one per process: the reader runs on one thread). Null: a service call aborts.
+void pes_service_set_file_source(PesFileSource* source);

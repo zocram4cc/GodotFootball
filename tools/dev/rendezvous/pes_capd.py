@@ -79,9 +79,13 @@ def adopt(cgroup, pids):
         if pid in members:
             continue
         subprocess.run(["taskset", "-a", "-p", "-c", PES_CORE, str(pid)], capture_output=True)
-        with open(os.path.join(cgroup, "cgroup.procs"), "w") as f:
-            f.write(str(pid))
-        for tid in os.listdir("/proc/%d/task" % pid):
+        try:  # a Wine helper pgrep listed may have exited since: the kernel refuses its pid (ESRCH)
+            with open(os.path.join(cgroup, "cgroup.procs"), "w") as f:
+                f.write(str(pid))
+            tids = os.listdir("/proc/%d/task" % pid)
+        except (ProcessLookupError, FileNotFoundError):
+            continue
+        for tid in tids:
             subprocess.run(["renice", "-n", "19", "-p", tid], capture_output=True)
         moved.append(pid)
     return moved

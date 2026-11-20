@@ -87,6 +87,21 @@ inline constexpr std::size_t kMemberUnitRunOffset = 0x958, kMemberUnitRunCount =
 inline constexpr std::size_t kMemberScaleOffset = 0x9F8, kMemberPairOffset = 0x9FC;     // f32 1.0; u32 0x10001 (0x141EB4497, 0x141EB44A1)
 inline constexpr uint32_t kMemberPairInit = 0x10001;
 
+// The three adjusters of the member at P+8, stepped once a frame by the anime driver FUN_141EB5E70 (FUN_141EB3AF0 on each, in this order):
+// the root adjuster A = P+0x428 (the Trap start's strike FUN_141EB39A0 / FUN_141EB3900 / FUN_141EB3AE0, vtable +0x18 = FUN_141EB1BF0),
+// the height adjuster P+0x498 (vtable +0x18 = FUN_141EB2450) and the yaw adjuster P+0x4D0 (vtable +0x18 = FUN_141EB1A50). Offsets are
+// from the adjuster (FUN_141EB3AF0's own loads and stores).
+inline constexpr std::size_t kPAdjusterOffset = 0x428;
+inline constexpr std::size_t kPHeightAdjusterOffset = 0x498, kPYawAdjusterOffset = 0x4D0;
+inline constexpr std::size_t kAdjStateOffset = 0x8;   // u32: 1 armed, 2 running (FUN_141EB3AE0 moves 1 -> 2)
+inline constexpr std::size_t kAdjCountOffset = 0xC;   // s16: the tick counter
+inline constexpr std::size_t kAdjDelayOffset = 0xE;   // s16: ticks held before the first step
+inline constexpr std::size_t kAdjTicksOffset = 0x10;  // s16: the last step's tick
+inline constexpr std::size_t kAdjStepOffset = 0x14;   // 3 x f32 (x, y, z): the layer's root point (FUN_141AF3CA0), then the step's result
+inline constexpr std::size_t kAdjYawOutOffset = 0x20; // f32: the yaw adjuster's per-tick rotation (rad; degrees when the flag below is 1)
+inline constexpr std::size_t kAdjYawFlagOffset = 0x24; // u8: the yaw adjuster's override flag (FUN_141EB35A0's 5th argument)
+inline constexpr uint32_t kAdjRunning = 2;
+
 // The request the Trap action's +0x68 slot takes (r9 of 0x1407A01C0), 0x24 bytes in PES's layout
 // (docs/re/pes-re-trap-kind0.md 1). The dispatcher copies the words below into its own frame and calls the kind's chain; kind <= 0 is
 // the control touch. Only the fields kind 0 forwards are named.
@@ -129,6 +144,12 @@ inline constexpr std::size_t kPhysiqueObjectBytes = 0x200;  // 0x100 for the cha
 inline constexpr std::size_t kPhysiqueNextOffset = 0xF0;  // object A +0xF0: the VA of object B
 inline constexpr std::size_t kPhysiqueGOffset = 0xC0;     // object B +0xC0: G (f32)
 inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clamped G FUN_141EB5810 stores beside the chain's copy
+inline constexpr std::size_t kPAnimeReadyOffset = 0xA04;   // P+0xA04: 1 once the anime player is built (FUN_141EB5250 0x141EB548B); FUN_141EB51A0 and FUN_141EB49B0 read it
+inline constexpr std::size_t kPTakingStateOffset = 0x245C;  // P+0x245C: FUN_140792E10's taking state (the vtable 0x20 getter); 1 = taking
+inline constexpr std::size_t kPActionIdOffset = 0xAE0;      // P+0xAE0: the throw-in action id, a u16 (the vtable 0x18 getter: P+0xAB8+0x28)
+inline constexpr std::size_t kPBookkeepingFlagsOffset = 0x2460;   // P+0x2460: the flags the A branch's bookkeeping block sets (bit 0x80)
+inline constexpr std::size_t kPBookkeepingArgOffset = 0x2468;     // P+0x2468: the float FUN_1406EC260 takes as its third argument
+inline constexpr std::size_t kPBookkeepingObjectOffset = 0x3AC8;  // P+0x3AC8: the object the block's calls take (PES builds it; GF does not)
 
 // The anime layer's objects the action tick (FUN_140797CD0) reaches from P, in PES's layout (docs/ports/pes-port-TrapTick.md 2;
 // bytes the 14 captured ticks read or write, names INF): A (P+0xA08 target) holds two children, O1 at +0x118 and O2 at +0x188;
@@ -155,6 +176,7 @@ inline constexpr std::size_t kPSegmentOffset = 0x2471, kPMirrorOffset = 0x2472; 
 // its constructors' output (gen_actiontable.py).
 inline constexpr std::size_t kPActionTableOffset = 0xC40, kActionTableBytes = 0x1818;
 inline constexpr std::size_t kActionTablePointersOffset = 0x1528, kActionTableSlots = 0x5E;
+inline constexpr std::size_t kKickPassActionId = 9;  // the Kick action's ids are 8, 9 and 10 (lofted pass, ground pass, shot); one object
 
 // The caller's frame object F (*r8 of the tick): its +0x870 is the ball record; the other fields the captured ticks read are
 // named in docs/ports/pes-port-TrapTick.md 3.
@@ -192,8 +214,15 @@ inline constexpr std::size_t kFrameWeightOffset = 0x5E4;
 inline constexpr float kTickWeightControl = 0.6f, kTickWeightDirectional = 1.0f;
 
 // What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment
-// index (P+0x2471), the playback rate (P+0x3758) and the phase byte (P+0x245C) the next tick switches on.
+// index (P+0x2471), the playback rate (P+0x3758) and the phase byte (P+0x245C) the next tick switches on, and SetMotion's other
+// stores (FUN_1406F0F70): the start time (P+0x3B54), the blend time (P+0x3B88) and the transition kind byte (P+0x3B84).
+inline constexpr std::size_t kPStartTimeOffset = 0x3B54, kPKindOffset = 0x3B84, kPBlendOffset = 0x3B88;
+// SetMotion's kind byte for its transition argument (0 -> 0, 1 -> 1, 2 -> 2, 3 -> 6), and back.
+inline constexpr int TransitionOfKind(uint8_t kind) { return kind == 6 ? 3 : kind; }
 struct PesTickResult {
+  float startTime = 0.0f;
+  float blend = 0.0f;
+  uint8_t kind = 0;
   uint16_t motion = 0;
   uint8_t mirror = 0;
   uint8_t segment = 0;

@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 namespace {
 
@@ -44,6 +45,7 @@ PesHeap::PesHeap(uint64_t arenaBytes) : page_(kPageBytes), arena_(arenaBytes), t
   Store64(arena_, kFwdVtOff + kSlotOwns, kFwdOwnsVa);
   Store64(arena_, kFwdVtOff + kSlotTrim, kFwdTrimVa);
   Store64(page_, kTableSlotVa - kPageVa, kTableVa);
+  Store64(page_, kInitCountVa - kPageVa, 1);
   const uint64_t table = kTableVa - kPageVa;
   for (unsigned id : kHeapPools) Store64(page_, table + id * kPoolBytes, heapObj);
   for (unsigned id = kForwarderFirst; id <= kForwarderLast; ++id) Store64(page_, table + id * kPoolBytes, fwdObj);
@@ -258,3 +260,143 @@ void pes_native_registry_find(PesState& s) {
 
 // PES's insert adds a node; GF's registry is fixed, so a lookup that missed and tried to create is a bug upstream.
 void pes_native_registry_insert(PesState& s) { Die("registry insert of a name this registry does not hold; key", s.rd(s.gpr[2], 8)); }
+
+namespace {
+
+PesFileSource* g_fileSource = nullptr;
+
+// The CRI Fs operation object (0x1415A6CA8 makes it): the fields the reader's calls touch. +0x1C is the loader status
+// (0x1415A70B4 reads it: 2 = complete, 3 = error; the reader tests 2), +0x141 a flag 0x1415A70B4 tests, +0x148 / +0x150 the
+// completion callback and its argument (0x1415A734C stores them).
+constexpr uint64_t kOpBytes = 0x160, kOpStatusOff = 0x1C, kOpCallbackOff = 0x148, kOpArgOff = 0x150;
+constexpr uint32_t kStatusComplete = 2, kStatusError = 3;
+constexpr uint64_t kCriOk = 0, kCriErrorInvalid = 0xFFFFFFFE;  // 0x1415A2FD0 / 0x1415A71B8 answer these (0xFFFFFFFE: the invalid-argument error)
+
+PesFileSource& Source() {
+  if (!g_fileSource) Die("file service call with no file source set; rcx", 0);
+  return *g_fileSource;
+}
+
+std::string CString(const PesState& s, uint64_t va) {
+  std::string out;
+  for (uint64_t c = s.rd(va, 1); c != 0 && out.size() < 4096; c = s.rd(va + out.size(), 1)) out.push_back(static_cast<char>(c));
+  return out;
+}
+
+}  // namespace
+
+void pes_service_set_file_source(PesFileSource* source) { g_fileSource = source; }
+
+// FUN_1415A2FD0(fs, path, int64* size): the file's size at *size, -1 for a missing file; 0 on success (the reader tests the size).
+void pes_service_fs_stat(PesState& s) {
+  const int64_t size = Source().Size(CString(s, s.gpr[2]).c_str());
+  s.wr(s.gpr[8], static_cast<uint64_t>(size), 8);
+  s.gpr[0] = size >= 0 ? kCriOk : kCriErrorInvalid;
+}
+
+// FUN_1415A6CA8(op**): a zeroed operation object, its pointer at *rcx.
+void pes_service_fs_op_create(PesState& s) {
+  const uint64_t op = HeapOf(s).Alloc(kOpBytes, PesHeap::kMinAlign);
+  if (!op) Die("operation object: the arena is full; bytes", kOpBytes);
+  s.wr(s.gpr[1], op, 8);
+}
+
+// FUN_1415A734C(op, callback, arg): stored; the completion callback is never invoked here (it only releases the reader's semaphore,
+// which the WaitForSingleObject model satisfies).
+void pes_service_fs_op_callback(PesState& s) {
+  s.wr(s.gpr[1] + kOpCallbackOff, s.gpr[2], 8);
+  s.wr(s.gpr[1] + kOpArgOff, s.gpr[8], 8);
+  s.gpr[0] = kCriOk;
+}
+
+// FUN_1415A71B8(op, fs, path, offset, loadSize, buffer, bufferSize): reads min(loadSize, bufferSize) bytes from `offset`, synchronously,
+// into the buffer and completes the operation. The stack arguments are the caller's: a service runs in place of the call, so [rsp + 0x20]
+// is the fifth argument.
+void pes_service_fs_op_read(PesState& s) {
+  const uint64_t op = s.gpr[1], offset = s.gpr[9], loadSize = s.rd(s.gpr[4] + 0x20, 8), buffer = s.rd(s.gpr[4] + 0x28, 8),
+                 bufferSize = s.rd(s.gpr[4] + 0x30, 8), n = loadSize < bufferSize ? loadSize : bufferSize;
+  uint8_t* dst = s.mem.service_at(buffer, static_cast<unsigned>(n < 0xFFFFFFFFu ? n : 0));
+  std::vector<uint8_t> staging;
+  if (!dst) {  // the buffer is not in a host window (a snapshot-backed call): stage it
+    staging.resize(n);
+    dst = staging.data();
+  }
+  const int64_t got = Source().Read(CString(s, s.gpr[8]).c_str(), offset, dst, n);
+  if (dst == staging.data())
+    for (uint64_t i = 0; got > 0 && i < static_cast<uint64_t>(got); ++i) s.wr(buffer + i, staging[i], 1);
+  s.wr(op + kOpStatusOff, got == static_cast<int64_t>(n) ? kStatusComplete : kStatusError, 4);
+  s.gpr[0] = got == static_cast<int64_t>(n) ? kCriOk : kCriErrorInvalid;
+}
+
+// FUN_1415A70B4(op, int* status): the loader status at *status (0x1415A70B4 maps a finished status with its flag at +0x141 set to 0,
+// a flag this operation never sets); 0 on success.
+void pes_service_fs_op_status(PesState& s) {
+  s.wr(s.gpr[2], s.rd(s.gpr[1] + kOpStatusOff, 4), 4);
+  s.gpr[0] = kCriOk;
+}
+
+// FUN_1415A6CBC(op): the operation object is released.
+void pes_service_fs_op_destroy(PesState& s) { HeapOf(s).Free(s.gpr[1]); }
+
+// STAND-INS for the packer's virtualized functions (stubs.json gf-service, ops packer_*; the effects are read from PES's own bytes on a real
+// pre-state, see the entries' evidence). Registers other than rax follow the caller's use: only rax is read after either call.
+namespace {
+constexpr uint64_t kPoolMaxSizeOff = 0x60;  // the pool object's max request size: FUN_1403EA250 tests `size <= [pool + 0x60]`
+constexpr uint64_t kLuaStateGlobalOff = 0x20, kLuaGlobalPanicOff = 0xA8;  // lua_State::l_G, global_State::panic
+constexpr uint64_t kLuaGlobalAllocOff = 0x10, kLuaGlobalAllocUdOff = 0x18;  // global_State::frealloc, ::ud
+}  // namespace
+
+// 0x143E98DA0(pool, size): rax = the old max size; the pool's max size = size.
+void pes_service_packer_pool_set_max(PesState& s) {
+  s.gpr[0] = s.rd(s.gpr[1] + kPoolMaxSizeOff, 8);
+  s.wr(s.gpr[1] + kPoolMaxSizeOff, s.gpr[2], 8);
+}
+
+// 0x143DFA780(L, panicf) = lua_atpanic: rax = the old panic function; global_State::panic = panicf.
+void pes_service_packer_lua_atpanic(PesState& s) {
+  const uint64_t panic = s.rd(s.gpr[1] + kLuaStateGlobalOff, 8) + kLuaGlobalPanicOff;
+  s.gpr[0] = s.rd(panic, 8);
+  s.wr(panic, s.gpr[2], 8);
+}
+
+// 0x143DFCCE0(L, f, ud) = lua_setallocf: global_State::frealloc = f, ::ud = ud; rax = the global state (as the real call left it).
+void pes_service_packer_lua_setallocf(PesState& s) {
+  const uint64_t g = s.rd(s.gpr[1] + kLuaStateGlobalOff, 8);
+  s.wr(g + kLuaGlobalAllocOff, s.gpr[2], 8);
+  s.wr(g + kLuaGlobalAllocUdOff, s.gpr[8], 8);
+  s.gpr[0] = g;
+}
+
+// 0x1444CE440(array) and 0x1444C7960(array): the constructors of two arrays of small polymorphic objects (0x18 bytes: vtable, 0xFFFF0000, 0).
+// The vtables are read from the boot capture and the running game (stubs.json entries); the translated code never sees the constructors' bodies.
+namespace {
+constexpr uint64_t kPackerObjectBytes = 0x18, kPackerObjectFlagsOff = 8, kPackerObjectFlags = 0xFFFF0000;
+constexpr uint64_t kArrayAVtables[] = {
+    0x1427DBB38, 0x1427DBBD8, 0x1427DBC78, 0x1427DBD48,
+    0x1427DBDC0, 0x1427DBE60, 0x1427DBEB0, 0x1427DBF50,
+    0x1427DBFC8, 0x1427DC068, 0x1427DC108, 0x1427DC180,
+    0x1427DC240, 0x1427DC338, 0x1427DC418, 0x1427DC4B8,
+};
+constexpr uint64_t kArrayBVtables[] = {
+    0x1427DB688, 0x1427DB700, 0x1427DB778, 0x1427DB7F0,
+    0x1427DB868, 0x1427DB8E0, 0x1427DB958, 0x1427DB9D0,
+    0x1427DBA48, 0x1427DBAC0, 0x1427DBB60, 0x1427DBC00,
+    0x1427DBC50, 0x1427DBD70, 0x1427DBDE8, 0x1427DBE38,
+    0x1427DBED8, 0x1427DBF28, 0x1427DBFF0, 0x1427DC090,
+};
+template <size_t N>
+void StoreObjectArray(PesState& s, uint64_t array, const uint64_t (&vtables)[N]) {
+  for (size_t k = 0; k < N; ++k) {
+    const uint64_t object = array + k * kPackerObjectBytes;
+    s.wr(object, vtables[k], 8);
+    s.wr(object + kPackerObjectFlagsOff, kPackerObjectFlags, 8);
+    s.wr(object + 2 * kPackerObjectFlagsOff, 0, 8);
+  }
+}
+}  // namespace
+
+void pes_service_packer_array_ctor_a(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayAVtables); }
+void pes_service_packer_array_ctor_b(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayBVtables); }
+
+// 0x141957C60(size): the graphics device's allocator; GF has no device, so the allocation fails (rax = 0) and the caller's own failure path runs.
+void pes_service_gfx_device_alloc(PesState& s) { s.gpr[0] = 0; }

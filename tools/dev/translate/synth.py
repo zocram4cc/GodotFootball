@@ -77,11 +77,59 @@ LIBM1 = {"sinf": math.sin, "cosf": math.cos, "tanf": math.tan, "atanf": math.ata
          "logf": math.log, "expf": math.exp, "floorf": math.floor, "ceilf": math.ceil}
 LIBM2 = {"atan2f": math.atan2, "powf": math.pow, "fmodf": math.fmod}
 NOOP1 = ("SetEvent", "ResetEvent", "EnterCriticalSection", "LeaveCriticalSection")  # return TRUE; the replay is one thread
-ZERO1 = ("_crt_atexit", "atexit", "_onexit", "__stdio_common_vsprintf_s")  # a function-local static's registration: return 0
+STATUS0 = ("RtlEnterCriticalSection", "RtlLeaveCriticalSection", "RtlAcquireSRWLockShared", "RtlReleaseSRWLockShared",
+           "RtlAcquireSRWLockExclusive", "RtlReleaseSRWLockExclusive")  # ntdll locks, single-threaded replay: NTSTATUS success (0); the SRW ones are void, so 0 is unused
+ZERO1 = ("_crt_atexit", "atexit", "_onexit")  # a function-local static's registration: return 0
+
+
+def read_cstr_emu(uc, p):
+    """The NUL-terminated bytes at pointer p in the emulator's memory."""
+    out = bytearray()
+    while True:
+        b = bytes(uc.mem_read(p + len(out), 1))[0]
+        if b == 0:
+            return bytes(out)
+        out.append(b)
+
+
+def stdio_format(fmt, next_arg, read_cstr):
+    """printf for the conversions PES's writers use: %%, %s, %d and %Nd / %0Nd. fmt: the format bytes; next_arg(): the next 64-bit
+    argument slot; read_cstr(p): the NUL-terminated bytes at pointer p. Any other conversion is refused (SystemExit)."""
+    out, i = bytearray(), 0
+    while i < len(fmt):
+        if fmt[i] != 0x25:  # not '%'
+            out.append(fmt[i])
+            i += 1
+            continue
+        i += 1
+        if fmt[i] == 0x25:
+            out.append(0x25)
+            i += 1
+            continue
+        zero = fmt[i] == 0x30
+        if zero:
+            i += 1
+        width = 0
+        while 0x30 <= fmt[i] <= 0x39:
+            width = width * 10 + (fmt[i] - 0x30)
+            i += 1
+        spec = chr(fmt[i])
+        i += 1
+        slot = next_arg()
+        if spec == "s":
+            out += read_cstr(slot)
+        elif spec == "d":
+            v = slot & 0xFFFFFFFF
+            txt = str(v - (1 << 32) if v & 0x80000000 else v).encode()
+            out += txt.rjust(width, b"0" if zero else b" ")
+        else:
+            raise SystemExit("synth: __stdio_common_vsprintf_s model: unsupported %%%s" % spec)
+    return bytes(out)
+
 
 
 def is_reg(at):
-    return at in GPR_ORDER or at in REG32 or XMM_RE.fullmatch(at) is not None
+    return at == "ret" or at in GPR_ORDER or at in REG32 or XMM_RE.fullmatch(at) is not None
 
 
 def num(v, typ):
@@ -177,9 +225,16 @@ class StaticView:
         self.writes.append((va, data))
 
     def set_reg(self, name, data):
+        if name == "ret":  # the return address: the call record's slot and the word at [rsp], as a call leaves them
+            self.vals[RET_SLOT] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")
+            self.write(self.vals[GPR_ORDER.index("rsp")], data.ljust(GPR_BYTES, b"\0"))
+            return
         name = REG32.get(name, name)
         if name in GPR_ORDER:
             self.vals[GPR_ORDER.index(name)] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")
+            return
+        if name == "ret":  # the call record's return address: a static spec may move it out of the called function's own body
+            self.vals[RET_SLOT] = int.from_bytes(data.ljust(GPR_BYTES, b"\0"), "little")
             return
         n = int(name[3:])
         raw = data.ljust(XMM_BYTES, b"\0")
@@ -318,9 +373,49 @@ def patch_imports():
             uc.reg_write(xc.UC_X86_REG_RAX, 0 if (bits >> F64_EXP_SHIFT) & EXP_ALL_ONES == EXP_ALL_ONES else 1)
             return_from_import(uc)
             return
-        if name in LIBM1 or name in LIBM2 or name in NOOP1 or name in ZERO1:
-            if name in NOOP1 or name in ZERO1:
-                uc.reg_write(xc.UC_X86_REG_RAX, 1 if name in NOOP1 else 0)
+        if name == "memchr":  # void *memchr(const void *s, int c, size_t n): the first byte equal to c within n bytes, or NULL
+            base = uc.reg_read(xc.UC_X86_REG_RCX)
+            want = uc.reg_read(xc.UC_X86_REG_RDX) & 0xFF
+            found = 0
+            for k in range(uc.reg_read(xc.UC_X86_REG_R8)):
+                if bytes(uc.mem_read(base + k, 1))[0] == want:
+                    found = base + k
+                    break
+            uc.reg_write(xc.UC_X86_REG_RAX, found)
+            return_from_import(uc)
+            return
+        if name == "memcmp":  # int memcmp(const void *a, const void *b, size_t n): the first differing byte's difference, else 0
+            pa = uc.reg_read(xc.UC_X86_REG_RCX)
+            pb = uc.reg_read(xc.UC_X86_REG_RDX)
+            diff = 0
+            for k in range(uc.reg_read(xc.UC_X86_REG_R8)):
+                ca, cb = bytes(uc.mem_read(pa + k, 1))[0], bytes(uc.mem_read(pb + k, 1))[0]
+                if ca != cb:
+                    diff = ca - cb
+                    break
+            uc.reg_write(xc.UC_X86_REG_RAX, diff & 0xFFFFFFFF)
+            return_from_import(uc)
+            return
+        if name == "__stdio_common_vsprintf_s":  # int (opts, char *buf, size_t n, const char *fmt, locale, va_list): printf into buf
+            buf_p = uc.reg_read(xc.UC_X86_REG_RDX)
+            size = uc.reg_read(xc.UC_X86_REG_R8)
+            ap = int.from_bytes(bytes(uc.mem_read(uc.reg_read(xc.UC_X86_REG_RSP) + 0x30, 8)), "little")  # the 6th argument: the va_list
+            fmt = read_cstr_emu(uc, uc.reg_read(xc.UC_X86_REG_R9))
+            arg = [0]
+
+            def next_arg():
+                arg[0] += 1
+                return int.from_bytes(bytes(uc.mem_read(ap + 8 * (arg[0] - 1), 8)), "little")
+
+            out = stdio_format(fmt, next_arg, lambda p: read_cstr_emu(uc, p))
+            if size:
+                uc.mem_write(buf_p, out[: size - 1] + b"\0")
+            uc.reg_write(xc.UC_X86_REG_RAX, len(out))
+            return_from_import(uc)
+            return
+        if name in LIBM1 or name in LIBM2 or name in NOOP1 or name in ZERO1 or name in STATUS0:
+            if name in NOOP1 or name in ZERO1 or name in STATUS0:
+                uc.reg_write(xc.UC_X86_REG_RAX, 1 if name in NOOP1 else 0)  # STATUS0: STATUS_SUCCESS (0), the NTSTATUS of the Rtl pair
             else:
                 a, b = f32(xmm_low(uc, 0)), f32(xmm_low(uc, 1))
                 try:
@@ -436,7 +531,9 @@ def write_state(out, name, src, index, state, meta):
     src_mem = os.path.join(src, "mem.bin")
     dst_mem = os.path.join(d, "mem.bin")
     if state["writes"]:
-        subprocess.check_call(["cp", "--sparse=always", src_mem, dst_mem])  # sparse: a hole is a page the capture never had
+        # --sparse=auto: a hole stays a hole (a page the capture never had), a captured all-zero page stays data (the allocator
+        # touches fresh zero pages; --sparse=always turned them into holes and SnapMem refused the case: "page not captured").
+        subprocess.check_call(["cp", "--sparse=auto", src_mem, dst_mem])
         with open(dst_mem, "r+b") as f:
             for va, data in state["writes"]:
                 for pos, rel, k in spans(index, va, len(data)):

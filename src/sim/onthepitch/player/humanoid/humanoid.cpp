@@ -58,54 +58,159 @@ const char* KickStat(e_FunctionType type, bool header) {
   return "technical_shortpass";
 }
 
-// ponytail: PES picks the kick kind per kick (ap+0x2752, FUN_1408364D0 over FUN_140829E80's geometry tests,
-// docs/re/pes-re-kick-kinds.md 2). GF has no chooser, so each request takes the first candidate of its list (§5):
-// shot (request 10, FUN_1408371A0) 0x69, ground pass (9, FUN_140837670) 0x21, lofted pass (8, FUN_1408360F0) 0x49,
-// and a header the first of the class-3 high-ball family (1..27, FUN_1408272A0) 1. Remove when FUN_1408364D0 is ported.
+// In a PES-loop match PES's request builder FUN_140833CD0 and chooser FUN_1408364D0 (translated, peskickchooser.hpp) pick the kick
+// kind, band, bucket and side from the kicker's order, once per tick from the moment the AI asks for a pass or shot until they answer
+// (PesKickStart, called by SelectAnim). The default engine writes no P into the window, so it cannot run the chooser; it keeps these
+// stand-ins (PesKickSituation's else branch): the first candidate of each request's list (docs/re/pes-re-kick-kinds.md 5): shot
+// (request 10, FUN_1408371A0) 0x69, ground pass (9, FUN_140837670) 0x21, lofted pass (8, FUN_1408360F0) 0x49, and a header the first
+// of the class-3 high-ball family (1..27, FUN_1408272A0) 1, with the ball-height band (FUN_140A6D380, body scale 1) and the bucket
+// of the turn angle (FUN_140723DE0). Remove with the default engine's tick order.
 constexpr int kPesKindShot = 0x69, kPesKindGroundPass = 0x21, kPesKindLoftedPass = 0x49, kPesKindHeader = 1;
-// ponytail: PES's result[1] / result[2] of FUN_140829E80 (ap+0x2754, ap+0x2755: a kick-angle bucket from
-// FUN_140723DE0) have no GF producer; GF writes their defaults (docs/re/pes-re-kick-kinds.md 3): 0xC and 0x12, which
-// switch every bucket-keyed term off. Remove when FUN_140829E80 is ported.
-constexpr int8_t kPesDefaultB2754 = 0xC, kPesDefaultBucket = 0x12;
+// The "no clip" values PES's kick descriptor starts with (docs/re/pes-re-header.md 1.2: band 0x0c @0x1425ef884) and the bucket
+// the writer defaults to (docs/re/pes-re-kick-kinds.md 3: 0x12): what Q sees for a kick the clip table has no motion for.
+constexpr int8_t kPesNoBand = 0xC, kPesNoBucket = 0x12;
+// The request id FUN_1408364D0 switches on and the motion interface's vtable+0x28 returns: 8 lofted pass, 9 ground pass, 10 shot.
+constexpr int kPesRequestLofted = 8, kPesRequestGround = 9, kPesRequestShot = 10;
+// Below this share of the aim pointing at the goal the goal-line extrapolation explodes (a strike aimed square across the field).
+constexpr float kMinAimTowardGoalFraction = 0.3f;
+
+int PesRequestOf(e_FunctionType type, bool header) {
+  const bool lofted = !header && (type == e_FunctionType_HighPass || type == e_FunctionType_LongPass);
+  return type == e_FunctionType_Shot ? kPesRequestShot : lofted ? kPesRequestLofted : kPesRequestGround;
+}
+
+// The kicker's state FUN_14071E6F0 reads (pes::KickWorld): the heading, the displacement over the last tick (m, PES axes) and the
+// ball's record 1.
+pes::KickWorld PesKickWorld(Match* match, Player* player, const pes::SituationConstants& c) {
+  const Vector3 movement = player->GetMovement();
+  const Vector3 facing = player->GetDirectionVec();
+  const Vector3 ball1 = match->GetBall()->TrackSample(1);
+  pes::KickWorld w;
+  w.tickOdd = match->GetSimFrame() & 1;
+  w.heading_deg = pes::PesHeadingDeg(facing.coords[0], -facing.coords[1]);
+  w.dispX = movement.coords[0] / c.tickRate;
+  w.dispZ = -movement.coords[1] / c.tickRate;
+  w.ballX = ball1.coords[0], w.ballZ = ball1.coords[1];
+  return w;
+}
+
+// PES's Kick start (vtable slot 13 of the Kick action, FUN_140724CC0), tried every tick from the AI's first ask (FUN_1409316E0 and the
+// Kick's own tick FUN_14071A250, both through FUN_1406B4580), translated and run whole (PesWorld::RunKickStart): the can-enter gate
+// FUN_1407266B0, the request builder FUN_140833CD0 over the order, the chooser FUN_1408364D0, the clip table row FUN_14071E6F0 and the
+// Animetable cell FUN_14071E570 for the chosen kind (the alternate kind when the kind is none); it returns 1 only when the cell exists,
+// and then P+0x2752.. and the action start follow. Null = it returns 0 and PES starts no Kick this tick.
+// ponytail: the order is GF's decision at the tick it selects the animation (the commanded direction and power, the commanded
+// receiver; a shot's aim is extended to the goal line it faces): the AI order writer (FUN_14210E790 -> the BP command, cmd+0x5EC
+// record) is OPEN (docs/ports/pes-port-KickHeader.md section 4). Remove with that writer.
+std::optional<pes::PesKickPick> PesKickStart(Match* match, Player* player, e_FunctionType type, bool header, const TouchInfo& touch) {
+  const int request = PesRequestOf(type, header);
+  const Vector3 ballAt = match->GetBall()->TrackSample(0);
+  const Vector3 dir = touch.desiredDirection.GetNormalized(Vector3(0));
+  Vector3 launch;
+  if (request == kPesRequestShot) {
+    const float goalLineX = pitchHalfW * -player->GetTeam()->GetSide();
+    const Vector3 aim2D = dir.Get2D().GetNormalized(Vector3(0));
+    float distanceToGoal = std::fabs(goalLineX - ballAt.coords[0]);
+    if (std::fabs(aim2D.coords[0]) > kMinAimTowardGoalFraction) distanceToGoal = std::fabs((goalLineX - ballAt.coords[0]) / aim2D.coords[0]);
+    launch = dir * distanceToGoal;
+  } else {
+    launch = dir * (pes::kPassTouchSpeedPerPower_mps * (touch.desiredPower + pes::kPassTouchPowerOffset));
+  }
+  // The target point is the ball plus the launch vector in PES axes (x, height, z).
+  const float target[3] = {ballAt.coords[0] + launch.coords[0], ballAt.coords[2] + launch.coords[2],
+                           -(ballAt.coords[1] + launch.coords[1])};
+  const uint32_t receiver =
+      touch.targetPlayer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(touch.targetPlayer)) : pes::kOrderNoReceiver;
+  const float launchHeading_deg = pes::PesHeadingDeg(launch.coords[0], -launch.coords[1]);
+  const int slot = match->PesSlotOf(player);
+  pes::PesWorld& world = match->PesWorldOf();
+  const pes::PesKickStartResult r = world.RunKickStart(
+      slot, pes::KickOrderFor(request, target, receiver, launchHeading_deg, touch.desiredPower, launch.GetLength()),
+      match->PesTrapExternalsOf());
+  if (!r.started) return std::nullopt;
+  return pes::PesKickPick{r.kind, r.band, r.bucket, r.side, r.motion};
+}
 
 // The kicker-record fields Q reads (docs/re/pes-re-kick-kinds.md 3), in PES units: z = -GF y, metres per PES tick.
-// ponytail: ap+0x2756 (first-time byte, FUN_140837FC0), ap+0x2764 (window angle, W1 720.0 = none), ap+0x2460 bit 29 (AI
-// bit, writer OPEN), the motion id behind ap+0xAB8 vtable+0x18 and vtable+0x30 (touch state), and ap+0x281C (stamina
-// accumulator of FUN_1406F6790) have no GF producer: first-time 0, no window, AI bit 0, motion 0, no touch, stamina 0.
+// ponytail: ap+0x2756 (side / first-time byte: the Kick start's in a PES-loop match, FUN_140837FC0 is not run, 0 in the default
+// engine), ap+0x2764 (window angle, W1 720.0 = none), ap+0x2460 bit 29 (AI bit, writer OPEN), the touch state (vtable+0x30 of
+// ap+0xAB8) and ap+0x281C (stamina accumulator of FUN_1406F6790) have no GF producer: no window, AI bit 0, no touch, stamina 0.
 // ap+0x247C (heading) and ap+0xBE4 (body turn) both take GF's direction vectors. Remove each as its PES writer lands.
-// ponytail: the in-flight branch of Q (peskickerror.cpp, subclass 2..12) runs only for motion descriptor byte 1
-// (FUN_1406B0250 over the run-time motion table from the motion id above); with no motion id the descriptor stays 0, so the
-// branch, its ball records (FUN_140A6CF70(ball, 1) and (ball, 2)) and FUN_1406EAD40's bit are not fed. Remove with the motion id.
-pes::KickSituation PesKickSituation(Player* player, const pes::KickErrorConstants& k, const Vector3& launch,
-                                    e_FunctionType type, bool header, float quality) {
+// `pick` is the Kick start's answer the animation was started on; null in a PES-loop match is a kick the Kick start did not
+// start (a restart's kick: PES's own restart actions leave the kind at -1), which keeps the none kind, band and bucket.
+pes::KickSituation PesKickSituation(Match* match, Player* player, const pes::KickErrorConstants& k, const Vector3& launch,
+                                    e_FunctionType type, bool header, float quality, const pes::PesKickPick* pick) {
   const pes::SituationConstants& c = k.situation;
   pes::KickSituation s;
-  s.kind = header ? kPesKindHeader
-                  : type == e_FunctionType_Shot ? kPesKindShot
-                  : type == e_FunctionType_HighPass || type == e_FunctionType_LongPass ? kPesKindLoftedPass
-                                                                                         : kPesKindGroundPass;
-  s.b2754 = kPesDefaultB2754;
-  s.entry2755 = kPesDefaultBucket;
+  s.b2754 = kPesNoBand;
+  s.entry2755 = kPesNoBucket;
   s.window = c.noWindow;
-  const Vector3 movement = player->GetMovement();
-  s.velX = movement.coords[0] / c.tickRate;
-  s.velZ = -movement.coords[1] / c.tickRate;
-  const Vector3 facing = player->GetDirectionVec();
+  const pes::KickWorld world = PesKickWorld(match, player, c);
+  s.velX = world.dispX;
+  s.velZ = world.dispZ;
   const Vector3 body = player->GetBodyDirectionVec();
-  s.heading_deg = pes::PesHeadingDeg(facing.coords[0], -facing.coords[1]);
+  s.heading_deg = world.heading_deg;
   s.body_deg = pes::PesHeadingDeg(body.coords[0], -body.coords[1]);
   s.launchX = launch.coords[0];
   s.launchZ = -launch.coords[1];
   s.quality = quality;
+
+  const pes::KickMotionConstants& km = match->GetPesKickMotionConstants();
+  const Vector3 ball1 = match->GetBall()->TrackSample(1), ball2 = match->GetBall()->TrackSample(2);
+  int motion = -1;
+  if (match->PesLoop()) {
+    if (pick != nullptr) {
+      s.kind = pick->kind;
+      s.firstTime = static_cast<int8_t>(pick->side);
+      s.b2754 = static_cast<int8_t>(pick->band);
+      s.entry2755 = static_cast<int8_t>(pick->bucket);
+      motion = pick->motion;
+    } else {
+      s.kind = pes::kKickNoKind;
+    }
+  } else {
+    // The default engine has no window (no P is written without the PES loop), so the chooser cannot run: it keeps its stand-ins.
+    const bool lofted = !header && (type == e_FunctionType_HighPass || type == e_FunctionType_LongPass);
+    s.kind = header ? kPesKindHeader
+             : type == e_FunctionType_Shot ? kPesKindShot
+             : lofted ? kPesKindLoftedPass
+                      : kPesKindGroundPass;
+    const int band = pes::BallBand(match->GetPesDodgeConstants(), match->GetBall()->TrackSample(0).coords[2], 1.0f);
+    float turn_deg = pes::PesHeadingDeg(launch.coords[0], -launch.coords[1]) - s.heading_deg;
+    turn_deg += turn_deg > 180.0f ? -360.0f : turn_deg < -180.0f ? 360.0f : 0.0f;
+    const int bucket = pes::KickBucket(km, c, turn_deg, s.kind, 0.0f);
+    const int row = pes::KickRow(km, c, PesRequestOf(type, header), s.kind, band, s.firstTime, 0.0f, false, false, &world);
+    motion = row == pes::kNoClipRow ? -1 : pes::KickMotion(match->GetPesAnimetable(), row, bucket);
+    if (motion > 0) {
+      s.b2754 = static_cast<int8_t>(band);
+      s.entry2755 = static_cast<int8_t>(bucket);
+    }
+  }
+  pes::KickMotionStats& stats = match->PesKickMotionStats();
+  ++stats.kicks;
+  if (motion > 0) {
+    s.motion = static_cast<uint16_t>(motion);
+    s.descriptor = pes::KickMotionDescriptor(km, match->GetPesMbinfo(), motion);
+    // The in-flight branch's ball records: the ball's predicted position one and two ticks on (FUN_140A6CF70(ball, 1) and (ball, 2)).
+    s.ball1X = ball1.coords[0], s.ball1Y = ball1.coords[2], s.ball1Z = ball1.coords[1];
+    s.ball2X = ball2.coords[0], s.ball2Z = ball2.coords[1];
+    const int subclass = static_cast<int8_t>(c.kindTable[size_t(s.kind) * 16 + 12]);  // getter 0x14071E520
+    stats.descriptorOne += s.descriptor == 1;
+    stats.inFlight += s.descriptor == 1 && subclass >= 2 && subclass <= 0xC;
+  } else {
+    ++stats.noClip;
+  }
   return s;
 }
 
 // PES's execution error on one kick (docs/re/pes-re-kick-scatter.md): the
 // kick-type quality, the scatter records, then yaw / pitch / speed drawn from
 // slot 2 of the kicker's own generator. `shotPower` is the strike's 0..1
-// power (shots only); `cross` a high ball in from the flank.
+// power (shots only); `cross` a high ball in from the flank; `pick` the Kick
+// start's answer the animation was started on (PES-loop matches).
 Vector3 ApplyPesKickError(Match* match, Player* player, const Vector3& launch,
-                          e_FunctionType type, bool header, bool cross, float shotPower) {
+                          e_FunctionType type, bool header, bool cross, float shotPower,
+                          const pes::PesKickPick* pick) {
   // A throw-in is PES's throw action, not a Kick: the scatter lives in the
   // Kick action's launch (FUN_1408398d5), and the throw has its own release
   // band (docs/re/pes-re-throwin-choreography.md) with no execution error.
@@ -139,7 +244,7 @@ Vector3 ApplyPesKickError(Match* match, Player* player, const Vector3& launch,
                                 opp->GetPosition().GetDistance(player->GetPosition()))
           : 1.0f;
   // Action bytes 9 (pass) and 10 (shoot) both halve a downward pitch error.
-  const pes::KickSituation situation = PesKickSituation(player, k, launch, type, header, quality);
+  const pes::KickSituation situation = PesKickSituation(match, player, k, launch, type, header, quality, pick);
   const pes::KickError e = pes::DrawKickError(
       k, player->GetPesRandom(),
       pes::BuildScatter(k, quality, launchPenalty, pressure, pes::SituationFactor(k.situation, situation)), true);
@@ -289,7 +394,7 @@ void Humanoid::Process() {
   // PES plays contact clips at a Balance-dependent rate (pes-re-contact.md
   // 4.3): the frame advances by the accumulated rate, never past the clip's
   // last frame, so the end-of-clip switch below still sees it.
-  currentAnim->framePhase += currentAnim->playbackRate;
+  currentAnim->framePhase += currentAnim->playbackRate * ClipFramesPerTick();
   const int steps = static_cast<int>(currentAnim->framePhase);
   currentAnim->framePhase -= steps;
   currentAnim->frameNum =
@@ -306,8 +411,9 @@ void Humanoid::Process() {
     }
   */
 
-  if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 &&
-      interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer())) {
+  // The throw-in taker's clip does not switch the body while PES's throw-in action owns it (the same rule as the dribble's).
+  if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer()) &&
+      !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer())) {
     interruptAnim = e_InterruptAnim_Switch;
   }
 
@@ -433,6 +539,10 @@ void Humanoid::Process() {
 
       // The FSM owns the body's movement while it holds STOP: the AI's movement command reaches the body only through MOVESTEP.
       if (PesPoseHeld(CastPlayer()) && command.desiredFunctionType == e_FunctionType_Movement) continue;
+      // PES's throw-in action owns the lifted taker's body: the AI's movement command does not reach him (the same rule as the dribble's).
+      if (CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer()) &&
+          command.desiredFunctionType == e_FunctionType_Movement)
+        continue;
       found = SelectAnim(command, interruptAnim, preferPassAndShot);
       if (found)
         break;
@@ -638,7 +748,15 @@ void Humanoid::Process() {
   }
   // ---------------------- / EXPERIMENTAL ------------------------------------------------
 
-  if (currentAnim->touchFrame == currentAnim->frameNum) {
+  // A PES trap's touch is PES's body contact scan, not the clip's contact frame (docs/ports/pes-port-TrapContact.md): the trap tick
+  // sets the contact-pending bit on the contact frame, the scan's reach test (FUN_140799060) accepts or refuses it, and an accepted
+  // scan grants the touch (RunPesBodyScans). Neither GF's distance gate nor its height gate applies to it.
+  // ponytail: the ball's new velocity is still GF's trap vector (GetTrapVector); PES builds it in the scan's output record
+  // (+0x9C) and applies it in the ball's kick application FUN_140870A40, which is not translated.
+  const bool pesTrapClip = match->PesLoop() && OnPesTrap();
+  pes::PesBodyScanOut pesScan;
+  const bool pesTrapTouch = pesTrapClip && match->TakePesTouch(match->PesSlotOf(CastPlayer()), &pesScan);
+  if (pesTrapClip ? pesTrapTouch : currentAnim->touchFrame == currentAnim->frameNum) {
     Vector3 desiredBallPosition;
     std::static_pointer_cast<FootballAnimationExtension>(
         currentAnim->anim->GetExtension("football"))
@@ -686,9 +804,9 @@ void Humanoid::Process() {
     // incoming speed instead of dropping an otherwise-good touch outright.
     const float acceptGateScale =
         GameplayTuning::GetTrapAcceptGateScale(currentBallVec.GetLength());
-    if (fullBallDistance < touchableDistance * acceptGateScale &&
-        fabs(desiredBallHeight - match->GetBall()->Predict(0).coords[2]) <
-            1.0f * acceptGateScale) {
+    if ((pesTrapClip || fullBallDistance < touchableDistance * acceptGateScale) &&
+        (pesTrapClip ||
+         fabs(desiredBallHeight - match->GetBall()->Predict(0).coords[2]) < 1.0f * acceptGateScale)) {
       radian nextBodyAngle = startAngle + currentAnim->anim->GetOutgoingAngle() +
                              currentAnim->anim->GetOutgoingBodyAngle() +
                              currentAnim->rotationSmuggle.end;
@@ -846,10 +964,11 @@ void Humanoid::Process() {
           }
 
         }  // else: just stick to original
-
-        // PES's T+0x78: the kick writes the team's pass target; the receiver's
-        // run follows from it (Team::PassGetReceiver).
-        team->SetPassTarget(targetPlayer);
+        // GF mode's T+0x78: the kick writes the team's pass target; the receiver's run follows from it (Team::PassGetReceiver). On the
+        // PES path the kick writes the ball record's target word (+0x27E4: the man the pass is aimed at), which the next kick/touch event
+        // carries as its second key, and PES's selector chain 0x1404FB2A0 computes T+0x78 from it every team tick (Team::RunPesPassTarget).
+        if (match->PesLoop()) match->SetPesKickTarget(targetPlayer);
+        else team->SetPassTarget(targetPlayer);
 
         float zcurve = 0.0f;
         Vector3 touchVec = ballDirection * pes::kPassTouchSpeedPerPower_mps *
@@ -1076,7 +1195,6 @@ void Humanoid::Process() {
           // (measured: a strike aimed almost square across the field gave a
           // 1,522 m path and a 41 s flight). Fall back to the axis-aligned gap
           // there - conservative, and it is what the code did before.
-          constexpr float kMinAimTowardGoalFraction = 0.3f;
           // Beyond this the "flight" is a ball never meant for goal; the band is
           // meaningless and the previous guard already covers the geometry.
           constexpr float kMaxShotFlightTime_s = 3.0f;
@@ -1101,7 +1219,8 @@ void Humanoid::Process() {
         touchVec = ApplyPesKickError(
             match, CastPlayer(), touchVec, e_FunctionType_Shot,
             IsHeader(currentAnim->anim->GetVariable("touch_bodypart")), false,
-            currentAnim->originatingCommand.touchInfo.desiredPower);
+            currentAnim->originatingCommand.touchInfo.desiredPower,
+            currentAnim->pesKick ? &*currentAnim->pesKick : nullptr);
 
         match->GetBall()->Touch(touchVec);
         // A shot carries far less wild spin than the animation's raw rotation
@@ -2061,6 +2180,19 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     if (!IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement)
       return false;
+    // The Move action's movement is MOVESTEP's alone (PES has no other mover): a requeue of GF's own movement clip on top of a PES
+    // locomotion clip throws away the clip the FSM just issued, and the FSM's next tick issues it again at frame 0. A designated man
+    // within 3 m of the ball requeues every second tick, so the keeper of a ball at rest never left his first frame.
+    // The exception is the goalkeeper's own movement: GF's requeue is what turns and steps him toward the shot (a stand-still Movement
+    // command that looks at the ball), and without it a shoot-out keeper kept MOVESTEP's idle clips and saved none of 541 kicks (seed 7).
+    // The thrash above is a designated man beside a ball at rest, so a keeper in that case stays refused.
+    // ponytail: PES moves its keepers through the KP actions (KP_PRESS action 0x3e and the keeper decider ticks, docs/re/pes-re-goalkeeper.md),
+    // none of which is translated; this requeue stands in for them. Translate the KP action ticks and delete this exception.
+    const bool keeperMovesItself = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK &&
+                                   !(match->GetDesignatedPossessionPlayer() == CastPlayer() &&
+                                     match->GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms);
+    if (OnPesLocomotion() && command.desiredFunctionType == e_FunctionType_Movement && !keeperMovesItself)
+      return false;
     if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement &&
         (CastPlayer()->HasPossession() /* || team->GetTeamPossessionAmount() >= 1.0f*/ ||
@@ -2858,6 +2990,29 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     }
   }
 
+  // PES's Kick action starts on the tick its Kick start (FUN_140724CC0, PesKickStart) answers a kind with a clip; until then the AI's
+  // order stays pending and the pair runs again next tick. A none answer does NOT delete GF's own selection: PES keeps its action
+  // playing while the order is pending, and on this tree the chain answers none on every try (the 2-minute pes-loop smoke: "Kick start
+  // tries 12683 none 12683", so the Kick start's clip cell never answers), so a deletion there deleted every pass selection of the match
+  // and a carried throw-in's restart never took place (0 released carried throw-ins on all four searched seeds of
+  // pes_throwin_release_test with the deletion, 6 on seed 6 without it: the same tree with the deletion disabled).
+  // Restarts are PES's own actions (the kind stays -1 there), not a Kick start.
+  std::optional<pes::PesKickPick> pesKick;
+  if (selectedAnimID != -1 && match->PesLoop() && match->IsInPlay() && !match->IsInSetPiece() &&
+      (command.desiredFunctionType == e_FunctionType_ShortPass ||
+       command.desiredFunctionType == e_FunctionType_LongPass ||
+       command.desiredFunctionType == e_FunctionType_HighPass ||
+       command.desiredFunctionType == e_FunctionType_Shot)) {
+    pes::KickMotionStats& stats = match->PesKickMotionStats();
+    ++stats.tries;
+    pesKick = PesKickStart(match, CastPlayer(), command.desiredFunctionType,
+                           IsHeader(anims->GetAnim(selectedAnimID)->GetVariable("touch_bodypart")), command.touchInfo);
+    if (!pesKick) {
+      ++stats.answeredNone;
+      pesKick = pes::PesKickPick{pes::kKickNoKind, kPesNoBand, kPesNoBucket, 0, 0};  // counted, selection kept (see above)
+    }
+  }
+
   // make it so
 
   if (selectedAnimID != -1) {
@@ -2923,6 +3078,7 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     currentAnim->positions.assign(positions_tmp.begin(), positions_tmp.end());
     currentAnim->positionOffset = Vector3(0);
     currentAnim->originatingCommand = command;
+    currentAnim->pesKick = pesKick;
     currentAnim->movementSmuggle =
         CalculateMovementSmuggle(command.desiredDirection, command.desiredVelocityFloat);
     currentAnim->movementSmuggleOffset = Vector3(0);
@@ -3788,7 +3944,7 @@ Vector3 Humanoid::GetBestPossibleTouch(const Vector3& desiredTouch, e_FunctionTy
                        desiredTouch.coords[1] * from.coords[1] < 0.0f;
   resultTouch = ApplyPesKickError(match, CastPlayer(), resultTouch, functionType,
                                   IsHeader(currentAnim->anim->GetVariable("touch_bodypart")),
-                                  isCross, 0.0f);
+                                  isCross, 0.0f, currentAnim->pesKick ? &*currentAnim->pesKick : nullptr);
 
   // printf("difficulty: %f\n", difficultyFactor);
   if (Verbose())

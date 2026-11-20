@@ -260,12 +260,15 @@ Writer chain (all CONFIRMED decompiles):
 - `FUN_1404FB2A0(Y)` (VA 0x1404FB2A0, 27 lines; team-tick region):
   `T = *(Y+0x6D50)` (asm `MOV RAX,[RBX+0x6D50]` at 0x1404FB2F3, byte pattern
   in checker context). If `MI+0x1775 == 0x0C` → return (keep). If
-  `MI+0x116C == 1` (in play): needs `FUN_1423E7FD0` and `FUN_140A431E0`
-  true, else `T+0x78 := 0xFF` (asm `C7 40 78 FF000000` at 0x1404FB2FA,
-  checker row). If `MI+0x116C == 2` → `FUN_1404FB780(Y)`. If `≠ 3` →
-  `T+0x78 := 0xFF` (asm at 0x1404FB34A, checker row). Else
-  `FUN_1404FB380(Y)`. **So in every non-play phase except 2/3 the id is
-  cleared to 0xFF here.**
+  `MI+0x116C == 1` (in play): when `[G+0x3B0]` is non-null and both
+  `FUN_1423E7FD0` (byte +0x9C) and `FUN_140A431E0` hold → `T+0x78 := 0xFF`
+  (asm `C7 40 78 FF000000` at 0x1404FB2FA), return 0; **otherwise it calls
+  `FUN_1404FB380(Y)`** (in play runs the 4FB380 tree). If `MI+0x116C == 2` →
+  `FUN_1404FB780(Y)`. If `== 3` → `FUN_1404FB380(Y)`. Any other phase →
+  `T+0x78 := 0xFF` (asm at 0x1404FB34A). Corrected by TeamTick2 from the
+  assembly (an earlier version of this section had phase 1 as "needs both
+  gates or clear" and the arms of 1 and 3 mixed up). **So in every phase
+  except 1/2/3 the id is cleared to 0xFF here.**
 - `FUN_1404FB780(Y)` (VA 0x1404FB780, 151 lines; the `MI+0x116C == 2` arm):
   - `MI+0x11D4 == 2 && A627E0(Y+0x6D48,0) > 0x15 && MI+0x1558 == Y+0x8`
     and (`T+0x78` invalid or the `A48910`-side check): copy
@@ -285,10 +288,17 @@ Writer chain (all CONFIRMED decompiles):
     := 0xFF` (decompile l.147). Angle path CONFIRMED at the predicate
     level; the keep-test interiors (`8FF10`, `57800`, `439EF0`) are OPEN
     leaves, not needed for the lane line.
-- `FUN_1404FB380(Y)` (VA 0x1404FB380, 143 lines; the `MI+0x116C == 3` arm):
-  `u = FUN_140A627E0(Y+0x6D48, 0)` (holder), `w =
-  FUN_140A62690(Y+0x6D48, Y+0x8)`; if `u > 0x15` or `FUN_140A57940` false →
-  `T+0x78 := 0xFF` (+ clear `Y+0x6D04/0x6CFC/0x6D00`, l.38–42). Else a
+- `FUN_1404FB380(Y)` (VA 0x1404FB380, 143 lines; the `MI+0x116C == 1` (gate
+  passed) and `== 3` arm):
+  `X = Y+0x6D48`; `o = FUN_140A627E0(X, 0)` = `[[X+0x18]+0x2601C]` (MA+0x2601C,
+  the ball owner); `FUN_140A57940` = ball record byte B+0x2928 (active).
+  **Clear predicate (asm `0x1404FB3E7 CMP EBX,0x15` / `0x1404FB3EA JBE
+  0x1404FB71F`): `o <= 0x15` (a man owns the ball) clears; so does an
+  inactive ball (`0x1404FB3FA JZ 0x1404FB71F`).** `0x1404FB71F..72D`:
+  `T+0x78 := 0xFF`, `Y+0x6D04 := 0`, `Y+0x6CFC := Y+0x6D00 := 0xFF`. (The
+  earlier text here, "`u > 0x15` clears", was wrong; the Ghidra decompile
+  `carrier < 0x16 → clear` is right.) `w = FUN_140A62690(X, Y+0x8)` is read
+  after. Else a
   decision tree over `FUN_140A51320` (count), action id `*(FUN_140A3E190)`,
   `T+0x6E7`, range `FUN_14044E0D0 < 6.0` (0x14259BDEC), the current
   `T+0x78`, role-5/angle tests (`60.0 = 0x14259A764`, `50.0 =

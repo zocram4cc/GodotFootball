@@ -19,6 +19,10 @@ namespace pesmovestep {
 // Runs one MOVESTEP tick for an active player. It is a no-op when the PES install is absent
 // (no PES21_ROOT), so a checkout without the game can still run.
 void ProcessMoveStep(Player& player, Match& match);
+// One frame of the man's body adjusters (PES's anime driver FUN_141EB5E70: the root, height and yaw adjusters through FUN_141EB3AF0),
+// after the MOVESTEP entry and the Trap action have armed them: the strike's root displacement and the yaw step move GF's body root.
+// A no-op with pes_loop off.
+void StepAdjusters(Player& player, Match& match);
 // PES's AI think for one player, run every tick by Player::Process after the controller's process: the decision MOVESTEP
 // reads on the next tick. A no-op with pes_loop off.
 void Think(Player& player, Match& match);

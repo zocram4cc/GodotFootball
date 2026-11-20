@@ -38,8 +38,8 @@ float HalfNormal(const KickErrorConstants& k, int n) {
 
 // F1/F2 (scatter 6, the motion-descriptor factors, 0x14083e749..0x14083e76f) key on the kicker's motion id through
 // FUN_1406b0250 over the motion table, a runtime singleton at 0x1436f23c0.
-// ponytail: GF has neither PES's motion id nor that table, so F stays 1.0, the value PES stores (0x14083e749) when the
-// descriptor byte is not 1. Remove when GF kicks carry a PES motion id and the table is read from the install.
+// ponytail: the descriptor is real now (peskickmotion.cpp), but F1/F2 themselves are not ported: F stays 1.0, the value PES
+// stores (0x14083e749) when the descriptor byte is not 1. Remove when the F1/F2 branch (0x14083E749..0x14083E76F) is ported.
 constexpr float kMotionFactorNotPorted = 1.0f;
 
 constexpr uint64_t kImageBase = 0x140000000;
@@ -526,9 +526,8 @@ float SituationFactor(const SituationConstants& c, const KickSituation& s) {
   if (sub == 0 || sub == 1) {
     if (s.b2754 == kTailByte) q *= s.firstTime == 0 ? c.p90 : c.p85;
   }
-  // ponytail: GF kicks carry no PES motion id, so the call site (humanoid.cpp PesKickSituation) hands descriptor 0 and this branch
-  // never runs in a match. The PES site that removes it: FUN_1406B0250 over the motion table (0x1436F23C0, built at run time by
-  // 0x1406AECF0) from the kicker's motion id (u16 behind vtable+0x18 of the object at ap+0xAB8).
+  // The descriptor is FUN_1406B0250's byte of the kicker's motion (peskickmotion.cpp KickMotionDescriptor); a kick with no clip
+  // keeps 0 and skips the branch above, as PES does for a motion whose descriptor is not 1.
   return q;
 }
 

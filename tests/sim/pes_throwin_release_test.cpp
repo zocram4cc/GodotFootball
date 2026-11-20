@@ -77,28 +77,72 @@ void RunMatch(unsigned int seed, const std::function<void(Match&)>& onTick) {
   pestest::Settle(probe);
 }
 
-// AThrowInIsReleasedFromInsideTheLine: one searched seed's two-minute match, counting its carried releases over the whole match.
-class InsideLineProbe : public pestest::Probe {
+// The physique PES scales a clip's ball offset by (FUN_1406E8CC0): P+0x3B18, written by FUN_1406EB210 as height_cm / 180 from the
+// setup record, x and z clamped to 0.9166..1.0833. Read from the window's P for the taker's slot, as the sim's own key reader does.
+float TakerPhysique(Match& match, const Player* taker) {
+  if (taker == nullptr) return 1.0f;
+  const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(taker));
+  float scale = 0.0f;
+  std::memcpy(&scale, p + pes::kPF3B18Offset, sizeof scale);
+  return scale > 0.0f ? scale : 1.0f;
+}
+
+// ACarriedThrowInIsReleased / TheThrowInTakersAnklesStayBehindTheLine: one searched seed's two-minute match. Counts the carried
+// releases, and on every tick a throw-in is being taken measures PES's own rule (FUN_140792E10, before the release frame): of the
+// taker's two ankles (PES joints 3 and 6 = rig left_ankle / right_ankle, docs/ports/pes-port-KickJoints.md 1; read from the window's
+// joint block P+0x538 + 0xC * joint, as FUN_141EB51A0 reads them) the one nearer the centre line is at least F[1] + DAT_142588200
+// (0.1 m) from it.
+class BehindLineProbe : public pestest::Probe {
  public:
-  explicit InsideLineProbe(unsigned int seed)
-      : Probe("AThrowInIsReleasedFromInsideTheLine", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
-  int releases = 0, outside = 0;
+  explicit BehindLineProbe(unsigned int seed)
+      : Probe("TheThrowInTakersAnklesStayBehindTheLine", {true, kMinutes, seed}, pestest::kNoTickCap, false, false) {}
+  int releases = 0, takingTicks = 0, persistentShort = 0;
+  float worstShortfall_m = 0.0f;
+  float ankleMargin_m = 0.0f;  // DAT_142588200, read from the image
+  static constexpr uint64_t kAnkleMarginVa = 0x142588200;
+  static constexpr std::size_t kJointPositionsOffset = 0x538, kJointPositionBytes = 0xC, kJointZOffset = 8;
+  static constexpr int kLeftAnkleJoint = 3, kRightAnkleJoint = 6;
+  void OnStart(Match& match) override {
+    const pes::PesTrapExternals& ext = match.PesTrapExternalsOf();
+    std::memcpy(&ankleMargin_m, ext.image + (kAnkleMarginVa - ext.imageBase), sizeof ankleMargin_m);
+  }
+  // Each taking tick reads the taker's nearer ankle from the joint block the tick wrote (PES's rule reads that block). A short reading
+  // is corrected by the push of the same tick, so the next tick's reading is the test: a short reading that persists into the next
+  // taking tick of the same throw is a push that did not happen.
   void OnTick(Match& match) override {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) {
-      if (!throwInTaking_) carrying_ = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
+      if (!throwInTaking_) {
+        carrying_ = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
+        prevShort_ = false;
+      }
       throwInTaking_ = true;
+      TeamAIController* c = match.GetTeam(b.teamID)->GetController();
+      if (carrying_ && b.taker != nullptr && c->IsCarryingBall() && c->PieceTakerArrived()) {
+        const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(b.taker));
+        if (p[pes::kPAnimeReadyOffset] != 0) {
+          float z[2];
+          std::memcpy(&z[0], p + kJointPositionsOffset + kJointPositionBytes * kLeftAnkleJoint + kJointZOffset, sizeof(float));
+          std::memcpy(&z[1], p + kJointPositionsOffset + kJointPositionBytes * kRightAnkleJoint + kJointZOffset, sizeof(float));
+          const float nearer = std::min(std::fabs(z[0]), std::fabs(z[1]));
+          const float shortfall = pesFieldHalfWidth + ankleMargin_m - nearer;
+          ++takingTicks;
+          const bool short_ = shortfall > kAnkleTolerance_m;
+          if (short_) worstShortfall_m = std::max(worstShortfall_m, shortfall);
+          if (short_ && prevShort_) ++persistentShort;
+          prevShort_ = short_;
+        }
+      }
     }
     if (throwInTaking_ && !match.IsInSetPiece()) {
       throwInTaking_ = false;
-      if (!carrying_) return;
-      releases++;
-      if (std::fabs(match.GetBall()->Predict(0).coords[1]) > pesFieldHalfWidth) outside++;
+      if (carrying_) releases++;
     }
   }
 
  private:
-  bool throwInTaking_ = false, carrying_ = false;
+  static constexpr float kAnkleTolerance_m = 1e-3f;  // float noise of the push's own arithmetic, not a PES value
+  bool throwInTaking_ = false, carrying_ = false, prevShort_ = false;
 };
 
 // ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch: one searched seed's two-minute match, the holds of its carried releases.
@@ -134,7 +178,7 @@ class CarriedHoldProbe : public pestest::Probe {
     const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow_);
     const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
     const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
-    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
+    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), TakerPhysique(match, b.taker), false, g);
     const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
     const float dx = heldBall_.coords[0] - heldRoot_.coords[0], dy = heldBall_.coords[1] - heldRoot_.coords[1];
     const float gap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - keyHorizontal_m);
@@ -183,8 +227,8 @@ class LiftProbe : public pestest::Probe {
 
 // One probe per entry of kThrowInSeeds, in the order the tests search them. The list's repeated seed is a second probe on
 // the same match: the shared run feeds it the same ticks, as the old second run of that seed saw them.
-InsideLineProbe insideLine[] = {InsideLineProbe(kThrowInSeeds[0]), InsideLineProbe(kThrowInSeeds[1]),
-                                InsideLineProbe(kThrowInSeeds[2]), InsideLineProbe(kThrowInSeeds[3])};
+BehindLineProbe behindLine[] = {BehindLineProbe(kThrowInSeeds[0]), BehindLineProbe(kThrowInSeeds[1]),
+                                 BehindLineProbe(kThrowInSeeds[2]), BehindLineProbe(kThrowInSeeds[3])};
 CarriedHoldProbe carriedHold[] = {CarriedHoldProbe(kThrowInSeeds[0]), CarriedHoldProbe(kThrowInSeeds[1]),
                                   CarriedHoldProbe(kThrowInSeeds[2]), CarriedHoldProbe(kThrowInSeeds[3])};
 LiftProbe lift[] = {LiftProbe(kThrowInSeeds[0]), LiftProbe(kThrowInSeeds[1]), LiftProbe(kThrowInSeeds[2]),
@@ -214,25 +258,42 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
   EXPECT_EQ(pes::ThrowInCarryReleaseRow(reach_m + 0.01f, reach_m), pes::kThrowInReleaseRunMid);
 }
 
-// PES releases a carried throw-in from behind the line: the release holds the ball at the hand's key offset, inside the
-// touchline, until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the
-// ball lies inside the line. Counted over the first searched two-minute match with a carried throw-in. A ceremony taker
-// (path B) is not counted: PES places him so the release key's ball is over the restart spot, 0.25 m outside the line
-// (3.3, 4.1), so his ball is outside by design (ACeremonyThrowInIsReleasedFromTheHandOverTheSpot covers him). Counting him
-// failed seed 7 once the kick scatter took PES's situation factor Q and its two minutes reached a ceremony throw-in.
-TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
+// A carried throw-in is released (the restart takes place) in the first searched two-minute match that has one.
+TEST(PesThrowInRelease, ACarriedThrowInIsReleased) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
-  int releases = 0, outside = 0;
-  for (InsideLineProbe& p : insideLine) {
+  int releases = 0;
+  for (BehindLineProbe& p : behindLine) {
     pestest::Run(p);
     ASSERT_TRUE(p.setupError.empty()) << p.setupError;
     pestest::Settle(p);
     releases += p.releases;
-    outside += p.outside;
     if (releases > 0) break;
   }
   EXPECT_GT(releases, 0) << "no carried throw-in was released in any searched two-minute match";
-  EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
+}
+
+// PES's throw-in rule is on the taker's FEET, not on the ball (FUN_140792E10, every tick before the release frame): the ankle nearer
+// the centre line (joints 3 and 6 = the ankles, KickJoints 1) must be at least F[1] + 0.1 m (DAT_142588200) from it, else the taker is
+// moved outward by the shortfall (FUN_141EB5BB0). Seen live as the hold: live2/pid1482329 seq002/006/009 (action 0x1B, phase 1): the
+// taker at z 35.05..35.08 m, 0.99..1.02 m outside the 34.06 m line, the ball at his hip. PES has no rule on where the ball is when it
+// leaves the hands. This replaces the ball-position assertions (AThrowInIsReleasedFromInsideTheLine, then ...FromBehindTheLine): both
+// were GF's premises; the joint map and the hold captures overturned them.
+TEST(PesThrowInRelease, TheThrowInTakersAnklesStayBehindTheLine) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  int ticks = 0, persistent = 0;
+  float worst_m = 0.0f;
+  for (BehindLineProbe& p : behindLine) {
+    pestest::Run(p);
+    ASSERT_TRUE(p.setupError.empty()) << p.setupError;
+    pestest::Settle(p);
+    ticks += p.takingTicks;
+    persistent += p.persistentShort;
+    worst_m = std::max(worst_m, p.worstShortfall_m);
+    if (ticks > 0) break;
+  }
+  ASSERT_GT(ticks, 0) << "no carried throw-in taker stood ready in any searched match";
+  EXPECT_EQ(persistent, 0) << persistent << " of " << ticks << " taking ticks kept the nearer ankle short of F[1] + 0.1 m past one tick (worst by "
+                           << worst_m << " m)";
 }
 
 // A ceremony taker's ball is in his hand when he releases (pes-re-throwin-choreography.md 3.1, 3.3: PES places him with the
@@ -269,7 +330,7 @@ TEST(PesThrowInRelease, ACeremonyThrowInIsReleasedFromTheHandOverTheSpot) {
       const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
       ASSERT_GT(hits.size(), 1u);
       const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), 1.0f, false, g);
+      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), TakerPhysique(match, b.taker), false, g);
       const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
       // Ball::ResetSituation seats the ball's centre one radius above the point it is given, so the held centre is the key's
       // height plus that radius; a ball left on the ground is 1.7 m from it either way.

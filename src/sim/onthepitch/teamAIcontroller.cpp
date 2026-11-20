@@ -23,13 +23,16 @@
 #include <cmath>
 #include <limits>
 #include <cstring>
+#include <cstdio>
 #include <map>
 #include <utility>
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
 #include "pes/movestep.hpp"
+#include "pesballlist.hpp"
 #include "pesmovestep.hpp"
+#include "player/humanoid/pesplayernode.hpp"
 #include "pestrapactor.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
@@ -192,8 +195,40 @@ void TeamAIController::TickScoreRows() {
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
   scoreRows_.Bind(world.Ma(team->GetID()));  // the rows are views over this side's MA record: the window is the store
-  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(), pesPath, world);
+  const bool forced = !match->IsInPlay() || !scoreRows_.Latched();
+  scoreRows_.Tick(players, k, match->GetSimFrame(), forced, pesPath, world);
+  TickBallList(forced);
   WriteMaRecord();
+}
+
+// FUN_140457070's ball-list block (0x140457568 calls FUN_14045B090): nothing while the writer is unlatched; forced (the flag the
+// score rows take: the stoppage states MI+0x11B0 in {8, 0xB, 0xE, 0x12}, which GF has no word for; ScoreRowWriter's ponytail) it
+// runs at once; otherwise it runs when the slice counter passes the limit of pesballlist.hpp (the in-play state 0x14..0x16).
+// The writer's man flags are the match's on-pitch men (MI+0x1748), the ball its record 0 and speed the window's.
+void TeamAIController::TickBallList(bool forced) {
+  if (!match->PesLoop() || !scoreRows_.Latched()) return;
+  pes::PesWorld& world = match->PesWorldOf();
+  const int side = team->GetID();
+  int8_t* counter = reinterpret_cast<int8_t*>(world.Ai(side) + pes::kAiSliceCounterOffset);
+  if (!forced) {
+    float v[3];
+    world.BallVelocity(v);
+    const pes::PesTrapExternals& ext = match->PesTrapExternalsOf();
+    float negKmh;  // DAT_14259D65C: the install's km/h factor (-3.6), read from the exe's image
+    std::memcpy(&negKmh, ext.image + (pes::kBallListSpeedFactorVa - ext.imageBase), sizeof negKmh);
+    const int speed = static_cast<int>(std::sqrt(v[1] * v[1] + v[0] * v[0] + v[2] * v[2]) * negKmh);
+    const int limit = pes::BallListSliceLimit(pes::BallListFreshEvent(reinterpret_cast<const uint8_t*>(&world.EventImage())), speed);
+    *counter = static_cast<int8_t>(*counter + 1);
+    if (*counter <= limit) return;
+  }
+  std::array<bool, 22> onPitch{};
+  for (Team* t : {team, match->GetTeam(1 - side)}) {
+    std::vector<Player*> squad;
+    t->GetActivePlayers(squad);
+    for (Player* p : squad) onPitch[static_cast<std::size_t>(match->PesSlotOf(p))] = true;
+  }
+  world.RunBallNearest(side, onPitch, match->PesTrapExternalsOf());
+  *counter = 0;
 }
 
 void TeamAIController::WriteMaRecord() {
@@ -1328,6 +1363,11 @@ void TeamAIController::AdvancePieceWalk() {
       pieceWarping = true;
       pieceWarpTicks = kLiftTicks;
       pieceWarpTo = pieceCarrySpot;
+      // PES's phase-4 lift clip (throwin_seamless_liftupball, motion 0xD01, 14 frames; docs/re/pes-re-throwin-choreography.md 3.2).
+      // The body lifts the ball while the root warp moves him onto the spot; the clip's pose keeps the nearer ankle clear of the line
+      // through the warp.
+      constexpr int kLiftMotion = 0xd01;
+      taker->CastHumanoid()->PlayIssuedClip(kLiftMotion, 1.0f, false, pes::PesClipFamily::kTrap);
     }
   }
   // The root warp of the clip: an even step per tick onto the warp's end (the contact point, or the carry spot). It is the clip's
@@ -1355,6 +1395,9 @@ void TeamAIController::AdvancePieceWalk() {
     pieceWarping = false;
     if (pieceCarrying) {
       pieceLifted = true;
+      // PES's phase 5 starts the loop when the lift clip ends (docs/re/pes-re-throwin-choreography.md 3.2): the loop is issued once, here.
+      constexpr int kThrowInLoopMotion = 0xcf4;
+      taker->CastHumanoid()->PlayIssuedClip(kThrowInLoopMotion, 1.0f, false, pes::PesClipFamily::kTrap);
     } else {
       pieceCarrying = true;
       pieceWalkTarget = pieceCarrySpot;
@@ -1388,17 +1431,61 @@ Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
 namespace {
 
 // PES's throw-in key clip (ThrowinLoop's SetKick and release clip, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1): the
-// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1).
-// ponytail: the body scale (PES's player +0x3B18) is taken as 1.
+// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1), scaled by the taker's own
+// physique P+0x3B18 (PesBodyScaleOf below).
 constexpr int kThrowInKeyMotion = 0xcfa;
-pes::Vec3 ThrowInKeyOffset(Match& match) {
+// PES's player physique scale: FUN_1406EB210 (0x1406EB23E) writes P+0x3B18 = height_cm / DAT_142598580 (180.0) from the setup
+// record's height, and FUN_1406E8CC0 scales a clip's ball offset by it (x and z clamped to DAT_1425DDF78..DAT_1425DDF80 = 0.9166..
+// 1.0833, y not clamped). Read the way PES reads it: the window's P for the man's slot (the actor writer stores the same value there).
+float PesBodyScaleOf(Match& match, const Player* player) {
+  if (player == nullptr) return 1.0f;
+  const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player));
+  float scale = 0.0f;
+  std::memcpy(&scale, p + pes::kPF3B18Offset, sizeof scale);
+  return scale > 0.0f ? scale : 1.0f;  // 0: the window's P was not written this tick
+}
+
+pes::Vec3 ThrowInKeyOffset(Match& match, const Player* taker) {
   const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
   const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
-  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
+  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), PesBodyScaleOf(match, taker), false,
                                pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
 }
 
 }  // namespace
+
+void TeamAIController::PushPieceTakerBehindLine() {
+  // Before the release only: the restart is pending until the touch (the carry flag stays set after it, until the next restart).
+  if (!match->PesLoop() || !match->IsInSetPiece() || setPieceType != e_SetPiece_ThrowIn || taker == nullptr || !IsCarryingBall() ||
+      !PieceTakerArrived())
+    return;
+  // PES's constants, read from the image as PES reads them: the margin DAT_142588200 (0.1 m) and the signs DAT_142588218 (-1.0, a
+  // negative ankle z) and DAT_14256AE1C (1.0). F[1] is the pitch half-width (pesFieldHalfWidth, F1 0x42083D70).
+  constexpr uint64_t kAnkleMarginVa = 0x142588200, kSignNegativeVa = 0x142588218, kSignDefaultVa = 0x14256AE1C;
+  constexpr int kLeftAnkleJoint = 3, kRightAnkleJoint = 6;  // PES joint i is rig joint i+1: left_ankle, right_ankle (KickJoints 1)
+  pes::PesWorld& world = match->PesWorldOf();
+  pes::PesTrapExternals& ext = match->PesTrapExternalsOf();
+  const auto imageFloat = [&ext](uint64_t va) {
+    float value = 0.0f;
+    std::memcpy(&value, ext.image + (va - ext.imageBase), sizeof value);
+    return value;
+  };
+  const int slot = match->PesSlotOf(taker);
+  // PES's guard chain before the joint reads (FUN_140792E10: the taking state, tests A and B around the A branch's bookkeeping
+  // block): PesWorld::PushGateOpen, which runs PES's own translated functions on the taker's record.
+  if (!world.PushGateOpen(slot, ext)) return;
+  float left[3], right[3];
+  if (!world.JointPosition(slot, kLeftAnkleJoint, ext, left) || !world.JointPosition(slot, kRightAnkleJoint, ext, right)) return;
+  // The nearer ankle by |z|, joint 3 on a tie: FUN_140792E10's cmovbe.
+  const float* nearer = std::fabs(left[2]) <= std::fabs(right[2]) ? left : right;
+  const float threshold = pesFieldHalfWidth + imageFloat(kAnkleMarginVa);
+  const float absZ = std::fabs(nearer[2]);
+  if (absZ >= threshold) return;  // not short: no push
+  const float sign = nearer[2] < 0.0f ? imageFloat(kSignNegativeVa) : imageFloat(kSignDefaultVa);
+  float root[3];
+  std::memcpy(root, world.P(slot) + pes::kPPosOffset, sizeof root);  // P+8: x, y, z (PES axes)
+  world.RunAnkleShove(slot, root[0], root[1], root[2] + (threshold - absZ) * sign, ext);
+}
 
 void TeamAIController::PinBallAtRelease() {
   // A carrier holds the ball at his release row's key; a placed (ceremony) taker holds it at his SetKick key, the point the
@@ -1415,14 +1502,14 @@ void TeamAIController::PinBallAtRelease() {
       pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
                                                     match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
     }
-    constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
+    const float kPhysique = PesBodyScaleOf(*match, taker);  // PES's +0x3B18 (height_cm / 180), read from the window's P
     constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
     const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
     const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
     const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
     offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   } else {
-    offset = ThrowInKeyOffset(*match);
+    offset = ThrowInKeyOffset(*match, taker);
   }
   const Vector3 pos = taker->GetPosition();
   const Vector3 facing = taker->GetDirectionVec();
@@ -1460,8 +1547,8 @@ int CeremonyRoleClass(e_PlayerRole role) {
 
 // A placed throw-in taker's stand point (PES's ThrowinLoop SetKick, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1):
 // the release key's horizontal length outside the touchline over the restart point.
-float ThrowInStandLength_m(Match& match) {
-  const pes::Vec3 offset = ThrowInKeyOffset(match);
+float ThrowInStandLength_m(Match& match, const Player* taker) {
+  const pes::Vec3 offset = ThrowInKeyOffset(match, taker);
   return std::hypot(offset.x, offset.z);
 }
 
@@ -2102,7 +2189,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       if (!seamlessRestart && taker) {
         const Vector3 restart = match->GetReferee()->GetBuffer().restartPos;
         const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
-        const float standIn_m = ThrowInStandLength_m(*match);
+        const float standIn_m = ThrowInStandLength_m(*match, taker);
         taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * standIn_m, 0.0f), ballPos);
         pieceHeld = true;
       }
@@ -2525,18 +2612,11 @@ void TeamAIController::PesSecondPresserTick() {
       holder = static_cast<int>(key.team) * pes::kPressSideMen + static_cast<int>(key.slot);
   }
   const bool holderValid = holder < pes::kPressTeamMen;
-  // The newest valid ring-0 touch: the T+0x78 stand-in for this side's last kick (the real writer is OPEN; the
-  // opponent-kick fallback T_opp+0x78 is absent).
-  pes::ActorKey touch{};
-  bool touchValid = false;
-  for (int n = 0; n < 8 && !touchValid; ++n) {
-    const pes::NewestEventView view = pes::EventAt(match->GetPesEvents(), n);
-    touchValid = view.present && view.actor.Valid() && view.actor.team < 2 && view.actor.slot < pes::kPressSideMen;
-    if (touchValid) touch = view.actor;
-  }
-  const bool kickValid = touchValid && static_cast<int>(touch.team) == side;
-  const int kickMan = kickValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
-                                : pes::kPressNoMan;
+  // T+0x78 of this side: the window's pass target, written by PES's selector chain 0x1404FB2A0 (Team::RunPesPassTarget; it replaces the
+  // newest-touch stand-in this read had). The press numbers the men side * 11 + slot, T+0x78's own numbering.
+  const uint32_t passTargetSlot = match->PesWorldOf().PassTarget(side);
+  const bool kickValid = passTargetSlot < 2 * static_cast<uint32_t>(pes::kPressSideMen);
+  const int kickMan = kickValid ? static_cast<int>(passTargetSlot) : pes::kPressNoMan;
 
   // The men by team index (side * 11 + slot), and this side's slot words.
   pes::PressEvalInput in;
@@ -3502,7 +3582,6 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
       f.playingCount = 1;
     }
   }
-  f.kickApproach = 0;  // the kick approach (adjuster A) is never armed in GF
   // P+0x277C / +0x2780: the first dwell's elapsed and limit, MOVESTEP's carried words req[0x1a] / req[0x1b].
   const auto carried = [&rec](int word) {
     float v;
@@ -3559,6 +3638,16 @@ void WritePesTrapActors(Match& match) {
       // (WriteSlotStamina's ponytail).
       pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
                             static_cast<uint32_t>(match.GetActualTime_ms()));
+      // The anime player's joint block, PES's order in the player's tick (FUN_141AF4650's phases, then FUN_141EB49B0, then FUN_1406F6CE0):
+      // the engine runs this man's frame (PES's translated driver on his BodyAnimControl, built from the install's animation files) and the
+      // pose it leaves in the control's arrays is the joint writer's input, the heights P+0xB90.. the Kick gate and the chooser read.
+      // ponytail: the window's P is not the engine's (its A at P+0xA08 is the window's physique object): the engine holds its own player
+      // block per slot and the pose is copied into the window's joint arrays. Removed when the window's P is the constructor's own.
+      pes::PesFoxWorld& engine = match.PesAnimeWorldOf();
+      const uint64_t engineP = match.PesAnimePlayerOf(slot);
+      engine.RunFrame(engineP);
+      match.PesWorldOf().RunAnimeJoints(slot, engine.ReadPose(engineP), match.PesTrapExternalsOf());
+      match.PesWorldOf().RunPlayerUpdate(slot, match.PesTrapExternalsOf());
     }
   }
 }
@@ -3584,8 +3673,68 @@ void RunPesTrapTicks(Match& match) {
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
-      if (phaseBefore == 0)
-        p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
+      if (phaseBefore == 0) {
+        pes::MotionRequest issued;
+        issued.motion = r.motion;
+        issued.mirror = r.mirror != 0;
+        issued.playback = r.playback;
+        issued.startTime = r.startTime;
+        issued.duration = r.blend;
+        issued.transition = pes::TransitionOfKind(r.kind);
+        p->CastHumanoid()->PlayIssuedClip(issued, pes::PesClipFamily::kTrap);
+      }
+    }
+  }
+}
+
+namespace {
+// PES's axes (x, height, z) of a GF world point: GF's z is the height and its y is PES's z (the ball sample writer, ball.hpp).
+std::array<float, 3> PesPoint(const Vector3& v) { return {v.coords[0], v.coords[2], v.coords[1]}; }
+
+// The man's skeleton as PES's joint block holds it: each collision bone's world position and rotation in PES's axes.
+// ponytail: the pose is the one GF's humanoid last posed (the previous tick's put), FUN_141EB49B0's anime layer pose is not run
+// (AnimeLayer), and the node rotations are GF's W*Rs joint frames, which differ from PES's joint frames F_b by 1.5 degrees at the leg,
+// 5.8 at the foot and about 22 at the forearm and hand (docs/re/pes-re-collision.md 4). The anime layer's joint writer removes this.
+pes::BoneFrames BoneFramesOf(Player& player, const pesrig::Rig& rig) {
+  pes::BoneFrames frames;
+  const auto& nodes = player.GetNodeMap();
+  for (std::size_t bone = 0; bone < pes::kScanBoneCount; ++bone) {
+    const std::optional<int> joint = pesrig::ResolveBone(rig, pes::kScanBoneNames[bone], nullptr);
+    assert(joint.has_value());
+    const boost::intrusive_ptr<blunted::Node>& node = nodes.at(rig.bones[*joint].gfName);
+    frames[bone].position = PesPoint(node->GetDerivedPosition());
+    // The rotation's axis changes basis with the position: (x, y, z) -> (x, z, y), a reflection, so the rotation about the swapped axis
+    // turns the other way and the vector part is negated.
+    const blunted::Quaternion q = node->GetDerivedRotation();
+    frames[bone].rotation = {-q.elements[0], -q.elements[2], -q.elements[1], q.elements[3]};
+  }
+  return frames;
+}
+}  // namespace
+
+// Every man in the Trap action runs PES's body contact scan 0x1406EDCE0 on the window after his action tick: the tick sets the contact
+// pending bit on the clip's contact frame, the scan's reach test answers it, and a touch request in the output record is the man's
+// grant to touch the ball (Match::TakePesTouch, the humanoid's contact).
+void RunPesBodyScans(Match& match) {
+  pes::PesWorld& world = match.PesWorldOf();
+  match.ClearPesTouches();
+  // The ball record's byte +0x279C is PES's copy of the ball body's byte B+0x48, taken on every ball update (0x140871A5C in
+  // 0x140870E90, B = the ball entity's +0x20). B+0x48 has one writer on any match path: the script binding 0x140BEB330 (a 0/1 from the
+  // two-row table at 0x1426CBAF8, picked by a script argument), and nothing in GF's match runs a script; otherwise it keeps its
+  // constructed value 0xFF. All six real reach-test captures (live2/pid3332804 seq088..seq1475) hold 0xFF in both cells while the ball
+  // is loose, in a pass and at rest, and the holder MA+0x2601C is a different cell (the last toucher, never cleared). So the byte is
+  // PES's constant for this match, not GF's holder: the scan's "owner is another man" refusal never fires, as in PES.
+  world.BallRecord()[pes::kBallOwnerOffset] = pes::kBallNoOwner;
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      world.WriteJointBlock(slot, BoneFramesOf(*p, match.GetRig()), match.GetPesActorConstants().jointMask);
+      const pes::PesBodyScanOut out = world.RunBodyScan(slot, match.PesTrapExternalsOf());
+      if (out.TouchRequested()) match.GrantPesTouch(slot, out);
     }
   }
 }

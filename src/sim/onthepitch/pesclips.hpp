@@ -56,6 +56,9 @@ std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig);
 // the same clock PesClipAnimText samples the clip on, so the touch and the clip's pose agree.
 int PesTouchAnimFrame(int hitFrame);
 
+// The clip time one engine frame of an imported clip stands for (PesClipAnimText writes a clip at 10 ms per frame).
+inline constexpr float kGfAnimFrame_s = 0.01f;
+
 // The contact action of a player whose current clip is a Special command:
 // a PES clip is the action its family names (the player carries which one in
 // his PES challenge - SetPesChallenge at the command), and every other special

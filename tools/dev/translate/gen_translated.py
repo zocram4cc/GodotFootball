@@ -43,7 +43,13 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
         ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"),
         ("results_dribble.json", "dribble"), ("results_proccam.json", "proccam"),
-        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"))
+        ("results_kickkind.json", "kickkind"), ("results_kickshot.json", "kickkind"), ("results_kick.json", "kick"),
+        ("results_kickbranch.json", "kick"), ("results_kickleaf.json", "kick"), ("results_kickgate.json", "kick"),
+        ("results_kickballnear.json", "kick"), ("results_kickjoints.json", "kick"), ("results_animelayer.json", "kick"),
+        ("results_throwin.json", "kick"),
+        ("results_kickroot.json", "kickroot"), ("results_kickturn.json", "kickroot"),
+        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"), ("results_teampass.json", "teampass"),
+        ("results_gkdribble.json", "gkdribble"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -145,12 +151,21 @@ def gap_count(text):
     return sum(text.count(m) for m in GAP_MARKERS)
 
 
+def linked_callees(text):
+    return len(set(CALLEE.findall(text)))
+
+
 def choose_variant(old, new):
     """Two translations of one function under different sets' universes: the one with fewer gaps (a callee one set lacks
-    becomes an abort there; the layer keeps the variant that links more of what PES runs). None when they differ with as
-    many gaps: a real conflict."""
+    becomes an abort there; the layer keeps the variant that links more of what PES runs). With as many gaps, the one that
+    links fewer callees: a set whose universe holds a tail target the other lacks keeps the call behind a trap (a path the
+    other set's recorded cases never took), and linking it would pull that target's whole closure into every set holding the
+    function. None when they differ with as many gaps and as many links: a real conflict."""
     a, b = gap_count(old), gap_count(new)
-    return new if b < a else old if a < b else None
+    if a != b:
+        return new if b < a else old
+    la, lb = linked_callees(old), linked_callees(new)
+    return new if lb < la else old if la < lb else None
 
 
 TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
@@ -173,6 +188,8 @@ def silent_tail_sites(members, exempt=frozenset()):
 UNHANDLED_DEAD_NOISE = {
     "0x140480030": "FADD/FILD/OUT after the cold path's final int3 (labels L_1404803A9..C5 end in traps)",
     "0x1404B6ED0": "FDIV/OUTSD after the unconditional goto L_1404B74FF, behind no reached label",
+    "0x140721800": "IRETD/CMPSD after the unconditional goto L_1407231E2 (kick chooser closure): the labels L_140723290..L_14072329C "
+                   "are reached only by conditional jumps inside the noise itself, so no reachable branch lands there",
     "0x1405EC600": "POP/RETF/ADD after the final unconditional goto L_1405ED02B (0x1405ED1ED JMP), behind no label",
     "0x1407AD150": "OUT/RETF/XLATB at 0x1407ADF9C..0x1407ADFC2, after the final unconditional JMP 0x1407ADEC2 and its NOP pad (no branch before 0x1407ADF99 targets it; the one indirect JMP is a table in the image's data)",
 }

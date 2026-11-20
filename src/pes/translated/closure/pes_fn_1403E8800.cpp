@@ -46,7 +46,7 @@ void pes_fn_1403E8800(PesState& s) {
     s.gpr[3] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
     return;
   } else {
-    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 0ULL; s.gpr[4] += 8; }
+    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 600000ULL; s.gpr[4] += 8; }
     s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
     s.wr(((s.gpr[3])), (uint64_t)(s.gpr[0]), 8);
     s.gpr[0] = (uint64_t)(s.gpr[3]);

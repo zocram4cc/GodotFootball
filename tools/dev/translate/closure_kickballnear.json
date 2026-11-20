@@ -1,0 +1,15 @@
+{
+ "note": "the functions snapdiff --bounded built for the proof of 0x14045B090, the ball-list writer (MA+0x2470C; FUN_140457070 calls it at 0x140457568): the union of three runs of the four-capture rule (4 + 4 + 4 REAL ball_nearest_45B090 calls, pes-port-KickInputs.md). Every other call stays the translator's loud abort. VAs only.",
+ "root": "0x14045B090",
+ "members": [
+  "0x14045B090",
+  "0x140A57800",
+  "0x140A6CF70",
+  "0x140A79050",
+  "0x140A79240",
+  "0x140A79440",
+  "0x140A79640",
+  "0x140A92D40",
+  "0x140A92DC0"
+ ]
+}

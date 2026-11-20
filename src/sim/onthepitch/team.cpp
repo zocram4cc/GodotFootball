@@ -13,6 +13,7 @@
 #include "match.hpp"
 #include "offsiderule.hpp"
 #include "pespossession.hpp"
+#include "pes/movestep.hpp"
 #include "pesstamina.hpp"
 #include "player/humanoid/pesplayernode.hpp"
 #include "referee.hpp"
@@ -383,22 +384,81 @@ void Team::SetLastTouchPlayer(Player* player, e_TouchType touchType) {
   match->QueuePesTouch(player, PesActionKindOf(player->GetCurrentFunctionType()));
 }
 
+Player* Team::GetPassTarget() const {
+  if (!match->PesLoop()) return passTarget;
+  return match->GetPesSlotPlayer(match->PesWorldOf().PassTarget(id));
+}
+
+// Team tick step 40c: PES's pass-target selector 0x1404FB2A0 (-> 0x1404FB380 in play, 0x1404FB780 in a stoppage, the holder tree
+// 0x1404F0E50) on the world window. The selector reads records GF carries as state, staged here at PES's offsets:
+//   MI+0x1748 + slot: the on-pitch byte of each man (docs/re/pes-re-holder-tree.md; captured 1 for the 22 on the pitch);
+//   T+0x255: the possession latch of both sides (Team::UpdatePesPossession);
+//   MA+0x2601C: the ball owner (captured 0xFF from the kick until the receiver's touch, seq732/seq850);
+//   B sample 0 and the man records' positions: the ball and the men now;
+//   man+0x5D0: the AI action word, 5 (PASS_GET) for the man the mover sends to the ball, else the captured idle word.
+// ponytail: the owner is GF's ball retainer, not PES's W1 holder (0x14045725A: the holder persists on a loose ball in GF's port of it,
+// Match::GetPesHolder, while the captured owner is 0xFF between the kick and the touch). Replace with W1's own write when it is proven
+// against the captured owner. ponytail: the action word's writer FUN_140A6CA10 is not ported (pesmovestep.cpp:113): only PASS_GET is
+// staged, and F0E50's other class and need reads (the slot records +0x1430, the anime class byte, the roster) are GF's stand-ins of the
+// run world; the oracle test (tests/pes_teampass_oracle_test.cpp) proves the chain on PES's own records, not on these.
+// The arrival-order lists MA+0x24840 / MA+0x24908 (the holder tree's default candidate and its rank scan) are PES's own writer 0x14045E0D0
+// (translated, 12/12 real calls bit-exact) run on the side's AI object in the window (PesWorld::RunArrivalList), over the men's records
+// staged here and by the team tick.
+// ponytail: PES runs the writer from the AI tick 0x140457070 only when the frames since the newest event are 1 or 3 or the ball list ran
+// (gate at 0x14045756A..0x140457602); GF has no AI tick object, so it runs every team tick. Replace with the gate once 0x14045B090 and
+// 0x140A512E0 are driven from the tick. The record fields the writer reads that GF does not carry (counter A SR+0x1430, SR+0x12BC, the roles
+// SR+0x1A/+0x1C, MA+0x247D4's bearings, MA+0x253C4's masks, T+0xB8B4, B+0x18) are zero.
+// ponytail: counter B (SR+0x1438), the base of a resting ball's arrival time, is the AI record writer FUN_14092ED30's estimate in frames
+// (21..500 captured, pes-re-player-record.md 2.1); GF's time to the ball stands in until that writer runs.
+void Team::RunPesPassTarget() {
+  pes::PesWorld& world = match->PesWorldOf();
+  uint8_t* mi = world.MatchInfo();
+  Player* const retainer = match->GetBallRetainer();
+  for (int t = 0; t < pes::kSideCount; ++t) {
+    Team* side = match->GetTeam(t);
+    const auto& squad = side->GetAllPlayers();
+    Player* const receiver = match->IsInPlay() ? side->PassGetReceiver() : nullptr;
+    for (int place = 0; place < pes::kSlotsPerSide; ++place) {
+      const bool onPitch = place < static_cast<int>(squad.size()) && squad[place]->IsActive();
+      const int slot = t * pes::kSlotsPerSide + place;
+      mi[pes::kMiOnPitchOffset + slot] = onPitch ? 1 : 0;
+      if (onPitch)
+        pes::StoreU32(world.ManRecord(slot), pes::kManActionOffset,
+                      squad[place].get() == receiver ? pes::kActionPassGet : pes::kManActionIdle);
+      if (onPitch)
+        pes::StoreU32(world.SlotRecord(slot), pes::kSlotCounterBOffset,
+                      static_cast<uint32_t>(static_cast<float>(squad[place]->GetTimeNeededToGetToBall_ms()) * pes::kPesTickHz / 1000.0f));
+    }
+    world.SetMaBallOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
+    world.SideRecord(t)[pes::kSideLatchOffset] = side->IsPesPossession() ? 1 : 0;
+    world.SetMaOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
+  }
+  const Vector3 ball = match->GetBall()->Predict(0);
+  world.SetBallSample(0, ball.coords[0], ball.coords[2], ball.coords[1]);
+  // B+0x2948: the ball's velocity (m/s, PES's axes: x along the pitch, y the height, z across), which the holder tree reads (FUN_140A57720)
+  // to see a ball that has stopped. ponytail: the prediction samples 1..249 (FUN_140A6CF70) stay zero until the ball port writes them.
+  const Vector3 ballMove = match->GetBall()->GetMovement();
+  world.SetBallVelocity(ballMove.coords[0], ballMove.coords[2], ballMove.coords[1]);
+  world.SetMaBall(id, ball.coords[0], ball.coords[2], ball.coords[1]);
+  world.RunArrivalList(id);
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  world.RunPassTarget(id, static_cast<uint32_t>(pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                                                  buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started)));
+}
+
 Player* Team::PassGetReceiver() {
   // PES's movement selector state 2 (FUN_140931c60): only the team's own pass
-  // target goes to the ball as the receiver.
-  if (!passTarget || !passTarget->IsActive()) return nullptr;
+  // target goes to the ball as the receiver. The man tests `his slot id ==
+  // [own side's record + 0x78]` (FUN_140931c60 decompile: `iVar1 == *(int *)(lVar7 + 0x78)`, lVar7 = FUN_140a48a30(G, his side)), so
+  // a T+0x78 that names the other side's man matches no man of this team.
+  Player* const passTarget = GetPassTarget();
+  if (!passTarget || !passTarget->IsActive() || passTarget->GetTeamID() != id) return nullptr;
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
   const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
   const pes::BallEventKind newestKind = pes::ReceiveEventKindOf(newest.kind);
   const bool passInFlight = newest.present && (newestKind == pes::BallEventKind::kPass ||
                                                newestKind == pes::BallEventKind::kHighPass);
   if (!passInFlight || newest.actor.team != static_cast<uint32_t>(id)) return nullptr;
-  // A ball that lies still is not a pass in flight: nobody is "receiving" it. PES rewrites T+0x78 every team tick (FUN_1404FB2A0 ->
-  // FUN_1404FB380, lane-leaves.md section 4) and its PASS_GET episodes last 0.02-2.94 s live (pes-re-receiving.md section 2); GF's
-  // passTarget is written at the kick and cleared only at ResetSituation, so a weak back pass that died 35 m short of the keeper kept
-  // him the team's designated man for 8+ s while the man beside the ball stood in a jockey clip (seed 7, t = 294.7 s).
-  // ponytail: the rest speed stands in for the writer's clear; the decoded tree (FUN_1404FB380) replaces it.
-  if (match->GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms) return nullptr;
   const Vector3 ballPos = match->GetBall()->Predict(0).Get2D();
 
   pes::PassGetInput in;
@@ -581,6 +641,7 @@ void Team::Process() {
   // PES's mark table (team-tick step 35, T7a `0x1404F76AC`, after the prep steps the cone doc cites) rebuilds from the
   // rows Match::Process ticked for both sides this frame, before the in-play gate (T7a runs in every state).
   teamController->TickMarkTable();
+  if (match->PesLoop()) RunPesPassTarget();
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     teamController->Process();
 

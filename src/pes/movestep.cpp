@@ -4,6 +4,15 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
+
+namespace pes {
+void MoveHostUnbound(const char* what) {
+  std::fprintf(stderr, "MoveHost::%s is not bound by this host\n", what);
+  std::abort();
+}
+}  // namespace pes
 
 namespace pes {
 namespace {
@@ -261,6 +270,7 @@ const struct {
     {0x142592228, STEP_FIELD(s0p25)},
     {0x1425ddf60, STEP_FIELD(s0p35)},
     {0x14259bddc, STEP_FIELD(dist1p5)},
+    {0x142565604, STEP_FIELD(two)},    // 2.0: TURN_STOP's distance factor's floor, 0x1406cad18
     {0x14259bdd8, STEP_FIELD(dist1p25)},
     {0x142572348, STEP_FIELD(clamp0p8)},
     {0x1425a8a28, STEP_FIELD(step0p05)},

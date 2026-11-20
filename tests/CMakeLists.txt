@@ -73,6 +73,42 @@ add_executable(pes_trap_oracle_test pes_trap_oracle_test.cpp)
 target_link_libraries(pes_trap_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_trap_oracle_test)
 
+add_executable(pes_kick_chooser_oracle_test pes_kick_chooser_oracle_test.cpp)
+target_link_libraries(pes_kick_chooser_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_kick_chooser_oracle_test)
+
+add_executable(pes_kick_root_test pes_kick_root_test.cpp)
+target_link_libraries(pes_kick_root_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_kick_root_test)
+
+add_executable(pes_ball_list_test pes_ball_list_test.cpp)
+target_link_libraries(pes_ball_list_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_ball_list_test)
+
+add_executable(pes_roster_entry_test pes_roster_entry_test.cpp)
+target_link_libraries(pes_roster_entry_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_roster_entry_test)
+
+add_executable(pes_vsprintf_model_test pes_vsprintf_model_test.cpp)
+target_link_libraries(pes_vsprintf_model_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_vsprintf_model_test)
+
+add_executable(pes_joint_block_test pes_joint_block_test.cpp)
+target_link_libraries(pes_joint_block_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_joint_block_test)
+
+add_executable(pes_fox_world_test pes_fox_world_test.cpp)
+target_link_libraries(pes_fox_world_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_fox_world_test)
+
+add_executable(pes_anime_engine_test pes_anime_engine_test.cpp)
+target_link_libraries(pes_anime_engine_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_anime_engine_test)
+
+add_executable(pes_kick_header_oracle_test pes_kick_header_oracle_test.cpp)
+target_link_libraries(pes_kick_header_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_kick_header_oracle_test)
+
 add_executable(pes_trap_data_test pes_trap_data_test.cpp)
 target_link_libraries(pes_trap_data_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_trap_data_test)
@@ -84,6 +120,7 @@ gtest_discover_tests(pes_physique_test)
 add_executable(pes_stamina_cells_test pes_stamina_cells_test.cpp)
 target_link_libraries(pes_stamina_cells_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_stamina_cells_test)
+
 add_executable(pes_danger_oracle_test pes_danger_oracle_test.cpp)
 target_link_libraries(pes_danger_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_danger_oracle_test)
@@ -91,6 +128,10 @@ gtest_discover_tests(pes_danger_oracle_test)
 add_executable(pes_walk_oracle_test pes_walk_oracle_test.cpp)
 target_link_libraries(pes_walk_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_walk_oracle_test)
+
+add_executable(pes_teampass_oracle_test pes_teampass_oracle_test.cpp)
+target_link_libraries(pes_teampass_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_teampass_oracle_test)
 
 add_executable(pes_dribble_oracle_test pes_dribble_oracle_test.cpp)
 target_link_libraries(pes_dribble_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
@@ -178,6 +219,10 @@ add_executable(pes_movestep_test pes_movestep_test.cpp)
 target_link_libraries(pes_movestep_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
 gtest_discover_tests(pes_movestep_test)
 
+add_executable(pes_movestep_turn_entry_test pes_movestep_turn_entry_test.cpp)
+target_link_libraries(pes_movestep_turn_entry_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_turn_entry_test)
+
 add_executable(pes_movestep_run_test pes_movestep_run_test.cpp movestep_probe_stubs.cpp)
 target_link_libraries(pes_movestep_run_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_run_test)
@@ -258,7 +303,7 @@ add_test(NAME godot_post_meter_test
 set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 900)
 
 add_executable(pes_events_test pes_events_test.cpp)
-target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_link_libraries(pes_events_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_events_test)
 
 add_executable(pes_possession_test pes_possession_test.cpp)
@@ -310,6 +355,13 @@ add_test(NAME translate_switch_tables_test
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_tables.py'")
 set_tests_properties(translate_switch_tables_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
+# A JMP-reg switch whose bounds check is more than 20 instructions above it still resolves (FUN_141B16140's second switch under
+# the anime IK stage): synthetic image, compiled and run. Needs g++. Skips (77) without GF_DIFF_PYTHON.
+add_test(NAME translate_switch_far_guard_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_far_guard.py'")
+set_tests_properties(translate_switch_far_guard_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
 # The lint behind gen_translated: every live read of a read-only image address is found (reaching definitions) and every
 # declared or constant one is baked. Synthetic image, compiled and run with no image view. Needs g++. Skips (77) without
 # GF_DIFF_PYTHON.
@@ -337,6 +389,10 @@ set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
 add_test(NAME translate_synth_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_synth.py)
 set_tests_properties(translate_synth_test PROPERTIES TIMEOUT 120)
+# synth.py's __stdio_common_vsprintf_s model (the conversions PES's writers use, e.g. the DemoInfoRef player name PLAYER_A08). Plain python3.
+add_test(NAME translate_synth_models_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_synth_models.py)
+set_tests_properties(translate_synth_models_test PROPERTIES TIMEOUT 120)
 
 # capz.py (capture pack/unpack): a full capture round-trips byte-identical, a sparse slim one is never packed and unpacks
 # sparse. Plain python3 + zstd.

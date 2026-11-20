@@ -667,7 +667,10 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // whole pitch for the rest of the half (measured: 32:19 to 45:00).
       // A loose-ball presser steers through the movement command below.
       const Vector3 toBall = match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-      if (match->PesLoop() && !match->GetBallRetainer()) {
+      // The PASS_GET receiver is the designated man too, but PES runs ActionPassGet's approach for him, not ActionPress: _PassGetApproach
+      // below queues his command. This block's press command would otherwise come first in the queue and steer him (a walk-pace
+      // command on a resting ball, the seed-7 stale pass targets).
+      if (match->PesLoop() && !match->GetBallRetainer() && team->PassGetReceiver() != player) {
         // PES's ActionPress approach (docs/re/pes-re-press-life.md sections 7 and 9): the ball now, or his own base when the
         // ball sample at k ticks sits nearer the base, at the press speed curve. PES sends a PRESS man to a loose ball; GF's
         // designated man stands in for him here. MOVESTEP steers by this command's target (pesmovestep MovementDecision).

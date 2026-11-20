@@ -1,0 +1,5 @@
+0x141EB5BB0	stand-in	restart	seed
+0x141EB37B0	stand-in	restart	seed
+0x141AF7880	stand-in	cutscene	callee
+0x141EB3AE0	stand-in	restart	callee
+0x141AEBC10	stand-in	gameplay	callee

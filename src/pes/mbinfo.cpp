@@ -63,7 +63,7 @@ constexpr size_t MOTION_SLOTS = 0x1125;
 
 // DAT_1425dc370: one dword per kind, the list cap (animation, subHit, cancel, rot, foot, pivot).
 constexpr uint64_t CAPS_VA = 0x1425dc370;
-constexpr uint64_t CAP_ANIMATION_KIND = 0, CAP_SUB_HIT_KIND = 2, CAP_CANCEL_KIND = 5,
+constexpr uint64_t CAP_ANIMATION_KIND = 0, CAP_HIT_KIND = 1, CAP_SUB_HIT_KIND = 2, CAP_CANCEL_KIND = 5,
                    CAP_ROT_KIND = 6, CAP_FOOT_KIND = 9, CAP_PIVOT_KIND = 12;
 
 template <typename T>
@@ -103,6 +103,12 @@ const MotionTiming* Mbinfo::Timing(int m) const {
 const std::vector<HitRecord>& Mbinfo::Hits(int m) const {
   return m >= 0 && size_t(m) < hits_.size() ? hits_[m] : kNoHits;
 }
+int Mbinfo::HitCount(int m) const {
+  // The builder (FUN_1406AD300) drops a record past the cap; a motion past the table has no record of its own.
+  return m >= 0 && size_t(m) < MOTION_SLOTS && size_t(m) < hits_.size()
+             ? int(std::min<size_t>(hits_[m].size(), hitCap_))
+             : 0;
+}
 const CancelRecord* Mbinfo::Cancel(int m) const {
   return m >= 0 && size_t(m) < cancel_.size() && cancel_[m] ? &*cancel_[m] : nullptr;
 }
@@ -132,7 +138,7 @@ std::optional<MotionCaps> LoadMotionCaps(const PeImage& exe, std::string* error)
   const auto cap = [&](uint64_t kind, uint32_t* out) {
     return ReadU32(exe, CAPS_VA + 4 * kind, out);
   };
-  if (!cap(CAP_ANIMATION_KIND, &c.animation) || !cap(CAP_SUB_HIT_KIND, &c.subHit) ||
+  if (!cap(CAP_ANIMATION_KIND, &c.animation) || !cap(CAP_HIT_KIND, &c.hit) || !cap(CAP_SUB_HIT_KIND, &c.subHit) ||
       !cap(CAP_CANCEL_KIND, &c.cancel) || !cap(CAP_ROT_KIND, &c.rot) ||
       !cap(CAP_FOOT_KIND, &c.foot) || !cap(CAP_PIVOT_KIND, &c.pivot)) {
     *error = "mbinfo: the list caps at DAT_1425dc370 are not in the exe";
@@ -153,6 +159,7 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     return std::nullopt;
   }
   Mbinfo m;
+  m.hitCap_ = caps.hit;
   m.motions_.resize(MOTION_SLOTS);
   const auto inTable = [](uint32_t motion) { return motion < MOTION_SLOTS; };
   for (size_t o = 0; o < animation.size(); o += ANIMATION_RECORD) {

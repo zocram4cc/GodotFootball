@@ -97,6 +97,48 @@ class TrapRestartProbe : public pestest::Probe {
 
 TrapRestartProbe trapCensus;
 
+// A PES trap's touch is the body contact scan's grant (FUN_1406EDCE0, docs/ports/pes-port-TrapContact.md): the trap tick sets the
+// contact-pending bit on the clip's contact frame, the scan's reach test passes or refuses it, and only a pass touches the ball. Every
+// tick, each man in a PES trap clip is filed by whether the scan granted him a touch this tick (the grant counter moved) and whether he
+// touched the ball this tick (his last-touch time is now).
+class TrapContactProbe : public pestest::Probe {
+ public:
+  TrapContactProbe()
+      : Probe("PesStallContact", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
+  long grants = 0;               // ticks a man in a trap clip took a grant
+  long restingGrants = 0;        // those with the ball at rest (under a metre per second) at the tick's start
+  long touchesWithoutGrant = 0;  // a man in a trap clip touched the ball with no grant: a touch with no PES source
+  long grantsWithoutTouch = 0;   // a grant that did not touch the ball
+  void OnTick(Match& match) override {
+    const float restingSpeed_mps = 1.0f;
+    const float speed = match.GetBall()->GetMovement().GetLength();
+    for (int team = 0; team < 2; ++team) {
+      for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
+        if (!player->IsActive()) continue;
+        const int slot = match.PesSlotOf(player.get());
+        const unsigned taken = match.PesTouchesTaken(slot);
+        const bool granted = taken != taken_[slot];
+        taken_[slot] = taken;
+        const bool touched = player->GetLastTouchTime_ms() == match.GetActualTime_ms();
+        if (granted) {
+          grants++;
+          if (previousSpeed_ < restingSpeed_mps) restingGrants++;
+          if (!touched) grantsWithoutTouch++;
+        } else if (touched && player->CastHumanoid()->OnPesTrap()) {
+          touchesWithoutGrant++;
+        }
+      }
+    }
+    previousSpeed_ = speed;
+  }
+
+ private:
+  std::map<int, unsigned> taken_;
+  float previousSpeed_ = 0.0f;
+};
+
+TrapContactProbe contactCensus;
+
 // The body's last-resort fallback (humanoid.cpp: "NO APPLICABLE ANIM FOUND", then ResetPosition) means the AI handed a man whose clip
 // ended no command at all. It is never meant to happen in a match. The goal kick's strike (the keeper's root is carried onto the contact
 // by the referee's strike, pesgoalkick.hpp) used to leave the keeper's queue empty from the release to the contact tick, so any
@@ -175,4 +217,30 @@ TEST(PesStall, ANoManIsEverHandedNoCommandAtAClipEnd) {
   pestest::Settle(fallbackCensus);
   ASSERT_TRUE(fallbackCensus.stop.gameOver) << "the match did not reach full time";
   EXPECT_EQ(fallbackCensus.fallbacks, 0) << fallbackCensus.fallbacks << " clip ends found no applicable anim";
+}
+
+// The trap's touch is PES's body contact scan, not the clip's contact frame: a man in a PES trap clip touches the ball on the tick the
+// scan grants it and on no other, and a grant always touches. GF's own gate at the clip's frame (touchframe) has no PES source.
+TEST(PesStall, ATrapTouchIsTheBodyScansGrantAndNothingElse) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(contactCensus.grants, 0) << "the body scan granted no touch in the whole match";
+  EXPECT_EQ(contactCensus.touchesWithoutGrant, 0)
+      << contactCensus.touchesWithoutGrant << " touches by a man in a trap clip with no grant of the body scan";
+  EXPECT_EQ(contactCensus.grantsWithoutTouch, 0)
+      << contactCensus.grantsWithoutTouch << " of " << contactCensus.grants << " grants did not touch the ball";
+}
+
+// A resting ball a trapping man reaches is the case PES's reach test decides and GF's distance gate used to refuse (the loose-ball
+// stalls: men 0.4 to 2.7 m from a ball at rest who never play it): at least one grant is a touch of a ball at rest.
+TEST(PesStall, ATrapReachesABallAtRest) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  EXPECT_GT(contactCensus.restingGrants, 0) << "no trap touched a ball at rest in the whole match";
 }

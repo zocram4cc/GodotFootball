@@ -66,7 +66,11 @@ static inline const char* parse_val(const char* p, JVal& v) {
   char* end = 0;
   // floats at top level: keep raw bits via strtod+cast? inputs use ints or
   // {bits}; a bare float means f (rare) -> store truncated int.
-  if (strchr(p, '.') || strchr(p, 'e') || strchr(p, 'E')) {
+  // The token is the number itself (strspn over the number characters), not the rest of the line: a decimal integer followed by
+  // `"f": 0.0` on the same line is an integer; a hex token's e/E are digits.
+  const size_t token = strspn(p, "0123456789+-.eExXabcdefABCDEF");
+  const bool hex = p[0] == '0' && (p[1] == 'x' || p[1] == 'X');
+  if (!hex && (memchr(p, '.', token) || memchr(p, 'e', token) || memchr(p, 'E', token))) {
     v.t = JVal::NUM;
     v.n = (int64_t)strtod(p, &end);
     return end ? end : p;

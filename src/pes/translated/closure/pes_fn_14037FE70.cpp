@@ -18,6 +18,6 @@ void pes_fn_14037FE70(PesState& s) {
     s.gpr[2] = (uint64_t)(uint32_t)(_r);
   }
   s.gpr[8] = (uint64_t)(uint32_t)((32768ULL));
-  {  s.gpr[0] = 1ULL; }
+  {  uint32_t _t = (uint32_t)s.gpr[8]; if (_t != 0x8000u && _t != 0x4000u) __builtin_trap(); s.gpr[0] = 1ULL; }
   return;
 }

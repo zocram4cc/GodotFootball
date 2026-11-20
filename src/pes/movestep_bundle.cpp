@@ -26,6 +26,7 @@ std::optional<MoveStepConstants> LoadMoveStepConstants(const PeImage& exe, const
   if (auto p = LoadPhysiqueConstants(exe, error)) c.physique = *p; else return std::nullopt;
   if (auto g = LoadParametricGroups(exe, error)) c.parametric = *g; else return std::nullopt;
   if (auto b = LoadBlendTable(vfs, error)) c.blend = *b; else return std::nullopt;
+  if (auto t = LoadTurnEntryTables(exe, error)) c.turnEntry = *t; else return std::nullopt;
   return c;
 }
 
