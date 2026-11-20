@@ -3547,11 +3547,12 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
   f.heightCm = pesmovestep::PhysiqueHeightCmOf(pl);
   const pes::MoveStepRecord& rec = pl.GetMoveStep();
   f.phase = static_cast<uint8_t>(rec.state);  // P+0x245C is the MOVESTEP record's state
-  // ponytail: GF has no PES action id for the body (P+0xAC8; MOVESTEP's AnimeState answers 2 for movement-like functions too).
-  // The receiving man is in MOVE (2) or STEP_MOVE (3) when entry 3 fires (the six kind-0 captures show both with the same
-  // phases), and nothing in GF tells them apart, so MOVE stands in for the pair and the previous pair. A body action that has an
-  // id replaces this.
-  f.action = f.sub = f.prevAction = f.prevSub = pes::kAnimeActionMove;
+  // The body's PES action id (P+0xAC8) is the action its clip stands for (pestrapactor.hpp PesActionOfFunction): a kick clip is its
+  // kick action, a movement or locomotion clip is MOVE. The sub word is not decoded (ponytail: MOVE's sub), and the previous pair is
+  // filled from P at the caller (WritePesTrapActors).
+  f.action = pes::PesActionOfFunction(pl.GetCurrentFunctionType());
+  f.sub = pes::kAnimeActionMove;
+  f.prevAction = f.prevSub = pes::kAnimeActionMove;
   // P+0xAE0: the PES motion number of the clip the humanoid plays; the AI's own clip has none, so the no-motion sentinel.
   const int motion = pesmovestep::CurrentMotionOf(pl);
   f.motion = motion < 0 ? pes::kPNoMotion : static_cast<uint16_t>(motion);
@@ -3615,6 +3616,8 @@ void WritePesTrapActors(Match& match) {
                     pes::kVelocityRingEntryBytes);
       pes::PesActorFacts facts = TrapFactsOf(*p, slot);
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
+      facts.prevAction = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset];  // FUN_1406EEBB0's previous pair: the last tick's action
+      facts.prevSub = match.PesWorldOf().P(slot)[pes::kPByteAC9Offset];
       match.PesWorldOf().BindAnimeChain(slot, match.PesAnimePlayerOf(slot));
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);

@@ -125,9 +125,9 @@ public:
   };
   void RecordPassEvent(int kind, const Vector3& from, Player* target, Player* passer) {
     lastPassEvent = PassEvent{true, kind, from, target, GetActualTime_ms(), passer};
-    // PES: MA+0x2601C is none (0xFF) during every kick flight; the kick's ring-1 key is the none key (pes-port-StallLive6 section 2).
+    // PES's kick pushes the none key into ring 1. The kick is committed in the team tick, and its record is produced in the listener's
+    // event pass of the NEXT frame (pes-port-StallLive9 section 1), so W1 moves the holder then, not here.
     pesKeyActor = nullptr;
-    pesHolder = nullptr;
   }
   const PassEvent& GetLastPassEvent() const { return lastPassEvent; }
 
@@ -267,8 +267,6 @@ public:
   // RecomputePesDesignatedOwner. Gate 4c reads it; NoActorKey() when the scan names nobody.
   pes::ActorKey GetPesDesignatedOwner() const { return pesDesignatedOwner; }
   void RecomputePesDesignatedOwner();
-  // PES's W1 holder write (MA+0x2601C, both sides), after the teams' tick: see match.cpp.
-  void WritePesHolderField();
   // How long the current holder has held the ball: the tick he became PES's holder (RecomputePesHolder).
   double GetPesHolderSince_ms() const { return pesHolderSince_ms; }
   // The newest ring-1 touch key's actor, W1's input: pushed by a touch that keeps the ball with the man and by
@@ -278,8 +276,8 @@ public:
   // W1's per-tick recompute (0x14045725A, MOV [RBP+0x2601C],EDI in FUN_140457070) behind the step switch
   // FUN_140458880 (checker 0x140458912; docs/re/pes-re-restart-step.md 3): the arm-and-run steps
   // 8/0xB/0xE/0x12 latch the run flag (set at 0x140457087/098, never cleared) and run the recompute;
-  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder adopts the
-  // key when it runs, never null, so the holder has no clear of its own.
+  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder becomes the newest ring-1 key's actor,
+  // or none when the key is the kick's none key (W1 writes 0xFF then, pes-holder-clear section 2).
   void RecomputePesHolder() {
     switch (pesRestartStep) {
       case 0x08:
@@ -296,7 +294,7 @@ public:
       default:
         return;
     }
-    if (pesKeyActor) pesHolder = pesKeyActor;
+    pesHolder = pesKeyActor;
     if (pesHolder != pesHolderSeen) {
       pesHolderSeen = pesHolder;
       pesHolderSince_ms = actualTime_ms;

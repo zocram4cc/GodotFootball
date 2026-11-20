@@ -493,9 +493,11 @@ bool HumanoidBase::PlayIssuedClip(const pes::MotionRequest& request, pes::PesCli
 bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family) {
   const bool onLocomotion = OnPesLocomotion();
   const bool onFamily = family == pes::PesClipFamily::kTrap ? OnPesTrap() : onLocomotion;
-  // The body takes an issued clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES clip
-  // already on the body (a trap's clip takes over a locomotion clip, as PES's action switch does). A ball action keeps the body.
-  if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion && !OnPesTrap()) return false;
+  // The body takes an issued clip while its PES action is MOVE-family or TRAP (P+0xAC8: MOVESTEP only issues in MOVE, and the trap tick
+  // only in TRAP), or a PES locomotion or trap clip is already on the body (a trap's clip takes over a locomotion clip, as PES's action
+  // switch does). A kick, tackle or catch action keeps the body.
+  const uint8_t action = match->PesWorldOf().P(match->PesSlotOf(static_cast<const Player*>(player)))[pes::kPByteAC8Offset];
+  if (!pes::IsMoveFamilyAction(action) && action != pes::kAnimeActionTrap && !onLocomotion && !OnPesTrap()) return false;
   // The same motion plays on: a re-issue changes its rate only, while the clip has frames left. A clip at its last frame
   // starts again from its first (PES's issue is a restart, movestep.hpp IssuedClip), because the body's own Switch at the
   // last frame is held in STOP and ACCELERATE (PesPoseHeld), so a re-issue is the only way that clip moves on.
