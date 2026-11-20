@@ -449,7 +449,7 @@ int main(int argc, char** argv) {
       if (rb.taker) {
         const Anim* clip = rb.taker->GetCurrentAnim();
         const Vector3 ball = match.GetBall()->Predict(0);
-        std::fprintf(stderr, "[stall-taker] fn=%d clip=%s frame=%d/%d ms=%d<-%d dist=%.2f speed=%.2f ballSpeed=%.2f ball=%.1f,%.1f,%.1f held=%d walking=%d pickingUp=%d\n",
+        std::fprintf(stderr, "[stall-taker] fn=%d clip=%s frame=%d/%d ms=%d<-%d dist=%.2f speed=%.2f ballSpeed=%.2f ball=%.1f,%.1f,%.1f held=%d walking=%d pickingUp=%d carrying=%d retainer=%d touchAnim=%d\n",
                     int(rb.taker->GetCurrentFunctionType()), clip->anim ? clip->anim->GetName().c_str() : "-", clip->frameNum,
                     clip->anim ? clip->anim->GetFrameCount() : 0, int(rb.taker->GetMoveStep().state),
                     int(rb.taker->GetMoveStep().previous), double((rb.taker->GetPosition() - ball).Get2D().GetLength()),
@@ -457,7 +457,9 @@ int main(int argc, char** argv) {
                     ball.coords[0], ball.coords[1], ball.coords[2],
                     int(rb.taker->GetTeam()->GetController()->IsPieceTakerHeld(rb.taker)),
                     int(rb.taker->GetTeam()->GetController()->IsPieceTakerWalking(rb.taker)),
-                    int(rb.taker->GetTeam()->GetController()->IsPickingUp()));
+                    int(rb.taker->GetTeam()->GetController()->IsPickingUp()),
+                    int(rb.taker->GetTeam()->GetController()->IsCarryingBall()), int(match.GetBallRetainer() == rb.taker),
+                    rb.taker->TouchAnim() ? 1 : 0);
       }
       return std::fprintf(stderr,
                           "[restart] stalled: no restart within %lu ticks (limit %lu ticks) | set piece %d in-play %d buffer active %d prepared %d started %d piece %d taker %s\n",

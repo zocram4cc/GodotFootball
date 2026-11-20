@@ -563,8 +563,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // GF's ball-control walk below was what made him one (the possession band), walking him after the ball he holds and over the line
     // (TheThrowInTakersAnklesStayBehindTheLine: nearer ankle 34.43 -> 33.86 m on Movement clips at 1.5-3.3 m/s).
     // ponytail: the loop's parametric turn (group 94) and its side step are not ported; standing stands in for them.
+    // PES's ThrowinLoop owns the lifted taker until the throw: the release (the restart's started flag) ends it, and the retainer throws.
     if (match->PesLoop() && restart == e_SetPiece_ThrowIn && team->GetController()->HoldsRoot(CastPlayer()) &&
-        team->GetController()->IsCarryingBall()) {
+        team->GetController()->IsCarryingBall() && !match->GetReferee()->GetBuffer().started) {
       if (match->GetBallRetainer() != player) match->SetBallRetainer(CastPlayer());
       PlayerCommand stand;
       stand.desiredFunctionType = e_FunctionType_Movement;
