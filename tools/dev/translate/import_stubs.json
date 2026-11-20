@@ -20,7 +20,7 @@
       "module": "kernel32.dll",
       "export": "VirtualAlloc",
       "do": "bump",
-      "code_hex": "48a10000000026000000488d141049ba0000000026000000498912c3",
+      "code_hex": "4885c9751c48a10000000026000000488d141049ba0000000026000000498912c34889c8c3",
       "why": ["kernel32!VirtualAlloc(NULL, size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE): a committed, zeroed block of size rdx, at the next free address of the boot window. The window (0x2600000000, 4 MB, zeroed, a service window of the replay port) holds its bump cell in its first qword (0x2600000000), which the port starts at 0x2600001000 (the first block). The model returns the old cell and adds the size: successive calls return disjoint blocks, as the region manager's retry needs (a constant base made 0x1403B4EB0 retry forever, CONFIRMED by a live stack). The base is not 4 MB aligned, so 0x1403B4E00 does not take its early return. ponytail: one 4 MB window, no free; a call past it reads unmapped memory and aborts loudly. INF: the protect and type arguments are not checked."]
     },
     {

@@ -48,7 +48,7 @@ constexpr RegionLayout kLayout[kRegions] = {
     {0x20050000, 0x4000},   // kP: the palette (0xA0-byte entries from +0x80)
     {0x20060000, 0x10000},  // kG2: the unit's frame table (0x1FB0-byte frames)
     {0x20070000, 0x1000},   // kM: the replay manager (+0x6A8 = the unit)
-    {0x20080000, 0x1000},   // kTeb: the thread block (+0x58 = the TLS array)
+    {0x20080000, 0x2000},   // kTeb: the thread block (+0x58 = the TLS array, +0x1480 = the 64 TLS slots of 8 bytes)
     {0x20090000, 0x1000},   // kTls: the TLS array (index 0 = the slot block)
     {0x200A0000, 0x1000},   // kSlot: the slot block (+0x58 = the saved word)
 };
@@ -90,9 +90,9 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
     m.host[r].assign(kLayout[r].size, 0);
     s.mem.services.push_back(PesMem::Window{kLayout[r].va, kLayout[r].size, nullptr, m.host[r].data()});
   }
-  // The block the VirtualAlloc model returns to PES's allocator boot (import_stubs.json kernel32 VirtualAlloc): committed
-  // and zeroed, at the VA the model names.
-  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x400000;  // the bump cell is its first qword (xlate BOOT_CELL)
+  // The boot window: zeroed, at the VA the VirtualAlloc model names. Its bump cell is its first qword (xlate BOOT_CELL).
+  // 16 MB covers the boot's first region (0x7F0000) and the 4 MB commit at its end.
+  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x1000000;
   m.boot.assign(kBootBytes, 0);
   const uint64_t firstBlock = kBootVa + 0x1000;  // the blocks VirtualAlloc hands out start after the cell's page
   std::memcpy(m.boot.data(), &firstBlock, 8);

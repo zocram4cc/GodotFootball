@@ -705,11 +705,13 @@ def import_model_lines(op, jump, keys=None):
                 + "".join(" s.wr(_b + 0x%XULL, %dULL, 4);" % (off, val) for off, val in SYSINFO_FIELDS)
                 + "%s }" % pop_ret]
     if e["do"] == "bump":
-        # kernel32!VirtualAlloc(rdx = size) over the boot window's bump cell (BOOT_CELL, its first qword): rax = the old cell,
-        # the cell advances by rdx; the code_hex (import_stubs.json) also leaves r10 = BOOT_CELL and rdx = the new cell.
-        return ["{ " + push_ret + " uint64_t _old = s.rd(0x%XULL, 8); uint64_t _new = _old + s.gpr[2];"
-                % BOOT_CELL + " s.wr(0x%XULL, _new, 8); s.gpr[0] = _old; s.gpr[2] = _new; s.gpr[10] = 0x%XULL;"
-                % (BOOT_CELL, BOOT_CELL) + "%s }" % pop_ret]
+        # kernel32!VirtualAlloc(rcx = lpAddress, rdx = size) over the boot window's bump cell (BOOT_CELL, its first qword),
+        # register for register as the code_hex (import_stubs.json): a nonzero lpAddress is a commit hint and returns itself
+        # (rdx, r10 and the cell are untouched); a NULL lpAddress returns the old cell, advances it by rdx, leaves r10 =
+        # BOOT_CELL and rdx = the new cell.
+        return ["{ " + push_ret + " if (s.gpr[1] != 0) { s.gpr[0] = s.gpr[1]; } else { uint64_t _old = s.rd(0x%XULL, 8);"
+                % BOOT_CELL + " uint64_t _new = _old + s.gpr[2]; s.wr(0x%XULL, _new, 8); s.gpr[0] = _old; s.gpr[2] = _new;"
+                % BOOT_CELL + " s.gpr[10] = 0x%XULL; }" % BOOT_CELL + "%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
 

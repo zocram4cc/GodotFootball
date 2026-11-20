@@ -111,7 +111,7 @@ class BootAllocatorModels(unittest.TestCase):
     CELL = 0x2600000000  # the boot window's bump cell (xlate BOOT_CELL)
     FIRST = 0x2600001000  # the first block (the port writes it into the cell)
 
-    def bump(self, size, cell):
+    def bump(self, size, cell, hint=0):
         """VirtualAlloc(NULL, size, ...) run in unicorn over the bump cell holding cell: returns (rax, the cell after)."""
         code = ft.load_import_models()[("kernel32.dll", "VirtualAlloc")]
         mu = Uc(UC_ARCH_X86, UC_MODE_64)
@@ -122,7 +122,7 @@ class BootAllocatorModels(unittest.TestCase):
         mu.mem_map(STACK, 0x1000)
         rsp = STACK + 0x800
         mu.mem_write(rsp, struct.pack("<Q", RET))
-        mu.reg_write(UC_X86_REG_RCX, 0)
+        mu.reg_write(UC_X86_REG_RCX, hint)
         mu.reg_write(UC_X86_REG_RDX, size)
         mu.reg_write(UC_X86_REG_RSP, rsp)
         mu.emu_start(CODE, RET, count=100)
@@ -137,6 +137,12 @@ class BootAllocatorModels(unittest.TestCase):
         rax, cell = self.bump(0x3000, self.FIRST + 0x3000)
         self.assertEqual(rax, self.FIRST + 0x3000)
         self.assertEqual(cell, self.FIRST + 0x6000)
+
+    def test_a_commit_hint_returns_itself_and_leaves_the_cell(self):
+        # the region allocator commits at the end of its block (0x2600400000): the hint is returned, the cell untouched
+        rax, cell = self.bump(0x400000, self.FIRST + 0x7F0000, hint=0x2600400000)
+        self.assertEqual(rax, 0x2600400000)
+        self.assertEqual(cell, self.FIRST + 0x7F0000)
 
     def test_virtual_free_succeeds(self):
         _, rax, _, _ = run("kernel32.dll", "VirtualFree", rcx=0x2600000000, rdx=0)
