@@ -65,9 +65,10 @@ class BreakerCensusProbe : public pestest::Probe {
     const Anim* clip = who->GetCurrentAnim();
     const auto& ms = who->GetMoveStep();
     Player* holder = match.GetPesHolder();
-    std::printf("STALLDUMP t=%lu man=%d team=%d clip=%s fn=%d frame=%d/%d ac8=%d ac9=%d holder=%d retainer=%d ms=%d<-%d dist=%.2f ballv=%.2f owner=%d pesHolder=%d\n",
+    std::printf("STALLDUMP t=%lu man=%d team=%d clip=%s fn=%d cmdfn=%d frame=%d/%d ac8=%d ac9=%d holder=%d retainer=%d ms=%d<-%d dist=%.2f ballv=%.2f owner=%d pesHolder=%d\n",
                 match.GetActualTime_ms(), who->GetID(), who->GetTeamID(), clip->anim ? clip->anim->GetName().c_str() : "-",
-                int(who->GetCurrentFunctionType()), clip->frameNum, clip->anim ? clip->anim->GetFrameCount() : 0,
+                int(who->GetCurrentFunctionType()), int(clip->originatingCommand.desiredFunctionType), clip->frameNum,
+                clip->anim ? clip->anim->GetFrameCount() : 0,
                 int(p[pes::kPByteAC8Offset]), int(p[pes::kPByteAC9Offset]), match.GetPesHolder() == who ? 1 : 0,
                 match.GetBallRetainer() == who ? 1 : 0, int(ms.state), int(ms.previous),
                 double((who->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength()),
