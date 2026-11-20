@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 0b6cee771dee88a0 -->
+<!-- LEDGER-STAMP a03769c2c5ea3a22 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (no flags: reads docs, src and every results set; `--funclist` replaces the bridge's function list), `hand.json`, `offpath_allow.json`, `history.csv` (one row per regeneration that changes the counts)).
@@ -13,34 +13,34 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 25835 | 18633 | 44468 |
+| total | 25842 | 18633 | 44475 |
 | ported | 405 | 0 | 405 |
 | diffed | 3767 | 0 | 3767 |
 | translated | 1827 | 0 | 1827 |
 | stand-in | 59 | 0 | 59 |
-| decoded | 1476 | 0 | 1476 |
-| leaf accessor | 1056 | 0 | 1056 |
+| decoded | 1477 | 0 | 1477 |
+| leaf accessor | 1059 | 0 | 1059 |
 | engine | 1631 | 0 | 1631 |
-| undecoded | 15613 | 0 | 15613 |
+| undecoded | 15616 | 0 | 15616 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 18633 | 18633 |
 
-In scope with a verdict (CONFIRMED/OBS/DOC/INF): 3418 of 25835 (13.2%). Implemented (ported, diffed or translated): 5999 of 25835 (23.2%).
+In scope with a verdict (CONFIRMED/OBS/DOC/INF): 3419 of 25842 (13.2%). Implemented (ported, diffed or translated): 5999 of 25842 (23.2%).
 
 Proof behind the in-scope rows: diffed real 3744, diffed synthetic 23; translated record 0, translated closure 1827.
 
 Change since the previous regeneration (in scope, one line per status):
 
-- in_total: 28773 -> 25835 (-2938) since 50d74fe378 (2026-11-19)
-- ported: 406 -> 405 (-1) since 50d74fe378 (2026-11-19)
-- diffed: 3767 -> 3767 (+0) since 50d74fe378 (2026-11-19)
-- translated: 1860 -> 1827 (-33) since 50d74fe378 (2026-11-19)
-- stand-in: 59 -> 59 (+0) since 50d74fe378 (2026-11-19)
-- decoded: 1480 -> 1476 (-4) since 50d74fe378 (2026-11-19)
-- leaf accessor: 1181 -> 1056 (-125) since 50d74fe378 (2026-11-19)
-- engine: 1631 -> 1631 (+0) since 50d74fe378 (2026-11-19)
-- undecoded: 18388 -> 15613 (-2775) since 50d74fe378 (2026-11-19)
-- inert: 1 -> 1 (+0) since 50d74fe378 (2026-11-19)
+- in_total: 25835 -> 25842 (+7) since 760df30652 (2026-11-20)
+- ported: 405 -> 405 (+0) since 760df30652 (2026-11-20)
+- diffed: 3767 -> 3767 (+0) since 760df30652 (2026-11-20)
+- translated: 1827 -> 1827 (+0) since 760df30652 (2026-11-20)
+- stand-in: 59 -> 59 (+0) since 760df30652 (2026-11-20)
+- decoded: 1476 -> 1477 (+1) since 760df30652 (2026-11-20)
+- leaf accessor: 1056 -> 1059 (+3) since 760df30652 (2026-11-20)
+- engine: 1631 -> 1631 (+0) since 760df30652 (2026-11-20)
+- undecoded: 15613 -> 15616 (+3) since 760df30652 (2026-11-20)
+- inert: 1 -> 1 (+0) since 760df30652 (2026-11-20)
 
 ## Scope rules
 
@@ -175,7 +175,9 @@ Rows per subsystem and status:
 | in-match menu | 3783 | 10 | 30 | 38 | 3 | 30 | 379 | 83 | 3209 | 1 |
 | render | 297 | 0 | 0 | 7 | 0 | 0 | 0 | 290 | 0 | 0 |
 | animelayer19 | 9 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 6 | 0 |
-| total | 25835 | 405 | 3767 | 1827 | 59 | 1476 | 1056 | 1631 | 15613 | 1 |
+| bootpath | 4 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 3 | 0 |
+| recce0 | 3 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 0 | 0 |
+| total | 25842 | 405 | 3767 | 1827 | 59 | 1477 | 1059 | 1631 | 15616 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -194,10 +196,12 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | crowd | 267 | 93 | 41 | 41 | 49 | 218 | 0 |
 | HUD | 159 | 52 | 51 | 51 | 159 | 0 | 0 |
 | cutscene | 4047 | 797 | 654 | 599 | 811 | 3236 | 0 |
-| in-match menu | 3783 | 960 | 43 | 37 | 123 | 3660 | 0 |
+| in-match menu | 3783 | 961 | 43 | 37 | 123 | 3660 | 0 |
 | render | 297 | 0 | 0 | 0 | 0 | 0 | 297 |
 | animelayer19 | 9 | 5 | 0 | 0 | 0 | 0 | 0 |
-| total | 25835 | 7811 | 4231 | 3736 | 17110 | 8419 | 297 |
+| bootpath | 4 | 1 | 0 | 0 | 0 | 0 | 0 |
+| recce0 | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
+| total | 25842 | 7816 | 4231 | 3736 | 17110 | 8419 | 297 |
 
 ## Roots
 
@@ -440,7 +444,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 1056 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 1059 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 44 | 43 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -884,7 +888,7 @@ Not found (owner's list):
 | 0x1403CF330 | FUN_1403cf330 | undecoded | - | - | - | - | 1 | 37 | - | doc | 1403CF060>1403CF5D0>1403CF330 |
 | 0x1403CF5D0 | FUN_1403cf5d0 | undecoded | - | - | - | - | 1 | 49 | - | doc | 1403CA430>1403CF060>1403CF5D0 |
 | 0x1403CF690 | FUN_1403cf690 | undecoded | - | - | - | - | 1 | 12 | - | doc | 1403CAB80>1403CAAA0>1403CF690 |
-| 0x1403CF740 | FUN_1403cf740 | translated | closure | - | - | - | 93 | 8 | - | doc | 1419112B0>14167ED90>1403CF740 |
+| 0x1403CF740 | FUN_1403cf740 | translated | closure | - | - | - | 94 | 8 | - | doc | 1419112B0>14167ED90>1403CF740 |
 | 0x1403CF760 | FUN_1403cf760 | undecoded | - | - | - | - | 6 | 3 | - | doc | 14022D580>1403B72E0>1403CF760 |
 | 0x1403CF980 | FUN_1403cf980 | undecoded | - | - | - | - | 38 | 29 | - | doc | 1403D32A0>1403D2C40>1403CF980 |
 | 0x1403CF9F0 | FUN_1403cf9f0 | undecoded | - | - | - | - | 2 | 34 | - | doc | 1403B9E10>1403B93D0>1403CF9F0 |
@@ -1171,7 +1175,7 @@ Not found (owner's list):
 | 0x1414A22E0 | FUN_1414a22e0 | undecoded | - | - | - | - | 1 | 69 | - | doc | 141EA1320>1414A8D60>1414A22E0 |
 | 0x1414A3530 | FUN_1414a3530 | diffed | real | - | - | - | 2 | 2 | y | doc | 141EA1320>1414A8D60>1414A3530 |
 | 0x1414A3540 | FUN_1414a3540 | diffed | real | - | - | - | 2 | 2 | y | doc | 141EA1320>1414A8D60>1414A3540 |
-| 0x1414A8D60 | FUN_1414a8d60 | decoded | - | OBS | pes-kit-assembly.md | - | 36 | 107 | - | doc | 141EA1320>1414A8D60 |
+| 0x1414A8D60 | FUN_1414a8d60 | decoded | - | OBS | pes-kit-assembly.md | - | 37 | 107 | - | doc | 141EA1320>1414A8D60 |
 | 0x1414A98A0 | FUN_1414a98a0 | diffed | real | - | - | - | 5 | 17 | y | doc | 141EA3190>141EA2AD0>1414A98A0 |
 | 0x1414A98D0 | FUN_1414a98d0 | diffed | real | OBS | pes-kit-assembly.md | - | 5 | 17 | y | doc | 141EA3190>141EA2C90>1414A98D0 |
 | 0x1414A9900 | FUN_1414a9900 | diffed | real | OBS | pes-kit-assembly.md | - | 5 | 13 | y | doc | 141EA3190>141EA2C90>1414A9900 |
@@ -2743,7 +2747,7 @@ Not found (owner's list):
 | 0x1403BD5E0 | FUN_1403bd5e0 | engine | - | - | - | - | 1 | 42 | - | doc | 1402B0462>1403BD680>1403BD5E0 |
 | 0x1403BD680 | FUN_1403bd680 | undecoded | - | - | - | - | 1 | 95 | - | doc | 1402B0360>1402B0462>1403BD680 |
 | 0x1403CBE70 | FUN_1403cbe70 | engine | - | - | - | - | 1 | 211 | - | doc | 1402B0462>1403BD680>1403CBE70 |
-| 0x1403CF7E0 | FUN_1403cf7e0 | ported | - | OBS | pes-re-stadium-cloth-vfx.md | src/sim/onthepitch/pestrapactor.hpp | 445 | 26 | - | doc | 140418940>1403CF7E0 |
+| 0x1403CF7E0 | FUN_1403cf7e0 | ported | - | OBS | pes-re-stadium-cloth-vfx.md | src/sim/onthepitch/pestrapactor.hpp | 446 | 26 | - | doc | 140418940>1403CF7E0 |
 | 0x1403DB240 | FUN_1403db240 | diffed | real | - | - | - | 159 | 3 | y | doc | 140418940>1403DB240 |
 | 0x1403DB250 | FUN_1403db250 | diffed | real | - | pes-re-tick-order.md | - | 117 | 3 | y | doc | 140418940>1403DB250 |
 | 0x1403DB290 | FUN_1403db290 | diffed | real | - | - | - | 7 | 3 | y | doc | 140418940>1403CF7E0>1403DB290 |
@@ -12252,7 +12256,7 @@ Not found (owner's list):
 | 0x14159EBF0 | FUN_14159ebf0 | undecoded | - | - | - | - | 1 | 72 | y | doc | 14158B6F0>14158DFC0>14159EBF0 |
 | 0x14159EF7C | ?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z | engine | - | - | - | - | 1 | 15 | - | doc | 140AC4900>140AC4BA0>14159EF7C |
 | 0x14159EFF8 | ??_L@YAXPEAX_K1P6AX0@Z2@Z | translated | closure | - | - | - | 116 | 35 | - | doc | 14051E970>14159EFF8 |
-| 0x14159F3E0 | __security_check_cookie | engine | - | - | pes-re-press-layer-port.md | - | 4141 | 8 | - | doc | 1404F6C30>14159F3E0 |
+| 0x14159F3E0 | __security_check_cookie | engine | - | - | pes-re-press-layer-port.md | - | 4142 | 8 | - | doc | 1404F6C30>14159F3E0 |
 | 0x14159FA0C | ??_M@YAXPEAX_K1P6AX0@Z@Z | translated | closure | OBS | pes-re-duel-sim.md | - | 224 | 36 | - | doc | 14051E970>14159FA0C |
 | 0x14159FB70 | _alloca_probe | engine | - | - | - | - | 73 | 19 | - | doc | 140500B90>14159FB70 |
 | 0x1415A1732 | FUN_1415a1732 | engine | - | - | - | - | 2 | 1 | - | doc | 140398360>14038DB60>1415A1732 |
@@ -13879,7 +13883,7 @@ Not found (owner's list):
 | 0x14022A8E0 | FUN_14022a8e0 | diffed | real | - | - | - | 2 | 9 | y | doc | 141B09610>141B05720>14022A8E0 |
 | 0x14022A900 | FUN_14022a900 | diffed | real | - | - | - | 2 | 9 | y | doc | 141B09610>141B057F0>14022A900 |
 | 0x14022C3F0 | FUN_14022c3f0 | translated | closure | - | - | - | 23 | 173 | - | doc | 1406E5FC0>141AF52B0>14022C3F0 |
-| 0x14022C690 | FUN_14022c690 | translated | closure | - | - | - | 264 | 62 | - | doc | 1406E5FC0>141AF52B0>14022C690 |
+| 0x14022C690 | FUN_14022c690 | translated | closure | - | - | - | 265 | 62 | - | doc | 1406E5FC0>141AF52B0>14022C690 |
 | 0x14022DEC0 | FUN_14022dec0 | undecoded | - | - | - | - | 1 | 33 | - | doc | 141B0A540>141B0A430>14022DEC0 |
 | 0x14022DF30 | FUN_14022df30 | undecoded | - | - | - | - | 2 | 28 | - | doc | 141B09610>141B054D0>14022DF30 |
 | 0x140236F60 | FUN_140236f60 | undecoded | - | - | - | - | 1 | 134 | - | doc | 14036E6D0>140247060>140236F60 |
@@ -14762,7 +14766,7 @@ Not found (owner's list):
 | 0x141AFC700 | FUN_141afc700 | undecoded | - | - | - | - | 5 | 212 | - | doc | 141AF4230>141AEF890>141AFC700 |
 | 0x141AFCF10 | FUN_141afcf10 | undecoded | - | - | - | - | 2 | 27 | - | doc | 141AF3190>141AECF80>141AFCF10 |
 | 0x141AFDF10 | FUN_141afdf10 | decoded | - | OBS | pes-re-gaps-anime.md | - | 5 | 72 | - | doc | 1406B8340>140714AD0>141AFDF10 |
-| 0x141B034B0 | FUN_141b034b0 | diffed | real | - | - | - | 20 | 2 | y | doc | 1406E5FC0>141AF52B0>141B034B0 |
+| 0x141B034B0 | FUN_141b034b0 | diffed | real | - | - | - | 21 | 2 | y | doc | 1406E5FC0>141AF52B0>141B034B0 |
 | 0x141B03660 | FUN_141b03660 | translated | closure | - | - | - | 5 | 60 | - | doc | 1406E5FC0>141AF52B0>141B03660 |
 | 0x141B03730 | FUN_141b03730 | translated | closure | - | - | - | 3 | 58 | - | doc | 1406E5FC0>141AF52B0>141B03730 |
 | 0x141B048A0 | FUN_141b048a0 | undecoded | - | - | - | - | 2 | 62 | - | doc | 141B0AA20>141B09610>141B048A0 |
@@ -18121,14 +18125,14 @@ Not found (owner's list):
 | 0x1400EEF90 | FUN_1400eef90 | diffed | real | - | - | - | 6 | 19 | y | doc | 1400BEA80>14002EB90>1400EEF90 |
 | 0x140108D70 | FUN_140108d70 | undecoded | - | - | - | - | 3 | 57 | - | doc | 1400BEA80>1400341F0>140108D70 |
 | 0x1403FB4F0 | FUN_1403fb4f0 | translated | closure | - | - | - | 1 | 60 | - | doc | 1420F0EB0>1403FB5B0>1403FB4F0 |
-| 0x1403FB5B0 | FUN_1403fb5b0 | translated | closure | OBS | pes-re-gaps-anime.md | - | 4193 | 13 | - | doc | 1420F0EB0>1403FB5B0 |
+| 0x1403FB5B0 | FUN_1403fb5b0 | translated | closure | OBS | pes-re-gaps-anime.md | - | 4194 | 13 | - | doc | 1420F0EB0>1403FB5B0 |
 | 0x140400F50 | FUN_140400f50 | translated | closure | - | - | - | 73 | 22 | - | doc | 1420F2F80>140400F50 |
-| 0x140402240 | FUN_140402240 | translated | closure | - | - | - | 628 | 85 | - | doc | 1420F1750>140402240 |
-| 0x140402370 | FUN_140402370 | translated | closure | - | - | - | 804 | 94 | - | doc | 1420F0EB0>140402370 |
+| 0x140402240 | FUN_140402240 | translated | closure | - | - | - | 629 | 85 | - | doc | 1420F1750>140402240 |
+| 0x140402370 | FUN_140402370 | translated | closure | - | - | - | 805 | 94 | - | doc | 1420F0EB0>140402370 |
 | 0x1404024A0 | FUN_1404024a0 | translated | closure | - | - | - | 8 | 62 | - | doc | 1420F1750>140402240>1404024A0 |
 | 0x140402F40 | FUN_140402f40 | undecoded | - | - | - | - | 77 | 81 | - | doc | 1420EB0C0>140402F40 |
 | 0x140403060 | FUN_140403060 | undecoded | - | - | - | - | 112 | 98 | - | doc | 1420EB0C0>1408DF1D0>140403060 |
-| 0x1404CC200 | FUN_1404cc200 | undecoded | - | - | - | - | 10 | 55 | - | doc | 1420F1750>1404CC200 |
+| 0x1404CC200 | FUN_1404cc200 | undecoded | - | - | - | - | 11 | 55 | - | doc | 1420F1750>1404CC200 |
 | 0x1404CE5C0 | FUN_1404ce5c0 | undecoded | - | - | - | - | 5 | 53 | - | doc | 1420EB0C0>1408DF1D0>1404CE5C0 |
 | 0x1408DF1D0 | FUN_1408df1d0 | undecoded | - | - | - | - | 23 | 56 | - | doc | 1420EB0C0>1408DF1D0 |
 | 0x140A6BD80 | FUN_140a6bd80 | diffed | real | OBS | pes-re-clock-live.md | src/sim/onthepitch/pesclock.hpp;src/sim/onthepitch/pesclock.cpp;src/pes/fixdemo_select.hpp | 6 | 18 | y | doc | 140A6BD80 |
@@ -18572,7 +18576,7 @@ Not found (owner's list):
 | 0x14022B210 | FUN_14022b210 | undecoded | - | - | - | - | 1 | 15 | - | rtti | 1402281F0>14022AA90>14022B210 |
 | 0x14022B250 | FUN_14022b250 | undecoded | - | - | - | - | 1 | 23 | - | rtti | 1402281F0>14022AA90>14022B250 |
 | 0x14022B360 | FUN_14022b360 | undecoded | - | - | - | - | 1 | 27 | - | rtti | 1402C0410>14022B360 |
-| 0x14022C770 | FUN_14022c770 | undecoded | - | - | - | - | 19 | 117 | - | rtti | 141F7EFD0>141AFB090>14022C770 |
+| 0x14022C770 | FUN_14022c770 | undecoded | - | - | - | - | 20 | 117 | - | rtti | 141F7EFD0>141AFB090>14022C770 |
 | 0x14022C910 | FUN_14022c910 | undecoded | - | - | - | - | 12 | 14 | - | rtti | 141F63300>14022C910 |
 | 0x14022C980 | FUN_14022c980 | translated | closure | - | - | - | 13 | 8 | - | rtti | 1402C0410>14022C980 |
 | 0x14022CA50 | FUN_14022ca50 | undecoded | - | - | - | - | 3 | 32 | - | rtti | 1402B8290>14022CA50 |
@@ -20166,7 +20170,7 @@ Not found (owner's list):
 | 0x141AFE750 | FUN_141afe750 | translated | closure | - | pes-re-chainx-select.md | - | 4 | 39 | - | rtti | 141F7E510>141EBA5B0>141AFE750 |
 | 0x141AFE810 | FUN_141afe810 | translated | closure | - | pes-re-chainx-select.md | - | 4 | 192 | - | rtti | 141F7ECC0>141AFED20>141AFE810 |
 | 0x141AFEB40 | FUN_141afeb40 | undecoded | - | - | - | - | 4 | 63 | - | rtti | 141F7ECC0>141AFEB40 |
-| 0x141AFEC30 | FUN_141afec30 | undecoded | - | - | - | - | 3 | 63 | - | rtti | 141F2F6B0>141F29420>141AFEC30 |
+| 0x141AFEC30 | FUN_141afec30 | undecoded | - | - | - | - | 4 | 63 | - | rtti | 141F2F6B0>141F29420>141AFEC30 |
 | 0x141AFED20 | FUN_141afed20 | undecoded | - | - | - | - | 4 | 49 | - | rtti | 141F7ECC0>141AFED20 |
 | 0x141AFEE00 | FUN_141afee00 | engine | - | - | pes-re-chainx-select.md | - | 1 | 30 | - | rtti | 141AFEB40>141AFE2C0>141AFEE00 |
 | 0x141AFEE60 | FUN_141afee60 | engine | - | - | - | - | 1 | 26 | - | rtti | 141AFEC30>141AFE440>141AFEE60 |
@@ -20180,7 +20184,7 @@ Not found (owner's list):
 | 0x141AFF1A0 | FUN_141aff1a0 | engine | - | - | pes-re-chainx-select.md | - | 1 | 21 | - | rtti | 141AFEB40>141AFE2C0>141AFF1A0 |
 | 0x141AFF1F0 | FUN_141aff1f0 | engine | - | - | pes-re-chainx-select.md | - | 1 | 76 | - | rtti | 141AFEB40>141AFE2C0>141AFF1F0 |
 | 0x141AFF320 | FUN_141aff320 | undecoded | - | - | - | - | 1 | 80 | y | rtti | 141F7ECC0>141AFF8E0>141AFF320 |
-| 0x141AFF5A0 | FUN_141aff5a0 | undecoded | - | - | - | - | 1 | 4 | - | rtti | 1408D8810>1408D84C0>141AFF5A0 |
+| 0x141AFF5A0 | FUN_141aff5a0 | undecoded | - | - | - | - | 2 | 4 | - | rtti | 1408D8810>1408D84C0>141AFF5A0 |
 | 0x141AFF5B0 | FUN_141aff5b0 | undecoded | - | - | - | - | 4 | 9 | - | rtti | 1408D0920>1408D7BC0>141AFF5B0 |
 | 0x141AFF5E0 | FUN_141aff5e0 | undecoded | - | - | - | - | 16 | 77 | - | rtti | 141F7ECC0>141AFF5E0 |
 | 0x141AFF710 | FUN_141aff710 | diffed | real | - | - | - | 1 | 10 | y | rtti | 141F83150>141AFF710 |
@@ -20189,14 +20193,14 @@ Not found (owner's list):
 | 0x141AFF7B0 | FUN_141aff7b0 | translated | closure | - | - | - | 11 | 6 | y | rtti | 141F7ECC0>141AFF7B0 |
 | 0x141AFF7D0 | FUN_141aff7d0 | undecoded | - | - | - | - | 2 | 62 | - | doc | 1404A3FA0>141AEA140>141AFF7D0 |
 | 0x141AFF8E0 | FUN_141aff8e0 | undecoded | - | - | - | - | 4 | 616 | - | rtti | 141F7ECC0>141AFF8E0 |
-| 0x141B00220 | FUN_141b00220 | undecoded | - | - | - | - | 3 | 108 | - | rtti | 141F2F6B0>141F29420>141B00220 |
-| 0x141B003B0 | FUN_141b003b0 | undecoded | - | - | - | - | 3 | 350 | - | rtti | 141F2F6B0>141F29420>141B003B0 |
+| 0x141B00220 | FUN_141b00220 | undecoded | - | - | - | - | 4 | 108 | - | rtti | 141F2F6B0>141F29420>141B00220 |
+| 0x141B003B0 | FUN_141b003b0 | undecoded | - | - | - | - | 4 | 350 | - | rtti | 141F2F6B0>141F29420>141B003B0 |
 | 0x141B00910 | FUN_141b00910 | engine | - | - | pes-re-chainx-select.md | - | 1 | 69 | - | rtti | 141AFEB40>141AFE2C0>141B00910 |
 | 0x141B00AE0 | FUN_141b00ae0 | diffed | real | - | - | - | 3 | 26 | y | rtti | 141F2EBB0>141F7DF10>141B00AE0 |
 | 0x141B00B50 | FUN_141b00b50 | diffed | real | - | - | - | 5 | 14 | y | rtti | 141F2EBB0>141F7DF10>141B00B50 |
 | 0x141B00BA0 | FUN_141b00ba0 | undecoded | - | - | - | - | 4 | 243 | - | rtti | 141F2EBB0>141F828F0>141B00BA0 |
 | 0x141B00F90 | FUN_141b00f90 | undecoded | - | - | - | - | 1 | 27 | - | rtti | 1408D7BC0>1408D6580>141B00F90 |
-| 0x141B021A0 | FUN_141b021a0 | undecoded | - | - | - | - | 4 | 148 | - | rtti | 1408D8810>1408D84C0>141B021A0 |
+| 0x141B021A0 | FUN_141b021a0 | undecoded | - | - | - | - | 5 | 148 | - | rtti | 1408D8810>1408D84C0>141B021A0 |
 | 0x141B034C0 | FUN_141b034c0 | undecoded | - | - | - | - | 4 | 37 | - | rtti | 141F7EFD0>141AFB090>141B034C0 |
 | 0x141B03540 | FUN_141b03540 | undecoded | - | - | - | - | 3 | 37 | - | rtti | 141F7EFD0>141AFB090>141B03540 |
 | 0x141B035C0 | FUN_141b035c0 | undecoded | - | - | - | - | 3 | 37 | - | rtti | 141F29420>141B003B0>141B035C0 |
@@ -22738,7 +22742,7 @@ Not found (owner's list):
 | 0x1401A71C0 | thunk_EXT_FUN_143db4730 | undecoded | - | - | - | - | 1 | 1 | - | rtti | 140195740>1401A7120>1401A71C0 |
 | 0x1401A71F0 | FUN_1401a71f0 | undecoded | - | - | - | - | 1 | 34 | - | rtti | 1401A6480>140195810>1401A71F0 |
 | 0x1401F0FC3 | FUN_1401f0fc3 | undecoded | - | - | - | - | 1 | 914 | y | rtti | 1420BE4F0>1420BE530>1401F0FC3 |
-| 0x140227920 | FUN_140227920 | translated | closure | - | - | - | 208 | 2 | - | rtti | 141FA0DA0>141FA0D30>140227920 |
+| 0x140227920 | FUN_140227920 | translated | closure | - | - | - | 209 | 2 | - | rtti | 141FA0DA0>141FA0D30>140227920 |
 | 0x14023DB00 | FUN_14023db00 | undecoded | - | - | - | - | 12 | 32 | - | rtti | 1420BE530>141C06500>14023DB00 |
 | 0x140243E90 | FUN_140243e90 | undecoded | - | - | - | - | 5 | 32 | - | rtti | 1420BE530>141C06500>140243E90 |
 | 0x140264840 | FUN_140264840 | undecoded | - | - | - | - | 90 | 133 | - | rtti | 141FA0F90>140264840 |
@@ -22779,7 +22783,7 @@ Not found (owner's list):
 | 0x140388D20 | FUN_140388d20 | undecoded | - | - | - | - | 5 | 53 | - | rtti | 140397990>140396A70>140388D20 |
 | 0x14038E650 | FUN_14038e650 | undecoded | - | - | - | - | 1 | 24 | - | rtti | 14037FCD0>14038E7A0>14038E650 |
 | 0x14038E7A0 | FUN_14038e7a0 | undecoded | - | - | - | - | 1 | 6 | - | rtti | 14037FE60>14037FCD0>14038E7A0 |
-| 0x140396520 | thunk_EXT_FUN_143e05000 | undecoded | - | - | - | - | 6 | 1 | - | rtti | 1421720D0>1421726F0>140396520 |
+| 0x140396520 | thunk_EXT_FUN_143e05000 | undecoded | - | - | - | - | 6 | 1 | y | rtti | 1421720D0>1421726F0>140396520 |
 | 0x140396530 | FUN_140396530 | undecoded | - | - | - | - | 7 | 16 | - | rtti | 1421720D0>1421726F0>140396530 |
 | 0x140396A70 | FUN_140396a70 | undecoded | - | - | - | - | 2 | 196 | - | rtti | 1403971B0>140397990>140396A70 |
 | 0x140396E50 | FUN_140396e50 | undecoded | - | - | - | - | 2 | 106 | - | rtti | 1403971B0>140397990>140396E50 |
@@ -23110,7 +23114,7 @@ Not found (owner's list):
 | 0x1404EC9A0 | FUN_1404ec9a0 | leaf accessor | - | - | - | - | 2 | 2 | y | rtti | 1404EC930>1404EC810>1404EC9A0 |
 | 0x1404EC9B0 | FUN_1404ec9b0 | undecoded | - | - | - | - | 2 | 38 | - | rtti | 1404EC930>1404EC810>1404EC9B0 |
 | 0x1404ECA50 | FUN_1404eca50 | undecoded | - | - | - | - | 2 | 208 | - | rtti | 1404EC930>1404EC810>1404ECA50 |
-| 0x1404ECDE0 | FUN_1404ecde0 | undecoded | - | - | - | - | 10 | 36 | - | rtti | 14090CE60>14090CE70>1404ECDE0 |
+| 0x1404ECDE0 | FUN_1404ecde0 | undecoded | - | - | - | - | 11 | 36 | - | rtti | 14090CE60>14090CE70>1404ECDE0 |
 | 0x1404ECE60 | FUN_1404ece60 | undecoded | - | - | - | - | 2 | 17 | - | rtti | 1404EDEE0>1404ED190>1404ECE60 |
 | 0x1404ECEA0 | FUN_1404ecea0 | undecoded | - | - | - | - | 2 | 100 | - | rtti | 1404EDEE0>1404ED190>1404ECEA0 |
 | 0x1404ED010 | FUN_1404ed010 | undecoded | - | - | - | - | 1 | 29 | - | rtti | 1404E6BD0>1404ED120>1404ED010 |
@@ -26387,4 +26391,21 @@ Not found (owner's list):
 | 0x140381390 | FUN_140381390 | undecoded | - | - | - | - | 1 | 47 | - | closure |  |
 | 0x14038A620 | FUN_14038a620 | undecoded | - | - | - | - | 0 | 56 | - | closure |  |
 | 0x14038CFE0 | FUN_14038cfe0 | leaf accessor | - | - | - | - | 1 | 47 | y | closure |  |
+
+## bootpath (4)
+
+| VA | name | status | proof | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0x141AF4C70 | FUN_141af4c70 | undecoded | - | - | - | - | 1 | 32 | - | closure |  |
+| 0x141EB8E80 | FUN_141eb8e80 | undecoded | - | - | - | - | 0 | 321 | - | closure |  |
+| 0x143E05000 | FUN_143e05000 | leaf accessor | - | - | - | - | 1 | 3 | y | closure |  |
+| 0x143E92380 | FUN_143e92380 | undecoded | - | - | - | - | 1 | 60 | - | closure |  |
+
+## recce0 (3)
+
+| VA | name | status | proof | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0x140A88CE0 | FUN_140a88ce0 | decoded | - | OBS | pes-re-cutscenes.md | - | 0 | 55 | y | closure |  |
+| 0x140A8D820 | FUN_140a8d820 | leaf accessor | - | - | - | - | 1 | 3 | y | closure |  |
+| 0x140A8E3D0 | FUN_140a8e3d0 | leaf accessor | - | - | - | - | 1 | 53 | y | closure |  |
 

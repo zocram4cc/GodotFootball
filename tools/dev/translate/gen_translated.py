@@ -49,7 +49,7 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_throwin.json", "kick"),
         ("results_kickroot.json", "kickroot"), ("results_kickturn.json", "kickroot"),
         ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"), ("results_teampass.json", "teampass"),
-        ("results_gkdribble.json", "gkdribble"))
+        ("results_gkdribble.json", "gkdribble"), ("results_recorder.json", "recorder"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"

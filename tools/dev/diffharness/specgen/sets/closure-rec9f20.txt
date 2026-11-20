@@ -1,0 +1,2 @@
+0x140A89F20	stand-in	gameplay	seed
+0x141E532E0	stand-in	referee	callee
