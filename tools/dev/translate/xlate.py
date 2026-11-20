@@ -598,6 +598,15 @@ def import_model_lines(op, jump, keys=None):
     if e["do"] == "vsprintf_s":
         # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
         return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "vsnprintf_s":
+        # ucrtbase __stdio_common_vsnprintf_s: pes_model_vsnprintf_s (pes_stubs.hpp) mirrors vsnprintf_model.s (the seven-argument layout).
+        return ["{ " + push_ret + " pes_model_vsnprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "strncmp":
+        # ucrtbase strncmp(rcx = s1, rdx = s2, r8 = n): pes_model_strncmp (pes_stubs.hpp) mirrors strncmp_model.s register for register.
+        return ["{ " + push_ret + " pes_model_strncmp(s);%s }" % pop_ret]
+    if e["do"] == "toupper":
+        # ucrtbase toupper(ecx = c): pes_model_toupper (pes_stubs.hpp) mirrors toupper_model.s register for register.
+        return ["{ " + push_ret + " pes_model_toupper(s);%s }" % pop_ret]
     if e["do"] == "strcpy_s":
         # ucrtbase strcpy_s(rcx = dst, rdx = size, r8 = src), the code_hex model register for register: dst or size zero is EINVAL (0x16),
         # no write; src zero writes dst[0] = 0 then EINVAL; else the copy walks r9 from dst with r8 = src - dst, rdx counting the bytes

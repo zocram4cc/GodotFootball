@@ -111,6 +111,154 @@
    "stubs": [],
    "translated": true,
    "va": "0x140A88CE0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_rec30.json",
+   "coverage": {
+    "0x140A89030": {
+     "reached": 16,
+     "total": 28,
+     "fraction": 0.5714
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 16,
+     "total": 28,
+     "fraction": 0.5714
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_recorder.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A89030"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_rec3f0.json",
+   "coverage": {
+    "0x140A893F0": {
+     "reached": 14,
+     "total": 16,
+     "fraction": 0.875
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 16,
+     "fraction": 0.875
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_recorder.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A893F0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_rec8d0.json",
+   "coverage": {
+    "0x140A898D0": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 4,
+     "total": 4,
+     "fraction": 1.0
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_recorder.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A898D0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_rec8ed.json",
+   "coverage": {
+    "0x140A8ED70": {
+     "reached": 8,
+     "total": 12,
+     "fraction": 0.6667
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1: 1 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 8,
+     "total": 12,
+     "fraction": 0.6667
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_recorder.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A8ED70"
   }
  ]
 }

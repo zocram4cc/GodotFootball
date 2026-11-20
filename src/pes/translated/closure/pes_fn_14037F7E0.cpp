@@ -8,9 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x142530650 (8 bytes)
-static constexpr uint64_t k_c142530650_q = 0x00006FFFFEC787B0ULL;
-static constexpr double k_c142530650_d = 6.0841853201064e-310; // 6.0841853201064e-310
 
 void pes_fn_14037F7E0(PesState& s);
 void pes_fn_14037FBA0(PesState& s);
@@ -95,10 +92,7 @@ void pes_fn_14037F7E0(PesState& s) {
   if (s.cond("nz")) goto L_14037F860;
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(s.gpr[13]);
-  { uint64_t _t = (uint64_t)(k_c142530650_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_model_strncmp(s); s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false; }
@@ -144,10 +138,7 @@ void pes_fn_14037F7E0(PesState& s) {
   if (s.cond("nz")) goto L_14037F8B0;
   s.gpr[2] = (uint64_t)(s.gpr[3]);
   s.gpr[1] = (uint64_t)(s.gpr[13]);
-  { uint64_t _t = (uint64_t)(k_c142530650_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_model_strncmp(s); s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false; }

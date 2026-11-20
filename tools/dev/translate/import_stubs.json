@@ -4,6 +4,37 @@
   "imports": [
     {
       "module": "ucrtbase.dll",
+      "export": "toupper",
+      "do": "toupper",
+      "code_hex": "89c88d509f83fa19770383e820c3",
+      "why": [
+        "int toupper(int c): ecx; returns c - 0x20 for c in 'a'..'z', else c, in eax (rax zero-extended). Called by PES's record create 0x1408BE3C0 on name characters.",
+        "A hand model (source: toupper_model.s; `as` + `objcopy -O binary -j .text` gives code_hex). No stack use, no memory write; edx is left as the range test's scratch (c - 'a', zero-extended), mirrored by pes_model_toupper."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "strncmp",
+      "do": "strncmp",
+      "code_hex": "4d85c0741b0fb601440fb60a4439c8751285c0740b48ffc148ffc249ffc875e531c0c34429c8c3",
+      "why": [
+        "int strncmp(const char *s1, const char *s2, size_t n): rcx, rdx, r8; returns s1 - s2 for the first bytes that differ (unsigned), 0 when they agree to a NUL or for n bytes. Called by PES's record create 0x1408BE3C0 on the asset path prefix (\"/Assets/pes16/...\" against \"/Assets\", n = 7).",
+        "A hand model (source: strncmp_model.s; `as` + `objcopy -O binary -j .text` gives code_hex). No stack use, no memory write; leaves rcx and rdx advanced over the agreeing bytes, r8 the count left, r9 the last byte of s2 read (the model's scratch registers, mirrored by pes_model_strncmp)."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
+      "export": "__stdio_common_vsnprintf_s",
+      "do": "vsnprintf_s",
+      "code_hex": "5356574d85c074764889d74989d24e8d4402ff488b7424404c8b5c24500fb60648ffc684c00f84280100003c25755031db0fb60648ffc63c2574443c30750bbb000100000fb60648ffc68d48d083f90977180fb6d36bd20a01ca81e30001000009d30fb60648ffc6ebe03c73741d3c6474473c6974433c7574673c787472cc4c39c773fa880748ffc7eb92f7c3ff00000075eb4d8b0b4983c3084d85c974df418a0184c00f8473ffffff4c39c773cf880748ffc749ffc1ebe6418b034983c30885c079244c39c773b5c6072d48ffc7f7d884db7413f7c30001000074a1fecbeb07418b034983c30841b90a000000eb0d418b034983c30841b91000000031c931d241f7f180fa0a720380c22780c23052ffc185c075e90fb6c329c8761eb220f7c3000100007402b2304c39c70f834cffffff881748ffc7ffc875ee584c39c70f8339ffffff880748ffc7ffc975ede9cafeffffc607004889f84c29d05f5e5bc3",
+      "why": [
+        "int __stdio_common_vsnprintf_s(unsigned __int64 options, char *buf, size_t size, size_t count, const char *fmt, _locale_t locale, va_list args): rcx, rdx, r8, r9, [rsp+0x28], [rsp+0x30], [rsp+0x38]; returns the character count in eax. Called by PES's referee-name formatter in the record create 0x1408BE3C0 (format \"referee%03d\", size 0x20, count -1 = _TRUNCATE).",
+        "A hand model (source: vsnprintf_model.s, the vsprintf_model.s body with the format and va_list loaded from the seventh-argument layout; `as` + `objcopy -O binary -j .text` gives code_hex, the same method as vsprintf). Supports literal text, %%, %s, %[0][NN]d / %i / %u / %x, as vsprintf does. The count (r9) is not read: the output is bounded by size, and an overflow is an int3 (a loud trap), as in vsprintf.",
+        "ponytail: a hand model of the DLL's formatter (the DLL's own code is not run); the output bytes are checked by test_vsnprintf_model.py against the same format rules the vsprintf model follows."
+      ]
+    },
+    {
+      "module": "ucrtbase.dll",
       "export": "strlen",
       "do": "strlen",
       "code_hex": "31c0803c0100740548ffc0ebf5c3",

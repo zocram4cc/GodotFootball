@@ -49,14 +49,14 @@ static inline float pes_model_atan2f(float y, float x) { return std::atan2(y, x)
 // compares every written byte; flags are not mirrored). Win64: rdx = buffer, r8 = count, r9 = format, [rsp + 0x30] at the
 // model's entry = the va_list (a pointer to 8-byte argument slots). Anything the model does not support is a trap, as its
 // int3 is.
-static inline void pes_model_vsprintf_s(PesState& s) {
+static inline void pes_model_stdio_format(PesState& s, uint64_t fmt, uint64_t va_slot, uint64_t r9_entry) {
   const uint64_t rsp0 = s.gpr[4];  // the model's entry rsp: [rsp] is the return address
   s.wr(rsp0 - 8, s.gpr[3], 8);
   s.wr(rsp0 - 16, s.gpr[6], 8);
   s.wr(rsp0 - 24, s.gpr[7], 8);
   const uint64_t buf = s.gpr[2], count = s.gpr[8];
-  uint64_t fmt = s.gpr[9], va = s.rd(rsp0 + 0x30, 8), out = buf;
-  uint64_t rcx = s.gpr[1], rdx = buf, r9 = s.gpr[9];  // the model's scratch registers, tracked where it writes them
+  uint64_t va = s.rd(va_slot, 8), out = buf;
+  uint64_t rcx = s.gpr[1], rdx = buf, r9 = r9_entry;  // the model's scratch registers, tracked where it writes them
   if (count == 0) __builtin_trap();
   const uint64_t last = buf + count - 1;
   auto put = [&](uint8_t c) {
@@ -126,6 +126,58 @@ static inline void pes_model_vsprintf_s(PesState& s) {
   s.wr(out, 0, 1);
   s.gpr[0] = out - buf;
   s.gpr[1] = rcx; s.gpr[2] = rdx; s.gpr[8] = last; s.gpr[9] = r9; s.gpr[10] = buf; s.gpr[11] = va;
+}
+
+// vsprintf_s(options, buf, count, fmt, locale, args): the format is r9, the va_list is the sixth argument ([rsp+0x30] at entry).
+static inline void pes_model_vsprintf_s(PesState& s) {
+  const uint64_t rsp0 = s.gpr[4];
+  pes_model_stdio_format(s, s.gpr[9], rsp0 + 0x30, s.gpr[9]);
+}
+
+// vsnprintf_s(options, buf, size, count, fmt, locale, args): the format is the fifth argument ([rsp+0x28] at entry), the
+// va_list the seventh ([rsp+0x38]); r9 holds count (the _TRUNCATE -1 in the recorded call) and is the model's initial r9.
+static inline void pes_model_vsnprintf_s(PesState& s) {
+  const uint64_t rsp0 = s.gpr[4];
+  pes_model_stdio_format(s, s.rd(rsp0 + 0x28, 8), rsp0 + 0x38, s.gpr[9]);
+}
+
+// strncmp(s1 = rcx, s2 = rdx, n = r8): the import model of import_stubs.json (strncmp_model.s) register for register: rax =
+// s1 - s2 for the first bytes that differ (unsigned), else 0; rcx and rdx advance over the bytes that agree, r8 is the count
+// left, r9 the last byte of s2 read (zero-extended). A count of 0 leaves r9 as it was.
+static inline void pes_model_strncmp(PesState& s) {
+  uint64_t rcx = s.gpr[1], rdx = s.gpr[2], r8 = s.gpr[8], r9 = s.gpr[9];
+  uint32_t eax = 0;
+  bool differ = false;
+  if (r8 != 0) {
+    for (;;) {
+      eax = (uint32_t)s.rd(rcx, 1);
+      r9 = (uint32_t)s.rd(rdx, 1);
+      if (eax != (uint32_t)r9) {
+        eax = eax - (uint32_t)r9;
+        differ = true;
+        break;
+      }
+      if (eax == 0) break;
+      ++rcx;
+      ++rdx;
+      if (--r8 == 0) break;
+    }
+  }
+  if (!differ) eax = 0;
+  s.gpr[0] = eax;
+  s.gpr[1] = rcx;
+  s.gpr[2] = rdx;
+  s.gpr[8] = r8;
+  s.gpr[9] = r9;
+}
+
+// toupper(c = ecx): the import model of import_stubs.json (toupper_model.s) register for register: rax = c - 0x20 for c in
+// 'a'..'z', else c (zero-extended, as the 32-bit result); rdx = c - 'a' (the range test's scratch, zero-extended).
+static inline void pes_model_toupper(PesState& s) {
+  const uint32_t c = (uint32_t)s.gpr[1];
+  const uint32_t d = c - 0x61u;
+  s.gpr[2] = d;
+  s.gpr[0] = d <= 25u ? (uint64_t)(c - 0x20u) : (uint64_t)c;
 }
 
 // memcmp: VCRUNTIME140.dll!memcmp, the import model of import_stubs.json (code_hex) register for register where a caller can

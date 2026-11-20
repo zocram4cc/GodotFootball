@@ -1,0 +1,5 @@
+0x140A89030	stand-in	AI	seed
+0x1408BDF70	stand-in	replay	callee
+0x140A8DEF0	stand-in	AI	callee
+0x141E534F0	stand-in	replay	callee
+0x1415A1720	stand-in	pre-match	callee
