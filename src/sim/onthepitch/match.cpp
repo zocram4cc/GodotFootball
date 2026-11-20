@@ -847,6 +847,15 @@ void Match::ProcessRefereeStage() {
   }
 }
 
+// PES's W1 writes MA+0x2601C from the holder after the tick's touches and kicks, so a kick's clear (RecordPassEvent) reaches the field
+// on its own tick. Both sides read the same holder.
+void Match::WritePesHolderField() {
+  const Player* holder = GetPesHolder();
+  const uint32_t owner = holder != nullptr ? static_cast<uint32_t>(PesSlotOf(holder)) : pes::kMiNoSlot;
+  pes::PesWorld& world = PesWorldOf();
+  for (int side = 0; side < pes::kSideCount; ++side) world.SetMaOwner(side, owner);
+}
+
 void Match::ProcessBallStage() {
   tickStages.push_back(TickStage::Ball);
   previousBallPos = ball->Predict(0);
@@ -935,6 +944,7 @@ void Match::Process() {
   teams[0]->Process();
   teams[1]->Process();
   officials->Process();
+  if (pesLoop) WritePesHolderField();
 
   teams[0]->UpdatePossessionStats();
   teams[1]->UpdatePossessionStats();
