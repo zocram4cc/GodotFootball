@@ -562,17 +562,21 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // ap+0x2460 |= 0x300), which is GF's retainer: GF's throw clip (pass/idle/special/000_throw) is selected only for the retainer, and
     // GF's ball-control walk below was what made him one (the possession band), walking him after the ball he holds and over the line
     // (TheThrowInTakersAnklesStayBehindTheLine: nearer ankle 34.43 -> 33.86 m on Movement clips at 1.5-3.3 m/s).
-    // ponytail: the loop's parametric turn (group 94) and its side step are not ported; standing stands in for them.
+    // ponytail: the loop's parametric turn (group 94) and its side step are not ported; the stand turns to the throw's aim as the turn does.
     if (match->PesLoop() && restart == e_SetPiece_ThrowIn && team->GetController()->HoldsRoot(CastPlayer()) &&
         team->GetController()->IsCarryingBall()) {
       if (match->GetBallRetainer() != player) match->SetBallRetainer(CastPlayer());
+      // PES's loop turns him to the throw's bearing (phase 2), so the pass queued after this command finds the clip for his facing.
+      const Vector3 aim = actionCommand.touchInfo.desiredDirection.GetLength() > 0.0f
+                              ? actionCommand.touchInfo.desiredDirection.Get2D().GetNormalized(player->GetDirectionVec())
+                              : player->GetDirectionVec();
       PlayerCommand stand;
       stand.desiredFunctionType = e_FunctionType_Movement;
       stand.useDesiredMovement = true;
-      stand.desiredDirection = player->GetDirectionVec();
+      stand.desiredDirection = aim;
       stand.desiredVelocityFloat = idleVelocity;
       stand.useDesiredLookAt = true;
-      stand.desiredLookAt = player->GetPosition() + player->GetDirectionVec() * 10.0f;
+      stand.desiredLookAt = player->GetPosition() + aim * 10.0f;
       commandQueue.push_back(stand);
       return;
     }
@@ -651,7 +655,10 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // does. So step onto it first - once he has it, the branch below is
       // business as usual.
       const float ballSpeed_ms = match->GetBall()->GetMovement().GetLength();
-      const bool hasIt = match->GetBallRetainer() == player || CastPlayer()->HasPossession();
+      // PES picks the carrier by its holder (MA+0x2601C, RecomputePesHolder); GF's reach-based possession took a presser 0.7 m off a
+      // resting ball into the carrier brain, whose pass never found a touch (pes-port-StallLive12 section 1).
+      const bool hasIt = match->GetBallRetainer() == player ||
+                         (match->PesLoop() ? match->GetPesHolder() == player : CastPlayer()->HasPossession());
       // Not gated on the stalemate clock. The inPlay-1 stalls this exists for
       // idle at 5-14 s, well under ShouldReleaseBall's 15, so gating on it would
       // leave the measured case untouched. Close, designated, and without it:
