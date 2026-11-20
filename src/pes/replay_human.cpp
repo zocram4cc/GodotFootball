@@ -1,7 +1,10 @@
 #include "pes/replay_human.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <new>
 #include <vector>
 
 #include "pes/exe.hpp"
@@ -64,7 +67,7 @@ struct ReplayHumanFrame::Impl {
   std::vector<uint8_t> host[kRegions];
   std::unique_ptr<PesHeap> heap;
   size_t dataSeg = 0;
-  std::vector<uint8_t> boot;  // the block the VirtualAlloc model returns (the allocator boot's region)
+  std::unique_ptr<uint8_t, void (*)(void*)> boot{nullptr, std::free};  // the block the VirtualAlloc model returns (the allocator boot's regions)
 };
 
 ReplayHumanFrame::ReplayHumanFrame() : impl_(std::make_unique<Impl>()) {}
@@ -91,12 +94,14 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
     s.mem.services.push_back(PesMem::Window{kLayout[r].va, kLayout[r].size, nullptr, m.host[r].data()});
   }
   // The boot window: zeroed, at the VA the VirtualAlloc model names. Its bump cell is its first qword (xlate BOOT_CELL).
-  // 16 MB covers the boot's first region (0x7F0000) and the 4 MB commit at its end.
-  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x1000000;
-  m.boot.assign(kBootBytes, 0);
+  // 1 GB of address space: the boot's VirtualAlloc calls (8 MB regions, six or more) run well past 16 MB. calloc'd pages
+  // commit on first touch, so the untouched part costs no memory.
+  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x40000000;
+  m.boot.reset(static_cast<uint8_t*>(std::calloc(kBootBytes, 1)));
+  if (!m.boot) throw std::bad_alloc();
   const uint64_t firstBlock = kBootVa + 0x1000;  // the blocks VirtualAlloc hands out start after the cell's page
-  std::memcpy(m.boot.data(), &firstBlock, 8);
-  s.mem.services.push_back(PesMem::Window{kBootVa, kBootBytes, nullptr, m.boot.data()});
+  std::memcpy(m.boot.get(), &firstBlock, 8);
+  s.mem.services.push_back(PesMem::Window{kBootVa, kBootBytes, nullptr, m.boot.get()});
   s.mem.img.push_back({kRdataVa, std::move(rdata)});
   m.dataSeg = s.mem.segs.size();
   s.mem.segs.push_back({kDataVa, std::move(data)});
