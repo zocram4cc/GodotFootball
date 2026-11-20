@@ -18621,6 +18621,7 @@
    "capped": 0,
    "cases": 0,
    "closure_file": "closure_destr14217.json",
+   "gap": "GAP-REGION-CORE (PresReplay22): closure_destr14217.json keeps the region-core members the bounded PES trace enters (14038E6F0, 14038DF60, 14038F320, and their callees) although the port reaches none of them: the release route 14037FDB0 is a boundary service (stubs.json, op free). They are translated and abort loudly if ever reached (calls from the layer to a non-member abort). Pruning them needs the port-side reach of the closure, which the proof does not record.",
    "coverage": {
     "0x14217DEF0": {
      "reached": 13,

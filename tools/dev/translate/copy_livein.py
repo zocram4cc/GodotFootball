@@ -71,7 +71,8 @@ def main():
                 continue
             f.write("%x %x %x\n" % (m["va"], m["size"], m["off"]))
 
-    first = {}
+    written = set()     # every byte the frame has written so far
+    live = set()        # the pages the frame reads bytes of before writing them
     reads = collections.Counter()
     sources = []
     answers = []        # (size, va) of the outermost allocations, in call order
@@ -81,12 +82,14 @@ def main():
     hooked = {"done": False}
 
     def on_read(u, access, addr, size, value, _d):
-        pg = addr & ~(PAGE - 1)
-        reads[pg] += 1
-        first.setdefault(pg, "R")
+        # A page is live when the frame reads a byte it has not written yet: a page the frame first writes at one offset and
+        # reads at another (an allocator's free-list word beside a node's link) is live for the node's bytes.
+        for i in range(size):
+            if addr + i not in written:
+                live.add((addr + i) & ~(PAGE - 1))
 
     def on_write(u, access, addr, size, value, _d):
-        first.setdefault(addr & ~(PAGE - 1), "W")
+        written.update(range(addr, addr + size))
 
     def on_code(u, addr, size, _d):
         if addr == FRAME and "va" not in record:
@@ -127,7 +130,6 @@ def main():
         f.write(bytes(_uc.mem_read(palette_entry, PALETTE_BYTES)))
     with open(os.path.join(cap, "after.bin"), "wb") as f:
         f.write(bytes(_uc.mem_read(record["va"] + RECORD_PALETTE_OFF, PALETTE_BYTES)))
-    live = set(p for p, k in first.items() if k == "R")
     for size, va in answers:
         for pg in range(va & ~(PAGE - 1), va + size, PAGE):
             live.add(pg)
