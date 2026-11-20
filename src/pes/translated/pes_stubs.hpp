@@ -180,6 +180,35 @@ static inline void pes_model_toupper(PesState& s) {
   s.gpr[0] = d <= 25u ? (uint64_t)(c - 0x20u) : (uint64_t)c;
 }
 
+// GetCurrentDirectoryW(nBufferLength = ecx, lpBuffer = rdx): the import model of import_stubs.json (getcurdirw_model.s), register for
+// register. The process's CurrentDirectory is read through the thread's gs base (PEB at gs:[0x60] -> +0x20 -> +0x38: Length in bytes;
+// Buffer at +0x40): the proof's window is the capture's, at GF runtime the port's PEB (pesfoxworld.cpp). A buffer that holds the path
+// and its NUL gets the copy and the character count. Otherwise the size query answers characters + 1 and writes nothing. Scratch as
+// the asm: r8 = the last character copied (0 for an empty path); the size path leaves r10 = the parameters, the copy path r10 = len;
+// r11 = len on both.
+static inline void pes_model_getcurdirw(PesState& s) {
+  s.gpr[1] = (uint32_t)s.gpr[1];
+  const uint64_t peb = s.rd(s.gs_base + 0x60, 8);
+  const uint64_t params = s.rd(peb + 0x20, 8);
+  const uint64_t len = s.rd(params + 0x38, 2) >> 1;
+  if (s.gpr[1] <= len) {
+    s.gpr[10] = params;
+    s.gpr[11] = len;
+    s.gpr[0] = len + 1;
+    return;
+  }
+  const uint64_t source = s.rd(params + 0x40, 8), dest = s.gpr[2];
+  s.gpr[8] = 0;
+  for (uint64_t i = 0; i < len; ++i) {
+    s.gpr[8] = s.rd(source + 2 * i, 2);
+    s.wr(dest + 2 * i, s.gpr[8], 2);
+  }
+  s.wr(dest + 2 * len, 0, 2);
+  s.gpr[10] = len;
+  s.gpr[11] = len;
+  s.gpr[0] = len;
+}
+
 // memcmp: VCRUNTIME140.dll!memcmp, the import model of import_stubs.json (code_hex) register for register where a caller can
 // see it: rax = -1, 0 or 1, and the scratch registers the code leaves (rcx advanced to the differing byte or qword, or the
 // byte-swapped differing qword of b; rdx = b - a; r8 = the bytes left; r9 = the block counter). A caller spills these (the
@@ -246,4 +275,6 @@ void pes_service_packer_lua_atpanic(PesState& s);
 void pes_service_packer_lua_setallocf(PesState& s);  // 0x143DFCCE0
 void pes_service_packer_array_ctor_a(PesState& s);   // 0x1444CE440: 16 objects at the array in rcx
 void pes_service_packer_array_ctor_b(PesState& s);   // 0x1444C7960: 20 objects at the array in rcx
-void pes_service_gfx_device_alloc(PesState& s);      // 0x141957C60: no graphics device, the allocation fails
+// 0x141957C60(size): the graphics device's allocator; GF has no device, so the allocation fails (rax = 0, the stubs.json declared
+// answer), and the caller's own failure path runs. Inline here so the proof builds (no pes_native.cpp) and GF link one definition.
+static inline void pes_service_gfx_device_alloc(PesState& s) { s.gpr[0] = 0; }

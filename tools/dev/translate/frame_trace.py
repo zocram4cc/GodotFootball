@@ -457,7 +457,7 @@ def stubs_for_run(image_root_stubs):
     for va, e in image_root_stubs.items():
         if e["do"] in (None, "unmodellable"):
             continue
-        spec["stubs"]["stub_%X" % va] = {"va": e["va"], "do": e["do"]}
+        spec["stubs"]["stub_%X" % va] = stub_table.run_stub(e)
     return spec
 
 

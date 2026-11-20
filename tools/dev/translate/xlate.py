@@ -607,6 +607,9 @@ def import_model_lines(op, jump, keys=None):
     if e["do"] == "toupper":
         # ucrtbase toupper(ecx = c): pes_model_toupper (pes_stubs.hpp) mirrors toupper_model.s register for register.
         return ["{ " + push_ret + " pes_model_toupper(s);%s }" % pop_ret]
+    if e["do"] == "getcurdirw":
+        # kernel32 GetCurrentDirectoryW(ecx = nBufferLength, rdx = lpBuffer): pes_model_getcurdirw (pes_stubs.hpp) mirrors getcurdirw_model.s.
+        return ["{ " + push_ret + " pes_model_getcurdirw(s);%s }" % pop_ret]
     if e["do"] == "strcpy_s":
         # ucrtbase strcpy_s(rcx = dst, rdx = size, r8 = src), the code_hex model register for register: dst or size zero is EINVAL (0x16),
         # no write; src zero writes dst[0] = 0 then EINVAL; else the copy walks r9 from dst with r8 = src - dst, rdx counting the bytes
@@ -670,9 +673,6 @@ def import_model_lines(op, jump, keys=None):
     if e["do"] == "time64":
         # _time64(rcx = out): rax = the model's time; stored at *rcx when rcx != 0 (the code_hex model register for register).
         return ["{ " + push_ret + " s.gpr[0] = 1794205125ULL; if (s.gpr[1] != 0) s.wr(s.gpr[1], 1794205125ULL, 8);%s }" % pop_ret]
-    if e["do"] == "cwd_w":
-        # GetCurrentDirectoryW(ecx, rdx = buf): L"C:\\" and its terminator at [rdx], rax = 3 (the code_hex model register for register).
-        return ["{ " + push_ret + " s.wr(s.gpr[2], 0x5C003A0043ULL, 8); s.gpr[0] = 3ULL;%s }" % pop_ret]
     if e["do"] == "module_file_name":
         # GetModuleFileNameA(h, buf = rdx, size): the code_hex model register for register: "C:\PES2021.exe" and its terminator into [rdx], rax = 14.
         return ["{ " + push_ret + " s.wr(s.gpr[2], 0x30325345505C3A43ULL, 8); s.wr(s.gpr[2] + 8, 0x652E3132ULL, 4); s.wr(s.gpr[2] + 12, 0x6578ULL, 2); s.wr(s.gpr[2] + 14, 0ULL, 1); s.gpr[0] = 14ULL;%s }" % pop_ret]

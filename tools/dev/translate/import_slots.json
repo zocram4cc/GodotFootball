@@ -226,6 +226,11 @@
    "kind": "export",
    "module": "iphlpapi.dll"
   },
+  "0x142532330": {
+   "export": "GetCurrentDirectoryW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
   "0x14252F1A0": {
    "export": "ReleaseSemaphore",
    "kind": "export",

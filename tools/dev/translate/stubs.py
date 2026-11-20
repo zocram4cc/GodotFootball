@@ -72,7 +72,7 @@ def load(path=DEFAULT):
             raise SystemExit("stubs.json: no model for %s (kind %s, op %s)"
                              % (e["va"], e["kind"], op))
         table[va] = {"va": "0x%X" % va, "do": do, "kind": e["kind"],
-                     "why": "; ".join(e.get("why") or [])}
+                     "why": "; ".join(e.get("why") or []), "value": (e.get("model") or {}).get("value")}
     return table
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
@@ -83,6 +83,14 @@ MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "flo
 def models(table):
     """{callee VA (int): entry} for every callee the table models (do in MODEL_DOS)."""
     return {va: e for va, e in table.items() if e["do"] in MODEL_DOS}
+
+def run_stub(entry):
+    """The stub entry the harness installs (run.py resolve_stubs, frame_trace stubs_for_run): va and do, and the declared value
+    when the table has one (a GF service's answer, the one its pes_service_* returns)."""
+    out = {"va": entry["va"], "do": entry["do"]}
+    if entry.get("value") is not None:
+        out["value"] = entry["value"]
+    return out
 
 
 def check_spec_refs(spec, table, where):

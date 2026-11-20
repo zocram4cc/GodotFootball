@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
 #include <iterator>
 #include <stdexcept>
 #include <vector>
@@ -22,17 +23,44 @@ namespace {
 constexpr uint64_t kImageBase = 0x140000000ULL;
 // The world's own windows, above PES's image and the heap arena (PesHeap::kArenaVa = 0x24_0000_0000).
 constexpr uint64_t kStackVa = 0x2600000000ULL, kStackBytes = 0x100000;
-constexpr uint64_t kTebVa = 0x2610000000ULL, kTebBytes = 0x2000;
+constexpr uint64_t kTebVa = 0x2610000000ULL, kTebBytes = 0x4000;
 constexpr uint64_t kTebSelfOffset = 0x30;  // gs:[0x30]: the thread block's own address (FlsGetValue and the last-error model read it)
 // The process block the TlsAlloc model reads (gs:[0x60] = PEB; PEB+0x328 = TlsBitmapBits, the first 64 slots): it sits at the end of the thread
 // block's window. The bits are the slots taken when PES's allocator started: its three TlsAlloc calls returned 9, 10 and 11 (the live dump holds
 // those at 0x143AC3DCC, 0x143AC2814 and 0x143AC2810, import_stubs.json), so slots 0..8 were taken.
 constexpr uint64_t kTebPebPointerOffset = 0x60, kPebOffsetInTeb = 0x1800, kPebTlsBitmapOffset = 0x328, kTlsSlotsTakenAtStart = 9;
+// The process parameters the current-directory answer reads (getcurdirw_model.s): RTL_USER_PROCESS_PARAMETERS at the window's +0x2000
+// (PEB+0x20 points at it), its CurrentDirectory UNICODE_STRING at +0x38 (Length, MaximumLength at +2, Buffer at +8), and the directory's
+// UTF-16 text at +0x2100, to the window's end.
+constexpr uint64_t kPebProcessParamsOffset = 0x20, kProcessParamsOffsetInTeb = 0x2000, kProcessParamsCurrentDirOffset = 0x38,
+                   kUnicodeStringMaxLengthOffset = 0x2, kUnicodeStringBufferOffset = 0x8, kCurrentDirTextOffsetInTeb = 0x2100;
 // Win64: rsp at a function's entry holds the return address and is 8 (mod 16); the shadow space and the stack arguments sit above it.
 constexpr uint64_t kEntryFrameBytes = 0x200;
 // import_stubs.json "os_arena": PES's jemalloc (FUN_1403CF740, under FUN_14029D370) gets its chunks from VirtualAlloc, which the translated
 // model serves from this range (the cell at its base is the bump pointer): the world maps it, or the allocator reads zeros and never returns.
 constexpr uint64_t kOsArenaVa = 0x3000000000ULL, kOsArenaBytes = 0x100000000ULL;
+
+// The thread block (gs base) and its process block: the TEB self pointer, the PEB at TEB+0x60 with its TLS bitmap, and the process
+// parameters whose CurrentDirectory is GF's own working directory. ponytail: the UTF-16 text comes from std::filesystem (the locale's
+// narrow-to-wide conversion), so a non-ASCII working directory needs a UTF-8 locale. A directory the window cannot hold throws; it is
+// never truncated.
+void FillThreadBlock(std::vector<uint8_t>& teb) {
+  std::memcpy(teb.data() + kTebSelfOffset, &kTebVa, sizeof kTebVa);
+  const uint64_t pebVa = kTebVa + kPebOffsetInTeb, takenBits = (1ULL << kTlsSlotsTakenAtStart) - 1;
+  std::memcpy(teb.data() + kTebPebPointerOffset, &pebVa, sizeof pebVa);
+  std::memcpy(teb.data() + kPebOffsetInTeb + kPebTlsBitmapOffset, &takenBits, sizeof takenBits);
+  const std::u16string cwd = std::filesystem::current_path().u16string();
+  const uint64_t cwdBytes = cwd.size() * sizeof(char16_t);
+  if (kCurrentDirTextOffsetInTeb + cwdBytes > kTebBytes) throw std::runtime_error("fox world: the current directory does not fit the thread block");
+  const uint64_t cwdVa = kTebVa + kCurrentDirTextOffsetInTeb, paramsVa = kTebVa + kProcessParamsOffsetInTeb;
+  const uint16_t lengthBytes = static_cast<uint16_t>(cwdBytes);
+  const uint64_t unicodeString = kProcessParamsOffsetInTeb + kProcessParamsCurrentDirOffset;
+  std::memcpy(teb.data() + kCurrentDirTextOffsetInTeb, cwd.data(), cwdBytes);
+  std::memcpy(teb.data() + unicodeString, &lengthBytes, sizeof lengthBytes);
+  std::memcpy(teb.data() + unicodeString + kUnicodeStringMaxLengthOffset, &lengthBytes, sizeof lengthBytes);
+  std::memcpy(teb.data() + unicodeString + kUnicodeStringBufferOffset, &cwdVa, sizeof cwdVa);
+  std::memcpy(teb.data() + kPebOffsetInTeb + kPebProcessParamsOffset, &paramsVa, sizeof paramsVa);
+}
 
 }  // namespace
 
@@ -44,7 +72,7 @@ struct PesFoxWorld::Impl {
   std::vector<uint8_t> stack, teb;
   uint8_t* osArena = nullptr;  // the VirtualAlloc model's arena, lazily zeroed pages (anonymous mmap)
   uint64_t issueScratch = 0;   // IssueMotion's record and parameter block in the heap (made on the first issue)
-  Impl(const PesVfs& v, uint64_t heapBytes) : vfs(v), heap(heapBytes), stack(kStackBytes), teb(kTebBytes) {}
+  Impl(const PesVfs& v, uint64_t heapBytes) : vfs(v), heap(heapBytes), stack(kStackBytes), teb(kTebBytes) { FillThreadBlock(teb); }
 };
 
 PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64_t heapBytes)
@@ -67,10 +95,6 @@ PesFoxWorld::PesFoxWorld(const std::string& imagePath, const PesVfs& vfs, uint64
     throw std::runtime_error("fox world: cannot map the OS arena");
   }
   impl_->osArena = static_cast<uint8_t*>(arena);
-  std::memcpy(impl_->teb.data() + kTebSelfOffset, &kTebVa, sizeof kTebVa);
-  const uint64_t pebVa = kTebVa + kPebOffsetInTeb, takenBits = (1ULL << kTlsSlotsTakenAtStart) - 1;
-  std::memcpy(impl_->teb.data() + kTebPebPointerOffset, &pebVa, sizeof pebVa);
-  std::memcpy(impl_->teb.data() + kPebOffsetInTeb + kPebTlsBitmapOffset, &takenBits, sizeof takenBits);
   pes_service_set_file_source(this);
 }
 

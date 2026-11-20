@@ -4063,7 +4063,8 @@
   ],
   "model": {
    "op": "gfx_device_alloc",
-   "effect": "rax = 0 (no device: the allocation fails)"
+   "effect": "rax = 0 (no device: the allocation fails)",
+   "value": "0x0"
   }
  }
  ]

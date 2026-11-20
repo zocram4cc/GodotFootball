@@ -3,6 +3,17 @@
   "os_arena": {"base": "0x3000000000", "bytes": "0x100000000", "block": "0x400000", "note": "the VA range of the VirtualAlloc model's OS arena: a replay maps it as lazily zeroed pages (frame_trace.LazyMap, the diff main's mmap window); the cell [base] is the bump pointer"},
   "imports": [
     {
+      "module": "kernel32.dll",
+      "export": "GetCurrentDirectoryW",
+      "do": "getcurdirw",
+      "code_hex": "89c9654c8b1425600000004d8b5220450fb75a3841d1eb4c39d97705498d4301c3498b42404531c04531d24d39da730f460fb70450664689045249ffc2ebec6642c7045a00004c89d8c3",
+      "why": [
+        "DWORD GetCurrentDirectoryW(DWORD nBufferLength = ecx, LPWSTR lpBuffer = rdx). PES's record create 0x1408BE3C0 reaches it through the import slot 0x142532330 (kernel32 RVA 0xE2BC, export index 414), called as GetCurrentDirectoryW(0, NULL): a size query. The start-up initializers reach the same export through slot 0x14252F330 (import_slots.json); their buffer is not re-decoded here.",
+        "The answer is the process's CurrentDirectory: PEB (gs:[0x60]) -> RTL_USER_PROCESS_PARAMETERS (+0x20) -> CurrentDirectory UNICODE_STRING (+0x38; Length in bytes; Buffer at +0x40). It is read through the thread's own PEB window, never a constant: in a proof the window comes from the capture; at GF runtime from the port's PEB, which carries GF's own current directory (pesfoxworld.cpp).",
+        "A buffer that holds the path and its NUL (nBufferLength > characters) gets the path, NUL-terminated, and the character count is returned. Otherwise the size query returns characters + 1 and writes nothing. A hand model (source: getcurdirw_model.s; `as` + `objcopy -O binary -j .text` gives code_hex). Scratch: rax, r8, r10, r11."
+      ]
+    },
+    {
       "module": "ucrtbase.dll",
       "export": "toupper",
       "do": "toupper",
@@ -635,16 +646,6 @@
       "why": [
         "HANDLE CreateMutexA(attrs, initialOwner, name): the single-instance mutex PES's start-up creates; a nonzero handle is success, and GetLastError (the tebread model, TEB.LastErrorValue 0) then reads not-already-exists.",
         "Model: returns the handle value 0x1D0 (any nonzero; nothing here uses it). A named constant for an OS answer."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "GetCurrentDirectoryW",
-      "do": "cwd_w",
-      "code_hex": "48b843003a005c000000488902b803000000c3",
-      "why": [
-        "DWORD GetCurrentDirectoryW(DWORD size, LPWSTR buf): PES's start-up initializers read the working directory (a path string kept in a static).",
-        "Model: writes L\"C:\\\" (3 wide chars and the terminator, 8 bytes at rdx) and returns 3. The real directory is the install's; the translated code keeps the string only. A named stand-in for an OS answer."
       ]
     },
     {

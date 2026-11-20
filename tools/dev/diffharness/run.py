@@ -202,7 +202,7 @@ def resolve_stubs(spec):
     stub_table.check_spec_refs(spec, table, spec.get("name") or "spec")
     stubs = dict(spec.get("stubs") or {})
     for va, entry in stub_table.models(table).items():
-        stubs["stub_%X" % va] = {"va": entry["va"], "do": entry["do"]}
+        stubs["stub_%X" % va] = stub_table.run_stub(entry)
     spec["stubs"] = stubs
     return spec
 
@@ -614,11 +614,14 @@ def install_hooks(mu, spec, RET_SENTINEL):
             uc.emu_stop()
             return
         elif kind.startswith("service_"):
-            # GF service (stubs.json gf-service): GF's side of the file seam. The harness has no file layer to run, so a replay that reaches
-            # one is excluded, loudly (the translated side answers from GF's VFS, which the recorded call never read).
-            uc._bad = "GF service %s reached (stubs.json gf-service: GF's side of a seam or a stand-in for a packer-virtualized function; the harness runs no such code)" % name
-            uc.emu_stop()
-            return
+            # GF service (stubs.json gf-service): GF's side of a seam, or a stand-in for a packer-virtualized function. The PES side of a
+            # proof answers with the table's declared value when it has one: the same answer the GF service returns (pes_native.cpp), so
+            # both sides agree on the call. A service with no declared value stops the replay, loudly: the harness runs no GF code.
+            if stub.get("value") is None:
+                uc._bad = "GF service %s reached (stubs.json gf-service with no declared answer: the harness runs no such code)" % name
+                uc.emu_stop()
+                return
+            uc.reg_write(UC_X86_REG_RAX, int(stub["value"], 16))
         elif kind == "noop":
             # engine-noop (stubs.json): no effect on the success path; the
             # call is dropped, registers untouched, the return is popped below.
