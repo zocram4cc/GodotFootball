@@ -35,6 +35,7 @@ def build_parser():
     ap.add_argument("--merge", action="store_true")
     ap.add_argument("--spec-dir", default=SPEC_DIR, help="the root's spec directory (default: the trapaction set)")
     ap.add_argument("--results", default=RESULTS, help="the results file the record merges into (default: results_trapaction.json)")
+    ap.add_argument("--budget", type=int, default=None, help="instruction budget of each recorded trace (default: frame_trace's 50M); a boot builder runs longer (PES's name tables)")
     return ap
 
 
@@ -56,7 +57,7 @@ def main(argv=None):
     for d in a.real + a.synth:
         trace = os.path.join(a.work, "tr_" + os.path.basename(d.rstrip("/")))
         subprocess.check_call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", d, "--hooks", hooks, "--out", trace,
-                               "--spec-dir", a.spec_dir], stdout=subprocess.DEVNULL)
+                               "--spec-dir", a.spec_dir] + (["--budget", str(a.budget)] if a.budget else []), stdout=subprocess.DEVNULL)
         snaps += ["--snapshot", "%s=%s" % (d, trace)]
     res = os.path.join(a.work, "res.json")
     out_dir = os.path.join(a.work, "build")

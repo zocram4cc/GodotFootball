@@ -112,3 +112,9 @@ To port the recorder bit-exactly, the translated set is: the per-tick entries `P
 4. `1408BF135` and `1408D0814`: no direct, no absolute-pointer reference (the scans in this round); find the register-call site with a `lea reg,[rip+…]` scan, or hook them by their call from `1408BED00`'s update (INF).
 5. Trace-layer divergence (section 7): the `install_hooks` / impure / sentinel bisect.
 6. The `141B01500` (ResManager destructor) capture: teardown only (Main has the hook armed).
+
+## 10. Correction (round 4): the "trace-layer divergence" was the instruction budget (CONFIRMED)
+
+- Section 7's cause is WRONG. Three variants of the trace layer (none, no-hook, full `install_hooks`) all hit the 50M default budget at the same DLL address `0x6F769F9A19AC`. With the full trace layer and `--budget 400000000`, `frame_trace.py recorded seq001` returns `err null` (rax 1, rip = recorded return `0x141FE4AD6`, 97 pages written).
+- The boot builder is a long call (about 100M instructions). The proof tools cap it at 2M (`GF_SNAP_BUDGET` in `diffharness/snapcase.py`) or 50M (`frame_trace.py`). `prove_bounded.py` now takes `--budget` (passed to `frame_trace.py recorded`); the replay side needs `GF_SNAP_BUDGET=400000000` in the environment.
+- Result of the proof attempt on seq001: see `local://pes-port-ReplayRuntime4.md`.
