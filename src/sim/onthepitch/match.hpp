@@ -125,6 +125,11 @@ public:
   };
   void RecordPassEvent(int kind, const Vector3& from, Player* target, Player* passer) {
     lastPassEvent = PassEvent{true, kind, from, target, GetActualTime_ms(), passer};
+    // A kick releases the ball, so PES's holder (MA+0x2601C) names nobody until a touch takes it: the kick's key is not a touch
+    // that keeps the ball with the man (pes-re-receiving.md 5.2; PassReceiver3 section 6). Without this the passer stayed the holder
+    // and the pass selector cleared the pass target on the kick (seed-7 match: no receiver at all).
+    pesKeyActor = nullptr;
+    pesHolder = nullptr;
   }
   const PassEvent& GetLastPassEvent() const { return lastPassEvent; }
 
