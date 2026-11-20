@@ -621,6 +621,10 @@ def import_model_lines(op, jump, keys=None):
                 " uint64_t _p = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2]; s.gpr[0] = 0;"
                 " for (; _n != 0; ++_p, --_n) if ((uint8_t)s.rd(_p, 1) == _c) { s.gpr[0] = _p; break; }"
                 " s.gpr[1] = _p; s.gpr[8] = _n;%s }" % pop_ret]
+    if e["do"] == "strlen":
+        # size_t strlen(rcx = s): rax = the count before the first NUL; rcx unchanged (import_stubs.json code_hex).
+        return ["{ " + push_ret +
+                " s.gpr[0] = 0; while (s.rd(s.gpr[1] + s.gpr[0], 1) != 0) ++s.gpr[0];%s }" % pop_ret]
     if e["do"] == "qpc":
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF

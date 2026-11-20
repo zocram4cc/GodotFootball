@@ -3,6 +3,15 @@
   "os_arena": {"base": "0x3000000000", "bytes": "0x100000000", "block": "0x400000", "note": "the VA range of the VirtualAlloc model's OS arena: a replay maps it as lazily zeroed pages (frame_trace.LazyMap, the diff main's mmap window); the cell [base] is the bump pointer"},
   "imports": [
     {
+      "module": "ucrtbase.dll",
+      "export": "strlen",
+      "do": "strlen",
+      "code_hex": "31c0803c0100740548ffc0ebf5c3",
+      "why": [
+        "size_t strlen(const char *s): rcx; returns in rax the count of bytes before the first NUL; rcx is unchanged. Model: xor eax, eax; loop: cmp byte [rcx+rax], 0; je done; inc rax; jmp loop; done: ret. A byte scan with no stack use and no memory write. The DLL's own code is vectorised and may read past the NUL within a block; the model does not, and that read has no observable effect (INF)."
+      ]
+    },
+    {
       "module": "kernel32.dll",
       "export": "GetSystemInfo",
       "do": "sysinfo",
