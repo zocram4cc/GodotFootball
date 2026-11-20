@@ -10,6 +10,9 @@
 #include "pes_state.hpp"
 
 void pes_fn_14217DEF0(PesState& s);
+void pes_fn_1403AFBA0(PesState& s);
+void pes_fn_1403AC690(PesState& s);
+void pes_fn_1403B07D0(PesState& s);
 
 namespace pes {
 
@@ -61,6 +64,7 @@ struct ReplayHumanFrame::Impl {
   std::vector<uint8_t> host[kRegions];
   std::unique_ptr<PesHeap> heap;
   size_t dataSeg = 0;
+  std::vector<uint8_t> boot;  // the block the VirtualAlloc model returns (the allocator boot's region)
 };
 
 ReplayHumanFrame::ReplayHumanFrame() : impl_(std::make_unique<Impl>()) {}
@@ -86,11 +90,22 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
     m.host[r].assign(kLayout[r].size, 0);
     s.mem.services.push_back(PesMem::Window{kLayout[r].va, kLayout[r].size, nullptr, m.host[r].data()});
   }
+  // The block the VirtualAlloc model returns to PES's allocator boot (import_stubs.json kernel32 VirtualAlloc): committed
+  // and zeroed, at the VA the model names.
+  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x400000;
+  m.boot.assign(kBootBytes, 0);
+  s.mem.services.push_back(PesMem::Window{kBootVa, kBootBytes, nullptr, m.boot.data()});
   s.mem.img.push_back({kRdataVa, std::move(rdata)});
   m.dataSeg = s.mem.segs.size();
   s.mem.segs.push_back({kDataVa, std::move(data)});
   std::vector<uint8_t> stack(kStackBytes, 0);
   s.mem.segs.push_back({kStackVa, std::move(stack)});
+  // PES's boot sets the allocator thresholds with its own initialisers, in dependency order: 0x1403AFBA0 writes
+  // 0x143AC2878 (read by 0x1403AC690), which writes 0x143AC2868 (read by 0x1403B07D0).
+  s.gpr[4] = kStackVa + kStackBytes - 0x100;
+  for (auto init : {pes_fn_1403AFBA0, pes_fn_1403AC690, pes_fn_1403B07D0}) {
+    s.gpr[4] -= 8; s.wr(s.gpr[4], 0, 8); init(s); s.gpr[4] += 8;
+  }
 
   // The thread block: gs:[0x58] is the TLS array; its index 0 is the slot block.
   s.gs_base = kLayout[kTeb].va;
@@ -116,6 +131,9 @@ ReplayHumanRecord ReplayHumanFrame::Read(const ReplayFrameInputs& in) {
   PutU64(r, kRecordVtableOff, kReplayVtableVa);
   PutU8(r, kRecordActiveOff, in.active);
   PutU32(r, kRecordHumanOff, in.human);
+  // The idle state the five real entries hold (live2/pid2998104, replay_frame_14217DEF0): +0x1C released (-1), +0x21 set.
+  PutU32(r, kRecordWord1c, 0xFFFFFFFFu);
+  PutU8(r, kRecordByte21, 1);
 
   // The frame list, the key (frame 0, word 0), and the frame's human record.
   PutU64(l, kListFramesOff, kLayout[kF].va);

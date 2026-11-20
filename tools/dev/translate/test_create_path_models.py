@@ -88,6 +88,21 @@ class ConstantZeroModels(unittest.TestCase):
         _, rax, _, _ = run("winmm.dll", "timeGetTime")
         self.assertEqual(rax, 0)
 
+class BootAllocatorModels(unittest.TestCase):
+    """The allocator boot's OS calls: VirtualAlloc returns the base of the one block the port maps for it, VirtualFree
+    succeeds, and TlsAlloc hands out index 0 (the index the captured replay reads, DAT_1437067A0)."""
+
+    def test_virtual_alloc_returns_the_boot_block(self):
+        _, rax, _, _ = run("kernel32.dll", "VirtualAlloc", rcx=0, rdx=0x400000)
+        self.assertEqual(rax, 0x2600000000)
+
+    def test_virtual_free_succeeds(self):
+        _, rax, _, _ = run("kernel32.dll", "VirtualFree", rcx=0x2600000000, rdx=0)
+        self.assertEqual(rax, 1)
+
+    def test_tls_alloc_returns_index_zero(self):
+        _, rax, _, _ = run("kernel32.dll", "TlsAlloc")
+        self.assertEqual(rax, 0)
 
 if __name__ == "__main__":
     unittest.main()

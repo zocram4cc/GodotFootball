@@ -3,6 +3,30 @@
   "imports": [
     {
       "module": "kernel32.dll",
+      "export": "TlsAlloc",
+      "do": "return",
+      "value": 0,
+      "code_hex": "31c0c3",
+      "why": ["kernel32!TlsAlloc(): the lowest free TLS index. The one-time allocator init (0x14038EE80, IAT 0x14252F6B0) takes it for the replay's slot block: the captured global 0x1437067A0 (the index the replay reads, DAT_1437067A0 in pes-re-cutscenes) is 0 in every real capture (live2/pid2998104/seq567), so the first allocation is index 0. CONFIRMED by the capture; the model is the index, not a fresh allocator."]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "VirtualAlloc",
+      "do": "return",
+      "value": "0x2600000000",
+      "code_hex": "48b80000000026000000c3",
+      "why": ["kernel32!VirtualAlloc(NULL, size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE): a committed, zeroed block. The model returns the base of the one block GF's replay port maps for it (0x2600000000, a service window of the port, zeroed; PesHeap's arena is at 0x2400000000). ponytail: one fixed block, not one per call; the boot's VirtualAlloc (0x1403B4E00, from 0x1403B07D0) is the only call the create path makes in the survey. INF: the size argument is not checked against the block."]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "VirtualFree",
+      "do": "return",
+      "value": 1,
+      "code_hex": "b801000000c3",
+      "why": ["kernel32!VirtualFree(address, size, type): TRUE. The region is never released by the port (it lives for the frame), so the free succeeds without effect. INF: the create path's free of this block is not observed."]
+    },
+    {
+      "module": "kernel32.dll",
       "export": "InitializeCriticalSectionAndSpinCount",
       "do": "cs_init",
       "code_hex": "48c70100000000c74108ffffffffc7410c0000000048c741100000000048c741180000000089d248895120b801000000c3",

@@ -11,9 +11,6 @@
 // image constant @ 0x14252F4B0 (8 bytes)
 static constexpr uint64_t k_c14252F4B0_q = 0x00006FFFFF9CEC6CULL;
 static constexpr double k_c14252F4B0_d = 6.08418601105505e-310; // 6.08418601105505e-310
-// image constant @ 0x14252F6B0 (8 bytes)
-static constexpr uint64_t k_c14252F6B0_q = 0x00006FFFFF9D0EECULL;
-static constexpr double k_c14252F6B0_d = 6.0841860114914e-310; // 6.0841860114914e-310
 
 void pes_fn_14038EE80(PesState& s);
 void pes_fn_14038E130(PesState& s);
@@ -246,10 +243,7 @@ void pes_fn_14038EE80(PesState& s) {
                     s.gpr[3] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
                     return;
                   } else {
-                    { uint64_t _t = (uint64_t)(k_c14252F6B0_q); PesDispatch _d = pes_dispatch_lookup(_t);
-                      if (_d.fn == 0) pes_dispatch_missing(_t);
-                      s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-                      s.gpr[4] += 8; }
+                    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 0ULL; s.gpr[4] += 8; }
                     s.wr(0x143AC3DCCULL, (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
                     { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)((0ULL - 1ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
                       s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

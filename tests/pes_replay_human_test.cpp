@@ -96,7 +96,7 @@ TEST(PesReplayHuman, ASequenceKeepsTheLastCopiedEntryAndReleasesAfterEachCopy) {
   pes::ReplayHumanRecord rec = f->Read(first);
   EXPECT_EQ(rec.bytes, first.entry);
   EXPECT_EQ(rec.word1c, 0xFFFFFFFFu);
-  EXPECT_EQ(rec.byte21, 1);
+  EXPECT_EQ(rec.byte21, 0);  // PES's release clears +0x21 (reference run of the real entry state: 0 after the call)
 
   pes::ReplayFrameInputs absent = changed;
   absent.guard = 0x7FFF;
@@ -111,7 +111,7 @@ TEST(PesReplayHuman, ASequenceKeepsTheLastCopiedEntryAndReleasesAfterEachCopy) {
   rec = f->Read(changed);
   EXPECT_EQ(rec.bytes, changed.entry);
   EXPECT_EQ(rec.word1c, 0xFFFFFFFFu);
-  EXPECT_EQ(rec.byte21, 1);
+  EXPECT_EQ(rec.byte21, 0);
 }
 
 // The frame table holds 300-byte human records (FUN_14217DEF0 strides by 300). Human 0 sits at offset 0, so only another
