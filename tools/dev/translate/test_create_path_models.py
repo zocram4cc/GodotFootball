@@ -88,13 +88,55 @@ class ConstantZeroModels(unittest.TestCase):
         _, rax, _, _ = run("winmm.dll", "timeGetTime")
         self.assertEqual(rax, 0)
 
+class SystemInfoModel(unittest.TestCase):
+    """GetSystemInfo(rcx = buffer): the Win64 SYSTEM_INFO fields the allocator boot reads, rax and rdx left as they were."""
+    BUF = DATA + 0x200
+
+    def test_writes_the_fields_the_boot_reads(self):
+        mu, rax, rcx, rdx = run("kernel32.dll", "GetSystemInfo", rcx=self.BUF, rdx=0x55)
+        dword = lambda off: struct.unpack("<I", bytes(mu.mem_read(self.BUF + off, 4)))[0]
+        self.assertEqual(dword(0x00), 9)  # processor architecture AMD64
+        self.assertEqual(dword(0x04), 0x1000)  # page size
+        self.assertEqual(dword(0x20), 16)  # dwNumberOfProcessors: the PES host's count (captured 0x143AC3DC8)
+        self.assertEqual(dword(0x28), 0x10000)  # allocation granularity
+        self.assertEqual(struct.unpack("<Q", bytes(mu.mem_read(self.BUF + 0x10, 8)))[0], 0x7FFFFFFEFFFF)
+        self.assertEqual(rcx, self.BUF)
+        self.assertEqual(rdx, 0x55)
+
+
 class BootAllocatorModels(unittest.TestCase):
     """The allocator boot's OS calls: VirtualAlloc returns the base of the one block the port maps for it, VirtualFree
     succeeds, and TlsAlloc hands out index 0 (the index the captured replay reads, DAT_1437067A0)."""
 
-    def test_virtual_alloc_returns_the_boot_block(self):
-        _, rax, _, _ = run("kernel32.dll", "VirtualAlloc", rcx=0, rdx=0x400000)
-        self.assertEqual(rax, 0x2600000000)
+    CELL = 0x2600000000  # the boot window's bump cell (xlate BOOT_CELL)
+    FIRST = 0x2600001000  # the first block (the port writes it into the cell)
+
+    def bump(self, size, cell):
+        """VirtualAlloc(NULL, size, ...) run in unicorn over the bump cell holding cell: returns (rax, the cell after)."""
+        code = ft.load_import_models()[("kernel32.dll", "VirtualAlloc")]
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(CODE, 0x1000)
+        mu.mem_write(CODE, code)
+        mu.mem_map(self.CELL, 0x1000)
+        mu.mem_write(self.CELL, struct.pack("<Q", cell))
+        mu.mem_map(STACK, 0x1000)
+        rsp = STACK + 0x800
+        mu.mem_write(rsp, struct.pack("<Q", RET))
+        mu.reg_write(UC_X86_REG_RCX, 0)
+        mu.reg_write(UC_X86_REG_RDX, size)
+        mu.reg_write(UC_X86_REG_RSP, rsp)
+        mu.emu_start(CODE, RET, count=100)
+        return mu.reg_read(UC_X86_REG_RAX), struct.unpack("<Q", bytes(mu.mem_read(self.CELL, 8)))[0]
+
+    def test_the_first_block_starts_at_the_cell(self):
+        rax, cell = self.bump(0x400000, self.FIRST)
+        self.assertEqual(rax, self.FIRST)
+        self.assertEqual(cell, self.FIRST + 0x400000)
+
+    def test_successive_blocks_are_disjoint(self):
+        rax, cell = self.bump(0x3000, self.FIRST + 0x3000)
+        self.assertEqual(rax, self.FIRST + 0x3000)
+        self.assertEqual(cell, self.FIRST + 0x6000)
 
     def test_virtual_free_succeeds(self):
         _, rax, _, _ = run("kernel32.dll", "VirtualFree", rcx=0x2600000000, rdx=0)

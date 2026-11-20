@@ -52,7 +52,7 @@ TEST(PesReplayHuman, AnAbsentHumanLeavesTheRecordAlone) {
   in.guard = 0x7FFF;  // the frame's marker for an absent human
   const pes::ReplayHumanRecord rec = f->Read(in);
   EXPECT_EQ(rec.bytes, kZero);
-  EXPECT_EQ(rec.word1c, 0u);
+  EXPECT_EQ(rec.word1c, 0xFFFFFFFFu);  // the idle state every real entry holds (-1); an absent human leaves it alone
 }
 
 TEST(PesReplayHuman, AnInactiveRecordLeavesItAlone) {

@@ -92,20 +92,18 @@ std::unique_ptr<ReplayHumanFrame> ReplayHumanFrame::Create(const PeImage& exe, s
   }
   // The block the VirtualAlloc model returns to PES's allocator boot (import_stubs.json kernel32 VirtualAlloc): committed
   // and zeroed, at the VA the model names.
-  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x400000;
+  constexpr uint64_t kBootVa = 0x2600000000ULL, kBootBytes = 0x400000;  // the bump cell is its first qword (xlate BOOT_CELL)
   m.boot.assign(kBootBytes, 0);
+  const uint64_t firstBlock = kBootVa + 0x1000;  // the blocks VirtualAlloc hands out start after the cell's page
+  std::memcpy(m.boot.data(), &firstBlock, 8);
   s.mem.services.push_back(PesMem::Window{kBootVa, kBootBytes, nullptr, m.boot.data()});
   s.mem.img.push_back({kRdataVa, std::move(rdata)});
   m.dataSeg = s.mem.segs.size();
   s.mem.segs.push_back({kDataVa, std::move(data)});
   std::vector<uint8_t> stack(kStackBytes, 0);
   s.mem.segs.push_back({kStackVa, std::move(stack)});
-  // PES's boot sets the allocator thresholds with its own initialisers, in dependency order: 0x1403AFBA0 writes
-  // 0x143AC2878 (read by 0x1403AC690), which writes 0x143AC2868 (read by 0x1403B07D0).
-  s.gpr[4] = kStackVa + kStackBytes - 0x100;
-  for (auto init : {pes_fn_1403AFBA0, pes_fn_1403AC690, pes_fn_1403B07D0}) {
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0, 8); init(s); s.gpr[4] += 8;
-  }
+  // The allocator's thresholds are set by PES's one-time init (0x14038EE80, guarded by the flag at 0x1436DCEE0), which
+  // runs on the first allocation through the allocator; the port does not run it earlier, so it runs once, as in PES.
 
   // The thread block: gs:[0x58] is the TLS array; its index 0 is the slot block.
   s.gs_base = kLayout[kTeb].va;

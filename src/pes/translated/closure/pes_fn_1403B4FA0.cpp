@@ -20,7 +20,7 @@ void pes_fn_1403B4FA0(PesState& s) {
   }
   s.gpr[9] = (uint64_t)(uint32_t)((4ULL));
   s.gpr[8] = (uint64_t)(uint32_t)((524288ULL));
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 163208757248ULL; s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); uint64_t _old = s.rd(0x2600000000ULL, 8); uint64_t _new = _old + s.gpr[2]; s.wr(0x2600000000ULL, _new, 8); s.gpr[0] = _old; s.gpr[2] = _new; s.gpr[10] = 0x2600000000ULL; s.gpr[4] += 8; }
   s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((40ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);

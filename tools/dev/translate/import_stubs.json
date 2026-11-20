@@ -3,6 +3,13 @@
   "imports": [
     {
       "module": "kernel32.dll",
+      "export": "GetSystemInfo",
+      "do": "sysinfo",
+      "code_hex": "c7410009000000c7410400100000c7410800000100c7410c00000000c74110fffffeffc74114ff7f0000c74118ffff0000c7411c00000000c7412010000000c74124d8210000c7412800000100c7412c06000000c3",
+      "why": ["kernel32!GetSystemInfo(lpSystemInfo = rcx): writes the 48-byte SYSTEM_INFO and returns nothing (rax untouched). The fields are the Win64 values: processor architecture AMD64 (9), page 4096, minimum application address 0x10000, maximum 0x7FFFFFFEFFFF, active mask 0xFFFF (INF: the mask is not observed), dwNumberOfProcessors 16, processor type 8664, allocation granularity 0x10000, processor level 6. The processor count is the PES host's: the allocator boot stores dwNumberOfProcessors (buffer +0x20) to 0x143AC3DC8, and that global holds 16 in the real capture live2/pid2998104/seq567 (CONFIRMED). The doc pes-re-import-slots.md row 13: write SYSTEM_INFO, host values recorded once.", "Hand-encoded as dword stores (c7 41 disp8 imm32): the same twelve fields the translator mirror writes (xlate SYSINFO_FIELDS); test_create_path_models.py runs it in unicorn."]
+    },
+    {
+      "module": "kernel32.dll",
       "export": "TlsAlloc",
       "do": "return",
       "value": 0,
@@ -12,10 +19,9 @@
     {
       "module": "kernel32.dll",
       "export": "VirtualAlloc",
-      "do": "return",
-      "value": "0x2600000000",
-      "code_hex": "48b80000000026000000c3",
-      "why": ["kernel32!VirtualAlloc(NULL, size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE): a committed, zeroed block. The model returns the base of the one block GF's replay port maps for it (0x2600000000, a service window of the port, zeroed; PesHeap's arena is at 0x2400000000). ponytail: one fixed block, not one per call; the boot's VirtualAlloc (0x1403B4E00, from 0x1403B07D0) is the only call the create path makes in the survey. INF: the size argument is not checked against the block."]
+      "do": "bump",
+      "code_hex": "48a10000000026000000488d141049ba0000000026000000498912c3",
+      "why": ["kernel32!VirtualAlloc(NULL, size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE): a committed, zeroed block of size rdx, at the next free address of the boot window. The window (0x2600000000, 4 MB, zeroed, a service window of the replay port) holds its bump cell in its first qword (0x2600000000), which the port starts at 0x2600001000 (the first block). The model returns the old cell and adds the size: successive calls return disjoint blocks, as the region manager's retry needs (a constant base made 0x1403B4EB0 retry forever, CONFIRMED by a live stack). The base is not 4 MB aligned, so 0x1403B4E00 does not take its early return. ponytail: one 4 MB window, no free; a call past it reads unmapped memory and aborts loudly. INF: the protect and type arguments are not checked."]
     },
     {
       "module": "kernel32.dll",

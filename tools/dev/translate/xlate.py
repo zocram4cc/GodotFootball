@@ -469,6 +469,14 @@ def parse_mem(inner):
 # Named import slots (import_slots.py -> import_slots.json) and their models (import_stubs.json, the contract
 # the snapshot harness runs). A CALL through a slot with a model is that model's effect, as the OS export has it.
 IMPORT_SLOT_OP = re.compile(r"^(?:qword\s+ptr\s+)?\[\s*(0x[0-9a-f]+)\s*\]$")
+# kernel32!GetSystemInfo's SYSTEM_INFO (Win64, 48 bytes) as dword stores (offset, value): the sysinfo model's fields.
+# The code_hex of import_stubs.json (GetSystemInfo) stores the same twelve dwords; test_create_path_models.py runs it.
+# The processor count is the PES host's (16, the value the allocator boot stores from +0x20; see import_stubs.json).
+SYSINFO_FIELDS = ((0x00, 9), (0x04, 0x1000), (0x08, 0x10000), (0x0C, 0), (0x10, 0xFFFEFFFF), (0x14, 0x00007FFF),
+                  (0x18, 0xFFFF), (0x1C, 0), (0x20, 16), (0x24, 8664), (0x28, 0x10000), (0x2C, 6))
+# The boot window's bump cell (import_stubs.json VirtualAlloc): the first qword of the 4 MB window the replay port maps at
+# this VA (replay_human.cpp kBootVa); the blocks start after it. The port writes the first block's address into the cell.
+BOOT_CELL = 0x2600000000
 _IMPORT_TABLES = None
 
 
@@ -484,22 +492,51 @@ def _import_tables():
     return _IMPORT_TABLES
 
 
+class ImportKeys:
+    """The named export behind a slot the import table does not name. The import address table is in the image twice:
+    .rdata names every slot, and a copy in .impdata (the relocated code's calls go through it) holds the same IAT keys
+    at other VAs. A slot whose key (the qword it holds) equals a named export's key is that export; a key two named
+    slots share names nothing. read(va, n) -> bytes; None: named slots only."""
+    def __init__(self, read):
+        self.read = read
+        self.by_key = None
+
+    def _build(self):
+        slots, _ = _import_tables()
+        self.by_key = {}
+        for va, e in slots.items():
+            if e.get("kind") != "export":
+                continue
+            k = int.from_bytes(self.read(int(va, 16), 8), "little")
+            self.by_key[k] = None if k in self.by_key else e
+
+    def entry(self, slot_va):
+        slots, _ = _import_tables()
+        named = slots.get("0x%X" % slot_va)
+        if named is not None or self.read is None:
+            return named
+        if self.by_key is None:
+            self._build()
+        return self.by_key.get(int.from_bytes(self.read(slot_va, 8), "little"))
+
+
 def absolute_slot(op):
     """The slot VA of an absolute memory operand (qword ptr [0x...]), or None."""
     m = IMPORT_SLOT_OP.match(op.strip().lower())
     return int(m.group(1), 16) if m else None
 
 
-def import_model_lines(op, jump):
+def import_model_lines(op, jump, keys=None):
     """C++ for a CALL (jump=False) or JMP (jump=True) through an absolute slot that names a modelled export, or
-    None (not a named import). The model runs exactly as the harness runs it. A call pushes its return address
+    None (not a named import). keys (ImportKeys) resolves a slot the import table does not name by the key it holds
+    (the .impdata copy of the table). The model runs exactly as the harness runs it. A call pushes its return address
     (0, as an indirect call records) and the model returns to it. A jump has no return address of its own: the
     model's ret returns to the caller, so the translated function returns after it."""
     slot_va = absolute_slot(op)
     if slot_va is None:
         return None
     slots, models = _import_tables()
-    slot = slots.get("0x%X" % slot_va)
+    slot = keys.entry(slot_va) if keys is not None else slots.get("0x%X" % slot_va)
     if not slot or slot.get("kind") != "export":
         return None
     e = models.get((slot["module"].lower(), slot["export"]))
@@ -661,6 +698,18 @@ def import_model_lines(op, jump):
                 " s.wr(_cs + 0x00, 0ULL, 8); s.wr(_cs + 0x08, 0xFFFFFFFFULL, 4); s.wr(_cs + 0x0C, 0ULL, 4);"
                 " s.wr(_cs + 0x10, 0ULL, 8); s.wr(_cs + 0x18, 0ULL, 8); s.wr(_cs + 0x20, s.gpr[2], 8);"
                 " s.gpr[0] = 1;%s }" % pop_ret]
+    if e["do"] == "sysinfo":
+        # kernel32!GetSystemInfo(rcx = lpSystemInfo): the code_hex model, register for register: the SYSTEM_INFO dword
+        # stores of SYSINFO_FIELDS through rcx; rax, rdx and the other registers are left as they are; nothing returned.
+        return ["{ " + push_ret + " uint64_t _b = s.gpr[1];"
+                + "".join(" s.wr(_b + 0x%XULL, %dULL, 4);" % (off, val) for off, val in SYSINFO_FIELDS)
+                + "%s }" % pop_ret]
+    if e["do"] == "bump":
+        # kernel32!VirtualAlloc(rdx = size) over the boot window's bump cell (BOOT_CELL, its first qword): rax = the old cell,
+        # the cell advances by rdx; the code_hex (import_stubs.json) also leaves r10 = BOOT_CELL and rdx = the new cell.
+        return ["{ " + push_ret + " uint64_t _old = s.rd(0x%XULL, 8); uint64_t _new = _old + s.gpr[2];"
+                % BOOT_CELL + " s.wr(0x%XULL, _new, 8); s.gpr[0] = _old; s.gpr[2] = _new; s.gpr[10] = 0x%XULL;"
+                % (BOOT_CELL, BOOT_CELL) + "%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
 
@@ -694,6 +743,7 @@ class Emitter:
     """One function body. Collects baked constants + switch tables."""
     def __init__(self, img, va, pilot):
         self.img = img
+        self.imports = ImportKeys(img.read if img is not None else None)
         self.va = va
         self.pilot = pilot  # set of "0x.." in-set callees
         self.consts = {}  # va -> bytes (image constants, VA-cited)
@@ -1985,7 +2035,7 @@ class Emitter:
             if not is_imm(ops[0].strip()):
                 # A call through a named import slot (import_slots.json) runs the slot's model
                 # (import_stubs.json), as the snapshot harness runs it: the export is modelled, not translated.
-                model = import_model_lines(ops[0], jump=False)
+                model = import_model_lines(ops[0], jump=False, keys=self.imports)
                 if model is not None:
                     return model
                 # Indirect call (vtable / register / memory): emit the exact
@@ -2020,7 +2070,7 @@ class Emitter:
                 # JMP through an absolute slot: a named export runs its model, then the function returns. Any other
                 # slot (an image function's address, as the snapshot holds it) is a tail jump to the target the slot
                 # holds now, looked up in the dispatch table like an indirect CALL; an untranslated target aborts.
-                model = import_model_lines(o, jump=True)
+                model = import_model_lines(o, jump=True, keys=self.imports)
                 if model is not None:
                     return model + ["return;"]
                 tgt_expr = self.mem_val(o[o.find("["):], 64, None)
