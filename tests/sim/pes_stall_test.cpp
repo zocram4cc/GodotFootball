@@ -96,12 +96,15 @@ class BreakerCensusProbe : public pestest::Probe {
       const PesDecision& decision = pressOwn->GetPesDecision();
       const PlayerCommand pcmd = decision.command ? *decision.command : PlayerCommand();
       const Vector3 ballNow = match.GetBall()->Predict(0);
-      std::printf("STALLPRESSER t=%lu id=%d team=%d dist=%.2f cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f fn=%d ms=%d motion=%d play=%.2f\n", match.GetActualTime_ms(),
+      std::printf("STALLPRESSER t=%lu id=%d team=%d dist=%.2f cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f fn=%d ms=%d motion=%d play=%.2f pg=%d des=%d grp=%d rate=%.3f nat=%.2f\n", match.GetActualTime_ms(),
                   pressOwn->GetID(), pressOwn->GetTeamID(), double((pressOwn->GetPosition() - ballNow).Get2D().GetLength()),
                   double(pcmd.desiredVelocityFloat), pcmd.useDesiredTarget ? 1 : 0,
                   double((pcmd.desiredTarget - ballNow).Get2D().GetLength()), double(pressOwn->GetMovement().GetLength()),
                   int(pressOwn->GetCurrentFunctionType()), int(pressOwn->GetMoveStep().state), pesmovestep::CurrentMotionOf(*pressOwn),
-                  pressOwn->CastHumanoid()->GetCurrentAnim() ? double(pressOwn->CastHumanoid()->GetCurrentAnim()->playbackRate) : 0.0);
+                  pressOwn->CastHumanoid()->GetCurrentAnim() ? double(pressOwn->CastHumanoid()->GetCurrentAnim()->playbackRate) : 0.0,
+                  pressOwn->GetTeam()->PassGetReceiver() == pressOwn ? 1 : 0, match.GetDesignatedPossessionPlayer() == pressOwn ? 1 : 0,
+                  pressOwn->GetIssuedClip().request.group, double(pressOwn->GetIssuedClip().request.rate),
+                  double(pressOwn->CastHumanoid()->PesClipNaturalSpeed(pesmovestep::CurrentMotionOf(*pressOwn))));
     }
     if (holder) {
       const uint8_t* hp = match.PesWorldOf().P(match.PesSlotOf(holder));

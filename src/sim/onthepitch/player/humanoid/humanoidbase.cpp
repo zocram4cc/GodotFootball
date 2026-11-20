@@ -479,6 +479,27 @@ bool HumanoidBase::OnPesClip() const {
   return pes::IsPesClipFamily(family) || pes::IsPesLocomotionFamily(family) || pes::IsPesTrapFamily(family);
 }
 
+float HumanoidBase::PesClipNaturalSpeed(int motion) {
+  CrudeSelectionQuery query;
+  query.byFunctionType = true;
+  query.functionType = e_FunctionType_Special;
+  query.byIncomingVelocity = false;
+  query.byIncomingBodyDirection = false;
+  query.bySide = false;
+  query.properties.Set("specialvar1", static_cast<int>(pes::PesClipFamily::kLocomotion));
+  query.properties.Set("specialvar2", motion);
+  DataSet dataSet;
+  anims->CrudeSelection(dataSet, query);
+  if (dataSet.empty()) return 0.0f;
+  Animation* anim = anims->GetAnim(*dataSet.begin());
+  const int frames = static_cast<int>(anim->GetFrameCount());
+  if (frames < 2) return 0.0f;
+  const std::vector<Vector3>& positions = match->GetAnimPositionCache(anim);
+  if (positions.size() < 2) return 0.0f;
+  const float travel_m = (positions.back() - positions.front()).Get2D().GetLength();
+  return travel_m / (static_cast<float>(frames - 1) * pes::kGfAnimFrame_s);
+}
+
 float HumanoidBase::ClipFramesPerTick() const {
   return OnPesClip() ? static_cast<float>(Match::kTick_ms / 1000.0 / pes::kGfAnimFrame_s) : 1.0f;
 }
