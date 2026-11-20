@@ -93,8 +93,8 @@ class BreakerCensusProbe : public pestest::Probe {
     for (const auto& p : who->GetTeam()->GetAllPlayers())
       if (p.get() == pressMan) pressOwn = p.get();
     if (pressOwn) {
-      const Anim* pc = pressOwn->GetCurrentAnim();
-      const PlayerCommand& pcmd = pc->originatingCommand;
+      const PesDecision& decision = pressOwn->GetPesDecision();
+      const PlayerCommand pcmd = decision.command ? *decision.command : PlayerCommand();
       const Vector3 ballNow = match.GetBall()->Predict(0);
       std::printf("STALLPRESSER t=%lu id=%d team=%d dist=%.2f cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f fn=%d ms=%d motion=%d\n", match.GetActualTime_ms(),
                   pressOwn->GetID(), pressOwn->GetTeamID(), double((pressOwn->GetPosition() - ballNow).Get2D().GetLength()),
