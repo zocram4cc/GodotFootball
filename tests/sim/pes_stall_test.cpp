@@ -8,6 +8,7 @@
 #include "onthepitch/player/humanoid/humanoid.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/teamAIcontroller.hpp"
+#include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/pestrapworld.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/team.hpp"
@@ -75,6 +76,13 @@ class BreakerCensusProbe : public pestest::Probe {
                 double(match.GetBall()->GetMovement().GetLength()),
                 match.GetPesDesignatedOwner() == match.PesActorKeyOf(who) ? 1 : 0,
                 holder ? holder->GetTeamID() * 100 + holder->GetID() : -1);
+    // The movement fields for the 145 locomotion firings: the command's speed and target, the body's speed, the motion MOVESTEP last
+    // issued (-1: the AI's clip), and the target's distance from the forced man.
+    const PlayerCommand& cmd = clip->originatingCommand;
+    std::printf("STALLMOVE t=%lu man=%d cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f motion=%d ms=%d\n", match.GetActualTime_ms(), who->GetID(),
+                double(cmd.desiredVelocityFloat), cmd.useDesiredTarget ? 1 : 0,
+                double((cmd.desiredTarget - who->GetPosition()).Get2D().GetLength()), double(who->GetMovement().GetLength()),
+                pesmovestep::CurrentMotionOf(*who), int(ms.state));
     // The press state of the forced man's side: is he the loose PRESS man, and is there any PRESS man at all.
     TeamAIController* ctl = who->GetTeam()->GetController();
     const Player* pressMan = ctl->GetLoosePressMan();
