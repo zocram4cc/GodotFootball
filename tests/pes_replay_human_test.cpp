@@ -34,11 +34,15 @@ struct CopyCapture {
   std::vector<pes::AllocAnswer> answers;
   std::vector<uint8_t> record;  // the frame's record: kCapturePage bytes from the record's address
   std::vector<uint8_t> after;   // PES's record palette entry after the call (after.bin)
+  std::vector<uint8_t> palette_entry;  // the palette entry the call's human selects (palette.bin)
   uint32_t human = 0, guard = 0;  // the call's own inputs (copy_livein.py's I line)
   uint8_t active = 1, palette = 0;
+  uint16_t frameIndex = 0;  // the frame index: the low word of the frame key (the unit frame the palette byte is read from)
 };
 
 bool LoadCopyCapture(const std::string& dir, CopyCapture& cap, std::string* error) {
+  std::ifstream paletteFile(dir + "/palette.bin", std::ios::binary);
+  cap.palette_entry.assign(std::istreambuf_iterator<char>(paletteFile), std::istreambuf_iterator<char>());
   std::ifstream afterFile(dir + "/after.bin", std::ios::binary);
   cap.after.assign(std::istreambuf_iterator<char>(afterFile), std::istreambuf_iterator<char>());
   if (cap.after.size() != pes::kPaletteEntryBytes) {
@@ -66,12 +70,13 @@ bool LoadCopyCapture(const std::string& dir, CopyCapture& cap, std::string* erro
     char kind = 0;
     row >> kind;
     if (kind == 'I') {
-      unsigned human = 0, guard = 0, active = 0, palette = 0;
-      row >> human >> std::hex >> guard >> std::dec >> active >> palette;
+      unsigned human = 0, guard = 0, active = 0, palette = 0, frameIndex = 0;
+      row >> human >> std::hex >> guard >> std::dec >> active >> palette >> frameIndex;
       cap.human = human;
       cap.guard = guard;
       cap.active = static_cast<uint8_t>(active);
       cap.palette = static_cast<uint8_t>(palette);
+      cap.frameIndex = static_cast<uint16_t>(frameIndex);
       continue;
     }
     unsigned long long value = 0;
@@ -149,6 +154,8 @@ pes::ReplayFrameInputs FromCapture(const CopyCapture& cap) {
   in.guard = cap.guard;
   in.active = cap.active;
   in.paletteIndex = cap.palette;
+  in.frameIndex = cap.frameIndex;
+  if (!cap.palette_entry.empty()) std::copy(cap.palette_entry.begin(), cap.palette_entry.end(), in.entry.begin());
   return in;
 }
 

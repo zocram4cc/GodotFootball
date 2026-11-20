@@ -29,6 +29,7 @@ constexpr uint64_t kRecordBytesOff = 0x50, kRecordWord1c = 0x1C, kRecordByte21 =
 constexpr uint64_t kListFramesOff = 0x10;
 constexpr uint64_t kUnitPaletteOff = 0x20, kUnitFramesOff = 0x40;
 constexpr uint64_t kFrameStride = 300, kFrameGuardOff = 0x30C, kFramePaletteOff = 0x36B;
+constexpr uint64_t kUnitFrameBytes = 0x1FB0;  // the unit's frame table stride (the frame of the selected index)
 constexpr uint64_t kPaletteEntriesOff = 0x80, kPaletteEntryStride = kPaletteEntryBytes;
 // The valid palette indices are below this count (FUN_1420B6A30 tests the byte against 0x27).
 constexpr uint8_t kPaletteCount = 0x27;
@@ -141,16 +142,18 @@ ReplayHumanRecord ReplayHumanFrame::Read(const ReplayFrameInputs& in) {
   PutU32(r, kRecordWord1c, 0xFFFFFFFFu);
   PutU8(r, kRecordByte21, 1);
 
-  // The frame list, the key (frame 0, word 0), and the frame's human record.
+  // The frame list, the frame key (its low word selects the unit frame, see below), and the frame's human record.
   PutU64(l, kListFramesOff, kLayout[kF].va);
-  PutU32(k, 0, 0);
+  PutU32(k, 0, in.frameIndex);
   const uint64_t humanOff = static_cast<uint64_t>(in.human) * kFrameStride;
   PutU32(f, humanOff + kFrameGuardOff, in.guard);
   PutU8(g2, humanOff + kFramePaletteOff, in.paletteIndex);
 
   // The unit: the palette and the frame table; the palette entry the index selects.
   PutU64(u, kUnitPaletteOff, kLayout[kP].va);
-  PutU64(u, kUnitFramesOff, kLayout[kG2].va);
+  // The palette byte is read at table + frameIndex * 0x1FB0 + human * 300 + 0x36B: the table pointer is set so that the
+  // selected frame is the window (kG2), so the byte the frame reads is the byte this fixture writes.
+  PutU64(u, kUnitFramesOff, kLayout[kG2].va - static_cast<uint64_t>(in.frameIndex) * kUnitFrameBytes);
   PutU64(mg, kManagerUnitOff, kLayout[kU].va);
   // PES reads an entry only for indices below its palette count (FUN_1420B6A30: byte < 0x27); above it the
   // function returns before the entry is touched, so the entry is not written.

@@ -31,6 +31,10 @@ POOL_ALLOC = 0x1403FB410  # the pool allocation (rdx = size)
 MALLOC = 0x1403CF740      # the aligned allocation entry (rcx = size; a zero size is one byte)
 IMAGE_BASE = 0x140000000
 PAGE = 0x1000
+PALETTE_ENTRIES_OFF = 0x80  # the unit palette's entries (one PALETTE_BYTES entry per palette index)
+MANAGER_GLOBAL = 0x1436F5118  # the replay manager (the image global M: the manager object's pointer)
+MANAGER_UNIT_OFF = 0x6A8     # the manager's unit
+UNIT_PALETTE_OFF = 0x20      # the unit's palette pointer
 RECORD_PALETTE_OFF = 0x50  # R+0x50..+0xF0: the copied palette entry (ReplayHumanRecord::bytes)
 PALETTE_BYTES = 0xA0
 HUMAN_STRIDE = 300        # the frame's human records (FUN_14217DEF0 strides by 300)
@@ -38,13 +42,14 @@ FRAME_GUARD_OFF = 0x30C   # the frame's word for a human: 0x7FFF marks the human
 FRAME_PALETTE_OFF = 0x36B # the frame's palette byte for a human (0..0x26 are valid)
 
 
-def frame_inputs(u, rec, lst):
+def frame_inputs(u, rec, lst, key):
     """The ReplayFrameInputs of one call, read from PES's memory at the frame's entry: (human, guard, active, palette)."""
     rd = lambda a, n: bytes(u.mem_read(a, n))
     human = int.from_bytes(rd(rec + 0x28, 4), "little")
     frames = int.from_bytes(rd(lst + 0x10, 8), "little")
     fr = frames + human * HUMAN_STRIDE
-    return (human, int.from_bytes(rd(fr + FRAME_GUARD_OFF, 4), "little"), rd(rec + 0x18, 1)[0], rd(fr + FRAME_PALETTE_OFF, 1)[0])
+    return (human, int.from_bytes(rd(fr + FRAME_GUARD_OFF, 4), "little"), rd(rec + 0x18, 1)[0], rd(fr + FRAME_PALETTE_OFF, 1)[0],
+            int.from_bytes(rd(key, 2), "little"))
 
 
 def main():
@@ -87,6 +92,7 @@ def main():
         if addr == FRAME and "va" not in record:
             record["va"] = u.reg_read(xc.UC_X86_REG_RCX)
             record["lst"] = u.reg_read(xc.UC_X86_REG_RDX)
+            record["key"] = u.reg_read(xc.UC_X86_REG_R8)
         if not hooked["done"]:
             hooked["done"] = True
             u.hook_add(UC_HOOK_MEM_READ, on_read)
@@ -113,7 +119,12 @@ def main():
                                models=ft.load_import_models())
     if err is not None:
         raise SystemExit("copy_livein: the frame's replay failed: %s" % err)
-    record["in"] = frame_inputs(_uc, record["va"], record["lst"])
+    record["in"] = frame_inputs(_uc, record["va"], record["lst"], record["key"])
+    rq = lambda a: int.from_bytes(bytes(_uc.mem_read(a, 8)), "little")
+    unit = rq(rq(MANAGER_GLOBAL) + MANAGER_UNIT_OFF)
+    palette_entry = rq(unit + UNIT_PALETTE_OFF) + PALETTE_ENTRIES_OFF + record["in"][3] * PALETTE_BYTES
+    with open(os.path.join(cap, "palette.bin"), "wb") as f:
+        f.write(bytes(_uc.mem_read(palette_entry, PALETTE_BYTES)))
     with open(os.path.join(cap, "after.bin"), "wb") as f:
         f.write(bytes(_uc.mem_read(record["va"] + RECORD_PALETTE_OFF, PALETTE_BYTES)))
     live = set(p for p, k in first.items() if k == "R")
@@ -125,7 +136,7 @@ def main():
         for p in sorted(live):
             f.write("P\t%x\n" % p)
         f.write("R\t%x\n" % record["va"])
-        f.write("I\t%d\t%x\t%d\t%d\n" % record["in"])
+        f.write("I\t%d\t%x\t%d\t%d\t%d\n" % record["in"])
         for s in sources:
             f.write("S\t%x\n" % s)
         for size, va in answers:

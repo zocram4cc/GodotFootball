@@ -24,6 +24,7 @@ struct ReplayFrameInputs {
   uint32_t human = 0;       // R+0x28: the human's index in the frame (the stride is 300 bytes per human)
   uint32_t guard = 0;       // the frame's word at +0x30C for this human: 0x7FFF marks the human absent
   uint8_t paletteIndex = 0; // the frame's palette byte at +0x36B for this human (0..0x26 are valid)
+  uint16_t frameIndex = 0;  // the low word of the frame key (the byte-pair at R8): the unit frame (stride 0x1FB0) the palette byte is read from
   std::array<uint8_t, kPaletteEntryBytes> entry{};  // the palette entry the index selects (unit palette +0x80)
 };
 
