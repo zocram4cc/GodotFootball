@@ -85,6 +85,12 @@ def main(argv=None):
         rec["synthetic"] = True
         rec["synthetic_cases"] = len(a.synth)
     members = sorted(m for m in json.load(open(os.path.join(out_dir, "gen", root[2:], "members.json"))) if m.upper() != root.upper())
+    import boundary_guard  # the graphics allocator boundary: named in the record with its sites (owner ruling, option A)
+    sites = boundary_guard.closure_sites(image, [int(m, 16) for m in members] + [int(root, 16)])
+    if sites:
+        rec["boundaries"] = [{"name": "gfx_device_alloc", "va": "0x141957C50", "answer": "0x0", "ruling": boundary_guard.RULING,
+                              "guard": "boundary_guard.closure_failures (snapdiff.build_binary): every site's skipped arm writes only the packet",
+                              "sites": ["0x%X" % s for s in sites]}]
     with open(os.path.join(HERE, "closure_%s.json" % a.tag), "w") as f:
         json.dump({"note": "the functions the capture-bounded proof of %s entered (prove_bounded.py). VAs only." % root, "root": root,
                    "members": members}, f, indent=1)

@@ -18,6 +18,7 @@
 #include "onthepitch/pesfoxworld.hpp"
 #include "pes/translated/translated.hpp"
 #include "pes_stubs.hpp"
+#include "pes_native.hpp"
 #include "pes/vfs.hpp"
 
 namespace {
@@ -143,34 +144,36 @@ TEST_F(FoxSeam, TheTranslatedJobLoadsAnInstallFileIntoTheResManager) {
   EXPECT_NE(world_->Read8(job + kJobKeyOffset + 8), 0);
 }
 
-// The pool manager's table is GF's after the boot: PES's own start-up code (a guarded static's constructor FUN_1403FB8A0 -> FUN_1403FB610) must
-// not rebuild it. A pool id the table holds a forwarder for (0xB, the job object's) still answers an allocation after Boot; with the init count
-// 0 the rebuild wiped the forwarders (entry 0xB = 0) and the allocation returned 0.
-constexpr uint32_t kForwardedPoolId = 0xB;
-constexpr uint64_t kPoolAllocBytes = 0x50, kPoolDescBytes = 0x40;
+// The pool entry 0x1403FB410 is a native service (pes_native_pool_alloc, pes_native.cpp): the native heap answers it for every pool, so
+// the translated pool table is no longer read at all. The contract this test keeps is the consumer's: after the boot, an allocation through
+// the pool entry returns a nonzero block aligned to the requested alignment (rcx = &poolId is ignored by the native arena, by design).
+constexpr uint64_t kPoolAllocBytes = 0x50, kPoolDescBytes = 0x40, kPoolAlign = 0x10;
 
-TEST_F(FoxSeam, ThePoolManagerStillAnswersAForwardedPoolAfterTheBoot) {
+TEST_F(FoxSeam, ThePoolEntryAnswersAnAlignedBlockAfterTheBoot) {
   world_->Boot();
   const uint64_t desc = world_->Alloc(kPoolDescBytes);
-  world_->Write32(desc, kForwardedPoolId);
-  EXPECT_NE(world_->Call(::pes_fn_1403FB410, {desc, kPoolAllocBytes, 0}), 0u);
+  const uint64_t block = world_->Call(::pes_native_pool_alloc, {desc, kPoolAllocBytes, kPoolAlign});
+  EXPECT_NE(block, 0u);
+  EXPECT_EQ(block % kPoolAlign, 0u);
 }
 
-// PES's own allocator (jemalloc: FUN_1403CF740 under FUN_14029D370) boots from the zeroed state PES starts in: FUN_14038EE80 (malloc_init_hard)
-// sets the "initialised" byte at 0x1436DCEE0 that FUN_14038E3E0 tests, and the allocator then hands out distinct, aligned blocks from the OS
-// arena the VirtualAlloc model serves. The dump holds that byte set (the dead game's), so Boot zeroes the allocator's state first: a Boot that
-// then skips the init leaves it clear, and one that skips the zeroing walks the dead trees (the first allocation never returns).
-constexpr uint64_t kAllocatorInitFlagVa = 0x1436DCEE0, kOsArenaVa = 0x3000000000ULL, kOsArenaBytes = 0x100000000ULL;
-constexpr uint64_t kAllocSize = 0x100, kAllocAlign = 0x10, kAllocFlags = 0x30001;  // FUN_141B04850's call shape: (size, 0x10, 0x30001)
+// PES's own allocator (jemalloc: FUN_1403CF740 under FUN_14029D370) is the native aligned-allocation entry pes_native_malloc, which the
+// translated layer reaches in place of 0x1403CF740 (pes_native.cpp). It takes rcx = the size and rdx = the requested class x; the alignment
+// is ((x & ~0x1F) | 0x10) & ~(x - 1). The native path serves its blocks from GF's heap arena (PesHeap::kArenaVa), not the OS arena the
+// translated jemalloc used. The boot leaves the allocator's state as PES starts it: FUN_14038EE80 (malloc_init_hard) sets the
+// "initialised" byte at 0x1436DCEE0 that FUN_14038E3E0 tests. The dump holds that byte set (the dead game's), so Boot zeroes the allocator's
+// state first. A Boot that then skips the init leaves it clear, and one that skips the zeroing walks the dead trees.
+constexpr uint64_t kAllocatorInitFlagVa = 0x1436DCEE0;
+constexpr uint64_t kAllocSize = 0x100, kAllocAlign = 0x10, kAllocClassX = 0x30001;  // FUN_141B04850's call shape: x = 0x30001, align 0x10
 
 TEST_F(FoxSeam, TheBootRunsPesMallocInitAndItsAllocatorHandsOutDistinctAlignedBlocks) {
   world_->Boot();
   EXPECT_EQ(world_->Read8(kAllocatorInitFlagVa), 1);
-  const uint64_t a = world_->Call(::pes_fn_1403CF740, {kAllocSize, kAllocAlign, kAllocFlags});
-  const uint64_t b = world_->Call(::pes_fn_1403CF740, {kAllocSize, kAllocAlign, kAllocFlags});
+  const uint64_t a = world_->Call(::pes_native_malloc, {kAllocSize, kAllocClassX, 0});
+  const uint64_t b = world_->Call(::pes_native_malloc, {kAllocSize, kAllocClassX, 0});
   for (uint64_t block : {a, b}) {
-    EXPECT_GE(block, kOsArenaVa);
-    EXPECT_LT(block, kOsArenaVa + kOsArenaBytes);
+    EXPECT_GE(block, PesHeap::kArenaVa);
+    EXPECT_LT(block, PesHeap::kArenaVa + kHeapBytes);
     EXPECT_EQ(block % kAllocAlign, 0u);
   }
   EXPECT_NE(a, b);

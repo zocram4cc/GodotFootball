@@ -25,6 +25,10 @@ import struct
 IMAGE_BASE = 0x140000000
 MAX_RANGE = 0x10000  # bytes of one range decoded (1405DC350 spans > 0x2000); an entry over MAX_FN is corrupt
 MAX_FN = 0x100000
+CAVE_MAX = 0x200  # bytes a relocated cave is swept over (0x14252E690 spans 0x30)
+# Instructions no relocated cave may hold (see Pdata._cave): leaving the body for other code, returning, trapping, or reading the machine.
+CAVE_BAD = frozenset({"call", "ret", "retf", "iret", "int", "int3", "into", "syscall", "sysenter", "cpuid", "rdtsc", "rdtscp",
+                      "rdrand", "rdseed", "xgetbv", "in", "out", "hlt", "ud2", "push", "pop", "pushf", "popf", "enter", "leave"})
 UNW_FLAG_CHAININFO = 0x20  # flag 4 in the high five bits of the UNWIND_INFO's first byte
 # A range whose last instruction is one of these does not fall into the entry after it. A call may be a noreturn call
 # (the next entry is then another function), so it is no fall-through either: ponytail: a continuation entered after a
@@ -168,16 +172,65 @@ class Pdata:
         if va not in self._extent:
             ranges = self._static(va)
             while True:
-                cond = set()
-                self._walk_ranges(self._md_get(), ranges, {}, set(), cond)
+                cond, targets = set(), set()
+                self._walk_ranges(self._md_get(), ranges, {}, targets, cond)
                 new = {self._entry(t) for t in cond if not any(b <= t < e for b, e in ranges)}
                 new = [e for e in sorted(x for x in new if x is not None)
                        if e not in self.root and abs(e - va) < MAX_RANGE]
-                if not new:
+                caves = self._caves(targets, ranges)
+                if not new and not caves:
                     break
-                ranges = self._join(ranges + [r for e in new for r in self._static(e)])
+                ranges = self._join(ranges + [r for e in new for r in self._static(e)] + caves)
             self._extent[va] = ranges
         return self._extent[va]
+
+    def _caves(self, targets, ranges):
+        """The relocated caves a body reaches: each jump target outside the body that _cave accepts, as (begin, end)."""
+        out = []
+        for t in sorted(targets):
+            if not any(b <= t < e for b, e in ranges):
+                c = self._cave(t, ranges)
+                if c is not None:
+                    out.append(c)
+        return out
+
+    def _cave(self, t, ranges):
+        """(begin, end) of a cave at t that belongs to the body with these ranges, else None. A cave is a block no .pdata
+        entry covers, entered by an unconditional jump from the body and returning into it by a jump back: the protector
+        relocated the block (0x14252E690 is entered from 0x141EC3F0D and returns to 0x141EC3F21). It is absorbed only if a
+        linear sweep from t reaches its return jump, every jump target inside is an instruction start, and it holds game
+        logic: no call, return, computed jump, trap, string move, fs access, or read of the environment (cpuid, rdtsc,
+        rdrand, xgetbv, in/out, push/pop). Anything else stays outside the body.
+        ponytail: the classification is this mechanical one; a block that passes it still needs its own reading in the
+        translation that uses it."""
+        if t in self.ends or self._entry(t) is not None:
+            return None
+        decoded, pending, exit_back, end = [], set(), False, None
+        for ins in self._md_get().disasm(self.read(t, CAVE_MAX), t):
+            m = ins.mnemonic
+            if m in CAVE_BAD or m.startswith("rep") or "fs:" in ins.op_str:
+                return None
+            decoded.append(ins)
+            if m.startswith("j"):
+                try:
+                    tgt = int(ins.op_str, 16)
+                except ValueError:
+                    return None
+                if any(b <= tgt < e for b, e in ranges):
+                    exit_back = True
+                    if m == "jmp" and not {p for p in pending if p > ins.address}:
+                        end = ins.address + ins.size
+                        break
+                elif tgt >= t:
+                    pending.add(tgt)
+                else:
+                    return None
+        if end is None or not exit_back:
+            return None
+        starts = {i.address for i in decoded}
+        if any(p >= end or p not in starts for p in pending):
+            return None
+        return (t, end)
 
     def next_start(self, va):
         """The first .pdata entry start (chunks included) strictly above va (None past the last)."""

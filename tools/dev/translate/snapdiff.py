@@ -30,6 +30,7 @@ import frame_trace as ft  # noqa: E402
 import xlate  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 import stubs as stub_table  # noqa: E402
+import boundary_guard  # noqa: E402
 
 JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
@@ -166,6 +167,10 @@ def build_binary(va, spec, args, pilot, reached, executed=None, native=False):
             json.dump(sorted(need), f)
     if err:
         return None, err
+    gfx = boundary_guard.closure_failures(args.image, [int(c, 16) for c in need])
+    if gfx:
+        return None, ("the graphics allocator boundary (0x141957C50, declared answer 0; owner ruling option A, 21-11-26): "
+                      + " | ".join(gfx[:4]))
     # The committed runtime headers, always refreshed (a stale copy in the build tree would link old code).
     heads = ("pes_state.hpp", "pes_cond.inl", "pes_stubs.hpp", "pes_dispatch.hpp",
              "pes_survey.hpp") + (("pes_native.hpp",) if native else ())
