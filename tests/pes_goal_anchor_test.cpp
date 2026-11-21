@@ -381,6 +381,9 @@ pes::GoalAnchorFacts KindTwoFacts(const Case& c, std::array<float, 3> pos, uint3
   return f;
 }
 
+// RED (CutsceneAnchor 1, not disabled): the else arm 0x140471A80 -> 0x1404B6BD0 -> 0x14047AB20 -> 0x1404511E0 -> 0x140451C10 -> 0x141B55730
+// makes a virtual call on an object whose vtable is not mapped; GF aborts with PES_DISPATCH_UNTRANSLATED. The writer's zone decision
+// already runs in PlaceGoal. Stays red until that object is modelled.
 TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   std::string why;
   const auto exe = OpenExe(&why);
