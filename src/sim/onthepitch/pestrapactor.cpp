@@ -20,24 +20,19 @@ uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier
       return carrier ? kAnimeActionDribble : kAnimeActionMove;
     case e_FunctionType_Trap:
       return kAnimeActionTrap;  // 7: written at 0x1407B0D57 (FUN_1407B0C33) and 0x1407B35E6 (FUN_1407B35DA)
+    // ponytail: the kick-family ids (8, 9, 0xA, 0xB, 0xD, 0x38, 0x3A) belong to PES action ticks GF has not translated: a body under them aborts the
+    // run (PES_DISPATCH_UNTRANSLATED 0x140789D00; HEAD 694e354e reverted the same). The body reads as MOVE until those ticks are translated.
     case e_FunctionType_ShortPass:
-      return kAnimeActionShortPass;  // 9: written at 0x1407822CB (FUN_140781FC0, a pass tick)
     case e_FunctionType_LongPass:
     case e_FunctionType_HighPass:
-      return kAnimeActionLongPass;  // 8: no constant site, the command commit; the name is the table's
     case e_FunctionType_Header:
     case e_FunctionType_Shot:
-      // 0xA: no constant site, the command commit. INF for the header: PES's table has no header action, so a header is a kick action.
-      return kAnimeActionShoot;
     case e_FunctionType_Sliding:
-      return kAnimeActionSliding;  // 0xB: no constant site, the command commit
     case e_FunctionType_Trip:
     case e_FunctionType_Interfere:
-      return kAnimeActionTackle;  // 0xD: no constant site, the command commit. INF: which GF function PES's tackle command is
     case e_FunctionType_Catch:
-      return kAnimeActionKeeperCatch;  // 0x38: the table's name; no constant site
     case e_FunctionType_Deflect:
-      return kAnimeActionKeeperDeflect;  // 0x3A: the table's name; no constant site
+      return kAnimeActionMove;
     case e_FunctionType_Special:
       if (specialVar1 == static_cast<int>(PesClipFamily::kDodge)) return kAnimeActionDodge;  // 0x15: no constant site, the command commit
       if (specialVar1 == static_cast<int>(PesClipFamily::kTackle)) return kAnimeActionTackle;
