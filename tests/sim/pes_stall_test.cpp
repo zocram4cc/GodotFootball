@@ -29,18 +29,28 @@ constexpr unsigned int kSeed = 7;
 constexpr int kMinutes = 2;
 // The cap sim_match_test.cpp uses.
 constexpr unsigned long kMaxTicks = 30ul * 60ul * 100ul;
+// The quick target plays the same seed-7 match and stops after its first kQuickMinutes of sim time. A match's durationMinutes is its
+// real-time length on the clock (match.cpp builds the PES clock from it), but matchduration.hpp clamps it to 5..90 minutes, so the
+// full match cannot be shortened by its setting: kMinutes = 2 plays the five-minute clock. The window is therefore a prefix of that
+// match: kQuickMinutes * 60 seconds of logic ticks at the sim's own rate, the same minutes-times-seconds-times-rate rule kMaxTicks uses.
+// Four minutes (240 s, 12960 ticks) holds every forced tick before 240 s on 43e96723 (64 of 118, all from 218.8 s); the next is at 373.8 s.
+constexpr unsigned long kQuickMinutes = 4;
+constexpr unsigned long kSecondsPerMinute = 60ul;
+constexpr unsigned long kQuickMaxTicks = kQuickMinutes * kSecondsPerMinute * Match::kFramesPerSecond;
 
 // One whole PES match, with each breaker firing filed by the state of play on its tick. The match is the seed-7 match the
 // restart-delay tests play, so the two families share one run (pes_shared_match.hpp).
 class BreakerCensusProbe : public pestest::Probe {
  public:
-  BreakerCensusProbe()
-      : Probe("PesStall", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
+  BreakerCensusProbe(const char* name = "PesStall", unsigned long maxSimTicks = kMaxTicks, bool shared = true)
+      : Probe(name, {true, kMinutes, kSeed}, maxSimTicks, /*stallStops=*/false, /*judgeEnd=*/false, shared) {}
+  unsigned long ticks = 0;  // ticks the probe saw
   long armedFirings = 0;    // the referee had a restart armed (its buffer is active)
   long liveFirings = 0;     // play is live, nothing is armed: a man on a ball that nobody plays
   long unarmedFirings = 0;  // play is off and nothing is armed
   void OnStart(Match& match) override { lastCount_ = match.GetStalemateCount(); }
   void OnTick(Match& match) override {
+    ticks++;
     const unsigned long count = match.GetStalemateCount();
     const bool fired = count != lastCount_;
     lastCount_ = count;
@@ -53,6 +63,13 @@ class BreakerCensusProbe : public pestest::Probe {
     } else {
       unarmedFirings++;
     }
+  }
+
+  // The summary the quick target prints: the forced-tick count, and with GF_STALL_DUMP the census by bucket.
+  void Print(const char* label) const {
+    std::printf("%s ticks=%lu of %lu forced_live=%ld\n", label, ticks, maxSimTicks, liveFirings);
+    if (std::getenv("GF_STALL_DUMP"))
+      std::printf("%s buckets armed=%ld live=%ld unarmed=%ld\n", label, armedFirings, liveFirings, unarmedFirings);
   }
 
   // GF_STALL_DUMP=1: one line per live firing, the forced man with his clip, body action bytes, holder state and distance.
@@ -121,6 +138,10 @@ class BreakerCensusProbe : public pestest::Probe {
 };
 
 BreakerCensusProbe census;
+
+// The quick target: the same probe over the window of the same match, run alone (not shared with the family's run), so an agent
+// measures the stall in a minute of sim time. Its count is the full census's count restricted to the window's ticks.
+BreakerCensusProbe quickCensus("PesStallQuick", kQuickMaxTicks, /*shared=*/false);
 
 // A man who has the ball at rest at his feet and does not play it is a trap the reaction keeps starting over: the trap clip
 // is issued, the next tick the reaction starts the trap again, and the clip restarts from its first frame, so it never reaches
@@ -279,6 +300,17 @@ TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
   pestest::Settle(census);
   ASSERT_TRUE(census.stop.gameOver) << "the match did not reach full time";
   EXPECT_EQ(census.liveFirings, 0) << "the breaker forced a live ball for " << census.liveFirings << " ticks";
+}
+
+TEST(PesStallQuick, ALiveBallNeverLiesStillInTheQuickWindow) {
+  pestest::Run(quickCensus);
+  if (quickCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(quickCensus.setupError.empty()) << quickCensus.setupError;
+  pestest::Settle(quickCensus);
+  quickCensus.Print("PESSTALLQUICK");
+  ASSERT_EQ(quickCensus.ticks, kQuickMaxTicks) << "the match ended before its quick window";
+  EXPECT_EQ(quickCensus.liveFirings, 0) << "the breaker forced a live ball for " << quickCensus.liveFirings << " ticks in the first "
+                                        << kQuickMinutes << " minute(s) of sim time";
 }
 
 TEST(PesStall, ANoManIsEverHandedNoCommandAtAClipEnd) {
