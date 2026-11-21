@@ -623,6 +623,24 @@ TEST(MoveStepWire, AKeeperWithoutTheBallIsSteeredByTheWalkBehindHisHandsAndTheDr
   EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{hands}, true).has_value()) << "a lone Deflect is not a movement";
 }
 
+// PES builds one movement command first (the PRESS locomotion), then the reaction chooser replaces it with the reaction it fires
+// (docs/re/pes-re-defender-decisions.md 1). A press-designated man's approach is queued before the slide the chooser fires, so the
+// slide is his decision: the approach stands only when no reaction fires.
+TEST(MoveStepWire, AFiredSlideReplacesTheApproachOfAPressDesignatedMan) {
+  PlayerCommand approach;
+  approach.desiredFunctionType = e_FunctionType_Movement;
+  approach.useDesiredTarget = true;
+  approach.desiredVelocityFloat = sprintVelocity;
+  PlayerCommand slide;
+  slide.desiredFunctionType = e_FunctionType_Sliding;
+  const std::optional<PlayerCommand> fired = pesmovestep::MovementDecision(PlayerCommandQueue{approach, slide}, false);
+  ASSERT_TRUE(fired.has_value());
+  EXPECT_EQ(fired->desiredFunctionType, e_FunctionType_Sliding) << "the approach queued before a fired slide took the decision";
+  const std::optional<PlayerCommand> alone = pesmovestep::MovementDecision(PlayerCommandQueue{approach}, false);
+  ASSERT_TRUE(alone.has_value());
+  EXPECT_EQ(alone->desiredFunctionType, e_FunctionType_Movement) << "the approach must stand when no reaction fired";
+}
+
 // The seed-7 stall (pes_stall_test): a ball at rest 2.3 m from the keeper, on the goal side of him, in his box; the keeper is the
 // designated man and no outfield man is near. His queue is [Deflect, BallControl, Movement toward the ball], and MOVESTEP's decision
 // took the Deflect (a keeper hand action carrying no movement: velocity 0) and so held him in IDLE <-> IDLE_OTHER at frame 0 of the
