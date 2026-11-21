@@ -1,0 +1,12 @@
+{
+ "note": "the functions the bounded proofs of 0x141B6E9C0 (the registry's vslot +0x88 thunk), 0x141B6F220 (the registry's sub-map registration) and 0x140451010 (its copy callback) built beyond their direct callees, on the synthetic entries over seq203's memory (snapdiff --bounded, results_snapdiff_cutanchor7.json): the alloc path of the sub-map (0x1403FB410 and its 0x1403FD830 / 0x1403FDB10), its locks (0x1403FF430 / 0x1403FF490), and the copy the callback tail-jumps to (0x140443240). 0x1403FBC10 (heap_alloc) is a native service in production (stubs.json native_services; pes_native_heap_alloc): the proof ran its translated body, and the production dispatch does not use it, so it is not a member.",
+ "roots": ["0x141B6E9C0", "0x141B6F220", "0x140451010"],
+ "members": [
+  "0x1403FB410",
+  "0x1403FD830",
+  "0x1403FDB10",
+  "0x1403FF430",
+  "0x1403FF490",
+  "0x140443240"
+ ]
+}

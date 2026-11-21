@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP e82aa848feb9a32f -->
+<!-- LEDGER-STAMP 58e3d6392e731d00 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (no flags: reads docs, src and every results set; `--funclist` replaces the bridge's function list), `hand.json`, `offpath_allow.json`, `history.csv` (one row per regeneration that changes the counts)).
@@ -13,34 +13,34 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 25826 | 18633 | 44459 |
+| total | 25830 | 18633 | 44463 |
 | ported | 405 | 0 | 405 |
 | diffed | 3767 | 0 | 3767 |
 | translated | 1827 | 0 | 1827 |
 | stand-in | 59 | 0 | 59 |
 | decoded | 1476 | 0 | 1476 |
-| leaf accessor | 1053 | 0 | 1053 |
+| leaf accessor | 1054 | 0 | 1054 |
 | engine | 1631 | 0 | 1631 |
-| undecoded | 15607 | 0 | 15607 |
+| undecoded | 15610 | 0 | 15610 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 18633 | 18633 |
 
-In scope with a verdict (CONFIRMED/OBS/DOC/INF): 3418 of 25826 (13.2%). Implemented (ported, diffed or translated): 5999 of 25826 (23.2%).
+In scope with a verdict (CONFIRMED/OBS/DOC/INF): 3418 of 25830 (13.2%). Implemented (ported, diffed or translated): 5999 of 25830 (23.2%).
 
 Proof behind the in-scope rows: diffed real 3744, diffed synthetic 23; translated record 0, translated closure 1827.
 
 Change since the previous regeneration (in scope, one line per status):
 
-- in_total: 26120 -> 25826 (-294) since fb9feb233c (2026-11-18)
-- ported: 405 -> 405 (+0) since fb9feb233c (2026-11-18)
-- diffed: 3767 -> 3767 (+0) since fb9feb233c (2026-11-18)
-- translated: 1827 -> 1827 (+0) since fb9feb233c (2026-11-18)
-- stand-in: 59 -> 59 (+0) since fb9feb233c (2026-11-18)
-- decoded: 1476 -> 1476 (+0) since fb9feb233c (2026-11-18)
-- leaf accessor: 1058 -> 1053 (-5) since fb9feb233c (2026-11-18)
-- engine: 1631 -> 1631 (+0) since fb9feb233c (2026-11-18)
-- undecoded: 15896 -> 15607 (-289) since fb9feb233c (2026-11-18)
-- inert: 1 -> 1 (+0) since fb9feb233c (2026-11-18)
+- in_total: 25826 -> 25830 (+4) since 25c8367dec (2026-11-18)
+- ported: 405 -> 405 (+0) since 25c8367dec (2026-11-18)
+- diffed: 3767 -> 3767 (+0) since 25c8367dec (2026-11-18)
+- translated: 1827 -> 1827 (+0) since 25c8367dec (2026-11-18)
+- stand-in: 59 -> 59 (+0) since 25c8367dec (2026-11-18)
+- decoded: 1476 -> 1476 (+0) since 25c8367dec (2026-11-18)
+- leaf accessor: 1053 -> 1054 (+1) since 25c8367dec (2026-11-18)
+- engine: 1631 -> 1631 (+0) since 25c8367dec (2026-11-18)
+- undecoded: 15607 -> 15610 (+3) since 25c8367dec (2026-11-18)
+- inert: 1 -> 1 (+0) since 25c8367dec (2026-11-18)
 
 ## Scope rules
 
@@ -171,10 +171,10 @@ Rows per subsystem and status:
 | audio | 464 | 0 | 102 | 16 | 0 | 9 | 0 | 1 | 336 | 0 |
 | crowd | 267 | 0 | 41 | 1 | 0 | 2 | 11 | 14 | 198 | 0 |
 | HUD | 159 | 0 | 51 | 6 | 0 | 6 | 0 | 3 | 93 | 0 |
-| cutscene | 4047 | 37 | 607 | 214 | 10 | 130 | 66 | 578 | 2405 | 0 |
+| cutscene | 4051 | 37 | 607 | 214 | 10 | 130 | 67 | 578 | 2408 | 0 |
 | in-match menu | 3783 | 10 | 30 | 38 | 3 | 30 | 379 | 83 | 3209 | 1 |
 | render | 297 | 0 | 0 | 7 | 0 | 0 | 0 | 290 | 0 | 0 |
-| total | 25826 | 405 | 3767 | 1827 | 59 | 1476 | 1053 | 1631 | 15607 | 1 |
+| total | 25830 | 405 | 3767 | 1827 | 59 | 1476 | 1054 | 1631 | 15610 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -192,10 +192,10 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | audio | 464 | 160 | 102 | 102 | 464 | 0 | 0 |
 | crowd | 267 | 93 | 41 | 41 | 49 | 218 | 0 |
 | HUD | 159 | 52 | 51 | 51 | 159 | 0 | 0 |
-| cutscene | 4047 | 797 | 654 | 599 | 811 | 3236 | 0 |
+| cutscene | 4051 | 799 | 654 | 599 | 811 | 3236 | 0 |
 | in-match menu | 3783 | 960 | 43 | 37 | 123 | 3660 | 0 |
 | render | 297 | 0 | 0 | 0 | 0 | 0 | 297 |
-| total | 25826 | 7806 | 4231 | 3736 | 17110 | 8419 | 297 |
+| total | 25830 | 7808 | 4231 | 3736 | 17110 | 8419 | 297 |
 
 ## Roots
 
@@ -438,7 +438,7 @@ Not found (owner's list):
 
 | unwalked | rows | note |
 |---|---|---|
-| leaf accessor | 1053 | walked; trivially read by the port, counted apart from the gap |
+| leaf accessor | 1054 | walked; trivially read by the port, counted apart from the gap |
 | unresolved (bridge has no body, no capstone decode) | 44 | 43 in the protected import area (.impdata, no code on the bridge) |
 
 ## Gap list: top 10 undecoded / stand-in by callers, then size (in scope)
@@ -2806,7 +2806,7 @@ Not found (owner's list):
 | 0x1403F7C90 | FUN_1403f7c90 | undecoded | - | - | - | - | 1 | 42 | - | doc | 1403F0220>1403F0250>1403F7C90 |
 | 0x1403F80A0 | FUN_1403f80a0 | leaf accessor | - | - | - | - | 2 | 6 | y | doc | 1403DEAB0>1403F3C90>1403F80A0 |
 | 0x1403F80C0 | FUN_1403f80c0 | leaf accessor | - | - | - | - | 2 | 6 | y | doc | 1403DEAB0>1403F3C90>1403F80C0 |
-| 0x1403FB410 | FUN_1403fb410 | translated | closure | OBS | pes-re-cutscene-roles.md | - | 1818 | 62 | - | doc | 140418940>1403FB410 |
+| 0x1403FB410 | FUN_1403fb410 | translated | closure | OBS | pes-re-cutscene-roles.md | - | 1819 | 62 | - | doc | 140418940>1403FB410 |
 | 0x1403FB860 | FUN_1403fb860 | translated | closure | - | pes-re-match-setup.md | - | 2 | 21 | - | doc | 140418940>1403FB410>1403FB860 |
 | 0x1403FFF90 | FUN_1403fff90 | undecoded | - | - | - | - | 0 | 109 | - | doc | 14150C930>141511070>1403FFF90 |
 | 0x140401120 | FUN_140401120 | undecoded | - | - | - | - | 2 | 16 | - | doc | 140418940>141B501C0>140401120 |
@@ -7244,8 +7244,8 @@ Not found (owner's list):
 | 0x1403FB0F0 | FUN_1403fb0f0 | diffed | real | - | - | - | 2 | 5 | y | doc | 14116E670>1411CB6F0>1403FB0F0 |
 | 0x1403FB210 | FUN_1403fb210 | undecoded | - | - | - | - | 11 | 14 | - | doc | 14116E670>1411CB6F0>1403FB210 |
 | 0x1403FF3E0 | FUN_1403ff3e0 | translated | closure | - | - | src/sim/onthepitch/pestrapdata.hpp;src/sim/onthepitch/pestrapdata.cpp | 34 | 13 | - | doc | 141B51E80>141B51400>1403FF3E0 |
-| 0x1403FF430 | FUN_1403ff430 | translated | closure | CONFIRMED | pes-re-possession-latch.md | - | 434 | 10 | - | doc | 1406AEE20>1403FF430 |
-| 0x1403FF490 | FUN_1403ff490 | translated | closure | CONFIRMED | pes-re-motion-remap.md | - | 434 | 10 | - | doc | 1406AEE20>1403FF490 |
+| 0x1403FF430 | FUN_1403ff430 | translated | closure | CONFIRMED | pes-re-possession-latch.md | - | 435 | 10 | - | doc | 1406AEE20>1403FF430 |
+| 0x1403FF490 | FUN_1403ff490 | translated | closure | CONFIRMED | pes-re-motion-remap.md | - | 435 | 10 | - | doc | 1406AEE20>1403FF490 |
 | 0x1404013E0 | FUN_1404013e0 | undecoded | - | - | - | - | 1 | 6 | - | doc | 140402B90>1404013E0 |
 | 0x140402660 | FUN_140402660 | undecoded | - | - | - | - | 1 | 304 | - | doc | 140402B90>140402660 |
 | 0x140402B90 | FUN_140402b90 | undecoded | - | - | - | - | 0 | 96 | - | doc | 140402B90 |
@@ -18230,7 +18230,7 @@ Not found (owner's list):
 | 0x1420FBDF0 | FUN_1420fbdf0 | diffed | real | - | - | - | 1 | 30 | y | doc | 1420FBF20>1420FBDF0 |
 | 0x1420FBF20 | FUN_1420fbf20 | undecoded | - | - | pes-re-hud-ui.md | - | 0 | 47 | - | doc | 1420FBF20 |
 
-## cutscene (4047)
+## cutscene (4051)
 
 | VA | name | status | proof | decode | cite | port | callers | size | pure | how | path |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -19101,8 +19101,10 @@ Not found (owner's list):
 | 0x14041D1C0 | FUN_14041d1c0 | undecoded | - | - | - | - | 1 | 23 | - | rtti | 1408DAD00>140412300>14041D1C0 |
 | 0x14043C410 | FUN_14043c410 | diffed | real | INF | pes-carrier-A4Cont.md | src/sim/onthepitch/pescarrier.hpp;src/sim/onthepitch/peslane.hpp | 9 | 8 | y | doc | 140488470>1404864B0>14043C410 |
 | 0x140440F90 | FUN_140440f90 | diffed | real | - | - | - | 3 | 2 | y | doc | 1404A3FA0>140440F90 |
+| 0x140443240 | FUN_140443240 | leaf accessor | - | - | - | - | 1 | 64 | y | closure |  |
 | 0x140447B10 | FUN_140447b10 | undecoded | - | - | pes-re-missing-systems.md | - | 2 | 19 | - | doc | 1404A3FA0>140447B10 |
 | 0x14044E0C0 | FUN_14044e0c0 | diffed | real | OBS | pes-re-clock-record.md | - | 48 | 2 | y | rtti | 14044E0C0 |
+| 0x140451010 | FUN_140451010 | undecoded | - | - | - | - | 0 | 3 | y | closure |  |
 | 0x140451C10 | FUN_140451c10 | translated | closure | - | pes-re-match-setup.md | - | 16 | 46 | - | doc | 140471A80>140451C10 |
 | 0x140451E50 | FUN_140451e50 | undecoded | - | - | - | - | 4 | 46 | - | doc | 1404A3FA0>1404A5480>140451E50 |
 | 0x1404534F0 | FUN_1404534f0 | diffed | real | CONFIRMED | pes-re-A5Judge.md | - | 5 | 15 | y | doc | 1404A3FA0>1404534F0 |
@@ -20374,7 +20376,9 @@ Not found (owner's list):
 | 0x141B56DC0 | FUN_141b56dc0 | engine | - | - | - | - | 1 | 24 | - | rtti | 141B559A0>141B56B70>141B56DC0 |
 | 0x141B56E30 | FUN_141b56e30 | engine | - | - | - | - | 1 | 48 | - | rtti | 141B559A0>141B56B70>141B56E30 |
 | 0x141B56F20 | FUN_141b56f20 | engine | - | - | - | - | 1 | 2 | - | rtti | 141B559A0>141B56B70>141B56F20 |
+| 0x141B6E9C0 | FUN_141b6e9c0 | undecoded | - | - | - | - | 0 | 2 | - | closure |  |
 | 0x141B6EA10 | FUN_141b6ea10 | leaf accessor | - | - | - | - | 1 | 3 | y | rtti | 14252E690>141EC3F21>141B6EA10 |
+| 0x141B6F220 | FUN_141b6f220 | undecoded | - | - | - | - | 1 | 37 | - | closure |  |
 | 0x141B8A470 | FUN_141b8a470 | undecoded | - | - | - | - | 1 | 15 | - | rtti | 141F5B030>141EAA200>141B8A470 |
 | 0x141B8A4B0 | FUN_141b8a4b0 | engine | - | - | - | - | 3 | 38 | - | rtti | 141EAA200>141B8A470>141B8A4B0 |
 | 0x141B8F130 | FUN_141b8f130 | engine | - | - | - | - | 2 | 25 | - | rtti | 141EAAE60>141B93860>141B8F130 |

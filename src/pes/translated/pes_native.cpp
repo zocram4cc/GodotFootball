@@ -124,8 +124,15 @@ namespace {
 // the caller registered. A handle +0 vtable, +8 refcount, +0x10 the record. A record is 0x30 bytes in the capture
 // (pid3234533/seq6224, handle 0x33F4490: record +0 = 1, info from +4).
 constexpr uint64_t kGameVtableBytes = 0x40, kGameObjectBytes = 0x30, kGameVtableWrapperSlot = 0x38;
-constexpr uint64_t kRegistryObjectBytes = 0x20, kRegistryVtableBytes = 0x78, kRegistryInsertSlot = 0x68, kRegistryFindSlot = 0x70,
-                   kRegistryHeadOff = 0x10;
+constexpr uint64_t kRegistryObjectBytes = 0x220, kRegistryVtableBytes = 0x90, kRegistryInsertSlot = 0x68, kRegistryFindSlot = 0x70,
+                   kRegistrySubMapSlot = 0x88, kRegistryHeadOff = 0x10;
+// The sub-map: vslot +0x88 is PES's thunk 0x141B6E9C0 (add rcx,0x1d0; jmp 0x141B6F220), which the first goal's registration
+// (0x140445750, the flag clear) calls on the RegistryImpl. The thunk and its callees are translated (the cutscene layer), so the
+// slot holds PES's VA. The sub-map object lives at RegistryImpl+0x1d0: its lock flag byte (+0x28; 1 as PES's seq203 holds it),
+// the node list head (+0x30) and the free list (+0x48). Both lists start empty (GF's state; PES's seq203 has a free list, and its
+// allocation path is the one the proof's freelist_empty case runs); the flag starts on, as PES's seq203 holds it.
+constexpr uint64_t kSubMapSlotVa = 0x141B6E9C0, kSubMapOff = 0x1D0, kSubMapFlagOff = 0x28, kSubMapHeadOff = 0x30,
+                   kSubMapFreeOff = 0x48;
 constexpr uint64_t kNodeBytes = 0x30, kNodeNext = 0, kNodeName1 = 8, kNodeName2 = 0x18, kNameLenOff = 8, kNodeValue = 0x28;
 constexpr uint64_t kObjectRefcountOff = 8;  // PES's insert takes one reference on the object (LOCK inc at +8)
 constexpr uint64_t kHandleBytes = 0x18, kHandleRefcountOff = 8, kHandleRecordOff = 0x10, kRecordBytes = 0x30, kRecordHeader = 1;
@@ -220,7 +227,11 @@ PesCameraRegistry::PesCameraRegistry(PesHeap& heap, PesState& s) {
   s.wr(reg, regVt, 8);
   s.wr(regVt + kRegistryInsertSlot, kInsertVa, 8);
   s.wr(regVt + kRegistryFindSlot, kFindVa, 8);
+  s.wr(regVt + kRegistrySubMapSlot, kSubMapSlotVa, 8);
   s.wr(reg + kRegistryHeadOff, 0, 8);
+  s.wr(reg + kSubMapOff + kSubMapFlagOff, 1, 1);
+  s.wr(reg + kSubMapOff + kSubMapHeadOff, 0, 8);
+  s.wr(reg + kSubMapOff + kSubMapFreeOff, 0, 8);
   for (unsigned i = 0; i < kTargets; ++i) {
     records_[i] = HeapBlock(heap, kRecordBytes, "registry: no room for a record");
     handles_[i] = HeapBlock(heap, kHandleBytes, "registry: no room for a handle");

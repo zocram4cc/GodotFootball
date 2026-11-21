@@ -54,7 +54,7 @@ constexpr uint64_t kStepBytes = 0x38, kStepFade = 4, kStepCut = 8, kStepFlags = 
                    kStepW0 = 0x12, kStepW1 = 0x14, kStepTrip = 0x16, kStepW2 = 0x34;
 constexpr unsigned kStepTrips = 10;
 // The pick cache: a std::map<u32 cut id, u32 row> at ctx+0x30 (head node pointer, size), nodes keyed at +0x1C, valued at +0x20.
-constexpr uint64_t kCtxPickMap = 0x30, kMapNodeBytes = 0x30, kMapNodeKey = 0x1C, kMapNodeValue = 0x20;
+constexpr uint64_t kCtxPickMap = 0x30, kCtxSecondMap = 0x40, kMapNodeBytes = 0x30, kMapNodeKey = 0x1C, kMapNodeValue = 0x20;
 constexpr uint64_t kMapTagVa = 0x142BA554B;  // the length-error text 0x141F4FDA0 passes to the node allocator
 
 // ponytail: the setter 0x141F51630 reads these from the match setup and the environment record (world+0x35960+0x70), none
@@ -212,6 +212,9 @@ struct FixDemoSelector::Impl {
     registry = std::make_unique<PesCameraRegistry>(*heap, s);
     s.wr(kFixDemoCtxSlotVa, ctx, 8);
     InitPickMap();
+    // The ctx's second std::map (+0x40) is cleared by the ctx setter 0x141F51630, which the else arm reaches: an empty sentinel,
+    // as PES's static initialisers leave it (a null head walks the erase into a loop).
+    InitHistory(ctx + kCtxSecondMap);
     BuildDb();
     // Environment globals at their image values.
     s.wr(kG1sVa, kStandInFixtureWord, 2);

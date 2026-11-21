@@ -99253,6 +99253,123 @@
    "synthetic_cases": 1,
    "translated": true,
    "va": "0x140440FC0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutanchor7.json",
+   "coverage": {
+    "0x141B6F220": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the registry's sub-map registration 0x141B6F220 (RegistryImpl+0x1d0: pushes the node (N2, copy callback, flag pointer) on the sub-map's list, the node from its free list or 0x1403FB410). Three SYNTHETIC calls over seq203's own memory and stack (labelled in their index.json): s5 and s6 (entry 0x141B6F220 and the thunk 0x141B6E9C0 with rcx = RegistryImpl) with the sub-map's free list non-empty as PES holds it, and freelist_empty (free list at +0x48 written 0, the allocation path). The flag pointer r9 is N1+0x18 (its value is not read by this function). Real calls: none recorded (PES registered this name on seq203 before the capture). 3 calls, bit-exact, every written byte, own-block 7/7.",
+   "proof": "snapdiff",
+   "requested": 3,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor7.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 3,
+   "translated": true,
+   "va": "0x141B6F220"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutanchor7.json",
+   "coverage": {
+    "0x141B6E9C0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the RegistryImpl's vslot +0x88 thunk 0x141B6E9C0 (add rcx,0x1d0; jmp 0x141B6F220), entered as the first-registration path of 0x140445750 calls it: a SYNTHETIC entry over seq203's memory with rcx = RegistryImpl (0xAB9F630, seq203's own), rdx/r8/r9 as 0x141B6F220's synthetic case. 1 call, bit-exact, own-block 1/1.",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor7.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x141B6E9C0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutanchor7.json",
+   "coverage": {
+    "0x140451010": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the sub-map's copy callback 0x140451010 (lea rdx,[rcx+0xbc]; add rcx,4; tail jump 0x140443240, the copy of N2's fields +0xBC.. to +4..). SYNTHETIC entry over seq203's memory with rcx = a block in the unused stack below rsp (rsp-0x3000, the synth_ctor rule). 1 call, bit-exact, every written byte, own-block 1/1. Real calls: none recorded.",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor7.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x140451010"
   }
  ]
 }
