@@ -118,6 +118,20 @@ void Match::PesAnimeIssue(const Player* player, const pes::MotionRequest& reques
   PesAnimeWorldOf().IssueMotion(PesAnimePlayerOf(PesSlotOf(player)), request);
 }
 
+bool Match::PesOwnsDribble(Player& player) {
+  if (!PesLoop()) return false;
+  const int slot = PesSlotOf(&player);
+  if (PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) pesDribbleSwitched[slot] = false;
+  if (!pesDribbleSwitched[slot]) return false;
+  // PES's Dribble action plays its own clips (the tick's SetMotion issues), so a body on any other clip has been taken from it: a trip or
+  // tackle interrupt (the contact system), a ball action. PES would switch such a man to the action that owns the new clip (Fall, Tackle,
+  // Kick...); GF derives that action from the clip (WritePesTrapActors), so the man leaves PES's dribble when his body leaves its clips.
+  const Anim* clip = player.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  if (!pes::IsPesDribbleFamily(family)) pesDribbleSwitched[slot] = false;
+  return pesDribbleSwitched[slot];
+}
+
 Player* Match::GetPesActorPlayer(const pes::ActorKey& key) {
   if (!key.Valid()) return nullptr;
   const auto& squad = GetTeam(static_cast<int>(key.team))->GetAllPlayers();

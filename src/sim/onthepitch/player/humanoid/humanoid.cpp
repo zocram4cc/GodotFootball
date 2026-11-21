@@ -412,8 +412,14 @@ void Humanoid::Process() {
   */
 
   // The throw-in taker's clip does not switch the body while PES's throw-in action owns it (the same rule as the dribble's).
+  // A man PES's Dribble action owns keeps his last dribble clip's final frame until the dribble tick issues the next motion: the clip's end
+  // does not switch the body. PES runs MOVESTEP (the AI movement decision's consumer) only from the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and
+  // DEMO_MOVE actions (pesmovestep.cpp), so while the Dribble action (anime id 4, tick 0x1407B37D0) owns the body the AI's Movement commands do not
+  // reach it and the dribble tick's SetMotion issues are its only clips. INF: that the anime layer holds a finished motion at its last frame
+  // (the dribble's leave test FUN_1407B9280 reads the frame from the motion list); no capture shows a dribble clip's end.
+  const bool pesDribbleOwned = match->PesOwnsDribble(*CastPlayer());
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer()) &&
-      !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer())) {
+      !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer()) && !pesDribbleOwned) {
     interruptAnim = e_InterruptAnim_Switch;
   }
 
@@ -543,6 +549,8 @@ void Humanoid::Process() {
       if (CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer()) &&
           command.desiredFunctionType == e_FunctionType_Movement)
         continue;
+      // The same for the Dribble action: the dribble tick's issues are his movement, not the AI's command.
+      if (pesDribbleOwned && command.desiredFunctionType == e_FunctionType_Movement) continue;
       found = SelectAnim(command, interruptAnim, preferPassAndShot);
       if (found)
         break;
@@ -2461,7 +2469,8 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   // Passes fall on every seed. Decide again once the roster-slot term is ported.
   const bool pesClip = command.useSpecialVar1 && (pes::IsPesClipFamily(command.specialVar1) ||
                                                   pes::IsPesLocomotionFamily(command.specialVar1) ||
-                                                  pes::IsPesTrapFamily(command.specialVar1));
+                                                  pes::IsPesTrapFamily(command.specialVar1) ||
+                                                  pes::IsPesDribbleFamily(command.specialVar1));
   if (command.useSpecialVar1)
     query.properties.Set("specialvar1", command.specialVar1);
   if (command.useSpecialVar2)

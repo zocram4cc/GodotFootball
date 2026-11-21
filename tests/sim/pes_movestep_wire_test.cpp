@@ -146,7 +146,9 @@ bool IsPesFamily(int family) {
   // A trap clip is a PES motion too: PES's trap end handler 0x14079E5C0 waits while the playing motion is in the anime's table.
   return family == static_cast<int>(pes::PesClipFamily::kDodge) ||
          family == static_cast<int>(pes::PesClipFamily::kTackle) || family == LocomotionFamily() ||
-         family == static_cast<int>(pes::PesClipFamily::kTrap);
+         family == static_cast<int>(pes::PesClipFamily::kTrap) ||
+         // The dribble family: a PES-owned dribbler's SetMotion clips carry PES motion numbers (CurrentMotionOf reads them).
+         family == static_cast<int>(pes::PesClipFamily::kDribble);
 }
 
 }  // namespace
@@ -287,6 +289,19 @@ TEST(MoveStepWire, ABearingToAGroundPointIsTakenOnPesZ) {
       << "a point at GF +coords[1] is PES -z: bearing 180";
   EXPECT_NEAR(pesmovestep::PesBearingDeg(k, 10.0f, 0.0f), 90.0f, 1e-3f)
       << "a point at GF +coords[0] is PES +x: bearing 90";
+}
+
+// FUN_14046f260 (the body of 0x14046f230) and FUN_140439e50, the two heading helpers MOVESTEP reads, both open with
+// `if (to.z == from.z && to.x == from.x) { *out = 0; return; }`: two coincident points have bearing 0. atan2(+0, -(+0)) is 180,
+// so a ball held at the man's root read 180: StayDecision (FUN_1406b6bb0) then took its 180-degree gate against a look point
+// directly behind him and sent a throw-in carrier through IDLE -> GOTO_RUN -> STEP_LOOP -> STOP forever (stalled seed 7 pes-loop).
+TEST(MoveStepWire, ABearingBetweenCoincidentPointsIsZero) {
+  pes::RunConstants k{};
+  k.full = 360.0f;
+  k.half_turn = 180.0f;
+  k.wrapFull = -360.0f;
+  EXPECT_EQ(pesmovestep::PesBearingDeg(k, 0.0f, 0.0f), 0.0f);
+  EXPECT_EQ(pesmovestep::PesBearingDeg(k, -0.0f, -0.0f), 0.0f);
 }
 
 // StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
@@ -506,7 +521,7 @@ TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
 // look bucket (word 0xd) is off straight and the facing error's magnitude is at least 33.75 degrees (VA 0x1425cc688); the
 // call is at VA 0x1406ca51f. Built on main, that else arm is empty and the bucket it tests is the move bucket (word 8), so
 // a stop with a turned body holds for the whole match: the trace held one for 72 ticks. Every active player is set into
-// STOP, and none on a MOVE clip may still be in STOP after 60 ticks.
+// STOP, and none on a MOVE clip may stay in STOP for 60 ticks: each must leave it at least once.
 TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
   Properties config;
   config.SetBool("pes_loop", true);
@@ -527,8 +542,16 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
       pesmovestep::RequestStop(*p, *match);
       if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
     }
+    // The bodies do not move in this harness (only MOVESTEP is stepped), so a man the AI tells to run is sent out of STOP into
+    // GOTO_RUN and RUN_LOOP and, finding no ground speed, enters STOP again, as PES's no-class arm does. Where the 60th tick
+    // falls in that cycle says nothing about a hold; the defect is a STOP that never leaves, so each man is watched for the
+    // first tick on which his state is not STOP.
+    std::set<Player*> left;
     for (int t = 0; t < kStopTicks; ++t) {
-      for (Player* p : stopped) pesmovestep::ProcessMoveStep(*p, *match);
+      for (Player* p : stopped) {
+        pesmovestep::ProcessMoveStep(*p, *match);
+        if (p->GetMoveStep().state != pes::MoveState::kStop) left.insert(p);
+      }
     }
     for (Player* p : stopped) {
       ++forced;
@@ -539,11 +562,11 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
       auto* body = p->CastHumanoid();
       if (!body->IsMovementClip() || IsBallActionFunction(body->GetCurrentFunctionType())) continue;
       ++counted;
-      if (p->GetMoveStep().state == pes::MoveState::kStop) ++held;
+      if (left.count(p) == 0) ++held;
     }
   }
   EXPECT_GT(counted, 0) << "no forced STOP was on a MOVE clip, so the bound was not tested (" << forced << " forced)";
-  EXPECT_EQ(held, 0) << held << " of " << counted << " forced STOPs on a MOVE clip still held after " << kStopTicks
+  EXPECT_EQ(held, 0) << held << " of " << counted << " forced STOPs on a MOVE clip never left the STOP in " << kStopTicks
                      << " ticks";
 }
 
@@ -684,6 +707,38 @@ TEST(MoveStepWire, AMoveTargetWithin20CmOfTheRootSteersByTheBall) {
   const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
   EXPECT_NEAR(req.F(pes::moveword::kMoveTargetX), ball.coords[0], 1e-3f);
   EXPECT_NEAR(req.F(pes::moveword::kMoveTargetZ), -ball.coords[1], 1e-3f);
+}
+
+// A command that carries PES's own command words (the ActionPassGet tick's R: id, kind, precise, speed class, use-class-rate byte and
+// desired km/h, FUN_1406b7560 lines 52-62 and 305-307) reaches the request as they stand, not as the classes GF derives from the
+// command's velocity (a sprint-level velocity here would derive class 4 and no class-rate flag).
+TEST(MoveStepWire, ThePesCommandWordsReachTheRequestUnchanged) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = p->GetPosition() + Vector3(6.0f, 0.0f, 0.0f);
+  c.desiredVelocityFloat = sprintVelocity;
+  c.usePesWords = true;
+  c.pesWords = {5, 8, 0, 1, true, 5.0f};
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq on = pesmovestep::TickRequest(*p, *match);
+  EXPECT_EQ(on.U(pes::moveword::kCommandSpeedClass), 0u) << "cmd[0x17] = 1 maps to band 0 (FUN_1406b8de0), not the dash GF derives";
+  EXPECT_NEAR(on.F(pes::moveword::kDesiredSpeedKmh), 5.0f, 1e-4f) << "cmd[0x172]";
+  EXPECT_TRUE(on.Flag(pes::moveword::kUseClassRate)) << "cmd+0x5C5";
+  EXPECT_EQ(on.U(pes::moveword::kCommandId), 5u) << "cmd[0]";
+  EXPECT_EQ(on.U(pes::moveword::kKind), 2u) << "cmd[0x16] = 8 is read as 2";
+  c.pesWords.useClassRate = false;
+  c.pesWords.speedClass = 3;
+  c.pesWords.desiredKmh = 11.0f;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq off = pesmovestep::TickRequest(*p, *match);
+  EXPECT_FALSE(off.Flag(pes::moveword::kUseClassRate));
+  EXPECT_NEAR(off.F(pes::moveword::kDesiredSpeedKmh), 11.0f, 1e-4f);
+  EXPECT_NE(off.U(pes::moveword::kCommandSpeedClass), on.U(pes::moveword::kCommandSpeedClass));
 }
 
 // The request steers by the AI's decision on the tick the decision changes, not by the clip the mover plays: a decision
@@ -1181,4 +1236,78 @@ TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
   }
   std::printf("[shootout-keeper] %d kicks, %d saved\n", kicks, saves);
   EXPECT_GT(saves, 0) << "the keeper saved none of " << kicks << " kicks";
+}
+
+// PES's look point is the command record's own (cmd+0x14..+0x1C, PES axes: d_1406b7560.c 114-116). With usePesWords the look
+// heading (req[3]) is the bearing of that point from the man, not GF's look-at point. seq3229 (live capture): look 88.6, target 311.9.
+TEST(MoveStepWire, TheLookPointComesFromThePesWordsWhenTheCommandCarriesThem) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  const Vector3 at = p->GetPosition();
+  constexpr float kTargetBearingDeg = 311.9f;
+  constexpr float kLookBearingDeg = 88.6f;
+  constexpr float kRadius_m = 10.0f;
+  const float pi = std::acos(-1.0f);
+  // A PES-axes (x, z) point kRadius_m from the man on the given bearing; PES z = -GF y (the adapter's origin, FillCommandWords).
+  const auto pesPointOn = [&](float bearingDeg) {
+    const float rad = bearingDeg * pi / 180.0f;
+    return std::array<float, 2>{at.coords[0] + kRadius_m * std::sin(rad), -at.coords[1] + kRadius_m * std::cos(rad)};
+  };
+  const std::array<float, 2> target = pesPointOn(kTargetBearingDeg);
+  const std::array<float, 2> look = pesPointOn(kLookBearingDeg);
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = Vector3(target[0], -target[1], at.coords[2]);
+  c.desiredVelocityFloat = sprintVelocity;
+  c.useDesiredLookAt = true;
+  c.desiredLookAt = c.desiredTarget;  // GF's own look-at: the target's bearing, not the words' look
+  c.usePesWords = true;
+  c.pesWords.look[0] = look[0];
+  c.pesWords.look[1] = at.coords[2];  // PES height = GF z
+  c.pesWords.look[2] = look[1];
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq on = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(on.F(pes::moveword::kLookHeading), kLookBearingDeg, 1e-2f) << "cmd+0x14: the look point's bearing (seq3229: 88.6)";
+  EXPECT_NEAR(on.F(pes::moveword::kHeading), kTargetBearingDeg, 1e-2f) << "the move target's bearing (seq3229: 311.9)";
+  c.usePesWords = false;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq off = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(off.F(pes::moveword::kLookHeading), kTargetBearingDeg, 1e-2f) << "without the words the look is GF's look-at point";
+}
+
+// PES d_1406b7560.c 143 and 252-268: in a listed phase (GOTO_RUN here) the body is the heading of the man's last-tick displacement.
+// FUN_141eb50b0(P, out, 1) takes its else branch (d_1406b7560.c 143, translated pes_fn_141EB50B0): out = P+8 - P+0x14. GF's
+// displacement is the position change since the last request, not the movement vector (the command's velocity).
+TEST(MoveStepWire, TheListedPhaseBodyIsTheLastTickDisplacement) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  pesmovestep::TickRequest(*p, *match);  // the record learns the man's position at this request; the movement vector is not touched
+  p->OffsetPosition(Vector3(0.2f, 0.0f, 0.0f));  // he moved 0.2 m along +x since the last request
+  p->GetMoveStep().state = pes::MoveState::kGotoRun;
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 90.0f, 1e-2f) << "atan2(0.2, 0): the displacement heading (PES 252-268)";
+}
+
+// PES d_1406b7560.c 236-241: the centre is DAT_1425DD660 at the low byte of P+0x2798, and P+0x2798 IS req[0x20] (the live
+// bucket): the tick's copy-back (FUN_1406b6a90, store 0x1406b6afc) leaves it, and the next fill copies it in. 25 of 25 unpacked
+// captures have P+0x2798 == req[0x20]. Oracle row seq3229 (phase 1, not listed): live bucket 4, facing 195.1, body 15.1 = 195.1 + 180.
+TEST(MoveStepWire, TheBodyCentreIsTheCarriedLiveBucket) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  pes::MoveStepRecord& rec = p->GetMoveStep();
+  rec.state = pes::MoveState::kIdle;  // not a listed phase: the body is facing plus the centre (PES 252-268)
+  rec.carried[pes::moveword::kLiveBucket - pes::moveword::kRecordStampA] = 4;  // req[0x20] = 4, as the copy-back left it
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  // DAT_1425DD660[4] = 180 degrees: body = facing + 180, folded to a full turn.
+  const float offset = std::remainder(req.F(pes::moveword::kBodyDirection) - req.F(pes::moveword::kFacing) - 180.0f, 360.0f);
+  EXPECT_NEAR(offset, 0.0f, 1e-2f) << "seq3229: req[0x20] = 4 gives the centre 180 deg (req[4] = 15.1 for facing 195.1)";
 }

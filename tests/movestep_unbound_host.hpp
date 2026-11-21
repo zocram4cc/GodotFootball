@@ -1,19 +1,25 @@
 // A pes::MoveHost whose every read stops loudly. A test host derives from it and overrides only what the handler under
-// test is allowed to read, so a read the port makes that PES's call log does not contain fails the test.
+// test is allowed to read, so a read the port makes that PES's call log does not contain fails the test. The stop is a thrown
+// UnboundRead (an uncaught one fails the test with the read's name); a test that proves a handler up to a delegation (the
+// handler's tail call into another ported handler, whose own reads the rows do not carry) catches it.
 #pragma once
 
 #include <cstdio>
 #include <cstdlib>
+#include <stdexcept>
 
 #include "pes/movestep.hpp"
 
 namespace movestep_test {
 
+struct UnboundRead : std::runtime_error {
+  explicit UnboundRead(const std::string& what) : std::runtime_error(what) {}
+};
+
 class UnboundHost : public pes::MoveHost {
  public:
   [[noreturn]] static void Unbound(const char* what) {
-    std::fprintf(stderr, "UnboundHost::%s was read\n", what);
-    std::abort();
+    throw UnboundRead(std::string("UnboundHost::") + what + " was read");
   }
 
   pes::MoveCell Cell(int, int, bool) override { Unbound("Cell"); }
@@ -49,12 +55,14 @@ class UnboundHost : public pes::MoveHost {
   int ClipTicks(pes::ClipReader, int, float, int) const override { Unbound("ClipTicks"); }
   const pes::MotionRecord& Motion(int) const override { Unbound("Motion"); }
   bool ClipFlag() const override { Unbound("ClipFlag"); }
+  bool FacingAdjusterBusy() const override { Unbound("FacingAdjusterBusy"); }
   int AbilityByte(int) const override { Unbound("AbilityByte"); }
   bool EntryAimFlag() const override { Unbound("EntryAimFlag"); }
   const pes::MoveConstants& MoveConstantsView() const override { Unbound("MoveConstantsView"); }
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { Unbound("SpeedClassConstantsView"); }
   const pes::IdleRowTables& IdleRowTablesView() const override { Unbound("IdleRowTablesView"); }
   float FacingDeg() const override { Unbound("FacingDeg"); }
+  float BodyDeg() const override { Unbound("BodyDeg"); }
   float BallBearingDeg() const override { Unbound("BallBearingDeg"); }
   int ActionIndex() const override { Unbound("ActionIndex"); }
   int RelatedSlot() const override { Unbound("RelatedSlot"); }

@@ -22,6 +22,9 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <string>
+#include <vector>
+#include <cstdio>
 #include <cstring>
 #include <cstdio>
 #include <map>
@@ -3150,6 +3153,7 @@ void TeamAIController::SetUpRoleArrays() {
                                  pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece()),
                                  match->PesRestartKind()),
                              &roles);
+  pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
 }
 
 // The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). Both take the level of
@@ -3169,6 +3173,7 @@ void TeamAIController::WriteRoleArrays(bool head) {
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamRecord.sheet,
                              level, &roles);
+  pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
   // ponytail: `level` is the role level, the matrix row of WriteSideRoles. WriteSlotPoints takes the sheet phase
   // (FUN_1404F5F10: f = 2 - (F != 0), 0 when MI+0x116C != 1 && MI+0x1554 == 1; 0x1404F5F38-4A). They coincide on every
   // reachable path today (audit F6); split them when a level-0 phase lands.
@@ -3189,8 +3194,10 @@ void TeamAIController::WriteRoleArrays(bool head) {
   }
   if (match->PesLoop()) UpdateLaneLine();
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
-  if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
+  if (roleSwap && possession && pes::roles::TailSwapAllowed(roles)) {
     pes::roles::SwapB(&roles, roleSwap->first, roleSwap->second);
+    pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
+  }
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
@@ -3342,19 +3349,27 @@ void WritePesManMovement(Player& pl, uint8_t* man) {
 
 namespace {
 
-// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state.
-pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
+// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state. `p` is P's bytes as the last tick left them.
+pes::PesActorFacts TrapFactsOf(Player& pl, int slot, bool carrier, const uint8_t* p) {
   pes::PesActorFacts f;
   f.slot = slot;
   f.side = slot / pes::kSlotsPerSide;
   f.heightCm = pesmovestep::PhysiqueHeightCmOf(pl);
   const pes::MoveStepRecord& rec = pl.GetMoveStep();
   f.phase = static_cast<uint8_t>(rec.state);  // P+0x245C is the MOVESTEP record's state
-  // ponytail: GF has no PES action id for the body (P+0xAC8; MOVESTEP's AnimeState answers 2 for movement-like functions too).
-  // The receiving man is in MOVE (2) or STEP_MOVE (3) when entry 3 fires (the six kind-0 captures show both with the same
-  // phases), and nothing in GF tells them apart, so MOVE stands in for the pair and the previous pair. A body action that has an
-  // id replaces this.
-  f.action = f.sub = f.prevAction = f.prevSub = pes::kAnimeActionMove;
+  // P+0xAC8..0xACB: the PES action the body runs (pes::AnimeActionOfClip, from the clip it plays), stored the way FUN_1406EEBB0 stores it
+  // (pes::ActionIdsAfterSwitch: the previous pair takes the current one on a change). A trap clip is the exception: PES's own action
+  // ticks write the action it leaves for (the end handler 0x14079E5C0 calls FUN_1406EEBB0 for DRIBBLE or MOVE while the body is still on
+  // the trap clip), so P keeps what they wrote.
+  const Anim* clip = pl.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  const uint8_t derived = pes::AnimeActionOfClip(pl.GetCurrentFunctionType(), family, carrier);
+  const pes::ActionIds held{p[pes::kPByteAC8Offset], p[pes::kPByteAC9Offset], p[pes::kPPrevActionOffset], p[pes::kPPrevActionOffset + 1]};
+  const pes::ActionIds ids = derived == pes::kAnimeActionTrap ? held : pes::ActionIdsAfterSwitch(held, derived);
+  f.action = ids.action;
+  f.sub = ids.sub;
+  f.prevAction = ids.prevAction;
+  f.prevSub = ids.prevSub;
   // P+0xAE0: the PES motion number of the clip the humanoid plays; the AI's own clip has none, so the no-motion sentinel.
   const int motion = pesmovestep::CurrentMotionOf(pl);
   f.motion = motion < 0 ? pes::kPNoMotion : static_cast<uint16_t>(motion);
@@ -3363,7 +3378,10 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
   constexpr float kGfAnimFrame_s = 0.01f;
   if (motion >= 0) {
     const Anim* clip = pl.GetCurrentAnim();
-    if (pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
+    // A finished dribble clip stays listed at its last frame: the Dribble action leaves a clip only through its frame count (FUN_1407B9280's
+    // `iVar4 <= iVar5` arm, the frame the table lists), and PES's anime layer holds a finished non-looping motion. INF: no capture of a
+    // dribble clip's end.
+    if (pes::IsPesDribbleFamily(family) || pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
       f.playing[0].id = static_cast<uint16_t>(motion);
       f.playing[0].seconds = static_cast<float>(pl.GetFrameNum()) * kGfAnimFrame_s;
       f.playingCount = 1;
@@ -3416,9 +3434,12 @@ void WritePesTrapActors(Match& match) {
       for (std::size_t k = 0; k < pes::kVelocityRingEntries; ++k)
         std::memcpy(open.velocityRing.data() + k * pes::kVelocityRingEntryBytes, man + pes::kManVelXOffset,
                     pes::kVelocityRingEntryBytes);
-      pes::PesActorFacts facts = TrapFactsOf(*p, slot);
+      pes::PesActorFacts facts = TrapFactsOf(*p, slot, match.GetPesHolder() == p.get(), match.PesWorldOf().P(slot));
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
       match.PesWorldOf().BindAnimeChain(slot, match.PesAnimePlayerOf(slot));
+      // PES-owned dribble: P says Dribble and the body's clip is not GF's own dribble (GfOwnsDribble). GF-derived Dribble stays GF's
+      // (rewritten below, no runner); a PES switch (trap end -> act4 start) puts P in Dribble, and only those men get the runner.
+      facts.dribbleActive = !facts.trapActive && match.PesOwnsDribble(*p);
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
       // PES's actor setup builds the man's DemoInfoRef once (FUN_1406EB670 -> FUN_1406EB250, after the slot byte WriteActorP stored): the
@@ -3438,6 +3459,38 @@ void WritePesTrapActors(Match& match) {
     }
   }
 }
+// PES's holder MA+0x2601C for the window (pestrapworld.hpp kMaOwnerOffset): W1's value is the actor of the newest ring-1 touch
+// key, which GF's RecomputePesHolder adopts as the sticky pesHolder (match.hpp). The trap end chain (the switch 0x1406EEBB0's
+// carrier arm at 0x1406EEBC5, the act4 start 0x1407A38E0's holder gate FUN_1406EC5F0) reads it through P+0x3AC0 -> Ctx+0x18 -> MA
+// (the Ctx binding is PesWorld's own: P+0x3AC0 holds CtxVa(f.side), Ctx+0x18 holds MaVa(side)), so it is fed before the trap
+// ticks from the sticky holder — not from GF's retainer (SetMaOwner's eliza writer), which clears on the possession flicker
+// while PES's holder persists on a loose ball until a newer key replaces it. Both sides' MA hold the one global carrier.
+void WritePesMaHolders(Match& match) {
+  const Player* holder = match.GetPesHolder();
+  const uint32_t id =
+      holder != nullptr ? static_cast<uint32_t>(match.PesSlotOf(holder)) : static_cast<uint32_t>(pes::kMiNoSlot);
+  for (int side = 0; side < 2; ++side) match.PesWorldOf().SetMaOwner(side, id);
+}
+
+// The Dribble action's SetMotion of a tick is the clip the body plays (the trap tick's phase-0 SetMotion is played the same way,
+// RunPesTrapTicks). The single variant (FUN_1406F0F70) names the motion in P+0xAE0 with the rate P+0x3758 and the mirror byte P+0x2472. The
+// series variant (FUN_1406F14E0, the stand/idle handlers) fills P's series vector instead and the anime layer plays its entries in order: the
+// body plays the first entry at the rate the last SetMotion stored (P+0x3758: INF, the series variant stores no rate), and takes the next
+// from the dribble tick's own issues.
+void PlayDribbleIssue(Match& match, Player& p, int slot, uint8_t issue) {
+  const uint8_t* pb = match.PesWorldOf().P(slot);
+  float playback;
+  std::memcpy(&playback, pb + pes::kPPlaybackOffset, sizeof playback);
+  if (issue == pes::kMotionIssueSingle) {
+    uint16_t motion;
+    std::memcpy(&motion, pb + pes::kPWordAE0Offset, sizeof motion);
+    match.NotePesDribbleIssue(slot, motion, p.CastHumanoid()->PlayIssuedClip(motion, playback, pb[pes::kPMirrorOffset] != 0, pes::PesClipFamily::kDribble));
+  } else if (issue == pes::kMotionIssueSeries) {
+    const auto first = match.PesWorldOf().SeriesFirstOf(slot);
+    if (!first) return;
+    match.NotePesDribbleIssue(slot, first->motion, p.CastHumanoid()->PlayIssuedClip(first->motion, playback, first->mirror, pes::PesClipFamily::kDribble));
+  }
+}
 
 // Every man in the Trap action runs PES's action tick 0x140797CD0 (the phase machine) on his P and the world window, after the
 // actors were written. A start tick (phase 0, which runs SetMotion on the committed plan) plays the clip it issued: the motion
@@ -3453,13 +3506,18 @@ void RunPesTrapTicks(Match& match) {
       ++written;
       const int slot = match.PesSlotOf(p.get());
       uint8_t* pb = world.P(slot);
-      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) {
+        // A running strike adjuster is stepped by the per-man anime tick whatever action the man is in (pesmovestep::StepAdjusters),
+        // so a Trap that switched out (trap end -> Dribble, a GF action) still finishes its walk onto the ball there.
+        continue;
+      }
       const uint8_t phaseBefore = pb[pes::kPPhaseOffset];
       // GF's heading is atan2(y, x); PES's yaw is atan2(x, y) (the man record's facing).
       const Vector3 dir = p->GetDirectionVec();
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
+      match.NotePesTrapTickIssue(slot, r.issue);
       if (phaseBefore == 0) {
         pes::MotionRequest issued;
         issued.motion = r.motion;
@@ -3470,6 +3528,77 @@ void RunPesTrapTicks(Match& match) {
         issued.transition = pes::TransitionOfKind(r.kind);
         p->CastHumanoid()->PlayIssuedClip(issued, pes::PesClipFamily::kTrap);
       }
+      // The end handler's switch (0x1406EEBB0) ran the act4 start (0x1407A38E0) inside this tick, and its SetMotion issued the Dribble
+      // action's first motion into P+0xAE0: that is the clip the body plays from here, as the dribble tick's own issues are.
+      else if (r.action == pes::kAnimeActionDribble)
+        PlayDribbleIssue(match, *p, slot, r.issue);
+      // The end handler's switch put him in the Dribble action: from here PES's dribble tick owns his body (Match::PesOwnsDribble).
+      if (r.action == pes::kAnimeActionDribble) match.SetPesDribbleSwitched(slot, true);
+      // The strike adjuster the start armed is stepped by the per-man anime tick (pesmovestep::StepAdjusters -> PesWorld::StepAdjusters,
+      // PES's wrapper FUN_141EB3AF0), which warps the root by its frame displacement.
+    }
+  }
+}
+// Every man PES owns in the Dribble action runs PES's dribble tick 0x1407B37D0 on his P and the world window, after the trap
+// ticks (a trap end can switch a man into Dribble mid-block). Only PES-switched men run: P says Dribble while the body's clip
+// does not derive it (same predicate as WritePesTrapActors' dribbleActive). GF-derived Dribble (a BallControl clip of the
+// carrier) stays GF's: its P was rewritten above and no dribble params were ever set up for it. A path no proof reached aborts
+// in the translated dispatch, loudly (survey first).
+void RunPesDribbleTicks(Match& match) {
+  pes::PesWorld& world = match.PesWorldOf();
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      uint8_t* pb = world.P(slot);
+      if (!match.PesOwnsDribble(*p)) continue;
+      const Vector3 dir = p->GetDirectionVec();
+      constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
+      const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
+      world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      // The tick's frame F is built by PES's AI frame builder (FUN_1409F1F20) from the AI's decision for the man. ponytail: PES's AI think
+      // (FUN_1409257B0, FUN_14092ED30) is not ported; the decision is GF's AI command (Player::Think's first movement command): its speed
+      // names the plan's row, the man runs to the ball (the run-to point of every captured dribbler frame is the ball's sample 0), and the
+      // order is the dribble's (kind 3, mode 4 on 11 of 12 real dribble-tick frames). Upgrade: PES's AI writes the template and the plan.
+      constexpr float kKmhPerMps = 3.6f, kDribbleOrderKind = 3.0f, kDribbleMode = 4.0f;
+      pes::AiFrameDecision decision;
+      const std::optional<PlayerCommand>& command = p->GetPesDecision().command;
+      if (command) {
+        decision.active = true;
+        // ponytail: this stands in for PES's AI ORDER, it is not a tuning knob. GF's AI command for a PES-owned dribbler is idle on 11,613 of 12,000
+        // ticks (GF's controller does not know PES owns his body), which the builder reads as speed class 0 (weight 0: the stand/turn series, never a
+        // run onto the ball); PES's AI orders a run for him: the 12 real dribble-tick frames are class 3 on 10 and class 4 on 2 (F[0] = 7). So the
+        // plan's row speed is at least the run band. Upgrade: PES's AI think (FUN_1409257B0 / FUN_14092ED30) writes the template and the plan.
+        decision.speedKmh = std::max(command->desiredVelocityFloat * kKmhPerMps, pes::kSpeedClassBandsKmh[2]);
+        decision.kind = static_cast<uint32_t>(kDribbleOrderKind);
+        decision.mode = static_cast<uint32_t>(kDribbleMode);
+        decision.frameStamp = world.MatchFrame();
+        decision.situation = pes::kTplSituationDribble;
+        decision.pathPoints = 0;
+        const Vector3 ball = match.GetBall()->Predict(0);
+        decision.target[0] = ball.coords[0];
+        decision.target[1] = ball.coords[2];
+        decision.target[2] = ball.coords[1];  // PES z = coords[1] (WritePesManMovement, PesPoint): the man record's own frame
+      }
+      world.RunDecisionFrame(slot, decision, match.PesTrapExternalsOf());
+      const pes::PesWorld::DribbleTickResult tick = world.RunDribbleTick(slot, match.PesTrapExternalsOf());
+      PlayDribbleIssue(match, *p, slot, tick.issue);
+      if (tick.action != pes::kAnimeActionDribble) match.SetPesDribbleSwitched(slot, false);  // the dribble tick switched him out
+    }
+  }
+}
+
+// Every active man's tick counters count one tick, after the action ticks (FUN_1406E5FC0 calls FUN_1406F6790 at 0x1406E60F8 after the
+// action's slot 4): the dribble's touch gate reads the ticks since the last action change (P+0x2818).
+void RunPesActorCounters(Match& match) {
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      pes::AdvanceActorTickCounters(match.PesWorldOf().P(match.PesSlotOf(p.get())));
     }
   }
 }
@@ -3518,10 +3647,32 @@ void RunPesBodyScans(Match& match) {
       if (!p->IsActive() || written == ob::kSlots) continue;
       ++written;
       const int slot = match.PesSlotOf(p.get());
-      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      // The scan runs the current action's reach test (slot +0xB8): the Trap action's FUN_140799060 and the Dribble action's FUN_1407B7720.
+      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap && !match.PesOwnsDribble(*p)) continue;
       world.WriteJointBlock(slot, BoneFramesOf(*p, match.GetRig()), match.GetPesActorConstants().jointMask);
+      const bool pendingBefore = (pes::LoadU32(world.P(slot), pes::kPFlagsOffset) & pes::kPFlagContactPending) != 0;
       const pes::PesBodyScanOut out = world.RunBodyScan(slot, match.PesTrapExternalsOf());
-      if (out.TouchRequested()) match.GrantPesTouch(slot, out);
+      if (match.PesOwnsDribble(*p)) match.NotePesDribbleScan(out.TouchRequested(), pendingBefore);
+      if (out.TouchRequested()) {
+        if (match.PesOwnsDribble(*p)) {
+          // A dribbler's touch has no GF clip frame to carry it (the trap's is the humanoid's contact, TakePesTouch): PES's ball executor takes the
+          // scan's record to the kick application, and the ball's new motion is what GF's ball takes (PesWorld::RunBallTouch).
+          const pes::PesWorld::BallTouchResult kick = world.RunBallTouch(slot, out, match.PesTrapExternalsOf());
+          // PES's axes (x, height, z) -> GF's (x, y = PES z, z = height). The candidate's +0x18 is the ball's raw spin (FUN_140874860 stores
+          // omega * DAT_14349f740 there; FUN_140870A40 copies it into the ball state with FUN_140731BB0): the same Fox-axes raw vector Ball::
+          // SetRotation blends toward (it takes GF's axes in units of 1/0.001 raw), so the kick's spin is applied whole (bias 1), as the
+          // candidate replaces the ball's previous spin in PES.
+          match.GetBall()->Touch(Vector3(kick.velocity[0], kick.velocity[2], kick.velocity[1]));
+          constexpr float kRawToGfSpin = 1000.0f;  // Ball::SetRotation's 0.001 (raw = GF axis value * 0.001)
+          match.GetBall()->SetRotation(kick.spin[0] * kRawToGfSpin, -kick.spin[2] * kRawToGfSpin, kick.spin[1] * kRawToGfSpin, 1.0f);
+          match.GetTeam(t)->SetLastTouchPlayer(p.get(), e_TouchType_Intentional_Kicked);
+          match.GetMatchData()->RecordBallTouch(t);
+          p->UpdatePossessionStats(false);
+          match.NotePesDribbleKick();
+        } else {
+          match.GrantPesTouch(slot, out);
+        }
+      }
     }
   }
 }

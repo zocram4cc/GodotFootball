@@ -1676209,10 +1676209,81 @@
  "meta": {
   "bridge": "http://127.0.0.1:8080",
   "closures": {
+   "aiconcepts": {
+    "members": 575,
+    "roots": [
+     "0x140579840",
+     "0x1404F6C30",
+     "0x1405747F0",
+     "0x140574710",
+     "0x140575510",
+     "0x140575EA0",
+     "0x1405404A0",
+     "0x1405415B0"
+    ]
+   },
+   "aitmp": {
+    "members": 1,
+    "roots": [
+     "0x1404F8C70"
+    ]
+   },
    "animelayer19": {
     "members": 135,
     "roots": [
      "0x14038A620"
+    ]
+   },
+   "ballagg": {
+    "members": 1,
+    "roots": [
+     "0x140865D70"
+    ]
+   },
+   "ballcand": {
+    "members": 1,
+    "roots": [
+     "0x140874860"
+    ]
+   },
+   "cardlevel": {
+    "members": 93,
+    "roots": [
+     "0x1405B7470",
+     "0x14050D6A0",
+     "0x143F546F0",
+     "0x140A81910"
+    ]
+   },
+   "cutanchor": {
+    "members": 175,
+    "roots": [
+     "0x140474F00",
+     "0x14047D280"
+    ]
+   },
+   "cutanchor4": {
+    "members": 103,
+    "roots": [
+     "0x141F616F0",
+     "0x140400F50",
+     "0x140400DF0",
+     "0x14159F3E0",
+     "0x140B28910",
+     "0x1415A02B0"
+    ]
+   },
+   "cutanchor5": {
+    "members": 175,
+    "roots": [
+     "0x140477BC0"
+    ]
+   },
+   "cutanchor6": {
+    "members": 225,
+    "roots": [
+     "0x1404B6BD0",
+     "0x1404B88B0"
     ]
    },
    "d310": {
@@ -1676222,6 +1676293,121 @@
     ]
    },
    "d310-14047EB00": {
+    "members": 7,
+    "roots": [
+     "0x14047EB00"
+    ]
+   },
+   "danger": {
+    "members": 193,
+    "roots": [
+     "0x142119390",
+     "0x140699960"
+    ]
+   },
+   "dribA": {
+    "members": 1,
+    "roots": [
+     "0x1407A5650"
+    ]
+   },
+   "dribB": {
+    "members": 1,
+    "roots": [
+     "0x1407B46A0"
+    ]
+   },
+   "dribC": {
+    "members": 1,
+    "roots": [
+     "0x1407BD430"
+    ]
+   },
+   "dribble": {
+    "members": 84,
+    "roots": [
+     "0x14063E830",
+     "0x142119D90",
+     "0x142119E60",
+     "0x142119E90",
+     "0x142119EB0",
+     "0x142130EE0",
+     "0x142119E00",
+     "0x14063E9F0"
+    ]
+   },
+   "dribble90": {
+    "members": 1,
+    "roots": [
+     "0x1407C4FA0"
+    ]
+   },
+   "dribbleX": {
+    "members": 24,
+    "roots": [
+     "0x140A57450",
+     "0x14063D2F0",
+     "0x14211CA50",
+     "0x14211CB00"
+    ]
+   },
+   "dribblereach": {
+    "members": 1,
+    "roots": [
+     "0x1407B7720"
+    ]
+   },
+   "dribblereset": {
+    "members": 5,
+    "roots": [
+     "0x14211BF10",
+     "0x14211BF20",
+     "0x14211BF30",
+     "0x14211BF40",
+     "0x14211BF50"
+    ]
+   },
+   "dribbletick": {
+    "members": 774,
+    "roots": [
+     "0x1407B37D0",
+     "0x140870A40",
+     "0x1407EB630",
+     "0x1406EA750",
+     "0x1407EB8A0",
+     "0x1407EBBC0",
+     "0x1406EAB00"
+    ]
+   },
+   "dribspeed": {
+    "members": 1,
+    "roots": [
+     "0x1407B4510"
+    ]
+   },
+   "endclear": {
+    "members": 84,
+    "roots": [
+     "0x142109EB0",
+     "0x142108630",
+     "0x14063A290",
+     "0x14063A490",
+     "0x14063D2F0"
+    ]
+   },
+   "f080": {
+    "members": 1,
+    "roots": [
+     "0x14084F080"
+    ]
+   },
+   "fbuildF": {
+    "members": 1,
+    "roots": [
+     "0x1409F1F20"
+    ]
+   },
+   "foulgate": {
     "members": 7,
     "roots": [
      "0x14047EB00"
@@ -1676239,12 +1676425,16 @@
      "0x142132E20"
     ]
    },
-   "press": {
-    "members": 70,
+   "kickdir": {
+    "members": 1,
     "roots": [
-     "0x140536FC0",
-     "0x140633940",
-     "0x140634470"
+     "0x140868500"
+    ]
+   },
+   "mjstand": {
+    "members": 1,
+    "roots": [
+     "0x1406E6D10"
     ]
    },
    "motion": {
@@ -1676258,6 +1676448,56 @@
      "0x1406AF8E0",
      "0x1406B1D00",
      "0x1406B1F00"
+    ]
+   },
+   "passget": {
+    "members": 297,
+    "roots": [
+     "0x14094E0E0",
+     "0x140945EC0",
+     "0x1405141F0"
+    ]
+   },
+   "passget2": {
+    "members": 35,
+    "roots": [
+     "0x1406B8DD0",
+     "0x1406E9EF0",
+     "0x1409393F0",
+     "0x14093C090",
+     "0x140941E00"
+    ]
+   },
+   "passget3": {
+    "members": 152,
+    "roots": [
+     "0x140941D50",
+     "0x14093C930",
+     "0x140934E10",
+     "0x1409393F0",
+     "0x14093C090"
+    ]
+   },
+   "passget4": {
+    "members": 164,
+    "roots": [
+     "0x140939CC0",
+     "0x140935920",
+     "0x14093BC00",
+     "0x140934A50",
+     "0x1406B8E00",
+     "0x140935F90",
+     "0x140942DB0",
+     "0x140944490",
+     "0x140944B10"
+    ]
+   },
+   "press": {
+    "members": 70,
+    "roots": [
+     "0x140536FC0",
+     "0x140633940",
+     "0x140634470"
     ]
    },
    "proccam": {
@@ -1676277,6 +1676517,12 @@
      "0x1406EEDF0",
      "0x141EB1A50",
      "0x141EB2450"
+    ]
+   },
+   "serieselem": {
+    "members": 1,
+    "roots": [
+     "0x1406E5F50"
     ]
    },
    "teampass": {
@@ -1676304,6 +1676550,30 @@
     "members": 1,
     "roots": [
      "0x141EB1BF0"
+    ]
+   },
+   "trapadmit": {
+    "members": 71,
+    "roots": [
+     "0x140782570",
+     "0x140789E60",
+     "0x1407C6F40",
+     "0x140724820",
+     "0x140787EC0",
+     "0x14072E450",
+     "0x14072E360",
+     "0x14073B680",
+     "0x140744090",
+     "0x140779DF0",
+     "0x1407E8D20",
+     "0x1407E8E10",
+     "0x1406B4C10"
+    ]
+   },
+   "trapadmit_14079BBE0": {
+    "members": 1,
+    "roots": [
+     "0x14079BBE0"
     ]
    },
    "trapanime": {
@@ -1676359,16 +1676629,68 @@
      "0x14079D4B0"
     ]
    },
-   "dribble90": {
-    "members": 1,
+   "trapendxfer": {
+    "members": 51,
     "roots": [
-     "0x1407C4FA0"
+     "0x14079EE70"
     ]
    },
-   "f080": {
+   "trapfinish": {
+    "members": 31,
+    "roots": [
+     "0x14079F560",
+     "0x14079E0B0"
+    ]
+   },
+   "trapkind": {
+    "members": 29,
+    "roots": [
+     "0x14084B4A0"
+    ]
+   },
+   "trapmode": {
     "members": 1,
     "roots": [
-     "0x14084F080"
+     "0x1406F02F0"
+    ]
+   },
+   "trapphase": {
+    "members": 1,
+    "roots": [
+     "0x14079E0B0"
+    ]
+   },
+   "trapreach": {
+    "members": 1,
+    "roots": [
+     "0x140799060"
+    ]
+   },
+   "trapscan": {
+    "members": 351,
+    "roots": [
+     "0x1406EDCE0",
+     "0x140799060",
+     "0x1407979E0"
+    ]
+   },
+   "trapstart": {
+    "members": 20,
+    "roots": [
+     "0x140798500"
+    ]
+   },
+   "trapvirt": {
+    "members": 7,
+    "roots": [
+     "0x1406E9F10",
+     "0x1406E9F90"
+    ]
+   },
+   "walk": {
+    "members": 87,
+    "roots": [
+     "0x14210F110"
     ]
    }
   },

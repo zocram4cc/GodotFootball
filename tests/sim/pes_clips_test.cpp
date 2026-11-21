@@ -107,7 +107,7 @@ TEST(PesClipsInstall, EveryDodgeClipConvertsAndLoads) {
   // Every clip of the dodge family: the ball dodges (dodge_*), the human
   // dodges (avoidjump_/avoidslide_) and the goal-net dodges (goalnet_*).
   for (const auto& clip : clips->clips) {
-    // The dodge, tackle, locomotion and trap families: every clip of the set belongs to one of them, and each
+    // The dodge, tackle, locomotion, trap and dribble families: every clip of the set belongs to one of them, and each
     // has its own conversion test below.
     const bool dodgeFamily =
         clip.name.rfind("dodge_", 0) == 0 || clip.name.rfind("avoid", 0) == 0 ||
@@ -115,7 +115,9 @@ TEST(PesClipsInstall, EveryDodgeClipConvertsAndLoads) {
     const bool tackleFamily = clip.family == pes::PesClipFamily::kTackle;
     const bool locomotionFamily = clip.family == pes::PesClipFamily::kLocomotion;
     const bool trapFamily = clip.family == pes::PesClipFamily::kTrap;
-    EXPECT_TRUE(dodgeFamily || tackleFamily || locomotionFamily || trapFamily) << clip.name;
+    // The dribble family (TrapContact's SetMotion clips, PesClipFamily::kDribble) is converted and loaded by this loop like the others.
+    const bool dribbleFamily = clip.family == pes::PesClipFamily::kDribble;
+    EXPECT_TRUE(dodgeFamily || tackleFamily || locomotionFamily || trapFamily || dribbleFamily) << clip.name;
     if (tackleFamily) continue;  // the tackle family has its own test below
     Animation anim;
     anim.LoadText(clip.name, pes::PesClipAnimText(clip, *rig));

@@ -277,6 +277,8 @@ public:
   // Engine animation frames the current clip advances per tick at rate 1: one frame (10 ms) for GF's own clips, whose rate it never scaled to
   // the 1/54 s tick, and a tick of real time in frames for a PES clip.
   float ClipFramesPerTick() const;
+  // A PES dribble clip: a Special clip of the dribble family, the motion the Dribble action's sub-state handlers issued.
+  bool OnPesDribble() const;
   bool IsMovementClip() const {
     return currentAnim->functionType == e_FunctionType_Movement || OnPesLocomotion();
   }

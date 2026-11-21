@@ -1176,7 +1176,9 @@ void ElizaController::_PressApproach(PlayerCommandQueue& commandQueue) {
   commandQueue.push_back(approach);
 }
 
-void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
+// GF mode (pes_loop off): the legacy receiver approach, kept for the switch-off baseline. ponytail: GF's distance-to-velocity ramp stands in
+// for PES's route; the PES path below (_PassGetApproach) runs ActionPassGet's own tick and has no GF part.
+void ElizaController::_PassGetApproachGf(PlayerCommandQueue& commandQueue) {
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
   // FUN_140a4d340 searches the prediction one PES frame at a time, 0..0xf9.
   constexpr int kPredictionFrames = 0xf9;
@@ -1199,6 +1201,34 @@ void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
   // reduced) - GF's distance-to-velocity ramp stands in.
   command.desiredVelocityFloat = RangeVelocity(
       clamp((target - me).GetLength() * distanceToVelocityMultiplier, 0.0f, sprintVelocity));
+  command.useDesiredLookAt = true;
+  command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
+  commandQueue.push_back(command);
+}
+
+void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
+  if (!match->PesLoop()) return _PassGetApproachGf(commandQueue);
+  // PES's ActionPassGet tick (0x14094E0E0) on the world window: it leaves the target point and the speed class in the command record
+  // (docs/re/pes-re-receiving.md 4, pes-re-decision-read.md). The action id 5 is PASS_GET (R+0x874).
+  constexpr uint32_t kPassGetAction = 5;
+  const pes::PesPassGetResult r =
+      match->PesWorldOf().RunPassGetAction(match->PesSlotOf(CastPlayer()), kPassGetAction, match->PesTrapExternalsOf());
+  const Vector3 me = CastPlayer()->GetPosition();
+  // PES's axes (x, height, z) are the window's frame: GF's (x, y) is (x, z), as the ball samples.
+  const Vector3 target(r.target[0], r.target[2], 0);
+  PlayerCommand command;
+  command.desiredFunctionType = e_FunctionType_Movement;
+  command.useDesiredMovement = true;
+  command.desiredDirection = (target - me).Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+  // The command record's words as FUN_1406B7560 reads them (R+0x874.. is cmd+0): taken as PES left them, no GF class or ramp.
+  command.usePesWords = true;
+  command.pesWords = {static_cast<int>(r.commandId), static_cast<int>(r.moveKind), static_cast<int>(r.precise),
+                      static_cast<int>(r.speedClass), r.speedUse, r.speedKmh,
+                      {r.look[0], r.look[1], r.look[2]}};
+  command.useDesiredTarget = true;
+  command.desiredTarget = target;
+  // km/h to m/s is arithmetic (3600/1000), not a PES number: GF's own readers of the command (the humanoid's velocity level) take m/s.
+  command.desiredVelocityFloat = r.speedKmh / 3.6f;
   command.useDesiredLookAt = true;
   command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
   commandQueue.push_back(command);
