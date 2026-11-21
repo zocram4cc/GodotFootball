@@ -1,37 +1,37 @@
-# pes-port-StallBreaker5: the three slide-action handlers are now in the layer; NOT committed, NOT proven, no SHA; the regeneration changes 10 other layer files
+# pes-port-StallBreaker5: HEAD does not pass its own gen --check (drift predates round 5); the slide handlers are NOT landed; branch clean at 09a5f7e2 (pushed)
 
-Status: PARTIAL, no commit. Branch `StallBreaker` is still `09a5f7e2` (pushed). The worktree holds an uncommitted regeneration. Main asked for one self-contained commit; I did not make it because the regeneration is not self-contained (section 3).
+Status: BLOCKED on a drift root cause. Nothing committed this round. Branch `StallBreaker` = **09a5f7e2** (`git ls-remote` confirmed), worktree clean (`git status` empty, excluding the godot-cpp symlink note).
 
-## 1. What the three handlers do (CONFIRMED, headless decompile `dec3.txt` in scratch)
-- **0x14073DD50** (SLIDING-adjacent slot at 0x1425DF8B0 per survey): `param_2+0x39 = param_1+0x1C` (one byte copy). No calls.
-- **0x140791DD0** (slot 0x1425E1AD8): copies a word triple from `param_1+0x10..0x18` to `param_2+0x64..0x6C` when the address differs; sets/clears bits 0x40 and 0x200 of `param_2+8` from `param_1+0x20` bits 1 and 3; copies byte `param_1+0x68` to `param_2+0x44`. No calls.
-- **0x140789D00** (SLIDING +0x90, slot 0x1425E1908): copies `param_1+8/0xC/0x10` to `param_2+0x64/0x68/0x6C`; bit 0x200 of `param_2+8` from `param_1+0x18` bit 1; reads an object `param_3+0xAB8` through its vtable (+0x20, then `[P]` byte `== 4` test, then `func_0x141E532D0` (translated, in the layer), then vtable +0x38 `< (int)(fps*k+0.5)`, which sets or clears bit 0x8000 of `param_2+8`); byte `param_2+0x45 = (param_1+0x14 == 1)`. The two vtable calls are dynamic: they cannot be closed statically; the proof needs the object's real vtable.
+## 1. The drift predates round 5 (CONFIRMED)
+- `gen_translated.py --image pes_full.bin --check` on **clean HEAD 09a5f7e2** (no round-5 edits; layer, tools and universe reset to HEAD) fails: **12 drifts**: 6 `differs` (closure/pes_fn_1404121D0, closure/pes_fn_1406E47A0, closure/pes_fn_1415A174A, objinit/pes_fn_140440FC0, pes_dispatch_gen.cpp, translated.hpp), 6 `unexpected` (closure/pes_fn_{1406E5F50, 140724820, 140782570, 140789E60, 14079A310, 141AF6E40}.cpp: committed, not produced). Log: `gf-StallBreaker-scratch/r5/headcheck2.log`.
+- **Deterministic**: the same 12 drifts with `PYTHONHASHSEED=0` and `=12345` (`hs0.log`, `hs1.log`), and the same set as the first HEAD check. So it is not hash-order noise.
+- **Not the universe**: the same 12 with `universe.json` = the pre-merge a9cda866 copy (`check_pre_merge_universe.log`). The HEAD universe was restored afterwards (checked clean).
+- **Not my round-5 edits**: reproduced on a clean HEAD tree.
+- **When it appeared** (CONFIRMED from git): the six `unexpected` files do not exist at a9cda866 and first appear at merge commit **55ff8f64**. The merge's own layer regeneration (gen1) passed `gen --check` (bg_62, "10471 functions byte-identical") at the time. Since then the inputs were not changed in git (only the compile fixes in 09a5f7e2, which touch no generator input). So gen1's inputs and HEAD's committed inputs differ in something git does not track, or gen's output depends on something outside the repo. I have not identified it.
+- Candidate ranked list, none verified: (a) an untracked or gitignored input under `tools/dev/` or `tools/dev/diffharness/specs/` present when gen1 ran (gen reads spec directories via `driver.universe_of`, so a stray spec file changes the universe), (b) a cache read by `driver.runnable_extra` under `<out-dir>/cache` or `GF_DIFF_CACHE` that was populated by another run, (c) a results or closure JSON that another agent's regeneration wrote after gen1 and that was later reverted. Settling it needs `git stash -u` on a clean checkout of 55ff8f64 and a fresh `gen --check` (about 15 minutes each).
 
-## 2. What exists now (uncommitted)
-- `tools/dev/translate/gen_translated.py`: (a) `INDIRECT_EDGES["0x1406F6CE0"] = (0x14073DD50, 0x140789D00, 0x140791DD0)` with the survey citation; (b) the closure walk admits an indirect edge's target even when the set's universe lacks it (before, the three were dropped: the kickjoints set's universe does not hold them). Without (b) the edge was silently ignored (verified: gen2 wrote no file for them).
-- `tools/dev/diffharness/specs/trapaction/{14073DD50,140789D00,140791DD0}.json` and `specgen/sets/closure-slide.txt`: written by `closure.py --spec-set trapaction --tag slide` (pilot specs; no proof inputs yet).
-- Layer (gen3, `gen_translated.py --image`, ~15 min): the three functions are **closure members**: `src/pes/translated/closure/pes_fn_{14073DD50,140789D00,140791DD0}.cpp` (new), in `pes_dispatch_gen.cpp` and `translated.hpp`. `untranslated_callees.py --image` on root 0x1406F6CE0 now walks 67 functions, 0 untranslated (this tool cannot see the dynamic vtable calls, which is why the survey found them).
-- **Not proven.** These three are closure members with no record: "proven only through their diffs" applies, and no diff reaches them. The brief asks for a synthetic proof; I did not write the synthetic spec generator (the object at `param_3+0xAB8` needs a real vtable from a real capture, and I found no live capture of these handlers in `live2/`).
+## 2. The slide handlers (round 5 work, uncommitted, saved)
+- The full uncommitted round-5 diff is saved as `gf-StallBreaker-scratch/r5/wip-r5.patch` (41,386 lines, includes regenerated layer churn). The useful, reviewable part is small and is listed here so it can be reapplied by hand:
+  1. `tools/dev/translate/gen_translated.py`: `INDIRECT_EDGES["0x1406F6CE0"] = ("0x14073DD50", "0x140789D00", "0x140791DD0")` with the survey citation (pes-port-StallBreaker4.md, return 0x443c8f in pes_fn_1406F6CE0). Plus a closure-walk change: an indirect edge target joins the closure even when the set's universe lacks it. Without the walk change the edge is silently dropped (verified in the earlier gen run).
+  2. Three pilot specs in `tools/dev/diffharness/specs/trapaction/` and `specgen/sets/closure-slide.txt` (from `closure.py --spec-set trapaction --tag slide`). Adding spec files changes `universe_of` for that set, so they are a suspect for the churn too; they were removed for the HEAD check.
+- Decompiles (CONFIRMED, `r5/dec3.txt`): 0x14073DD50 is a one-byte copy (no calls). 0x140791DD0 is field copies and bit moves (no calls). 0x140789D00 makes two dynamic vtable calls on `param_3+0xAB8` (vtable +0x20, then +0x38), so it cannot be closed statically; a proof needs the object's real vtable from a capture.
+- Gen with those edits (gen3) makes the three functions closure members, and the layer then changes 10 other files. Four of those changes replace `pes_dispatch_missing` aborts with real calls (1404121D0 -> 1403FB730, 1406E47A0 -> 1406E7A60, objinit/140440FC0 -> 1403FB5B0), which are behaviour changes on the sim path and are not explained. Six closure copies are deleted. Since HEAD already fails its check (section 1), I cannot attribute these to my edits.
+- **Not proven.** No synthetic spec for the three exists yet (0x140789D00 needs a real object vtable; no live capture of these handlers is in `live2/`).
+- **Hook lines**: not produced. `untranslated_callees.py --hooks` prints no rows for the three targets. The predicate has to be written by hand: in-play, SLIDING (P+0xAC8 == 11), EVERY 1, cap 6, on the slot 0x1425E1908.
 
-## 3. Why I did not commit (the gen run changed 10 other files)
-gen3 also changed files outside the three handlers:
-- **Deleted (6)**: `closure/pes_fn_{1406E5F50,140724820,140782570,140789E60,14079A310,141AF6E40}.cpp`. Each has a recorded copy elsewhere (e.g. `trapadmit/pes_fn_140789E60.cpp`), and the dispatch table points to the recorded copy, so the deletion looks like de-duplication. But the committed layer (merge commit `55ff8f64`) passed `gen --check` earlier, so gen's output moved between that check and now. I have not found the cause.
-- **Modified (4)**: `closure/pes_fn_{1404121D0,1406E47A0,1415A174A}.cpp`, `objinit/pes_fn_140440FC0.cpp`. Three of them replace `pes_dispatch_missing(0x…)` (a runtime abort if reached) with a direct call to `pes_fn_1403FB730 / 1406E7A60 / 1403FB5B0`. That is a behaviour change on the sim path (a call that aborted now runs), not a neutral regeneration. The fourth (`pes_fn_1415A174A`) drops image-constant declarations.
-- Cause of the change set: unknown; candidates are my universe edit (reverted, so no) and the closure walk change in (b). Settling it needs a gen run on HEAD's tree (~15 min) to compare.
+## 3. Walker and acceptance
+Not started (the abort is still on the pushed branch). The `ANonOwnerWalker...` red test is in 09a5f7e2 unrun.
 
-Putting the regeneration into one commit would therefore ship those behaviour changes under a "three handlers" message. I left it uncommitted for Main's call.
+## 4. Next steps for the handoff (in order)
+1. Find the drift input: run the clean-checkout gen check on 55ff8f64 (`git stash -u` discipline; scratch worktree, not the repo) and compare with HEAD's check. Fix at the source in its own commit (regenerate the layer from the committed inputs, after explaining each `pes_dispatch_missing` -> real-call change).
+2. Then apply the INDIRECT_EDGES change and the walk fix as their own commit, with the three handler closure files only, then synthetic proofs (needs an object vtable from a real slide-adjacent capture).
+3. Hook line for 0x140789D00 (EVERY 1, in-play, SLIDING, cap 6).
+4. Walker census (the red test `ANonOwnerWalker...`) and the acceptance set (PesStall, PesHang, throw-in, pass-target, seed-7 smoke, gen --check, ledger --check).
 
-## 4. Hook lines
-`untranslated_callees.py --hooks --image pes_full.bin --first 1 --every 1 --prefix slide 0x140789D00 0x14073DD50 0x140791DD0` now resolves the three as translated, but printed **no hook rows** (the prologue check did not produce a `hooks.cfg` line; the tool exits 0 silently). Not resolved; a hook predicate still needs writing by hand: an in-play predicate on the SLIDING action (`P+0xAC8 == 11`), EVERY 1, cap 6, per Main's ruling, using the vtable slot at 0x1425E1908 for 0x140789D00.
-
-## 5. Not done
-- Synthetic proof of the three (needs an object with a real vtable and a capture of a slide-adjacent state; none in `live2/`).
-- One self-contained commit, push, messages to MergeLane2 and StallLive13 (not sent: nothing committed).
-- Walker census and fix (step 2) and the acceptance set (step 3): not started. The abort still stands on the pushed branch `09a5f7e2`.
-
-## 6. Verification
+## 5. Verification this round
 | Check | Result |
 |---|---|
-| `gen_translated.py --image` (gen3) | ran, rc 0, 10,471 recorded+closure set; the three in closure; 10 other files changed (section 3) |
-| `untranslated_callees.py` on 0x1406F6CE0 | 67 translated, 0 untranslated (static only) |
-| `gen --check`, `ledger --check`, builds, tests, smoke | not run on the regenerated tree |
+| `gen --check` on clean HEAD 09a5f7e2 | FAIL, 12 drifts (deterministic over hash seeds and universe choice) |
+| `gen --check` with pre-merge universe | FAIL, same 12 |
+| worktree after round | clean, HEAD 09a5f7e2 |
+| builds, tests, smoke, ledger | not run this round |
