@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""The proof harness's guard on the graphics device allocator (boundary_guard.py; owner ruling option A, 21-11-26).
+"""The proof harness's guard on the graphics device allocator (boundary_guard.py; owner rulings option A and paired, 21-11-26).
 
-Synthetic arms (hand-encoded; the target is a made-up VA 0x2000 so the call's rel32 fits): a call whose skipped arm writes only
-through the returned pointer passes; an arm that writes elsewhere, pushes, drops the pointer, calls a non-pure callee, or sits
-behind a jne fails, with the site's address in the reason. A call to a pure callee (a getter) is allowed and clobbers the volatile
-registers. Real sites (PES_EXE set, else skipped): the pure getter 0x1421F8690; the closure functions of 1408BED00 (0x1419DC480) and
-1408BE3C0 (0x1419DBAF0), whose allocator sites pass; and the failing site 0x14195A634 (a call inside its skipped arm).
+Synthetic arms (hand-encoded; the allocator target is a made-up VA 0x2000): a call whose skipped arm writes only through the returned
+pointer passes; an arm that writes elsewhere, pushes, drops the pointer, calls a non-pure callee, or sits behind a jne fails, with the
+site's address in the reason. A call to a pure callee (a getter) is allowed and clobbers the volatile registers. A refcount increment
+(the AddRef callee, recognised by its bytes at 0x1800) passes only when the same object was stored into the packet earlier in the arm;
+an unpaired one, or one on an object the arm did not store, fails. Real sites (PES_EXE set, else skipped): the AddRef bytes at 0x1403DB250;
+the getter 0x1421F8690 is pure; the closure function of 1408BED00 (0x1419DC480) and of 1408BE3C0 (0x1419DBAF0) pass every allocator
+site (the latter via the paired refcount); 0x14195A634 fails at its call in the skipped arm.
 Usage: GF_DIFF_PYTHON=<venv python> PES_EXE=<unpacked image> python3 test_boundary_guard.py
 """
 import os
@@ -19,7 +21,8 @@ import boundary_guard as g  # noqa: E402
 import capstone  # noqa: E402
 import pdata  # noqa: E402
 
-BASE, SITE, TARGET, PURE = 0x1000, 0x1000, 0x2000, 0x1800
+BASE, SITE, TARGET = 0x1000, 0x1000, 0x2000
+PURE, ADDREF = 0x1900, 0x1800  # synthetic callees: a pure one (zero bytes, is_pure says so) and the AddRef bytes
 IMAGE_BASE = 0x140000000
 PES_EXE = os.environ.get("PES_EXE")
 
@@ -33,6 +36,12 @@ MOV_WORD_R8_CX = bytes.fromhex("66418948" "04")  # mov word ptr [r8+4], cx (5 by
 MOV_RBX8_RCX = bytes.fromhex("48894b08")  # mov qword ptr [rbx+8], rcx (4 bytes): outside the packet
 MOV_RAX_RBX = bytes.fromhex("4889d8")  # mov rax, rbx (3 bytes): drops the pointer
 MOV_RSP28_RCX = bytes.fromhex("48894c2428")  # mov qword ptr [rsp+0x28], rcx (5 bytes): the stack
+LOAD_RCX_FROM_RDI = bytes.fromhex("488b0f")  # mov rcx, qword ptr [rdi] (a field of another object)
+LOAD_RDX_FROM_RSI = bytes.fromhex("488b16")  # mov rdx, qword ptr [rsi]
+STORE_RCX_TO_PACKET20 = bytes.fromhex("48894b20")  # mov qword ptr [rbx+0x20], rcx
+STORE_RDX_TO_PACKET20 = bytes.fromhex("48895320")  # mov qword ptr [rbx+0x20], rdx
+LOAD_RCX_FROM_PACKET20 = bytes.fromhex("488b4b20")  # mov rcx, qword ptr [rbx+0x20]
+ADD_RCX_8 = bytes.fromhex("4883c108")  # add rcx, 8
 RET = b"\xc3"
 
 
@@ -50,6 +59,20 @@ def site_bytes(arm, jump=None):
     return call() + MOV_R8_RAX + TEST_RAX + jump + arm + RET
 
 
+def packet_site(arm_prefix, final_call=None):
+    """call; mov rbx,rax; test rax,rax; je join; arm_prefix; (call final_call, if given); join: ret. The arm starts at SITE+13."""
+    arm = arm_prefix + (call(target=final_call, site=SITE + 13 + len(arm_prefix)) if final_call is not None else b"")
+    return call() + MOV_RBX_RAX + TEST_RAX + je(len(arm)) + arm + RET
+
+
+def image(code):
+    """The synthetic image: the site's code at BASE, the AddRef callee's bytes at ADDREF, zeros elsewhere."""
+    buf = bytearray(0x2000)
+    buf[:len(code)] = code
+    buf[ADDREF - BASE:ADDREF - BASE + len(g.ADDREF_BYTES)] = g.ADDREF_BYTES
+    return bytes(buf)
+
+
 def machine():
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
     md.detail = True
@@ -57,9 +80,11 @@ def machine():
 
 
 def reader(code):
+    buf = image(code)
+
     def read(va, n):
         off = va - BASE
-        return code[off:off + n]
+        return buf[off:off + n]
     return read
 
 
@@ -89,9 +114,8 @@ class SyntheticArms(unittest.TestCase):
         self.assertIn("outside the packet", reason or "")
 
     def test_a_pure_callee_in_the_arm_passes_and_the_packet_in_rbx_survives_it(self):
-        head = call() + MOV_RBX_RAX + TEST_RAX
-        arm = call(target=PURE, site=SITE + len(head) + 2) + MOV_DWORD_RBX
-        code = head + je(len(arm)) + arm + RET
+        arm = call(target=PURE, site=SITE + 13) + MOV_DWORD_RBX
+        code = call() + MOV_RBX_RAX + TEST_RAX + je(len(arm)) + arm + RET
         self.assertIsNone(self.check(code, is_pure=lambda va: va == PURE))
 
     def test_a_pure_callee_clobbers_the_packet_held_in_a_volatile_register(self):
@@ -104,6 +128,48 @@ class SyntheticArms(unittest.TestCase):
         jne = b"\x75" + struct.pack("<b", len(arm))
         reason = self.check(site_bytes(arm, jump=jne))
         self.assertIn("not followed by je/jz", reason or "")
+
+    # Paired references: the AddRef callee at ADDREF increments [rcx+8]; the object must have been stored into the packet in the arm.
+
+    def test_a_refcount_increment_of_an_object_stored_into_the_packet_in_the_arm_passes(self):
+        arm = LOAD_RCX_FROM_RDI + STORE_RCX_TO_PACKET20 + LOAD_RCX_FROM_PACKET20 + ADD_RCX_8
+        self.assertIsNone(self.check(packet_site(arm, final_call=ADDREF)))
+
+    def test_an_unpaired_refcount_increment_fails(self):
+        arm = LOAD_RCX_FROM_RDI + ADD_RCX_8
+        reason = self.check(packet_site(arm, final_call=ADDREF))
+        self.assertIn("unpaired", reason or "")
+        self.assertIn(hex(SITE), reason)
+
+    def test_a_refcount_increment_of_an_object_the_packet_does_not_hold_fails(self):
+        # The arm stores rdx into the packet and increments rcx: a different object, so the increment is unpaired.
+        arm = LOAD_RDX_FROM_RSI + STORE_RDX_TO_PACKET20 + LOAD_RCX_FROM_RDI + ADD_RCX_8
+        reason = self.check(packet_site(arm, final_call=ADDREF))
+        self.assertIn("unpaired", reason or "")
+
+    def test_a_refcount_increment_of_a_packet_slot_written_before_the_arm_fails(self):
+        # Reading [rbx+0x20] without storing it in the arm: the object was not stored by this arm's packet writes.
+        arm = LOAD_RCX_FROM_PACKET20 + ADD_RCX_8
+        reason = self.check(packet_site(arm, final_call=ADDREF))
+        self.assertIn("unpaired", reason or "")
+
+
+    # The non-null arm may exit past the null block (the real 1419DBAF0 shape): the null block is [join, exit) and only the null path runs it.
+
+    def test_an_arm_that_jumps_over_the_null_block_passes(self):
+        arm = MOV_DWORD_RBX + b"\xeb\x02"  # jmp +2: past the two-byte null block (nop nop) that starts at the join
+        code = call() + MOV_RBX_RAX + TEST_RAX + je(len(arm)) + arm + b"\x90\x90" + RET
+        self.assertIsNone(self.check(code))
+
+    def test_an_arm_that_branches_to_a_join_that_is_the_continuation_passes(self):
+        arm = MOV_DWORD_RBX + b"\x74\x00"  # je +0: to the join, which both paths reach (no null-only block)
+        self.assertIsNone(self.check(call() + MOV_RBX_RAX + TEST_RAX + je(len(arm)) + arm + RET))
+
+    def test_an_arm_that_branches_into_a_null_only_block_that_writes_outside_the_packet_fails(self):
+        arm = b"\x74\x02" + b"\xeb\x04"  # je to the join (the null-only block's first byte); jmp past its four bytes
+        code = call() + MOV_RBX_RAX + TEST_RAX + je(len(arm)) + arm + b"\x48\x89\x4f\x08" + RET  # mov [rdi+8], rcx
+        self.assertIn("outside the packet", self.check(code) or "")
+
 
 
 class RealSites(unittest.TestCase):
@@ -118,9 +184,12 @@ class RealSites(unittest.TestCase):
     def read(self, va, n):
         return self.img[va - IMAGE_BASE:][:n]
 
-    def test_the_getter_0x1421F8690_is_pure_and_a_store_is_not(self):
+    def test_the_AddRef_callee_is_recognised_by_its_bytes(self):
+        self.assertEqual(self.read(0x1403DB250, len(g.ADDREF_BYTES)), g.ADDREF_BYTES)
+
+    def test_the_getter_0x1421F8690_is_pure_and_the_closure_function_of_1408BE3C0_is_not(self):
         self.assertTrue(g.is_pure(self.pd, self.md, 0x1421F8690))
-        self.assertFalse(g.is_pure(self.pd, self.md, 0x1419DBAF0))  # the closure function holds the allocator's packet writes
+        self.assertFalse(g.is_pure(self.pd, self.md, 0x1419DBAF0))
 
     def test_the_closure_function_of_1408BED00_passes_every_allocator_site(self):
         self.assertEqual(g.check_function(self.pd, self.md, self.read, 0x1419DC480), [])
@@ -128,12 +197,17 @@ class RealSites(unittest.TestCase):
                  if i.mnemonic == "call" and i.op_str.strip() == hex(g.GFX_DEVICE_ALLOC)]
         self.assertGreater(len(calls), 0, "the function must contain an allocator call for the pass to mean anything")
 
-    def test_1408BE3C0s_allocator_site_fails_on_the_reference_count_it_bumps_outside_the_packet(self):
-        # 0x1419DBC0C is the allocator call; its skipped arm calls 0x1403DB250 (`mov eax,1; lock xadd [rcx],eax`: the object
-        # reached through the packet, +0x20 and +0x28, has its count bumped). That write is outside the packet: the proof fails.
-        fails = dict(g.check_function(self.pd, self.md, self.read, 0x1419DBAF0))
-        self.assertIn(0x1419DBC0C, fails)
-        self.assertIn("0x1403db250", fails[0x1419DBC0C])
+    def test_1408BE3C0s_closure_function_passes_with_the_paired_refcount(self):
+        # 0x1419DBC0C's arm stores the packet's objects (+0x20, +0x28) and bumps their counts through 0x1403DB250: paired, so it passes.
+        self.assertEqual(g.check_function(self.pd, self.md, self.read, 0x1419DBAF0), [])
+
+    def test_1408BED00s_closure_fails_on_a_flag_store_into_the_paired_object_which_the_ruling_does_not_admit(self):
+        # 0x1419DC350: the AddRef is paired (the object is stored into the packet at +0x18), but the arm then stores 1 into the object's
+        # own field +0x2C with xchg. A write to the object is outside the packet and outside the ruling (only the count increment is
+        # admitted), so the site fails. Pinned so the rule is not widened silently.
+        fails = dict(g.check_function(self.pd, self.md, self.read, 0x1419DC350))
+        self.assertIn(0x1419DC36F, fails)
+        self.assertIn("xchg", fails[0x1419DC36F])
 
     def test_a_real_site_with_a_call_in_its_skipped_arm_fails_at_that_arm(self):
         head = self.pd.containing(0x14195A634)
