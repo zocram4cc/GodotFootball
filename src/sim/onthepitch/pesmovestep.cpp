@@ -272,7 +272,10 @@ class MoveHostAdapter final : public pes::MoveHost {
     player_.RequestCommand(queue);
     PesDecision& decision = player_.GetPesDecision();
     decision.frame = match_.GetPesFrame();
-    decision.command = pesmovestep::MovementDecision(queue, player_.HasPossession());
+    // The carrier is the ball's retainer or PES's holder (MA+0x2601C), the man the controller's carrier brain reads (its hasIt). GF's
+    // reach-based HasPossession named men beside a ball nobody holds, and their dribble then decided them (pes-port-StallThink1 section 3).
+    const bool holdsBall = match_.GetBallRetainer() == &player_ || match_.GetPesHolder() == &player_;
+    decision.command = pesmovestep::MovementDecision(queue, holdsBall);
   }
   float CurrentSpeedKmh() const override {
     return player_.GetMovement().GetLength() * c_.run.speed3600;
@@ -712,18 +715,23 @@ int CurrentMotionOf(Player& player) {
   return std::atoi(anim->anim->GetVariable("specialvar2").c_str());
 }
 
-// MOVESTEP's decision: the first queued command that is movement (pes-re-decision-read.md 1 and 3). The keeper's Deflect carries
-// no move target (velocity 0), so taking it held a designated keeper 2.3 m from a ball at rest in IDLE for the whole stall; the
-// BallControl a rushing keeper queues is the dribble, whose direction is upfield, not toward a ball he has yet to reach.
+// MOVESTEP's decision. PES builds one movement command (the PRESS, DELAY or MARK locomotion) and then the reaction chooser replaces it
+// with the reaction it fires (pes-re-defender-decisions.md 1). So a queued non-movement command is the decision wherever it sits: a
+// slide or a special fired in the think beats the approach queued before it. The first movement stands only when none is queued.
+// The keeper's Deflect carries no move target (velocity 0), so taking it held a designated keeper 2.3 m from a ball at rest in IDLE
+// for the whole stall; the BallControl a rushing keeper queues is the dribble, whose direction is upfield, not toward a ball he has
+// yet to reach. Neither is the decision for a man who does not hold the ball.
 // ponytail: GF's keeper has no PES mover (KP_PRESS action 0x3e, not decoded); the movement command's ball magnet walks him.
 std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue, bool holdsBall) {
+  std::optional<PlayerCommand> movement;
   for (const PlayerCommand& command : queue) {
     if (IsBallActionFunction(command.desiredFunctionType)) continue;
     if (command.desiredFunctionType == e_FunctionType_Deflect) continue;
     if (command.desiredFunctionType == e_FunctionType_BallControl && !holdsBall) continue;
-    return command;
+    if (command.desiredFunctionType != e_FunctionType_Movement) return command;
+    if (!movement) movement = command;
   }
-  return std::nullopt;
+  return movement;
 }
 
 }  // namespace pesmovestep

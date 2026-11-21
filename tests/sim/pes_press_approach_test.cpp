@@ -115,3 +115,21 @@ TEST(PesPressApproach, ADesignatedManWithNoHolderIsCommandedToTheRestingBall) {
   EXPECT_GT(chased, 0ul) << "no loose ball at rest with a designated man in reach was seen in the match";
   EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << chased << " designated-man movement ticks in reach named no target";
 }
+
+// The carrier's dribble (BallControl) is the decision only for the man who holds the ball: PES's ball control belongs to its holder
+// (MA+0x2601C, GetPesHolder), the same man the controller's carrier brain reads. A man whom GF's reach-based possession puts beside a
+// ball that nobody holds must not take the dribble as his decision.
+TEST(PesPressApproach, ANoManWhoDoesNotHoldTheBallIsDecidedByTheDribble) {
+  unsigned long dribbled = 0;
+  RunPesLoopMatch([&](Match& match) {
+    for (int t = 0; t < 2; ++t) {
+      for (const auto& player : match.GetTeam(t)->GetAllPlayers()) {
+        const std::optional<PlayerCommand>& command = player->GetPesDecision().command;
+        if (!command || command->desiredFunctionType != e_FunctionType_BallControl) continue;
+        if (match.GetPesHolder() == player.get() || match.GetBallRetainer() == player.get()) continue;
+        ++dribbled;
+      }
+    }
+  });
+  EXPECT_EQ(dribbled, 0ul) << dribbled << " dribble decisions were taken by men who do not hold the ball";
+}
