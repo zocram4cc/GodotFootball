@@ -1200,3 +1200,32 @@ TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
   std::printf("[shootout-keeper] %d kicks, %d saved\n", kicks, saves);
   EXPECT_GT(saves, 0) << "the keeper saved none of " << kicks << " kicks";
 }
+
+// PES's SetMotion takes a start time (req[0x33], FUN_1406b8340's tail): the motion plays from that point, so the wind-up the clip
+// opens with is skipped. A clip issued with a start time must sit at that frame on the body the tick it is issued.
+TEST(MoveStepWire, AnIssuedClipStartsAtItsStartTime) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr float kStart_s = 0.5f;
+  const int expected = static_cast<int>(std::lround(kStart_s / pes::kGfAnimFrame_s));
+  int checked = 0;
+  for (int t = 0; t < kTicks && checked < 5; ++t) {
+    match->Process();
+    std::vector<Player*> ps = ActivePlayers(*match);
+    if (ps.size() < 2) continue;
+    const Played source = PlayedOf(ps[0]);
+    if (source.family != LocomotionFamily() || source.motion < 0) continue;
+    for (size_t i = 1; i < ps.size(); ++i) {
+      if (PlayedOf(ps[i]).motion == source.motion) continue;
+      pes::MotionRequest request = IssueOf(source.motion);
+      request.startTime = kStart_s;
+      if (!ps[i]->CastHumanoid()->PlayIssuedClip(request)) continue;
+      ++checked;
+      EXPECT_EQ(ps[i]->GetCurrentAnim()->frameNum, expected) << "motion " << source.motion << " issued with a start time";
+      break;
+    }
+  }
+  EXPECT_GT(checked, 0) << "no locomotion clip was issued to a second man in the match";
+}

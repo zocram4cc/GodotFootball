@@ -254,7 +254,8 @@ public:
   // takes it: PES's SetMotion pushes the layer record every time it is called.
   bool PlayIssuedClip(const pes::MotionRequest& request, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion);
   // RootMotion's issue by its parts (the motion, the playback rate, the mirror): the request overload forwards to it after the engine hook.
-  bool PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion);
+  bool PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family = pes::PesClipFamily::kLocomotion,
+                      float startTime = 0.0f);
   bool TripPending() const { return interruptAnim == e_InterruptAnim_Trip; }
   virtual float GetDecayingDifficultyFactor() const { return decayingDifficultyFactor; }
 
