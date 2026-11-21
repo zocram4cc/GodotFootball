@@ -417,6 +417,21 @@ TEST(GoalAnchorKindTwo, NarrowChannelScorerIsZoneEightAsTheDefaultIs) {
   ASSERT_TRUE(bc);
   EXPECT_EQ(*bc, 8u);
 }
+// The scorer where PES held him when the anchor ran (seq204: x -41.55, z 29.56, the wide channel). PES's writer answers 2 at
+// that position (the replay of seq003's entry with the position poked: (-41.5, 30) -> 2). GF's arena must answer 2 too, at any
+// decision count in 5..161 (below clock x 3 = 162).
+TEST(GoalAnchorKindTwo, WideChannelScorerIsZoneTwoAsPes) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  for (uint32_t dc : {5u, 100u, 161u}) {
+    auto sel = MakeFor(*exe, kKindTwo);
+    ASSERT_TRUE(sel) << why;
+    const auto bc = sel->ZoneDecision(KindTwoFacts(kKindTwo, kKindTwo.pos, dc), dc);
+    ASSERT_TRUE(bc) << "DC " << dc;
+    EXPECT_EQ(*bc, 2u) << "DC " << dc;
+  }
+}
 
 TEST(GoalAnchorKindTwo, PastTheLineAndCentreScorersAreNotZoneEight) {
   // PES's writer on the same entry with only the scorer's position poked (scratch oracle poke_bc.py, CutsceneAnchor 2): (60, 0)

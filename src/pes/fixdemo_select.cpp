@@ -156,7 +156,9 @@ constexpr uint64_t kA0Level = 0, kA0PreviousPick = 0x13C;
 // the owner X = A0+0x118 and, at X+0x40 = A0+0x158, the vtable 0x14259C9E0; its flag byte at X+0x48 (A0+0x160) is 1 once the
 // constructor's registry insert 0x140451C10 has run. The else arm's list builder 0x14047AB20 -> 0x1404511E0 branches on the flag.
 constexpr uint64_t kA0ObjectOff = 0x118;
-constexpr uint64_t kDemoVtableVa = 0x14259C9E0, kDemoVtableBytes = 0x20;
+// The image's .rdata: the same section the camera rig maps (fixdemo_camera_rig.cpp). The DemoInfo's objects read their vtables and
+// constants from it.
+constexpr uint64_t kRdataVa = 0x14252F000, kRdataBytes = 0xE6C000;
 // The zone decision (0x1404B88B0 writes A0+0xBC; its counter A0+0xDC) and the recompute's default-arm test: 0x140471AD2 keeps
 // the default arm while (BC-6) & 0xFFFFFFFD == 0 (BC 6 or 8); any other BC takes the else arm.
 constexpr uint64_t kA0Bc = 0xBC, kA0DemoCount = 0xDC;
@@ -187,14 +189,14 @@ struct FixDemoSelector::Impl {
   float fullTurnDeg = 0;
 
   Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables,
-       std::vector<uint8_t> listVtable, std::vector<uint8_t> stageVtable, std::vector<uint8_t> demoVtable, float fullTurn)
+       std::vector<uint8_t> listVtable, std::vector<uint8_t> stageVtable, std::vector<uint8_t> rdata, float fullTurn)
       : tables(std::move(t)), fullTurnDeg(fullTurn) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
     s.mem.img.push_back({kMathTablesVa, std::move(mathTables)});
     s.mem.img.push_back({kListVtableVa, std::move(listVtable)});
     s.mem.img.push_back({kStageVtableVa, std::move(stageVtable)});
-    s.mem.img.push_back({kDemoVtableVa, std::move(demoVtable)});
+    s.mem.img.push_back({kRdataVa, std::move(rdata)});
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
                              {kWorldSlotPageVa, kWorldSlotPageBytes}, {kStagePageVa, kPageBytes}, {kStageFlagPageVa, kPageBytes},
@@ -216,6 +218,10 @@ struct FixDemoSelector::Impl {
     s.wr(kG1Va, kStandInG1, 4);
     BuildWorld();
     BuildSceneRows();
+    // The goal DemoInfo's sub-object: PES's constructor 0x14047DF00 runs once, in the world's constructor (0x140441490 builds the
+    // DemoInfo at A0+0x118 and registers its names). Each goal's arrangement then runs the defaults over it (PlaceGoal), as PES does.
+    s.gpr[1] = a0 + kA0ObjectOff;
+    Call(&pes_fn_14047DF00);
     // Empty pick histories: PES's static initialisers leave each std::map as a sentinel node (left = parent = right = self,
     // colour black, isnil) and empty vectors; the history objects are 0x40 bytes with the map's head pointer at +0.
     for (unsigned c = 0; c < kCategories; ++c) {
@@ -468,8 +474,8 @@ struct FixDemoSelector::Impl {
       s.wrf(m + kManVel + 4 * i, f.vel[i]);
       s.wrf(r + kRunTarget + 4 * i, 0.0f);  // the target is what 0x140476C50 is about to give him
     }
-    // A0: the DemoInfo's defaults (0x140478090), then the fields the builder sets before the calls.
-    for (uint64_t off = 0; off < kA0Bytes; off += 8) s.wr(a0 + off, 0, 8);
+    // A0: the DemoInfo's defaults (0x140478090), then the fields the builder sets before the calls. The object persists across
+    // goals (PES builds it once, in the world's constructor); the defaults reset the per-goal fields it writes.
     s.gpr[1] = a0;
     Call(&pes_fn_140478090);
     s.wr(a0 + kA0RngState, f.rngState, 4);
@@ -498,10 +504,7 @@ struct FixDemoSelector::Impl {
     // (ctx = the event). GF runs it once, here. A0+0xBC is 8 (the defaults' value) unless the writer's zone is 2 or another
     // arm's value. The recompute 0x140471A80 tests BC at 0x140471ACB and takes its default arm only for (BC-6)&~2 == 0.
     if (f.decisionCount) {
-      // The DemoInfo sub-object (the else arm's list reads it): PES's constructor 0x14047DF00 builds X = A0+0x118 and its
-      // vtable at X+0x40. Its end runs the registry insert path 0x140451C10 (see the header comment above kA0ObjectOff).
-      s.gpr[1] = a0 + kA0ObjectOff;
-      Call(&pes_fn_14047DF00);
+      // The DemoInfo sub-object (the else arm's list reads it) was built once at world time (BuildDemoInfo).
       s.wr(a0 + kA0DemoCount, *f.decisionCount, 4);
       s.gpr[1] = a0;
       s.gpr[2] = event;
@@ -744,9 +747,11 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
     return nullptr;
   }
   std::vector<uint8_t> stage(kStageVtableBytes);
-  std::vector<uint8_t> demo(kDemoVtableBytes);
-  if (!exe.ReadVa(kDemoVtableVa, demo.size(), demo.data())) {
-    if (error) *error = "the image does not map the DemoInfo sub-object's vtable";
+  // The image's .rdata (the section the camera rig maps): the DemoInfo's vtables (0x14259C9E0 the sub-object, 0x14259C940 the
+  // registry's factory object) and the constants the goal's objects read.
+  std::vector<uint8_t> rdata;
+  if (exe.ReadSection(kRdataVa, kRdataBytes, &rdata) == 0) {
+    if (error) *error = "the image does not map the .rdata section the DemoInfo reads";
     return nullptr;
   }
   if (!exe.ReadVa(kStageVtableVa, stage.size(), stage.data())) {
@@ -761,7 +766,7 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
   }
   std::memcpy(&fullTurn, turn, sizeof fullTurn);
   return std::unique_ptr<FixDemoSelector>(new FixDemoSelector(
-      std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), std::move(stage), std::move(demo), fullTurn)));
+      std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), std::move(stage), std::move(rdata), fullTurn)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}

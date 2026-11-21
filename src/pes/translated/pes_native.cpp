@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include <cstring>
 
 namespace {
@@ -118,17 +119,21 @@ void pes_native_heap_trim(PesState&) {}
 namespace {
 
 // The registry objects' layout (0x141B55730's reads): GameImpl +0 vtable (slot +0x38 = 0x14217D310, which returns this + 0x20)
-// and +0x20 the RegistryImpl; RegistryImpl +0 vtable (+0x68 insert, +0x70 find); a handle +0 vtable, +8 refcount, +0x10 the
-// record. A record is 0x30 bytes in the capture (pid3234533/seq6224, handle 0x33F4490: record +0 = 1, info from +4); the
-// registry's own tree sits at RegistryImpl +0x10, where GF keeps its handle table.
-constexpr uint64_t kGameVtableBytes = 0x40, kGameObjectBytes = 0x30, kGameVtableWrapperSlot = 0x38, kGameRegistryOff = 0x20;
+// and +0x20 the RegistryImpl; RegistryImpl +0 vtable (+0x68 insert, +0x70 find) and +0x10 the head of its name list. A name
+// node (0x30 bytes in the arena): +0 next, +8 name1 {ptr, len}, +0x18 name2 {ptr, len}, +0x28 the value find answers, the object
+// the caller registered. A handle +0 vtable, +8 refcount, +0x10 the record. A record is 0x30 bytes in the capture
+// (pid3234533/seq6224, handle 0x33F4490: record +0 = 1, info from +4).
+constexpr uint64_t kGameVtableBytes = 0x40, kGameObjectBytes = 0x30, kGameVtableWrapperSlot = 0x38;
 constexpr uint64_t kRegistryObjectBytes = 0x20, kRegistryVtableBytes = 0x78, kRegistryInsertSlot = 0x68, kRegistryFindSlot = 0x70,
-                   kRegistryTableOff = 0x10;
+                   kRegistryHeadOff = 0x10;
+constexpr uint64_t kNodeBytes = 0x30, kNodeNext = 0, kNodeName1 = 8, kNodeName2 = 0x18, kNameLenOff = 8, kNodeValue = 0x28;
+constexpr uint64_t kObjectRefcountOff = 8;  // PES's insert takes one reference on the object (LOCK inc at +8)
 constexpr uint64_t kHandleBytes = 0x18, kHandleRefcountOff = 8, kHandleRecordOff = 0x10, kRecordBytes = 0x30, kRecordHeader = 1;
 constexpr uint64_t kInfoOff = 4;  // info = record + 4: +0 valid byte, +4 ground, +0x10 point A, +0x1C point B, +0x28 facing
 constexpr uint64_t kInfoGround = 4, kInfoPointA = 0x10, kInfoPointB = 0x1C, kInfoFacing = 0x28;
 constexpr char kNamePrefix[] = "CAMERA_TARGET_";  // the format 0x142608750 up to its first conversion
-constexpr uint64_t kNamePrefixLen = sizeof(kNamePrefix) - 1, kNameDigits = 4;
+constexpr uint64_t kNameDigits = 4;  // the two digits of the group and the two of the slot in a camera name
+constexpr char kInfoName[] = "INFO";  // the second name of every camera slot: the record's info (0x14089AEE0 passes it)
 
 uint64_t HeapBlock(PesHeap& heap, uint64_t bytes, const char* what) {
   const uint64_t va = heap.Alloc(bytes, PesHeap::kMinAlign);
@@ -144,21 +149,78 @@ void PutFloats(PesState& s, uint64_t va, const float* f, unsigned n) {
   }
 }
 
+// A name as a caller passes it: the {ptr, len} struct at the register's address, in PES memory.
+struct NameKey {
+  uint64_t ptr = 0, len = 0;
+};
+
+NameKey ReadName(PesState& s, uint64_t at) { return {s.rd(at, 8), s.rd(at + kNameLenOff, 8)}; }
+
+bool SameName(PesState& s, const NameKey& a, const NameKey& b) {
+  if (a.len != b.len) return false;
+  for (uint64_t i = 0; i < a.len; ++i)
+    if (s.rd(a.ptr + i, 1) != s.rd(b.ptr + i, 1)) return false;
+  return true;
+}
+
+// The value of the node whose name pair is (n1, n2), 0 when the list holds none (0x141B6EAB0's find, over the whole list).
+uint64_t FindNode(PesState& s, uint64_t head, const NameKey& n1, const NameKey& n2) {
+  for (uint64_t node = head; node != 0; node = s.rd(node + kNodeNext, 8)) {
+    const NameKey k1{s.rd(node + kNodeName1, 8), s.rd(node + kNodeName1 + kNameLenOff, 8)};
+    const NameKey k2{s.rd(node + kNodeName2, 8), s.rd(node + kNodeName2 + kNameLenOff, 8)};
+    if (SameName(s, n1, k1) && SameName(s, n2, k2)) return s.rd(node + kNodeValue, 8);
+  }
+  return 0;
+}
+
+// The arena copy of a name (PES's insert copies its key too, into a fresh block).
+NameKey CopyName(PesState& s, PesHeap& heap, const NameKey& n) {
+  const uint64_t ptr = HeapBlock(heap, n.len ? n.len : 1, "registry: no room for a name");
+  for (uint64_t i = 0; i < n.len; ++i) s.wr(ptr + i, s.rd(n.ptr + i, 1), 1);
+  return {ptr, n.len};
+}
+
+// Puts the node (n1, n2) -> value at the head of the list at self+0x10. The caller has checked that the pair is new.
+void LinkNode(PesState& s, PesHeap& heap, uint64_t self, const NameKey& n1, const NameKey& n2, uint64_t value) {
+  const NameKey c1 = CopyName(s, heap, n1), c2 = CopyName(s, heap, n2);
+  const uint64_t node = HeapBlock(heap, kNodeBytes, "registry: no room for a node");
+  s.wr(node + kNodeNext, s.rd(self + kRegistryHeadOff, 8), 8);
+  s.wr(node + kNodeName1, c1.ptr, 8);
+  s.wr(node + kNodeName1 + kNameLenOff, c1.len, 8);
+  s.wr(node + kNodeName2, c2.ptr, 8);
+  s.wr(node + kNodeName2 + kNameLenOff, c2.len, 8);
+  s.wr(node + kNodeValue, value, 8);
+  s.wr(self + kRegistryHeadOff, node, 8);
+}
+
+// The camera's slot name: "CAMERA_TARGET_" + the group's two digits + the slot's two digits (the format 0x142608750 builds).
+std::string CameraName(unsigned group, unsigned slot) {
+  char digits[kNameDigits + 1];
+  std::snprintf(digits, sizeof digits, "%02u%02u", group, slot);
+  return std::string(kNamePrefix) + digits;
+}
+
 }  // namespace
+
+// A name placed in the arena (a copy of `text`), as its {ptr, len} key.
+NameKey PutName(PesState& s, PesHeap& heap, const std::string& text) {
+  const NameKey key{HeapBlock(heap, text.size() ? text.size() : 1, "registry: no room for a name"), text.size()};
+  for (uint64_t k = 0; k < key.len; ++k) s.wr(key.ptr + k, static_cast<uint8_t>(text[k]), 1);
+  return key;
+}
 
 PesCameraRegistry::PesCameraRegistry(PesHeap& heap, PesState& s) {
   const uint64_t game = HeapBlock(heap, kGameObjectBytes, "registry: no room for the GameImpl");
   const uint64_t gameVt = HeapBlock(heap, kGameVtableBytes, "registry: no room for the GameImpl vtable");
   const uint64_t reg = HeapBlock(heap, kRegistryObjectBytes, "registry: no room for the RegistryImpl");
   const uint64_t regVt = HeapBlock(heap, kRegistryVtableBytes, "registry: no room for the RegistryImpl vtable");
-  const uint64_t table = HeapBlock(heap, 8ull * kTargets, "registry: no room for the handle table");
   s.wr(game, gameVt, 8);
   s.wr(gameVt + kGameVtableWrapperSlot, kGameImplSlotWrapper, 8);
   s.wr(game + kGameRegistryOff, reg, 8);
   s.wr(reg, regVt, 8);
   s.wr(regVt + kRegistryInsertSlot, kInsertVa, 8);
   s.wr(regVt + kRegistryFindSlot, kFindVa, 8);
-  s.wr(reg + kRegistryTableOff, table, 8);
+  s.wr(reg + kRegistryHeadOff, 0, 8);
   for (unsigned i = 0; i < kTargets; ++i) {
     records_[i] = HeapBlock(heap, kRecordBytes, "registry: no room for a record");
     handles_[i] = HeapBlock(heap, kHandleBytes, "registry: no room for a handle");
@@ -166,7 +228,11 @@ PesCameraRegistry::PesCameraRegistry(PesHeap& heap, PesState& s) {
     s.wr(handles_[i], kHandleVtableVa, 8);
     s.wr(handles_[i] + kHandleRefcountOff, 1, 4);  // the registry's own reference
     s.wr(handles_[i] + kHandleRecordOff, records_[i], 8);
-    s.wr(table + 8ull * i, handles_[i], 8);
+    // The slot's name pair: "CAMERA_TARGET_" + the group's and the slot's two digits, and "INFO" (the record's info, the second
+    // name the camera's lookups pass: 0x14089AEE0 takes it from its object's +0x10).
+    const NameKey name = PutName(s, heap, CameraName(kGroup, i));
+    const NameKey info = PutName(s, heap, kInfoName);
+    LinkNode(s, heap, reg, name, info, handles_[i]);
   }
   s.wr(kGameImplSlotVa, game, 8);
 }
@@ -181,25 +247,20 @@ void PesCameraRegistry::Set(PesState& s, unsigned slot, const Target& t) const {
   PutFloats(s, info + kInfoFacing, &t.facingDeg, 1);
 }
 
-// A name "CAMERA_TARGET_GGSS" of this group: the slot SS, else kTargets. Anything else (another group, a longer name, a
-// foreign prefix) is not in this registry.
+// The registry's find (vslot +0x70; 0x141B6EAB0 in PES): the value of the node whose name pair is (rdx, r8), 0 when none.
 void pes_native_registry_find(PesState& s) {
-  const uint64_t key = s.gpr[2];
-  const uint64_t ptr = s.rd(key, 8), len = s.rd(key + 8, 8);
-  s.gpr[0] = 0;
-  if (len != kNamePrefixLen + kNameDigits) return;
-  for (uint64_t i = 0; i < kNamePrefixLen; ++i)
-    if (s.rd(ptr + i, 1) != static_cast<uint8_t>(kNamePrefix[i])) return;
-  unsigned digit[kNameDigits];
-  for (uint64_t i = 0; i < kNameDigits; ++i) {
-    const uint64_t c = s.rd(ptr + kNamePrefixLen + i, 1);
-    if (c < '0' || c > '9') return;
-    digit[i] = static_cast<unsigned>(c - '0');
-  }
-  const unsigned group = digit[0] * 10 + digit[1], slot = digit[2] * 10 + digit[3];
-  if (group != PesCameraRegistry::kGroup || slot >= PesCameraRegistry::kTargets) return;
-  s.gpr[0] = s.rd(s.rd(s.gpr[1] + kRegistryTableOff, 8) + 8ull * slot, 8);
+  s.gpr[0] = FindNode(s, s.rd(s.gpr[1] + kRegistryHeadOff, 8), ReadName(s, s.gpr[2]), ReadName(s, s.gpr[8]));
 }
 
-// PES's insert adds a node; GF's registry is fixed, so a lookup that missed and tried to create is a bug upstream.
-void pes_native_registry_insert(PesState& s) { Die("registry insert of a name this registry does not hold; key", s.rd(s.gpr[2], 8)); }
+// The registry's insert (vslot +0x68; 0x141B6EB70 in PES): a null object inserts nothing; otherwise the object takes one
+// reference and the pair (rdx, r8) joins the list with the object as its value. A pair the registry already holds is a bug
+// upstream: the lookup that precedes an insert answered 0.
+void pes_native_registry_insert(PesState& s) {
+  const uint64_t self = s.gpr[1], object = s.gpr[9];
+  if (object == 0) return;
+  const NameKey n1 = ReadName(s, s.gpr[2]), n2 = ReadName(s, s.gpr[8]);
+  if (FindNode(s, s.rd(self + kRegistryHeadOff, 8), n1, n2) != 0)
+    Die("registry insert of a name pair the registry already holds; key", n1.ptr);
+  s.wr(object + kObjectRefcountOff, s.rd(object + kObjectRefcountOff, 4) + 1, 4);
+  LinkNode(s, HeapOf(s), self, n1, n2, object);
+}

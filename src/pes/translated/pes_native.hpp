@@ -82,17 +82,18 @@ void pes_native_heap_free(PesState& s);
 void pes_native_heap_owns(PesState& s);
 void pes_native_heap_trim(PesState& s);
 
-// The CAMERA_TARGET registry the FixDemo camera's target tables look their records up in. PES keeps them in the game's
-// registry (a GameImpl at [0x1437F0AC8], +0x20 the RegistryImpl, whose find is vslot +0x70 = 0x141B6EAB0: hash the name,
-// walk a std::map behind an SRW lock, answer the node's typed handle). The table lookup 0x141B55730 reads a handle H
-// (vtable 0x142608698, refcount at +8) and keeps it in the entry's ref; the entry's info is *(H+0x10)+4. PesCameraRegistry
-// is the same object graph in GF memory for the 28 names "CAMERA_TARGET_%02d%02d" of one group: the GameImpl singleton,
-// a RegistryImpl whose vtable slot +0x70 is the dispatch table's native pes_native_registry_find (stubs.json
-// native_services) and whose +0x68 (insert) aborts, a handle table, and one record per slot in the arena. A name outside
-// the group answers 0: the lookup's not-found callback then runs and its creator reaches the aborting insert, a loud miss.
+// The named registry the FixDemo camera's target tables and the goal's DemoInfo (0x140451C10) register in. PES keeps it in the
+// game's registry (a GameImpl at [0x1437F0AC8], +0x20 the RegistryImpl; find is vslot +0x70 = 0x141B6EAB0 and insert vslot +0x68
+// = 0x141B6EB70, both over a tree behind an SRW lock). 0x141B55730 (translated) is the caller: find-or-create by a pair of names.
+// PesCameraRegistry is that object graph in GF memory: the GameImpl singleton, a RegistryImpl whose vtable slots +0x70 and +0x68
+// are the dispatch table's natives pes_native_registry_find / _insert (a list of name-pair nodes in the arena: find answers the
+// value of the pair, insert takes a reference on the object and adds the pair), and the 28 camera names "CAMERA_TARGET_02SS"
+// (empty second name) answering the camera's handles. The natives are GF's stand-ins for PES's tree (ponytail: the tree's
+// layout and the SRW lock are not modelled; the lookup semantics are PES's).
 struct PesCameraRegistry {
   static constexpr uint64_t kGameImplSlotVa = 0x1437F0AC8;  // the singleton slot 0x141B55F40 reads
   static constexpr uint64_t kGameSlotPageVa = 0x1437F0000, kGameSlotPageBytes = 0x1000;
+  static constexpr uint64_t kGameRegistryOff = 0x20;  // the GameImpl's +0x20: the RegistryImpl (0x141B55730 reads it through the wrapper)
   // GF-private code VAs of the vtable slots: no PES function lives here; the dispatch table maps them to the natives.
   static constexpr uint64_t kFindVa = 0x2500000070, kInsertVa = 0x2500000068;
   static constexpr uint64_t kGameImplSlotWrapper = 0x14217D310;  // GameImpl vslot +0x38: returns this + 0x20 (translated)
