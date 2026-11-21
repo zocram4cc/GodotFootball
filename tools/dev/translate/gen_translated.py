@@ -27,6 +27,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -296,21 +297,37 @@ def write_layer(root, files):
             os.rmdir(d)
 
 
+def untracked(root, rels):
+    """The generated files git does not track. --check compares the disk, so a file the regeneration wrote but the commit
+    never added passes in that worktree while a checkout of the commit cannot link (MergeLane2 merge 4425ef0f left seven
+    pes_fn_* untracked). Outside a git checkout (an exported tree) there is nothing to compare against."""
+    proc = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=root, capture_output=True)
+    if proc.returncode != 0:
+        if b"not a git repository" in proc.stderr:
+            return []
+        raise SystemExit("gen_translated: git ls-files failed in %s: %s" % (root, proc.stderr.decode().strip()))
+    tracked = set(proc.stdout.decode().split("\0")) - {""}
+    return sorted(rel for rel in rels if rel not in tracked)
+
+
 def check_layer(root, files):
-    """Drift lines: a committed file that differs, is missing, or is unexpected."""
+    """Drift lines: a committed file that differs, is missing, is unexpected, or exists on disk without being tracked."""
     drift = []
     have = {os.path.relpath(p, root) for p in glob.glob(os.path.join(root, "*", "pes_fn_*.cpp"))}
+    present = []
     for rel, text in sorted(files.items()):
         path = os.path.join(root, rel)
         if not os.path.exists(path):
             drift.append("missing %s" % rel)
             continue
+        present.append(rel)
         with open(path) as f:
             cur = f.read()
         if cur == text or HAND_REFINED in "".join(cur.splitlines(True)[:3]):
             continue
         drift.append("differs %s" % rel)
     drift += ["unexpected %s" % rel for rel in sorted(have - set(files))]
+    drift += ["untracked %s" % rel for rel in untracked(root, present)]
     return drift
 
 
