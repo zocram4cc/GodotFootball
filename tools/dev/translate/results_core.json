@@ -99175,6 +99175,45 @@
    "synthetic_cases": 3,
    "translated": true,
    "va": "0x14211BF50"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_ctor.json",
+   "coverage": {
+    "0x14047DF00": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the DemoInfo sub-object's constructor 0x14047DF00 (writes the object X at its rcx, the vtable 0x14259C9E0 at X+0x40, the flag at X+0x48), replayed as a SYNTHETIC call on seq203's own memory (entry and rcx set; rcx = A0+0x118, the goal DemoInfo A0 of seq203; ret and stack unchanged): 1 call, bit-exact, every written byte. Real calls: none in any capture (the only direct caller is the world constructor 0x140441490 at 0x140442002, in the same image). The 0x141B55730 registry insert it reaches is run from the closure the replay entered (bounded).",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_ctor.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x14047DF00"
   }
  ]
 }

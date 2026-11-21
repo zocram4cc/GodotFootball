@@ -152,14 +152,11 @@ constexpr uint64_t kMiPeriod = 0x1168, kMiPlayState = 0x116C, kMiClock = 0x1174,
                    kMiScorerSlot = 0x162C, kMiPresent = 0x1748, kMiOther = 0x175E;
 constexpr uint32_t kPlayStateStopped = 2, kEventKindGoal = 3;  // MI+0x116C == 2 (PlayStateFor), MI+0x1574 == 3 (a goal)
 constexpr uint64_t kA0Level = 0, kA0PreviousPick = 0x13C;
-// The DemoInfo's sub-object at A0+0x158 (inline): vtable at +0 (install .rdata, read by Create), flag byte at +8. The else arm's
-// list builder 0x14047AB20 -> 0x1404511E0 branches on the flag: PES's recorded entry (seq203) holds 1 there, and 0 sends
-// 0x1404511E0 into its vtable arm, which reaches 0x140451C10 (PES never runs that arm on this call). The vtable's slots +0x8 and
-// +0x10 are 0x140419D40 and 0x14044E0B0 (both translated). ponytail: the rest of the object (+0x10 a stack pointer, +0x20, +0x30
-// heap) is not modelled; the flag-1 arm reads none of it on the captured call.
-constexpr uint64_t kA0Sub = 0x158, kDemoVtableVa = 0x14259C9E0, kDemoVtableBytes = 0x20;
-constexpr uint64_t kSubFlag = 8;
-constexpr uint8_t kSubFlagPes = 1;
+// The DemoInfo's sub-object: PES's constructor 0x14047DF00 (a proven translation, tools/dev/translate/results_core.json) builds
+// the owner X = A0+0x118 and, at X+0x40 = A0+0x158, the vtable 0x14259C9E0; its flag byte at X+0x48 (A0+0x160) is 1 once the
+// constructor's registry insert 0x140451C10 has run. The else arm's list builder 0x14047AB20 -> 0x1404511E0 branches on the flag.
+constexpr uint64_t kA0ObjectOff = 0x118;
+constexpr uint64_t kDemoVtableVa = 0x14259C9E0, kDemoVtableBytes = 0x20;
 // The zone decision (0x1404B88B0 writes A0+0xBC; its counter A0+0xDC) and the recompute's default-arm test: 0x140471AD2 keeps
 // the default arm while (BC-6) & 0xFFFFFFFD == 0 (BC 6 or 8); any other BC takes the else arm.
 constexpr uint64_t kA0Bc = 0xBC, kA0DemoCount = 0xDC;
@@ -475,8 +472,6 @@ struct FixDemoSelector::Impl {
     for (uint64_t off = 0; off < kA0Bytes; off += 8) s.wr(a0 + off, 0, 8);
     s.gpr[1] = a0;
     Call(&pes_fn_140478090);
-    s.wr(a0 + kA0Sub, kDemoVtableVa, 8);
-    s.wr(a0 + kA0Sub + kSubFlag, kSubFlagPes, 1);
     s.wr(a0 + kA0RngState, f.rngState, 4);
     return true;
   }
@@ -503,6 +498,10 @@ struct FixDemoSelector::Impl {
     // (ctx = the event). GF runs it once, here. A0+0xBC is 8 (the defaults' value) unless the writer's zone is 2 or another
     // arm's value. The recompute 0x140471A80 tests BC at 0x140471ACB and takes its default arm only for (BC-6)&~2 == 0.
     if (f.decisionCount) {
+      // The DemoInfo sub-object (the else arm's list reads it): PES's constructor 0x14047DF00 builds X = A0+0x118 and its
+      // vtable at X+0x40. Its end runs the registry insert path 0x140451C10 (see the header comment above kA0ObjectOff).
+      s.gpr[1] = a0 + kA0ObjectOff;
+      Call(&pes_fn_14047DF00);
       s.wr(a0 + kA0DemoCount, *f.decisionCount, 4);
       s.gpr[1] = a0;
       s.gpr[2] = event;
