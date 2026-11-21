@@ -152,10 +152,14 @@ constexpr uint64_t kMiPeriod = 0x1168, kMiPlayState = 0x116C, kMiClock = 0x1174,
                    kMiScorerSlot = 0x162C, kMiPresent = 0x1748, kMiOther = 0x175E;
 constexpr uint32_t kPlayStateStopped = 2, kEventKindGoal = 3;  // MI+0x116C == 2 (PlayStateFor), MI+0x1574 == 3 (a goal)
 constexpr uint64_t kA0Level = 0, kA0PreviousPick = 0x13C;
-// The DemoInfo's sub-object at A0+0x158: its vtable (install .rdata, read by Create) has the slots the else arm's list calls
-// (0x14047AB20 -> 0x1404511E0 dispatches +0x8 and +0x10: 0x140419D40 and 0x14044E0B0, both translated). ponytail: the object is
-// the vtable only; its members are not modelled.
+// The DemoInfo's sub-object at A0+0x158 (inline): vtable at +0 (install .rdata, read by Create), flag byte at +8. The else arm's
+// list builder 0x14047AB20 -> 0x1404511E0 branches on the flag: PES's recorded entry (seq203) holds 1 there, and 0 sends
+// 0x1404511E0 into its vtable arm, which reaches 0x140451C10 (PES never runs that arm on this call). The vtable's slots +0x8 and
+// +0x10 are 0x140419D40 and 0x14044E0B0 (both translated). ponytail: the rest of the object (+0x10 a stack pointer, +0x20, +0x30
+// heap) is not modelled; the flag-1 arm reads none of it on the captured call.
 constexpr uint64_t kA0Sub = 0x158, kDemoVtableVa = 0x14259C9E0, kDemoVtableBytes = 0x20;
+constexpr uint64_t kSubFlag = 8;
+constexpr uint8_t kSubFlagPes = 1;
 // The zone decision (0x1404B88B0 writes A0+0xBC; its counter A0+0xDC) and the recompute's default-arm test: 0x140471AD2 keeps
 // the default arm while (BC-6) & 0xFFFFFFFD == 0 (BC 6 or 8); any other BC takes the else arm.
 constexpr uint64_t kA0Bc = 0xBC, kA0DemoCount = 0xDC;
@@ -445,9 +449,10 @@ struct FixDemoSelector::Impl {
   // The goal's anchor and the two inputs PES computes for it before the anchor (the builder 0x140478190): the scene's run
   // radius A0+0xC by 0x140474CF0, then the celebration spot A0+0x30 by 0x140476C50, which the scorer's run object keeps as
   // his target; the scene anchor 0x140474F00 and the flip 0x140478FF0 follow, as the DemoInfo's first tick runs them.
-  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
-    const auto goal = tables.find(kFixDemoGoal);
-    if (goal == tables.end() || f.scorerSlot >= kPitchSlots) return std::nullopt;
+  // The arena as PlaceGoal leaves it before the goal's calls: the scorer's slot, man and run object, the field facts, the
+  // attack bearings, and the DemoInfo's defaults (0x140478090) with its sub-object and rng state.
+  bool Arrange(const GoalAnchorFacts& f) {
+    if (f.scorerSlot >= kPitchSlots) return false;
     const uint32_t side = f.scorerSlot / kSideSlots, place = f.scorerSlot % kSideSlots;
     s.wr(matchInfo + kMiSlotMode, 1, 4);
     s.wr(matchInfo + kMiSlot, f.scorerSlot, 4);
@@ -470,8 +475,28 @@ struct FixDemoSelector::Impl {
     for (uint64_t off = 0; off < kA0Bytes; off += 8) s.wr(a0 + off, 0, 8);
     s.gpr[1] = a0;
     Call(&pes_fn_140478090);
-    s.wr(a0 + kA0Sub, kDemoVtableVa, 8);  // the sub-object's vtable (the else arm's 0x14047AB20 calls its slots +0x8 and +0x10)
+    s.wr(a0 + kA0Sub, kDemoVtableVa, 8);
+    s.wr(a0 + kA0Sub + kSubFlag, kSubFlagPes, 1);
     s.wr(a0 + kA0RngState, f.rngState, 4);
+    return true;
+  }
+
+  // The zone decision alone: PES's writer 0x1404B88B0 on the arena Arrange builds for `f`, with A0+0xDC = decisionCount. The
+  // result is A0+0xBC (8 = the defaults; 2, 4, 5, ... = the writer's zones). PlaceGoal runs the same call; this is the seam the
+  // tests use to check the zone without the else arm.
+  std::optional<uint32_t> ZoneDecision(const GoalAnchorFacts& f, uint32_t decisionCount) {
+    if (!Arrange(f)) return std::nullopt;
+    s.wr(a0 + kA0DemoCount, decisionCount, 4);
+    s.gpr[1] = a0;
+    s.gpr[2] = event;
+    Call(&pes_fn_1404B88B0);
+    return static_cast<uint32_t>(s.rd(a0 + kA0Bc, 4));
+  }
+
+  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
+    const auto goal = tables.find(kFixDemoGoal);
+    if (goal == tables.end() || !Arrange(f)) return std::nullopt;
+    const uint64_t r = run[f.scorerSlot];
     uint32_t sceneId = f.sceneId;
     std::vector<uint32_t> scenes = f.cuts;
     // The zone decision: PES's writer 0x1404B88B0 runs on every tick of the goal's gate, with the DemoInfo's counter A0+0xDC
@@ -810,6 +835,10 @@ std::optional<FixDemoRequest> FixDemoSelector::Request(uint32_t sceneId) {
 }
 
 std::optional<GoalAnchor> FixDemoSelector::PlaceGoal(const GoalAnchorFacts& facts) { return impl_->PlaceGoal(facts); }
+
+std::optional<uint32_t> FixDemoSelector::ZoneDecision(const GoalAnchorFacts& facts, uint32_t decisionCount) {
+  return impl_->ZoneDecision(facts, decisionCount);
+}
 
 bool FixDemoSelector::GoalGateReady(const GoalGateFacts& facts) { return impl_->GoalGate(facts); }
 

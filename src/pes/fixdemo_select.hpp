@@ -183,6 +183,11 @@ class FixDemoSelector {
   // +0x448/+0x450. Nullopt when the table has no row for the scene or the slot is not a pitch slot.
   std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& facts);
 
+  // The goal's zone decision alone: PES's writer 0x1404B88B0 on the arena PlaceGoal would arrange for `facts`, with the DemoInfo
+  // counter A0+0xDC = decisionCount. Returns A0+0xBC (8 = the default arm; another value = the writer's zone). Nullopt when the
+  // slot is not a pitch slot. PlaceGoal runs the same call before its arm test.
+  std::optional<uint32_t> ZoneDecision(const GoalAnchorFacts& facts, uint32_t decisionCount);
+
   // The goal's DemoInfo gate, PES's own: `0x140472640(A0, ctx, DemoInfo)` run once on the arena of the last PlaceGoal with the
   // scorer's facts of this frame (A0+0x14 counts down once per call: the timer 0x14047A710 set at PlaceGoal; the radius test,
   // the facing, anime-class and scene-flag clears are PES's), and A0+0xEC after it: true from the frame the gate opens (it

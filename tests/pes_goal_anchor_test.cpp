@@ -401,17 +401,43 @@ TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   }
 }
 
-TEST(GoalAnchorKindTwo, NarrowChannelScorerKeepsTheDefaultArm) {
-  // The same man at the writer's first captured call (DC 1, x -41.553, z 3.039: the bits of seq003's slot 19): zone 8.
+// The writer's zone decides BC; the default arm's BC is 8, so a zone-8 scorer cannot tell a fed writer from none. These
+// scorers are in zones 4 and 5, where PES's writer answers something else. PES's answers come from replaying the writer
+// (0x1404B88B0) on the captured DC-1 entry of seq003 with only the scorer's man position poked (scratch oracle
+// poke_bc.py, CutsceneAnchor 2: (60, 0) -> 4, (-60, 0) -> 4, (0, 0) -> 5). Without the writer call BC stays 8.
+TEST(GoalAnchorKindTwo, NarrowChannelScorerIsZoneEightAsTheDefaultIs) {
+  // The same man at the writer's first captured call (DC 1, x -41.553, z 3.039: seq003's slot 19). PES's writer answers 8, the
+  // default: this case does not tell a fed writer from none.
   std::string why;
   const auto exe = OpenExe(&why);
   if (!exe) GTEST_SKIP() << why;
   auto sel = MakeFor(*exe, kKindTwo);
   ASSERT_TRUE(sel) << why;
-  const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, {F(0xC2263646), F(0x00000000), F(0x40427EFA)}, 1));
-  ASSERT_TRUE(got);
-  EXPECT_EQ(got->bc, 8u);
+  const auto bc = sel->ZoneDecision(KindTwoFacts(kKindTwo, {F(0xC2263646), F(0x00000000), F(0x40427EFA)}, 1), 1);
+  ASSERT_TRUE(bc);
+  EXPECT_EQ(*bc, 8u);
 }
+
+TEST(GoalAnchorKindTwo, PastTheLineAndCentreScorersAreNotZoneEight) {
+  // PES's writer on the same entry with only the scorer's position poked (scratch oracle poke_bc.py, CutsceneAnchor 2): (60, 0)
+  // -> 4, (-60, 0) -> 4, (0, 0) -> 5. The default is 8, so these tell a fed writer from none.
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  struct Spot {
+    std::array<float, 3> pos;
+    uint32_t wantBc;
+  };
+  const Spot kSpots[] = {{{60.0f, 0.0f, 0.0f}, 4u}, {{-60.0f, 0.0f, 0.0f}, 4u}, {{0.0f, 0.0f, 0.0f}, 5u}};
+  for (const Spot& s : kSpots) {
+    auto sel = MakeFor(*exe, kKindTwo);
+    ASSERT_TRUE(sel) << why;
+    const auto bc = sel->ZoneDecision(KindTwoFacts(kKindTwo, s.pos, 1), 1);
+    ASSERT_TRUE(bc) << "pos " << s.pos[0] << "," << s.pos[2];
+    EXPECT_EQ(*bc, s.wantBc) << "pos " << s.pos[0] << "," << s.pos[2];
+  }
+}
+
 
 // ---- The goal run object's gate 0x140472640 (the DemoInfo state 2 wait), on the arena of PlaceGoal ----
 //
