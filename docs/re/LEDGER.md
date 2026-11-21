@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP ac5c5c27be80de2b -->
+<!-- LEDGER-STAMP 17cb1dbc3dc999fe -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (no flags: reads docs, src and every results set; `--funclist` replaces the bridge's function list), `hand.json`, `offpath_allow.json`, `history.csv` (one row per regeneration that changes the counts)).
@@ -31,16 +31,16 @@ Proof behind the in-scope rows: diffed real 3744, diffed synthetic 23; translate
 
 Change since the previous regeneration (in scope, one line per status):
 
-- in_total: 28772 -> 28773 (+1) since 7d6b7ebae9 (2026-11-19)
-- ported: 406 -> 406 (+0) since 7d6b7ebae9 (2026-11-19)
-- diffed: 3767 -> 3767 (+0) since 7d6b7ebae9 (2026-11-19)
-- translated: 1860 -> 1860 (+0) since 7d6b7ebae9 (2026-11-19)
-- stand-in: 59 -> 59 (+0) since 7d6b7ebae9 (2026-11-19)
-- decoded: 1480 -> 1480 (+0) since 7d6b7ebae9 (2026-11-19)
-- leaf accessor: 1181 -> 1181 (+0) since 7d6b7ebae9 (2026-11-19)
-- engine: 1631 -> 1631 (+0) since 7d6b7ebae9 (2026-11-19)
-- undecoded: 18387 -> 18388 (+1) since 7d6b7ebae9 (2026-11-19)
-- inert: 1 -> 1 (+0) since 7d6b7ebae9 (2026-11-19)
+- in_total: 21802 -> 28773 (+6971) since 1b56b7264d (2026-11-21)
+- ported: 251 -> 406 (+155) since 1b56b7264d (2026-11-21)
+- diffed: 3764 -> 3767 (+3) since 1b56b7264d (2026-11-21)
+- translated: 1761 -> 1860 (+99) since 1b56b7264d (2026-11-21)
+- stand-in: 35 -> 59 (+24) since 1b56b7264d (2026-11-21)
+- decoded: 1001 -> 1480 (+479) since 1b56b7264d (2026-11-21)
+- leaf accessor: 644 -> 1181 (+537) since 1b56b7264d (2026-11-21)
+- engine: 1219 -> 1631 (+412) since 1b56b7264d (2026-11-21)
+- undecoded: 13126 -> 18388 (+5262) since 1b56b7264d (2026-11-21)
+- inert: 1 -> 1 (+0) since 1b56b7264d (2026-11-21)
 
 ## Scope rules
 

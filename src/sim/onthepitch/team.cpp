@@ -409,7 +409,10 @@ Player* Team::GetPassTarget() const {
 // 0x140A512E0 are driven from the tick. The record fields the writer reads that GF does not carry (counter A SR+0x1430, SR+0x12BC, the roles
 // SR+0x1A/+0x1C, MA+0x247D4's bearings, MA+0x253C4's masks, T+0xB8B4, B+0x18) are zero.
 // ponytail: counter B (SR+0x1438), the base of a resting ball's arrival time, is the AI record writer FUN_14092ED30's estimate in frames
-// (21..500 captured, pes-re-player-record.md 2.1); GF's time to the ball stands in until that writer runs.
+// (21..500 captured, pes-re-player-record.md 2.1); GF's time to the ball stands in until that writer runs. The writer is translated and
+// proven (8/8 real calls); its deep arm calls the pass planner through the man's motion-controller object (P+0xAB8, the BodyAnimControl
+// seam), which the window lacks. Removal: that object (OneWorld cut 4), then PesWorld::RunManThink (PressCut-wip). The stand-in's value
+// near-ties between men, so the selector's pass target flips between two (PES: one man); the MARK/MATCH_UP words follow it.
 void Team::RunPesPassTarget() {
   pes::PesWorld& world = match->PesWorldOf();
   uint8_t* mi = world.MatchInfo();
@@ -608,9 +611,7 @@ void Team::UpdatePesPossession() {
 }
 
 void Team::Process() {
-  // PES's loose-ball PRESS writer runs in the team tick before the latch
-  // (press-life 13.1). It self-gates on the PES path.
-  teamController->PesPressTick();
+  // The press (PES's dispatcher FUN_140535C60, call 0x1404F7955) runs after the selector below: RunPesPassTarget.
   UpdatePesPossession();
   // FUN_14051D9E0's head write (0x14051DA5A): the bulk writer of the PES role arrays.
   teamController->WriteRoleArrays(true);
@@ -643,6 +644,7 @@ void Team::Process() {
   // rows Match::Process ticked for both sides this frame, before the in-play gate (T7a runs in every state).
   teamController->TickMarkTable();
   if (match->PesLoop()) RunPesPassTarget();
+  teamController->PesPressTick();  // self-gates on the PES path
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     teamController->Process();
 

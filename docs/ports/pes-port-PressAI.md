@@ -1,35 +1,40 @@
-# PES port PressAI: press writer 0x140536FC0, target eval 0x140633940 and coordinator 0x140634470 translated and proven; GF cutover written but NOT closed (pes-loop smoke aborts, enrolment test disabled) (03-11-26)
+# PES port PressAI: press writer, target eval, coordinator, MATCH_UP writer, slot reset and order-word helper translated and proven; GF runs the dispatcher's press steps in PES's order on the world window (04-11-26)
 
-Branch `PressAI` (worktree `gf-PressAI`, Release dir `build-rel`), head confirmed by `git ls-remote origin PressAI` (see final message). CONFIRMED = tool output this session; INF = inference; OPEN = blocker named.
+Branch `PressAI` (worktree `gf-PressAI`, Release dir `build-rel`). CONFIRMED = tool output; INF = inference; OPEN = blocker named. Captures: `live2/pid296049`, `pid1037286` (slim), the full state `pid23358/seq032` (synthetic bases), `pid358243` (press_order / press_reset hooks).
 
-## 1. Proofs (CONFIRMED, `snapdiff.py --bounded`, `frame_trace.py recorded`, live2/pid296049)
-| root | calls | replayed | mismatches | own-block | closure |
-|---|---|---|---|---|---|
-| 0x140536FC0 writer | 23 (3 kick-off captures seq009/4264/4754, 4 in-play captures seq94346/95361/95772/96616 that leave at the body filter, **16 SYNTHETIC** states over seq95772) | 23 | 0 | 0.4412 | replays 34, plus static closure = 117 |
-| 0x140633940 eval | 3 (seq028, seq4684, seq11437) | 3 | 0 | 0.5699 | replays 29, static 56 |
-| 0x140634470 coordinator | 3 (seq008, seq4263, seq4753) | 3 | 0 | 0.4464 | replays 43, static 84 |
-- Records `results_press.json` (+ `closure_press_{writer,eval,coord}.json`, `specs/press`, `closure-press.txt`, `SETS` entry). Members beyond the replayed set are the roots' static direct-call closure: translated, **not replay-proven** (so GF cannot hit a loud abort inside the three roots; the paths they have are covered by the translation only). Layer 4,855 functions; `gen_translated.py --check` byte-identical (rc 0).
-- Synthetic writer states (`synth_call.py`, scratch scripts not committed): own men's MI+0x1748 flags cleared so the 11-slot body filter passes, T+0xF1 armed, random men positions within 6/12/22 m of the ball, T+0xB709, slot words 0x3A/0x34. PES's bytes are the reference on the same poked memory.
-- **Why captures are shallow (CONFIRMED by block traces):** the old 9 captures were at kick-off (MI+0x116C = 2). Main re-armed predicated hooks (in play); the 11 new captures are in play but the writer still leaves at the body filter (an on-pitch man in an eligible action class: classes 4-8 of the table at 0x1426484F0), the coordinator at 0x1406345E9 or in its first half (no holder / no T+0x7C). **No real capture reaches the writer's enrolment, the coordinator's class-5/maintain/eval dispatch, or the eval's accept paths with a non-trivial mode.** Needed, exact: writer `--when` that implies the filter passes cannot be written as a register predicate; use `--when` on the hook's own exit instead is impossible, so ask for more in-play writer captures at a higher cap (cap 60) with the predicate already armed, and coordinator captures with `d(q(q(0x1436F3DC8)+0x270)+0x116c)==1 and d(rcx+4)<0x16` (PP[1] valid).
+## 1. Proofs (`snapdiff.py --bounded`, `tools/dev/translate/results_press.json`)
+| root | calls | mismatches | own-block | what the calls are |
+|---|---|---|---|---|
+| 0x140536FC0 press writer | 23 | 0 | 0.4412 | 7 captured + 16 SYNTHETIC over seq95772 (earlier commit); all 101 real writer captures of two launches also replay bit-exact (0.2882, not committed over the record: the synthetic states cannot be rebuilt on slim captures) |
+| 0x140633940 target eval | 28 | 0 | 0.6218 | 28 real captures |
+| 0x140634470 coordinator | 80 | 0 | 0.5446 | 80 real captures |
+| 0x14062AF10 order-word helper | 28 | 0 | 0.8876 | SYNTHETIC |
+| 0x140536690 slot reset | 56 | 0 | 0.8958 | SYNTHETIC |
+| 0x140536210 MATCH_UP writer | 56 | 0 | 0.9149 | SYNTHETIC |
+- No hook sits on the helper, the reset (the hooks added at pid358243 have 3 reset captures per side, slim) or the MATCH_UP writer, and slim captures drop the pages these read, so `synth_press_order.py` keeps ONE full state (`pid23358/seq032`), sets registers and pokes the men's words, positions, anime fields, ball-distance lists, T+0xA548/0xF0/0xF1/0x140/0x558, the G+0x180 list, the set-piece object, and for the MATCH_UP writer a scratch event record (E's newest-record page is a hole in every capture; E points at a chosen block). Every such case is chosen, not observed.
+- Closures = replay members + static direct-call closure; layer 5,026 functions; `gen_translated.py` clean.
 
-## 2. Cutover (written; built; partly verified)
-- `PesWorld` (pesworldrecord.{hpp,cpp}): side record = T (`kSideRecordBytes` 0xC138; in the captures table A's entry and r8 hold byte-identical copies, +0x78/+0x7C/+0xF1/+0x250/+0x254/+0xA294/+0xA53C/+0xB709/+0xB8A4 equal, r8 = table A entry + 0xC144, CONFIRMED seq4753/4754; the window keeps one record per side and passes it as both); `PesPressImage` (PP and the {ctx,0,side} frame per side); `StagePress`, `RunPressCoordinator`, `RunPressWriter`, `ResetPress` (FUN_140536690's first loop, ponytail: tail not ported), `PressAction`, `PressSecond`.
-- `TeamAIController::PesPressTick` stages GF facts and runs coordinator -> reset -> writer (FUN_140535C60's order). **Deleted**: `PesLooseWriterTick`, `PesSecondPresserTick`, `pressState`, `coordState`, `TeamPressState`, and from `pespress.*` the picker, eval, gate, cover, class-five, maintain, candidate-fill, stamp-ring and role-table code (now ActionPress's command side only). `pes_press_test` 95 tests -> 6 (the deleted subjects' tests went with them). Consumers (`GetLoosePressMan`, `IsLoosePresser`, `PressOrDelay`) read T+0xA2A0; `PressOrDelay` now counts DELAY (0x33) as PES's flag does (pesreceive.hpp).
-- Stand-ins, each `ponytail:` at its PES site: T+0x7C none (writer open), T+0xF1 armed always (event-walk writers 0x140501283/0x140501468), T+0x558/0x620 "no partner", T+0x4B4C = man x, G+0x180 list "no man", ResetPress tail, attack angle 90/270.
-- Man record +0x5D0 mirrors T+0xA2A0 at staging (the candidate table 0x140639830 enrols only men whose own word is PRESS: **a fresh press is not started by the writer**; PES starts it in the dispatcher FUN_140535C60's order-word loop (T+0xB748 == 0x26) or the coordinator; the loop is NOT ported, so GF has no fresh loose-ball presser except through the coordinator: INF, behaviour change vs the retired hand port).
+## 2. How PES starts a press (new, CONFIRMED from captures)
+- `press_order_A42940` (r8d == 0x34) captures in `live2/pid358243` (seq39765, seq39767): the caller is `0x1406343E1`, inside the TARGET EVAL FUN_140633940 (it ends with `FUN_140A42940(T, slot, 0x34)`): PES starts a press through the coordinator -> eval, after the MATCH_UP writer has set T+0x7C. The dispatcher's order-word loop (T+0xB748 == 0x26) did not fire in any of 181 + 5 captures (T+0xB748 = 0x30 in every slot; 0x24 in two).
+- seq39765's T: T+0x78 = 0xFF, T+0x7C = 15 (MATCH_UP man, A2A0[4] = 0x3A), T+0x558 = {-, 10, -, 9, 8, -, -, -, 7, -, -} (the mark pass marks several opponents, one per marker), T+0xA294 = 500, T+0xB8A4 = 2. press_reset calls come from `0x140535FF9` (the dispatcher), T and the {ctx, 0, side} frame as staged.
+- 0x34 is rare in PES: 7 of 181 writer/coordinator captures hold a PRESS word in any slot.
 
-## 3. Tests
-- `pes_press_world_test`: **4 pass, 1 DISABLED** (the enrolment case: the staged scene never reaches T+0xA548[0]; a gate before 0x140537380 refuses it; gate not identified: candidates the keeper hold FUN_140A53F90 and FUN_140639600's score code). The 4 passing cases are negative (designated man, not in play, off pitch, outside radius -> nobody enrolled): they check the head gates and staging only. **No positive red-first test, and no mutation was run** (not done: budget).
-- `pes_press_test` 6 tests (command side) built; NOT run (simslot wait). `ctest` not run.
+## 3. GF (clean cutover)
+- `PesWorld::ResetPress` runs the translated FUN_140536690 (the hand loop is deleted). `RunPressOrders` is FUN_140535C60's order-word loop (inert in GF: no order-word producer; the concept 0x26 is unported). New `RunMatchUp` = the dispatcher's release of last tick's MATCH_UP man + FUN_140536210. `PesPressTick`: stage -> MATCH_UP -> coordinator -> reset -> writer -> orders.
+- Stand-ins (`ponytail:` at each site): (a) T+0x558 partner words: PES's mark pass (FUN_140546FB0) writes one partner per marker; GF has no such table, so the nearest active outfield man marks an opposing last toucher (PES doc 14.4, INF high); (b) the anime pair {+0x1A, +0x1C} that the MATCH_UP writer's first loop tests (+0x1C != 0 and +0x1A <= +0x1C): its writer is undecoded (pes-re-record-ids.md 4); the own men get {0, 1} for the run and are put back; (c) T+0xF1 armed always (event-walk writers unported: the reset's tail never runs).
+- Effect in GF (seed 7, 2 min, both sides, 84k team ticks): MATCH_UP man named in 31% of ticks, second presser PP[2] valid in 2%, a PRESS word in 113 ticks. PES itself holds PRESS in ~4% of sampled calls.
 
-## 4. Smokes (seed 7, 2 min)
-- switch-off: `3b73c968b4a377e0` = main baseline (unchanged, CONFIRMED).
-- **pes-loop: ABORTS `PES_DISPATCH_UNTRANSLATED: 0x14211bf40`** (RED ALERT in Humanoid::Process), before and after two mitigations (MA+0x2601C and T+0x4C00 borrowed and restored around the press run). 0x14211BF40 is not in the press closures; it is a carrier-chain function. Cause NOT found: no ablation done (disabling `PesPressTick` would tell whether the press or the larger side record triggers it). Main's baseline `0e480b158cf80bd4` could not be compared.
+## 4. Tests
+- `pes_press_world_test` 24 pass (12 earlier new + 4 MATCH_UP: the man marking the holder becomes MATCH_UP, no marker -> nobody, off pitch -> nobody, released next tick). Mutations (earlier session, run apart): PRESS/DELAY swap, PP offset 0x54 -> 0x58, already-PRESS skip, helper index. Not run on the MATCH_UP tests: mutations (budget). An end-to-end world test (loose ball -> MATCH_UP -> coordinator -> PRESS) was written and removed: the staged scene (tier, one second man 8 m away) did not make the eval choose; the real-GF run does (section 3).
+- `PesPressApproach.ALoosePresserCommandNamesTheActionPressTarget`: re-staged by census (no free-ball tick of seed 7 held a PRESS man: 0 of 4,527; seeds 3 5 9 11 also steered 0): it now follows the PRESS-word man while the ball is in play and no set piece is armed; the assertions are unchanged (steered > 0, none unnamed). Passes.
+- Not touched: `PesRestartDelay.PesLoopRestartsAreArmed...`, `PesThrowInRelease.ACeremonyThrowInIsReleased...` failed in the earlier gate (no presser at all) and pass now (run apart, 883 s / 1,406 s). `PesRestartDelay.ALoosePresserInTheTrapWindowPlaysThatRowsClip` no longer exists on main (batch BB).
 
-## 5. Open items (numbered)
-1. Ablate the pes-loop abort: comment the `PesPressTick` body; if the abort stays, it is the record growth (check `ninja -t deps` for `#deps 0` objects after the layout change, brief rule) or a pre-existing state; if it goes, bisect staged fields (T+0x78/0x7C, man +0x5D0 mirror, MI+0x1748, MA+0x2601C).
-2. Find the writer's gate for the enrolment test (scratch: decompile in `dec_writer.c` lines 70-140; use `readset.py`-style trace on a harness state) and enable the test; add mutations (designated, playState, onPitch, radius, sign, role class).
-3. More in-play captures (see section 1) and widen the proofs; coordinator and eval synthetic states (`sync.py` was written, not run).
-4. Port the dispatcher's order-word loop (FUN_140535C60 +0x26 branch, FUN_14062AF10) so fresh pressers start as in PES.
-5. `GATE fast`: NOT RUN. Interim: `gen_translated.py --check` GREEN (4,855 functions), `pes_press_world_test` 4 pass / 1 disabled, switch-off smoke = baseline.
-6. Delete worktree/scratch `gf-PressAI-scratch` (small now) and `build-rel` when landed.
+## 5. Smokes and gate
+See the final message and `local://pes-port-PressAI2.md` (the gate waited ~4 h for sim slots behind other gates).
+
+## 6. Open items
+1. The mark pass's partner words (FUN_140546FB0, 0x140547814) and the anime {+0x1A, +0x1C} writer replace stand-ins (a), (b).
+2. Concept 0x26 (order-word producer) and MA+0x2470C writer.
+3. T+0xF1 writer (event walk 0x140501283 / 0x140501468): the reset tail then runs; hooks on FUN_140536690 / FUN_14062AF10 / FUN_140536210 would give real calls instead of synthetic.
+4. A world test for the full chain once the mark pass is real.
+5. Delete `gf-PressAI-scratch` and `build-rel` when landed.

@@ -48,7 +48,8 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_throwin.json", "kick"),
         ("results_kickroot.json", "kickroot"), ("results_kickturn.json", "kickroot"),
         ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"), ("results_teampass.json", "teampass"),
-        ("results_gkdribble.json", "gkdribble"))
+        ("results_gkdribble.json", "gkdribble"),
+        ("results_press.json", "press"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -183,6 +184,7 @@ UNHANDLED_DEAD_NOISE = {
                    "are reached only by conditional jumps inside the noise itself, so no reachable branch lands there",
     "0x1405EC600": "POP/RETF/ADD after the final unconditional goto L_1405ED02B (0x1405ED1ED JMP), behind no label",
     "0x1407AD150": "OUT/RETF/XLATB at 0x1407ADF9C..0x1407ADFC2, after the final unconditional JMP 0x1407ADEC2 and its NOP pad (no branch before 0x1407ADF99 targets it; the one indirect JMP is a table in the image's data)",
+    "0x140706350": "FILD/FIMUL/OUT/OUTSB after the final unconditional JMP 0x140706DEA at 0x140707E8D (Ghidra's body ends there; no branch of the body targets past 0x140707E5C, and its listing holds no x87 or port instruction)",
 }
 
 

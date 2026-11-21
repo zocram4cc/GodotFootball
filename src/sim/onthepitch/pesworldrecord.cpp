@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "onthepitch/pesteamconcepts.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/pesanimechain.hpp"
 #include "onthepitch/pesball.hpp"
@@ -163,7 +164,9 @@ void PesWorld::SetCarrierProfile(int side, uint32_t slot, uint64_t skillMask) {
   // The walk reads the taker from G's FIRST side table (0x14210F110: FUN_140A48A30(G, side) -> +0x7C), the side record, not the
   // team-info table the skill reads go through.
   // ponytail: the designated taker is the carrier: a set-piece decider is the taker; the writer is the restart set-up, undecoded
-  StoreU32(SideRecord(side), kSideKickerOffset, slot);
+  // PES's dispatcher clears T+0x7C every tick and its MATCH_UP writer sets it for the defending side while the ball is live
+  // (RunMatchUp), so the stand-in names the taker only in a stopped state, which is the only state the walk reads it in.
+  if (LoadU32(MatchInfo(), kMiPlayStateOffset) != kMiPlayStateLive) StoreU32(SideRecord(side), kSideKickerOffset, slot);
 }
 
 // FUN_140A58F00(record, row): five 16-byte copies of row[0x00..0x50) to record +0x70..+0xC0, called by FUN_140922BC0 with the roster
@@ -915,6 +918,7 @@ bool PesWorld::RunPassTarget(int side, uint32_t playState, std::vector<std::pair
   ::pes_fn_1404FB2A0(s);
   StoreU64(brain, kBrainTeamOffset, 0);
   period.playState = saved;
+  image_->press.selector[side] = static_cast<uint8_t>(s.gpr[0] & 0xFF);
   return (s.gpr[0] & 0xFF) != 0;
 }
 
@@ -955,8 +959,9 @@ void PesWorld::BindSanction() {
   for (int side = 0; side < kSideCount; ++side) {
     uint8_t* team = TeamInfoRecord(side);
     StoreU32(team, kSideIdOffset, static_cast<uint32_t>(side));
-    // ponytail: GF's squad place is the record index; PES's map is a permutation (0x140A3AF90 reads it), written by its
-    // squad loader, which is not decoded.
+    // The side id and the slot-to-entry map: PES's team-info constructor (BuildTeamInfo, on a match) writes the same identity map at
+    // construction; a world without install tables (the sanction tests) gets it here. ponytail: PES's map is later a permutation by
+    // lineup (0x140A3AF90 reads it); its reorder writer is not decoded.
     for (int place = 0; place < kSlotsPerSide; ++place)
       StoreU32(team, kSideInfoIndexOffset + sizeof(uint32_t) * place, static_cast<uint32_t>(place));
   }
@@ -1099,6 +1104,218 @@ float PesWorld::BearingOfPoints(float fromX, float fromZ, float toX, float toZ) 
   StoreF32(points, kPointBytes + kPointXOffset, toX);
   StoreF32(points, kPointBytes + kPointZOffset, toZ);
   return RunBearing(Bytes(), kScratchVa, kScratchVa + kPointBytes);
+}
+
+void PesWorld::StagePress(int side, const PressFacts& f) {
+  static_assert(kSideRecordBytes == kTeamRecordBytes, "the world's side record is GF's T");
+  uint8_t* t = SideRecord(side);
+  // T+0x78 is the selector's (Team::RunPesPassTarget, 0x1404FB2A0): it is not staged here.
+  // T+0x7C is the MATCH_UP writer's (RunMatchUp): it is not staged here.
+  t[kTeamArmedOffset] = f.armed;
+  StoreU32(t, kTeamFrameOffset, f.frame);
+  StoreU32(t, kTeamAttackLevelOffset, f.attackLevel);
+  StoreU32(t, kSideTierOffset, f.teamLevelRaw);  // the level word: its reader 0x140A40BD0 answers 0 when +0xA29C is set
+  t[kSideTierFlagOffset] = 0;
+  SetAttackSign(side, f.attackSign);
+  SetAttackAngle(side, f.attackAngle_deg);
+  if (f.sheet != nullptr) std::memcpy(t + kTeamSheetOffset, f.sheet, kSheetBytes);
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    StoreU32(t, kSideUnitWordsOffset + sizeof(uint32_t) * k, f.roleClass[k]);
+    StoreU32(t, kTeamRoleClassOffset + kTeamRoleClassStride * k, f.roleClass[k]);
+    StoreF32(t, kTeamKeepXOffset + 12 * k, f.keepX[k]);
+    // The swap partner words T+0x620 have no GF carrier: "no partner" (> 21) keeps the eval's refusal quiet. The mark partner words
+    // T+0x558 are the dispatcher's mark pass's own state (RunPressDispatch), not staged.
+    StoreU32(t, kTeamSwapPartnerOffset + sizeof(uint32_t) * k, kTeamNoMan);
+    // The candidate table 0x140639830 enrols a man whose own action word P+0x5D0 is PRESS (docs/re/pes-re-press-life.md 5): PES's
+    // action machine mirrors T+0xA2A0 into the man record, so the press the writer or coordinator marked keeps its man.
+    if (uint8_t* man = ManRecord(side * kSlotsPerSide + k))
+      StoreU32(man, kManActionOffset, LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k));
+  }
+  // MI+0x1748: the on-pitch bytes the press reads (writer body filter, candidate table). No other GF writer sets them, so the
+  // caller borrows them for the press run (TeamAIController::PesPressTick): the carrier chain reads them too.
+  uint8_t* mi = MatchInfo();
+  for (int slot = 0; slot < kSlotCount; ++slot) mi[kMiOnPitchOffset + slot] = f.onPitch[slot] ? 1 : 0;
+  StoreU32(mi, kMiPlayStateOffset, f.playState);
+  SetMaOwner(side, f.holder);
+  uint8_t* arg = reinterpret_cast<uint8_t*>(image_->press.arg[side].data());
+  StoreU64(arg, 0, CtxVa(side));
+  StoreU64(arg, 8, BrainVa(side) + kBrainSideCtxOffset);
+  StoreU64(arg, 16, static_cast<uint64_t>(side));
+}
+
+void PesWorld::RunPressCoordinator(int side) {
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = PressPpVa(side);  // rcx: PP
+  s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);      // r8: T
+  ::pes_fn_140634470(s);
+}
+
+namespace {
+constexpr uint64_t kStatsOffset = 0x750D0;    // FUN_140A3E8A0: E + 0x750D0
+constexpr uint64_t kStatsStride = 0x59650;    // FUN_140535650: side * 0x59650
+}  // namespace
+
+void PesWorld::ConstructStats() {
+  for (int side = 0; side < kSideCount; ++side) {
+    if (!heap_) heap_ = std::make_unique<PesHeap>();  // the constructor allocates its sub-objects through PES's allocator 0x1403FB410
+    PesState s = NewCall(Bytes());
+    heap_->Attach(s);
+    AttachImageTables(s);
+    const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = EventsVa() + kStatsOffset + static_cast<uint64_t>(side) * kStatsStride;  // rcx: the side's block
+    ::pes_fn_1408C6B80(s);
+  }
+}
+
+void PesWorld::BuildTeamInfo() {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  for (int side = 0; side < kSideCount; ++side) {
+    PesSquadSide& squad = image_->squad[side];
+    for (int k = 0; k < kSquadCount; ++k) {
+      PesState s = NewCall(Bytes());
+      heap_->Attach(s);
+      AttachImageTables(s);
+      const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+      s.wr(entry, 0, 8);
+      s.gpr[4] = entry;
+      s.gpr[1] = SquadRecordVa(side, k);  // rcx: the record
+      ::pes_fn_1408C7510(s);
+      squad.pointers[k] = SquadRecordVa(side, k);
+      if (k < kSlotsPerSide)
+        StoreU32(squad.records.data() + static_cast<std::size_t>(k) * kSquadRecordBytes, kSquadRecordIdOffset,
+                 static_cast<uint32_t>(side * kSlotsPerSide + k + 1));
+    }
+    PesState s = NewCall(Bytes());
+    heap_->Attach(s);
+    AttachImageTables(s);
+    const uint64_t entry = kStackVa + kStackBytes - kTurnFrameBytes;
+    s.wr(entry, 0, 8);
+    s.gpr[4] = entry;
+    s.gpr[1] = TeamInfoVa(side);       // rcx: the info record
+    s.gpr[2] = static_cast<uint32_t>(side);
+    s.gpr[8] = SquadPointersVa(side);  // r8: the record pointers
+    ::pes_fn_140A3B3A0(s);
+  }
+}
+
+void PesWorld::ResetEvents() {
+  uint8_t* stats = reinterpret_cast<uint8_t*>(&image_->events) + kStatsOffset;
+  const std::size_t bytes = static_cast<std::size_t>(kSideCount) * kStatsStride;
+  const std::vector<uint8_t> kept(stats, stats + bytes);
+  Events().Reset();
+  std::memcpy(stats, kept.data(), bytes);
+}
+
+uint32_t PesWorld::StatsValue(int side, uint32_t stat, int col) {
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = EventsVa() + kStatsOffset + static_cast<uint64_t>(side) * kStatsStride;  // rcx: the block
+  s.gpr[2] = stat;                                                                    // edx
+  s.gpr[8] = static_cast<uint32_t>(col);                                              // r8d
+  ::pes_fn_1408C9190(s);
+  return static_cast<uint32_t>(s.gpr[0]);
+}
+
+void PesWorld::RunPressWriter(int side) {
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);      // r8: T
+  ::pes_fn_140536FC0(s);
+}
+
+void PesWorld::RunMatchUp(int side) {
+  uint8_t* t = SideRecord(side);
+  // FUN_140535C60 (0x14053... after FUN_140635AB0): last tick's MATCH_UP man is released before the writer picks again.
+  const uint32_t last = LoadU32(t, kTeamSecondOffset);
+  if (last < kSlotCount) {
+    const uint32_t slot = last % kSlotsPerSide;
+    if (LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * slot) == kTeamActionMatchUp) {
+      PesState s = NewCall(Bytes());
+      s.gpr[1] = SideVa(side);  // rcx: T
+      s.gpr[2] = slot;          // edx: the slot
+      ::pes_fn_140A40820(s);
+    }
+    StoreU32(t, kTeamSecondOffset, kTeamNoMan);
+  }
+  // ponytail: the anime entry's {+0x1A, +0x1C} pair the writer's first loop tests (0x1C != 0 and 0x1A <= 0x1C) has no GF writer.
+  std::array<std::array<uint8_t, 4>, kSlotsPerSide> pairs{};
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
+    std::memcpy(pairs[k].data(), anime + kAnimeLoOffset, 2);
+    std::memcpy(pairs[k].data() + 2, anime + kAnimeHiOffset, 2);
+    const uint16_t lo = 0, hi = 1;
+    std::memcpy(anime + kAnimeLoOffset, &lo, 2);
+    std::memcpy(anime + kAnimeHiOffset, &hi, 2);
+  }
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[2] = PressArgVa(side);  // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);      // r8: T
+  ::pes_fn_140536210(s);
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
+    std::memcpy(anime + kAnimeLoOffset, pairs[k].data(), 2);
+    std::memcpy(anime + kAnimeHiOffset, pairs[k].data() + 2, 2);
+  }
+}
+
+void PesWorld::RunPressDispatch(int side) {
+  // The anime pair stand-in of RunMatchUp (its ponytail names the removal), for the writer inside the dispatcher.
+  std::array<std::array<uint8_t, 4>, kSlotsPerSide> pairs{};
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
+    std::memcpy(pairs[k].data(), anime + kAnimeLoOffset, 2);
+    std::memcpy(pairs[k].data() + 2, anime + kAnimeHiOffset, 2);
+    const uint16_t lo = 0, hi = 1;
+    std::memcpy(anime + kAnimeLoOffset, &lo, 2);
+    std::memcpy(anime + kAnimeHiOffset, &hi, 2);
+  }
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = BrainVa(side) + kBrainDispatcherOffset;  // rcx: param_1 = Y + 0x4200
+  s.gpr[2] = PressArgVa(side);                        // rdx: {ctx, Y + 0x62B4, side, flag}
+  s.gpr[8] = SideVa(side);                            // r8: T
+  s.gpr[9] = image_->press.selector[side];            // r9: the selector's AL
+  ::pes_fn_140535C60(s);
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    uint8_t* anime = AnimeRecord(side * kSlotsPerSide + k);
+    std::memcpy(anime + kAnimeLoOffset, pairs[k].data(), 2);
+    std::memcpy(anime + kAnimeHiOffset, pairs[k].data() + 2, 2);
+  }
+}
+
+void PesWorld::ResetPress(int side) {
+  PesState s = NewCall(Bytes());
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  s.gpr[1] = PressPpVa(side) - kDispatcherPpOffset;  // rcx: the dispatcher's param_1 (PP[2] is read at param_1 + 0x5C)
+  s.gpr[2] = PressArgVa(side);                        // rdx: {ctx, 0, side}
+  s.gpr[8] = SideVa(side);                            // r8: T
+  ::pes_fn_140536690(s);
+}
+
+void PesWorld::RunPressOrders(int side) {
+  for (int k = 0; k < kSlotsPerSide; ++k) {
+    const uint8_t* t = SideRecord(side);
+    const uint32_t action = LoadU32(t, kTeamActionOffset + sizeof(uint32_t) * k);
+    if (LoadU32(t, kTeamOrderWordOffset + sizeof(uint32_t) * k) != kTeamOrderPress) continue;
+    if (action == kTeamActionPress || action == kTeamActionDelay) continue;  // 0x140536011: `*word - 0x33 < 2` skips the slot
+    image_->press.orderIndex = static_cast<uint32_t>(side * kSlotsPerSide + k);
+    PesState check = NewCall(Bytes());
+    for (const PesTrapSegment& seg : imageTables_.segments) check.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+    check.gpr[1] = CtxVa(side);               // rcx: the ctx (the argument struct's first word)
+    check.gpr[2] = PressOrderIndexVa();       // rdx: &index
+    ::pes_fn_14062AF10(check);
+    PesState set = NewCall(Bytes());
+    set.gpr[1] = SideVa(side);                // rcx: T
+    set.gpr[2] = static_cast<uint32_t>(k);    // edx: the slot
+    set.gpr[8] = (check.gpr[0] & 0xFF) != 0 ? kTeamActionDelay : kTeamActionPress;  // r8d: DELAY when another presser has the geometry
+    ::pes_fn_140A42940(set);
+  }
 }
 
 }  // namespace pes
