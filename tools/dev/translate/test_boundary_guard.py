@@ -38,6 +38,7 @@ MOV_RAX_RBX = bytes.fromhex("4889d8")  # mov rax, rbx (3 bytes): drops the point
 MOV_RSP28_RCX = bytes.fromhex("48894c2428")  # mov qword ptr [rsp+0x28], rcx (5 bytes): the stack
 LOAD_RCX_FROM_RDI = bytes.fromhex("488b0f")  # mov rcx, qword ptr [rdi] (a field of another object)
 LOAD_RDX_FROM_RSI = bytes.fromhex("488b16")  # mov rdx, qword ptr [rsi]
+XCHG_RCX2C_EAX = bytes.fromhex("87412c")  # xchg dword ptr [rcx+0x2c], eax (a flag store into the object; capstone-verified)
 STORE_RCX_TO_PACKET20 = bytes.fromhex("48894b20")  # mov qword ptr [rbx+0x20], rcx
 STORE_RDX_TO_PACKET20 = bytes.fromhex("48895320")  # mov qword ptr [rbx+0x20], rdx
 LOAD_RCX_FROM_PACKET20 = bytes.fromhex("488b4b20")  # mov rcx, qword ptr [rbx+0x20]
@@ -171,7 +172,18 @@ class SyntheticArms(unittest.TestCase):
         self.assertIn("outside the packet", self.check(code) or "")
 
 
+    def test_a_paired_write_into_the_stored_object_passes(self):
+        arm = STORE_RCX_TO_PACKET20 + XCHG_RCX2C_EAX
+        self.assertIsNone(self.check(packet_site(arm)))
 
+    def test_a_write_into_an_object_the_arm_did_not_store_fails(self):
+        reason = self.check(packet_site(XCHG_RCX2C_EAX))
+        self.assertIn("outside the packet", reason or "")
+
+    def test_a_write_into_a_different_object_than_the_one_stored_fails(self):
+        arm = STORE_RDX_TO_PACKET20 + XCHG_RCX2C_EAX  # stored rdx, wrote into rcx: a different object
+        reason = self.check(packet_site(arm))
+        self.assertIn("outside the packet", reason or "")
 class RealSites(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -201,13 +213,11 @@ class RealSites(unittest.TestCase):
         # 0x1419DBC0C's arm stores the packet's objects (+0x20, +0x28) and bumps their counts through 0x1403DB250: paired, so it passes.
         self.assertEqual(g.check_function(self.pd, self.md, self.read, 0x1419DBAF0), [])
 
-    def test_1408BED00s_closure_fails_on_a_flag_store_into_the_paired_object_which_the_ruling_does_not_admit(self):
-        # 0x1419DC350: the AddRef is paired (the object is stored into the packet at +0x18), but the arm then stores 1 into the object's
-        # own field +0x2C with xchg. A write to the object is outside the packet and outside the ruling (only the count increment is
-        # admitted), so the site fails. Pinned so the rule is not widened silently.
-        fails = dict(g.check_function(self.pd, self.md, self.read, 0x1419DC350))
-        self.assertIn(0x1419DC36F, fails)
-        self.assertIn("xchg", fails[0x1419DC36F])
+    def test_1408BED00s_closure_functions_pass_with_a_paired_write_into_the_object(self):
+        # 0x1419DC350: the AddRef is paired (the object is stored into the packet at +0x18), and the arm then exchanges the object's own
+        # field +0x2C (xchg). Owner ruling (widen, round 4): a write into the paired object is admitted, so the sites pass.
+        for va in (0x1419DC350, 0x1419DC480, 0x1419DC540, 0x1419DCCA0):
+            self.assertEqual(g.check_function(self.pd, self.md, self.read, va), [], hex(va))
 
     def test_a_real_site_with_a_call_in_its_skipped_arm_fails_at_that_arm(self):
         head = self.pd.containing(0x14195A634)

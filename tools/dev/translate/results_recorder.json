@@ -259,6 +259,116 @@
    "stubs": [],
    "translated": true,
    "va": "0x140A8ED70"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_humanupd.json",
+   "coverage": {
+    "0x1408BED00": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1: 1 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 7,
+     "total": 7,
+     "fraction": 1.0
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_recorder.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1408BED00",
+   "boundaries": [
+    {
+     "name": "gfx_device_alloc",
+     "va": "0x141957C50",
+     "answer": "0x0",
+     "ruling": "Main, option A (21-11-26): declared answer 0 plus this guard; paired-reference ruling (owner, round 3): a refcount increment in the non-null region is admitted only when the same object is stored into the packet in that region",
+     "guard": "boundary_guard.closure_failures (snapdiff.build_binary): every site's skipped arm writes only the packet",
+     "sites": [
+      "0x1419DC36F",
+      "0x1419DC495",
+      "0x1419DC55F",
+      "0x1419DC63C",
+      "0x1419DC774",
+      "0x1419DC9ED",
+      "0x1419DCCC6",
+      "0x1419DCFB5",
+      "0x1419DD275"
+     ]
+    }
+   ]
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_bootcreate.json",
+   "coverage": {
+    "0x1408BE3C0": {
+     "reached": 23,
+     "total": 55,
+     "fraction": 0.4182
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 23,
+     "total": 55,
+     "fraction": 0.4182
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_recorder.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1408BE3C0",
+   "boundaries": [
+    {
+     "name": "gfx_device_alloc",
+     "va": "0x141957C50",
+     "answer": "0x0",
+     "ruling": "Main, option A (21-11-26): declared answer 0 plus this guard; paired-reference ruling (owner, round 3): a refcount increment in the non-null region is admitted only when the same object is stored into the packet in that region",
+     "guard": "boundary_guard.closure_failures (snapdiff.build_binary): every site's skipped arm writes only the packet",
+     "sites": [
+      "0x14195BA9E",
+      "0x1419DBC0C",
+      "0x1419DC774",
+      "0x1419DC9ED",
+      "0x1419DCFB5"
+     ]
+    }
+   ]
   }
  ]
 }

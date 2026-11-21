@@ -203,6 +203,8 @@ class Pdata:
         rdrand, xgetbv, in/out, push/pop). Anything else stays outside the body.
         ponytail: the classification is this mechanical one; a block that passes it still needs its own reading in the
         translation that uses it."""
+        if t < IMAGE_BASE:  # a jump target below the image is no code of it (the read would seek to a negative offset)
+            return None
         if t in self.ends or self._entry(t) is not None:
             return None
         decoded, pending, exit_back, end = [], set(), False, None

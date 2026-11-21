@@ -214,7 +214,10 @@ def check_site(md, read, site, target=GFX_DEVICE_ALLOC, is_pure=None):
         for op in ins.operands:
             if op.type == X86_OP_MEM and op.access & capstone.CS_AC_WRITE:
                 base = _canon(md.reg_name(op.mem.base)) if op.mem.base else None
-                if base not in packet or op.mem.index != 0:
+                # Owner ruling (widen, round 4): a write into the paired object itself (an object the region stored into the packet, held
+                # by the base register) is admitted, refcount or flag; any other write outside the packet fails.
+                paired = base is not None and held(base) in stored
+                if (base not in packet and not paired) or op.mem.index != 0:
                     return "site %#x: arm at %#x: %s writes memory outside the packet (%s)" % (site, ins.address, m, ins.op_str)
         ops = ins.operands
         if m == "mov" and len(ops) == 2 and ops[0].type == X86_OP_MEM:  # a store into the packet (checked above)

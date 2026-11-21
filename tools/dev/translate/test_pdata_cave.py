@@ -77,5 +77,14 @@ class RelocatedCave(unittest.TestCase):
         self.assertFalse(any(b <= CAVE < e for b, e in ranges), ranges)
 
 
+    def test_a_function_jump_below_the_image_base_does_not_crash_the_extent(self):
+        # F's own jump lands below the image base (no code of this image): the cave rule must refuse it, not seek to a negative offset.
+        data = bytearray(image(b""))
+        data[0x1000:0x1005] = jmp(F, BASE - 0x100)
+        pd = pdata.Pdata(io.BytesIO(bytes(data)))
+        ranges = pd.extent(F)  # raised OSError before the guard
+        self.assertTrue(all(b >= BASE for b, _ in ranges or []), ranges)
+
+
 if __name__ == "__main__":
     unittest.main()
