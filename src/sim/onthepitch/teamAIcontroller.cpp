@@ -1316,6 +1316,10 @@ Vector3 TeamAIController::PrepareCornerStand(const Vector3& spot, Player* taker,
   return Vector3(stand.x, stand.y, 0.0f);
 }
 
+namespace {
+Vector3 ThrowInStandPoint(Match& match, const Player* taker);
+}  // namespace
+
 void TeamAIController::AdvancePieceWalk() {
   if (!pieceWalk || taker == nullptr) return;
   // PES's SeamlessThrowin phase 1 (docs/re/pes-re-throwin-choreography.md 3.2): the pickup clip 0xCF5 plays when the ball, at the
@@ -1395,6 +1399,10 @@ void TeamAIController::AdvancePieceWalk() {
     pieceWarping = false;
     if (pieceCarrying) {
       pieceLifted = true;
+      // PES's ThrowinLoop SetKick (0x140794280, docs/re/pes-re-throwin-choreography.md 4.1) puts the lifted taker on his stand point as the
+      // loop starts: the release key's ball is over the restart point, so he stands the key's length outside the touchline (live PES, loop and
+      // key: root z = R + 0.773). The lift walked him to the carry spot, F1 + 0.7, which is inside that stand.
+      taker->WarpRoot((ThrowInStandPoint(*match, taker) - taker->GetPosition()).Get2D(), 0.0f);
       // PES's phase 5 starts the loop when the lift clip ends (docs/re/pes-re-throwin-choreography.md 3.2): the loop is issued once, here.
       constexpr int kThrowInLoopMotion = 0xcf4;
       taker->CastHumanoid()->PlayIssuedClip(kThrowInLoopMotion, 1.0f, false, pes::PesClipFamily::kTrap);
@@ -1550,6 +1558,13 @@ int CeremonyRoleClass(e_PlayerRole role) {
 float ThrowInStandLength_m(Match& match, const Player* taker) {
   const pes::Vec3 offset = ThrowInKeyOffset(match, taker);
   return std::hypot(offset.x, offset.z);
+}
+
+// A placed throw-in taker's stand point (PES's ThrowinLoop SetKick): the restart point, pushed outward by the release key's length.
+Vector3 ThrowInStandPoint(Match& match, const Player* taker) {
+  const Vector3 restart = match.GetReferee()->GetBuffer().restartPos;
+  const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
+  return Vector3(restart.coords[0], restart.coords[1] + outward * ThrowInStandLength_m(match, taker), 0.0f);
 }
 
 }  // namespace
@@ -2187,10 +2202,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       pieceWalkTarget = ballPos;
       pieceCarrySpot = Vector3(carry.x, carry.z, 0.0f);
       if (!seamlessRestart && taker) {
-        const Vector3 restart = match->GetReferee()->GetBuffer().restartPos;
-        const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
-        const float standIn_m = ThrowInStandLength_m(*match, taker);
-        taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * standIn_m, 0.0f), ballPos);
+        taker->ResetPosition(ThrowInStandPoint(*match, taker), ballPos);
         pieceHeld = true;
       }
     } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
