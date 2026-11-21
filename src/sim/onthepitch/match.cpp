@@ -109,6 +109,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
       std::clamp(matchDurationMinutes, kMinimumMatchDurationMinutes, kMaximumMatchDurationMinutes);
   // PES's world window (pesworldrecord.hpp) exists before the clock: the match-info block holds the clock's period record.
   pesWorld = std::make_unique<pes::PesWorld>();
+  pesVfs = setup.pesVfs;
+  if (setup.pesTrapSource != nullptr) pesImagePath = setup.pesTrapSource->imagePath;
+  // pes_loop: the trap world's window moves into the match's PES memory first (BindPesTrapWorld). The clock keeps a reference into the
+  // window's period record, so it is made after the move: a clock made on the old window would write freed memory after the move.
+  if (pesLoop && setup.pesTrapSource != nullptr) BindPesTrapWorld();
   pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes, pesWorld->Period());
 
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md): every constant
@@ -149,6 +154,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES kick error constants missing: read them from the install with "
         "pes::LoadKickErrorConstants into MatchSetup::pesKickErrorConstants");
   pesKickErrorConstants = *setup.pesKickErrorConstants;
+  if (setup.pesKickMotionConstants == nullptr)
+    throw std::runtime_error(
+        "PES kick motion constants missing: read them from the install with "
+        "pes::LoadKickMotionConstants into MatchSetup::pesKickMotionConstants");
+  pesKickMotionConstants = *setup.pesKickMotionConstants;
   if (setup.pesJudgeConstants == nullptr)
     throw std::runtime_error(
         "PES judge constants missing: read them from the install with "
@@ -289,9 +299,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   pesActorConstants = setup.pesTrapSource->actor;
   for (int slot = 0; slot < pes::kSlotCount; ++slot) {
     pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
-    pes::ConstructAnimPlugin(*pesWorld, slot);
   }
-  pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;
   if (setup.pesSheetConstants) pesSheetConstants = *setup.pesSheetConstants;
@@ -631,6 +639,12 @@ void Match::GameOver() {
     ApplyPostMatchForfeits();
 }
 
+int Match::PesPlayState() {
+  const RefereeBuffer& buf = GetRefereeBuffer();
+  const bool ready = buf.ReadyForTake(GetActualTime_ms()) || buf.started;
+  return pes::PlayStateFor(IsInPlay() && !IsInSetPiece(), buf.active, ready);
+}
+
 bool Match::SideBelowMinimumPlayers() {
   // The count runs in a period with a clock only: a break, the shoot-out and full time have none.
   if (!pes::PeriodHasClock(pesClock->Record().period)) return false;
@@ -880,6 +894,9 @@ void Match::Process() {
     WritePesTrapActors(*this);
     WritePesMaHolders(*this);
     RunPesTrapTicks(*this);
+    // PES's per-tick ankle shove (FUN_140792E10, call 0x14079355C) acts on the root the engine chain has just written, so it runs after
+    // RunPesTrapTicks. Hypothesis under test (docs/re/pes-re-throwin-ankle.md): running it before the chain let the chain's root win.
+    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
     RunPesDribbleTicks(*this);
     RunPesActorCounters(*this);
     RunPesBodyScans(*this);

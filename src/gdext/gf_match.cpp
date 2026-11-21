@@ -100,6 +100,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesForfeitConstants = library->forfeit_constants();
   setup.pesRestartSpotConstants = library->restart_spot_constants();
   setup.pesKickErrorConstants = library->kick_error_constants();
+  setup.pesKickMotionConstants = library->kick_motion_constants();
   setup.pesCarrierConstants = library->carrier_constants();
   setup.pesSetPieceTakerConstants = library->setpiece_taker_constants();
   setup.pesSetPieceTeamConstants = library->setpiece_team_constants();
@@ -121,6 +122,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesPressConstants = library->press_constants();
   setup.pesMarkTableConstants = library->mark_table_constants();
   setup.pesTrapSource = library->trap_source();
+  setup.pesVfs = &library->vfs();
   setup.pesImageTables = library->image_tables();
   Properties config;
   config.SetBool("pes_loop", pes_loop);  // the tick-order switch (SW)

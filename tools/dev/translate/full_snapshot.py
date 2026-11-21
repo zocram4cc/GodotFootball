@@ -253,6 +253,12 @@ class PeImage:
     def is_impdata(self, rva):
         return any(lo <= rva < hi and imp for lo, hi, _, imp in self.sections)
 
+    def is_code(self, rva):
+        """True when the page at rva is in a section the image maps executable and not writable. Code is the image's, never a
+        capture's: a capture can hold other code in a code page (a sider or other DLL patch, measured on pid2024691 seq203:
+        28 code pages differ from the image, the rendezvous hook pages among them), and a replay must run PES's bytes."""
+        return any(lo <= rva < hi and ch & 0x20000000 and not ch & 0x80000000 for lo, hi, ch, _ in self.sections)
+
     def servable(self, rva):
         """True when the file's page at rva is the page a live capture holds: a header page, or a page of a section that
         is not writable, outside the import address table."""
@@ -352,7 +358,9 @@ class SnapMem:
         while cur < end:
             page = cur & ~(PAGE - 1)
             stop = min(end, page + PAGE)
-            if self._captured_page(page):
+            if self.image is not None and IMAGE_BASE <= page < IMAGE_BASE + self.image.size_of_image and page not in UNSERVABLE_RVA and self.image.is_code(page - IMAGE_BASE):
+                data += self.image.read(cur - IMAGE_BASE, stop - cur)
+            elif self._captured_page(page):
                 data += os.pread(self.fd, stop - cur, m["off"] + (cur - m["va"]))
             elif self._served(page):
                 data += self.image.read(cur - IMAGE_BASE, stop - cur)

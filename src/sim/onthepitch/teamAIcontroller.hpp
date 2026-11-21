@@ -118,6 +118,12 @@ public:
   // 3.1-3.2). A goal kick's keeper is placed on his stand point when the kick is prepared and held there until the ladder
   // releases it (pesgoalkick.hpp, docs/re/pes-re-kicker-standby.md section 4).
   bool IsPieceTakerWalking(const Player* player) const;
+  // True while PES's phase-4 lift owns the taker's body: the lift warp, from its start to its end. The AI's movement commands and the
+  // clip-end switch do not reach him during the lift. After it the loop plays once (phase 5) and the queued throw switches the body at
+  // the loop's end, as PES does; holding past the loop kept the throw from ever being selected (the set piece then never closed).
+  bool PieceTakerOwnsBody(const Player* player) const {
+    return pieceWalk && player == taker && pieceCarrying && pieceWarping;
+  }
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
   // True from the lift's end until the restart is over: the taker keeps the root yaw the lift left him with (PES's throw-in loop
@@ -139,6 +145,11 @@ public:
   // there until the release (FUN_140792E10 phase 1; pes-re-throwin-choreography.md 4.2, 5.3). Before the take the ball rides
   // at the taker's root (the carry pin in referee.cpp). The referee calls this from the start of the take until the touch.
   void PinBallAtRelease();
+  // PES's pre-release push of a carried throw-in's taker (FUN_140792E10, before the release frame; pes-re-throwin-choreography.md 4.2):
+  // of his two ankles (PES joints 3 and 6) the nearer by |z| must stand at least F[1] + DAT_142588200 from the centre line, else his
+  // root moves outward by the shortfall (FUN_141EB5BB0, through the root adjuster A = P+0x428). Called after the trap actors are written
+  // (WritePesTrapActors) and before the trap tick, as PES's update reads the joint block the tick before.
+  void PushPieceTakerBehindLine();
   // The receiver a throw-in is aimed at: the nearest mate inside the touchline (the throw's target; PES's ap+0x2bf4/0x2bfc).
   Player* ThrowInTargetMate(Player* thrower) const;
   // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
@@ -164,6 +175,8 @@ public:
   void TickScoreRows();
   // The side's AI record MA in the world window: the lane lists, the ball copy and the holder (TickScoreRows calls it).
   void WriteMaRecord();
+  // The ball list MA+0x2470C (FUN_14045B090 through FUN_140457070's slice gate, pesballlist.hpp); `forced` is that function's flag.
+  void TickBallList(bool forced);
   pes::ScoreRowWriter scoreRows_;
   // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a `0x1404F76B1`):
   // rebuild markTableState from the run world each team tick on the PES path.

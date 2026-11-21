@@ -372,18 +372,4 @@ std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vf
   source.imageBytes = static_cast<uint64_t>(st.st_size);
   return source;
 }
-
-PesTrapMemory::PesTrapMemory(const PesTrapSource& source) {
-  const int fd = ::open(source.imagePath.c_str(), O_RDONLY);
-  void* map = fd < 0 ? MAP_FAILED : ::mmap(nullptr, source.imageBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-  if (fd >= 0) ::close(fd);
-  if (map == MAP_FAILED) throw std::runtime_error("trap: cannot map the image " + source.imagePath);
-  ext_.image = static_cast<uint8_t*>(map);
-  ext_.imageBase = kImageBaseVa;
-  ext_.imageBytes = source.imageBytes;
-  source.loader.AddTo(ext_);
-}
-
-PesTrapMemory::~PesTrapMemory() { ::munmap(ext_.image, ext_.imageBytes); }
-
 }  // namespace pes

@@ -31,6 +31,17 @@ def domain_for(nm):
         return {"kind": "choice", "values": list(range(0, 8)), "domain": "ring head 0..7 mod 8 (pes-re-record-layouts.md §1)"}
     return {"kind": "u8", "lo": 0, "hi": 255, "domain": DOMAIN_INT}
 
+# Per-root input domains that PES's own callers establish (the generic 0..255 is not PES's domain). Keyed by (root VA, register).
+# 0x14038F0E0 (the allocator core): its caller 0x14038E3E0 rejects a non-power-of-two alignment (`lea rax,[rdi-1]; test rdi,rax;
+# jne`) and passes rcx = r8 if nonzero else 1 (`test rbx,rbx; mov ecx,1; cmovne rcx,rbx`), so rcx >= 1 and rdx is a power of two.
+# rdx = 0 is not in the set: INF that PES's r9 (the caller's minimum, rsi) is >= 1, which makes rdi = 0 fail its `cmp rdi,rsi; jb`.
+ROOT_INPUT_DOMAINS = {
+    ("0x14038F0E0", "rcx"): {"kind": "u8", "lo": 1, "hi": 255,
+                             "domain": "size >= 1 (caller 0x14038E3E0: rcx = r8 if nonzero else 1)"},
+    ("0x14038F0E0", "rdx"): {"kind": "choice", "values": [1, 2, 4, 8, 16, 32, 64, 128],
+                             "domain": "alignment: a power of two (caller 0x14038E3E0 tests rdi & (rdi-1)); rdx=0 excluded (INF)"},
+}
+
 
 def parse_off(s):
     """'0x10' -> (False, 0x10); 'IDX+0x10' -> (True, 0x10); a negative offset is written '0x-3FA8' -> -0x3FA8."""
@@ -178,7 +189,7 @@ def build(fn):
         elif reg in live:
             nm = "scalar_%s" % reg
             inputs[nm] = {"reg": reg, "enc": "u32"}
-            schema[nm] = {"kind": "u8", "lo": 0, "hi": 255, "domain": DOMAIN_INT}
+            schema[nm] = ROOT_INPUT_DOMAINS.get((fn["va"], reg), {"kind": "u8", "lo": 0, "hi": 255, "domain": DOMAIN_INT})
     for x in ("xmm0", "xmm1", "xmm2", "xmm3"):
         if x in live:
             nm = "scalar_%s" % x

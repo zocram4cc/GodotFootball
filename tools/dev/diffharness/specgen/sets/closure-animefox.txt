@@ -1,0 +1,4 @@
+0x141EA7640	stand-in	gameplay	seed
+0x141EA7190	stand-in	gameplay	seed
+0x141EA8430	stand-in	gameplay	seed
+0x1414A89E0	stand-in	gameplay	seed

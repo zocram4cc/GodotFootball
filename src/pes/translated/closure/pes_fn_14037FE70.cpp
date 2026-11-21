@@ -8,9 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x14252F6D0 (8 bytes)
-static constexpr uint64_t k_c14252F6D0_q = 0x00006FFFFF9D10FCULL;
-static constexpr double k_c14252F6D0_d = 6.0841860115175e-310; // 6.0841860115175e-310
 
 void pes_fn_14037FE70(PesState& s);
 
@@ -21,8 +18,6 @@ void pes_fn_14037FE70(PesState& s) {
     s.gpr[2] = (uint64_t)(uint32_t)(_r);
   }
   s.gpr[8] = (uint64_t)(uint32_t)((32768ULL));
-  { uint64_t _t = (uint64_t)(k_c14252F6D0_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    _d.fn(s); }
+  {  uint32_t _t = (uint32_t)s.gpr[8]; if (_t != 0x8000u && _t != 0x4000u) __builtin_trap(); s.gpr[0] = 1ULL; }
   return;
 }

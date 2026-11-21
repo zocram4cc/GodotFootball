@@ -103,6 +103,11 @@ add_test(NAME translate_native_services
 add_test(NAME translate_tail_jump_loud
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_tail_jump_loud.py'")
 set_tests_properties(translate_tail_jump_loud PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+# A signed guard bounds the index from above only: the bake declines a window from the table base and the read takes the
+# declared hull (test_bake_signed.py; mutation: drop SIGNED_JCC's skip, three checks fail).
+add_test(NAME translate_bake_signed
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_bake_signed.py'")
+set_tests_properties(translate_bake_signed PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
 # The logf/powf models against C99 Annex F and (when the capture is there) the snapshot's ucrtbase.
 add_test(NAME translate_libm_models
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_libm_models.py'")

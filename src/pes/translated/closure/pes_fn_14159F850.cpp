@@ -10,7 +10,6 @@
 
 
 void pes_fn_14159F850(PesState& s);
-void pes_fn_14159F918(PesState& s);
 
 void pes_fn_14159F850(PesState& s) {
   s.gpr[4] -= 8;
@@ -47,5 +46,6 @@ void pes_fn_14159F850(PesState& s) {
     s.gpr[4] = (uint64_t)(_r);
   }
   s.gpr[3] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
-  { pes_fn_14159F918(s); return; }
+  /* stub: engine-noop, no effect on the success path */
+  return;
 }

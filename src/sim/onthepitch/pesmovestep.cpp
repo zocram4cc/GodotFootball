@@ -388,11 +388,8 @@ class MoveHostAdapter final : public pes::MoveHost {
     pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   int MatchPhase() const override {
-    // PES MI+0x116c (pes-re-A5Judge.md): an awarded restart (buffer active) that is prepared or started is set-play ready (3);
-    // any other stop is 2, and open play is 1.
-    const auto& buf = match_.GetReferee()->GetBuffer();
-    const bool ready = buf.ReadyForTake(match_.GetActualTime_ms()) || buf.started;
-    return pes::PlayStateFor(match_.IsInPlay(), buf.active, ready);
+    // PES MI+0x116c (pes-re-A5Judge.md; Match::PesPlayState).
+    return match_.PesPlayState();
   }
   bool IsReplay() const override { return false; }
   // The handoff (FUN_1406b8340's tail): the issued clip plays on the body. A SetMotion plays its own
@@ -403,7 +400,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     ++issues_;
     pes::RecordIssue(player_.GetIssuedClip(), request, c_.parametric);
     if (request.group < 0) {
-      player_.CastHumanoid()->PlayIssuedClip(request.motion, request.playback, request.mirror);
+      player_.CastHumanoid()->PlayIssuedClip(request);
       return;
     }
     const std::vector<pes::BlendMember> members =
@@ -414,7 +411,13 @@ class MoveHostAdapter final : public pes::MoveHost {
       if (std::fabs(m.param - request.rate) < std::fabs(nearest->param - request.rate)) nearest = &m;
     const float playback =
         nearest->param > 0.0f && request.rate > 0.0f ? request.rate / nearest->param : 1.0f;
-    player_.CastHumanoid()->PlayIssuedClip(nearest->motionNo, playback, request.mirror);
+    // ponytail: PES's SetParametric pushes the blend group's records and drives them by the rate; GF stands the group's nearest member in for
+    // the body and the engine control alike (one SetMotion record at the speed that member needs). Removed by a SetParametric port.
+    pes::MotionRequest member = request;
+    member.motion = nearest->motionNo;
+    member.playback = playback;
+    member.group = -1;
+    player_.CastHumanoid()->PlayIssuedClip(member);
   }
   bool Issued() const { return issued_; }
   int IssueCount() const { return issues_; }
@@ -717,8 +720,7 @@ void ProcessMoveStep(Player& player, Match& match) {
 
 void StepAdjusters(Player& player, Match& match) {
   if (!match.PesLoop()) return;
-  const pes::PesWorld::AdjusterFrame frame =
-      match.PesWorldOf().StepAdjusters(match.PesSlotOf(&player), match.GetPesActorConstants().degToRad);
+  const pes::PesWorld::AdjusterFrame frame = match.PesWorldOf().ReadAdjusterFrame(match.PesSlotOf(&player));
   HumanoidBase* body = player.CastHumanoid();
   // The trap world's axes: PES z is GF y (the strike's target was built in them).
   if (frame.strikeMoved) body->WarpRoot(Vector3(frame.x, frame.z, 0.0f), 0.0f);

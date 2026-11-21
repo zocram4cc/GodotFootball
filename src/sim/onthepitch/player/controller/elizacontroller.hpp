@@ -112,6 +112,7 @@ protected:
   bool _AnyTeammateSliding();
   void _PassGetApproach(PlayerCommandQueue& commandQueue);
   void _PassGetApproachGf(PlayerCommandQueue& commandQueue);
+  void _PressApproach(PlayerCommandQueue& commandQueue);
   void _PushChallenge(PlayerCommandQueue& commandQueue, const Vector3& contact,
                       e_FunctionType type);
 

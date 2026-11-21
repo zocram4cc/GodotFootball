@@ -113,6 +113,10 @@ def load_import_models(path=IMPORT_STUBS):
         models[(e["module"].lower(), e["export"])] = code
     return models
 
+# The VirtualAlloc model's OS arena (import_stubs.json "os_arena"): addresses in [base, base + bytes) map as zero pages on first touch.
+_OS_ARENA = json.load(open(IMPORT_STUBS))["os_arena"]
+OS_ARENA_BASE, OS_ARENA_BYTES = int(_OS_ARENA["base"], 16), int(_OS_ARENA["bytes"], 16)
+
 
 class LazyMap:
     """A snapshot run's memory. Pages are mapped into unicorn on first touch, from the snapshot
@@ -166,7 +170,13 @@ class LazyMap:
         self.faults += 1
 
     def handle(self, addr):
-        """An unmapped data access: map its block if it is a snapshot page (the hook returns True)."""
+        """An unmapped data access: map its block if it is a snapshot page, or the OS arena's zero block (the hook returns True)."""
+        if OS_ARENA_BASE <= addr < OS_ARENA_BASE + OS_ARENA_BYTES:
+            base = addr & ~(BLOCK - 1)
+            if not self._mapped(base):
+                self.uc.mem_map(base, BLOCK)  # fresh pages read as zeros
+                self.pages += BLOCK // PAGE
+            return True
         if not self.sm.page_ok(addr & ~(PAGE - 1)):
             return False
         self._map_block(addr)

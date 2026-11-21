@@ -24,6 +24,17 @@
  ],
  "stubs": [
   {
+   "va": "141AEB7C0",
+   "callers": ["141AE77B0"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "Anime singleton wrapper: guard on the global 0x1437CEA40 (0x141AEB7D1); allocates 0x2E0 bytes (0x141AEB7E6) and calls the setter 0x141AEA910, which publishes the global (0x141AEACB7). Called from FUN_141AE77B0 at 0x141AE7839 on the match-load branch (sil = cl = 1).",
+    "GF's seam (pes_service_anime_singleton, pes_native.cpp): the setter's Steam-dispatched calls (0x1415A1720, 0x14164FB10) and protection thunks are not part of GF (owner ruling 17-11-26); the object is built by meaning from the setter's own stores."
+   ],
+   "model": {"op": "anime_singleton", "effect": "creates the singleton once: the global holds the object after the setter's stores"}
+  },
+  {
    "va": "140421F40",
    "callers": [
     "1404F6C30"
@@ -3859,6 +3870,22 @@
    }
   },
   {
+   "va": "14159F918",
+   "callers": [
+    "14159F8AB"
+   ],
+   "used_by_closure": true,
+   "kind": "engine-noop",
+   "why": [
+    "MSVC thread-safe static init: Ghidra names 14159F918 `_Init_thread_notify` (Library Function, VS2015 Release), called from `_Init_thread_footer` (14159F850) at 14159F8AB. It wakes the threads waiting on the init guard: with the condition-variable path (the cell 0x143706788 == 0) it tail-jumps (`jmp rax`, 14159F957) to the decoded WakeAllConditionVariable pointer with rcx = 0x143706780; otherwise it calls the pointer at 0x14252F408 and tail-jumps to 0x14252F400 with the event handle. Found by FUN_141EC86D0's replay: the translator leaves that JMP rax unresolved (a trap, SIGILL in the diff main), and the OS address it reaches is no dispatch target.",
+    "Only OS wake calls: the replay's import model for RtlWakeAllConditionVariable (import_stubs.json) returns without a write, so on the reference side the call changes no byte either; GF runs one thread, so no waiter exists. The call is dropped on both sides (engine-noop); rax is left as the caller had it (the result is void)."
+   ],
+   "model": {
+    "op": "_Init_thread_notify",
+    "effect": "none on the success path (wakes waiters of the thread-safe static init guard, none exist)"
+   }
+  },
+  {
    "va": "1415A01DC",
    "callers": [
     "14159FA0C",
@@ -3874,6 +3901,175 @@
     "op": "__guard_check_icall",
     "effect": "none on the success path (validates the indirect-call target, returns)"
    }
+  },
+  {
+   "va": "1415A2FD0",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs stat(fs, path, int64* size): the file handle reader FUN_1414A9280 calls it at 0x1414A9325 (rcx = FUN_1414A3530's object, rdx = the path FUN_1414A22E0 formed, r8 = the size cell) and tests the size ([rbp+7] > 0).",
+    "GF's seam: the install's VFS answers (pes_service_fs_stat). PES's own stat opens the CPK through the CRI library and the OS, none of which GF runs."
+   ],
+   "model": {"op": "fs_stat", "effect": "*size = the VFS file's size, -1 for a missing file; rax 0 on success"}
+  },
+  {
+   "va": "1415A6CA8",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader create(op**): FUN_1414A9280 at 0x1414A9376 (rcx = &local, the operation object's pointer comes back in it).",
+    "GF's seam (pes_service_fs_op_create): a zeroed object in GF's heap."
+   ],
+   "model": {"op": "fs_op_create", "effect": "*rcx = a new operation object"}
+  },
+  {
+   "va": "1415A734C",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader set-callback(op, callback, arg): FUN_1414A9280 at 0x1414A938A passes the completion callback 0x1414A8F00 and the semaphore cell. PES's body stores them at +0x148 / +0x150 and returns 0 (decompile of 0x1415A734C).",
+    "GF's seam (pes_service_fs_op_callback): stored the same way; never invoked, because the reader's wait on the semaphore is satisfied by the WaitForSingleObject model."
+   ],
+   "model": {"op": "fs_op_callback", "effect": "op+0x148 = callback, op+0x150 = arg; rax 0"}
+  },
+  {
+   "va": "1415A71B8",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader load(op, fs, path, offset, loadSize, buffer, bufferSize): FUN_1414A9280 at 0x1414A93BE (r9 = 0, [rsp+0x20] = the file size, [rsp+0x28] = the handle's buffer [rbx+0x40], [rsp+0x30] = the file size).",
+    "GF's seam (pes_service_fs_op_read): the VFS file's bytes go into the buffer synchronously and the operation completes; PES's read is asynchronous on a CRI thread."
+   ],
+   "model": {"op": "fs_op_read", "effect": "buffer[0..min(loadSize, bufferSize)) = the file's bytes from offset; op status = 2 (complete) or 3"}
+  },
+  {
+   "va": "1415A70B4",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader status(op, int* status): FUN_1414A9280 at 0x1414A93D4 and tests the answer against 2 (complete) at 0x1414A93D9. PES's body reads op+0x1C (decompile of 0x1415A70B4).",
+    "GF's seam (pes_service_fs_op_status): the status pes_service_fs_op_read left."
+   ],
+   "model": {"op": "fs_op_status", "effect": "*status = op+0x1C; rax 0"}
+  },
+  {
+   "va": "1415A6CBC",
+   "callers": ["1414A9280"],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "CRI Fs loader destroy(op): FUN_1414A9280 at 0x1414A9413.",
+    "GF's seam (pes_service_fs_op_destroy): the operation object is released to GF's heap."
+   ],
+   "model": {"op": "fs_op_destroy", "effect": "the operation object is freed"}
+  },
+  {
+   "va": "143E98DA0",
+   "callers": [
+    "1403EA250"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (obfuscated blocks in .impdata that jump into steam_api64.dll's own code; no .pdata, not translatable, not hookable): the pool's set-max-size, called by FUN_1403EA250 (the pool wrapper FUN_14029E940 calls as thunk_EXT_FUN_143e98da0(pool, 0x4000)).",
+    "EFFECT READ FROM PES'S OWN BYTES on a REAL pre-state: unicorn ran the recorded FUN_14029E940 call (live2/pid974668/seq001, hook anime8_scriptinit_14029E940) through the whole image with steam_api64.dll's code as the snapshot's bytes (112,761,877 instructions; the virtualized call is 74,992,325 of them). Over the call, the only non-stack memory change is the qword at pool+0x60: 0x2FFFF0 -> 0x4000 (= rdx); rax = the old value 0x2FFFF0. Cross-check on a running game (live2/pid4152866/seq002): [DAT_1436D0070 pool + 0x60] = 0x4000.",
+    "Not covered: registers other than rax and the stack scratch below rsp are not modelled (the caller reads only rax); flags are untouched here. A model of a PES effect, not a translation."
+   ],
+   "model": {
+    "op": "packer_pool_set_max",
+    "effect": "rax = [rcx+0x60]; [rcx+0x60] = rdx (8 bytes)"
+   }
+  },
+  {
+   "va": "143DFA780",
+   "callers": [
+    "14037FF60"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0): lua_atpanic(L, panicf), called by FUN_14037FF60 (FUN_14029DCE0 calls it as thunk_EXT_FUN_143dfa780(L, FUN_14029E220)).",
+    "EFFECT READ FROM PES'S OWN BYTES on the same real pre-state and run: the virtualized call (36,091,543 instructions) makes exactly one non-stack store: the qword at L+0x160 (L = 0x3000410010 in that run): 0 -> 0x14029E220 (= rdx); rax = 0, the old value. Cross-check on a running game (live2/pid4152866/seq002): L = [[DAT_1436D0068 + 8]]; G = [L+0x20] = L+0xB8; [L+0x160] = 0x14029E220 = G+0xA8: the slot is global_State's panic.",
+    "The model reads G = [L+0x20] and stores at G+0xA8 (equal to L+0x160 in the emulation and in the live game).",
+    "Not covered: registers other than rax and the stack scratch below rsp are not modelled."
+   ],
+   "model": {
+    "op": "packer_lua_atpanic",
+    "effect": "G = [rcx+0x20]; rax = [G+0xA8]; [G+0xA8] = rdx (8 bytes)"
+   }
+  },
+  {
+   "va": "143DFCCE0",
+   "callers": [
+    "140380F70"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0): lua_setallocf(L, f, ud), reached through FUN_140380F70 (a `jmp` thunk) from FUN_14029DB50 (thunk_EXT_FUN_143dfcce0(L, FUN_14029EB40, manager)).",
+    "EFFECT READ FROM PES'S OWN BYTES on the same real pre-state (live2/pid974668/seq001, 140 s trace): the virtualized call stores 16 bytes at G+0x10 and G+0x18 (G = [L+0x20] = L+0xB8; at L = 0x3000410010: 0x30004100D8 = 0x14029EB40 = rdx, 0x30004100E0 = 0x1FB0180 = r8): frealloc and ud, Lua 5.1's lua_setallocf (`g->ud = ud; g->frealloc = f`). Both stores write the values lua_newstate already put there (old == new), so the call changes no byte in this boot. rax = G (observed; the caller ignores it).",
+    "Not covered: other registers and the stack scratch below rsp."
+   ],
+   "model": {
+    "op": "packer_lua_setallocf",
+    "effect": "G = [rcx+0x20]; [G+0x10] = rdx; [G+0x18] = r8; rax = G"
+   }
+  },
+ {
+   "va": "1444CE440",
+   "callers": [
+    "140EC2190"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0; obfuscated blocks in .impdata, no .pdata, not translatable): the constructor of an array of 16 small polymorphic objects (0x18 bytes each) at 0x1436FBA80, called by the static initializer FUN_1401DA710 (`lea rcx,[0x1436FBA80]; call` through the jmp thunk FUN_140EC2190); the initializer then registers FUN_14251CD70 with atexit, which resets each object's vtable word to 0x1427DCA80.",
+    "EFFECT READ FROM PES'S OWN BYTES on real states, NOT emulated (unicorn over the virtualized body faulted on the object page, a tool issue): each object is {vtable, 0xFFFF0000, 0}; the 16 vtable words, all distinct pointers into .rdata 0x1427DB688..0x1427DC4B8, are identical in the boot capture live2/pid974668/seq001 (taken at the scripting-init entry, before any game code ran: the initializers had run, no runtime mutation yet) and in the running game live2/pid4152866/seq002, and equal the dump pes_full.bin. The destructor FUN_14251CD70 (0x14251CD70..) resets the 16 vtable words and nothing else, so the vtable is the constructor's output, the other two words its constants. The pre-state (the cleared tail) holds zeros there.",
+    "Not covered: registers (the caller's next code is `lea rcx; jmp atexit`; nothing reads rax), the stack scratch below rsp, and the per-object vtable derivation inside the constructor (the table is data read from the state, not computed)."
+   ],
+   "model": {
+    "op": "packer_array_ctor_a",
+    "effect": "for k in 0..15: [rcx+0x18k] = vtable_k; [rcx+0x18k+8] = 0xFFFF0000; [rcx+0x18k+16] = 0; vtables: 0x1427dbb38, 0x1427dbbd8, 0x1427dbc78, 0x1427dbd48, 0x1427dbdc0, 0x1427dbe60, 0x1427dbeb0, 0x1427dbf50, 0x1427dbfc8, 0x1427dc068, 0x1427dc108, 0x1427dc180, 0x1427dc240, 0x1427dc338, 0x1427dc418, 0x1427dc4b8"
+   }
+  },
+  {
+   "va": "1444C7960",
+   "callers": [
+    "140EC1130"
+   ],
+   "used_by_closure": true,
+   "kind": "gf-service",
+   "why": [
+    "STAND-IN for a packer-virtualized function (as 0x143E98DA0; obfuscated blocks in .impdata, no .pdata, not translatable): the constructor of an array of 20 small polymorphic objects (0x18 bytes each) at 0x1436FC390, called by the static initializer FUN_1401DA690 (`lea rcx,[0x1436FC390]; call` through the jmp thunk FUN_140EC1130); the initializer then registers FUN_14251C800 with atexit, which resets each object's vtable word to 0x1427DCA80.",
+    "EFFECT READ FROM PES'S OWN BYTES on real states, NOT emulated (unicorn over the virtualized body faulted on the object page, a tool issue): each object is {vtable, 0xFFFF0000, 0}; the 20 vtable words, all distinct pointers into .rdata 0x1427DB688..0x1427DC4B8, are identical in the boot capture live2/pid974668/seq001 (taken at the scripting-init entry, before any game code ran: the initializers had run, no runtime mutation yet) and in the running game live2/pid4152866/seq002, and equal the dump pes_full.bin. The destructor FUN_14251C800 (0x14251C800..) resets the 20 vtable words and nothing else, so the vtable is the constructor's output, the other two words its constants. The pre-state (the cleared tail) holds zeros there.",
+    "Not covered: registers (the caller's next code is `lea rcx; jmp atexit`; nothing reads rax), the stack scratch below rsp, and the per-object vtable derivation inside the constructor (the table is data read from the state, not computed)."
+   ],
+   "model": {
+    "op": "packer_array_ctor_b",
+    "effect": "for k in 0..19: [rcx+0x18k] = vtable_k; [rcx+0x18k+8] = 0xFFFF0000; [rcx+0x18k+16] = 0; vtables: 0x1427db688, 0x1427db700, 0x1427db778, 0x1427db7f0, 0x1427db868, 0x1427db8e0, 0x1427db958, 0x1427db9d0, 0x1427dba48, 0x1427dbac0, 0x1427dbb60, 0x1427dbc00, 0x1427dbc50, 0x1427dbd70, 0x1427dbde8, 0x1427dbe38, 0x1427dbed8, 0x1427dbf28, 0x1427dbff0, 0x1427dc090"
+   }
+  },
+ {
+  "va": "141957C50",
+  "callers": [
+   "1423D4A80"
+  ],
+  "used_by_closure": true,
+  "kind": "gf-service",
+  "why": [
+   "GF SERVICE for the graphics device's allocator, at the jmp thunk FUN_141957C50 (thunk_FUN_141957c60: `jmp 0x141957C60`; the call site in FUN_1423D4A80 calls the thunk) (not a model of a PES effect: GF has no graphics device; GF is the other side of the seam, as the file layer's reads are). FUN_141957C60(size) = `(*(*DAT_1437C9238)->vtable[0x20])(*DAT_1437C9238, size)`: DAT_1437C9238 is the render system object FUN_141957E30 makes (called from the process-start init FUN_140400410 with the graphics config: its first member is the refcounted DEVICE object, whose method +0x20 allocates a command block). On the clean boot no device exists (DAT_1437C9238 = 0, the call target reads 0).",
+   "Answer: 0, the allocation-failed result. The one translated caller on the anime path, FUN_1423D4A80 (reached from the FixDemo setup FUN_141EB8770), tests its result (`if (puVar2 != 0) {queue the command...}`) and on 0 runs its own cleanup path through the object it was given; GF's engine world queues no render commands.",
+   "Not covered: any caller that needs a real block (none on the engine world's path: the survey names this function only through FUN_1423D4A80); the graphics device itself."
+  ],
+  "model": {
+   "op": "gfx_device_alloc",
+   "effect": "rax = 0 (no device: the allocation fails)"
   }
+ }
  ]
 }

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <map>
 #include <cstdio>
 #include <cstdlib>
@@ -10,6 +11,10 @@
 #include "onthepitch/player/humanoid/humanoid.hpp"
 #include "onthepitch/pestrapactor.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/teamAIcontroller.hpp"
+#include "onthepitch/pesmovestep.hpp"
+#include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/team.hpp"
 #include "pes_match_constants.hpp"
 #include "pes_shared_match.hpp"
@@ -50,6 +55,12 @@ class BreakerCensusProbe : public pestest::Probe {
   std::string episodeLabel_;
   std::map<std::string, long> liveFiringsOther;
   long unarmedFirings = 0;  // play is off and nothing is armed
+  // The walker (docs/re/pes-re-walker-touch.md round 2, R-RED): a man in MOVE, not the designated owner, within kWalkerReach_m of a ball at rest with
+  // no PES holder, starts a trap within kWalkerWindowTicks or the walk is counted once. The reach and the window are the decode's harness choices.
+  static constexpr float kWalkerReach_m = 0.5f;
+  static constexpr long kWalkerWindowTicks = static_cast<long>(pes::kPesTickHz);  // one second of PES ticks
+  std::map<const Player*, long> walkStart_;  // the tick each walk began, -1 once it was counted
+  long walkUntouched = 0;
   void OnStart(Match& match) override { lastCount_ = match.GetStalemateCount(); }
   void OnTick(Match& match) override {
     ++tick_;
@@ -65,6 +76,27 @@ class BreakerCensusProbe : public pestest::Probe {
         n = frozen ? n + 1 : 0;
         constexpr int kFrozenSecond = 100;  // ticks of 10 ms
         freezeActive = freezeActive || n >= kFrozenSecond;
+      }
+    }
+    const bool ballAtRest = match.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
+    const Vector3 ball = match.GetBall()->Predict(0);
+    for (int team = 0; team < 2; ++team) {
+      for (const auto& pl : match.GetTeam(team)->GetAllPlayers()) {
+        if (!pl->IsActive()) continue;
+        const bool walking = match.IsInPlay() && pl->GetCurrentFunctionType() == e_FunctionType_Movement &&
+                             pl.get() != match.GetDesignatedPossessionPlayer() && match.GetPesHolder() == nullptr && ballAtRest &&
+                             (pl->GetPosition() - ball).Get2D().GetLength() <= kWalkerReach_m;
+        const auto it = walkStart_.find(pl.get());
+        if (!walking) {
+          if (it != walkStart_.end()) walkStart_.erase(it);
+          continue;
+        }
+        if (it == walkStart_.end()) {
+          walkStart_[pl.get()] = tick_;
+        } else if (it->second >= 0 && tick_ - it->second >= kWalkerWindowTicks) {
+          walkUntouched++;
+          it->second = -1;
+        }
       }
     }
     const unsigned long count = match.GetStalemateCount();
@@ -118,6 +150,68 @@ class BreakerCensusProbe : public pestest::Probe {
     }
     else
       unarmedFirings++;
+    }
+  }
+
+  // GF_STALL_DUMP=1: one line per live firing, the forced man with his clip, body action bytes, holder state and distance.
+  static void Dump(Match& match) {
+    Player* who = match.GetDesignatedPossessionPlayer();
+    if (!who) {
+      std::printf("STALLDUMP t=%lu man=none\n", match.GetActualTime_ms());
+      return;
+    }
+    const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(who));
+    const Anim* clip = who->GetCurrentAnim();
+    const auto& ms = who->GetMoveStep();
+    Player* holder = match.GetPesHolder();
+    std::printf("STALLDUMP t=%lu man=%d team=%d clip=%s fn=%d cmdfn=%d frame=%d/%d ac8=%d ac9=%d holder=%d retainer=%d ms=%d<-%d dist=%.2f ballv=%.2f owner=%d pesHolder=%d\n",
+                match.GetActualTime_ms(), who->GetID(), who->GetTeamID(), clip->anim ? clip->anim->GetName().c_str() : "-",
+                int(who->GetCurrentFunctionType()), int(clip->originatingCommand.desiredFunctionType), clip->frameNum,
+                clip->anim ? clip->anim->GetFrameCount() : 0,
+                int(p[pes::kPByteAC8Offset]), int(p[pes::kPByteAC9Offset]), match.GetPesHolder() == who ? 1 : 0,
+                match.GetBallRetainer() == who ? 1 : 0, int(ms.state), int(ms.previous),
+                double((who->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength()),
+                double(match.GetBall()->GetMovement().GetLength()),
+                match.GetPesDesignatedOwner() == match.PesActorKeyOf(who) ? 1 : 0,
+                holder ? holder->GetTeamID() * 100 + holder->GetID() : -1);
+    // The movement fields for the 145 locomotion firings: the command's speed and target, the body's speed, the motion MOVESTEP last
+    // issued (-1: the AI's clip), and the target's distance from the forced man.
+    const PlayerCommand& cmd = clip->originatingCommand;
+    std::printf("STALLMOVE t=%lu man=%d cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f motion=%d ms=%d\n", match.GetActualTime_ms(), who->GetID(),
+                double(cmd.desiredVelocityFloat), cmd.useDesiredTarget ? 1 : 0,
+                double((cmd.desiredTarget - who->GetPosition()).Get2D().GetLength()), double(who->GetMovement().GetLength()),
+                pesmovestep::CurrentMotionOf(*who), int(ms.state));
+    // The press state of the forced man's side: is he the loose PRESS man, and is there any PRESS man at all.
+    TeamAIController* ctl = who->GetTeam()->GetController();
+    const Player* pressMan = ctl->GetLoosePressMan();
+    std::printf("STALLPRESS t=%lu forcedIsPresser=%d sidePress=%d sidePressId=%d sideHasPressMan=%d\n", match.GetActualTime_ms(),
+                ctl->IsLoosePresser(who) ? 1 : 0, pressMan ? 1 : 0, pressMan ? pressMan->GetID() : -1,
+                match.GetTeam(1 - who->GetTeamID())->GetController()->GetLoosePressMan() ? 1 : 0);
+    Player* pressOwn = nullptr;
+    for (const auto& p : who->GetTeam()->GetAllPlayers())
+      if (p.get() == pressMan) pressOwn = p.get();
+    if (pressOwn) {
+      const PesDecision& decision = pressOwn->GetPesDecision();
+      const PlayerCommand pcmd = decision.command ? *decision.command : PlayerCommand();
+      const Vector3 ballNow = match.GetBall()->Predict(0);
+      std::printf("STALLPRESSER t=%lu id=%d team=%d dist=%.2f cmdv=%.2f usetgt=%d tgtdist=%.2f bodyv=%.2f fn=%d ms=%d motion=%d play=%.2f pg=%d des=%d grp=%d rate=%.3f nat=%.2f\n", match.GetActualTime_ms(),
+                  pressOwn->GetID(), pressOwn->GetTeamID(), double((pressOwn->GetPosition() - ballNow).Get2D().GetLength()),
+                  double(pcmd.desiredVelocityFloat), pcmd.useDesiredTarget ? 1 : 0,
+                  double((pcmd.desiredTarget - ballNow).Get2D().GetLength()), double(pressOwn->GetMovement().GetLength()),
+                  int(pressOwn->GetCurrentFunctionType()), int(pressOwn->GetMoveStep().state), pesmovestep::CurrentMotionOf(*pressOwn),
+                  pressOwn->CastHumanoid()->GetCurrentAnim() ? double(pressOwn->CastHumanoid()->GetCurrentAnim()->playbackRate) : 0.0,
+                  pressOwn->GetTeam()->PassGetReceiver() == pressOwn ? 1 : 0, match.GetDesignatedPossessionPlayer() == pressOwn ? 1 : 0,
+                  pressOwn->GetIssuedClip().request.group, double(pressOwn->GetIssuedClip().request.rate),
+                  double(pressOwn->CastHumanoid()->PesClipNaturalSpeed(pesmovestep::CurrentMotionOf(*pressOwn))));
+    }
+    if (holder) {
+      const uint8_t* hp = match.PesWorldOf().P(match.PesSlotOf(holder));
+      const Anim* hc = holder->GetCurrentAnim();
+      std::printf("STALLHOLDER t=%lu holder=%d team=%d dist=%.2f clip=%s fn=%d ac8=%d ac9=%d ms=%d\n", match.GetActualTime_ms(),
+                  holder->GetID(), holder->GetTeamID(), double((holder->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength()),
+                  hc->anim ? hc->anim->GetName().c_str() : "-", int(holder->GetCurrentFunctionType()), int(hp[pes::kPByteAC8Offset]),
+                  int(hp[pes::kPByteAC9Offset]), int(holder->GetMoveStep().state));
+    }
   }
 
  private:
@@ -199,7 +293,7 @@ TrapRestartProbe trapCensus;
 // A PES trap's touch is the body contact scan's grant (FUN_1406EDCE0, docs/ports/pes-port-TrapContact.md): the trap tick sets the
 // contact-pending bit on the clip's contact frame, the scan's reach test passes or refuses it, and only a pass touches the ball. Every
 // tick, each man in a PES trap clip is filed by whether the scan granted him a touch this tick (the grant counter moved) and whether he
-// touched the ball this tick (his last-touch time is now).
+// touched the ball this tick (his last-touch time is the tick's start: Match::Process has moved the clock on by the time the probe runs).
 class TrapContactProbe : public pestest::Probe {
  public:
   TrapContactProbe()
@@ -623,6 +717,17 @@ TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
                                       }();
 }
 
+// docs/re/pes-re-walker-touch.md round 2 (R-RED): PES's reaction entry 3 admits TRAP for a man in MOVE who is not the designated owner, 0.5 m from a
+// ball at rest with no holder, with no approach-direction gate. A walk that ends with no trap start inside one second is that touch not made.
+TEST(PesStall, ANonOwnerWalkerBesideARestingBallStartsATrapWithinASecond) {
+  pestest::Run(census);
+  if (census.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(census.setupError.empty()) << census.setupError;
+  pestest::Settle(census);
+  ASSERT_TRUE(census.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(census.walkUntouched, 0) << census.walkUntouched << " walks beside a resting ball ended with no trap start inside one second";
+}
+
 TEST(PesStall, ANoManIsEverHandedNoCommandAtAClipEnd) {
   pestest::Run(fallbackCensus);
   if (fallbackCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
@@ -784,4 +889,35 @@ TEST(PesStall, APesDribblerTouchMovesTheBall) {
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
   EXPECT_GT(contactCensus.dribbleKicks, 0u) << "no PES dribbler touch reached the ball in the whole match (scans " << contactCensus.dribbleScans << ", with contact pending "
       << contactCensus.dribblePending << ", granted " << contactCensus.dribbleGrants << ")";
+
+namespace {
+// PES's holder field MA+0x2601C is the W1 holder: the actor of the newest touch key, and nothing clears it on a loose ball (HolderRE
+// section 2; 0x140457070 writes it, 0x140A627E0 reads it as the ball owner). GF writes this field from the ball retainer, which clears
+// as soon as the ball is loose, so the trap-end admission (0x14079EE70 / 0x1406EC5F0) compares a trapper with "no owner". Every tick,
+// both sides' field must hold the PES holder's slot (or the no-slot value when no holder exists).
+class HolderWorldProbe : public pestest::Probe {
+ public:
+  HolderWorldProbe() : Probe("PesStallHolderWorld", {true, kMinutes, kSeed}, kMaxTicks, /*stallStops=*/false, /*judgeEnd=*/false) {}
+  long ticks = 0;
+  long mismatches = 0;  // side-ticks whose MA+0x2601C is not the PES holder's slot
+  void OnTick(Match& match) override {
+    ++ticks;
+    const Player* holder = match.GetPesHolder();
+    const uint32_t want = holder ? static_cast<uint32_t>(match.PesSlotOf(holder)) : pes::kMiNoSlot;
+    for (int side = 0; side < 2; ++side) {
+      if (pes::LoadU32(match.PesWorldOf().Ma(side), pes::kMaOwnerOffset) != want) mismatches++;
+    }
+  }
+};
+HolderWorldProbe holderWorld;
+}  // namespace
+
+TEST(PesStall, TheWorldHolderFieldIsThePesHolderEveryTick) {
+  pestest::Run(holderWorld);
+  if (holderWorld.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(holderWorld.setupError.empty()) << holderWorld.setupError;
+  pestest::Settle(holderWorld);
+  ASSERT_TRUE(holderWorld.stop.gameOver) << "the match did not reach full time";
+  EXPECT_EQ(holderWorld.mismatches, 0) << holderWorld.mismatches << " of " << 2 * holderWorld.ticks
+                                       << " side-ticks had MA+0x2601C other than the PES holder";
 }

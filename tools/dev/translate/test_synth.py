@@ -156,6 +156,37 @@ def main():
         if read(os.path.join(rt, "mem.bin")) != src_mem:
             fail("a retarget with no memory write changed mem.bin")
         print("ok: as retargets the entry; a 32-bit register writes zero-extended")
+
+        # A static spec moves the call's return address ("ret") and writes memory; a captured all-zero page (a fresh heap page the
+        # allocator touches) must stay data in the written state, not become a hole (a hole reads as "page not captured").
+        zsrc = os.path.join(work, "zsrc")
+        os.makedirs(zsrc)
+        make_fixture(zsrc)
+        with open(os.path.join(zsrc, "mem.bin"), "r+b") as f:
+            f.seek(PAGE)
+            f.write(bytes(PAGE))
+        new_ret = 0x140005678
+        ret_spec = {"label": "rz", "seed": 1, "as": "0x140002000", "cases": [{"name": "rz"}],
+                    "fields": [{"name": "ret", "at": "ret", "type": "u64", "values": [new_ret]},
+                               {"name": "poke", "at": "va:0x20100", "type": "hex", "values": ["0a0b0c0d"]}]}
+        r = run_synth(zsrc, os.path.join(work, "rz"), ret_spec, 1)
+        if r.returncode != 0:
+            fail("synth.py refused the ret spec: %s" % (r.stderr or r.stdout).strip()[-300:])
+        rz = os.path.join(work, "rz", "rz")
+        rz_vals, base_vals = CALL.unpack(read(os.path.join(rz, "call.bin"))), CALL.unpack(src_call)
+        if rz_vals[RET_SLOT] != new_ret or [v for i, v in enumerate(rz_vals) if i != RET_SLOT] != [v for i, v in enumerate(base_vals) if i != RET_SLOT]:
+            fail("ret field: slot %#x, want %#x with every other slot unchanged" % (rz_vals[RET_SLOT], new_ret))
+        fd = os.open(os.path.join(rz, "mem.bin"), os.O_RDONLY)
+        try:
+            try:
+                at = os.lseek(fd, PAGE, os.SEEK_DATA)
+            except OSError:  # ENXIO: no data at or after PAGE, the page is a hole
+                at = None
+            if at != PAGE:
+                fail("a captured all-zero page became a hole in the written state")
+        finally:
+            os.close(fd)
+        print("ok: ret moves the return address; a captured zero page stays data")
         bad = dict(SPEC, bogus=1)
         bad_path = os.path.join(work, "bad.json")
         with open(bad_path, "w") as f:

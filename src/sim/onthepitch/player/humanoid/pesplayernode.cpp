@@ -1,5 +1,6 @@
 #include "pesplayernode.hpp"
 
+#include <cmath>
 #include <string_view>
 #include <vector>
 

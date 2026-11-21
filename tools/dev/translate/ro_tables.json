@@ -1,56 +1,378 @@
 [
-  {"va": "0x142998540", "bytes": "0x550", "evidence": "CONFIRMED 0x14000C0A0: do/while over 0x55 rows of 0x10 bytes (dword key at +8, qword at +0)"},
-  {"va": "0x1429B3DE0", "bytes": "0x486", "evidence": "CONFIRMED 0x14009E640: row = (param-0x100)>>4 in 0..0xC0, three u16 per row (stride 6)"},
-  {"va": "0x1429B4280", "bytes": "0xE58", "evidence": "CONFIRMED 0x14009E640: u16 index = row.off + (param - row.base) < row.off + row.limit - row.base; the largest over the 0xC1 rows (scripted over the image) is 0x72C entries of 2 bytes"},
-  {"va": "0x1429BDD4C", "bytes": "0xC", "evidence": "CONFIRMED 0x1400EC680: (ushort)(param-0x7A) < 0xC"},
-  {"va": "0x14257F780", "bytes": "0x1C00", "evidence": "CONFIRMED 0x14038F0E0: byte index (n-1)>>3 with n < 0xE001"},
-  {"va": "0x14258E270", "bytes": "0x10", "evidence": "CONFIRMED 0x1403FB410: index < 0x10"},
-  {"va": "0x1425E3540", "bytes": "0x400", "evidence": "CONFIRMED 0x1406E6640: float table [0x1425E3740 + (signed char)p*4]: the whole signed-byte range, -0x80..0x7F entries"},
-  {"va": "0x1425E3790", "bytes": "0x7C", "evidence": "CONFIRMED 0x1406E7BC0: index clamped to 0..0x1E"},
-  {"va": "0x1425E4700", "bytes": "0x2C4", "evidence": "CONFIRMED 0x1406EA840: nine 0x50-byte rows (0x1425E4700..0x1425E4980), 0x11 dwords / bytes each (offset 0..0x43)"},
-  {"va": "0x1425E36A8", "bytes": "0x100", "evidence": "CONFIRMED 0x1406EA840: byte table 0x1425E3728 indexed by a signed char (-0x80..0x7F)"},
-  {"va": "0x1425E36C0", "bytes": "0x4C", "evidence": "CONFIRMED 0x1406EB100: float table, index 0..0x11 and one past (arr[i+1])"},
-  {"va": "0x1425E3710", "bytes": "0x12", "evidence": "CONFIRMED 0x1406EB100: byte table, index 0..0x11"},
-  {"va": "0x1425E4BD0", "bytes": "0x590", "evidence": "INF 0x140702680: float table [0x1425E4D60 + param_3*4], param_3 an unguarded int; the window spans the harness corpus (run.py _rand_case: i32 -100..100, u8 0..255), so the recorded diff stays bit-exact"},
-  {"va": "0x1425F1F30", "bytes": "0x590", "evidence": "INF 0x14085F150: dword table [0x1425F20C0 + *param*4], unguarded ints; spans the harness corpus domain (-100..255)"},
-  {"va": "0x1425F1F78", "bytes": "0x590", "evidence": "INF 0x14085F150: dword table [0x1425F2108 + param_1[1]*4], unguarded; spans the harness corpus domain (-100..255)"},
-  {"va": "0x142613C60", "bytes": "0x78", "evidence": "CONFIRMED 0x1408CAF60: param < 0x3C, two bytes per entry"},
-  {"va": "0x142613B90", "bytes": "0x590", "evidence": "INF 0x1408CB0B0: dword mask table [0x142613D20 + param_3*4], unguarded int; spans the harness corpus domain (-100..255)"},
-  {"va": "0x142616C4B", "bytes": "0x18", "evidence": "CONFIRMED 0x1408D95F0: three strings compared byte by byte: 5 + 5 + 7 bytes at 0x142616C4C / C54 / C5C (the reads are [index+1 + base - 1], so the origin estimate starts one byte early)"},
-  {"va": "0x142645A40", "bytes": "0x440", "evidence": "CONFIRMED 0x140A603C0: 0x22 rows of 0x20 bytes (the 0x21 < param_2 bound; MatchInfo6 pesimagetables kTierTableVa)"},
-  {"va": "0x142646120", "bytes": "0x1BD0", "evidence": "CONFIRMED 0x140A65900 (row = byte & 0x7F) and INF 0x140A65C80 (row = int param, unguarded): rows of 0x14 bytes, spanning the harness corpus domain (-100..255 rows)"},
-  {"va": "0x1426482F0", "bytes": "0x378", "evidence": "CONFIRMED 0x140A6D120/0x140A6DD30/0x140A6E3C0: anime class table 0x1426484F0, ids -0x80..0x5D (MOVSX class byte, CMP 0x5E; MatchInfo6 kAnimeClassBack)"},
-  {"va": "0x1426483E0", "bytes": "0x1120", "evidence": "INF 0x140A6D120: [0x1426488A0 + ((state-1)*3 + slot)*4], state an unguarded int; spans the harness corpus domain (state -100..255); the 3 dwords at 0x1426488E8 lie inside"},
-  {"va": "0x142648668", "bytes": "0x400", "evidence": "CONFIRMED 0x140A6D380 (14 floats walked by pointer to 0x142648694) and INF 0x140A6D400 (u32 index, unguarded): spans the harness corpus domain (0..255)"},
-  {"va": "0x142648510", "bytes": "0x590", "evidence": "INF 0x140A6D420: dword table [0x1426486A0 + param_3*4], unguarded int; spans the harness corpus domain (-100..255)"},
-  {"va": "0x14264CAD0", "bytes": "0x3780", "evidence": "INF 0x140A828B0: qword table [0x14264DA70 + (s1*4 + s2)*8], s1/s2 unguarded ints; spans the harness corpus domain (-100..255 each)"},
-  {"va": "0x142654720", "bytes": "0x590", "evidence": "INF 0x140A92470: dword table [0x1426548B0 + param_2*4], param_2 an unguarded int (3 takes the other branch); spans the harness corpus domain (-100..255)"},
-  {"va": "0x142655950", "bytes": "0x804", "evidence": "CONFIRMED 0x140A92C80: quarter-wave sine, 513 floats (MatchInfo6 kQuarterSineCount)"},
-  {"va": "0x1427DF270", "bytes": "0xB0", "evidence": "CONFIRMED 0x140EC9B80: pointer walk 0x1427DF270 .. 0x1427DF320"},
-  {"va": "0x1427DF320", "bytes": "0x34", "evidence": "CONFIRMED 0x140EC9BB0: pointer walk 0x1427DF320 .. 0x1427DF354"},
-  {"va": "0x142951A50", "bytes": "0xF0", "evidence": "CONFIRMED 0x14144DFD0: 0x1E rows of (key, value) dwords"},
-  {"va": "0x142951A48", "bytes": "0x8", "evidence": "CONFIRMED 0x14144E010: one (key, value) row"},
-  {"va": "0x142951930", "bytes": "0x118", "evidence": "CONFIRMED 0x14144E050: 0x23 rows of (key, value) dwords"},
-  {"va": "0x14297D800", "bytes": "0x2A0", "bound": "OPEN, no GF binding yet: 0x1414FDBC0 walks 0x1C rows of 0x18 bytes (id, pointer, count) whose pointer slot 0x14297D808 its spec patches (patch_addrs IMG.14297D808), so a bake would break its bit-exact proof; the row pointers lead to further image tables; no GF code calls 0x1414FDBC0 or its only layer caller 0x1414CB2E0", "evidence": "CONFIRMED 0x1414FDBC0 (decompile)"},
-  {"va": "0x142A82900", "bytes": "0xC0", "evidence": "CONFIRMED 0x14195C580: 0xC rows of 0x10 bytes"},
-  {"va": "0x142A91CC8", "bytes": "0x40", "evidence": "CONFIRMED 0x1419C0290: four 4-dword index rows (param 0..3)"},
-  {"va": "0x142A96CE0", "bytes": "0x4E0", "evidence": "CONFIRMED 0x1419E4A20: 0x4E rows of 0x10 bytes"},
-  {"va": "0x142AC2230", "bytes": "0x24", "evidence": "CONFIRMED 0x141B40150: base-36 digit string, index = n mod 0x24"},
-  {"va": "0x142AD1EC4", "bytes": "0x40", "evidence": "CONFIRMED 0x141B972D0: 0x10 dwords walked by a pointer"},
-  {"va": "0x142BD06C0", "bytes": "0x400", "evidence": "CONFIRMED 0x1420A7260: dword table indexed by a byte (256 entries)"},
-  {"va": "0x142BEF098", "bytes": "0x3C", "evidence": "CONFIRMED 0x142110700: two 7-float tables at 0x142BEF098 and 0x142BEF0B8 indexed 0..6"},
-  {"va": "0x1425DC5A0", "bytes": "0x84", "evidence": "CONFIRMED 0x1406B0180: index (flag word >> 0x1B) + 1 = 1..0x20"},
-  {"va": "0x1425F1C20", "bytes": "0x450", "evidence": "INF 0x140846ED0: dword tables 0x1425F1E20 and 0x1425F1E70 indexed by *(param_1+0x24), which must equal the signed-char answer of 0x1406EB100 (-0x80..0x7F); the window spans that range for both"},
-  {"va": "0x1425F1D30", "bytes": "0x1D8", "evidence": "INF 0x140847090: dword table [0x1425F1EC0 + state*4], state int < 0x12 (not 0, not 0x11), unguarded below; spans the harness corpus domain (-100..)"},
-  {"va": "0x142644F10", "bytes": "0x130", "evidence": "CONFIRMED 0x140A59B20: three tables 0x142644F10 / F80 / FF0, index < 0x16 (the `uVar7 < 0x16` guard)"},
-  {"va": "0x1404B8410", "bytes": "0x20", "evidence": "CONFIRMED 0x1404B8290: switch dword offsets (rva) [0x1404B8410 + r8d*4], 0x1404B82BA `mov ebx,7; cmp r8d,ebx; ja` bounds the index to 0..7 (8 entries)"},
-  {"va": "0x1403A7FA0", "bytes": "0x10", "evidence": "CONFIRMED 0x1403A7290: switch dword offsets (rva) [0x1403A7FA0 + b*4] with b read from the byte table at 0x1403A7FB0 (0xBC entries, 0x1403A78F7 `cmp eax,0xBB; ja`), whose largest value is 3 (scripted over the image): 4 entries"},
-  {"va": "0x1403A7E00", "bytes": "0x14", "evidence": "CONFIRMED 0x1403A7290: switch dword offsets (rva) [0x1403A7E00 + b*4] (site 0x1403A7659) with b read from the byte table at 0x1403A7E14 (site 0x1403A7650, 0xBC entries, 0x1403A764C `cmp eax,0xBB; ja`), whose largest value is 4 (scripted over the image): 5 entries"},
-  {"va": "0x1403A7E14", "bytes": "0xBC", "evidence": "CONFIRMED 0x1403A7290: byte index table [0x1403A7E14 + i], i = (b | 0x80) - 0x3F bounded 0..0xBB by `cmp eax,0xBB; ja` at 0x1403A7647/0x1403A764C: 0xBC entries"},
-  {"va": "0x1403A7ED0", "bytes": "0x14", "evidence": "CONFIRMED 0x1403A7290: switch dword offsets (rva) [0x1403A7ED0 + b*4] (site 0x1403A77AF) with b read from the byte table at 0x1403A7EE4 (site 0x1403A77A6, 0xBC entries, 0x1403A77A2 `cmp eax,0xBB; ja`), whose largest value is 4 (scripted over the image): 5 entries"},
-  {"va": "0x1403A7EE4", "bytes": "0xBC", "evidence": "CONFIRMED 0x1403A7290: byte index table [0x1403A7EE4 + i], i bounded 0..0xBB by `cmp eax,0xBB; ja` at 0x1403A779D/0x1403A77A2: 0xBC entries"},
-  {"va": "0x1403A7FB0", "bytes": "0xBC", "evidence": "CONFIRMED 0x1403A7290: byte index table [0x1403A7FB0 + i] (site 0x1403A7900), i bounded 0..0xBB by `cmp eax,0xBB; ja` at 0x1403A78F7/0x1403A78FC: 0xBC entries; feeds the dword table 0x1403A7FA0"},
-  {"va": "0x14258A3B0", "bytes": "0x30", "evidence": "CONFIRMED 0x1403E1C40: dword masks 2^k-1 [r8 + i*4] with i in 0..0xB (0x1403E1C91 `cmp eax,0xB; jle`; the index word stored at +0x1E is at most 0xB): 12 entries, the 13th dword is the EH magic 0x19930522; the same table is read by 0x1403E1F50 and 0x1403E2120 at the stored index"},
-  {"va": "0x1425EB7F8", "bytes": "0xC", "evidence": "CONFIRMED 0x1407A68D0: float table [0x1425EB7F8 + n*4], n = (signed char)param_1[8] clamped to 0..2 (cmp < 3 else 2, negative to 0): 3 entries"},
-  {"va": "0x1425DD980", "bytes": "0x5B8", "evidence": "INF (extent, not per-table bounds): the contiguous initialised .rdata block 0x1425DD980..0x1425DDF38 that the anime-motion row pickers read: 0x1406B9BD0 [0x1425DDA50 + (p4 + p3*8)*4] and [0x1425DD988 + p5*4]; 0x1406B9D80 [0x1425DDAD0 + (p4 + p3*8)*4] and [0x1425DD988 + p5*4]; 0x1406B9AA0 the float rows 0x1425DDE38..0x1425DDE60; 0x1406B9B20 the float rows 0x1425DDEB0 / 0x1425DDEE0 (10 entries) and the dword row 0x1425DDF10 (10 entries); 0x1406B9E50 the float row 0x1425DDE10; 0x1406B8DE0 the dword 0x1425DDCD8. Every read is a constant table between the neighbours dumped from the image (all words are indices, floats or -1 terminators; no pointer or relocation); declaring the whole block is harmless where an index range was not derived from the callers (bytes beyond a reader's own table are never read by it)"}
+  {
+    "va": "0x142581374",
+    "bytes": "0x80",
+    "evidence": "CONFIRMED 0x1403AE29A: `lea rax,[0x142581380]; mov eax,[rax+r8*4-0xC]` (0x1403AE2A1) reads entry r8 at 0x142581374 + r8*4, with r8 in 2..0x1F (0x1403AE28E `cmp r8,1; je` takes the shift path for r8 = 1; 0x1403AE294 `cmp r8,0x1F; ja`): the heap's region-size reciprocals"
+  },
+  {
+    "va": "0x142B67EF0",
+    "bytes": "0x2",
+    "evidence": "CONFIRMED 0x141EB6D79 `lea r14,[rip+0xcb1170]` = 0x142B67EF0 (r14 is not advanced); 0x141EB6DF3 `cmp word ptr [r14], ax` compares the one fixed word against the helper's value in a row loop (0x141EB6DE0..0x141EB6E02): a single word, not a walked table"
+  },
+  {
+    "va": "0x142998540",
+    "bytes": "0x550",
+    "evidence": "CONFIRMED 0x14000C0A0: do/while over 0x55 rows of 0x10 bytes (dword key at +8, qword at +0)"
+  },
+  {
+    "va": "0x1429B3DE0",
+    "bytes": "0x486",
+    "evidence": "CONFIRMED 0x14009E640: row = (param-0x100)>>4 in 0..0xC0, three u16 per row (stride 6)"
+  },
+  {
+    "va": "0x1429B4280",
+    "bytes": "0xE58",
+    "evidence": "CONFIRMED 0x14009E640: u16 index = row.off + (param - row.base) < row.off + row.limit - row.base; the largest over the 0xC1 rows (scripted over the image) is 0x72C entries of 2 bytes"
+  },
+  {
+    "va": "0x1429BDD4C",
+    "bytes": "0xC",
+    "evidence": "CONFIRMED 0x1400EC680: (ushort)(param-0x7A) < 0xC"
+  },
+  {
+    "va": "0x14257F780",
+    "bytes": "0x1C00",
+    "evidence": "CONFIRMED 0x14038F0E0: byte index (n-1)>>3 with n < 0xE001"
+  },
+  {
+    "va": "0x14258E270",
+    "bytes": "0x10",
+    "evidence": "CONFIRMED 0x1403FB410: index < 0x10"
+  },
+  {
+    "va": "0x1425E3540",
+    "bytes": "0x400",
+    "evidence": "CONFIRMED 0x1406E6640: float table [0x1425E3740 + (signed char)p*4]: the whole signed-byte range, -0x80..0x7F entries"
+  },
+  {
+    "va": "0x1425E3790",
+    "bytes": "0x7C",
+    "evidence": "CONFIRMED 0x1406E7BC0: index clamped to 0..0x1E"
+  },
+  {
+    "va": "0x1425E4700",
+    "bytes": "0x2C4",
+    "evidence": "CONFIRMED 0x1406EA840: nine 0x50-byte rows (0x1425E4700..0x1425E4980), 0x11 dwords / bytes each (offset 0..0x43)"
+  },
+  {
+    "va": "0x1425E36A8",
+    "bytes": "0x100",
+    "evidence": "CONFIRMED 0x1406EA840: byte table 0x1425E3728 indexed by a signed char (-0x80..0x7F)"
+  },
+  {
+    "va": "0x1425E36C0",
+    "bytes": "0x4C",
+    "evidence": "CONFIRMED 0x1406EB100: float table, index 0..0x11 and one past (arr[i+1])"
+  },
+  {
+    "va": "0x1425E3710",
+    "bytes": "0x12",
+    "evidence": "CONFIRMED 0x1406EB100: byte table, index 0..0x11"
+  },
+  {
+    "va": "0x1425E4BD0",
+    "bytes": "0x590",
+    "evidence": "INF 0x140702680: float table [0x1425E4D60 + param_3*4], param_3 an unguarded int; the window spans the harness corpus (run.py _rand_case: i32 -100..100, u8 0..255), so the recorded diff stays bit-exact"
+  },
+  {
+    "va": "0x1425F1F30",
+    "bytes": "0x590",
+    "evidence": "INF 0x14085F150: dword table [0x1425F20C0 + *param*4], unguarded ints; spans the harness corpus domain (-100..255)"
+  },
+  {
+    "va": "0x1425F1F78",
+    "bytes": "0x590",
+    "evidence": "INF 0x14085F150: dword table [0x1425F2108 + param_1[1]*4], unguarded; spans the harness corpus domain (-100..255)"
+  },
+  {
+    "va": "0x142613C60",
+    "bytes": "0x78",
+    "evidence": "CONFIRMED 0x1408CAF60: param < 0x3C, two bytes per entry"
+  },
+  {
+    "va": "0x142613B90",
+    "bytes": "0x590",
+    "evidence": "INF 0x1408CB0B0: dword mask table [0x142613D20 + param_3*4], unguarded int; spans the harness corpus domain (-100..255)"
+  },
+  {
+    "va": "0x142616C4B",
+    "bytes": "0x18",
+    "evidence": "CONFIRMED 0x1408D95F0: three strings compared byte by byte: 5 + 5 + 7 bytes at 0x142616C4C / C54 / C5C (the reads are [index+1 + base - 1], so the origin estimate starts one byte early)"
+  },
+  {
+    "va": "0x142645A40",
+    "bytes": "0x440",
+    "evidence": "CONFIRMED 0x140A603C0: 0x22 rows of 0x20 bytes (the 0x21 < param_2 bound; MatchInfo6 pesimagetables kTierTableVa)"
+  },
+  {
+    "va": "0x142646120",
+    "bytes": "0x1BD0",
+    "evidence": "CONFIRMED 0x140A65900 (row = byte & 0x7F) and INF 0x140A65C80 (row = int param, unguarded): rows of 0x14 bytes, spanning the harness corpus domain (-100..255 rows)"
+  },
+  {
+    "va": "0x1426482F0",
+    "bytes": "0x378",
+    "evidence": "CONFIRMED 0x140A6D120/0x140A6DD30/0x140A6E3C0: anime class table 0x1426484F0, ids -0x80..0x5D (MOVSX class byte, CMP 0x5E; MatchInfo6 kAnimeClassBack)"
+  },
+  {
+    "va": "0x1426483E0",
+    "bytes": "0x1120",
+    "evidence": "INF 0x140A6D120: [0x1426488A0 + ((state-1)*3 + slot)*4], state an unguarded int; spans the harness corpus domain (state -100..255); the 3 dwords at 0x1426488E8 lie inside"
+  },
+  {
+    "va": "0x142648668",
+    "bytes": "0x400",
+    "evidence": "CONFIRMED 0x140A6D380 (14 floats walked by pointer to 0x142648694) and INF 0x140A6D400 (u32 index, unguarded): spans the harness corpus domain (0..255)"
+  },
+  {
+    "va": "0x142648510",
+    "bytes": "0x590",
+    "evidence": "INF 0x140A6D420: dword table [0x1426486A0 + param_3*4], unguarded int; spans the harness corpus domain (-100..255)"
+  },
+  {
+    "va": "0x14264CAD0",
+    "bytes": "0x3780",
+    "evidence": "INF 0x140A828B0: qword table [0x14264DA70 + (s1*4 + s2)*8], s1/s2 unguarded ints; spans the harness corpus domain (-100..255 each)"
+  },
+  {
+    "va": "0x142654720",
+    "bytes": "0x590",
+    "evidence": "INF 0x140A92470: dword table [0x1426548B0 + param_2*4], param_2 an unguarded int (3 takes the other branch); spans the harness corpus domain (-100..255)"
+  },
+  {
+    "va": "0x142655950",
+    "bytes": "0x804",
+    "evidence": "CONFIRMED 0x140A92C80: quarter-wave sine, 513 floats (MatchInfo6 kQuarterSineCount)"
+  },
+  {
+    "va": "0x1427DF270",
+    "bytes": "0xB0",
+    "evidence": "CONFIRMED 0x140EC9B80: pointer walk 0x1427DF270 .. 0x1427DF320"
+  },
+  {
+    "va": "0x1427DF320",
+    "bytes": "0x34",
+    "evidence": "CONFIRMED 0x140EC9BB0: pointer walk 0x1427DF320 .. 0x1427DF354"
+  },
+  {
+    "va": "0x142951A50",
+    "bytes": "0xF0",
+    "evidence": "CONFIRMED 0x14144DFD0: 0x1E rows of (key, value) dwords"
+  },
+  {
+    "va": "0x142951A48",
+    "bytes": "0x8",
+    "evidence": "CONFIRMED 0x14144E010: one (key, value) row"
+  },
+  {
+    "va": "0x142951930",
+    "bytes": "0x118",
+    "evidence": "CONFIRMED 0x14144E050: 0x23 rows of (key, value) dwords"
+  },
+  {
+    "va": "0x14297D800",
+    "bytes": "0x2A0",
+    "bound": "OPEN, no GF binding yet: 0x1414FDBC0 walks 0x1C rows of 0x18 bytes (id, pointer, count) whose pointer slot 0x14297D808 its spec patches (patch_addrs IMG.14297D808), so a bake would break its bit-exact proof; the row pointers lead to further image tables; no GF code calls 0x1414FDBC0 or its only layer caller 0x1414CB2E0",
+    "evidence": "CONFIRMED 0x1414FDBC0 (decompile)"
+  },
+  {
+    "va": "0x142A82900",
+    "bytes": "0xC0",
+    "evidence": "CONFIRMED 0x14195C580: 0xC rows of 0x10 bytes"
+  },
+  {
+    "va": "0x142A91CC8",
+    "bytes": "0x40",
+    "evidence": "CONFIRMED 0x1419C0290: four 4-dword index rows (param 0..3)"
+  },
+  {
+    "va": "0x142A96CE0",
+    "bytes": "0x4E0",
+    "evidence": "CONFIRMED 0x1419E4A20: 0x4E rows of 0x10 bytes"
+  },
+  {
+    "va": "0x142AC2230",
+    "bytes": "0x24",
+    "evidence": "CONFIRMED 0x141B40150: base-36 digit string, index = n mod 0x24"
+  },
+  {
+    "va": "0x142AD1EC4",
+    "bytes": "0x40",
+    "evidence": "CONFIRMED 0x141B972D0: 0x10 dwords walked by a pointer"
+  },
+  {
+    "va": "0x142BD06C0",
+    "bytes": "0x400",
+    "evidence": "CONFIRMED 0x1420A7260: dword table indexed by a byte (256 entries)"
+  },
+  {
+    "va": "0x142BEF098",
+    "bytes": "0x3C",
+    "evidence": "CONFIRMED 0x142110700: two 7-float tables at 0x142BEF098 and 0x142BEF0B8 indexed 0..6"
+  },
+  {
+    "va": "0x1425DC5A0",
+    "bytes": "0x84",
+    "evidence": "CONFIRMED 0x1406B0180: index (flag word >> 0x1B) + 1 = 1..0x20"
+  },
+  {
+    "va": "0x1425F1C20",
+    "bytes": "0x450",
+    "evidence": "INF 0x140846ED0: dword tables 0x1425F1E20 and 0x1425F1E70 indexed by *(param_1+0x24), which must equal the signed-char answer of 0x1406EB100 (-0x80..0x7F); the window spans that range for both"
+  },
+  {
+    "va": "0x1425F1D30",
+    "bytes": "0x1D8",
+    "evidence": "INF 0x140847090: dword table [0x1425F1EC0 + state*4], state int < 0x12 (not 0, not 0x11), unguarded below; spans the harness corpus domain (-100..)"
+  },
+  {
+    "va": "0x142644F10",
+    "bytes": "0x130",
+    "evidence": "CONFIRMED 0x140A59B20: three tables 0x142644F10 / F80 / FF0, index < 0x16 (the `uVar7 < 0x16` guard)"
+  },
+  {
+    "va": "0x1404B8410",
+    "bytes": "0x20",
+    "evidence": "CONFIRMED 0x1404B8290: switch dword offsets (rva) [0x1404B8410 + r8d*4], 0x1404B82BA `mov ebx,7; cmp r8d,ebx; ja` bounds the index to 0..7 (8 entries)"
+  },
+  {
+    "va": "0x142581374",
+    "bytes": "0x80",
+    "evidence": "CONFIRMED 0x1403AE29A: `lea rax,[0x142581380]; mov eax,[rax+r8*4-0xC]` (0x1403AE2A1) with r8 in 2..0x1F (0x1403AE28E `cmp r8,1; je`, 0x1403AE294 `cmp r8,0x1F; ja`): the heap's region-size reciprocals (ceil(2^21 / r8): r8 = 3 reads 0xAAAAB). The read starts 12 bytes below the table, inside the 0x14257F780 byte table's last 12 bytes, so the base alone put it in that table's window (live2/pid2740946/seq1062's ctor replay read 0 there)"
+  },
+  {
+    "va": "0x142B65D83",
+    "bytes": "0x28",
+    "evidence": "CONFIRMED 0x141EA7190: the five extension strings the job maker compares the name's last dot with, byte by byte (loop bounds 5, 5, 4, 5, 5): .mtar at 0x142B65D84, .frig 0x142B65D8C, .ask 0x142B65D94, .gani 0x142B65D9C, .geom 0x142B65DA4 (script-read from the image); each read is [index + 1 + base - 1], so the origin estimate starts one byte early (sites 0x141EA7267, 0x141EA7307, 0x141EA73B7, 0x141EA7457, 0x141EA74F7)"
+  },
+  {
+    "va": "0x1403A7FA0",
+    "bytes": "0x10",
+    "evidence": "CONFIRMED 0x1403A7290: switch dword offsets (rva) [0x1403A7FA0 + b*4] with b read from the byte table at 0x1403A7FB0 (0xBC entries, 0x1403A78F7 `cmp eax,0xBB; ja`), whose largest value is 3 (scripted over the image): 4 entries"
+  },
+  {
+    "va": "0x1403A7E00",
+    "bytes": "0x14",
+    "evidence": "CONFIRMED 0x1403A7290: switch dword offsets (rva) [0x1403A7E00 + b*4] (site 0x1403A7659) with b read from the byte table at 0x1403A7E14 (site 0x1403A7650, 0xBC entries, 0x1403A764C `cmp eax,0xBB; ja`), whose largest value is 4 (scripted over the image): 5 entries"
+  },
+  {
+    "va": "0x1403A7E14",
+    "bytes": "0xBC",
+    "evidence": "CONFIRMED 0x1403A7290: byte index table [0x1403A7E14 + i], i = (b | 0x80) - 0x3F bounded 0..0xBB by `cmp eax,0xBB; ja` at 0x1403A7647/0x1403A764C: 0xBC entries"
+  },
+  {
+    "va": "0x1403A7ED0",
+    "bytes": "0x14",
+    "evidence": "CONFIRMED 0x1403A7290: switch dword offsets (rva) [0x1403A7ED0 + b*4] (site 0x1403A77AF) with b read from the byte table at 0x1403A7EE4 (site 0x1403A77A6, 0xBC entries, 0x1403A77A2 `cmp eax,0xBB; ja`), whose largest value is 4 (scripted over the image): 5 entries"
+  },
+  {
+    "va": "0x1403A7EE4",
+    "bytes": "0xBC",
+    "evidence": "CONFIRMED 0x1403A7290: byte index table [0x1403A7EE4 + i], i bounded 0..0xBB by `cmp eax,0xBB; ja` at 0x1403A779D/0x1403A77A2: 0xBC entries"
+  },
+  {
+    "va": "0x1403A7FB0",
+    "bytes": "0xBC",
+    "evidence": "CONFIRMED 0x1403A7290: byte index table [0x1403A7FB0 + i] (site 0x1403A7900), i bounded 0..0xBB by `cmp eax,0xBB; ja` at 0x1403A78F7/0x1403A78FC: 0xBC entries; feeds the dword table 0x1403A7FA0"
+  },
+  {
+    "va": "0x14258A3B0",
+    "bytes": "0x30",
+    "evidence": "CONFIRMED 0x1403E1C40: dword masks 2^k-1 [r8 + i*4] with i in 0..0xB (0x1403E1C91 `cmp eax,0xB; jle`; the index word stored at +0x1E is at most 0xB): 12 entries, the 13th dword is the EH magic 0x19930522; the same table is read by 0x1403E1F50 and 0x1403E2120 at the stored index"
+  },
+  {
+    "va": "0x1425EB7F8",
+    "bytes": "0xC",
+    "evidence": "CONFIRMED 0x1407A68D0: float table [0x1425EB7F8 + n*4], n = (signed char)param_1[8] clamped to 0..2 (cmp < 3 else 2, negative to 0): 3 entries"
+  },
+  {
+    "va": "0x14257CC90",
+    "bytes": "0x90",
+    "evidence": "CONFIRMED 0x140389F10: Lua's library registry (luaL_openlibs): rows of (name pointer, open function) walked until a null function (8 rows: base, package, table, io, os, string, math, debug; row 8 is the null terminator): 0x90 bytes, read at [rbx] / [rbx+0x18] by the loop at 0x140389F30..0x140389F63"
+  },
+  {
+    "va": "0x14257D090",
+    "bytes": "0x58",
+    "evidence": "CONFIRMED 0x14038C2C0 / 0x14038C350: Lua's luaT_typenames, a qword name pointer per type tag [r9 + tt*8], tt in 0..10 (nil, boolean, userdata, number, string, table, function, userdata, thread, proto, upval): 11 entries"
+  },
+  {
+    "va": "0x14257CF50",
+    "bytes": "0x100",
+    "evidence": "CONFIRMED 0x14038F5B0: Lua's luaO_log2 byte table [rax + 0x14257CF50], rax = a value reduced below 0x100 (loop `cmp ecx,0x100; jae`): 256 bytes"
+  },
+  {
+    "va": "0x14257CFB8",
+    "bytes": "0x1C0",
+    "evidence": "CONFIRMED 0x140395FC0: Lua's luaT_eventname (luaT_init): `lea rbp,[0x14257D0F0]`, `mov ebx,0x138`, `mov esi,0x11`, then `mov rdx,[rbx+rbp-0x138]` / `add rbx,8` / `sub rsi,1; jne` (0x140395FF0..0x14039602E): 17 name pointers at 0x14257D0F0..0x14257D178. The entry starts at rbp-0x138 (0x14257CFB8): the read's image origin is rbp plus the displacement, rbx's 0x138 is not an image origin, so the window must hold that point to cover the walk"
+  },
+  {
+    "va": "0x14257E0D0",
+    "bytes": "0x26",
+    "evidence": "CONFIRMED 0x14038C6B0: Lua's luaP_opmodes byte table [r14 + 0x14257E0D0], r14d bounded by `cmp r14d,0x26; jae` at 0x14038C79E: 0x26 entries"
+  },
+  {
+    "va": "0x140391118",
+    "bytes": "0x1C",
+    "evidence": "CONFIRMED 0x140391030: a dword offset jump table in code [r11 + rax*4 + 0x391118] (`add rcx,r11; jmp rcx`), rax = (byte at +8) - 4 bounded by `cmp eax,6; ja` at 0x140391065: 7 entries"
+  },
+  {
+    "va": "0x14257D520",
+    "bytes": "0xA8",
+    "evidence": "CONFIRMED 0x140398D30: Lua's luaX_tokens (luaX_init): 21 name pointers walked by `add rbx,8` until `cmp edi,0x15`: and, break, do, else, elseif, end, false, for, function, if, in, local, ..."
+  },
+  {
+    "va": "0x14257E0B0",
+    "bytes": "0x20",
+    "evidence": "CONFIRMED 0x1403A2350: the package library's loader list: three function pointers (0x1403A2200, 0x1403A20B0, 0x1403A2130) walked by `mov rax,[r14+rdi*8+8]` until a null qword: 4 qwords"
+  },
+  {
+    "va": "0x142581C80",
+    "bytes": "0x26",
+    "evidence": "CONFIRMED 0x1403B1020 (zlib inflate): the code-length order table [rdx+rax*2+0x2581C80], rax < 0x13 (`cmp dword [r13+0x84],0x13`): 19 words (16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15)"
+  },
+  {
+    "va": "0x14257D7B0",
+    "bytes": "0x20",
+    "evidence": "CONFIRMED 0x14039A140 / 0x14039AA30: Lua's coroutine library status names, a qword name pointer per state [rcx + idx*8] (auxstatus: running, suspended, normal, dead; idx from FUN_14039AC80, 0..3): 4 entries"
+  },
+  {
+    "va": "0x14257D960",
+    "bytes": "0xC",
+    "evidence": "CONFIRMED 0x14039C530: liolib's seek whence table, dwords {SEEK_SET, SEEK_CUR, SEEK_END} [rdx + rbx*4], rbx from luaL_checkoption over three names: 3 dwords"
+  },
+  {
+    "va": "0x14257D990",
+    "bytes": "0xC",
+    "evidence": "CONFIRMED 0x14039C630: liolib's setvbuf mode table, dwords {4 (_IONBF), 0 (_IOFBF), 0x40 (_IOLBF)} [rcx + rbx*4], rbx from luaL_checkoption over three names: 3 dwords"
+  },
+  {
+    "va": "0x14257DB20",
+    "bytes": "0x18",
+    "evidence": "CONFIRMED 0x14039DB60: loslib's setlocale category table, dwords {LC_ALL .. LC_TIME} = 0..5 [r8 + rcx*4], rcx from luaL_checkoption over six names: 6 dwords"
+  },
+  {
+    "va": "0x14039E458",
+    "bytes": "0x34",
+    "evidence": "CONFIRMED 0x14039E110: a byte index table [rax + r13 + 0x39E458] in code, rax = (format char - 0x45) bounded by `cmp eax,0x33; ja` at 0x14039E230: 0x34 bytes; it selects a row of the dword jump table at 0x14039E43C"
+  },
+  {
+    "va": "0x142A8F990",
+    "bytes": "0x6",
+    "evidence": "CONFIRMED 0x1419B7E90 (the render-driver name builder): a 5-iteration loop copies bytes of the string literal \"win32\" (0x1419B7FAD / 0x1419B8018 `movzx ecx, byte [rsi+rdi]` / `[rdi]` with rdi stepping over the literal): 6 bytes with the NUL, in .rdata after \"RenderDriver\""
+  },
+  {
+    "va": "0x142B68AC0",
+    "bytes": "0x58",
+    "evidence": "CONFIRMED 0x141EB8310 (the anime stage's cyclic index reader; sites 0x141EB83DF and 0x141EB84AB `mov eax,[rcx+rax*4]`, rcx = `lea [rip+0xcb06e1]` = 0x142B68AC0): the index is a byte reduced modulo 22 (`mul ecx` by 0xBA2E8BA3, `shr edx,4`, `imul eax,edx,0x16`, `sub ecx,eax` at 0x141EB83C4..0x141EB83D5): 22 dwords = 0x58 bytes of f32 values"
+  },
+  {
+    "va": "0x142B67EF2",
+    "bytes": "0x42",
+    "evidence": "TENTATIVE 0x141EB9A30 site 0x141EB9C07 `movsx eax, word [r10+r8*4+0x2b67ef2]` (r10 = the image base, `lea r10,[rip-0x1eb9bdb]`): r8 is a wrapped counter of a 17-entry cycle (`cmp ecx,0x11` with `cmovl` to 0 at 0x141EB9BF6..0x141EB9C02, the loop bound `cmp edx,0x11` at 0x141EB9C25), so r8 is 0..16 provided the start word [rbx+0x3E4] is in 0..16 (its range was not walked): 17 entries of stride 4, 2 bytes read at the last = 0x42 bytes"
+  },
+  {
+    "va": "0x1425DD980",
+    "bytes": "0x5B8",
+    "evidence": "INF (extent, not per-table bounds): the contiguous initialised .rdata block 0x1425DD980..0x1425DDF38 that the anime-motion row pickers read: 0x1406B9BD0 [0x1425DDA50 + (p4 + p3*8)*4] and [0x1425DD988 + p5*4]; 0x1406B9D80 [0x1425DDAD0 + (p4 + p3*8)*4] and [0x1425DD988 + p5*4]; 0x1406B9AA0 the float rows 0x1425DDE38..0x1425DDE60; 0x1406B9B20 the float rows 0x1425DDEB0 / 0x1425DDEE0 (10 entries) and the dword row 0x1425DDF10 (10 entries); 0x1406B9E50 the float row 0x1425DDE10; 0x1406B8DE0 the dword 0x1425DDCD8. Every read is a constant table between the neighbours dumped from the image (all words are indices, floats or -1 terminators; no pointer or relocation); declaring the whole block is harmless where an index range was not derived from the callers (bytes beyond a reader's own table are never read by it)"
+  }
 ]

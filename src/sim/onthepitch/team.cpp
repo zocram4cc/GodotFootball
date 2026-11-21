@@ -431,7 +431,10 @@ void Team::RunPesPassTarget() {
     }
     world.SetMaBallOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
     world.SideRecord(t)[pes::kSideLatchOffset] = side->IsPesPossession() ? 1 : 0;
-    world.SetMaOwner(t, retainer != nullptr ? static_cast<uint32_t>(match->PesSlotOf(retainer)) : pes::kMiNoSlot);
+    // PES's MA+0x2601C is W1's holder: the newest touch key's actor, kept on a loose ball (HolderRE section 2). GF's ball retainer
+    // clears on a loose ball, so it is not this field's input.
+    const Player* pesHolder = match->GetPesHolder();
+    world.SetMaOwner(t, pesHolder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(pesHolder)) : pes::kMiNoSlot);
   }
   const Vector3 ball = match->GetBall()->Predict(0);
   world.SetBallSample(0, ball.coords[0], ball.coords[2], ball.coords[1]);
@@ -441,9 +444,7 @@ void Team::RunPesPassTarget() {
   world.SetBallVelocity(ballMove.coords[0], ballMove.coords[2], ballMove.coords[1]);
   world.SetMaBall(id, ball.coords[0], ball.coords[2], ball.coords[1]);
   world.RunArrivalList(id);
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
-  world.RunPassTarget(id, static_cast<uint32_t>(pes::PlayStateFor(match->IsInPlay(), buffer.active,
-                                                                  buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started)));
+  world.RunPassTarget(id, static_cast<uint32_t>(match->PesPlayState()));
 }
 
 Player* Team::PassGetReceiver() {

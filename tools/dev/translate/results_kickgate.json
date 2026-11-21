@@ -1,0 +1,41 @@
+{
+ "note": "kickgate results. diffed = bit-exact vs the unicorn harness over the 11 REAL kick_gate_1407266B0 calls (snapdiff --bounded).",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kickgate.json",
+   "coverage": {
+    "0x1407266B0": {
+     "fraction": 0.5652,
+     "reached": 26,
+     "total": 46
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every REAL kick_gate_1407266B0 call replayed bit-exact, 11 of 11 (pes-port-KickInputs.md), three runs under the four-capture rule: live2/pid615595 seq16849 seq18318 seq1858 seq25561 (4), seq2898 seq6042 seq6067 seq6349 (4), seq9678 and live2/pid130478 seq3405 seq7653 (3). The traces come from frame_trace.py recorded with specs/kick/1407266B0.json. The closure is the union of the three bounded members lists; every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.5652,
+     "reached": 26,
+     "total": 46
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_kickgate.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1407266B0"
+  }
+ ]
+}

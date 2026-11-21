@@ -31,7 +31,9 @@ class PlayerData;
 #include "officials.hpp"
 #include "pesstoppage.hpp"
 #include "peskickerror.hpp"
+#include "peskickmotion.hpp"
 #include "pesworldrecord.hpp"
+#include "pesfoxworld.hpp"
 #include "pesdodge.hpp"
 #include "pesclipreaders.hpp"
 #include "pestackle.hpp"
@@ -95,6 +97,10 @@ public:
   // (docs/ports/pes-port-TeamTick7.md §3), so a ball in flight keeps flying until the prepare places it.
   void StopPlay() { inPlay = false; }
   bool IsInPlay() const { return inPlay; }
+  // PES's play state MI+0x116C as PES's code reads it: 1 in play, 3 set-play ready, 2 stopped (pes::PlayStateFor). GF's inPlay
+  // is also true through a set piece's take, but PES holds 3 through the take and writes 1 only at the release touch
+  // (docs/re/pes-re-taker-release.md 1.6), so a take reads as 3 here. Every PES-facing reader of the play state goes through this.
+  int PesPlayState();
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
   Player* GetLastGoalScorer() const { return lastGoalScorer; }
@@ -119,6 +125,9 @@ public:
   };
   void RecordPassEvent(int kind, const Vector3& from, Player* target, Player* passer) {
     lastPassEvent = PassEvent{true, kind, from, target, GetActualTime_ms(), passer};
+    // PES's kick pushes the none key into ring 1. The kick is committed in the team tick, and its record is produced in the listener's
+    // event pass of the NEXT frame (pes-port-StallLive9 section 1), so W1 moves the holder then, not here.
+    pesKeyActor = nullptr;
   }
   const PassEvent& GetLastPassEvent() const { return lastPassEvent; }
 
@@ -273,8 +282,8 @@ public:
   // W1's per-tick recompute (0x14045725A, MOV [RBP+0x2601C],EDI in FUN_140457070) behind the step switch
   // FUN_140458880 (checker 0x140458912; docs/re/pes-re-restart-step.md 3): the arm-and-run steps
   // 8/0xB/0xE/0x12 latch the run flag (set at 0x140457087/098, never cleared) and run the recompute;
-  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder adopts the
-  // key when it runs, never null, so the holder has no clear of its own.
+  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder becomes the newest ring-1 key's actor,
+  // or none when the key is the kick's none key (W1 writes 0xFF then, pes-holder-clear section 2).
   void RecomputePesHolder() {
     switch (pesRestartStep) {
       case 0x08:
@@ -291,7 +300,7 @@ public:
       default:
         return;
     }
-    if (pesKeyActor) pesHolder = pesKeyActor;
+    pesHolder = pesKeyActor;
     if (pesHolder != pesHolderSeen) {
       pesHolderSeen = pesHolder;
       pesHolderSince_ms = actualTime_ms;
@@ -316,7 +325,15 @@ public:
   // PES's Trap action chain (pestrapdata.hpp): the actor constants P is made from, and the match's own copy of the image slice and
   // loader data the chain runs on, built once at construction.
   const pes::PesActorConstants& GetPesActorConstants() const { return pesActorConstants; }
-  pes::PesTrapExternals& PesTrapExternalsOf() { return pesTrapMemory->Externals(); }
+  pes::PesTrapExternals& PesTrapExternalsOf();  // the trap world's externals over the match's PES memory (bound on first use)
+  void BindPesTrapWorld();                       // the trap world on the match's one PES memory (matchevents.cpp)
+  // PES's per-player anime engine graph (pesfoxworld.hpp), built from the install on first use: the translated fox load chain fills the
+  // ResManager from the body animation files, and the player constructor makes each slot's BodyAnimControl. PesAnimePlayerOf(slot) is the
+  // engine's player block of a slot (constructed on first use).
+  pes::PesFoxWorld& PesAnimeWorldOf();
+  uint64_t PesAnimePlayerOf(int slot);
+  // The clip a player's body was issued, pushed into his engine control (PesFoxWorld::IssueMotion): PlayIssuedClip's seam, PES mode only.
+  void PesAnimeIssue(const Player* player, const pes::MotionRequest& request);
   // PES's body contact scan (pesbodyscan.hpp), run for each man in the Trap action after his action tick (RunPesBodyScans): the scan's
   // answer per PES slot, kept until the man's body takes it (TakePesTouch). A grant is the scan having filled the driver's output record
   // with a touch request: the reach test passed on this tick's contact frame.
@@ -385,6 +402,11 @@ public:
   const pes::KickErrorConstants& GetPesKickErrorConstants() const {
     return pesKickErrorConstants;
   }
+  // PES 2021's kick motion pick (docs/ports/pes-port-KickMotion.md).
+  const pes::KickMotionConstants& GetPesKickMotionConstants() const {
+    return pesKickMotionConstants;
+  }
+  pes::KickMotionStats& PesKickMotionStats() { return pesKickMotionStats; }
   const pes::StoppageConstants& GetPesStoppageConstants() const {
     return pesStoppageConstants;
   }
@@ -777,6 +799,8 @@ protected:
   pes::ForfeitConstants pesForfeitConstants{};
   pes::RestartSpotConstants pesRestartSpotConstants{};
   pes::KickErrorConstants pesKickErrorConstants{};
+  pes::KickMotionConstants pesKickMotionConstants{};
+  pes::KickMotionStats pesKickMotionStats{};
   pes::CarrierConstants pesCarrierConstants{};
   pes::DefenderDecisionConstants pesDefenderDecisionConstants{};
   pes::ContactConstants pesContactConstants{};
@@ -806,7 +830,12 @@ protected:
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   pes::PesActorConstants pesActorConstants{};
-  std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
+  pes::PesTrapExternals pesTrapView;  // the trap world's externals over the memory (set by BindPesTrapWorld)
+  bool pesTrapBound = false;
+  std::unique_ptr<pes::PesFoxWorld> pesAnimeWorld;
+  std::array<uint64_t, pes::kSlotCount> pesAnimePlayers{};
+  const pes::PesVfs* pesVfs = nullptr;
+  std::string pesImagePath;
   std::array<unsigned, pes::kSlotCount> pesTouchesTaken{};
   unsigned pesDribbleIssues = 0;
   unsigned pesDribbleKicks = 0;

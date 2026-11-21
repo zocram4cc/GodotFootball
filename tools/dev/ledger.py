@@ -7,6 +7,8 @@ Usage: python3 tools/dev/ledger.py [--check]
   --check exits 1 if LEDGER.md is stale, if a row regressed against the LEDGER.md committed at HEAD
   (skipped with a note outside git), or if a GF port is outside the universe and the allow list.
 """
+import csv
+import datetime
 import hashlib
 import json
 import os
@@ -18,14 +20,18 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
 LEDGER = os.path.join(REPO, "tools", "dev", "ledger")
 LEDGER_MD = os.path.join(REPO, "docs", "re", "LEDGER.md")
+HISTORY = os.path.join(LEDGER, "history.csv")
 
 STATUS_ORDER = ["ported", "diffed", "translated", "stand-in", "decoded",
                 "leaf accessor", "engine", "undecoded", "inert",
                 "out of scope"]
-# Regression rank. Moving to engine, leaf or out of scope is a reclassification, not lost knowledge.
-RANK = {"ported": 0, "diffed": 1, "translated": 1, "stand-in": 2,
+# Regression rank, lower is stronger: a recorded proof outranks a committed translation, which equals a hand port
+# (the translation supersedes it). Moving to engine, leaf or out of scope is a reclassification, not lost knowledge.
+RANK = {"diffed": 0, "translated": 1, "ported": 1, "stand-in": 2,
         "decoded": 3, "leaf accessor": 3, "engine": 3, "undecoded": 4,
         "inert": 5, "out of scope": 3}
+# Decode verdicts that count as a verdict (OPEN is an open question, not a verdict).
+VERDICTS = ("CONFIRMED", "OBS", "DOC", "INF")
 # Subsystem tags (owner's list). The tag is the nearest root's; out-of-scope rows carry their category.
 SUBSYSTEMS = ["pre-match", "gameplay", "ball", "AI", "referee", "restart", "animation", "camera",
               "replay", "audio", "crowd", "HUD", "cutscene", "in-match menu", "render"]
@@ -66,28 +72,32 @@ def classify(va, f, joins, hand):
         return hand[va]["status"]
     if f.get("scope") == "out":
         return "out of scope"
-    if va in joins["standins"]:
-        return "stand-in"
-    # The pilot's translation proof supersedes the hand port (cutover
-    # follows separately): a bit-exact function reads diffed, an emitted
-    # but undiffed one translated, even where a GF port is cited.
-    if va in joins["diffed"] and joins["diffed"][va] == \
-            "tools/dev/translate/results.json":
-        return "diffed"
-    if va in joins.get("translated", {}):
-        return "translated"
-    if joins["ports"].get(va, {}).get("files"):
-        return "ported"
+    # Precedence: a recorded bit-exact proof (real or synthetic) > a committed translation > a stand-in > a GF port.
+    # A proof supersedes a stand-in or hand port that cites the same VA; a translation supersedes a port.
     if va in joins["diffed"]:
         return "diffed"
+    if va in joins["translated"]:
+        return "translated"
+    if va in joins["standins"]:
+        return "stand-in"
+    if joins["ports"].get(va, {}).get("files"):
+        return "ported"
     if f.get("boundary"):
         return "engine"
     if f.get("leaf"):
         return "leaf accessor"
-    dec = joins["decode"].get(va, {}).get("verdict")
-    if dec in ("CONFIRMED", "OBS", "DOC", "INF"):
+    if joins["decode"].get(va, {}).get("verdict") in VERDICTS:
         return "decoded"
     return "undecoded"
+
+
+def proof_label(va, status, joins):
+    """How a diffed or translated row is evidenced: real or synthetic; record or closure. Other rows: -."""
+    if status == "diffed":
+        return "synthetic" if va in joins["synthetic"] else "real"
+    if status == "translated":
+        return "closure" if "/closure/" in joins["translated"][va] else "record"
+    return "-"
 
 
 def pure_rows(funcs):
@@ -97,9 +107,9 @@ def pure_rows(funcs):
     heap objects read at run time) is not judged."""
     ok = set()
     for va, f in funcs.items():
-        if not f.get("walked") or f.get("boundary") or f.get("unresolved") or f.get("indirect") or f.get("vtables"):
+        if not f.get("walked") or f.get("boundary") or f.get("unresolved") or f.get("indirect") or f.get("vtables") or f.get("dtables"):
             continue
-        if "vtable" in (f.get("callees") or {}).values():
+        if "vtable" in (f.get("callees") or {}).values() or "dtable" in (f.get("callees") or {}).values():
             continue
         ok.add(va)
     changed = True
@@ -129,6 +139,76 @@ def committed_ledger():
         return None
 
 
+def read_history(path):
+    """Rows of the progress history (strings); empty before the first regeneration."""
+    if not os.path.exists(path):
+        return []
+    with open(path, newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def write_history(path, rows):
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+
+
+def history_current(rows, cur):
+    """True when the newest row holds exactly the counts cur."""
+    return bool(rows) and all(rows[-1].get(k) == str(v) for k, v in cur.items())
+
+
+def append_if_changed(rows, cur, base, day):
+    """One row per regeneration that changes the counts; the same counts add none."""
+    if history_current(rows, cur):
+        return rows, False
+    row = {"base": base, "date": day}
+    row.update((k, str(v)) for k, v in cur.items())
+    return rows + [row], True
+
+
+def seed_rows(ledger_text, base, day):
+    """Baseline row: the in-scope counts of the LEDGER.md committed before the history began."""
+    if not ledger_text:
+        return []
+    summary = ledger_text.split("## Summary", 1)[-1].split("## Scope rules", 1)[0]
+    cur = {}
+    for line in summary.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) < 4 or not cells[2].isdigit():
+            continue
+        if cells[1] == "total":
+            cur["in_total"], cur["out_total"] = cells[2], cells[3]
+        elif cells[1] in STATUS_ORDER and cells[1] != "out of scope":
+            cur[cells[1]] = cells[2]
+    if "in_total" not in cur:
+        return []
+    return [dict(base=base, date=day, **cur)]
+
+
+def delta_lines(prev, cur, keys):
+    """One line per key: its count in prev, its count in cur, and the change."""
+    return ["%s: %s -> %s (%+d) since %s (%s)" % (k, prev[k], cur[k], int(cur[k]) - int(prev[k]),
+                                                 prev["base"], prev["date"]) for k in keys]
+
+
+def git_head():
+    try:
+        return subprocess.run(["git", "-C", REPO, "rev-parse", "--short=10", "HEAD"], capture_output=True,
+                              text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "none"
+
+
+def git_date():
+    try:
+        return subprocess.run(["git", "-C", REPO, "log", "-1", "--format=%cs", "HEAD"], capture_output=True,
+                              text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "none"
+
+
 def main():
     check = "--check" in sys.argv
     uni = load("universe.json")
@@ -151,6 +231,7 @@ def main():
             "how": f.get("how", "-"),
             "scope": f.get("scope", "in"),
             "status": status,
+            "proof": proof_label(va, status, joins),
             "rule": (f.get("boundary") or {}).get("rule", "-"),
             "verdict": dec.get("verdict") or "-",
             "cite": (dec.get("cites") or ["-"])[0],
@@ -190,21 +271,44 @@ def main():
                 sum(1 for r in port if r["pure"]), how.get("doc", 0), how.get("rtti", 0),
                 how.get("owner", 0)]
 
+    # Progress history: one row per regeneration that changes the in-scope counts, with the HEAD it was built on.
+    stat_in = [s for s in STATUS_ORDER if s != "out of scope"]
+    cur_row = {"in_total": len(ins), "out_total": len(outs)}
+    cur_row.update((s, counts_in.get(s, 0)) for s in stat_in)
+    hist = read_history(HISTORY)
+    if check:
+        if not history_current(hist, cur_row):
+            print("progress history stale (newest row != current counts): regenerate with tools/dev/ledger.py")
+            return 1
+    else:
+        before = list(hist)
+        if not hist:
+            hist = seed_rows(committed_ledger(), git_head(), git_date())
+        hist, _ = append_if_changed(hist, cur_row, git_head(), datetime.date.today().isoformat())
+        if hist != before:
+            write_history(HISTORY, hist)
+    prev = hist[-2] if len(hist) > 1 else None
+    hist_lines = (delta_lines(prev, hist[-1], ["in_total"] + stat_in) if prev else
+                  ["no earlier history row: deltas start at the next regeneration"])
+
     L = []
     L.append("# Match-path ledger (generated — do not edit by hand)")
     L.append("")
     L.append("Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. "
              "Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, "
-             "run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's "
-             "function list), `hand.json`, `offpath_allow.json`).")
+             "run under the capstone venv), `joins.py` + `joins.json` (no flags: reads docs, src and every "
+             "results set; `--funclist` replaces the bridge's function list), `hand.json`, "
+             "`offpath_allow.json`, `history.csv` (one row per regeneration that changes the counts)).")
     L.append("")
-    L.append("Statuses: **ported** / **diffed** (GF code cites the VA; diffed is bit-exact "
-             "against the harness) / **translated** (the translator emitted C++, undiffed) / "
-             "**stand-in** (GF code cites the VA), **decoded** "
+    L.append("Statuses: **diffed** (recorded bit-exact in a results set, diffed or proven; `proof` real, or "
+             "synthetic where the states were chosen) / **translated** (committed in src/pes/translated: a record "
+             "that is not bit-exact, or a closure member; `proof` record or closure) / **ported** (GF code cites "
+             "the VA) / **stand-in** (GF code cites the VA with a ponytail PES-site comment), **decoded** "
              "(a report gives a verdict), **leaf accessor** (<= %s instructions, no call, no jump "
-             "out, no vtable reference), **engine** (boundary: not walked, not match logic), "
+             "out, no vtable or dtable reference), **engine** (boundary: not walked, not match logic), "
              "**undecoded** (walked or unresolved, no verdict), **inert** (hand.json), "
-             "**out of scope** (a rule below: edit mode, career, save/load, online)."
+             "**out of scope** (a rule below: edit mode, career, save/load, online). Precedence: inert, "
+             "out of scope, diffed, translated, stand-in, ported, engine, leaf accessor, decoded, undecoded."
              % meta.get("leaf_max_insns", "?"))
     L.append("")
     L.append("Scope: **in scope** is everything a player goes through to play a match: the pre-match "
@@ -222,12 +326,28 @@ def main():
           [("total", len(ins), len(outs), len(rows))] +
           [(s, counts_in.get(s, 0), sum(1 for r in outs if r["status"] == s), counts_all.get(s, 0))
            for s in STATUS_ORDER])
+    verdict_in = sum(1 for r in ins if r["verdict"] in VERDICTS)
+    implemented = sum(counts_in.get(s, 0) for s in ("ported", "diffed", "translated"))
+    proof_in = Counter(r["proof"] for r in ins)
+    L.append("In scope with a verdict (%s): %d of %d (%.1f%%). Implemented (ported, diffed or translated): %d of %d "
+             "(%.1f%%)." % ("/".join(VERDICTS), verdict_in, len(ins), 100.0 * verdict_in / len(ins),
+                            implemented, len(ins), 100.0 * implemented / len(ins)))
+    L.append("")
+    L.append("Proof behind the in-scope rows: diffed real %d, diffed synthetic %d; translated record %d, translated "
+             "closure %d." % (proof_in["real"], proof_in["synthetic"], proof_in["record"], proof_in["closure"]))
+    L.append("")
+    L.append("Change since the previous regeneration (in scope, one line per status):")
+    L.append("")
+    L.extend("- " + line for line in hist_lines)
+    L.append("")
     L.append("## Scope rules")
     L.append("")
     L.append("In scope: the match roots. Function roots are doc-cited (*Roots*); vtable roots are "
              "named by RTTI class (*Roots*). Out of scope: the vtables below are roots of the out crawl; "
              "rows reached only from them are out of scope. The in crawl does not expand these vtables, "
-             "so an in-scope call into one stays a single row, not a walk.")
+             "so an in-scope call into one stays a single row, not a walk. RTTI-less dispatch tables "
+             "(.rdata code-pointer runs) expand like vtables (dtable rows); the WALK_EXCEPTIONS rows in "
+             "universe.py meta are walked despite matching a boundary rule.")
     L.append("")
     table(L, ["scope", "RTTI rule (why)", "vtables", "slots"],
           [(x["scope"], x["why"], x["vtables"], x["slots"]) for x in meta.get("scope_rules", [])])
@@ -296,11 +416,11 @@ def main():
         rs = sorted(subs[sub], key=lambda r: r["va"])
         L.append("## %s (%d)" % (sub, len(rs)))
         L.append("")
-        L.append("| VA | name | status | decode | cite | port | callers | size | pure | how | path |")
-        L.append("|---|---|---|---|---|---|---|---|---|---|---|")
+        L.append("| VA | name | status | proof | decode | cite | port | callers | size | pure | how | path |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
         for r in rs:
-            L.append("| %s | %s | %s | %s | %s | %s | %d | %d | %s | %s | %s |"
-                     % (r["va"], r["name"], r["status"], r["verdict"], r["cite"], r["port"],
+            L.append("| %s | %s | %s | %s | %s | %s | %s | %d | %d | %s | %s | %s |"
+                     % (r["va"], r["name"], r["status"], r["proof"], r["verdict"], r["cite"], r["port"],
                         r["callers"], r["size"], "y" if r["pure"] else "-", r["how"], r["path"]))
         L.append("")
     body = "\n".join(L) + "\n"

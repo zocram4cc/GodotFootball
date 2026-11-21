@@ -12,7 +12,9 @@
 #include <vector>
 
 #include "onthepitch/pestrapactor.hpp"
+#include "onthepitch/pesanimechain.hpp"
 #include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesmemory.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 
@@ -127,19 +129,5 @@ struct PesTrapSource {
 std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vfs, const std::string& imagePath,
                                             std::string* error);
 
-// One match's memory for the chain, built once per match: a private copy-on-write mapping of the dump (the chain writes image
-// globals, and the file stays as it is; pages are shared until written, so the mapping costs nothing up front) and a copy of the
-// loader segment. PesWorld::RunTrapKind0 lends the externals to each call without copying them.
-class PesTrapMemory {
- public:
-  explicit PesTrapMemory(const PesTrapSource& source);
-  ~PesTrapMemory();
-  PesTrapMemory(const PesTrapMemory&) = delete;
-  PesTrapMemory& operator=(const PesTrapMemory&) = delete;
-  PesTrapExternals& Externals() { return ext_; }
-
- private:
-  PesTrapExternals ext_;
-};
 
 }  // namespace pes
