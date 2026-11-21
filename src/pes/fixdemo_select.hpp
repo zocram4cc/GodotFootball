@@ -99,6 +99,10 @@ struct GoalAnchorFacts {
   // ponytail: A0+0x114, the state of the generator at A0+0x108 that 0x140476190 draws its corner-spot jitter from. PES seeds
   // it where the DemoInfo is built (the 0x14047DF00 construction, from its clock); the site that removes this is that seed.
   uint32_t rngState = 0;
+  // The zone decision's input: A0+0xDC at the tick the writer 0x1404B88B0 runs on (PES's counter; the writer's 7-arm opens
+  // above clock x 3 = 162, so any value in 5..161 gives the same zone). Unset: the writer is not run; A0+0xBC stays 8 (the
+  // defaults, 0x140478090). The decision tick's own value is not captured (pes-re-goal-anchor-feed.md section 5).
+  std::optional<uint32_t> decisionCount;
 };
 
 // The scene anchor: the writer 0x14047D280's result for a kind-1 goal, scene+0x110..+0x120, with the two inputs the
@@ -109,6 +113,7 @@ struct GoalAnchor {
   bool flip = false;  // 0x140478FF0
   std::array<float, 3> target{};  // A0+0x30 = the scorer's run object +0x18: the celebration spot (0x140476C50)
   float radius = 0;               // A0+0xC: the scene's run radius (0x140474CF0)
+  uint32_t bc = 0;                // A0+0xBC after the zone decision: 8 default arm, 2 else arm (0x1404B88B0, 0x140471A80)
   uint32_t sceneId = 0;           // A0+8: the scene the goal plays first (the builder's pick when `build` was set)
   std::vector<uint32_t> scenes;   // the scene list the DemoInfo plays, in order (the builder's, or the given `cuts`)
 };

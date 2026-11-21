@@ -353,6 +353,63 @@ TEST(GoalAnchor, TheInstallsSceneRowIsTheRowPesHeld) {
   if (compared == 0) GTEST_SKIP() << "the install's goal table matches none of the captured scenes' rows";
 }
 
+// ---- The kind-2 goal (live pid2024691, goal 1): the zone decision and the else arm ----
+//
+// The scorer, slot 19 (side 1, place 10: MI+0x15C8/0x15CC, the squad table's index 8), stood at z = 3.04 at the writer's first
+// captured call (DC 1: zone 8, and PES's writer returned 8 on that entry, replayed on seq003). When the anchor ran (seq204)
+// he stood at z = 29.56, inside the wide channel (|x| < 45.56, |z| > 26.06): zone 2, A0+0xBC = 2, the recompute 0x140471A80
+// takes its else arm, and the anchor is PES's spot (radius 0, T the event spot, pos z 34.0, rotY 0). The decision tick's DC is
+// not captured; the writer's result does not depend on it below clock x 3 = 162, so the test runs three values in 5..161.
+const Case kKindTwo = {"H", "pid2024691/seq204", 0x300D9, 19, {F(0xC226336C), F(0x00000000), F(0x41EC7598)},
+                       {F(0x3A260000), F(0x00000000), F(0x3DA83700)}, F(0x43B3A520), 3,
+                       F(0x42523D70), F(0x42083D70), F(0x42580000), {F(0xC2267C0E), F(0x00000000), F(0x420E3D70)}, 0.0f,
+                       "0100010300000618000000000000000000000000000000000000084200000842000008c2000008c20000000000000000000034430000344300000000",
+                       {F(0xC226336C), F(0x00000000), F(0x42080000)}, 0.0f, 0};
+
+pes::GoalAnchorFacts KindTwoFacts(const Case& c, std::array<float, 3> pos, uint32_t decisionCount) {
+  pes::GoalAnchorFacts f;
+  f.sceneId = c.sceneId;
+  f.scorerSlot = c.slot;
+  f.pos = pos;
+  f.vel = c.vel;
+  f.facing = c.facing;
+  f.moveMode = c.moveMode;
+  for (size_t k = 0; k < sizeof(kFieldBits) / sizeof(kFieldBits[0]); ++k) f.field[k] = F(kFieldBits[k]);
+  f.fps = c.fps;
+  f.attackDeg = {90.0f, 270.0f};  // side 1 attacks the -x end its spot is at (the captured T.x < 0), as FactsOf gives
+  f.decisionCount = decisionCount;
+  return f;
+}
+
+TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  for (uint32_t dc : {5u, 100u, 161u}) {
+    auto sel = MakeFor(*exe, kKindTwo);
+    ASSERT_TRUE(sel) << why;
+    const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, kKindTwo.pos, dc));
+    ASSERT_TRUE(got) << "DC " << dc;
+    EXPECT_EQ(got->bc, 2u) << "DC " << dc;
+    EXPECT_EQ(got->radius, kKindTwo.radius) << "DC " << dc;
+    for (int i = 0; i < 3; ++i) EXPECT_EQ(got->target[i], kKindTwo.target[i]) << "DC " << dc << " T[" << i << "]";
+    for (int i = 0; i < 3; ++i) EXPECT_EQ(got->pos[i], kKindTwo.wantPos[i]) << "DC " << dc << " pos[" << i << "]";
+    EXPECT_EQ(got->rotYDeg, kKindTwo.wantRotY) << "DC " << dc;
+  }
+}
+
+TEST(GoalAnchorKindTwo, NarrowChannelScorerKeepsTheDefaultArm) {
+  // The same man at the writer's first captured call (DC 1, x -41.553, z 3.039: the bits of seq003's slot 19): zone 8.
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  auto sel = MakeFor(*exe, kKindTwo);
+  ASSERT_TRUE(sel) << why;
+  const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, {F(0xC2263646), F(0x00000000), F(0x40427EFA)}, 1));
+  ASSERT_TRUE(got);
+  EXPECT_EQ(got->bc, 8u);
+}
+
 // ---- The goal run object's gate 0x140472640 (the DemoInfo state 2 wait), on the arena of PlaceGoal ----
 //
 // The scorer as PES held him at the frame two goals' gates had opened (cut_anchor_write_47D280 snapshots pid2621613/seq1531, case A
