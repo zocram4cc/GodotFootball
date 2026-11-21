@@ -61,6 +61,9 @@ INDIRECT_EDGES = {
     "0x141F616F0": ("0x140400F50", "0x140400DF0", "0x140B28910"),
     # 0x1415A01DC is the CFG check thunk `jmp [IAT]`; the unpacked image's slot holds a bare `ret` (0x1415A02B0).
     "0x1415A01DC": ("0x1415A02B0",),
+    # 0x1406F6CE0 (kick joints) dispatches its action slot through a runtime vtable read (pes_dispatch_lookup on [rdx]). The three
+    # per-action handlers it reaches are the only targets the survey saw (pes-port-StallBreaker4.md, caller return 0x443c8f).
+    "0x1406F6CE0": ("0x14073DD50", "0x140789D00", "0x140791DD0"),
 }
 
 
@@ -255,7 +258,8 @@ def build(image):
                     texts[cur] = pick
             texts.setdefault(cur, text)
             for cv in [("0x" + c.upper()) for c in CALLEE.findall(text)] + list(INDIRECT_EDGES.get(cur, ())):
-                if cv != cur and cv in universe and cv not in seen:
+                # An indirect edge names its target (the table's resolved VA): it joins the closure whatever the set's universe holds.
+                if cv != cur and (cv in universe or cv in INDIRECT_EDGES.get(cur, ())) and cv not in seen:
                     seen.add(cv)
                     queue.append(cv)
         closure_of[va] = seen
