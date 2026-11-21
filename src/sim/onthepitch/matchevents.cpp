@@ -77,6 +77,8 @@ bool Match::PesOwnsDribble(Player& player) {
   const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
   if (!pes::IsPesDribbleFamily(family)) pesDribbleSwitched[slot] = false;
   return pesDribbleSwitched[slot];
+}
+
 namespace {
 // The engine world's heap (a zero-filled arena): the ResManager's archives and graph, and one control graph per slot. Sized from a run of
 // the body load and 22 constructions (tests/pes_anime_engine_test.cpp prints the live bytes) with room for the frame's scratch.

@@ -66,7 +66,7 @@ struct PesHeap {
   // The bytes of a live block a translated call allocated: [va, va + n) inside the arena, or null (the GF side reads the containers PES's code
   // grew, e.g. a man's series vector, P+0x3B98).
   const uint8_t* Host(uint64_t va, uint64_t n) const {
-    return va >= kArenaVa && va + n <= kArenaVa + arena_.size() ? arena_.data() + (va - kArenaVa) : nullptr;
+    return va >= kArenaVa && va + n <= kArenaVa + arenaBytes_ ? arena_ + (va - kArenaVa) : nullptr;
   }
   uint64_t Allocs() const { return allocs_; }
   uint64_t Frees() const { return frees_; }

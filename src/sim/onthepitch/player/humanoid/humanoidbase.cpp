@@ -508,6 +508,8 @@ bool HumanoidBase::OnPesDribble() const {
   return currentAnim->anim && currentAnim->functionType == e_FunctionType_Special &&
          std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str()) ==
              static_cast<int>(pes::PesClipFamily::kDribble);
+}
+
 bool HumanoidBase::PlayIssuedClip(const pes::MotionRequest& request, pes::PesClipFamily family) {
   // PES's SetMotion pushes the layer record into the man's engine control each time it is called (FUN_1406E5FC0's flush), whatever the
   // GF body does with the clip.

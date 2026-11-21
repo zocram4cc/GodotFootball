@@ -150,7 +150,6 @@ class BreakerCensusProbe : public pestest::Probe {
     }
     else
       unarmedFirings++;
-    }
   }
 
   // GF_STALL_DUMP=1: one line per live firing, the forced man with his clip, body action bytes, holder state and distance.
@@ -889,7 +888,7 @@ TEST(PesStall, APesDribblerTouchMovesTheBall) {
   ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
   EXPECT_GT(contactCensus.dribbleKicks, 0u) << "no PES dribbler touch reached the ball in the whole match (scans " << contactCensus.dribbleScans << ", with contact pending "
       << contactCensus.dribblePending << ", granted " << contactCensus.dribbleGrants << ")";
-
+}
 namespace {
 // PES's holder field MA+0x2601C is the W1 holder: the actor of the newest touch key, and nothing clears it on a loose ball (HolderRE
 // section 2; 0x140457070 writes it, 0x140A627E0 reads it as the ball owner). GF writes this field from the ball retainer, which clears

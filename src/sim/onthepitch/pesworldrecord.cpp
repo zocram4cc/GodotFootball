@@ -832,7 +832,7 @@ PesTickResult PesWorld::RunTrapTick(int slot, PesTrapExternals& ext) {
   s.gpr[1] = PVa(slot) + kPActionOffset;
   s.gpr[2] = PVa(slot);
   s.gpr[8] = entry + kTickEntryFrameSlotOffset;
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   heap_->Attach(s);  // the end handler's act4 start can run the series SetMotion, whose vector grows through the allocator
   std::vector<std::pair<uint64_t, uint8_t>> log;
   s.mem.wlog = &log;
@@ -882,7 +882,7 @@ PesWorld::DribbleTickResult PesWorld::RunDribbleTick(int slot, PesTrapExternals&
   s.gpr[1] = action;
   s.gpr[2] = PVa(slot);
   s.gpr[8] = entry + kTickEntryFrameSlotOffset;
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   heap_->Attach(s);  // the stand/idle handlers' series SetMotion grows P's series vector through the allocator
   std::vector<std::pair<uint64_t, uint8_t>> log;
   s.mem.wlog = &log;
@@ -902,7 +902,7 @@ uint8_t* PesWorld::HeapHost(uint64_t va, uint64_t bytes) {
 }
 
 uint64_t PesWorld::HeapAlloc(uint64_t bytes, uint64_t align) {
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   return heap_->Alloc(bytes, align);
 }
 
@@ -935,7 +935,7 @@ static constexpr std::size_t kArg5Offset = 0x28, kArg6Offset = 0x30, kArg7Offset
 // FUN_1409F20C0 (its caller) copies the frame's outputs back into the AI object after the build; those copies are Q's retained fields and
 // T's outputs, which the next build reads (kRetained*, kDecisionTOut*).
 void PesWorld::EnsureDecisionBlocks(int slot) {
-  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  if (!heap_) heap_.reset(new PesHeap());
   DecisionBlocks& b = decision_[slot];
   if (b.s == 0) {
     // S and T are one block (T = S + 0x50): the builder reaches T by S's address in PES's controller layout.
