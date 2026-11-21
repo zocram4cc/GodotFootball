@@ -104,8 +104,12 @@ target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_m
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # One process for the family: its seeded matches run once per process and are shared between its tests (pes_shared_match.hpp).
 # PesStall's and PesKickStart's tests are compiled in because they play the seed-7 match the restart tests play.
-add_test(NAME pes_restart_delay_test COMMAND pes_restart_delay_test)
+add_test(NAME pes_restart_delay_test COMMAND pes_restart_delay_test --gtest_filter=-PesStallQuick.*)
 set_tests_properties(pes_restart_delay_test PROPERTIES TIMEOUT 10800)
+# The quick stall target (PesStallQuick in pes_stall_test.cpp): the stall census over the first kQuickMinutes of the seed-7 match.
+# It runs alone, so the family's run and its time do not change.
+add_test(NAME pes_stall_quick COMMAND pes_restart_delay_test --gtest_filter=PesStallQuick.*)
+set_tests_properties(pes_stall_quick PROPERTIES TIMEOUT 1800)
 
 add_executable(pes_hang_test pes_hang_test.cpp)
 target_link_libraries(pes_hang_test PRIVATE gfsim pesfmt GTest::gtest_main)
