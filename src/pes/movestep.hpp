@@ -353,7 +353,7 @@ struct RunConstants {
   float weightScale;  // 0.05  (0x1425c4898): FUN_1406ce820's precise arm: blend = 0.15 - weight^2 * this
   float speedDt;      // 0.6944 (0x14259bdd0): the jostle block's look-ahead numerator, divided by the tick rate
   float rampSpan13;   // 1.3   (0x14259bdd8): FUN_1406ce820's precise arm: the span of the distance ramp that scales the playback
-  float turnP2;       // 0.1   (0x142588210): the turn playback's p^2 term
+  float turnP2;       // 10.0  (0x142588210, loaded as this field; unused: PES's turn p^2 term is PlaybackConstants::turnP2 = 0.1 at 0x142588200)
   float foxTime;      // 300.0 (0x1425a266c): the Fox time unit of the parametric startTime
   float pct50;        // 50    percent test (FUN_1406ebf30's argument, no exe float)
   float quota75;      // 0x4b = 75, the (t * 0x4b) / 100 share
@@ -435,7 +435,7 @@ std::optional<SpeedRateTable> LoadSpeedRateTable(const PeImage& exe, std::string
 struct MoveConstants {
   float dist2m5;    // 2.5 m   (0x14259bde4): StayDecision's ramp divisor
   float dist3;      // 3.0 m   (0x14258c264): StayDecision's ramp span; IdleRow's kind-3 gate
-  float near01;     // 0.1 m   (0x142588210): IdleRow's neighbour gate
+  float near01;     // 10.0 m  (0x142588210): IdleRow's neighbour gate, PES FUN_1406b93a0 (compare at 0x1406b96c0): dist < 10.0
   float ball1p4;    // 1.4 m   (0x14259bdf0): IDLE's command-5 ball gate
   float lookScale;  // (0x1425c5100): IDLE's facing tail's random share
   float lookLow;    // (0x1425ddff0): the tail's window's lower clamp

@@ -301,7 +301,7 @@ class MoveHostAdapter final : public pes::MoveHost {
   // /100 as a float, so rounding restores the block's value.
   // ponytail: the leg-length slider (block+0x30: appearance nibble 0x11:0, FUN_141AD98B0) has no GF source; 0 is neutral.
   float PhysiqueG() const override {
-    return pes::PhysiqueG(c_.physique, {pesmovestep::PhysiqueHeightCmOf(player_), 0.0f, false});
+    return pes::PhysiqueG(c_.physique, {pesmovestep::PhysiqueHeightCmOf(match_, player_), 0.0f, false});
   }
   float TicksPerSecond() const override { return static_cast<float>(Match::kFramesPerSecond); }
   int MatchTick() const override { return match_.GetPesFrame(); }
@@ -325,9 +325,8 @@ class MoveHostAdapter final : public pes::MoveHost {
     const pes::StaminaState& s = player_.GetStamina();
     return s.max == 0 ? 0 : s.cur * 100 / s.max;
   }
-  // FUN_1406e7380: P+0x3b18 * 180 is the height in cm.
-  // ponytail: P+0x3b18 has no GF read; GF's physical_height (m) stands in.
-  float PlayerHeightCm() const override { return player_.GetStat("physical_height") * 100.0f; }
+  // FUN_1406e7380: P+0x3b18 * 180 is the height in cm, the man's own height (PhysiqueHeightCmOf).
+  float PlayerHeightCm() const override { return pesmovestep::PhysiqueHeightCmOf(match_, player_); }
   void BallSample(int index, float out[3]) const override {
     // FUN_140a6cf70: index 0 is the ball now; index k is its prediction k ticks ahead.
     // ponytail: the PES ball list is the match's per-tick ring; GF reads the mental image's
@@ -780,7 +779,10 @@ std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue, b
 
 namespace pesmovestep {
 
-float PhysiqueHeightCmOf(const Player& player) { return std::round(player.GetStat("physical_height") * 100.0f); }
+float PhysiqueHeightCmOf(const Match& match, Player& player) {
+  if (const auto traits = match.PesTraitsOf(player.GetPlayerData())) return static_cast<float>(traits->heightCm);
+  return std::round(player.GetPlayerData()->GetHeight() * 100.0f);
+}
 
 float SpeedByteOf(const Player& player) {
   constexpr float kStatPerUnit = 100.0f;  // GF stores PES's 40..99 as 0.40..0.99
