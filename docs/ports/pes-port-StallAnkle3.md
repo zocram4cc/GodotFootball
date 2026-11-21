@@ -14,7 +14,7 @@ Branch `StallRun` pushed: `810de3b5a9925000bcdf95164f5b47111f8415d9` (confirmed 
 | `PesStallQuick` | not run: it is on StallLive (`95d4bede`), not on this branch. |
 | `tools/dev/translate/gen_translated.py --check` | rc 0: 10,150 functions regenerate byte-identical (3,824 recorded, 6,326 closure). The change is GF-side; no translated code moved. |
 | `GATE_TIER=fast tools/dev/gate.sh` | NOT RUN (out of budget). Main gates at merge. |
-| `check_pii` | my diff has no `/mnt/Extra4` or `/home/z` strings (grep of `git show 810de3b5`). Full `tools/check_pii.sh` not run (fails in a worktree). |
+| `check_pii` | my diff has no work-drive or home-directory strings (grep of `git show 810de3b5`). Full `tools/check_pii.sh` not run (fails in a worktree). |
 
 Mutation: the red baseline (`a2439354`, same test, same probe) is the "remove the lift-end warp" mutant; it was run and reverted. The fix is one warp line plus a shared helper.
 

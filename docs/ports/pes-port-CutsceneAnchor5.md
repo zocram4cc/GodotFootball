@@ -68,7 +68,7 @@ Now the test stops with `PES_DISPATCH_UNTRANSLATED: 0x141F55A10`:
 - `gen_translated.py --check`: rc 0, "5706 functions (3764 recorded bit-exact, 1942 closure) regenerate byte-identical".
 - `tools/dev/ledger.py --check`: rc 0 after regenerating `docs/re/LEDGER.md` (progress history row added, `history.csv`); "LEDGER.md current (44463 rows)".
 - `git ls-files --others src/pes/translated`: empty after the commit.
-- PII: `grep` of the commit's changed files for `/mnt/Extra4` and `/home/z`: no match (the repo's `check_pii.sh` runs from the main checkout only).
+- PII: `grep` of the commit's changed files for the work-drive and home prefixes: no match (the repo's `check_pii.sh` runs from the main checkout only).
 - Gate: not run (Main gates).
 
 ## 6. Process notes (honest)
