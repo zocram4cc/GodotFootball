@@ -508,10 +508,10 @@ bool HumanoidBase::PlayIssuedClip(const pes::MotionRequest& request, pes::PesCli
   // PES's SetMotion pushes the layer record into the man's engine control each time it is called (FUN_1406E5FC0's flush), whatever the
   // GF body does with the clip.
   if (match->PesLoop()) match->PesAnimeIssue(static_cast<const Player*>(player), request);
-  return PlayIssuedClip(request.motion, request.playback, request.mirror, family);
+  return PlayIssuedClip(request.motion, request.playback, request.mirror, family, request.startTime);
 }
 
-bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family) {
+bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family, float startTime) {
   const bool onLocomotion = OnPesLocomotion();
   const bool onFamily = family == pes::PesClipFamily::kTrap ? OnPesTrap() : onLocomotion;
   // The body takes an issued clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES clip
@@ -543,7 +543,8 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::
   currentAnim->anim = anims->GetAnim(chosen);
   currentAnim->id = chosen;
   currentAnim->functionType = e_FunctionType_Special;
-  currentAnim->frameNum = 0;
+  // SetMotion's start time: the motion plays from that frame (GF's clip frames are kGfAnimFrame_s long).
+  currentAnim->frameNum = std::min(static_cast<int>(std::lround(startTime / pes::kGfAnimFrame_s)), currentAnim->anim->GetFrameCount() - 1);
   currentAnim->framePhase = 0.0f;
   currentAnim->playbackRate = playback;
   // A trap clip touches the ball at its contact frame (AddPesClips' touchframe, the install's first HitData record), where the ball
