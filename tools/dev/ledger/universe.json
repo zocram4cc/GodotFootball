@@ -1300129,6 +1300129,29 @@
    "vtables": [],
    "walked": true
   },
+  "141E5C7E0": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_141e5c7e0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cutlib"
+   ],
+   "scope": "in",
+   "size": 24,
+   "source": "pdata",
+   "subsystem": "cutlib",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141E5C870": {
    "boundary": null,
    "callees": {
@@ -1300156,6 +1300179,34 @@
    "source": "bridge",
    "subsystem": "replay",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141E5C8F0": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "14184D5C0": "direct",
+    "141E5D330": "direct",
+    "141E5DE80": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141e5c8f0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cutlib"
+   ],
+   "scope": "in",
+   "size": 36,
+   "source": "pdata",
+   "subsystem": "cutlib",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1300355,6 +1300406,64 @@
    "source": "bridge",
    "subsystem": "replay",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "141E5D270": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "141E5C7E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141e5d270",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cutlib"
+   ],
+   "scope": "in",
+   "size": 45,
+   "source": "pdata",
+   "subsystem": "cutlib",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "141E5D330": {
+   "boundary": null,
+   "callees": {
+    "1415A1720": "direct",
+    "141E5D270": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "141E5D3AF",
+     "text": "CALL qword ptr [0x14252fa28]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_141e5d330",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cutlib"
+   ],
+   "scope": "in",
+   "size": 70,
+   "source": "pdata",
+   "subsystem": "cutlib",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1590445,6 +1590554,12 @@
      "0x141F608F0",
      "0x141F5F330",
      "0x141F60890"
+    ]
+   },
+   "cutlib": {
+    "members": 11,
+    "roots": [
+     "0x141E5C8F0"
     ]
    }
   },

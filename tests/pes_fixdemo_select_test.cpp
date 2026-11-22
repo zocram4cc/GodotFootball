@@ -274,4 +274,22 @@ TEST(FixDemoSelect, AFinishedSceneAdvancesItsCategoryRotationExceptThePesExempti
   EXPECT_EQ(word(4), 2u);
 }
 
+// PES's boot step 0x140419D80 runs the cut library's builder 0x141E5C8F0: the header at [0x1437F4808] holds one slot per cut
+// name, all empty until the fill loads them. The count is the one PES's own count function 0x141E5DE80 returns.
+TEST(FixDemoSelect, TheCutLibraryHoldsOneEmptySlotPerCutName) {
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
+  auto sel = Make(in);
+  ASSERT_TRUE(sel);
+  PesState& s = sel->State();
+  constexpr uint64_t kCutLibraryVa = 0x1437F4808;  // the global the builder stores
+  const uint64_t header = s.rd(kCutLibraryVa, 8);
+  ASSERT_NE(header, 0u);
+  const uint64_t begin = s.rd(header, 8), end = s.rd(header + 8, 8);
+  ASSERT_GE(end, begin);
+  pes_fn_141E5DE80(s);
+  EXPECT_EQ((end - begin) / 8, s.gpr[0]);
+  for (uint64_t p = begin; p < end; p += 8) EXPECT_EQ(s.rd(p, 8), 0u);
+}
+
 }  // namespace

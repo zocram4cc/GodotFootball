@@ -109,6 +109,9 @@ constexpr unsigned kPitchSlots = 22, kSideSlots = 11;  // 2 sides * 11
 // does not read them.
 constexpr uint64_t kSingletonSlotVa = 0x1437C9238, kSingletonPageVa = 0x1437C9000, kSingletonNextOff = 8;
 constexpr uint64_t kSingletonBytes = 0x100, kEngineVtableVa = 0x142AC1D38, kEngineBytes = 0x4200;
+// The cut library (PES's global [0x1437F4808], set by the builder 0x141E5C8F0 that the boot step 0x140419D80 calls): a 0x18-byte
+// header whose vector holds one slot per cut name. The global lives on page 0x1437F4000, which no other static maps.
+constexpr uint64_t kCutLibraryPageVa = 0x1437F4000, kCutLibraryVa = 0x1437F4808;
 // The gates' world (0x140472640, 0x14047EB00): the anime record table 0x140A48910 reads (G+0x19C8; record +1 class byte, +8 flag
 // word, +0x54 speed), the referee's man record (table index 0x16, which 0x140A48A10 answers), the object behind G+0x2C0 whose
 // +0x5C is the time scale, the run object's ready byte A0+0xEC, the first cut id the DemoInfo holds (+0x10: the scene flag test
@@ -207,7 +210,7 @@ struct FixDemoSelector::Impl {
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
                              {kWorldSlotPageVa, kWorldSlotPageBytes}, {kStagePageVa, kPageBytes}, {kStageFlagPageVa, kPageBytes},
-                             {kGameImplPageVa, kPageBytes}, {kSingletonPageVa, kPageBytes}})
+                             {kGameImplPageVa, kPageBytes}, {kSingletonPageVa, kPageBytes}, {kCutLibraryPageVa, kPageBytes}})
       s.mem.segs.push_back({va, std::vector<uint8_t>(bytes)});
     s.wr(kStageSlotVa, kStageObjectVa, 8);
     s.wr(kStageObjectVa, kStageVtableVa, 8);
@@ -225,6 +228,10 @@ struct FixDemoSelector::Impl {
       s.wr(singleton + kSingletonNextOff, engine, 8);
       s.wr(engine, kEngineVtableVa, 8);
     }
+    // The cut library: the builder runs once here, as PES's boot step does. It allocates the header, resizes the vector to the cut
+    // names and stores the global; the slots stay empty. The else arm's lookup 0x141E5D4C0 reads the global, and the fill that loads
+    // the slots (CutsceneAnchor8 step 2) is not in GF yet.
+    Call(&pes_fn_141E5C8F0);
     InitPickMap();
     // The ctx's second std::map (+0x40) is cleared by the ctx setter 0x141F51630, which the else arm reaches: an empty sentinel,
     // as PES's static initialisers leave it (a null head walks the erase into a loop).
