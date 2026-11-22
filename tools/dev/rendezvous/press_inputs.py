@@ -53,6 +53,17 @@ class Capture:
             m = self._mapping(va)
             if m is not None:
                 spans.append((m["off"] + va - m["va"], va, n))
+        raw = os.path.join(self.folder, "mem.bin")
+        if os.path.exists(raw):
+            out = {}
+            with open(raw, "rb") as fh:
+                for va, n in requests:
+                    m = self._mapping(va)
+                    if m is None:
+                        continue
+                    fh.seek(m["off"] + va - m["va"])
+                    out[va] = fh.read(n)
+            return out
         spans.sort()
         proc = subprocess.Popen(["zstd", "-dc", os.path.join(self.folder, "mem.bin.zst")], stdout=subprocess.PIPE)
         pos, out = 0, {}

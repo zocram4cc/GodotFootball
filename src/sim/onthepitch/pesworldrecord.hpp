@@ -733,6 +733,13 @@ static_assert(offsetof(PesMatchInfo, period) == kMatchInfoPeriodOffset);
 static_assert(offsetof(PesMatchInfo, frame) == kMiFrameOffset);
 static_assert(sizeof(PesMatchInfo) == kMatchInfoBytes);
 static_assert(kMiRestartKindOffset + kJudgeSyncBytes <= kMatchInfoBytes, "the synced part of JR lies in the match-info block");
+// PES's per-slot object X: FUN_1409211E0 allocates kPressObjectBytes (0x1A5E0) per on-pitch slot, and FUN_14091E9F0 builds it. Inside X the
+// ctor FUN_14091EDB0 builds M = X+0x958, the presser action A0 (vtable 0x142634948) sits at X+0x10E70 and the dispatch context A2 at
+// X+0xACE8 (docs/re/pes-re-press-owner.md section 7; the size is the allocator's, CONFIRMED from its decompile).
+inline constexpr std::size_t kPressObjectBytes = 0x1A5E0;
+struct PesPressImage {
+  std::array<uint8_t, kPressObjectBytes> bytes{};
+};
 
 // The whole window: G's header, then the blocks. Heap-owned by PesWorld, so the bytes never move.
 struct PesWorldImage {
@@ -758,6 +765,7 @@ struct PesWorldImage {
   PesRosterBlock roster{};                             // G+0x180's roster block
   PesSkipRecord skip{};                                // G+0x3B0's skip object
   std::array<PesAiRecord, kSideCount> ai{};            // each side's AI object and context array (the arrival-list writer's rcx)
+  std::array<PesPressImage, kSlotCount> press{};       // each on-pitch slot's X (PES's per-slot object; kPressObjectBytes each), the last member
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -786,6 +794,9 @@ static_assert(offsetof(PesWorldImage, roster) == kRosterOffset);
 static_assert(offsetof(PesWorldImage, skip) == kSkipOffset);
 inline constexpr std::size_t kAiOffset = kSkipOffset + sizeof(PesSkipRecord);
 static_assert(offsetof(PesWorldImage, ai) == kAiOffset);
+// The per-slot press objects follow the AI records, indexed side * kSlotsPerSide + slot like the trap images.
+inline constexpr std::size_t kPressOffset = kAiOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesAiRecord);
+static_assert(offsetof(PesWorldImage, press) == kPressOffset);
 // The ball record's active byte (FUN_140A57940 answers it): PES's ball constructor sets it (0x140A572B4: mov byte [rbx+0x2928], 1) and
 // only the FixDemo scene state machine clears it (0x141FD00BD through the setter 0x140A57990); GF never hides the ball record.
 inline constexpr std::size_t kBallActiveOffset = 0x2928;
@@ -884,6 +895,11 @@ class PesWorld {
   static constexpr uint64_t SkipVa() { return kWorldWindowVa + kSkipOffset; }
   static constexpr uint64_t AiVa(int side) { return kWorldWindowVa + kAiOffset + static_cast<uint64_t>(side) * kAiBytes; }
   uint8_t* Ai(int side) { return image_->ai[side].bytes.data(); }
+  // PES's per-slot object X (kPressObjectBytes), indexed side * kSlotsPerSide + slot like the trap images.
+  static constexpr uint64_t PressVa(int index) {
+    return kWorldWindowVa + kPressOffset + static_cast<uint64_t>(index) * kPressObjectBytes;
+  }
+  uint8_t* Press(int index) { return image_->press[index].bytes.data(); }
   uint8_t* Brain(int side) { return image_->brain[side].bytes.data(); }
   // The team record's pass target T+0x78 (a slot id, kNoPassTarget when none): written by PES's selector, RunPassTarget.
   uint32_t PassTarget(int side) { return LoadU32(SideRecord(side), kSidePassTargetOffset); }
