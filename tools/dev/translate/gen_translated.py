@@ -61,9 +61,16 @@ INDIRECT_EDGES = {
     "0x141F616F0": ("0x140400F50", "0x140400DF0", "0x140B28910"),
     # 0x1415A01DC is the CFG check thunk `jmp [IAT]`; the unpacked image's slot holds a bare `ret` (0x1415A02B0).
     "0x1415A01DC": ("0x1415A02B0",),
-    # 0x1406F6CE0 (kick joints) dispatches its action slot through a runtime vtable read (pes_dispatch_lookup on [rdx]). The three
-    # per-action handlers it reaches are the only targets the survey saw (pes-port-StallBreaker4.md, caller return 0x443c8f).
-    "0x1406F6CE0": ("0x14073DD50", "0x140789D00", "0x140791DD0"),
+    # 0x1406F6CE0 (kick joints) dispatches its action slot through a vtable read ([obj] then slot +0x90, pes_dispatch_lookup). Every
+    # distinct code target of that slot across the anime::match::action vtables (94 MSVC-RTTI vtables; pes-port-StallBreaker7.md) is
+    # listed: 35 VAs. 0x141794410 is DemoAction's slot, shared by 42 vtables.
+    "0x1406F6CE0": (
+        "0x140727D90", "0x14072C550", "0x1407318F0", "0x140731A70", "0x1407348F0", "0x14073DD50", "0x140743610", "0x1407436E0",
+        "0x14074A590", "0x140770290", "0x140774680", "0x140775A90", "0x140781440", "0x140783840", "0x140785AF0", "0x140789D00",
+        "0x140789F60", "0x140791DD0", "0x14079DBB0", "0x1407A1490", "0x1407A2660", "0x1407A3190", "0x1407C4FA0", "0x1407D1DC0",
+        "0x1407E11B0", "0x1407E6DC0", "0x1407EBF80", "0x1407EE930", "0x1407EF440", "0x1407EFEE0", "0x1407F0920", "0x140806E00",
+        "0x1408549C0", "0x140854A70", "0x141794410",
+    ),
 }
 
 
@@ -241,6 +248,8 @@ def build(image):
     texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
+        # The root's indirect targets are in its universe: a tail jump between them is a direct jump, not an out-of-set gap.
+        universe = universe | set(INDIRECT_EDGES.get(va, ()))
         members = closure_members(va)
         universe = link_universe(universe, members)
         queue, seen = [va] + sorted(members - {va}), {va} | members

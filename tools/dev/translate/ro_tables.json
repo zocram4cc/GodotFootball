@@ -374,5 +374,25 @@
     "va": "0x1425DD980",
     "bytes": "0x5B8",
     "evidence": "INF (extent, not per-table bounds): the contiguous initialised .rdata block 0x1425DD980..0x1425DDF38 that the anime-motion row pickers read: 0x1406B9BD0 [0x1425DDA50 + (p4 + p3*8)*4] and [0x1425DD988 + p5*4]; 0x1406B9D80 [0x1425DDAD0 + (p4 + p3*8)*4] and [0x1425DD988 + p5*4]; 0x1406B9AA0 the float rows 0x1425DDE38..0x1425DDE60; 0x1406B9B20 the float rows 0x1425DDEB0 / 0x1425DDEE0 (10 entries) and the dword row 0x1425DDF10 (10 entries); 0x1406B9E50 the float row 0x1425DDE10; 0x1406B8DE0 the dword 0x1425DDCD8. Every read is a constant table between the neighbours dumped from the image (all words are indices, floats or -1 terminators; no pointer or relocation); declaring the whole block is harmless where an index range was not derived from the callers (bytes beyond a reader's own table are never read by it)"
+  },
+  {
+    "va": "0x1425E7850",
+    "bytes": "0x20",
+    "evidence": "CONFIRMED 0x140770290 (capstone, the image's bytes): lea rdi,[rip+0x1E77530] = 0x1425E7850 at 0x140770319; the search at 0x140770326..0x14077033F is a 4-entry loop (cmp ebx,4 / jb), stride 8 (dword key at +0, words at +4 and +6), so the window is 4*8 = 0x20 bytes; the reads at 0x140770332, 0x140770348 and 0x140770372 fall inside it"
+  },
+  {
+    "va": "0x1425E76B0",
+    "bytes": "0x38",
+    "evidence": "CONFIRMED 0x140770290 (capstone): the loop at 0x1407705E5..0x1407705F2 reads dwords from 0x1425E76B0 (lea at 0x1407705DE), stepping 4 bytes while ecx < 0xE (cmp ecx,0xe / jb), ecx starting at r12d: at most 14 dwords = 0x38 bytes; the next table starts at 0x1425E76E8"
+  },
+  {
+    "va": "0x1425E76E8",
+    "bytes": "0xC",
+    "evidence": "CONFIRMED 0x140770290 (capstone): the loop at 0x140770600..0x14077060D reads dwords from 0x1425E76E8 (lea at 0x1407705F7's successor block), stepping 4 bytes while ecx < 3 (cmp ecx,3 / jb): at most 3 dwords = 0xC bytes"
+  },
+  {
+    "va": "0x1425E76F8",
+    "bytes": "0xC",
+    "evidence": "CONFIRMED 0x140770290 (capstone): the loop at 0x140770620..0x14077062D reads dwords from 0x1425E76F8 (lea at 0x140770612), stepping 4 bytes while ecx < 3 (cmp ecx,3 / jb): at most 3 dwords = 0xC bytes"
   }
 ]
