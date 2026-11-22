@@ -536525,6 +536525,188 @@
    "vtables": [],
    "walked": true
   },
+  "140A179C0": {
+   "boundary": null,
+   "callees": {
+    "140A18810": "direct",
+    "140A19060": "direct",
+    "140A3C050": "direct",
+    "140A3D060": "direct",
+    "140A3E940": "direct",
+    "140A57800": "direct",
+    "140A57950": "direct",
+    "140A60300": "direct",
+    "140A62FE0": "direct",
+    "140A867A0": "direct",
+    "140A867D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a179c0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 88,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140A17E50": {
+   "boundary": null,
+   "callees": {
+    "140439E50": "direct",
+    "140439EF0": "direct",
+    "1404583B0": "direct",
+    "140474C40": "direct",
+    "1404BCAD0": "direct",
+    "140A48910": "direct",
+    "140A489F0": "direct",
+    "140A48A10": "direct",
+    "140A6CF70": "direct",
+    "140A6E090": "direct",
+    "140A6E3F0": "direct",
+    "140A6E6B0": "direct",
+    "140A76240": "direct",
+    "140A8FF10": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a17e50",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 355,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140A18810": {
+   "boundary": null,
+   "callees": {
+    "140A48910": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a18810",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 68,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140A19060": {
+   "boundary": null,
+   "callees": {
+    "140A19290": "direct",
+    "140A57940": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a19060",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 49,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140A19290": {
+   "boundary": null,
+   "callees": {
+    "14042D470": "direct",
+    "140439EF0": "direct",
+    "14043A020": "direct",
+    "14043A0A0": "direct",
+    "1404583B0": "direct",
+    "140458740": "direct",
+    "14046F230": "direct",
+    "140481B00": "direct",
+    "140581CE0": "direct",
+    "140591A10": "direct",
+    "140A17E50": "direct",
+    "140A3E190": "direct",
+    "140A48910": "direct",
+    "140A48A10": "direct",
+    "140A48A30": "direct",
+    "140A57720": "direct",
+    "140A57800": "direct",
+    "140A59EC0": "direct",
+    "140A60530": "direct",
+    "140A627E0": "direct",
+    "140A62EE0": "direct",
+    "140A6C6D0": "direct",
+    "140A6CBD0": "direct",
+    "140A6CE10": "direct",
+    "140A6CF70": "direct",
+    "140A6E150": "direct",
+    "140A6E1C0": "direct",
+    "140A6E340": "direct",
+    "140A92D40": "direct",
+    "1415A1780": "direct",
+    "141E532D0": "direct",
+    "141F9C3B0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a19290",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 864,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140A1B130": {
    "boundary": null,
    "callees": {
@@ -544056,6 +544238,32 @@
    "source": "bridge",
    "subsystem": "referee",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "140A3D060": {
+   "boundary": null,
+   "callees": {
+    "140A6BD60": "direct",
+    "140A6BE70": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a3d060",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 19,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -567893,6 +568101,29 @@
    "vtables": [],
    "walked": true
   },
+  "140A6CC80": {
+   "boundary": null,
+   "callees": {},
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": true,
+   "name": "FUN_140a6cc80",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 34,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "140A6CD00": {
    "boundary": null,
    "callees": {},
@@ -580545,6 +580776,57 @@
    "source": "bridge",
    "subsystem": "gameplay",
    "tables": 0,
+   "vtables": [],
+   "walked": true
+  },
+  "140A867A0": {
+   "boundary": null,
+   "callees": {
+    "140A60520": "direct",
+    "140A6CC60": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a867a0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 13,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "140A867D0": {
+   "boundary": null,
+   "callees": {
+    "140A6CC80": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_140a867d0",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "kind8"
+   ],
+   "scope": "in",
+   "size": 2,
+   "source": "pdata",
+   "subsystem": "kind8",
+   "tables": 0,
+   "unresolved": false,
    "vtables": [],
    "walked": true
   },
@@ -1676727,6 +1677009,14 @@
     "members": 1,
     "roots": [
      "0x14084F080"
+    ]
+   },
+   "kind8": {
+    "members": 130,
+    "roots": [
+     "0x140A3D060",
+     "0x140A19290",
+     "0x140A179C0"
     ]
    },
    "pressaction": {

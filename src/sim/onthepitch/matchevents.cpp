@@ -42,7 +42,7 @@ float Match::GetPesEventAge_s(int eventFrame) const {
 }
 
 void Match::QueuePesTouch(Player* player, uint32_t actionKind) {
-  pesPendingTouches.push_back(PendingPesTouch{player, actionKind, GetPesFrame()});
+  pesPendingTouches.push_back(PendingPesTouch{player, actionKind});
 }
 
 pes::ActorKey Match::PesActorKeyOf(const Player* player) {
@@ -183,7 +183,10 @@ void Match::ProcessPesEventStage() {
       in.kickTarget = static_cast<int>(target.team) * kStartersPerSide + std::min(static_cast<int>(target.slot), kStartersPerSide - 1);
       in.kickTargetSlot = static_cast<int>(target.slot);
     }
-    in.frame = touch.frame;
+    // PES's ball stage and event stage run in one tick, so a touch is stamped with the tick it is emitted in. GF queues the touch in the team
+    // stage, which runs after this one, so the queued frame is the previous tick: the writer 0x14092ED30 (gate: frames since the newest
+    // kind-7 event is 0 or 2) then never sees a touch as current.
+    in.frame = frame;
     in.phase = phase;
     in.state = kStateWord;
     in.restartState = restartState;
@@ -197,7 +200,7 @@ void Match::ProcessPesEventStage() {
     pes::SnapshotInput snap;
     snap.store = &pesEvents;
     snap.current = &touchRecord;
-    snap.frame = touch.frame;
+    snap.frame = frame;
     snap.phase = phase;
     snap.state = kStateWord;
     pes::EventRecord snapshot;
