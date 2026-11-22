@@ -762,3 +762,66 @@ TEST(SimMatch, ShootoutVerdictWaitsForAStrikeOrTheRunUp) {
   }
   SetDB(nullptr);
 }
+
+// PES's shootout kick is taken by the taker: after the referee releases it he runs to the ball and strikes it. A kick is taken when a
+// man of the shooting side touches the ball and the ball leaves where it lay at the release, within the run-up bound (12 s). Red while
+// the taker's run is queued behind a strike he cannot reach (the stalled shootout: every kick MISSed untouched).
+TEST(SimMatch, ShootoutKickIsTakenWithinTheRunUp) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  MatchSetup setup = MakeSetup(7, SHORT_MATCH_MINUTES);
+  pestest::FillMissingPesConstants(&setup);
+  Properties shootoutOnly;
+  shootoutOnly.SetBool("penalty_shootout_only", true);
+  shootoutOnly.SetBool("pes_loop", true);
+  {
+    constexpr unsigned long kRunUp_ms = 12000;
+    constexpr float kStruckDistance_m = 0.5f;
+    constexpr int kKicksChecked = 4;
+    Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, shootoutOnly);
+    PenaltyShootoutController* shootout = match.GetPenaltyShootout();
+    bool wasLive = false;
+    bool taken = false;
+    bool released = false;
+    bool reported = false;
+    unsigned long releasedAt_ms = 0;
+    Vector3 ballAtRelease;
+    Player* touchAtRelease = nullptr;
+    int shooter = -1;
+    int kick = 0;
+    while (kick < kKicksChecked && !shootout->IsFinished() && match.GetSimTime_ms() < kMaxSimTime_ms) {
+      match.Process();
+      if (shootout->IsKickLive() && !wasLive) {
+        taken = false;
+        released = false;
+        reported = false;
+        shooter = shootout->GetState().shootingTeam;
+      }
+      if (shootout->IsKickLive()) {
+        if (!released && match.IsInPlay()) {
+          released = true;
+          releasedAt_ms = match.GetActualTime_ms();
+          ballAtRelease = match.GetBall()->Predict(0);
+          touchAtRelease = match.GetLastTouchPlayer();
+        }
+        Player* toucher = match.GetLastTouchPlayer();
+        const bool struck = (match.GetBall()->Predict(0) - ballAtRelease).GetLength() > kStruckDistance_m;
+        if (released && struck && toucher != touchAtRelease && toucher && toucher->GetTeam()->GetID() == shooter)
+          taken = true;
+        if (released && !taken && !reported && match.GetActualTime_ms() - releasedAt_ms > kRunUp_ms) {
+          reported = true;
+          ADD_FAILURE() << "kick " << kick << " (team " << shooter << ") was not taken within " << kRunUp_ms << " ms of its release";
+        }
+      }
+      if (wasLive && !shootout->IsKickLive()) {
+        if (!taken) ADD_FAILURE() << "kick " << kick << " was never taken by team " << shooter;
+        kick++;
+      }
+      wasLive = shootout->IsKickLive();
+    }
+    EXPECT_EQ(kick, kKicksChecked);
+  }
+  SetDB(nullptr);
+}

@@ -49,6 +49,10 @@
 #include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesgoalkick.hpp"
 
+// A penalty taker runs up to the ball and strikes it from this reach (PES's approach: the run is the taker's own, the strike is
+// not sent before it). Measured in the shootout (pes_loop, seed 7): the run stops 1.5-2.0 m short of the ball, and the strike from
+// there scores. ponytail: 2.5 m is a GF stand-in for the reach at which the strike connects; PES's contact is not decoded.
+constexpr float kPenaltyStrikeReach_m = 2.5f;
 namespace {
 
 // PES's angle fold (0x140481b00, report 4): wrap at 360, fold at 180.
@@ -323,7 +327,11 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       actionCommand.touchInfo.autoDirectionBias = 0.0f;
       actionCommand.touchInfo.desiredDirection = actionCommand.touchInfo.inputDirection;
       actionCommand.touchInfo.desiredPower = aimPower;
-      commandQueue.push_back(actionCommand);
+      // In PES loop the strike is not sent until the taker is at the ball: the run below brings him there (the penalty is a restart's
+      // approach, as a free kick's is). Outside the PES loop the strike goes out as it always did.
+      const float ballReach_m = (match->GetBall()->Predict(0) - player->GetPosition()).Get2D().GetLength();
+      if (!match->PesLoop() || ballReach_m <= kPenaltyStrikeReach_m)
+        commandQueue.push_back(actionCommand);
 
     } else {
       actionCommand.desiredFunctionType = e_FunctionType_ShortPass;
@@ -529,7 +537,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       if (restart == e_SetPiece_ThrowIn &&
           toBall.GetLength() <= match->GetPesSetPieceTakerConstants().throwInPickupReach_m) {
         CastPlayer()->SelectRetainAnim();
-      } else if (restart == e_SetPiece_FreeKick || restart == e_SetPiece_Corner || restart == e_SetPiece_Penalty) {
+      } else if (restart == e_SetPiece_FreeKick || restart == e_SetPiece_Corner ||
+                 (restart == e_SetPiece_Penalty && toBall.GetLength() > kPenaltyStrikeReach_m)) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = true;
