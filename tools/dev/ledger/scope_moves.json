@@ -1140,6 +1140,13 @@
    "to": "undecoded",
    "reason": "CrawlFix WALK_EXCEPTIONS: pre-match handshake dispatcher (rtti:draw) walked deliberately; bounded fan-out into match presentation (handshake 0x141ED48F0).",
    "cite": "docs/re/pes-re-crawl-gap.md \u00a72 and CrawlFix branch"
+  },
+  {
+   "va": "0x14047B460",
+   "from": "ported",
+   "to": "stand-in",
+   "reason": "Integrate merge of CutsceneAnchor: fixdemo_select.cpp names the untranslated caller 0x14047B460 in a ponytail (the recompute's r9 is a zeroed object of its size), so the ledger reports it truthfully as a stand-in; the earlier 'ported' came from a branch ledger generated before that line.",
+   "cite": "src/pes/fixdemo_select.cpp ponytail on 0x14047B460; Integrate merge 5adb5208"
   }
  ]
 }

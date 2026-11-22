@@ -161348,6 +161348,27 @@
    "vtables": [],
    "walked": true
   },
+  "140419610": {
+   "boundary": null,
+   "callees": {
+    "1406ABBA0": "direct",
+    "1406ABE40": "direct",
+    "1406B0ED0": "direct",
+    "1406B20E0": "direct",
+    "1406B2DC0": "direct",
+    "1406B2E20": "direct",
+    "1406B3910": "direct",
+    "1406B3970": "direct",
+    "1406B4EA0": "direct",
+    "1406B4F00": "direct",
+    "141E5BC40": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 211,
+   "subsystem": "cutscene"
+  },
   "140419A10": {
    "boundary": null,
    "callees": {
@@ -161524,6 +161545,26 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "140419D80": {
+   "boundary": null,
+   "callees": {
+    "1404346A0": "direct",
+    "14069B920": "direct",
+    "14069C340": "direct",
+    "1406AA3C0": "direct",
+    "1406AEF00": "direct",
+    "1406B28F0": "direct",
+    "1406B3170": "direct",
+    "1406B4EA0": "direct",
+    "141E5BAF0": "direct",
+    "141E5C8F0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 63,
+   "subsystem": "cutscene"
   },
   "14041B640": {
    "boundary": null,
