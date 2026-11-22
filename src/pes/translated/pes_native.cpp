@@ -2,6 +2,7 @@
 // See pes_native.hpp.
 #include "pes_native.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -51,9 +52,14 @@ PesHeap::PesHeap(uint64_t arenaBytes) : page_(kPageBytes), arena_(arenaBytes), t
 
 void PesHeap::Attach(PesState& s) {
   s.heap = this;
-  s.mem.services.clear();
-  s.mem.services.push_back({kPageVa, kPageBytes, nullptr, page_.data()});
-  s.mem.services.push_back({kArenaVa, arena_.size(), nullptr, arena_.data()});
+  // Replaces only the heap's own windows (a previous Attach's): the windows the caller lent (the trap world's shared regions, lent by
+  // PesWorld's LendExternals before the heap attaches) stay mapped.
+  auto& services = s.mem.services;
+  services.erase(std::remove_if(services.begin(), services.end(),
+                                [](const PesMem::Window& w) { return w.base == kPageVa || w.base == kArenaVa; }),
+                 services.end());
+  services.push_back({kPageVa, kPageBytes, nullptr, page_.data()});
+  services.push_back({kArenaVa, arena_.size(), nullptr, arena_.data()});
 }
 
 uint64_t PesHeap::LiveBytes() const {

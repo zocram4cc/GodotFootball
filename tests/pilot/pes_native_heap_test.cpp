@@ -202,5 +202,17 @@ TEST(NativeHeap, ABlockIsReusedAfterItsFreeAndComesBackZeroed) {
   EXPECT_EQ(b, a);
   EXPECT_EQ(m.s.rd(b, 8), 0u);
 }
+// PesWorld's FillTemplate lends the trap world's windows (LendExternals), then the heap attaches to the same state. Attach replaces
+// only the heap's own windows: a window the caller lent stays mapped, so a read of it answers the lent bytes (the pad manager's
+// vtable, read by FUN_141B52380 after the allocator's entry, was zero when Attach dropped the lent windows).
+TEST(NativeHeap, AttachKeepsTheWindowsTheCallerLent) {
+  constexpr uint64_t kLentVa = 0x21000000ULL;
+  std::vector<uint8_t> lent(0x100, 0xAB);
+  PesHeap heap;
+  PesState s;
+  s.mem.services.push_back({kLentVa, lent.size(), nullptr, lent.data()});
+  heap.Attach(s);
+  EXPECT_EQ(s.rd(kLentVa, 1), 0xABu);
+}
 
 }  // namespace
