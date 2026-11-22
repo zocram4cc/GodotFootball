@@ -653,6 +653,18 @@ def import_model_lines(op, jump):
                 " else if ((_hi & 0x7FFFu) == 0 && _lo == 0) _r = 0u;"
                 " else { _dx = (uint32_t)(0u - _exp) & 0xFFFFu; _r = _exp != 0 ? 0xFFFFFFFFu : 0xFFFFFFFEu; }"
                 " s.gpr[2] = _dx; s.gpr[0] = _r;%s }" % pop_ret]
+    if e["do"] == "wait":
+        # WaitForSingleObject(rcx = handle, edx = ms), the code_hex model: INFINITE (edx == 0xFFFFFFFF) is satisfied (eax = 0), any
+        # other timeout expires (eax = 0x102). Only rax changes.
+        return ["{ " + push_ret + " s.gpr[0] = ((uint32_t)s.gpr[2] == 0xFFFFFFFFu) ? 0ULL : 0x102ULL;%s }" % pop_ret]
+    if e["do"] == "cs_init":
+        # kernel32!InitializeCriticalSectionAndSpinCount(rcx = LPCRITICAL_SECTION, edx = spin count), the code_hex model
+        # register for register: DebugInfo, RecursionCount, OwningThread and LockSemaphore are 0 and LockCount is -1 (free);
+        # SpinCount = edx zero-extended; rdx = edx; rax = 1 (TRUE); rcx unchanged.
+        return ["{ " + push_ret + " uint64_t _cs = s.gpr[1]; s.gpr[2] = (uint32_t)s.gpr[2];"
+                " s.wr(_cs + 0x00, 0ULL, 8); s.wr(_cs + 0x08, 0xFFFFFFFFULL, 4); s.wr(_cs + 0x0C, 0ULL, 4);"
+                " s.wr(_cs + 0x10, 0ULL, 8); s.wr(_cs + 0x18, 0ULL, 8); s.wr(_cs + 0x20, s.gpr[2], 8);"
+                " s.gpr[0] = 1;%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
 
