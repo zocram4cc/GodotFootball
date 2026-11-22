@@ -3365,6 +3365,80 @@
    "stubs": [],
    "translated": true,
    "va": "0x14079E0B0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kind8ballsync.json",
+   "coverage": {
+    "0x140430C30": {
+     "reached": 21,
+     "total": 21,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kind8 snapshot copy: six real calls, pid1971636",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 21,
+     "total": 21,
+     "fraction": 1.0
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140430C30"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kind8ballsync.json",
+   "coverage": {
+    "0x140872C10": {
+     "reached": 43,
+     "total": 143,
+     "fraction": 0.3007
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 6 of 6: 6 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kind8 ball sync: six real calls, pid1971636",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 6,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 43,
+     "total": 143,
+     "fraction": 0.3007
+    },
+    "replayed": 6,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140872C10"
   }
  ]
 }
