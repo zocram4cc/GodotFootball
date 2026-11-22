@@ -643,6 +643,45 @@
    "va": "0x1406E9F90",
    "synthetic": true,
    "synthetic_cases": 13
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutgroup.json",
+   "coverage": {
+    "0x141E5C1E0": {
+     "reached": 25,
+     "total": 29,
+     "fraction": 0.8621
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3: 0 REAL captured call(s) and 3 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. the group builder over three synthetic group lists (one group; a null slot then one group; nine groups), PES's bytes against the translated closure; the pool region release 0x1403FC080 is the heap-boundary stub release_ok (Main ruling (b))",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 25,
+     "total": 29,
+     "fraction": 0.8621
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141E5C1E0",
+   "synthetic": true,
+   "synthetic_cases": 3
   }
  ]
 }
