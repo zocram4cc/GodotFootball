@@ -50,7 +50,9 @@ protected:
   Player* SelectTaker(int teamID);
   // Places ball, taker, keeper and the waiting players for the next kick.
   void SetUpKick();
-  void BeginKick();
+  // Places the taker, keeper and the waiting players once the referee has prepared the penalty (the set piece's own placement is
+  // done), and names the shootout's taker as the set piece's taker.
+  void ArrangeKick();
   // Puts the defending keeper on the line of the shootout goal.
   void AnchorKeeper();
   // Taker in the area, defending keeper in goal, everyone else on halfway.
@@ -69,7 +71,10 @@ protected:
   unsigned long nextEventTime_ms;
   // Which players have already taken a kick this round, per team.
   unsigned int takenMask[2];
-  unsigned long kickStartTime_ms;
+  unsigned long kickStartTime_ms;  // the release: when the referee put the kick in play (the run-up is timed from here)
+  // The referee has prepared this kick and the shootout has arranged the players for it; the kick is in play from kickReleased.
+  bool kickArranged;
+  bool kickReleased;
   // Aim of the current kick (goal-line lateral and height, metres) and its weight.
   float aimY;
   float aimHeight;

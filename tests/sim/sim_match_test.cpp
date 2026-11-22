@@ -676,3 +676,89 @@ TEST(SimMatch, ShootoutVerdictIsWhatTheBallDid) {
   }
   SetDB(nullptr);
 }
+
+// PES's shootout kick is a restart of the referee's: the referee arms it with the foul-award timings, prepares it when due, and
+// releases it (started) at its take gate. The ball is in play only after that release. Red while the shootout starts play itself.
+TEST(SimMatch, ShootoutKickIsReleasedByTheReferee) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  MatchSetup setup = MakeSetup(7, SHORT_MATCH_MINUTES);
+  pestest::FillMissingPesConstants(&setup);
+  Properties shootoutOnly;
+  shootoutOnly.SetBool("penalty_shootout_only", true);
+  shootoutOnly.SetBool("pes_loop", true);
+  {
+    constexpr int kKicksChecked = 2;  // the first kicks are enough to pin the release; the shootout need not finish
+    Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, shootoutOnly);
+    PenaltyShootoutController* shootout = match.GetPenaltyShootout();
+    Referee* referee = match.GetReferee();
+    bool wasLive = false;
+    bool checked = false;
+    int kicks = 0;
+    while (kicks < kKicksChecked && !shootout->IsFinished() && match.GetSimTime_ms() < kMaxSimTime_ms) {
+      match.Process();
+      if (shootout->IsKickLive() && !wasLive) checked = false;
+      if (shootout->IsKickLive() && !checked && match.IsInPlay()) {
+        EXPECT_TRUE(referee->GetBuffer().prepared) << "kick " << kicks << " was in play before the referee prepared it";
+        EXPECT_TRUE(referee->GetBuffer().started) << "kick " << kicks << " was in play without the referee's release";
+        EXPECT_GE(match.GetActualTime_ms(), referee->GetBuffer().startTime)
+            << "kick " << kicks << " was released before its take gate";
+        checked = true;
+      }
+      if (wasLive && !shootout->IsKickLive()) kicks++;
+      wasLive = shootout->IsKickLive();
+    }
+    EXPECT_EQ(kicks, kKicksChecked);
+  }
+  SetDB(nullptr);
+}
+
+// A kick is not settled by the ball's speed while the ball has not left its spot: a kick the ball never leaves ends at the run-up
+// (12 s from its release). The ball's movement reads a stale speed after the spot reset, which must not count as a strike.
+TEST(SimMatch, ShootoutVerdictWaitsForAStrikeOrTheRunUp) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  MatchSetup setup = MakeSetup(7, SHORT_MATCH_MINUTES);
+  pestest::FillMissingPesConstants(&setup);
+  Properties shootoutOnly;
+  shootoutOnly.SetBool("penalty_shootout_only", true);
+  shootoutOnly.SetBool("pes_loop", true);
+  {
+    constexpr unsigned long kRunUp_ms = 12000;  // the shootout's run-up bound, from the release (runUpTimeout_ms)
+    constexpr float kStruckDistance_m = 0.5f;   // the controller's spot tolerance
+    constexpr int kKicksChecked = 2;
+    Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, shootoutOnly);
+    PenaltyShootoutController* shootout = match.GetPenaltyShootout();
+    bool wasLive = false;
+    bool released = false;
+    unsigned long releasedAt_ms = 0;
+    Vector3 ballAtRelease;
+    int kicks = 0;
+    while (kicks < kKicksChecked && !shootout->IsFinished() && match.GetSimTime_ms() < kMaxSimTime_ms) {
+      match.Process();
+      const bool live = shootout->IsKickLive();
+      if (live && !released && match.IsInPlay()) {
+        released = true;
+        releasedAt_ms = match.GetActualTime_ms();
+        ballAtRelease = match.GetBall()->Predict(0);
+      }
+      if (wasLive && !live) {
+        if (released) {
+          const bool struck = (match.GetBall()->Predict(0) - ballAtRelease).GetLength() > kStruckDistance_m;
+          if (!struck)
+            EXPECT_GE(match.GetActualTime_ms() - releasedAt_ms, kRunUp_ms)
+                << "kick " << kicks << " was settled without a strike before its run-up";
+        }
+        kicks++;
+        released = false;
+      }
+      wasLive = live;
+    }
+    EXPECT_EQ(kicks, kKicksChecked);
+  }
+  SetDB(nullptr);
+}

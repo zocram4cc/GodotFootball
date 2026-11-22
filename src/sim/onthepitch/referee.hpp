@@ -95,6 +95,11 @@ public:
   unsigned SanctionSerial() const { return sanctionSerial; }
 
   void PrepareSetPiece(e_SetPiece setPiece);
+  // The shootout's kick through the restart machinery. AwardShootoutKick arms a penalty for the shooting side at the spot, with a
+  // foul's penalty timings. StageShootoutKick prepares it when due and releases it when PES's gate opens: Process runs the same
+  // stages for a match restart, and the shootout owns the pitch during the penalties phase, so Process does not run for it.
+  void AwardShootoutKick(int teamID, const Vector3& spot);
+  void StageShootoutKick();
 
   const RefereeBuffer& GetBuffer() const { return buffer; };
 
