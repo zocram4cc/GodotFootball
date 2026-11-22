@@ -102,6 +102,13 @@ constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManT
 constexpr uint64_t kWorldTableStride = 0x28;
 constexpr uint64_t kWorldTeamInfoTable = 0xA1 * kWorldTableStride, kWorldSquadTable = 0xA3 * kWorldTableStride;
 constexpr unsigned kPitchSlots = 22, kSideSlots = 11;  // 2 sides * 11
+// The engine singleton the goal's new-object notify reads: 0x1419F76E0 (the FixDemo object's constructor-notify, called on the
+// else arm's allocation) takes [0x1437C9238] + 8 = Q, then calls Q's vtable slot +0x60 (0x141B3D6F0 in PES, a thunk to Q+0x4020's
+// slot allocator 0x141B3DFB0). PES's seq203 replay runs that call (trace.json site 0x1419F787E). GF has no engine yet: a fresh
+// singleton S and Q, zeroed (the allocator hands out slot 0x20 first). ponytail: S's other fields are not modelled; the else arm
+// does not read them.
+constexpr uint64_t kSingletonSlotVa = 0x1437C9238, kSingletonPageVa = 0x1437C9000, kSingletonNextOff = 8;
+constexpr uint64_t kSingletonBytes = 0x100, kEngineVtableVa = 0x142AC1D38, kEngineBytes = 0x4200;
 // The gates' world (0x140472640, 0x14047EB00): the anime record table 0x140A48910 reads (G+0x19C8; record +1 class byte, +8 flag
 // word, +0x54 speed), the referee's man record (table index 0x16, which 0x140A48A10 answers), the object behind G+0x2C0 whose
 // +0x5C is the time scale, the run object's ready byte A0+0xEC, the first cut id the DemoInfo holds (+0x10: the scene flag test
@@ -200,7 +207,7 @@ struct FixDemoSelector::Impl {
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
                              {kWorldSlotPageVa, kWorldSlotPageBytes}, {kStagePageVa, kPageBytes}, {kStageFlagPageVa, kPageBytes},
-                             {kGameImplPageVa, kPageBytes}})
+                             {kGameImplPageVa, kPageBytes}, {kSingletonPageVa, kPageBytes}})
       s.mem.segs.push_back({va, std::vector<uint8_t>(bytes)});
     s.wr(kStageSlotVa, kStageObjectVa, 8);
     s.wr(kStageObjectVa, kStageVtableVa, 8);
@@ -211,6 +218,13 @@ struct FixDemoSelector::Impl {
     // 0x141B55F40 reads at 0x1437F0AC8). GF's own, as the camera rig keeps it.
     registry = std::make_unique<PesCameraRegistry>(*heap, s);
     s.wr(kFixDemoCtxSlotVa, ctx, 8);
+    // The engine singleton (kSingletonSlotVa): S, and Q at S+8 with the PES vtable kEngineVtableVa; both zeroed (see above).
+    {
+      const uint64_t singleton = Zalloc(kSingletonBytes), engine = Zalloc(kEngineBytes);
+      s.wr(kSingletonSlotVa, singleton, 8);
+      s.wr(singleton + kSingletonNextOff, engine, 8);
+      s.wr(engine, kEngineVtableVa, 8);
+    }
     InitPickMap();
     // The ctx's second std::map (+0x40) is cleared by the ctx setter 0x141F51630, which the else arm reaches: an empty sentinel,
     // as PES's static initialisers leave it (a null head walks the erase into a loop).

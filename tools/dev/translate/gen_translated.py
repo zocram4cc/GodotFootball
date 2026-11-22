@@ -55,6 +55,26 @@ INDIRECT_EDGES = {
     "0x141F616F0": ("0x140400F50", "0x140400DF0", "0x140B28910"),
     # 0x1415A01DC is the CFG check thunk `jmp [IAT]`; the unpacked image's slot holds a bare `ret` (0x1415A02B0).
     "0x1415A01DC": ("0x1415A02B0",),
+    # 0x14159EFF8 is the array constructor loop (`call rsi` at 0x14159F039 with rsi = the element constructor the caller passes in
+    # r9). The element constructors are the r9 constants of its layer callers (every caller in the layer, scanned): the ones PES's
+    # seq203 replay reached (trace.json site 0x14159F039: 0x140400DF0, 0x141F55A10, 0x14086CDE0) and the rest, which the find-or-create
+    # creators and object constructors of the else arm pass (0x140A3B9B0 and 0x140A3BA90 are the constructors of the creator 0x141F53B80's
+    # object; the others are the same kind of caller). A caller's element constructor is a function pointer the closure walk cannot see.
+    "0x14159EFF8": ("0x140400DF0", "0x141F55A10", "0x14086CDE0", "0x140A3BA90", "0x140A3B9B0", "0x140A81910", "0x140A81860",
+                    "0x141E9B100", "0x1414D0670", "0x141F4CC10", "0x140A67800", "0x142117430", "0x142119250", "0x14212DC40",
+                    "0x142137F20"),
+    # 0x1419F76E0 (the FixDemo object's constructor-notify) calls its engine singleton's vtable slot +0x60 (site 0x1419F787E in PES's
+    # replay of seq203, trace.json): 0x141B3D6F0, a thunk into the slot allocator 0x141B3DFB0.
+    "0x1419F76E0": ("0x141B3D6F0",),
+    # 0x141B55730 (the registry's find-or-create) calls the callbacks its caller passes: the not-found callback 0x140421F40, the
+    # creator 0x14216A8A0 (a DemoInfo name's first use: GF's registry holds only the camera names, so MATCH/DEMO_INFO and MATCH/ENV
+    # are created here), the assign 0x141F53C60, the release 0x14048B6A0 and the GameImpl wrapper 0x14217D310 (PES's seq203 replay
+    # dispatches the last two, trace.json sites 0x141B557BB and 0x141B5575B).
+    # The camera target info's creator 0x14086C830 (0x140871FF0 -> 0x141B55730 on a CAMERA name GF's registry does not hold).
+    "0x141B55730": ("0x140421F40", "0x14216A8A0", "0x141F53B80", "0x141F53AB0", "0x14086C830", "0x141F53C60", "0x14048B6A0", "0x14217D310"),
+    # 141F5A8B0's indirect calls (sites 0x141F5A8C0, 0x141F5A8DA, 0x141F5A8E3, 0x141F5A8EC in PES's replay of seq203, trace.json):
+    # the scene-object dispatcher 0x141F608F0 (a type switch on 0x70001..0x70026) and three more.
+    "0x141F5A8B0": ("0x141F608F0", "0x141F616F0", "0x141F5F330", "0x141F60890"),
 }
 
 
