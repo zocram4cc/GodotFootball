@@ -99450,5 +99450,85 @@
    "translated": true,
    "va": "0x141E6C280"
   }
+  ,
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutname.json",
+   "coverage": {
+    "0x141E5CB40": {
+     "fraction": 0.9,
+     "reached": 90,
+     "total": 100
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the fill's name match 0x141E5CB40 (the loader of one match-constant item: strips the directory and extension of the item's name, matches the basename with the 234 names of the library table [0x1437F4808] (case-folded), and on a null slot creates the entry through 0x141E5E0A0 (the entry's factory 0x141E6C240 and constructor 0x141E6C100, then the node loader 0x141E6C280 with the item's object); on a found index it stores the index in the caller's list). SYNTHETIC states over seq321's memory (synth.py, static 'as' spec, labelled, values chosen by the case): create (slot 113 = demoarea_st001 cleared; the name 'demoarea_st001.o'; the object of the install's constant_stadium.bin), exists (the same name, the slot as PES filled it), nomatch (the name 'nomatch.o'). 3 calls, bit-exact, 0 mismatches, every written byte, own-block 90/100. The heap services 0x1403FBC10, 0x1403FBCB0 and 0x141B34CB0 are native in production and excluded from the closure. Real calls: none in any capture.",
+   "proof": "snapdiff",
+   "requested": 3,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.9,
+     "reached": 90,
+     "total": 100
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_snapdiff_cutname.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 3,
+   "translated": true,
+   "va": "0x141E5CB40"
+  }
+  ,
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutfill.json",
+   "coverage": {
+    "0x141E5D560": {
+     "fraction": 1.0,
+     "reached": 27,
+     "total": 27
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the constant bin's fill 0x141E5D560 (the method of the group loader object, vtable 0x142B48C80 slot +8; for each item of the list (count, records offset, records of (argOff, flag, nameOff)) it runs the name match 0x141E5CB40 with the item's object, flag and name; a failed item stops the fill and frees the list; the group's kind is notified through 0x141E5BA70 with the list). SYNTHETIC states over seq321's memory (synth.py, static 'as' spec, labelled): two items where the first is created (slot 113 cleared; demoarea_st001) and the second exists (demoarea_st046); two items where both exist; and a no-match second item (failure). 3 calls, bit-exact, 0 mismatches, every written byte, own-block 27/27. The eight heap services of stubs.json native_services are native in production and excluded. Real calls: none in any capture (the fill runs at boot, before the captures).",
+   "proof": "snapdiff",
+   "requested": 3,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 27,
+     "total": 27
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_snapdiff_cutfill.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 3,
+   "translated": true,
+   "va": "0x141E5D560"
+  }
  ]
 }
