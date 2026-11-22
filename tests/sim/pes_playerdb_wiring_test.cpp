@@ -16,6 +16,7 @@
 
 #include "data/matchdata.hpp"
 #include "onthepitch/match.hpp"
+#include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/team.hpp"
@@ -262,6 +263,46 @@ TEST(PlayerDatabaseWiring, SlotAbilityBasesComeFromThePesRecordOfAnImportedPlaye
   EXPECT_EQ(stored(synthetic, pes::kAbilityStrongerFootId), Match::kFallbackLeftFooted ? 1 : 0);
   const float gfSpeedByte = data->GetStat("physical_velocity") * pes::kAbilityBytesPerStat;
   EXPECT_NEAR(stored(synthetic, pes::kAbilitySpeedId), gfSpeedByte, 8);
+}
+
+// PES's height input (PES facts): the physique's and the trap world's height is the man's height in cm (the roster row's byte 0x31 = the EDIT
+// save's Height, 34 of 34 captured players, pes-port-DribbleProposal7 section 1; a 180 cm man gives P+0x3B18 = 1.0 through the writer's
+// height_cm / 180, FUN_1406EB210 at 0x1406EB23E, divisor 0x142598580 = 180.0). So a man with a PES record of 197 cm is 197, and a database
+// man of 1.8 m is 180, not a development rating. Before the fix GF's `physical_height` stat (the XML value through CalculateStat) read 0.6.
+TEST(PlayerDatabaseWiring, TheHeightThatScalesAManIsHisHeightInCm) {
+  constexpr int kPesId = 9002;
+  constexpr uint8_t kRecordHeightCm = 197;
+  std::vector<uint8_t> rec = RecordFor(kPesId, kTierA, true);
+  SetField(rec, 216, 8, kRecordHeightCm - 100);
+  std::string err;
+  auto playerDb = pes::PlayerDatabase::Parse(rec, &err);
+  ASSERT_TRUE(playerDb.has_value()) << err;
+  FixtureMatch fixture(&*playerDb, {"UPDATE players SET pes_player_id = " + std::to_string(kPesId) + " WHERE id = 1"});
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* imported = PlayerWithDatabaseId(*fixture.match, 0, 1);
+  Player* synthetic = PlayerWithDatabaseId(*fixture.match, 0, 2);
+  ASSERT_NE(imported, nullptr);
+  ASSERT_NE(synthetic, nullptr);
+  EXPECT_NEAR(pesmovestep::PhysiqueHeightCmOf(*fixture.match, *imported), kRecordHeightCm, 0.5f)
+      << "a man with a PES record must scale by his record's height";
+  EXPECT_NEAR(pesmovestep::PhysiqueHeightCmOf(*fixture.match, *synthetic), 180.0f, 0.5f)
+      << "a database man of 1.8 m must scale by 180 cm";
+}
+
+// The Acceleration byte the MOVESTEP playback reads (0x1406E6660 -> 0x140A489F0 -> 0x14124DAD0: the slot record's block at +0x70, id
+// 0x2B): a player with a PES id starts from his roster row's byte, and a player without one from GF's own Acceleration stat over 100
+// (the same stat the team's ability read takes). The value is read through the window's accessor, as the playback reads it.
+TEST(PlayerDatabaseWiring, TheAccelerationByteIsTheRosterRowsOrTheStatsForEveryPlayer) {
+  FixtureMatch fixture(nullptr);
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* synthetic = PlayerWithDatabaseId(*fixture.match, 0, 2);
+  ASSERT_NE(synthetic, nullptr);
+  pes::PesWorld& world = fixture.match->PesWorldOf();
+  const int slot = fixture.match->PesSlotOf(synthetic);
+  WriteSlotAbilities(*fixture.match, world, slot, *synthetic);
+  const float gfAcceleration = synthetic->GetPlayerData()->GetStat("physical_acceleration") * pes::kAbilityBytesPerStat;
+  EXPECT_NEAR(world.RunAbilityByte(slot, pes::kAbilityAccelerationId), gfAcceleration, 8)
+      << "a player with no roster row must still carry his Acceleration byte in the window";
 }
 
 // PES's copy of the roster row into the AI record (FUN_140922BC0 -> FUN_140A58F00): every one of the row's 0x50 bytes lands in the

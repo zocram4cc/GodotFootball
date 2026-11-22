@@ -32,6 +32,7 @@
 #include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "onthepitch/pesdodge.hpp"
+#include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/matchpressure.hpp"
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/setpiecelaws.hpp"
@@ -120,6 +121,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
   // PES's loose-ball presser (press-life 3/10): his movement is the ActionPress below, not a dribble.
   const bool loosePresser = match->PesLoop() && team->GetController()->IsLoosePresser(player);
+  // PES's PASS_GET man walks to the ball with ActionPassGet (the approach) and is no carrier until his touch: the on-ball branches
+  // (the carrier's brain, the BallControl) stand aside for him, whatever the geometric HasPossession says while he is still walking.
+  const bool passGetMan = match->PesLoop() && team->PassGetReceiver() == player;
 
   // celebrate good times come on!
 
@@ -695,7 +699,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
             extraHaste = true;
           }
         }
-      } else if (!loosePresser || hasIt) {
+      } else if ((!loosePresser || hasIt) && !passGetMan) {
         GetOnTheBallCommands(commandQueue, rawInputDirection, rawInputVelocityFloat);
         // A loose-ball presser without the ball: nothing here, the press steers him below.
       }
@@ -822,7 +826,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // A keeper whose PES rush has won the race (KP_PRESS, pes-re-goalkeeper.md 10.3) goes for the ball.
     // ponytail: PES moves him with its keeper mover (action 0x3e, not decoded); GF's ball control stands in for it.
     const bool keeperRush = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK && keeperRushing;
-    if (!match->PesLoop() || CastPlayer()->HasPossession() || keeperRush)
+    if ((!match->PesLoop() || CastPlayer()->HasPossession() || keeperRush) && !passGetMan)
       _BallControlCommand(commandQueue, false, false,
                           false);  // last param true == enable sticky run direction.
 
@@ -957,7 +961,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // PES's PASS_GET receiver runs ActionPassGet's approach (BallFollow): to
     // the ball path's nearest point, clamped onto the pitch. GF's magnet
     // approach is for everyone else.
-    if (team->PassGetReceiver() == player && !hasPossession)
+    if (team->PassGetReceiver() == player && (passGetMan || !hasPossession))
       _PassGetApproach(commandQueue);
     else
       _MovementCommand(commandQueue, forceMagnet, extraHaste, pressTarget);
@@ -1093,6 +1097,11 @@ void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Play
   world.StoreLiveAbility(slot, pes::kAbilitySpeedId, bin ? bin->speed : byteOf("physical_velocity"),
                          cellsOf("physical_velocity", false));
   world.StoreLiveAbility(slot, pes::kAbilityJumpId, bin ? bin->jump : byteOf("physical_jump"), cellsOf("physical_jump", true));
+  // The Acceleration byte (0x2B): a player with a roster row takes his row's byte (LoadRosterRow copied it); one without takes GF's
+  // Acceleration stat over 100, the stat the team's ability read takes. PES's stat rebuild 0x14092AF10 stores it through the same
+  // cells as Jump (the fatigue factor covers 0x28..0x2C, pes-re-stamina-drain.md 4).
+  const uint8_t acceleration = bin && bin->row ? (*bin->row)[pes::kAbilityAccelerationId] : byteOf("physical_acceleration");
+  world.StoreLiveAbility(slot, pes::kAbilityAccelerationId, acceleration, cellsOf("physical_acceleration", true));
   world.StoreLiveAbility(slot, pes::kAbilityHeightId,
                          bin ? bin->heightCm : static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
   world.StoreLiveAbility(slot, pes::kAbilityStrongerFootId, match.LeftFootedOf(data) ? 1 : 0);
@@ -2644,7 +2653,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   pes::ShootInput shoot;
   shoot.zone = zone;
   shoot.ballHeight_m = ballHeight;
-  shoot.height_m = CastPlayer()->GetStat("physical_height") * 100.0f;
+  shoot.height_m = pesmovestep::PhysiqueHeightCmOf(*match, *CastPlayer());
   shoot.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
   shoot.planId = carrierImage.id;
   shoot.aimVsFacing_deg = aimVsFacing;
@@ -2939,7 +2948,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       pes::LongMate m;
       m.index = mate->GetID();
       m.advance_m = attackSign * mate->GetPosition().coords[0];
-      m.height_cm = mate->GetStat("physical_height") * 100.0f;
+      m.height_cm = pesmovestep::PhysiqueHeightCmOf(*match, *mate);
       longIn.mates.push_back(m);
     }
     longPass = pes::PassLongUnit(longIn, carrier);
@@ -3185,7 +3194,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // DirectHighBall gate below.
     pes::VolatileBallInput volatileIn;
     volatileIn.ballHeight_m = ctxPoint.y;  // K+0x44
-    volatileIn.carrierHeight_m = CastPlayer()->GetStat("physical_height");
+    volatileIn.carrierHeight_m = pesmovestep::PhysiqueHeightCmOf(*match, *CastPlayer()) / 100.0f;
     volatileIn.ballTrackFlag = sample0.valid;
     volatileIn.anchor = sample0.xz;
     volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};

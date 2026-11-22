@@ -117,6 +117,7 @@ class BreakerCensusProbe : public pestest::Probe {
       armedFirings++;
     else if (match.IsInPlay() && !match.IsInSetPiece()) {
       liveFirings++;
+      if (std::getenv("GF_STALL_DUMP")) Dump(match);
       Player* who = match.GetDesignatedPossessionPlayer();
       bool seriesFrozenMan = false;
       if (who != nullptr) {

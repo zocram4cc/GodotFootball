@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""proof_press_captures.py: the press roots' proofs over EVERY rendezvous capture of their hooks.
+
+The roots: the press writer 0x140536FC0 (hook ai_press_writer_536FC0), the target eval 0x140633940 (ai_press_eval_633940) and the
+coordinator 0x140634470 (ai_press_coord_634470). Each capture is one real call of the root from the dispatcher FUN_140535C60; the
+harness runs PES's bytes on it, the translated body runs over the same pages (snapdiff.py --bounded), and every replayed call's
+return value and every written byte must match. A capture whose trace fails (the call left the capture's pages) is listed and
+skipped: it is no evidence either way.
+
+Usage: PES_EXE=<pes_full.bin> RV_HOOKS=<hooks.cfg> python3 proof_press_captures.py WORK_DIR LAUNCH_DIR [LAUNCH_DIR ...] [--merge]
+  LAUNCH_DIR  a rendezvous launch folder (live2/pidNNN); slim and unpacked full captures replay as they are, packed ones are skipped
+  --merge     rewrite the three records of results_press.json and closure_press_{writer,eval,coord}.json
+Harness Python (unicorn). Not part of the gate: the proofs are the committed results_press.json records.
+"""
+import argparse
+import glob
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import synth_press_order as sp  # noqa: E402
+
+ROOTS = {"ai_press_writer_536FC0": ("0x140536FC0", "closure_press_writer.json", "the press writer FUN_140536FC0 (T+0xA548 PRESS/DELAY slots)"),
+         "ai_press_eval_633940": ("0x140633940", "closure_press_eval.json", "the press target eval FUN_140633940 (second presser pick)"),
+         "ai_press_coord_634470": ("0x140634470", "closure_press_coord.json", "the press coordinator FUN_140634470 (PRESS/SAND second presser)"),
+         "press_matchup_536210": ("0x140536210", "closure_press_matchup.json", "the MATCH_UP writer FUN_140536210 (T+0x7C and the 0x3A word)"),
+         "manthink_14092ED30": ("0x14092ED30", "closure_press_manthink.json", "the man's think FUN_14092ED30 (counters A and B of the slot record, the arrival-time estimate)"),
+         "press_dispatch_535C60": ("0x140535C60", "closure_press_dispatch.json", "the press dispatcher FUN_140535C60 (the defence passes, MATCH_UP, coordinator, reset, writer)"),
+         "stats_ctor_1408C6B80": ("0x1408C6B80", "closure_press_stats.json", "the match-statistics block constructor FUN_1408C6B80 (the protected cells the defence pass reads)"),
+         "statsreset_1408CA340": ("0x1408CA340", "closure_press_statsreset.json", "the match-statistics reset FUN_1408CA340 (the ctor's last step; PES calls it again at a period reset)"),
+         "partner_1405346E0": ("0x1405346E0", "closure_press_partner.json", "the partner matcher FUN_1405346E0 (the mark pass's T+0x558 words)"),
+         "squadrec_1408C7510": ("0x1408C7510", "closure_press_squadrec.json", "the squad record initializer FUN_1408C7510 (the rating table default 99)"),
+         "teaminfo_140A3B3A0": ("0x140A3B3A0", "closure_press_teaminfo.json", "the team-info constructor FUN_140A3B3A0 (copies the squad records into G's side info)")}
+
+
+def captures(launches):
+    """{hook: [capture dir]}: every capture of a press hook whose memory replays (not a packed .zst)."""
+    out = {h: [] for h in ROOTS}
+    for launch in launches:
+        for d in sorted(glob.glob(os.path.join(launch, "seq*"))):
+            try:
+                hook = json.load(open(os.path.join(d, "index.json")))["rv"]["hook"]
+            except (OSError, ValueError, KeyError):
+                continue
+            if hook in ROOTS and os.path.exists(os.path.join(d, "mem.bin")):
+                out[hook].append(d)
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("work")
+    ap.add_argument("launches", nargs="+")
+    ap.add_argument("--merge", action="store_true")
+    ap.add_argument("--only", action="append", help="roots to run (default: all three); --merge rewrites only their records")
+    ap.add_argument("--state", action="append", help="a WRITER capture (slim is fine) the writer's SYNTHETIC states poke; repeatable")
+    ap.add_argument("--writer-synthetic", type=int, default=0, help="SYNTHETIC writer states added to the real captures (they reach the "
+                    "enrolment arm; the real captures leave at the 11-slot body filter)")
+    ap.add_argument("--dispatch-states", action="append", help="SYNTHETIC dispatcher states (synth_dispatch.py output dirs); repeatable")
+    a = ap.parse_args()
+    image, hooks = os.environ["PES_EXE"], os.environ["RV_HOOKS"]
+    os.makedirs(a.work, exist_ok=True)
+    found = captures(a.launches)
+    records = []
+    for hook, (va, closure_file, what) in ROOTS.items():
+        if a.only and va not in a.only:
+            continue
+        snaps, used, skipped = [], [], []
+        for d in found[hook]:
+            label = "%s_%s" % (os.path.basename(os.path.dirname(d)), os.path.basename(d))
+            trace = os.path.join(a.work, "tr_" + label)
+            rc = subprocess.call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", d, "--hooks", hooks, "--out", trace,
+                                  "--spec-dir", sp.SPEC_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if rc != 0:
+                skipped.append(label)
+                continue
+            snaps += ["--snapshot", "%s=%s" % (d, trace)]
+            used.append(label)
+        synthetic = 0
+        if va in ("0x140536FC0", "0x140536210") and a.state:
+            # a case whose call needs a page the slim base dropped does not trace: it is discarded, never faked
+            bases = [(sp.State(s), None) for s in a.state]
+            bases = [(st, sp.World(st)) for st, _ in bases]
+            for n in range(8 * a.writer_synthetic):
+                if synthetic == a.writer_synthetic:
+                    break
+                st, w = bases[n % len(bases)]
+                label, cdir = sp.build_case(st, w, a.work, va, n)
+                trace = os.path.join(a.work, "tr_" + label)
+                rc = subprocess.call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", cdir, "--hooks", hooks, "--out", trace,
+                                      "--spec-dir", sp.SPEC_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if rc != 0:
+                    shutil.rmtree(cdir, ignore_errors=True)
+                    continue
+                snaps += ["--snapshot", "%s=%s" % (cdir, trace)]
+                synthetic += 1
+        if va in ("0x140535C60", "0x1408C6B80", "0x1408C7510", "0x140A3B3A0"):
+            # the dispatcher's captures are rare (every 100th call, one side): its calls are rebuilt over real kick-off selector captures
+            # (synth_dispatch.py); the statistics constructor runs once at match load: rebuilt over a dispatcher capture (synth_stats.py).
+            # Each state is a directory under --dispatch-states (the root it belongs to is the one --only selects).
+            for cdir in a.dispatch_states or []:
+                trace = os.path.join(a.work, "tr_" + os.path.basename(cdir))
+                if subprocess.call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", cdir, "--hooks", hooks, "--out", trace,
+                                    "--spec-dir", sp.SPEC_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
+                    continue
+                snaps += ["--snapshot", "%s=%s" % (cdir, trace)]
+                synthetic += 1
+        res = os.path.join(a.work, "res_%s.json" % va[2:])
+        out_dir = os.path.join(a.work, "build_" + va[2:])
+        subprocess.call([sys.executable, os.path.join(HERE, "snapdiff.py"), "--image", image, "--out-dir", out_dir, "--spec-dir", sp.SPEC_DIR,
+                         *snaps, "--only", va, "--hooks", hooks, "--bounded", "--results", res])
+        raw = next(r for r in json.load(open(res))["results"] if r["va"].upper() == va.upper())
+        print("%s: captures=%d traced=%d skipped=%d -> proven=%s calls=%s replayed=%s excluded=%s mismatches=%s own_block=%s" % (
+            va, len(found[hook]), len(used), len(skipped), raw["proven"], raw["calls"], raw["replayed"], raw["excluded"],
+            len(raw["mismatches"]), raw["own_block"]))
+        records.append((va, closure_file, what, raw, os.path.join(out_dir, "gen", va[2:], "members.json"), used, skipped, synthetic))
+    if a.merge:
+        doc = json.load(open(sp.RESULTS))
+        vas = {va.upper() for va, *_ in records}
+        keep = [r for r in doc["results"] if r["va"].upper() not in vas]
+        new = []
+        for va, closure_file, what, raw, members, used, skipped, synthetic in records:
+            if va in ("0x1408C7510", "0x140A3B3A0"):
+                extra = ("; %d SYNTHETIC calls rebuilt over a real capture's memory (synth_squad.py: stack scratch holding the records; the "
+                         "constructor's source records are the capture's real team-info entries; PES runs both once at match load, before "
+                         "any capture window)" % synthetic) if synthetic else ""
+            elif va == "0x1408C6B80":
+                extra = ("; %d SYNTHETIC calls rebuilt over a real dispatcher capture (synth_stats.py: rcx = each side's real statistics block; "
+                         "PES runs the constructor once at match load, before any capture window)" % synthetic) if synthetic else ""
+            elif va == "0x140535C60":
+                extra = ("; plus %d SYNTHETIC calls rebuilt over real kick-off selector captures (synth_dispatch.py: the call's operands are "
+                         "fields of the capture's team-tick object)" % synthetic) if synthetic else ""
+            else:
+                extra = ("; plus %d SYNTHETIC states over one full match state (synth_press_order.py %s: the men's words, positions, the "
+                         "partner words, the ball-distance lists and the set-piece object are chosen)" % (
+                             synthetic, "matchup_case" if va == "0x140536210" else "writer_case")) if synthetic else ""
+            rec = {"aborted": 0, "capped": 0, "cases": 0, "closure_file": closure_file, "coverage": {va: raw["own_block"]},
+                   "dead_blocks": {}, "diffed": bool(raw["proven"]), "failed": 0, "failure_class": None, "icount_max": 0, "nonreturn": 0,
+                   "note": "proof snapdiff --bounded: every replayed call bit-exact, %d of %d (%s; %d real captures of the hook in %s, %d "
+                           "skipped: their trace left the captured pages%s). proof_press_captures.py." % (
+                               raw["replayed"], raw["calls"], what, len(used),
+                               ", ".join(sorted({u.split("_")[0] for u in used})), len(skipped), extra),
+                   "proof": "snapdiff", "requested": 0,
+                   "snapdiff": {"calls": raw["calls"], "mismatches": len(raw["mismatches"]), "own_block": raw["own_block"],
+                                "replayed": raw["replayed"], "source": "tools/dev/translate/results_press.json"},
+                   "stubs": [], "translated": True, "va": va}
+            if synthetic:
+                rec["synthetic"] = True
+                rec["synthetic_cases"] = synthetic
+            new.append(rec)
+            sp.write_closure(image, va, closure_file, members, "the proof of %s over %d real captures%s (proof_press_captures.py)" % (
+                what, len(used), " and %d SYNTHETIC states" % synthetic if synthetic else ""))
+        doc["results"] = keep + new
+        json.dump(doc, open(sp.RESULTS, "w"), indent=1)
+        open(sp.RESULTS, "a").write("\n")
+
+
+if __name__ == "__main__":
+    main()

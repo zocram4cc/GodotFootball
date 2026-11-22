@@ -1,0 +1,8 @@
+{
+ "note": "the functions built for the proof of the team-info constructor FUN_140A3B3A0 (copies the squad records into G's side info) over 0 real captures and 4 SYNTHETIC states (proof_press_captures.py): every function the replays entered (snapdiff --bounded: 2) plus the root's static direct-call closure (0 members the replays did not enter: translated, not replay-proven). pes-port-PressAI.md.",
+ "root": "0x140A3B3A0",
+ "members": [
+  "0x140A3B3A0",
+  "0x141084130"
+ ]
+}

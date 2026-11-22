@@ -9,6 +9,9 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <cmath>
+#include <cstring>
+#include "onthepitch/pestrapworld.hpp"
 
 #include "data/matchdata.hpp"
 #include "onthepitch/gameplaytuning.hpp"
@@ -83,7 +86,15 @@ struct PassStats {
   unsigned long foreignNamedTicks = 0;     // receiver ticks on which the side's T+0x78 was rewritten to the other side's man for one query
   unsigned long foreignAcceptedTicks = 0;  // of those, the ticks the side still answered a receiver
   std::vector<double> episodes_s;          // each PASS_GET episode: consecutive ticks one man was his side's PassGetReceiver()
+  double worstRootGap_m = 0.0;             // the largest mismatch between a PASS_GET man's root step and his strike adjuster's step
+  unsigned long rootSamples = 0;           // ticks with such a comparison
   bool ran = false;
+};
+
+// The pass-get man's root and strike adjuster point on the previous tick, for the root-step comparison.
+struct RootSample {
+  bool valid = false;
+  double gx = 0.0, gy = 0.0, ax = 0.0, az = 0.0;
 };
 
 class PesPassTarget : public ::testing::Test {
@@ -94,6 +105,7 @@ class PesPassTarget : public ::testing::Test {
     std::array<double, 2> episode_s{0.0, 0.0};
     stats_.episodes_s.clear();
     stats_.ran = false;
+    std::array<RootSample, 2> rootPrev{};
     RunPesLoopMatch([&](Match& match) {
       stats_.ran = true;
       const bool targetSet = match.GetTeam(0)->GetPassTarget() != nullptr || match.GetTeam(1)->GetPassTarget() != nullptr;
@@ -106,6 +118,30 @@ class PesPassTarget : public ::testing::Test {
       const double tick_s = static_cast<double>(Match::kTick_ms) / 1000.0;
       restingSinceTargetSet_s = targetSet && resting ? restingSinceTargetSet_s + tick_s : 0.0;
       stats_.worstStale_s = std::max(stats_.worstStale_s, restingSinceTargetSet_s);
+      // The PASS_GET man's root against his strike adjuster (see ATrapsRootMovesByExactlyTheStrikeAdjusterStep).
+      for (int side = 0; side < 2; ++side) {
+        Player* const r = match.GetTeam(side)->PassGetReceiver();
+        const uint8_t* const p = r != nullptr ? match.PesWorldOf().P(match.PesSlotOf(r)) : nullptr;
+        uint32_t state = 0;
+        float ax = 0.0f, az = 0.0f;
+        const bool strike = p != nullptr && p[pes::kPByteAC8Offset] == pes::kAnimeActionTrap &&
+                            (std::memcpy(&state, p + pes::kPAdjusterOffset + pes::kAdjStateOffset, sizeof state), state == pes::kAdjRunning);
+        if (!strike) {
+          rootPrev[side].valid = false;
+          continue;
+        }
+        std::memcpy(&ax, p + pes::kPAdjusterOffset + pes::kAdjStepOffset, sizeof ax);
+        std::memcpy(&az, p + pes::kPAdjusterOffset + pes::kAdjStepOffset + 2 * sizeof(float), sizeof az);
+        // PES's (x, z) is GF's (x, y): the man record is written that way (WritePesManMovement).
+        const Vector3 g = r->GetPosition();
+        RootSample& prev = rootPrev[side];
+        if (prev.valid) {
+          const double gap = std::hypot((g.coords[0] - prev.gx) - (ax - prev.ax), (g.coords[1] - prev.gy) - (az - prev.az));
+          stats_.worstRootGap_m = std::max(stats_.worstRootGap_m, gap);
+          ++stats_.rootSamples;
+        }
+        prev = RootSample{true, g.coords[0], g.coords[1], ax, az};
+      }
       for (int side = 0; side < 2; ++side) {
         const Player* receiver = match.GetTeam(side)->PassGetReceiver();
         stats_.receiverTicks += receiver != nullptr ? 1 : 0;
@@ -177,4 +213,19 @@ TEST_F(PesPassTarget, EveryPassGetEpisodeIsWithinPesLiveRange) {
   RecordProperty("median_s", std::to_string(median));
   EXPECT_EQ(over, 0) << over << " of " << sorted.size() << " PASS_GET episodes exceeded " << kPesPassTargetMaxLive_s
                      << " s; longest " << sorted.back() << " s, median " << median << " s";
+}
+
+// PES's strike adjuster is the trapping man's whole root translation while it runs: FUN_141AFD400 replaces the layer's root
+// translation with the adjuster's root point (A+0x14) whenever the strike flag B+0x81 is set, so per tick his root moves by exactly
+// the change in A+0x14 (the captures of the strike adjuster: O2 root == A+0x14 at every entry, pes-port PassArrival section 10).
+// GF adds the trap clip's root track on top of the adjuster's warps, which carries a trapping man past the ball.
+TEST_F(PesPassTarget, ATrapsRootMovesByExactlyTheStrikeAdjusterStep) {
+  if (!stats_.ran) GTEST_SKIP() << "no match ran";
+  // Derived, not a PES constant: positions are float near 20 to 35 m, whose ulp is about 4e-6 m; a few float operations on the
+  // same two values stay under 1e-4 m, so 1 mm leaves a 10x margin over the float noise and nothing tuned.
+  constexpr double kRootStepTolerance_m = 0.001;
+  ASSERT_GT(stats_.rootSamples, 0ul) << "no pass-get man in the Trap action with his strike adjuster running";
+  EXPECT_LE(stats_.worstRootGap_m, kRootStepTolerance_m)
+      << "a trapping man's root moved " << stats_.worstRootGap_m << " m more (or less) than his strike adjuster's step, in the "
+      << stats_.rootSamples << " ticks sampled";
 }

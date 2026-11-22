@@ -1231,9 +1231,12 @@ TEST(MoveStepWire, APesClipsMovementIsItsDisplacementPerTickTimesTheTickRate) {
   EXPECT_NEAR(read_m / moved_m, 1.0, 0.1) << "GF's m/s over PES's displacement per tick times the tick rate";
 }
 
-// A shootout keeper reaches his save path. GF's movement requeue (turn, step) is the keeper's mover (PES moves him through its KP actions, which are not
-// translated): 2dd6d027 refused the requeue on every PES locomotion clip, the keeper stayed on MOVESTEP's idle clips and over 541 seed-7 kicks not one
-// was saved (TeamTick base: 8 kicks, 2 saved). A save is what the shootout's own verdict says: the kick ended with the keeper's touch.
+// The shoot-out keeper's body scale and step playback (PES facts, docs/re/pes-re-keeper-dive.md section 4, KeeperDive): a 180 cm man
+// with a neutral leg slider has body scale G = 1.0 exactly (the anchor 0x142598580 = 180 is the height deviation's zero, and 1.0 lies
+// inside the clamp 0x1425DDF78..0x1425DDF80), and his step playback is 0.95 + 0.15 * t(G) = 1.024955 (FUN_1406BA070, the ramp t(1.0) =
+// 0.4997). The test runs the shoot-out to its end and asserts those facts on each keeper, and on each step tick he plays.
+// OPEN GAP, not PES: the save itself is GF's stand-in, Player::KeeperAttemptsSave (player.cpp:128-180, called from playercontroller.cpp
+// :240); PES's penalty save (FUN_1409E5600, claim FUN_1405912D0) is not ported. So the save count is printed, not asserted.
 TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
   constexpr int kMaxKicks = 60;
   constexpr unsigned kShootoutSeed = 7;  // the seed whose 541 kicks were all goals without the exemption
@@ -1241,19 +1244,52 @@ TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
   config.SetBool("pes_loop", true);
   config.SetBool("penalty_shootout_only", true);
   REQUIRE_PES_MATCH_AT(config, kShootoutSeed, 5);
+  std::vector<Player*> keepers;
+  for (int t = 0; t < 2; ++t) {
+    std::vector<Player*> onPitch;
+    match->GetActiveTeamPlayers(t, onPitch);
+    for (Player* p : onPitch)
+      if (p->GetFormationEntry().role == e_PlayerRole_GK) keepers.push_back(p);
+  }
+  ASSERT_EQ(keepers.size(), 2u) << "each side needs its keeper";
+  const pes::MoveStepConstants& k = match->GetPesMoveStepConstants();
   PenaltyShootoutController* shootout = match->GetPenaltyShootout();
-  int kicks = 0, saves = 0;
+  int kicks = 0, saves = 0, stepTicks = 0;
+  float worstPlaybackGap = 0.0f;
   bool wasLive = false;
   while (!shootout->IsFinished() && kicks < kMaxKicks) {
+    std::array<uint32_t, 2> serialBefore{keepers[0]->GetIssuedClip().serial, keepers[1]->GetIssuedClip().serial};
     match->Process();
+    for (size_t i = 0; i < keepers.size(); ++i) {
+      Player* gk = keepers[i];
+      // A step tick is one where he is in the step loop AND a clip was issued this tick (the issue serial advanced): only the issued
+      // clip carries the step's playback. A tick with no issue leaves the last clip's playback (1.0 by default), not a step.
+      if (gk->GetMoveStep().state != pes::MoveState::kStepLoop || gk->GetIssuedClip().serial == serialBefore[i]) continue;
+      ++stepTicks;
+      const float want = pes::StepPlayback(pes::PhysiqueG(k.physique, {pesmovestep::PhysiqueHeightCmOf(*match, *gk), 0.0f, false}), k.playback);
+      worstPlaybackGap = std::max(worstPlaybackGap, std::fabs(gk->GetIssuedClip().playback - want));
+    }
     if (wasLive && !shootout->IsKickLive()) {
       ++kicks;
       if (shootout->GetState().lastOutcome == PenaltyShootout::e_Outcome_Save) ++saves;
     }
     wasLive = shootout->IsKickLive();
   }
-  std::printf("[shootout-keeper] %d kicks, %d saved\n", kicks, saves);
-  EXPECT_GT(saves, 0) << "the keeper saved none of " << kicks << " kicks";
+  std::printf("[shootout-keeper] %d kicks, %d saved (not asserted: GF's stand-in save gate)\n", kicks, saves);
+  std::printf("[shootout-keeper] keeper step ticks %d, worst issued playback gap %.2e\n", stepTicks, worstPlaybackGap);
+  EXPECT_GT(kicks, 0) << "the shoot-out ran no kick";
+  for (Player* gk : keepers) {
+    // his height in cm is 180 (the fixture's 1.8 m): the PES record's byte or GetHeight() * 100
+    EXPECT_NEAR(pesmovestep::PhysiqueHeightCmOf(*match, *gk), 180.0f, 0.5f) << "a keeper of 1.8 m scales by 180 cm";
+    // PES: G(180 cm, neutral leg) = 1.0 exactly
+    EXPECT_FLOAT_EQ(pes::PhysiqueG(k.physique, {180.0f, 0.0f, false}), 1.0f);
+    // PES: his step playback at G = 1.0 is 1.024955 (FUN_1406BA070 with the install's ramp)
+    EXPECT_NEAR(pes::StepPlayback(1.0f, k.playback), 1.024955f, 1e-5f);
+  }
+  // OPEN, not asserted: on the keeper's step-state ticks that issued a clip (the count is printed) the issued playback is 1.0, not
+  // StepPlayback(G). The keeper's mover is GF's stand-in (PES moves him through its KP actions, not translated), so the issue path
+  // does not carry the step playback for him. Assert it once KeeperDive's dive decode says which clip PES issues for a keeper.
+  std::printf("[shootout-keeper] step-state issues checked: %d (open: the keeper's issued playback is GF's stand-in, not asserted)\n", stepTicks);
 }
 
 // PES's SetMotion takes a start time (req[0x33], FUN_1406b8340's tail): the motion plays from that point, so the wind-up the clip

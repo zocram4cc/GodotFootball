@@ -100,6 +100,8 @@ inline constexpr int kSliderCompactness = 3;    // defensive-shape 6
 class TeamSheet {
  public:
   TeamSheet() = default;  // zero image; DefaultTeamSheet applies the constructor stores
+  // S's bytes in PES's layout: the translated readers address them in place inside T (T+0x8e08).
+  const uint8_t* Bytes() const { return bytes_.data(); }
 
   int Plan() const;
   void SetPlan(int plan);
