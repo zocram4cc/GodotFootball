@@ -149,7 +149,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   if (!tables.empty() && library->rng_constants() && library->exe()) {
     // (the goal table's scenes, edit list and rows reach the builder through the selector's arena)
     std::string err;
-    fixdemo_ = pes::FixDemoSelector::Create(std::move(tables), *library->exe(), &err);
+    fixdemo_ = pes::FixDemoSelector::Create(std::move(tables), *library->exe(), library->vfs(), &err);
     if (!fixdemo_) UtilityFunctions::push_warning(String("GfMatch: FixDemo selection unavailable: ") + err.c_str());
   }
   if (fixdemo_) {

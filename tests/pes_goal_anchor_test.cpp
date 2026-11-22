@@ -156,16 +156,33 @@ std::optional<pes::PeImage> OpenExe(std::string* why) {
   return pes::PeImage::Open(std::string(root) + "/PES2021.exe", why);
 }
 
+// The install's VFS, mounted once: the selector reads the cut library's constant_stadium.bin through it.
+const pes::PesVfs* InstallVfs(std::string* why) {
+  static std::optional<pes::PesVfs> vfs;
+  if (!vfs) {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root) {
+      *why = "PES21_ROOT not set";
+      return nullptr;
+    }
+    vfs.emplace();
+    if (!vfs->Mount(root, why)) {
+      vfs.reset();
+      return nullptr;
+    }
+  }
+  return &*vfs;
+}
+
 // A selector over the install's own goal table (scenes, cut groups, variant rows), as PES's DB holds it.
 std::unique_ptr<pes::FixDemoSelector> MakeInstalled(const pes::PeImage& exe, pes::FixDemoTable* table, std::string* why) {
-  const char* root = std::getenv("PES21_ROOT");
-  pes::PesVfs vfs;
-  if (!root || !vfs.Mount(root, why)) return nullptr;
-  const auto bytes = vfs.Read(pes::FixDemoTablePath(pes::kFixDemoGoal), why);
+  const pes::PesVfs* vfs = InstallVfs(why);
+  if (!vfs) return nullptr;
+  const auto bytes = vfs->Read(pes::FixDemoTablePath(pes::kFixDemoGoal), why);
   auto decoded = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, why) : std::nullopt;
   if (!decoded) return nullptr;
   *table = *decoded;
-  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, why);
+  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, *vfs, why);
 }
 
 // A selector whose goal table holds only the case's scene row (the rest zero), at the scene's index.
@@ -174,7 +191,8 @@ std::unique_ptr<pes::FixDemoSelector> MakeFor(const pes::PeImage& exe, const Cas
   t.goalSceneRows.resize(c.sceneId & 0xFFFF);
   t.goalSceneRows.back() = RowOf(Unhex(c.rowHex));
   std::string err;
-  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, &err);
+  const pes::PesVfs* vfs = InstallVfs(&err);
+  auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, *vfs, &err) : nullptr;
   EXPECT_TRUE(sel) << err;
   return sel;
 }
@@ -287,7 +305,8 @@ TEST(GoalAnchor, RotationIsWrappedIntoOneTurn) {
     t.goalSceneRows.back().head = {0, 0, 1, 1, 2};
     t.goalSceneRows.back().floats[8] = offset;
     std::string err;
-    auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, &err);
+    const pes::PesVfs* vfs = InstallVfs(&err);
+    auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, *vfs, &err) : nullptr;
     const auto got = sel ? sel->PlaceGoal(FactsOf(c)) : std::nullopt;
     EXPECT_TRUE(got) << err;
     return got ? got->rotYDeg : -1.0f;
@@ -323,15 +342,15 @@ TEST(GoalAnchor, HasNoAnchorWithoutARowOrASlot) {
 TEST(GoalAnchor, TheInstallsSceneRowIsTheRowPesHeld) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesVfs vfs;
   std::string err;
-  if (!vfs.Mount(root, &err)) GTEST_SKIP() << err;
+  const pes::PesVfs* vfs = InstallVfs(&err);
+  if (!vfs) GTEST_SKIP() << err;
   const auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
   if (!exe) GTEST_SKIP() << err;
-  const auto bytes = vfs.Read(pes::FixDemoTablePath(pes::kFixDemoGoal), &err);
+  const auto bytes = vfs->Read(pes::FixDemoTablePath(pes::kFixDemoGoal), &err);
   const auto table = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, &err) : std::nullopt;
   if (!table) GTEST_SKIP() << err;
-  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, &err);
+  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, *vfs, &err);
   ASSERT_TRUE(sel) << err;
   PesState& s = sel->State();
   const uint64_t rows = s.rd(s.rd(pes::kFixDemoDbSlotVa, 8) + 0x448, 8);

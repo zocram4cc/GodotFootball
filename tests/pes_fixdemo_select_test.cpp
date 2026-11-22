@@ -94,6 +94,7 @@ const std::vector<Event>& Events() {
 struct Install {
   std::map<int, pes::FixDemoTable> tables;
   std::optional<pes::PeImage> exe;
+  pes::PesVfs vfs;
   std::string why;
 };
 
@@ -104,9 +105,8 @@ Install LoadInstall() {
     in.why = "PES21_ROOT not set";
     return in;
   }
-  pes::PesVfs vfs;
   std::string err;
-  if (!vfs.Mount(root, &err)) {
+  if (!in.vfs.Mount(root, &err)) {
     in.why = err;
     return in;
   }
@@ -116,7 +116,7 @@ Install LoadInstall() {
     return in;
   }
   for (int cat : {pes::kFixDemoFoul, pes::kFixDemoGoal}) {
-    auto bytes = vfs.Read(pes::FixDemoTablePath(cat), &err);
+    auto bytes = in.vfs.Read(pes::FixDemoTablePath(cat), &err);
     auto table = bytes ? pes::DecodeFixDemoTable(*bytes, cat, &err) : std::nullopt;
     if (!table) {
       in.why = err;
@@ -139,7 +139,7 @@ bool TablesMatchTheCapturedRun(const Install& in, const Event& e) {
 
 std::unique_ptr<pes::FixDemoSelector> Make(const Install& in) {
   std::string err;
-  auto sel = pes::FixDemoSelector::Create(in.tables, *in.exe, &err);
+  auto sel = pes::FixDemoSelector::Create(in.tables, *in.exe, in.vfs, &err);
   EXPECT_TRUE(sel) << err;
   return sel;
 }
@@ -275,8 +275,8 @@ TEST(FixDemoSelect, AFinishedSceneAdvancesItsCategoryRotationExceptThePesExempti
 }
 
 // PES's boot step 0x140419D80 runs the cut library's builder 0x141E5C8F0: the header at [0x1437F4808] holds one slot per cut
-// name, all empty until the fill loads them. The count is the one PES's own count function 0x141E5DE80 returns.
-TEST(FixDemoSelect, TheCutLibraryHoldsOneEmptySlotPerCutName) {
+// name. The count is the one PES's own count function 0x141E5DE80 returns.
+TEST(FixDemoSelect, TheCutLibraryHoldsOneSlotPerCutName) {
   const Install in = LoadInstall();
   if (!in.why.empty()) GTEST_SKIP() << in.why;
   auto sel = Make(in);
@@ -289,7 +289,6 @@ TEST(FixDemoSelect, TheCutLibraryHoldsOneEmptySlotPerCutName) {
   ASSERT_GE(end, begin);
   pes_fn_141E5DE80(s);
   EXPECT_EQ((end - begin) / 8, s.gpr[0]);
-  for (uint64_t p = begin; p < end; p += 8) EXPECT_EQ(s.rd(p, 8), 0u);
 }
 
 }  // namespace

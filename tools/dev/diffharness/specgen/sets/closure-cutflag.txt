@@ -1,0 +1,16 @@
+0x141B34850	stand-in	in-match menu	seed
+0x1403FB410	stand-in	gameplay	callee
+0x1403FB4F0	stand-in	HUD	callee
+0x1403FB5B0	stand-in	HUD	callee
+0x1403FD350	stand-in	cutbc40	callee
+0x1403FD360	stand-in	cutbc40	callee
+0x1403FD830	stand-in	cutbc40	callee
+0x1403FDB10	stand-in	cutbc40	callee
+0x1403FF430	stand-in	AI	callee
+0x1403FF490	stand-in	AI	callee
+0x140401EE0	stand-in	cutscene	callee
+0x140402370	stand-in	HUD	callee
+0x1415A1708	stand-in	restart	callee
+0x1415A1726	stand-in	in-match menu	callee
+0x141B34EF0	stand-in	in-match menu	callee
+0x141B36030	stand-in	in-match menu	callee

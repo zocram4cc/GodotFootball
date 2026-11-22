@@ -143,13 +143,16 @@ struct FoulGateStart {
 };
 
 class PeImage;
+class PesVfs;
 
 class FixDemoSelector {
  public:
   // `tables`: the decoded table of every category the selector may be asked about (key = category). `exe`: the install's
   // PES2021.exe; the evaluator's switch tables live in PES's code (0x141F4F948.. and 0x141F508B0.., read by the translated
-  // `jmp` sequences) and are mapped from it. Null with *error when the image does not map them.
-  static std::unique_ptr<FixDemoSelector> Create(std::map<int, FixDemoTable> tables, const PeImage& exe, std::string* error);
+  // `jmp` sequences) and are mapped from it. `vfs`: the install's VFS, which reads constant_stadium.bin for the cut library.
+  // Null with *error when the image or the VFS does not provide them.
+  static std::unique_ptr<FixDemoSelector> Create(std::map<int, FixDemoTable> tables, const PeImage& exe, const PesVfs& vfs,
+                                                 std::string* error);
   ~FixDemoSelector();
   FixDemoSelector(const FixDemoSelector&) = delete;
   FixDemoSelector& operator=(const FixDemoSelector&) = delete;

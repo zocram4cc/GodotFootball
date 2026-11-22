@@ -5,6 +5,8 @@
 #include <cstring>
 
 #include "pes/exe.hpp"
+#include "pes/inflate.hpp"
+#include "pes/vfs.hpp"
 #include "pes_native.hpp"
 #include "translated.hpp"
 
@@ -112,6 +114,23 @@ constexpr uint64_t kSingletonBytes = 0x100, kEngineVtableVa = 0x142AC1D38, kEngi
 // The cut library (PES's global [0x1437F4808], set by the builder 0x141E5C8F0 that the boot step 0x140419D80 calls): a 0x18-byte
 // header whose vector holds one slot per cut name. The global lives on page 0x1437F4000, which no other static maps.
 constexpr uint64_t kCutLibraryPageVa = 0x1437F4000, kCutLibraryVa = 0x1437F4808;
+// PES's registry (the flag lookup 0x141B34850 reads it): the global at 0x1437F0438 points at the container 0x1437F0538, whose first
+// word is the std::map header. Both lie on the page 0x1437F0000, with the once-init counter at 0x1437F0428 (seq321's values).
+constexpr uint64_t kRegistryPageVa = 0x1437F0000, kRegistryGlobalVa = 0x1437F0438, kRegistryContainerVa = 0x1437F0538;
+constexpr uint64_t kMapHeaderBytes = 0x20;  // the header's three link words and its size word (seq321's header is 0x20 of live words)
+// The group table (PES's global [0x1437F4800], set by 0x141E5BAF0): a 0x18-byte object whose vector holds one slot per group. A group
+// is 0x98 bytes and its name (the constant file's path) sits at +0x10 (0x141E5BEE0 compares it). Both are PES's own layout.
+constexpr uint64_t kCutGroupGlobalVa = 0x1437F4800, kCutGroupName = 0x10;
+// The nine constant paths (0x140419610's loop, table at 0x143445E70; the loop count is PES's 9). The strings are the install's.
+constexpr uint64_t kCutGroupTableVa = 0x143445E70, kCutGroupCount = 9, kCutGroupPathBytes = 0x80;
+// PES's once-init counter (0x141B34E50 increments it on its first call; 0x141B34850 reads it): 1 after the boot init ran.
+constexpr uint64_t kBootOnceCounterVa = 0x1437F0428, kBootOnceDone = 1;
+// PES's clock frequency cache (0x1436EDE58; 0x1403E8800 reads it), on the page 0x1436ED000. Its value is the OS's
+// QueryPerformanceFrequency: 10 MHz on Windows (PES's cache at seq321 holds 0x989680 = 10,000,000, CONFIRMED; the rv hook's qpc_freq
+// agrees). The install's PES2021.exe does not carry it on disk (its .data is zero-filled there, checked), so it is named here.
+constexpr uint64_t kClockPageVa = 0x1436ED000, kClockFrequencyVa = 0x1436EDE58, kQpcFrequencyHz = 10000000;
+constexpr char kCutGroupRoot[] = "cpk_dat/";  // the table's paths carry this root; the VFS's paths do not
+constexpr char kStadiumConstantPath[] = "common/match/constant/constant_stadium.bin";
 // The gates' world (0x140472640, 0x14047EB00): the anime record table 0x140A48910 reads (G+0x19C8; record +1 class byte, +8 flag
 // word, +0x54 speed), the referee's man record (table index 0x16, which 0x140A48A10 answers), the object behind G+0x2C0 whose
 // +0x5C is the time scale, the run object's ready byte A0+0xEC, the first cut id the DemoInfo holds (+0x10: the scene flag test
@@ -199,7 +218,8 @@ struct FixDemoSelector::Impl {
   float fullTurnDeg = 0;
 
   Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables,
-       std::vector<uint8_t> listVtable, std::vector<uint8_t> stageVtable, std::vector<uint8_t> rdata, float fullTurn)
+       std::vector<uint8_t> listVtable, std::vector<uint8_t> stageVtable, std::vector<uint8_t> rdata, float fullTurn,
+       const std::vector<std::string>& cutGroupPaths, const std::string& stadiumPath, const std::vector<uint8_t>& stadiumList)
       : tables(std::move(t)), fullTurnDeg(fullTurn) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
@@ -210,7 +230,8 @@ struct FixDemoSelector::Impl {
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
                              {kWorldSlotPageVa, kWorldSlotPageBytes}, {kStagePageVa, kPageBytes}, {kStageFlagPageVa, kPageBytes},
-                             {kGameImplPageVa, kPageBytes}, {kSingletonPageVa, kPageBytes}, {kCutLibraryPageVa, kPageBytes}})
+                             {kGameImplPageVa, kPageBytes}, {kSingletonPageVa, kPageBytes}, {kCutLibraryPageVa, kPageBytes},
+                             {kRegistryPageVa, kPageBytes}, {kClockPageVa, kPageBytes}})
       s.mem.segs.push_back({va, std::vector<uint8_t>(bytes)});
     s.wr(kStageSlotVa, kStageObjectVa, 8);
     s.wr(kStageObjectVa, kStageVtableVa, 8);
@@ -228,10 +249,23 @@ struct FixDemoSelector::Impl {
       s.wr(singleton + kSingletonNextOff, engine, 8);
       s.wr(engine, kEngineVtableVa, 8);
     }
-    // The cut library: the builder runs once here, as PES's boot step does. It allocates the header, resizes the vector to the cut
-    // names and stores the global; the slots stay empty. The else arm's lookup 0x141E5D4C0 reads the global, and the fill that loads
-    // the slots (CutsceneAnchor8 step 2) is not in GF yet.
+    // PES's once-init 0x141B34E50 (protected chain: its callees reach the .impdata thunks 0x141B39230/0x141B39240 into 0x15B2...) is
+    // never run here. Its post-state is the counter 1 (seq321: [0x1437F0428] = 1, CONFIRMED) and its registry: PES's ten
+    // environment entries (application_dir, argv, screen_size, ...). The flag key "Def_Game_ai_use_text_file" is absent from those
+    // ten (walked on seq321, CONFIRMED), so an empty registry answers the lookup as PES does. ponytail: the ten environment entries
+    // are not built (no game logic on the cut library's path reads them).
+    s.wr(kBootOnceCounterVa, kBootOnceDone, 4);
+    InitRegistry();
+    // The clock's frequency cache (0x1436EDE58, read by 0x1403E8800: nonzero takes its fast path, zero calls the OS clock). PES's
+    // clock init has run before any match and cached the OS's QueryPerformanceFrequency (kQpcFrequencyHz).
+    s.wr(kClockFrequencyVa, kQpcFrequencyHz, 8);
+    // The cut library, as PES's boot step 0x140419D80 builds it: the group table 0x141E5BAF0, the cut library's builder 0x141E5C8F0
+    // (the header and one slot per cut name), then the nine-path loop 0x140419610 (one group per constant file). The stadium group's
+    // list is then loaded into the slots by the fill 0x141E5D560.
+    Call(&pes_fn_141E5BAF0);
     Call(&pes_fn_141E5C8F0);
+    for (const std::string& path : cutGroupPaths) AddCutGroup(path);
+    FillCutGroup(stadiumPath, stadiumList);
     InitPickMap();
     // The ctx's second std::map (+0x40) is cleared by the ctx setter 0x141F51630, which the else arm reaches: an empty sentinel,
     // as PES's static initialisers leave it (a null head walks the erase into a loop).
@@ -262,6 +296,24 @@ struct FixDemoSelector::Impl {
     s.wr(head + 0x18, 1, 1);  // color: black
     s.wr(head + 0x19, 1, 1);  // isnil
     s.wr(va, head, 8);
+  }
+
+  // PES's registry (the global [0x1437F0438] points at a container whose first word is the std::map header): an empty map, built
+  // the way InitHistory builds a sentinel. The header's head, root and last words name the sentinel node.
+  void InitRegistry() {
+    const uint64_t sentinel = heap->Alloc(kMapNodeBytes, 0x10);
+    s.wr(sentinel, sentinel, 8);
+    s.wr(sentinel + 8, sentinel, 8);
+    s.wr(sentinel + 0x10, sentinel, 8);
+    s.wr(sentinel + 0x18, 1, 1);  // color: black
+    s.wr(sentinel + 0x19, 1, 1);  // isnil
+    const uint64_t header = heap->Alloc(kMapHeaderBytes, 0x10);
+    s.wr(header, sentinel, 8);
+    s.wr(header + 8, sentinel, 8);
+    s.wr(header + 0x10, sentinel, 8);
+    s.wr(header + 0x18, 0, 8);  // size
+    s.wr(kRegistryContainerVa, header, 8);
+    s.wr(kRegistryGlobalVa, kRegistryContainerVa, 8);
   }
 
   // The pick cache is a std::map at ctx+0x30: a sentinel head (left = parent = right = self, black, isnil) and a size.
@@ -340,6 +392,54 @@ struct FixDemoSelector::Impl {
     const uint64_t va = heap->Alloc(bytes, 0x10);
     for (uint64_t off = 0; off < bytes; off += 8) s.wr(va + off, 0, 8);
     return va;
+  }
+
+  // A NUL-terminated copy of `text` in the heap.
+  uint64_t StringIn(const std::string& text) {
+    const uint64_t va = heap->Alloc(text.size() + 1, 0x10);
+    for (size_t i = 0; i <= text.size(); ++i) s.wr(va + i, i < text.size() ? static_cast<uint8_t>(text[i]) : 0, 1);
+    return va;
+  }
+
+  // A copy of `bytes` in the heap.
+  uint64_t BytesIn(const std::vector<uint8_t>& bytes) {
+    const uint64_t va = heap->Alloc(bytes.size(), 0x10);
+    for (size_t i = 0; i < bytes.size(); ++i) s.wr(va + i, bytes[i], 1);
+    return va;
+  }
+
+  // PES's group global (set by 0x141E5BAF0) and the group's name: element +0x10, a NUL-terminated path.
+  uint64_t CutGroupTable() const { return s.rd(kCutGroupGlobalVa, 8); }
+
+  // The group named `path` (0x141E5BC40 made it), or 0.
+  uint64_t FindCutGroup(const std::string& path) {
+    const uint64_t table = CutGroupTable();
+    const uint64_t begin = s.rd(table, 8), end = s.rd(table + 8, 8);
+    for (uint64_t slot = begin; slot < end; slot += 8) {
+      const uint64_t group = s.rd(slot, 8);
+      if (group == 0) continue;
+      size_t i = 0;
+      for (; i < path.size(); ++i)
+        if (s.rd(group + kCutGroupName + i, 1) != static_cast<uint8_t>(path[i])) break;
+      if (i == path.size() && s.rd(group + kCutGroupName + i, 1) == 0) return group;
+    }
+    return 0;
+  }
+
+  // 0x141E5BC40(group table, path): the nine boot calls (0x140419610) make one group per constant file, in table order.
+  void AddCutGroup(const std::string& path) {
+    s.gpr[1] = CutGroupTable();
+    s.gpr[2] = StringIn(path);
+    Call(&pes_fn_141E5BC40);
+  }
+
+  // ponytail: PES's stadium loader 0x141E5D980 reads the group's file through its stream (0x1414A8790) on a loader thread and then
+  // calls the fill 0x141E5D560; the call that dispatches it is OPEN (CutsceneAnchor14 section 2), so GF calls the fill directly with
+  // the VFS's unwrapped list, the same bytes PES's stream reads.
+  void FillCutGroup(const std::string& path, const std::vector<uint8_t>& list) {
+    s.gpr[1] = FindCutGroup(path);
+    s.gpr[2] = BytesIn(list);
+    Call(&pes_fn_141E5D560);
   }
 
   void BuildWorld() {
@@ -754,7 +854,7 @@ struct FixDemoSelector::Impl {
 };
 
 std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTable> tables, const PeImage& exe,
-                                                         std::string* error) {
+                                                         const PesVfs& vfs, std::string* error) {
   std::vector<uint8_t> image(kImageTablesBytes);
   if (!exe.ReadVa(kImageTablesVa, image.size(), image.data())) {
     if (error) *error = "the image does not map the FixDemo evaluator's switch tables";
@@ -789,8 +889,36 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
     return nullptr;
   }
   std::memcpy(&fullTurn, turn, sizeof fullTurn);
+  // 0x140419610's table: nine pointers (the install's .data) to the constant paths (the install's .rdata). Read at runtime, not kept here.
+  std::vector<std::string> cutGroupPaths;
+  for (uint64_t i = 0; i < kCutGroupCount; ++i) {
+    uint8_t ptrBytes[sizeof(uint64_t)];
+    if (!exe.ReadVa(kCutGroupTableVa + i * sizeof(uint64_t), sizeof ptrBytes, ptrBytes)) {
+      if (error) *error = "the image does not map the cut group table";
+      return nullptr;
+    }
+    uint64_t pathVa;
+    std::memcpy(&pathVa, ptrBytes, sizeof pathVa);
+    std::vector<uint8_t> text(kCutGroupPathBytes);
+    if (!exe.ReadVa(pathVa, text.size(), text.data())) {
+      if (error) *error = "the image does not map a cut group path";
+      return nullptr;
+    }
+    cutGroupPaths.emplace_back(reinterpret_cast<const char*>(text.data()));
+  }
+  const std::string stadiumPath = std::string(kCutGroupRoot) + kStadiumConstantPath;
+  if (std::find(cutGroupPaths.begin(), cutGroupPaths.end(), stadiumPath) == cutGroupPaths.end()) {
+    if (error) *error = "the cut group table has no constant_stadium.bin";
+    return nullptr;
+  }
+  // The stadium list: the VFS winner's constant_stadium.bin, unwrapped (the fill reads the WESYS object table).
+  const auto stadiumBlob = vfs.Read(kStadiumConstantPath, error);
+  if (!stadiumBlob) return nullptr;
+  const auto stadiumList = UnwrapWesys(*stadiumBlob, kStadiumConstantPath, error);
+  if (!stadiumList) return nullptr;
   return std::unique_ptr<FixDemoSelector>(new FixDemoSelector(
-      std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), std::move(stage), std::move(rdata), fullTurn)));
+      std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), std::move(stage), std::move(rdata), fullTurn,
+                             cutGroupPaths, stadiumPath, *stadiumList)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
