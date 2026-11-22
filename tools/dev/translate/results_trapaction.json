@@ -1370,6 +1370,80 @@
    "stubs": [],
    "translated": true,
    "va": "0x14092ED30"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_presstarget.json",
+   "coverage": {
+    "0x140639100": {
+     "reached": 53,
+     "total": 70,
+     "fraction": 0.7571
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 10 of 10: 10 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 10,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 53,
+     "total": 70,
+     "fraction": 0.7571
+    },
+    "replayed": 10,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140639100"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_pressaction.json",
+   "coverage": {
+    "0x140962440": {
+     "reached": 42,
+     "total": 73,
+     "fraction": 0.5753
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 10 of 10: 10 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly.",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 10,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 42,
+     "total": 73,
+     "fraction": 0.5753
+    },
+    "replayed": 10,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140962440"
   }
  ]
 }
