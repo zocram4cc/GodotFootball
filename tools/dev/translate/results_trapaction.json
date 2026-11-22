@@ -1370,6 +1370,156 @@
    "stubs": [],
    "translated": true,
    "va": "0x14092ED30"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kind8_d060.json",
+   "coverage": {
+    "0x140A3D060": {
+     "reached": 5,
+     "total": 5,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 5 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kind-8 record builder; 5 replayable real kind-8 calls (pid1971636; seq1117/seq1310 excluded: replay reads address 0x8)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 5,
+     "total": 5,
+     "fraction": 1.0
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A3D060"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kind8_19290.json",
+   "coverage": {
+    "0x140A19290": {
+     "reached": 21,
+     "total": 259,
+     "fraction": 0.0811
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 24 of 24: 24 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kind-8 decision; 24 real calls, all keep-holder (false) exits; the 12 loose-ball exits are NOT covered",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 24,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 21,
+     "total": 259,
+     "fraction": 0.0811
+    },
+    "replayed": 24,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A19290"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kind8_179c0.json",
+   "coverage": {
+    "0x140A179C0": {
+     "reached": 14,
+     "total": 23,
+     "fraction": 0.6087
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 11 of 11: 11 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. kind-8 producer; 11 real calls, gate-off (B+0x2918 bit 4 clear): all return without a record; the gate-on in-play branch is NOT covered by these calls",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 11,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 14,
+     "total": 23,
+     "fraction": 0.6087
+    },
+    "replayed": 11,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A179C0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_kind8_18810.json",
+   "coverage": {
+    "0x140A18810": {
+     "reached": 9,
+     "total": 19,
+     "fraction": 0.4737
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 3 of 3: 0 REAL captured call(s) and 3 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. in-play kind-8 key builder; SYNTHETIC states (synth.py, rdx = scratch out) over the three gate-on captures' memory (pid1971636 seq1067, seq1117, seq1310); no real call of 18810 was captured",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 9,
+     "total": 19,
+     "fraction": 0.4737
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A18810",
+   "synthetic": true,
+   "synthetic_cases": 3
   }
  ]
 }
