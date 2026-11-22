@@ -1,4 +1,102 @@
 {
+ "0x140266ED0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 608,
+  "subsystem": "boot"
+ },
+ "0x14029C3F0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 90,
+  "subsystem": "boot"
+ },
+ "0x14029C610": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 149,
+  "subsystem": "boot"
+ },
+ "0x14029C8B0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 45,
+  "subsystem": "boot"
+ },
+ "0x14029C8E0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 45,
+  "subsystem": "boot"
+ },
+ "0x14029CA20": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 150,
+  "subsystem": "boot"
+ },
+ "0x140401420": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 520,
+  "subsystem": "boot"
+ },
+ "0x140419610": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 211,
+  "subsystem": "cutscene"
+ },
+ "0x140419D80": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 63,
+  "subsystem": "cutscene"
+ },
+ "0x1406A9F20": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 130,
+  "subsystem": "kick"
+ },
+ "0x1406AA590": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 3287,
+  "subsystem": "kick"
+ },
+ "0x140870E90": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 3256,
+  "subsystem": "teamai"
+ },
+ "0x1408C6560": {
+  "callees": {},
+  "how": "leaf",
+  "scope": "in",
+  "size": 51,
+  "subsystem": "world"
+ },
+ "0x1408C6B80": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 209,
+  "subsystem": "world"
+ },
  "0x140A38F20": {
   "callees": {},
   "how": "pdata",
@@ -41,11 +139,207 @@
   "size": 338,
   "subsystem": "referee"
  },
+ "0x140A3B3A0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 340,
+  "subsystem": "world"
+ },
+ "0x140A57990": {
+  "callees": {},
+  "how": "leaf",
+  "scope": "in",
+  "size": 7,
+  "subsystem": "world"
+ },
+ "0x140BEB330": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 409,
+  "subsystem": "teamai"
+ },
+ "0x14149A620": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 157,
+  "subsystem": "boot"
+ },
+ "0x14149AB60": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 121,
+  "subsystem": "boot"
+ },
+ "0x14149ABE0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 195,
+  "subsystem": "boot"
+ },
+ "0x1414A3550": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 63,
+  "subsystem": "boot"
+ },
+ "0x1414A8F10": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 825,
+  "subsystem": "boot"
+ },
+ "0x1414A9280": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 747,
+  "subsystem": "boot"
+ },
+ "0x1414B08A0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 236,
+  "subsystem": "boot"
+ },
+ "0x1414B0E90": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 236,
+  "subsystem": "boot"
+ },
+ "0x1414B11A0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 273,
+  "subsystem": "boot"
+ },
+ "0x1414B1D90": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 106,
+  "subsystem": "boot"
+ },
+ "0x1415A18FA": {
+  "callees": {},
+  "how": "leaf",
+  "scope": "in",
+  "size": 6,
+  "subsystem": "boot"
+ },
+ "0x141AE77B0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 346,
+  "subsystem": "boot"
+ },
+ "0x141B02800": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 57,
+  "subsystem": "boot"
+ },
+ "0x141B0BA70": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 239,
+  "subsystem": "boot"
+ },
+ "0x141B348C0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 109,
+  "subsystem": "boot"
+ },
+ "0x141B3FCE0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 54,
+  "subsystem": "boot"
+ },
+ "0x141B49C80": {
+  "callees": {},
+  "how": "leaf",
+  "scope": "in",
+  "size": 56,
+  "subsystem": "boot"
+ },
+ "0x141B50400": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 40,
+  "subsystem": "boot"
+ },
+ "0x141B55E70": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 205,
+  "subsystem": "boot"
+ },
+ "0x141B56170": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 124,
+  "subsystem": "boot"
+ },
+ "0x141B6DAA0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 97,
+  "subsystem": "boot"
+ },
  "0x141E53520": {
   "callees": {},
   "how": "pdata-next-start",
   "scope": "in",
   "size": 32,
   "subsystem": "ai"
+ },
+ "0x141E6CDC0": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 455,
+  "subsystem": "trap"
+ },
+ "0x141EC8D30": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 946,
+  "subsystem": "boot"
+ },
+ "0x141FE4A30": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 209,
+  "subsystem": "boot"
+ },
+ "0x142160080": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 91,
+  "subsystem": "world"
  }
 }

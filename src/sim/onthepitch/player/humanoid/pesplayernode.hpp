@@ -4,6 +4,10 @@
 #ifndef _HPP_ONTHEPITCH_PESPLAYERNODE
 #define _HPP_ONTHEPITCH_PESPLAYERNODE
 
+#include <map>
+#include <string>
+
+#include "onthepitch/pesanimechain.hpp"
 #include "scene/scene3d/node.hpp"
 
 namespace pesrig {

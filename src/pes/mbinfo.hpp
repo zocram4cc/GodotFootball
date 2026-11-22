@@ -80,6 +80,10 @@ struct MotionRecord {
   // The raw words behind blend, cancel and rot, as the files have them (Animation +0/+4, CancelData +0/+4, RotData +0/+4),
   // admitted under the same caps in the same order. pesclipreaders lays them out as PES's table does.
   std::vector<std::array<uint32_t, 2>> blendWords, cancelWords, rotWords;
+  // The root offsets (x, z) the hit-distance reader FUN_1406e7730 takes, in file order: the Animation record's floats at +0x0c
+  // and +0x08 (FUN_1406af6d0: out[0] = dword 3, out[2] = dword 2) and each CancelData record's at +0x08 and +0x04
+  // (FUN_1406af9a0: out[0] = dword 2, out[2] = dword 1), admitted under the same caps as blend and cancel.
+  std::vector<std::array<float, 2>> blendRoot, cancelRoot;
 
   // The readers' answers. Past the end of a list they give PES's fallback value.
   int BlendStart() const { return blend.empty() ? 0 : blend[0]; }
@@ -89,6 +93,8 @@ struct MotionRecord {
   int FootPair(int i) const;                                           // FUN_1406afe20(.., i)
   RotRecord Rot(int i) const;                                          // FUN_1406b1c70 / b1f00 / b1d00
   bool PivotFlag(int i) const;                                         // FUN_1406b1930(.., i)
+  std::array<float, 2> BlendRoot() const;                              // FUN_1406af6d0: {0, 0} for a motion with no record
+  std::array<float, 2> CancelRoot(int i) const;                        // FUN_1406af9a0(.., i): {0, 0} past the list
 };
 
 // The four clip-record readers PES's movestep calls for a motion's record value in ticks (docs/re/pes-re-portmap-motion.md M2):
@@ -98,6 +104,7 @@ enum class ClipReader { kBlend, kCancel, kRotStart, kRotEnd };
 // PES's per-kind list caps (DAT_1425dc370, one dword per kind), read from the exe by VA.
 struct MotionCaps {
   uint32_t animation = 0, subHit = 0, cancel = 0, rot = 0, foot = 0, pivot = 0;
+  uint32_t hit = 0;  // kind 1, HitData: the cap behind PES's count byte rec[1] (FUN_1406B0250's descriptor)
 };
 std::optional<MotionCaps> LoadMotionCaps(const PeImage& exe, std::string* error);
 
@@ -113,6 +120,8 @@ class Mbinfo {
   // Null when the motion has no record of that kind.
   const MotionTiming* Timing(int motionNo) const;
   const std::vector<HitRecord>& Hits(int motionNo) const;
+  // PES's count byte rec[1] of the motion's record: its HitData records up to the kind-1 cap (0 past the table).
+  int HitCount(int motionNo) const;
   const CancelRecord* Cancel(int motionNo) const;
   size_t MotionCount() const { return hits_.size(); }
   // PES's table entry for a motion: an empty record past the table's last slot.
@@ -123,6 +132,7 @@ class Mbinfo {
   std::vector<std::optional<MotionTiming>> timing_;
   std::vector<std::vector<HitRecord>> hits_;
   std::vector<std::optional<CancelRecord>> cancel_;
+  uint32_t hitCap_ = 0;
   std::vector<MotionRecord> motions_;
 };
 

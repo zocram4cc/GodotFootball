@@ -5,7 +5,7 @@ Pins which fields of the records a PES function reads (the field list GF must ho
 capture (frame_trace.run_recorded) with a memory hook, keep every read and write outside the image, and print the
 clusters with their offsets from rcx, rdx, r8, r9 and rsp.
 
-Usage: PES_EXE=<pes_full.bin> python3 readset.py SNAP_DIR --hooks hooks.cfg --scratch DIR [--json OUT]
+Usage: PES_EXE=<pes_full.bin> python3 readset.py SNAP_DIR --hooks hooks.cfg --scratch DIR [--json OUT] [--windows OUT]
        (harness Python: unicorn)
 """
 import argparse
@@ -66,12 +66,46 @@ def clusters(addrs):
              sum(len(pages[p]) for p in c)) for c in out if c]
 
 
+STACK_BYTES = 0x100000  # PesMemory's stack (pesmemory.hpp kStackBytes): the window around the entry rsp
+TEB_BYTES = 0x2000  # PesMemory's thread block (kTebBytes)
+
+
+def classify(addr, rsp, teb):
+    """The source of an access: the VirtualAlloc model's OS arena (import_stubs.json), the thread block, the stack, or the match
+    (the rest of the capture's memory)."""
+    if ft.OS_ARENA_BASE <= addr < ft.OS_ARENA_BASE + ft.OS_ARENA_BYTES:
+        return "os_arena"
+    if teb <= addr < teb + TEB_BYTES:
+        return "teb"
+    if abs(addr - rsp) < STACK_BYTES:
+        return "stack"
+    return "match"
+
+
+def windows_of(accesses, classify_fn):
+    """[(source, lo, hi, distinct)]: {(addr, size): count} grouped by source, clustered as clusters() does."""
+    by_source = collections.defaultdict(dict)
+    for (addr, size), n in accesses.items():
+        by_source[classify_fn(addr)][(addr, size)] = n
+    return [(src, lo, hi, n) for src in sorted(by_source) for lo, hi, n in clusters(by_source[src])]
+
+
+def windows_tsv(label, hook, err, rsp, teb, reads, writes):
+    """One call's TSV lines: `call LABEL HOOK ERR RSP TEB`, then `window SOURCE LO HI DISTINCT` per window of its read+write set."""
+    acc = collections.Counter(reads)
+    acc.update(writes)
+    head = ["call", label, hook, "-" if err is None else str(err).replace("\t", " "), hex(rsp), hex(teb)]
+    return ["\t".join(head)] + ["\t".join(["window", src, hex(lo), hex(hi), str(n)])
+                                for src, lo, hi, n in windows_of(acc, lambda x: classify(x, rsp, teb))]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("snap")
     ap.add_argument("--hooks", required=True)
     ap.add_argument("--scratch", required=True)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--windows", default=None, help="write this call's windows (TSV, see windows_tsv) to this file")
     a = ap.parse_args()
     regs, reads, writes, err = replay(a.snap, a.hooks, a.scratch)
     print("call: err=%s regs=%s" % (err, {k: hex(v) for k, v in regs.items()}))
@@ -84,6 +118,13 @@ def main():
         with open(a.json, "w") as f:
             json.dump({"regs": regs, "reads": sorted([x, s, n] for (x, s), n in reads.items()),
                        "writes": sorted([x, s, n] for (x, s), n in writes.items())}, f)
+    if a.windows:
+        with open(os.path.join(a.snap, "index.json")) as f:
+            hook = json.load(f)["rv"]["hook"]
+        lines = windows_tsv(os.path.basename(a.snap.rstrip("/")), hook, err, regs["rsp"],
+                            ft.load_recorded_call(a.snap)["teb"], reads, writes)
+        with open(a.windows, "w") as f:
+            f.write("\n".join(lines) + "\n")
     return 0 if err is None else 1
 
 

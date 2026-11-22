@@ -27,8 +27,8 @@
 namespace {
 
 constexpr int kHome = 1, kAway = 2;
-constexpr unsigned int kSeed = 7;
-constexpr int kMinutes = 5;  // seed 7 scores its first goal well inside this
+constexpr unsigned int kSeed = 3;
+constexpr int kMinutes = 5;  // seed 3 scores its first goal well inside this (serial census 04-11-26: seeds 3 and 5 score in 5 min on --pes-loop)
 constexpr unsigned long kSceneLongerThanSchedule_ms = 15000;  // past the kick-off schedule by far
 constexpr unsigned long kMaxTicksAfterRelease = 4000;
 constexpr unsigned long kMaxTicksToGoal = 3ul * kMinutes * 60ul * Match::kFramesPerSecond;

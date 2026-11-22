@@ -26,7 +26,7 @@ namespace pes {
 
 // The specialvar1 families imported clips carry. Celebrations and cards use
 // 1..3 (gamedefines.hpp), so imported families start well clear of them.
-enum class PesClipFamily : int { kDodge = 100, kTackle = 101, kLocomotion = 102, kTrap = 103 };
+enum class PesClipFamily : int { kDodge = 100, kTackle = 101, kLocomotion = 102, kTrap = 103, kDribble = 104 };
 
 struct PesClip {
   std::string name;
@@ -56,6 +56,9 @@ std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig);
 // the same clock PesClipAnimText samples the clip on, so the touch and the clip's pose agree.
 int PesTouchAnimFrame(int hitFrame);
 
+// The clip time one engine frame of an imported clip stands for (PesClipAnimText writes a clip at 10 ms per frame).
+inline constexpr float kGfAnimFrame_s = 0.01f;
+
 // The contact action of a player whose current clip is a Special command:
 // a PES clip is the action its family names (the player carries which one in
 // his PES challenge - SetPesChallenge at the command), and every other special
@@ -72,8 +75,10 @@ inline bool IsPesLocomotionFamily(int specialVar1) {
   return specialVar1 == int(PesClipFamily::kLocomotion);
 }
 inline bool IsPesTrapFamily(int specialVar1) { return specialVar1 == int(PesClipFamily::kTrap); }
+// The Dribble action's clips (the motions its sub-state handlers issue through SetMotion, FUN_1406F0F70): `dribble*` in the exe's table.
+inline bool IsPesDribbleFamily(int specialVar1) { return specialVar1 == int(PesClipFamily::kDribble); }
 inline bool PesFamilyPoseMatched(int specialVar1) {
-  return !IsPesLocomotionFamily(specialVar1) && !IsPesTrapFamily(specialVar1);
+  return !IsPesLocomotionFamily(specialVar1) && !IsPesTrapFamily(specialVar1) && !IsPesDribbleFamily(specialVar1);
 }
 
 inline ContactAction SpecialClipAction(int specialVar1, ContactAction challenge) {

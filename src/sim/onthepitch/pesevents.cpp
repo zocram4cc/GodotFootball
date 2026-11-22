@@ -599,10 +599,23 @@ bool BuildInPlayBallEvent(const BallEventInput& in, EventRecord* out) {
   out->SetI32(0x38, static_cast<int8_t>(in.actorByte3e));  // payload+0x24
   out->SetU32(0x44, static_cast<uint32_t>(in.ballWord2818));  // payload+0x30
   out->SetU32(0x48, static_cast<uint32_t>(in.ballWord281c));  // payload+0x34
-  // The kind 1/2 tail (FUN_140a17e10's struct, the second key, and the
-  // payload+0x40 word the latch's step 3 reads) is filled by the caller's
+  // Kinds 1..3 (FUN_140a18940 cases 1-3): FUN_140a17e10 resets the tail struct at payload+0x38 (an invalid key, roster index 0x18), then
+  // FUN_140a62fe0(roster, ball+0x27E4) names the man the last pass was aimed at as its key (payload+0x38) and FUN_14043b870 his roster
+  // index (payload+0x4c). The selector 0x1404F0E50's first arm reads that key (FUN_140a3e900 = payload+0x38 for these kinds).
+  if (in.actionKind >= 1 && in.actionKind <= 3) {
+    ActorKey key = NoActorKey();
+    uint32_t rosterIndex = kRosterSlots;
+    if (in.kickTarget >= 0 && in.kickTarget <= 0x15) {
+      key = ActorKey{static_cast<uint32_t>(in.kickTarget > 10 ? 1 : 0), static_cast<uint32_t>(in.kickTargetSlot)};
+      rosterIndex = static_cast<uint32_t>(RosterIndexOf(in.roster, in.kickTarget));
+    }
+    out->SetU32(0x4c, key.team);   // payload+0x38
+    out->SetU32(0x50, key.slot);   // payload+0x3c
+    out->SetU32(0x60, rosterIndex);  // payload+0x4c
+  }
+  // The kind 1/2 tail (FUN_140a17e10's struct and the payload+0x40 word the latch's step 3 reads) is filled by the caller's
   // `in.kickTail`, which FUN_140a43b870 and FUN_140a17e10 would compute.
-  // ponytail: those two helpers, not decoded.
+  // ponytail: the payload+0x40 word (FUN_140a3e7d0 / the E+0xe8 compare) and the +0x18 sub-kind, not decoded.
   if (in.actionKind == 1 || in.actionKind == 2) {
     out->SetU32(0x54, static_cast<uint32_t>(in.kickTailWord40));  // payload+0x40
     out->SetU32(0x2c, static_cast<uint32_t>(in.kickTailSub));    // payload+0x18

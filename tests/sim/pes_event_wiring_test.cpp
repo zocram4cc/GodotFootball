@@ -70,6 +70,29 @@ std::unique_ptr<Match> MakeMatch() {
   std::unique_ptr<Match> match = MakeMatch();                                             \
   if (!match) GTEST_SKIP() << "PES2021.exe: the match constants are unavailable"
 
+// The same match on the PES tick order (pes_loop), which the event stage and the team stage run on.
+std::unique_ptr<Match> MakePesLoopMatch() {
+  MatchSetup setup;
+  setup.homeTeamDbId = kHomeTeam;
+  setup.awayTeamDbId = kAwayTeam;
+  setup.seed = kSeed;
+  setup.durationMinutes = 5;
+  setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
+  setup.rig = SharedRig();
+  if (!pestest::FillMissingPesConstants(&setup)) return nullptr;
+  Properties config;
+  config.SetBool("pes_loop", true);
+  return std::unique_ptr<Match>(new Match(new MatchData(kHomeTeam, kAwayTeam), setup, config));
+}
+
+#define REQUIRE_PES_MATCH_LOOP()                                                         \
+  if (!SharedRig()) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton comes from PES"; \
+  blunted::Database* db = SharedDb();                                                    \
+  ASSERT_TRUE(db) << "assets/fixtures/teams.sql";                                        \
+  SetDB(db);                                                                             \
+  std::unique_ptr<Match> match = MakePesLoopMatch();                                      \
+  if (!match) GTEST_SKIP() << "PES2021.exe: the match constants are unavailable"
+
 }  // namespace
 
 TEST(PesEventWiring, PlayerKeysRoundTripThroughTheSquad) {
@@ -126,4 +149,19 @@ TEST(PesEventWiring, ALatchFlipIsRecordedAsKindTwelve) {
   bool found = false;
   for (const pes::EventRecord& rec : overflow.slots) found = found || rec.kind == 12u;
   EXPECT_TRUE(found);
+}
+
+// PES's event stage stamps a touch with the frame it is emitted in: the writer 0x14092ED30 reads the newest kind-7 frame against the
+// frame counter (framesSince = MI frame - event frame, gate 0 or 2). GF queues a touch in the team stage, which runs after the event stage
+// of its tick; the event stage of the next tick routes it. The stamp is that next tick's frame, not the queue-time frame.
+TEST(PesEventWiring, AQueuedTouchIsStampedWithTheFrameOfTheTickThatRoutesIt) {
+  REQUIRE_PES_MATCH_LOOP();
+  for (int i = 0; i < 100000 && !(match->IsInPlay() && !match->IsInSetPiece()); ++i) match->Process();
+  ASSERT_TRUE(match->IsInPlay() && !match->IsInSetPiece());
+  Player* player = match->GetTeam(0)->GetAllPlayers().front().get();
+  match->QueuePesTouch(player, pes::kActionTouch);  // the team stage of tick N
+  match->PesWorldOf().AdvanceMatchFrame();          // the end of tick N: the frame counter moves on
+  const int emitFrame = match->GetPesFrame();       // tick N+1's frame, when its event stage runs
+  match->Process();                                 // tick N+1: the event stage routes the touch
+  EXPECT_EQ(match->GetPesEvents().Newest().ActionFrame(), emitFrame);
 }

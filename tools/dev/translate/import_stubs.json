@@ -1,291 +1,652 @@
 {
-  "contract": "OS import models for frame_trace.py --snapshot and xlate.py. A snapshot run maps a loaded OS module's export entries on first call: an export listed here runs its model (its code is written at the entry); any other export is int3 and stops the run with its name. do values: return (mov rax, imm64; ret: the export returns value and has no other effect); memcpy (Win64 memcpy(dst, src, n): returns dst, copies n bytes forward); qpc (QueryPerformanceCounter: stores value at *rcx, returns TRUE); tls_get / tls_set (TlsGetValue / TlsSetValue on the thread's own TEB slots); tebread (returns the DWORD at gs:[offset], zero-extended: GetLastError). Keyed by module file name and export name. Each entry carries the evidence for its model; a wrong model is a divergence, not a default.",
-  "imports": [
-    {
-      "module": "ntdll.dll",
-      "export": "RtlEnterCriticalSection",
-      "do": "return",
-      "value": 0,
-      "why": [
-        "Called as the thunk at 0x1403FF444: call [0x14252F340]; xor eax,eax; add rsp,0x28; ret. The thunk discards the value, so the callee only has to return.",
-        "Model assumption: the replay runs one thread and never waits on the lock; a lock held by another thread at the snapshot instant is not represented."
-      ]
-    },
-    {
-      "module": "ntdll.dll",
-      "export": "RtlLeaveCriticalSection",
-      "do": "return",
-      "value": 0,
-      "why": [
-        "Pair of RtlEnterCriticalSection; no waiters are modelled (see above)."
-      ]
-    },
-    {
-      "module": "msvcrt.dll",
-      "export": "memcpy",
-      "do": "memcpy",
-      "why": [
-        "Win64 memcpy(void *dst, const void *src, size_t n): rcx, rdx, r8; returns dst in rax.",
-        "Model assumption: non-overlapping source and destination (the memcpy contract); forward rep movsb."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "WaitForSingleObject",
-      "do": "wait",
-      "code_hex": "83faff7406b802010000c331c0c3",
-      "why": [
-        "Caller 1: the wait helper at 0x141B389D0 (CONFIRMED disassembly): WaitForSingleObject(handle, 0); if the result is 0 it returns 0 and the pump's drain loop at 0x141B3E146 runs again; any nonzero result exits the loop. So a zero timeout must answer WAIT_TIMEOUT (0x102), which ends the drain at once.",
-        "Caller 2: FUN_1423D90E0 (the file handle's busy-semaphore acquire, reached from FUN_1414A9570 and FUN_1414A9680): WaitForSingleObject(h, 0xFFFFFFFF), looping while the result is 0x102. An INFINITE wait must answer WAIT_OBJECT_0; the old constant 258 for every wait spun the acquire to the 50M-instruction budget (group builder replay, 1423D9117). Taken from origin/AnimeLayer (861f1a7e's tree), for this path.",
-        "Model: edx == 0xFFFFFFFF (INFINITE) returns 0, any other timeout returns 0x102 (cmp edx,-1; je; mov eax,0x102; ret; xor eax,eax; ret). Assumption: no other thread signals the handle during the replay (the producers are not run), and an infinite wait is always satisfiable. Contract test: test_wait_model.py."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "GetCurrentThreadId",
-      "do": "return",
-      "value": 36,
-      "why": [
-        "Caller: the pump's dispatch path (rets 0x1403dc579 .. 0x1403ff4aa in the first frame). The value is the replayed thread's id: the snapshot's main-thread TEB ClientId.Thread (+0x48), 36 = Wine's process id 32 + 4 (frame_trace.main_teb), CONFIRMED from the snapshot.",
-        "Model assumption: the replay runs as that thread. A replay of a different thread's TEB must change this value; it is not read from the TEB at run time (a stop would hide that)."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "QueryPerformanceCounter",
-      "do": "qpc",
-      "value": 0,
-      "why": [
-        "The pump's time base (pes-re-advance.md): xmm2/xmm3 come from QueryPerformanceCounter via 0x141B34A30, in 10 MHz ticks (freq constant 0x1437F00F0 = 10,000,000, CONFIRMED in that doc).",
-        "MODEL, not evidence: the clock is frozen at 0 for every call, so the pump's frame delta is the accumulated value only. Frame timing from this run is therefore not PES's; it is labelled as a fixed-clock replay wherever it is reported."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "TlsGetValue",
-      "do": "tls_get",
-      "why": [
-        "Windows x64 semantics: TlsGetValue(index) returns TEB.TlsSlots[index] for index < 64 (TEB +0x1480); the slot is read from the replayed thread's own TEB (gs base = the snapshot TEB), so the game's TLS values are the snapshot's.",
-        "Model assumption: indices >= 64 (TlsExpansionSlots) are not modelled and return NULL; any such call is a named divergence to revisit."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "TlsSetValue",
-      "do": "tls_set",
-      "why": [
-        "Windows x64 semantics: TlsSetValue(index, value) stores TEB.TlsSlots[index] for index < 64 and returns TRUE; indices >= 64 return FALSE (not modelled).",
-        "The store is into the replay's own copy of the TEB page; it is part of the call-time delta, as any write."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "GetLastError",
-      "do": "tebread",
-      "offset": "0x68",
-      "why": [
-        "Named by the recorded cutscene-create call (proc/seq008: unmodelled import kernelbase.dll!GetLastError at 0x6FFFFF3A9151). The slot 0x14252F328 is kernel32.dll!GetLastError (import_slots.json); kernel32 forwards it to kernelbase.",
-        "Windows x64 semantics: GetLastError returns the DWORD TEB.LastErrorValue. [INF] offset +0x68 is the standard x64 TEB layout (ClientId.Thread at +0x48 is confirmed for this snapshot in pes-re-import-slots.md); not read from a Windows header here.",
-        "Model assumption: no OS call in the replay sets the last error; the value is the snapshot's TEB (read from the replayed thread's own TEB, as TlsGetValue is)."
-      ]
-    },
-    {
-      "module": "kernelbase.dll",
-      "export": "GetLastError",
-      "do": "tebread",
-      "offset": "0x68",
-      "why": [
-        "The export the replay's loaded module resolves to (proc/seq008). Same model as kernel32.dll!GetLastError, which the translator keys on (the slot's module)."
-      ]
-    },
-    {
-      "module": "ntdll.dll",
-      "export": "RtlAcquireSRWLockShared",
-      "do": "srw_acquire_shared",
-      "code_hex": "8b 01 66 85 c0 75 0b 89 c2 81 01 00 00 01 00 8b 09 c3 cc",
-      "why": [
-        "Wine ntdll RtlAcquireSRWLockShared (file offset 0x1d380, read from the prefix's ntdll.dll): the fast path is taken when the low word of the lock dword is zero; it adds 0x10000 (the shared count, high word) by lock cmpxchg, and returns with eax = old value, edx = old value, ecx = new value. The slow path (exclusive or waiting bits set) calls RtlWaitOnAddress, which a single-thread replay cannot model: the code here is int3, so such a case is excluded, never replayed wrong.",
-        "Model assumption: the replay is single-threaded, so the cmpxchg always succeeds (no contention). The captures seq013 and seq023 are the only callers in the replay set."
-      ]
-    },
-    {
-      "module": "ntdll.dll",
-      "export": "RtlReleaseSRWLockShared",
-      "do": "srw_release_shared",
-      "code_hex": "8b 01 a8 01 75 19 89 c2 c1 ea 10 85 d2 74 10 ff ca 41 89 c0 41 81 e8 00 00 01 00 44 89 01 c3 cc",
-      "why": [
-        "Wine ntdll RtlReleaseSRWLockShared (file offset 0x38360): the fast path is taken when the exclusive bit (bit 0) is clear and the shared count (high word) is nonzero; it stores lock - 0x10000 and returns with eax = old value, edx = count - 1, r8d = new value. Any other case (exclusive bit set, no shared holders: the waiter-wake path) is int3 here, excluded, never replayed wrong.",
-        "Model assumption: single-threaded replay, uncontended release."
-      ]
-    },
-    {
-      "module": "kernelbase.dll",
-      "export": "FlsGetValue",
-      "do": "fls_get",
-      "code_hex": "89 c8 8d 49 ff 81 f9 ee 0f 00 00 77 5f 65 48 8b 0c 25 30 00 00 00 4c 8b 91 c8 17 00 00 4d 85 d2 74 4a 83 f8 0f 76 1e 41 b8 10 00 00 00 31 c9 83 c1 01 44 29 c0 41 b8 10 00 00 00 41 d3 e0 44 39 c0 73 ec eb 02 31 c9 49 8b 4c ca 10 48 85 c9 74 07 83 c0 01 48 8b 0c c1 48 89 c8 65 48 8b 14 25 30 00 00 00 c7 42 68 00 00 00 00 c3 65 48 8b 14 25 30 00 00 00 c7 42 68 57 00 00 00 31 c0 c3",
-      "why": [
-        "Wine kernelbase FlsGetValue (file offset 0x218a0) calls ntdll RtlFlsGetValue(index, &value) and returns value with TEB+0x68 (LastErrorValue) = 0; on failure it sets TEB+0x68 = RtlNtStatusToDosError(status) and returns 0. Wine ntdll RtlFlsGetValue (file offset 0x29540) reads the FLS vector from TEB+0x17C8 (gs:[0x30] is the TEB self pointer), rejects index-1 > 0xFEE or a null vector with STATUS_INVALID_PARAMETER (0xC000000D), and walks blocks of 16<<k slots: value = block[k][rem+1] (0 when the block is null). The code here is that walk, inlined; the failure path writes 87 (ERROR_INVALID_PARAMETER) to TEB+0x68 [INF: the standard STATUS_INVALID_PARAMETER -> ERROR_INVALID_PARAMETER mapping; RtlNtStatusToDosError itself is not disassembled here].",
-        "Model assumption: the replay's TEB and FLS vector are the snapshot's own (the TEB and FlsData pages are read from the snapshot). The 0x17C8 offset is read from the Wine ntdll code, not from a Windows header."
-      ]
-    },
-    {
-      "module": "ntdll.dll",
-      "export": "RtlSetLastWin32Error",
-      "do": "setlasterror",
-      "code_hex": "65 48 8b 04 25 30 00 00 00 89 48 68 c3",
-      "why": [
-        "Wine ntdll RtlSetLastWin32Error (file offset 0x39cb0, read from the prefix's ntdll.dll): mov rax, gs:[0x30]; mov [rax+0x68], ecx; ret. It stores the DWORD in TEB.LastErrorValue (TEB+0x68, the same slot as GetLastError) and returns nothing. rax is left as the TEB self pointer.",
-        "Reached from the recorded cutscene-create call (seq008) through the FlsGetValue failure path's SetLastError."
-      ]
-    },
-    {
-      "module": "ucrtbase.dll",
-      "export": "strcpy_s",
-      "do": "strcpy_s",
-      "code_hex": "4885c9740d4885d274084d85c07509c60100b816000000c34989c94929c8438a040841880149ffc184c0740f4883ea0175ecc60100b822000000c331c0c3",
-      "why": [
-        "errno_t strcpy_s(char *dst, size_t size, const char *src): rcx, rdx, r8; returns errno_t in eax. Export 2383 (ordinal 2384) of the PES prefix's ucrtbase.dll (SizeOfImage 0xF4000, RVA 0x17E00), named by its export directory.",
-        "Behaviour read from the loaded DLL's code in the snapshot (live_seq085, 0x6FFFFEC77E00): dst or size zero -> EINVAL (0x16) with no write; src zero -> *dst = 0 then EINVAL; otherwise copy src to dst up to and including its NUL; if no NUL fits in size -> *dst = 0 and ERANGE (0x22, value 34); else 0.",
-        "ponytail: the model does not store errno (ucrtbase per-thread state, reached through _errno at RVA 0xA550) and does not call _invalid_parameter_noinfo (RVA 0x684C0). Neither is in the game's diffed memory; a game read of errno after strcpy_s is not modelled (OPEN)."
-      ]
-    },
-    {
-      "module": "ucrtbase.dll",
-      "export": "__stdio_common_vsprintf_s",
-      "do": "vsprintf_s",
-      "code_hex": "5356574d85c074744889d74989d24e8d4402ff4c89ce4c8b5c24480fb60648ffc684c00f84280100003c25755031db0fb60648ffc63c2574443c30750bbb000100000fb60648ffc68d48d083f90977180fb6d36bd20a01ca81e30001000009d30fb60648ffc6ebe03c73741d3c6474473c6974433c7574673c787472cc4c39c773fa880748ffc7eb92f7c3ff00000075eb4d8b0b4983c3084d85c974df418a0184c00f8473ffffff4c39c773cf880748ffc749ffc1ebe6418b034983c30885c079244c39c773b5c6072d48ffc7f7d884db7413f7c30001000074a1fecbeb07418b034983c30841b90a000000eb0d418b034983c30841b91000000031c931d241f7f180fa0a720380c22780c23052ffc185c075e90fb6c329c8761eb220f7c3000100007402b2304c39c70f834cffffff881748ffc7ffc875ee584c39c70f8339ffffff880748ffc7ffc975ede9cafeffffc607004889f84c29d05f5e5bc3",
-      "why": [
-        "int __stdio_common_vsprintf_s(unsigned __int64 options, char *buf, size_t count, const char *fmt, _locale_t locale, va_list args): rcx, rdx, r8, r9, [rsp+0x28], [rsp+0x30]; returns the character count in eax. The export of the PES prefix's ucrtbase.dll (slot 0x142530438, the wrapper 0x1403815F0 calls it; the FixDemo camera constructor's CAMERA_TARGET_%02d%02d names go through it).",
-        "A hand model (source: vsprintf_model.s; `as` + `objcopy -O binary -j .text` gives code_hex; test_vsprintf_model.py checks it), NOT the DLL's code: literal text, %%, %s, and %[0][NN]d / %i / %u / %x with the 32-bit argument read from the 8-byte va_list slots, MSVC padding rules (zero flag pads with 0, else with spaces; no precision, no length modifiers, no + or - flags). Anything else, a NULL %s, a zero count or an output that does not fit (count - 1 characters) is int3: a loud stop, never a wrong string (the real function would call the invalid-parameter handler).",
-        "Effects the translator's mirror (xlate.import_model_lines, do = vsprintf_s) reproduces: rbx, rsi, rdi pushed (rsp-8, -16, -24) and restored; each number pushes its digits (least significant first, the ASCII code in the low byte, upper bits zero) below them; the output ends with a NUL."
-      ]
-    },
-    {
-      "module": "VCRUNTIME140.dll",
-      "export": "memset",
-      "do": "memset",
-      "code_hex": "4989c9574889cf89d04c89c1f3aa4c89c85fc3",
-      "why": [
-        "void *memset(void *dst, int c, size_t n): rcx, edx, r8; returns dst in rax. Export of the PES prefix's VCRUNTIME140.dll (module name from its export directory), RVA 0x19A0 in a full capture (pid407792/seq001, 0x6FFFFB8219A0).",
-        "Contract: writes the low byte of c to n bytes at dst, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code: the DLL fills vectors (its first instructions build 0x0101010101010101 by movabs and imul, then punpcklbw), so the byte pattern is the same and the code differs.",
-        "Model: mov r9, rcx (dst kept); push rdi; mov rdi, rcx; mov eax, edx; mov rcx, r8; rep stosb; mov rax, r9; pop rdi; ret. n = 0 stores nothing. Checked by test_memset_model.py. The callers' argument shapes (44C880, 445E90) are not checked yet (OPEN)."
-      ]
-    },
-    {
-      "module": "ucrtbase.dll",
-      "export": "sqrtf",
-      "code_hex": "f30f51c0c3",
-      "why": [
-        "float sqrtf(float): xmm0 in, xmm0 out. The game's sqrt thunk (0x1415A1780, stubs.json op sqrtf) is `jmp [0x1425301F0]`, the ucrtbase export; a recorded call that reaches it runs the export in the snapshot (seq6634 of trap_action_tick_797CD0 stops at it).",
-        "Model: sqrtss xmm0, xmm0; ret. IEEE sqrt is correctly rounded, the exact claim stubs.json makes for the thunk. The export's own code (movss spills, a classify of the argument, the errno path for a negative) only differs for NaN and negative arguments (OPEN: not checked against the captured calls' arguments).",
-        "Reached from the Trap action tick's captures (rendezvous hook trap_action_tick_797CD0, pid 483669)."
-      ]
-    },
-    {
-      "module": "VCRUNTIME140.dll",
-      "export": "memmove",
-      "do": "memmove",
-      "code_hex": "4889c857564889cf4889d64c89c14839f776194c8d0c0e4c39cf7310488d7c0fff488d740efffdf3a4fceb02f3a45e5fc3",
-      "why": [
-        "void *memmove(void *dst, const void *src, size_t n): rcx, rdx, r8; returns dst in rax. Export of the PES prefix's VCRUNTIME140.dll at RVA 0x12F0 (the danger-writer replay stops at 0x6FFFFBC712F1 = base 0x6FFFFBC70000 + 0x12F1 with the module named by the snapshot's export directory; the IAT slot is 0x14252FD68, called from the lane-list insert 0x140A790AB).",
-        "Contract: copies n bytes as if through a temporary, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code (which is vectorised).",
-        "Model: mov rax, rcx; push rdi; push rsi; mov rdi, rcx; mov rsi, rdx; mov rcx, r8; if dst <= src or dst >= src + n copy forward (rep movsb), else copy backward from the last byte (std; rep movsb; cld); pop rsi; pop rdi; ret. rcx is 0 after the copy and r9 = src + n when dst > src. Checked by test_memmove_model.py; the C++ mirror (xlate.import_model_lines) is compared with it by snapdiff on the danger-writer captures."
-      ]
-    },
-    {
-      "module": "VCRUNTIME140.dll",
-      "export": "memchr",
-      "do": "memchr",
-      "code_hex": "4d85c0740c3811740b48ffc149ffc875f431c0c34889c8c3",
-      "why": [
-        "void *memchr(const void *p, int c, size_t n): rcx, edx, r8; returns the first byte equal to dl in rax, or 0. Stopped at by the FixDemo camera constructor's snprintf wrapper (unmodelled import VCRUNTIME140.dll!memchr at 0x6FFFFB801171 in the synthetic constructor replays, slot 0x14252FD38 area per import_slots.json).",
-        "Model: test r8, r8; jz null; loop: cmp [rcx], dl; je found; inc rcx; dec r8; jnz loop; null: xor eax, eax; ret; found: mov rax, rcx; ret. A byte scan with no stack use and no memory write; the DLL's own code is vectorised and reads a block at a time, which the model does not (a read past a page end that the DLL would take is not modelled).",
-        "The C++ mirror (xlate.import_model_lines, do = memchr) is compared with it by snapdiff on the constructor replays."
-      ]
-    },
-    {
-      "module": "VCRUNTIME140.dll",
-      "export": "memcmp",
-      "do": "memcmp",
-      "code_hex": "482bd14983f8087222f6c107741466908a013a0411752c48ffc149ffc8f6c10775ee4d8bc849c1e903751f4d85c0740f8a013a0411750c48ffc149ffc875f14833c0c31bc083d8ffc39049c1e9027437488b01483b0411755b488b4108483b441108754c488b4110483b441110753d488b4118483b441118752e4883c12049ffc975cd4983e01f4d8bc849c1e903749b488b01483b0411751b4883c10849ffc975ee4983e007eb834883c1084883c1084883c108488b0c0a480fc8480fc9483bc11bc083d8ffc3",
-      "why": [
-        "int memcmp(const void *a, const void *b, size_t n): rcx, rdx, r8; returns -1, 0 or 1 in eax (sbb eax,eax; sbb eax,-1 after the last compare). The DLL's own code, the first 0xC6 bytes of the export at RVA 0x11F1 of the prefix's VCRUNTIME140.dll (0x6FFFFBC711F1 in the full capture pid1965411/seq033, read by SnapMem.read; every branch inside is a rel8 inside these bytes), position independent, so the harness runs it as it is.",
-        "CORRECTED (ProcCamera2): the model began one byte late, at RVA 0x11F1, dropping the leading REX.W prefix 0x48 of `sub rdx, rcx`: the DLL's bytes (read from live2/pid3234533/seq6228 at 0x6FFFFB8011F0) are 48 2B D1. Without it the pointer delta was `sub edx, ecx` (32 bit), right only when both pointers share their upper dword; a heap pointer against an image string (the registry find compares a name with 0x142596900) read 0x2033F4FC0. The earlier proofs compared heap against heap, so none changes.",
-        "Reached by the unit step's forward run from the danger builder to the dribble-proposal writer (synth_walk.py --entry 0x1421102D0): 0x141B36107 compares 10 bytes."
-      ]
-    },
-    {
-      "module": "ucrtbase.dll",
-      "export": "_fdtest",
-      "do": "fdtest",
-      "code_hex": "0fb75102b8807f00006623d0663bd07518f641027f750c33c0663901b8010000007422b802000000c30fb74102a9ff7fffff750733c0663901740a66f7da1bc0f7d883c0fec3",
-      "why": [
-        "int _fdtest(const float *p): the float classifier: 2 = NaN, 1 = infinity, 0 = zero, -2 = subnormal, -1 = normal; rcx = p, eax = the class. The DLL's own code, the first 0x46 bytes of the export (ucrtbase 0x6FFFFECF6370 in the full capture pid1965411/seq033, read by SnapMem.read; the slot 0x1425301C0 holds it there). The turn-reference builder 0x14211E650 calls it through that slot on its angle.",
-        "Registers: rdx = the exponent field (word [p+2] & 0x7F80) on every path but the last two (subnormal/normal: negated, low word); rax = the class zero-extended. The translator's mirror (xlate.import_model_lines, do = fdtest) computes the class and rdx."
-      ]
-    },
-    {
-      "module": "ucrtbase.dll",
-      "export": "_isnan",
-      "do": "isnan",
-      "code_hex": "48b8ffffffffffffff7ff20f11442408488b4c240848ba000000000000f07f4823c833c0483bca0f97c0c3",
-      "why": [
-        "int _isnan(double x): rax = 1 when the magnitude bits of xmm0 exceed the infinity's, else 0. The DLL's own code, all 0x2B bytes of the export (ucrtbase 0x6FFFFEC8A480 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301C8 holds it there). The FixDemo camera position setter 0x1422F97A0 and four more camera functions call it through that slot.",
-        "Effects the translator's mirror (xlate.import_model_lines, do = isnan) reproduces: the caller's home slot [rsp+8] (the movsd spill) = bits of x, rcx = bits & 0x7FFF..., rdx = 0x7FF0000000000000, rax = the result."
-      ]
-    },
-    {
-      "module": "ucrtbase.dll",
-      "export": "floorf",
-      "do": "floorf",
-      "code_hex": "660f3a0ac009c3",
-      "why": [
-        "float floorf(float x): xmm0 = floor(xmm0), roundss xmm0,xmm0,9 (round down, precision exception suppressed); ret. A hand model of the export (ucrtbase 0x6FFFFEC84BF0 in live2/pid3234533/seq6220, the slot 0x1425301D8), not the DLL's bytes: floor is exact in every libm, so the value equals the DLL's. The DLL's code also leaves r8, rdx, eax and the home slot [rsp+8] as scratch; callers do not read them (the ABI's volatile registers and shadow space), and the translator's mirror (do = floorf) leaves them untouched too.",
-        "Called by the CANM evaluator 0x142139AB0 (0x142139B57) and the camera code through the slot."
-      ]
-    },
-    {
-      "module": "ucrtbase.dll",
-      "export": "_finite",
-      "do": "finite",
-      "code_hex": "48b9ffffffffffffff7ff20f11442408488b4424084823c148b9000000000000f07f482bc148c1e83fc3",
-      "why": [
-        "int _finite(double x): rax = 1 for a finite x, else 0. The DLL's own code, all 0x2A bytes of the export (ucrtbase 0x6FFFFEC86E30 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301D0 holds it there). 0x14088C010 calls it through the slot beside _isnan.",
-        "Effects the translator's mirror (xlate.import_model_lines, do = finite) reproduces: the home slot [rsp+8] = bits of x, rcx = 0x7FF0000000000000, rax = (|bits| - rcx) >> 63."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "CreateSemaphoreW",
-      "do": "return",
-      "value": "0x4",
-      "code_hex": "48b80400000000000000c3",
-      "why": [
-        "HANDLE CreateSemaphoreW(lpAttributes, lInitialCount, lMaximumCount, lpName): PES's file-stream constructor 0x141B38980 calls it through IAT slot 0x14252F1B8 with (0, count, max, 0) and stores the handle only when it is non-zero. Model: mov rax, 4; ret (a fixed small handle, as Wine's handle numbers are multiples of 4). The DLL's code is not read; the model is a stand-in for the handle's identity only.",
-        "ponytail: the handle is never waited on or released by GF's code: PES's file completion (WaitForSingleObject / ReleaseSemaphore) is replaced by PesVfs reads. A wait on this handle is not modelled, so it stops the run loudly (int3) instead of answering.",
-        "Effects the translator's mirror (xlate.import_model_lines, do = return, value 0x4) reproduces: rax = 4, nothing else."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "InitializeCriticalSectionAndSpinCount",
-      "do": "cs_init",
-      "code_hex": "48c70100000000c74108ffffffffc7410c0000000048c741100000000048c741180000000089d248895120b801000000c3",
-      "why": [
-        "kernel32!InitializeCriticalSectionAndSpinCount(rcx = LPCRITICAL_SECTION, edx = spin count): the Win64 section's fields, single thread (LockCount -1, the rest 0, SpinCount = edx), returns TRUE. Reached by PES's file-stream lock init 0x1403FF3E0 through IAT slot 0x14252F440 (CONFIRMED: `call [0x14252F440]` in the decompile of 0x1403FF3E0). The code_hex: mov [rcx],0; mov dword [rcx+8],-1; mov dword [rcx+0xC],0; mov [rcx+0x10],0; mov [rcx+0x18],0; mov edx,edx; mov [rcx+0x20],rdx; mov eax,1; ret.",
-        "Hand-encoded; the bytes match the Presentation branch's model (commit 317585ac, origin/Presentation), taken here for this path only. Contract test: test_cs_init_model.py."
-      ]
-    },
-    {
-      "module": "kernel32.dll",
-      "export": "SetEvent",
-      "do": "return",
-      "value": 1,
-      "code_hex": "b801000000c3",
-      "why": [
-        "BOOL SetEvent(hEvent): TRUE on success. PES's file-handle state machine 0x1414A9680 calls it at the end of its completion path (IAT slot 0x14252F6E8, no arguments set up by the caller: the handle register is not meaningful there). Model: mov eax, 1; ret; nothing else changes. A GF replay runs no producer thread, so no waiter is woken and nothing is signalled.",
-        "Taken from origin/AnimeLayer's model (SetEvent return 1). Contract test: test_setevent_model.py. Translator mirror: do = return, value 1."
-      ]
-    }
-  ]
+ "contract": "OS import models for frame_trace.py --snapshot and xlate.py. A snapshot run maps a loaded OS module's export entries on first call: an export listed here runs its model (its code is written at the entry); any other export is int3 and stops the run with its name. do values: return (mov rax, imm64; ret: the export returns value and has no other effect); memcpy (Win64 memcpy(dst, src, n): returns dst, copies n bytes forward); qpc (QueryPerformanceCounter: stores value at *rcx, returns TRUE); tls_get / tls_set (TlsGetValue / TlsSetValue on the thread's own TEB slots); tebread (returns the DWORD at gs:[offset], zero-extended: GetLastError). Keyed by module file name and export name. Each entry carries the evidence for its model; a wrong model is a divergence, not a default.",
+ "os_arena": {
+  "base": "0x3000000000",
+  "bytes": "0x100000000",
+  "block": "0x400000",
+  "note": "the VA range of the VirtualAlloc model's OS arena: a replay maps it as lazily zeroed pages (frame_trace.LazyMap, the diff main's mmap window); the cell [base] is the bump pointer"
+ },
+ "imports": [
+  {
+   "module": "ntdll.dll",
+   "export": "RtlEnterCriticalSection",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "Called as the thunk at 0x1403FF444: call [0x14252F340]; xor eax,eax; add rsp,0x28; ret. The thunk discards the value, so the callee only has to return.",
+    "Model assumption: the replay runs one thread and never waits on the lock; a lock held by another thread at the snapshot instant is not represented."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlLeaveCriticalSection",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "Pair of RtlEnterCriticalSection; no waiters are modelled (see above)."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlDeleteCriticalSection",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "NTSTATUS RtlDeleteCriticalSection(PRTL_CRITICAL_SECTION): stopped at by FUN_141EA7640's replay (unmodelled import ntdll.dll!RtlDeleteCriticalSection at 0x6FFFFFBD5131 in live2/pid3147592/seq484), reached through the file handle's destructor (FUN_1414A95A0 -> vtable +0 with 1). The caller reads no result and the lock lives in a block the handle's delete frees.",
+    "Model assumption (as RtlEnterCriticalSection): the replay runs one thread and takes no lock; the bytes Wine clears in the section (LockCount, RecursionCount, OwningThread, DebugInfo) are not modelled: both sides of the comparison run this model, and no later read of a deleted section is on the path."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "CloseHandle",
+   "do": "return",
+   "value": 1,
+   "why": [
+    "BOOL CloseHandle(HANDLE): stopped at by FUN_141EA7640's replay (unmodelled import KERNEL32.dll!CloseHandle at 0x6FFFFF9ECEBD in live2/pid3147592/seq484), reached through the file handle's delete after the parse. Returns TRUE.",
+    "Model assumption: the replay runs one thread and the handle is a file the worker already read to the end (state 8); closing it changes no byte the replay compares (the kernel object is outside the process's pages). GF's file seam (a VFS-backed handle) answers the same call with the same TRUE."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "CreateSemaphoreW",
+   "do": "return",
+   "value": "0x4",
+   "code_hex": "48b80400000000000000c3",
+   "why": [
+    "HANDLE CreateSemaphoreW(lpAttributes, lInitialCount, lMaximumCount, lpName): PES's file-stream constructor 0x141B38980 calls it through IAT slot 0x14252F1B8 with (0, count, max, 0) and stores the handle only when it is non-zero. Model: mov rax, 4; ret (a fixed small handle, as Wine's handle numbers are multiples of 4). The DLL's code is not read; the model is a stand-in for the handle's identity only.",
+    "ponytail: the handle is never waited on or released by GF's code: PES's file completion (WaitForSingleObject / ReleaseSemaphore) is replaced by PesVfs reads. A wait on this handle is not modelled, so it stops the run loudly (int3) instead of answering.",
+    "Effects the translator's mirror (xlate.import_model_lines, do = return, value 0x4) reproduces: rax = 4, nothing else."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "InitializeCriticalSectionAndSpinCount",
+   "do": "cs_init",
+   "code_hex": "48c70100000000c74108ffffffffc7410c0000000048c741100000000048c741180000000089d248895120b801000000c3",
+   "why": [
+    "kernel32!InitializeCriticalSectionAndSpinCount(rcx = LPCRITICAL_SECTION, edx = spin count): the Win64 section's fields, single thread (LockCount -1, the rest 0, SpinCount = edx), returns TRUE. Reached by PES's file-stream lock init 0x1403FF3E0 through IAT slot 0x14252F440 (CONFIRMED: `call [0x14252F440]` in the decompile of 0x1403FF3E0). The code_hex: mov [rcx],0; mov dword [rcx+8],-1; mov dword [rcx+0xC],0; mov [rcx+0x10],0; mov [rcx+0x18],0; mov edx,edx; mov [rcx+0x20],rdx; mov eax,1; ret.",
+    "Hand-encoded; the bytes match the Presentation branch's model (commit 317585ac, origin/Presentation), taken here for this path only. Contract test: test_cs_init_model.py."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlWakeAllConditionVariable",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "VOID RtlWakeAllConditionVariable(PRTL_CONDITION_VARIABLE): stopped at by FUN_141EC86D0's replay (unmodelled import ntdll.dll!RtlWakeAllConditionVariable at 0x6FFFFFBEF0E1 in live2/pid2740946/seq004). Returns nothing the caller reads.",
+    "Model assumption (as RtlEnterCriticalSection): the replay runs one thread; no waiter exists to wake, so the call changes no byte the replay compares."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlWakeConditionVariable",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "VOID RtlWakeConditionVariable(PRTL_CONDITION_VARIABLE): the single-waiter sibling of RtlWakeAllConditionVariable (the same import block, slot named by import_slots.json); modelled the same way: no waiter in a one-thread replay."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_crt_atexit",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "int _crt_atexit(void (*fn)(void)): registers an exit handler (the compiler's atexit for a function-local static); returns 0 on success. Stopped at by FUN_141EC86D0's replay (unmodelled import ucrtbase.dll!_crt_atexit at 0x6FFFFECD6831 in live2/pid2740946/seq004).",
+    "Model: returns 0 and records nothing. The handler table is ucrtbase-internal state outside the game's diffed memory, and the handlers run at process exit, which no replay reaches (OPEN: a game read of that table is not modelled)."
+   ]
+  },
+  {
+   "module": "msvcrt.dll",
+   "export": "memcpy",
+   "do": "memcpy",
+   "why": [
+    "Win64 memcpy(void *dst, const void *src, size_t n): rcx, rdx, r8; returns dst in rax.",
+    "Model assumption: non-overlapping source and destination (the memcpy contract); forward rep movsb."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "WaitForSingleObject",
+   "do": "wait",
+   "code_hex": "83faff7406b802010000c331c0c3",
+   "why": [
+    "Caller 1: the wait helper at 0x141B389D0 (CONFIRMED disassembly): WaitForSingleObject(handle, 0); if the result is 0 it returns 0 and the pump's drain loop at 0x141B3E146 runs again; any nonzero result exits the loop (0x18000001 for WAIT_TIMEOUT 0x102, 0x18000002 otherwise).",
+    "So a return of 0 (WAIT_OBJECT_0) there would drain forever (2.5 M calls in the first pump frame, the reason for the old constant 0x102). 0x102 (WAIT_TIMEOUT, 258) ends the drain at once, so the pump dispatches the ring as it stands; pes-re-advance.md's emulated run reached the record loop with the same value.",
+    "Caller 2: FUN_1423D90E0 (the file handle's busy-semaphore acquire at FUN_1414A9680 state 2, reached from FUN_1414A89E0): WaitForSingleObject(h, 0xFFFFFFFF), looping while the result is 0x102. The recorded calls (live2/pid3147592 seq002 and seq004, real file opens) returned, so an INFINITE wait returned WAIT_OBJECT_0 (the semaphore was created with a count of one and released at state 1 or 8); a 0x102 forever is a replay that never ends (the first run of that proof sat at 0x1423D9117 until the 50M-instruction budget).",
+    "Model: edx == 0xFFFFFFFF (INFINITE) returns 0, any other timeout returns 0x102 (cmp edx,-1; je; mov eax,0x102; ret; xor eax,eax; ret). Assumption: no other thread signals the handle during the replay (the producers are not run), and an infinite wait is always satisfiable. A wait is an OS boundary: named here, and each call is counted in the record under import_calls.",
+    "Caller 1: the wait helper at 0x141B389D0 (CONFIRMED disassembly): WaitForSingleObject(handle, 0); if the result is 0 it returns 0 and the pump's drain loop at 0x141B3E146 runs again; any nonzero result exits the loop. So a zero timeout must answer WAIT_TIMEOUT (0x102), which ends the drain at once.",
+    "Caller 2: FUN_1423D90E0 (the file handle's busy-semaphore acquire, reached from FUN_1414A9570 and FUN_1414A9680): WaitForSingleObject(h, 0xFFFFFFFF), looping while the result is 0x102. An INFINITE wait must answer WAIT_OBJECT_0; the old constant 258 for every wait spun the acquire to the 50M-instruction budget (group builder replay, 1423D9117). Taken from origin/AnimeLayer (861f1a7e's tree), for this path.",
+    "Model: edx == 0xFFFFFFFF (INFINITE) returns 0, any other timeout returns 0x102 (cmp edx,-1; je; mov eax,0x102; ret; xor eax,eax; ret). Assumption: no other thread signals the handle during the replay (the producers are not run), and an infinite wait is always satisfiable. Contract test: test_wait_model.py."
+   ]
+  },
+  {
+   "module": "vcruntime140.dll",
+   "export": "__intrinsic_setjmp",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "int __intrinsic_setjmp(jmp_buf, frame): stopped at by FUN_141AE77B0's replay (unmodelled import VCRUNTIME140.dll!__intrinsic_setjmp at 0x6FFFF92D02F1 in live2/pid2740946/seq001). Returns 0 (the direct return of a setjmp).",
+    "Model assumption: the jmp_buf is read only by a longjmp, which no replayed path reaches (a longjmp would be the model's wrong answer: the buffer is not filled); the register save the real call does is not modelled."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "__chkstk",
+   "do": "nop",
+   "code_hex": "c3",
+   "why": [
+    "void __chkstk(): the x64 stack probe the compiler emits before a frame over one page (rax = the frame size, the caller subtracts it afterwards): stopped at by FUN_141AE77B0's replay (unmodelled import ntdll.dll!__chkstk). It touches the stack pages below rsp to commit them and returns with rax and rsp unchanged.",
+    "Model: ret. Assumption: the stack pages below rsp are committed in the replay (the probe only commits them); the real call also clobbers r10/r11 and flags, which no caller reads."
+   ]
+  },
+  {
+   "module": "msvcrt.dll",
+   "export": "_beginthreadex",
+   "do": "return",
+   "value": "0x2000",
+   "why": [
+    "uintptr_t _beginthreadex(security, stack, start, arg, flags, thrdaddr): FUN_141AE77B0 starts the anime engine's worker threads.",
+    "Model assumption: the thread is never started (GF and the replay drive the work from the calling thread) and *thrdaddr is not written; the call returns a nonzero handle. The translated code only stores the handle."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_beginthreadex",
+   "do": "return",
+   "value": "0x2000",
+   "why": [
+    "The same export through the image's import slot 0x142530308 (import_slots.json names it ucrtbase.dll): GF's end-to-end load (pes_fox_world_test, GF_PES_SURVEY) reached it through the request managers' thread start.",
+    "Model assumption as for msvcrt.dll!_beginthreadex: no thread is started, a nonzero handle comes back."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "CreateEventW",
+   "do": "return",
+   "value": "0x1004",
+   "why": [
+    "HANDLE CreateEventW(attrs, manualReset, initial, name): reached by GF's end-to-end load (GF_PES_SURVEY, slot 0x14252F270) through the request managers' constructors. The handle is stored and only handed back to SetEvent / WaitForSingleObject models.",
+    "Model assumption: kernel objects are opaque numbers to the translated code; GF runs no second thread to signal them."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "ResumeThread",
+   "do": "return",
+   "value": 1,
+   "why": [
+    "DWORD ResumeThread(HANDLE) (slot 0x14252F378): the request managers resume their worker after creating it suspended. Returns the previous suspend count, 1.",
+    "Model assumption: there is no worker thread (GF serves the lists itself)."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "SetThreadPriority",
+   "do": "return",
+   "value": 1,
+   "why": [
+    "BOOL SetThreadPriority(HANDLE, int) (slot 0x14252F380): the request managers' worker setup. Returns TRUE.",
+    "Model assumption: there is no worker thread."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "SetEvent",
+   "do": "return",
+   "value": 1,
+   "code_hex": "b801000000c3",
+   "why": [
+    "BOOL SetEvent(hEvent): TRUE on success. PES's file-handle state machine 0x1414A9680 calls it at the end of its completion path (IAT slot 0x14252F6E8, no arguments set up by the caller: the handle register is not meaningful there). Model: mov eax, 1; ret; nothing else changes. A GF replay runs no producer thread, so no waiter is woken and nothing is signalled.",
+    "Taken from origin/AnimeLayer's model (SetEvent return 1). Contract test: test_setevent_model.py. Translator mirror: do = return, value 1."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "ReleaseSemaphore",
+   "do": "return",
+   "value": 1,
+   "why": [
+    "BOOL ReleaseSemaphore(HANDLE, lReleaseCount, lpPreviousCount): FUN_141B38A10 (the file handle's busy-semaphore release at FUN_1414A9680 states 1 and 8, reached from FUN_141EA7640 and the file handle's delete). Returns TRUE; the caller maps FALSE to 0x18000001 and nothing reads the result on these paths.",
+    "Model assumption: the semaphore's count lives in the kernel (outside the pages the replay compares); lpPreviousCount is passed 0 by the caller, so no byte is written."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "GetCurrentThreadId",
+   "do": "return",
+   "value": 36,
+   "why": [
+    "Caller: the pump's dispatch path (rets 0x1403dc579 .. 0x1403ff4aa in the first frame). The value is the replayed thread's id: the snapshot's main-thread TEB ClientId.Thread (+0x48), 36 = Wine's process id 32 + 4 (frame_trace.main_teb), CONFIRMED from the snapshot.",
+    "Model assumption: the replay runs as that thread. A replay of a different thread's TEB must change this value; it is not read from the TEB at run time (a stop would hide that)."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "QueryPerformanceCounter",
+   "do": "qpc",
+   "value": 0,
+   "why": [
+    "The pump's time base (pes-re-advance.md): xmm2/xmm3 come from QueryPerformanceCounter via 0x141B34A30, in 10 MHz ticks (freq constant 0x1437F00F0 = 10,000,000, CONFIRMED in that doc).",
+    "MODEL, not evidence: the clock is frozen at 0 for every call, so the pump's frame delta is the accumulated value only. Frame timing from this run is therefore not PES's; it is labelled as a fixed-clock replay wherever it is reported."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "TlsGetValue",
+   "do": "tls_get",
+   "why": [
+    "Windows x64 semantics: TlsGetValue(index) returns TEB.TlsSlots[index] for index < 64 (TEB +0x1480); the slot is read from the replayed thread's own TEB (gs base = the snapshot TEB), so the game's TLS values are the snapshot's.",
+    "Model assumption: indices >= 64 (TlsExpansionSlots) are not modelled and return NULL; any such call is a named divergence to revisit."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "TlsSetValue",
+   "do": "tls_set",
+   "why": [
+    "Windows x64 semantics: TlsSetValue(index, value) stores TEB.TlsSlots[index] for index < 64 and returns TRUE; indices >= 64 return FALSE (not modelled).",
+    "The store is into the replay's own copy of the TEB page; it is part of the call-time delta, as any write."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "GetLastError",
+   "do": "tebread",
+   "offset": "0x68",
+   "why": [
+    "Named by the recorded cutscene-create call (proc/seq008: unmodelled import kernelbase.dll!GetLastError at 0x6FFFFF3A9151). The slot 0x14252F328 is kernel32.dll!GetLastError (import_slots.json); kernel32 forwards it to kernelbase.",
+    "Windows x64 semantics: GetLastError returns the DWORD TEB.LastErrorValue. [INF] offset +0x68 is the standard x64 TEB layout (ClientId.Thread at +0x48 is confirmed for this snapshot in pes-re-import-slots.md); not read from a Windows header here.",
+    "Model assumption: no OS call in the replay sets the last error; the value is the snapshot's TEB (read from the replayed thread's own TEB, as TlsGetValue is)."
+   ]
+  },
+  {
+   "module": "kernelbase.dll",
+   "export": "GetLastError",
+   "do": "tebread",
+   "offset": "0x68",
+   "why": [
+    "The export the replay's loaded module resolves to (proc/seq008). Same model as kernel32.dll!GetLastError, which the translator keys on (the slot's module)."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlAcquireSRWLockShared",
+   "do": "srw_acquire_shared",
+   "code_hex": "8b 01 66 85 c0 75 0b 89 c2 81 01 00 00 01 00 8b 09 c3 cc",
+   "why": [
+    "Wine ntdll RtlAcquireSRWLockShared (file offset 0x1d380, read from the prefix's ntdll.dll): the fast path is taken when the low word of the lock dword is zero; it adds 0x10000 (the shared count, high word) by lock cmpxchg, and returns with eax = old value, edx = old value, ecx = new value. The slow path (exclusive or waiting bits set) calls RtlWaitOnAddress, which a single-thread replay cannot model: the code here is int3, so such a case is excluded, never replayed wrong.",
+    "Model assumption: the replay is single-threaded, so the cmpxchg always succeeds (no contention). The captures seq013 and seq023 are the only callers in the replay set."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlReleaseSRWLockShared",
+   "do": "srw_release_shared",
+   "code_hex": "8b 01 a8 01 75 19 89 c2 c1 ea 10 85 d2 74 10 ff ca 41 89 c0 41 81 e8 00 00 01 00 44 89 01 c3 cc",
+   "why": [
+    "Wine ntdll RtlReleaseSRWLockShared (file offset 0x38360): the fast path is taken when the exclusive bit (bit 0) is clear and the shared count (high word) is nonzero; it stores lock - 0x10000 and returns with eax = old value, edx = count - 1, r8d = new value. Any other case (exclusive bit set, no shared holders: the waiter-wake path) is int3 here, excluded, never replayed wrong.",
+    "Model assumption: single-threaded replay, uncontended release."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlInitializeSRWLock",
+   "do": "srw_init",
+   "code_hex": "48 c7 01 00 00 00 00 c3 cc",
+   "why": [
+    "Wine ntdll RtlInitializeSRWLock (file offset 0x2f1d0, read from the prefix's ntdll.dll): `mov qword ptr [rcx], 0; ret`, the lock's pointer word cleared; rax is not written (the function is void).",
+    "Called from the registry creator's closure (FUN_141B55E70, real call live2/pid3319119 seq001): a lock member initialised in a freshly allocated object."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlAcquireSRWLockExclusive",
+   "do": "srw_acquire_exclusive",
+   "code_hex": "56 53 48 83 ec 38 48 89 cb 66 f0 83 01 02 66 0f 1f 44 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 8b 13 89 d0 89 54 24 2c c1 e8 10 75 33 b8 01 00 00 00 66 89 44 24 2e 0f b7 44 24 2c 83 e8 02 83 c8 01 66 89 44 24 2c 8b 4c 24 2c 89 d0 f0 0f b1 0b 75 cd 48 83 c4 38 5b 5e c3 cc cc cc cc cc cc cc",
+   "why": [
+    "Wine ntdll RtlAcquireSRWLockExclusive (file offset 0x1d540, read from the prefix's ntdll.dll): the machine code of the uncontended path, byte for byte (0x00..0x79): `lock add word [rcx], 2` (one waiter-count unit), then the loop reads the dword, and when its shared count (high word) is zero stores ((low word - 2) | 1) with the high word 1 (the exclusive bit, one holder) by lock cmpxchg; it returns with eax = edx = the dword it read, ecx = the dword it stored, rsi and rbx restored. The contended path (a nonzero shared count: 0x80, ending in the RtlWaitOnAddress call) is int3 here, excluded, never replayed wrong.",
+    "Model assumption: single-threaded replay, so the cmpxchg always succeeds. The function's stack locals ([rsp+0x2c], [rsp+0x2e] below the return slot) and the two pushes are written as the code writes them."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlReleaseSRWLockExclusive",
+   "do": "srw_release_exclusive",
+   "code_hex": "56 53 48 83 ec 38 48 89 ce eb 27 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 0f b7 d3 89 d8 66 89 da 66 83 e2 fe f0 0f b1 16 74 3e 8b 1e f6 c3 01 75 e7 cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc 66 f7 c3 fe ff 74 19 cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc cc 48 89 f1 48 83 c4 38 5b 5e c3 cc",
+   "why": [
+    "Wine ntdll RtlReleaseSRWLockExclusive (file offset 0x385c0, read from the prefix's ntdll.dll): the machine code of the release with no waiters, byte for byte: the dword is read, the exclusive bit (bit 0) must be set (else the path at 0x39, the RtlWaitOnAddress call, is int3 here), the low word is stored with bit 0 cleared and the high word zero by lock cmpxchg, and when no other bit of the low word is set (no waiters: `test bx, 0xfffe`) the real function tail-jumps to the wake routine at +0x6b00 (a scan of ntdll's wait-address hash table, empty when nobody waits) with rcx = the lock.",
+    "Model assumption: single-threaded replay and no waiter on any address, so that wake routine finds nothing and returns: here it is a `ret` after `mov rcx, rsi` and the frame's pops. The registers and the dead stack the wake routine would leave (rax, rdx, r8-r11 and its own pushes below the return slot) are not modelled; PES's callers of this void function read none of them. The waiter path (other bits of the low word set: the tail jump to +0x6cc0) is int3."
+   ]
+  },
+  {
+   "module": "kernelbase.dll",
+   "export": "FlsGetValue",
+   "do": "fls_get",
+   "code_hex": "89 c8 8d 49 ff 81 f9 ee 0f 00 00 77 5f 65 48 8b 0c 25 30 00 00 00 4c 8b 91 c8 17 00 00 4d 85 d2 74 4a 83 f8 0f 76 1e 41 b8 10 00 00 00 31 c9 83 c1 01 44 29 c0 41 b8 10 00 00 00 41 d3 e0 44 39 c0 73 ec eb 02 31 c9 49 8b 4c ca 10 48 85 c9 74 07 83 c0 01 48 8b 0c c1 48 89 c8 65 48 8b 14 25 30 00 00 00 c7 42 68 00 00 00 00 c3 65 48 8b 14 25 30 00 00 00 c7 42 68 57 00 00 00 31 c0 c3",
+   "why": [
+    "Wine kernelbase FlsGetValue (file offset 0x218a0) calls ntdll RtlFlsGetValue(index, &value) and returns value with TEB+0x68 (LastErrorValue) = 0; on failure it sets TEB+0x68 = RtlNtStatusToDosError(status) and returns 0. Wine ntdll RtlFlsGetValue (file offset 0x29540) reads the FLS vector from TEB+0x17C8 (gs:[0x30] is the TEB self pointer), rejects index-1 > 0xFEE or a null vector with STATUS_INVALID_PARAMETER (0xC000000D), and walks blocks of 16<<k slots: value = block[k][rem+1] (0 when the block is null). The code here is that walk, inlined; the failure path writes 87 (ERROR_INVALID_PARAMETER) to TEB+0x68 [INF: the standard STATUS_INVALID_PARAMETER -> ERROR_INVALID_PARAMETER mapping; RtlNtStatusToDosError itself is not disassembled here].",
+    "Model assumption: the replay's TEB and FLS vector are the snapshot's own (the TEB and FlsData pages are read from the snapshot). The 0x17C8 offset is read from the Wine ntdll code, not from a Windows header."
+   ]
+  },
+  {
+   "module": "ntdll.dll",
+   "export": "RtlSetLastWin32Error",
+   "do": "setlasterror",
+   "code_hex": "65 48 8b 04 25 30 00 00 00 89 48 68 c3",
+   "why": [
+    "Wine ntdll RtlSetLastWin32Error (file offset 0x39cb0, read from the prefix's ntdll.dll): mov rax, gs:[0x30]; mov [rax+0x68], ecx; ret. It stores the DWORD in TEB.LastErrorValue (TEB+0x68, the same slot as GetLastError) and returns nothing. rax is left as the TEB self pointer.",
+    "Reached from the recorded cutscene-create call (seq008) through the FlsGetValue failure path's SetLastError."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "strcpy_s",
+   "do": "strcpy_s",
+   "code_hex": "4885c9740d4885d274084d85c07509c60100b816000000c34989c94929c8438a040841880149ffc184c0740f4883ea0175ecc60100b822000000c331c0c3",
+   "why": [
+    "errno_t strcpy_s(char *dst, size_t size, const char *src): rcx, rdx, r8; returns errno_t in eax. Export 2383 (ordinal 2384) of the PES prefix's ucrtbase.dll (SizeOfImage 0xF4000, RVA 0x17E00), named by its export directory.",
+    "Behaviour read from the loaded DLL's code in the snapshot (live_seq085, 0x6FFFFEC77E00): dst or size zero -> EINVAL (0x16) with no write; src zero -> *dst = 0 then EINVAL; otherwise copy src to dst up to and including its NUL; if no NUL fits in size -> *dst = 0 and ERANGE (0x22, value 34); else 0.",
+    "ponytail: the model does not store errno (ucrtbase per-thread state, reached through _errno at RVA 0xA550) and does not call _invalid_parameter_noinfo (RVA 0x684C0). Neither is in the game's diffed memory; a game read of errno after strcpy_s is not modelled (OPEN)."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vsprintf_s",
+   "do": "vsprintf_s",
+   "code_hex": "5356574d85c074744889d74989d24e8d4402ff4c89ce4c8b5c24480fb60648ffc684c00f84280100003c25755031db0fb60648ffc63c2574443c30750bbb000100000fb60648ffc68d48d083f90977180fb6d36bd20a01ca81e30001000009d30fb60648ffc6ebe03c73741d3c6474473c6974433c7574673c787472cc4c39c773fa880748ffc7eb92f7c3ff00000075eb4d8b0b4983c3084d85c974df418a0184c00f8473ffffff4c39c773cf880748ffc749ffc1ebe6418b034983c30885c079244c39c773b5c6072d48ffc7f7d884db7413f7c30001000074a1fecbeb07418b034983c30841b90a000000eb0d418b034983c30841b91000000031c931d241f7f180fa0a720380c22780c23052ffc185c075e90fb6c329c8761eb220f7c3000100007402b2304c39c70f834cffffff881748ffc7ffc875ee584c39c70f8339ffffff880748ffc7ffc975ede9cafeffffc607004889f84c29d05f5e5bc3",
+   "why": [
+    "int __stdio_common_vsprintf_s(unsigned __int64 options, char *buf, size_t count, const char *fmt, _locale_t locale, va_list args): rcx, rdx, r8, r9, [rsp+0x28], [rsp+0x30]; returns the character count in eax. The export of the PES prefix's ucrtbase.dll (slot 0x142530438, the wrapper 0x1403815F0 calls it; the FixDemo camera constructor's CAMERA_TARGET_%02d%02d names go through it).",
+    "A hand model (source: vsprintf_model.s; `as` + `objcopy -O binary -j .text` gives code_hex; test_vsprintf_model.py checks it), NOT the DLL's code: literal text, %%, %s, and %[0][NN]d / %i / %u / %x with the 32-bit argument read from the 8-byte va_list slots, MSVC padding rules (zero flag pads with 0, else with spaces; no precision, no length modifiers, no + or - flags). Anything else, a NULL %s, a zero count or an output that does not fit (count - 1 characters) is int3: a loud stop, never a wrong string (the real function would call the invalid-parameter handler).",
+    "Effects the translator's mirror (xlate.import_model_lines, do = vsprintf_s) reproduces: rbx, rsi, rdi pushed (rsp-8, -16, -24) and restored; each number pushes its digits (least significant first, the ASCII code in the low byte, upper bits zero) below them; the output ends with a NUL."
+   ]
+  },
+  {
+   "module": "VCRUNTIME140.dll",
+   "export": "memset",
+   "do": "memset",
+   "code_hex": "4989c9574889cf89d04c89c1f3aa4c89c85fc3",
+   "why": [
+    "void *memset(void *dst, int c, size_t n): rcx, edx, r8; returns dst in rax. Export of the PES prefix's VCRUNTIME140.dll (module name from its export directory), RVA 0x19A0 in a full capture (pid407792/seq001, 0x6FFFFB8219A0).",
+    "Contract: writes the low byte of c to n bytes at dst, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code: the DLL fills vectors (its first instructions build 0x0101010101010101 by movabs and imul, then punpcklbw), so the byte pattern is the same and the code differs.",
+    "Model: mov r9, rcx (dst kept); push rdi; mov rdi, rcx; mov eax, edx; mov rcx, r8; rep stosb; mov rax, r9; pop rdi; ret. n = 0 stores nothing. Checked by test_memset_model.py. The callers' argument shapes (44C880, 445E90) are not checked yet (OPEN)."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "sqrtf",
+   "code_hex": "f30f51c0c3",
+   "why": [
+    "float sqrtf(float): xmm0 in, xmm0 out. The game's sqrt thunk (0x1415A1780, stubs.json op sqrtf) is `jmp [0x1425301F0]`, the ucrtbase export; a recorded call that reaches it runs the export in the snapshot (seq6634 of trap_action_tick_797CD0 stops at it).",
+    "Model: sqrtss xmm0, xmm0; ret. IEEE sqrt is correctly rounded, the exact claim stubs.json makes for the thunk. The export's own code (movss spills, a classify of the argument, the errno path for a negative) only differs for NaN and negative arguments (OPEN: not checked against the captured calls' arguments).",
+    "Reached from the Trap action tick's captures (rendezvous hook trap_action_tick_797CD0, pid 483669)."
+   ]
+  },
+  {
+   "module": "VCRUNTIME140.dll",
+   "export": "memmove",
+   "do": "memmove",
+   "code_hex": "4889c857564889cf4889d64c89c14839f776194c8d0c0e4c39cf7310488d7c0fff488d740efffdf3a4fceb02f3a45e5fc3",
+   "why": [
+    "void *memmove(void *dst, const void *src, size_t n): rcx, rdx, r8; returns dst in rax. Export of the PES prefix's VCRUNTIME140.dll at RVA 0x12F0 (the danger-writer replay stops at 0x6FFFFBC712F1 = base 0x6FFFFBC70000 + 0x12F1 with the module named by the snapshot's export directory; the IAT slot is 0x14252FD68, called from the lane-list insert 0x140A790AB).",
+    "Contract: copies n bytes as if through a temporary, returns dst, leaves rdi and rsi unchanged (Win64 callee-saved). The model is that contract, not the DLL's code (which is vectorised).",
+    "Model: mov rax, rcx; push rdi; push rsi; mov rdi, rcx; mov rsi, rdx; mov rcx, r8; if dst <= src or dst >= src + n copy forward (rep movsb), else copy backward from the last byte (std; rep movsb; cld); pop rsi; pop rdi; ret. rcx is 0 after the copy and r9 = src + n when dst > src. Checked by test_memmove_model.py; the C++ mirror (xlate.import_model_lines) is compared with it by snapdiff on the danger-writer captures."
+   ]
+  },
+  {
+   "module": "VCRUNTIME140.dll",
+   "export": "memchr",
+   "do": "memchr",
+   "code_hex": "4d85c0740c3811740b48ffc149ffc875f431c0c34889c8c3",
+   "why": [
+    "void *memchr(const void *p, int c, size_t n): rcx, edx, r8; returns the first byte equal to dl in rax, or 0. Stopped at by the FixDemo camera constructor's snprintf wrapper (unmodelled import VCRUNTIME140.dll!memchr at 0x6FFFFB801171 in the synthetic constructor replays, slot 0x14252FD38 area per import_slots.json).",
+    "Model: test r8, r8; jz null; loop: cmp [rcx], dl; je found; inc rcx; dec r8; jnz loop; null: xor eax, eax; ret; found: mov rax, rcx; ret. A byte scan with no stack use and no memory write; the DLL's own code is vectorised and reads a block at a time, which the model does not (a read past a page end that the DLL would take is not modelled).",
+    "The C++ mirror (xlate.import_model_lines, do = memchr) is compared with it by snapdiff on the constructor replays."
+   ]
+  },
+  {
+   "module": "VCRUNTIME140.dll",
+   "export": "memcmp",
+   "do": "memcmp",
+   "code_hex": "482bd14983f8087222f6c107741466908a013a0411752c48ffc149ffc8f6c10775ee4d8bc849c1e903751f4d85c0740f8a013a0411750c48ffc149ffc875f14833c0c31bc083d8ffc39049c1e9027437488b01483b0411755b488b4108483b441108754c488b4110483b441110753d488b4118483b441118752e4883c12049ffc975cd4983e01f4d8bc849c1e903749b488b01483b0411751b4883c10849ffc975ee4983e007eb834883c1084883c1084883c108488b0c0a480fc8480fc9483bc11bc083d8ffc3",
+   "why": [
+    "int memcmp(const void *a, const void *b, size_t n): rcx, rdx, r8; returns -1, 0 or 1 in eax (sbb eax,eax; sbb eax,-1 after the last compare). The DLL's own code, the first 0xC6 bytes of the export at RVA 0x11F1 of the prefix's VCRUNTIME140.dll (0x6FFFFBC711F1 in the full capture pid1965411/seq033, read by SnapMem.read; every branch inside is a rel8 inside these bytes), position independent, so the harness runs it as it is.",
+    "CORRECTED (ProcCamera2): the model began one byte late, at RVA 0x11F1, dropping the leading REX.W prefix 0x48 of `sub rdx, rcx`: the DLL's bytes (read from live2/pid3234533/seq6228 at 0x6FFFFB8011F0) are 48 2B D1. Without it the pointer delta was `sub edx, ecx` (32 bit), right only when both pointers share their upper dword; a heap pointer against an image string (the registry find compares a name with 0x142596900) read 0x2033F4FC0. The earlier proofs compared heap against heap, so none changes.",
+    "Reached by the unit step's forward run from the danger builder to the dribble-proposal writer (synth_walk.py --entry 0x1421102D0): 0x141B36107 compares 10 bytes."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_fdtest",
+   "do": "fdtest",
+   "code_hex": "0fb75102b8807f00006623d0663bd07518f641027f750c33c0663901b8010000007422b802000000c30fb74102a9ff7fffff750733c0663901740a66f7da1bc0f7d883c0fec3",
+   "why": [
+    "int _fdtest(const float *p): the float classifier: 2 = NaN, 1 = infinity, 0 = zero, -2 = subnormal, -1 = normal; rcx = p, eax = the class. The DLL's own code, the first 0x46 bytes of the export (ucrtbase 0x6FFFFECF6370 in the full capture pid1965411/seq033, read by SnapMem.read; the slot 0x1425301C0 holds it there). The turn-reference builder 0x14211E650 calls it through that slot on its angle.",
+    "Registers: rdx = the exponent field (word [p+2] & 0x7F80) on every path but the last two (subnormal/normal: negated, low word); rax = the class zero-extended. The translator's mirror (xlate.import_model_lines, do = fdtest) computes the class and rdx."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_isnan",
+   "do": "isnan",
+   "code_hex": "48b8ffffffffffffff7ff20f11442408488b4c240848ba000000000000f07f4823c833c0483bca0f97c0c3",
+   "why": [
+    "int _isnan(double x): rax = 1 when the magnitude bits of xmm0 exceed the infinity's, else 0. The DLL's own code, all 0x2B bytes of the export (ucrtbase 0x6FFFFEC8A480 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301C8 holds it there). The FixDemo camera position setter 0x1422F97A0 and four more camera functions call it through that slot.",
+    "Effects the translator's mirror (xlate.import_model_lines, do = isnan) reproduces: the caller's home slot [rsp+8] (the movsd spill) = bits of x, rcx = bits & 0x7FFF..., rdx = 0x7FF0000000000000, rax = the result."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "floorf",
+   "do": "floorf",
+   "code_hex": "660f3a0ac009c3",
+   "why": [
+    "float floorf(float x): xmm0 = floor(xmm0), roundss xmm0,xmm0,9 (round down, precision exception suppressed); ret. A hand model of the export (ucrtbase 0x6FFFFEC84BF0 in live2/pid3234533/seq6220, the slot 0x1425301D8), not the DLL's bytes: floor is exact in every libm, so the value equals the DLL's. The DLL's code also leaves r8, rdx, eax and the home slot [rsp+8] as scratch; callers do not read them (the ABI's volatile registers and shadow space), and the translator's mirror (do = floorf) leaves them untouched too.",
+    "Called by the CANM evaluator 0x142139AB0 (0x142139B57) and the camera code through the slot."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_finite",
+   "do": "finite",
+   "code_hex": "48b9ffffffffffffff7ff20f11442408488b4424084823c148b9000000000000f07f482bc148c1e83fc3",
+   "why": [
+    "int _finite(double x): rax = 1 for a finite x, else 0. The DLL's own code, all 0x2A bytes of the export (ucrtbase 0x6FFFFEC86E30 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301D0 holds it there). 0x14088C010 calls it through the slot beside _isnan.",
+    "Effects the translator's mirror (xlate.import_model_lines, do = finite) reproduces: the home slot [rsp+8] = bits of x, rcx = 0x7FF0000000000000, rax = (|bits| - rcx) >> 63."
+   ]
+  },
+  {
+   "module": "VCRUNTIME140.dll",
+   "export": "strstr",
+   "do": "strstr",
+   "code_hex": "4989d04989c94d89c2418a0284c07417413a01750849ffc149ffc2ebec803900740948ffc1ebdc4889c8c331c0c3",
+   "why": [
+    "char *strstr(const char *hay, const char *needle): rcx, rdx; returns the first match in rax, or 0; an empty needle matches at hay. Stopped at by the FoxAni registry insert FUN_141EC86D0 (unmodelled import VCRUNTIME140.dll!strstr at 0x6FFFF92C1DC1 in the replay of live2/pid2740946/seq004, call 0x141EC86D0 -> FUN_141205650 -> the slot).",
+    "Hand model (scalar byte scan), not the DLL's vectorised code: r8 = needle, then for each hay position rcx: r9/r10 walk hay and needle while the needle byte is non-zero and equal; the needle's NUL is a match at rcx; a hay NUL with no match ends it. Clobbers r8, r9, r10 and the flags (all volatile). The translator's mirror (xlate.import_model_lines, do = strstr) leaves rcx, r8, r9, r10 and rax as the model does; the DLL's block reads past the string's NUL are not modelled."
+   ]
+  },
+  {
+   "module": "VCRUNTIME140.dll",
+   "export": "strchr",
+   "do": "strchr",
+   "code_hex": "8a0138d0740984c0740948ffc1ebf14889c8c331c0c3",
+   "why": [
+    "char *strchr(const char *s, int c): rcx, dl = the low byte of c; returns the first byte equal to dl, the terminating NUL included (c = 0 finds it), or 0. Stopped at by FUN_141EC86D0's replay (unmodelled import VCRUNTIME140.dll!strchr at 0x6FFFF92C1C11 in live2/pid2740946/seq004), after strstr.",
+    "Hand model (scalar scan): al = [rcx]; equal to dl is a match at rcx; a NUL that is not dl is the end (rax = 0). Leaves rcx at the match or the NUL, al the last byte read, flags from the last compare; the translator's mirror (do = strchr) reproduces rcx and rax (al's byte is rax's low byte only when no match, where rax is 0)."
+   ]
+  },
+  {
+   "module": "VCRUNTIME140.dll",
+   "export": "strrchr",
+   "do": "strrchr",
+   "code_hex": "31c0381175034889c8803900740548ffc1ebefc3",
+   "why": [
+    "char *strrchr(const char *s, int c): rcx, dl = the low byte of c; returns the last byte equal to dl, the terminating NUL included, or 0. Imported beside strchr (slot 0x14252FD58 per import_slots.json); modelled with it for the FoxAni path walk.",
+    "Hand model (scalar scan): rax = 0; for each byte from rcx: equal to dl sets rax = rcx; a NUL ends the scan (rcx at the NUL). The translator's mirror (do = strrchr) leaves rcx at the NUL and rax the last match."
+   ]
+  },
+  {
+   "module": "KERNEL32.dll",
+   "export": "VirtualAlloc",
+   "do": "virtualalloc",
+   "code_hex": "4181f800000800743f4181f800300000753a4885c9753549ba0000000030000000498b024885c0750a48b800004000300000004c8d8affff3f004981e10000c0ff4901c14d890ac34889c8c3cc",
+   "why": [
+    "LPVOID VirtualAlloc(LPVOID addr, SIZE_T size, DWORD type, DWORD protect). Stopped at by FUN_141EC86D0's replay (unmodelled import KERNEL32.dll!VirtualAlloc at 0x6FFFFF9F1105 in live2/pid2740946/seq004): PES's jemalloc grows its heap during the FoxAni load.",
+    "Callers (Ghidra decompile): FUN_1403B4E00 / FUN_1403B4EB0 / FUN_1403FC050 call `(*DAT_14252F6D8)(0, size, 0x3000, 4)` (MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE, no fixed address: a fresh zeroed block); FUN_1403B4FA0 (the heap trim path) calls it with MEM_RESET (0x80000) on a committed range. Modelled: type 0x80000 returns addr and changes no byte; type 0x3000 with addr 0 returns the next block of the model's OS arena (os_arena below): the cell [base] holds the bump pointer (0 = first block, base + 0x400000), the size rounds up to 0x400000 and the cell advances; the arena reads as zeros until written. Any other form (a fixed address, another type) is the model's int3, a trap in the mirror (do = virtualalloc).",
+    "ponytail: Windows returns blocks at 64 KiB granularity; this model rounds every block to 4 MiB so every address is aligned to jemalloc's chunk size, and FUN_1403B4E00 takes its aligned fast path (`(addr & (align - 1)) == 0`) without the VirtualFree + fixed-address retry (FUN_1403B4EB0 / FUN_1403B4FC0). A request for an alignment above 4 MiB takes the retry and traps at the fixed-address VirtualAlloc: that is the model's limit, reported loud. Clobbers r9, r10 and the flags (all volatile)."
+   ]
+  },
+  {
+   "module": "KERNEL32.dll",
+   "export": "VirtualFree",
+   "do": "virtualfree",
+   "code_hex": "4181f80080000074094181f8004000007506b801000000c3cc",
+   "why": [
+    "BOOL VirtualFree(LPVOID addr, SIZE_T size, DWORD type): FUN_1403B4E00 releases an unaligned block with `(*DAT_14252F6D0)(addr, 0, 0x8000)` (MEM_RELEASE) and the trim path decommits (0x4000). Modelled as TRUE with no byte changed (the arena's pages stay zero-readable; no replay reads a released range back). Any other type is the model's int3, a trap in the mirror (do = virtualfree). Clobbers the flags."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "getenv",
+   "do": "return",
+   "value": 0,
+   "why": [
+    "char *getenv(const char *name): PES's jemalloc reads MALLOC_CONF (0x14339EB08) at 0x14038E810 (slot 0x1425300C8; FUN_1403A2350 / FUN_14039DD50 read the CRT environment through it too). GF's fox world re-runs PES's allocator start-up (FUN_14038EE80) on zeroed state, and this is the first call it makes.",
+    "Model: the variable is unset, NULL. EVIDENCE for MALLOC_CONF: the live dump's allocator holds the compile-time defaults (lg_chunk 0x16 at 0x1433ED718, lg_dirty_mult 3 at 0x1433DA368, lg_tcache_max 0xF at 0x1434034E8) and its conf cell je_malloc_conf (0x143AC3D88) is zero, so no option string was parsed in the live process. The answer for any other name is an assumption (no environment).",
+    "FUN_14038E7B0 (malloc_conf_init) returns at 0x14038EDA1 when this returns NULL."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "TlsAlloc",
+   "do": "tlsalloc",
+   "code_hex": "65488b042560000000488b88280300004889ca48f7d2480fbcd2740e480fabd14889882803000089d0c3b8ffffffffc3",
+   "why": [
+    "DWORD TlsAlloc(void): Windows hands out the lowest clear bit of the process's TLS bitmap (PEB+0x240 RTL_BITMAP, its first 64 bits are TlsBitmapBits at PEB+0x328) and sets it; -1 when the 64 are taken. Callers: PES's jemalloc, FUN_14038EE80 at 0x14038EF90 (`DAT_143ac3dcc = (*DAT_14252f6b0)()`, the tsd key) and its tcache boot thunk 0x143E114E0 (two calls, through the .impdata copy of the slot, 0x15B960E60, which holds the same export), whose results land in 0x143AC2814 and 0x143AC2810.",
+    "EVIDENCE: the live dump holds 9 at 0x143AC3DCC, 0xA at 0x143AC2814 and 0xB at 0x143AC2810: the three calls returned 9, 10, 11 in that order, so the process's bits 0..8 were taken when the allocator started. PesFoxWorld seeds its PEB's TlsBitmapBits with 0x1FF for that reason (the one assumed number: the nine slots the loader had taken).",
+    "Model: gs:[0x60] is the PEB; rax = index (or -1), rcx = the new bits, rdx = the index (bsf's), flags clobbered. An index of 64 or more (TlsExpansionSlots) is not modelled: all 64 taken returns -1."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "SetLastError",
+   "do": "set_last_error",
+   "code_hex": "65488b042530000000894868c3",
+   "why": [
+    "VOID SetLastError(DWORD): stores TEB.LastErrorValue (TEB +0x68). The export chain in the rig's prefix (read from its DLLs by script, file offsets in kernel32.dll 0x14ee0 / ntdll.dll 0x39cb0): kernel32's thunk is `jmp [rip+0x40aa2]` into kernelbase's forward of ntdll!RtlSetLastWin32Error, whose code is `mov rax, gs:[0x30]; mov [rax+0x68], ecx; ret`. So after the call rax holds the TEB's self pointer and [TEB+0x68] = ecx; no other register or flag changes.",
+    "Callers: PES's jemalloc (FUN_14038E6B0 through the IAT slot 0x14252F6B8, and the .tls$ copy 0x15B960DC8: the same export). Same TEB as GetLastError's model (offset 0x68)."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "GetModuleFileNameA",
+   "do": "module_file_name",
+   "code_hex": "48b8433a5c5045533230488902c7420832312e6566c7420c7865c6420e00b80e000000c3",
+   "why": [
+    "DWORD GetModuleFileNameA(HMODULE, LPSTR buf, DWORD size): luaopen_package's setpath (FUN_1403A2850, called through the IAT slot 0x14252F4A0 and its .tls$ copy 0x15B960B40) asks for the executable's path and only cuts it at its last backslash to replace ';;' in package.path; it raises a Lua error when the call returns 0.",
+    "Model: writes a 15-byte stand-in image path (a drive-root prefix, then PES2021.exe; the bytes are in code_hex) and returns 14 (the length without the terminator), rax only. The real path is the install's (the live process's PEB ImagePathName); the translated code uses only its directory part to build package.path, which GF's scripts never read. A stand-in value for an OS answer, named: replace it with the install path when a script that reads package.path exists."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "__acrt_iob_func",
+   "do": "iob_func",
+   "code_hex": "89c8486bc03048b900100000300000004801c8c3",
+   "why": [
+    "FILE* __acrt_iob_func(unsigned index): the C runtime's standard stream table entry (0 stdin, 1 stdout, 2 stderr). luaopen_io (createstdfile) stores the three pointers in Lua userdata and never reads through them while the libraries open.",
+    "Model: rax = 0x3000001000 + index * 0x30 (inside the OS arena the VirtualAlloc model serves, above its bump cell), rcx = 0x3000001000 (the register the code uses). The live process's table address is the dead process's; only distinct, stable pointers matter here."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_time64",
+   "do": "time64",
+   "code_hex": "48b8c565f16a000000004885c97403488901c3",
+   "why": [
+    "__time64_t _time64(__time64_t* out): the seconds since the epoch, also stored at *out when out is nonnull. PES's start-up initializers read it (RNG seeds, a session stamp).",
+    "Model: returns 1794205125 (the capture time of the live rig's pid4152866 snapshot, live2/pid4152866/seq002 index.json taken_unix: a real time_t of the running game) and stores it at *rcx when rcx != 0. A named constant for an OS answer: the match clock does not read it."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "CreateMutexA",
+   "do": "return",
+   "value": "0x1D0",
+   "why": [
+    "HANDLE CreateMutexA(attrs, initialOwner, name): the single-instance mutex PES's start-up creates; a nonzero handle is success, and GetLastError (the tebread model, TEB.LastErrorValue 0) then reads not-already-exists.",
+    "Model: returns the handle value 0x1D0 (any nonzero; nothing here uses it). A named constant for an OS answer."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "GetCurrentDirectoryW",
+   "do": "cwd_w",
+   "code_hex": "48b843003a005c000000488902b803000000c3",
+   "why": [
+    "DWORD GetCurrentDirectoryW(DWORD size, LPWSTR buf): PES's start-up initializers read the working directory (a path string kept in a static).",
+    "Model: writes the wide stand-in for a drive root (3 wide chars and the terminator, 8 bytes at rdx; the bytes are in code_hex) and returns 3. The real directory is the install's; the translated code keeps the string only. A named stand-in for an OS answer."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "WideCharToMultiByte",
+   "do": "wc2mb",
+   "code_hex": "4c8b542428448b5c24304489c883f8ff751031c06641833c40007404ffc0ebf4ffc04585db74194139c3721231c939c1730e418a14484188140affc1ebf031c0c3",
+   "why": [
+    "int WideCharToMultiByte(codepage, flags, wide, cchWide, narrow, cbNarrow, defaultChar, usedDefault): reached from PES's start-up initializers (path strings the engine keeps narrow).",
+    "Model (ASCII narrowing, the only text these initializers pass): n = cchWide, or the length with the terminator when cchWide is -1; cbNarrow == 0 returns n; cbNarrow < n returns 0 (the buffer untouched); else the low byte of each of the n wide characters is stored and n returned. Registers: r10 = the output pointer, r11 = cbNarrow, rcx = n and dl = the last byte stored when the copy ran. The real call converts by the code page; a non-ASCII character is not modelled (a loud gap would need the code page tables)."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_register_onexit_function",
+   "do": "return",
+   "value": "0x0",
+   "why": [
+    "int _register_onexit_function(_onexit_table_t*, _onexit_t fn): the CRT's atexit registration, reached by the static initializers' `atexit(handler)` (FUN_14159F6C0 -> _onexit -> FUN_14159F670 -> through the IAT slot 0x142530318 and its .tls$ copy 0x15B960400).",
+    "Model: returns 0 (success) and records nothing: the exit handlers GF never runs (the world is dropped, not shut down). Same as the _crt_atexit model."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "_initialize_onexit_table",
+   "do": "return",
+   "value": "0x0",
+   "why": [
+    "int _initialize_onexit_table(_onexit_table_t*): the CRT's exit-handler table init (IAT slot 0x1425303D8).",
+    "Model: returns 0 (success) and records nothing: the exit handlers GF never runs (the world is dropped, not shut down). Same as the _crt_atexit model."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "GetTickCount",
+   "do": "return",
+   "value": "0x927C0",
+   "why": [
+    "DWORD GetTickCount(void): milliseconds since boot (IAT slot 0x14252F1D0), read by PES's start-up initializers.",
+    "Model: returns 600000 (ms; ten minutes of uptime). The static initializers that read it store a start stamp; the match clock does not read it. A named constant for an OS answer."
+   ]
+  },
+  {
+   "module": "winmm.dll",
+   "export": "timeGetTime",
+   "do": "return",
+   "value": "0x927C0",
+   "why": [
+    "DWORD timeGetTime(void): milliseconds since boot (IAT slot 0x14252FE88), read by PES's start-up initializers.",
+    "Model: returns 600000 (ms; ten minutes of uptime). The static initializers that read it store a start stamp; the match clock does not read it. A named constant for an OS answer."
+   ]
+  },
+  {
+   "module": "kernel32.dll",
+   "export": "GetSystemInfo",
+   "do": "sysinfo",
+   "code_hex": "c7410400100000c7412010000000c7412800000100c3",
+   "why": [
+    "void GetSystemInfo(SYSTEM_INFO *): callers read three dwords. FUN_14038EE80 reads dwNumberOfProcessors (+0x20, `local_18` at 0x14038EFE9) into 0x143AC3DC8 and derives narenas = 4 x it; FUN_1403FCC30 reads dwPageSize (+4) and dwAllocationGranularity (+0x28) into 0x1436F0028 / 0x1436F0030.",
+    "EVIDENCE (the live dump, written by these very calls): 0x143AC3DC8 = 0x10 (and narenas 0x1436DCEC0 = 0x40 = 4 x 16), 0x1436F0028 = 0x1000, 0x1436F0030 = 0x10000. Model: those three dwords are written and nothing else in the structure (no caller reads another field; the rest stays as the caller's stack held it). code_hex: mov dword [rcx+4], 0x1000; mov dword [rcx+0x20], 0x10; mov dword [rcx+0x28], 0x10000; ret."
+   ]
+  }
+ ]
 }

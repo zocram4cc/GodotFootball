@@ -34,7 +34,7 @@ import frame_trace as ft  # noqa: E402
 CALL_REC = struct.Struct("<49Q")  # 16 GPRs, 16 XMM (lo, hi), the return address
 GPR_NAMES = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
              "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
-INSTR_BUDGET = 50_000_000  # per call: a deterministic runaway guard (an overrun is excluded); the frame_trace H-step guard (the 84-object stadium fill runs ~23k pool allocations)
+INSTR_BUDGET = int(os.environ.get("GF_SNAP_BUDGET", 50_000_000))  # per call: a deterministic runaway guard (an overrun is excluded); the FoxAni loader's body call needs GF_SNAP_BUDGET above 100M, the 84-object stadium fill ~23k pool allocations
 PAGE = 0x1000
 
 

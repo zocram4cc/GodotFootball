@@ -52,7 +52,7 @@ public:
   FormState::Familiarity GetDeployedFamiliarity() const;
 
   int GetTeamID() const;
-  Team* GetTeam();
+  Team* GetTeam() const;
 
   // get ready for some action
   virtual void Activate(boost::intrusive_ptr<Node> humanoidSourceNode,
@@ -71,7 +71,7 @@ public:
   inline e_FunctionType GetCurrentFunctionType() {
     return CastHumanoid()->GetCurrentFunctionType();
   }
-  FormationEntry GetFormationEntry();
+  FormationEntry GetFormationEntry() const;
   inline void SetDynamicFormationEntry(FormationEntry entry) { dynamicFormationEntry = entry; }
   inline FormationEntry GetDynamicFormationEntry() { return dynamicFormationEntry; }
   inline void SetManMarkingID(int id) { manMarkingID = id; }

@@ -30,9 +30,12 @@ namespace moveword {
 // Group C's request words that the shared contract does not name yet. Each is a PES req word;
 // a byte store at `param_2 + i` is the low byte of word i. If another group needs one of these,
 // it moves into the contract's `moveword` and both groups read it from there.
-inline constexpr int kBandSpeed = 0x1c;      // STEP_LOOP: the blended band speed, km/h (OBS)
-inline constexpr int kBandSpeedPrev = 0x1d;  // STEP_LOOP: the band speed before the change (OBS)
-inline constexpr int kBandSpeedCopy = 0x22;  // STEP_LOOP: the band speed paired with the class word
+// The class's speed word is req[0x1d] and the speed paired with the previous class req[0x22] (the same words as kSpeedWord and
+// kPrevSpeedWord in movestep_turn.hpp). The group once numbered the speed word 0x1c, which no PES handler of the family
+// touches (every store in FUN_1406c4c10, FUN_1406c6480, FUN_1406cab20, FUN_1406c6f80, FUN_1406c1070 and FUN_1406d2590 is
+// param_2[0x1d] or param_2[0x22]).
+inline constexpr int kBandSpeed = 0x1d;      // req[0x1d]: the class's speed word, km/h
+inline constexpr int kBandSpeedCopy = 0x22;  // req[0x22]: the speed before the change
 inline constexpr int kBucketPrev = 0x25;     // STEP_LOOP: the bucket before the last change (OBS)
 inline constexpr int kBlendA = 0x2b;         // STEP_LOOP_CHANGE: the blended heading integral
 inline constexpr int kBlendB = 0x2c;         // STEP_LOOP_CHANGE: the blended heading remainder

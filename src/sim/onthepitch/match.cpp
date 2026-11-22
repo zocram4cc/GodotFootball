@@ -109,6 +109,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
       std::clamp(matchDurationMinutes, kMinimumMatchDurationMinutes, kMaximumMatchDurationMinutes);
   // PES's world window (pesworldrecord.hpp) exists before the clock: the match-info block holds the clock's period record.
   pesWorld = std::make_unique<pes::PesWorld>();
+  pesVfs = setup.pesVfs;
+  if (setup.pesTrapSource != nullptr) pesImagePath = setup.pesTrapSource->imagePath;
+  // pes_loop: the trap world's window moves into the match's PES memory first (BindPesTrapWorld). The clock keeps a reference into the
+  // window's period record, so it is made after the move: a clock made on the old window would write freed memory after the move.
+  if (pesLoop && setup.pesTrapSource != nullptr) BindPesTrapWorld();
   pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes, pesWorld->Period());
 
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md): every constant
@@ -149,6 +154,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES kick error constants missing: read them from the install with "
         "pes::LoadKickErrorConstants into MatchSetup::pesKickErrorConstants");
   pesKickErrorConstants = *setup.pesKickErrorConstants;
+  if (setup.pesKickMotionConstants == nullptr)
+    throw std::runtime_error(
+        "PES kick motion constants missing: read them from the install with "
+        "pes::LoadKickMotionConstants into MatchSetup::pesKickMotionConstants");
+  pesKickMotionConstants = *setup.pesKickMotionConstants;
   if (setup.pesJudgeConstants == nullptr)
     throw std::runtime_error(
         "PES judge constants missing: read them from the install with "
@@ -289,9 +299,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   pesActorConstants = setup.pesTrapSource->actor;
   for (int slot = 0; slot < pes::kSlotCount; ++slot) {
     pes::ConstructActorP(*pesWorld, slot, pesActorConstants);
-    pes::ConstructAnimPlugin(*pesWorld, slot);
   }
-  pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;
   if (setup.pesSheetConstants) pesSheetConstants = *setup.pesSheetConstants;
@@ -331,6 +339,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES image tables missing: read them from the install with "
         "pes::LoadPesImageTables into MatchSetup::pesImageTables");
   pesWorld->BindImageTables(*setup.pesImageTables);
+  for (int k = 0; k < 3; ++k)
+    pesWorld->AddImageSegment(pesActorConstants.memberVtable[k], pesActorConstants.memberVtableSlots[k].data(),
+                              pesActorConstants.memberVtableSlots[k].size());
+  pesWorld->ConstructStats();  // PES's statistics blocks (E + 0x750D0): the cells the defence pass reads are written by their constructor
+  pesWorld->BuildTeamInfo();  // PES's squad records and the team-info constructor: the record defaults (the rating table) are PES's
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);
@@ -541,7 +554,7 @@ void Match::ResetSituation(const Vector3& focusPos) {
     lastTouchTeamIDs[i] = -1;
   }
   lastTouchTeamID = -1;
-  pesWorld->Events().Reset();
+  pesWorld->ResetEvents();
   pesDetectors = PesDetectorState{};
   lastGoalScorer = 0;
   bestPossessionTeamID = -1;
@@ -609,17 +622,6 @@ void Match::SetMatchPhase(e_MatchPhase newMatchPhase) {
     }
 #endif
   }
-
-  // Ends have just changed, so put both teams back out on the ones they swapped to.
-  // The referee prepares its kickoff at prepareTime and fires the phase change from
-  // the same tick, in that order - so the marks it computed belonged to the ends the
-  // teams were leaving, and nothing re-prepared afterwards. The second half kicked
-  // off with everyone standing wherever the whistle caught him, on the wrong side of
-  // a pitch that had turned round underneath him.
-  if (MatchProgression::SwapsEnds(matchPhase)) {
-    ResetSituation(Vector3(0, 0, 0));
-    if (referee) referee->PrepareSetPiece(e_SetPiece_KickOff);
-  }
 }
 
 void Match::SetScore(int teamID, int goals) {
@@ -637,6 +639,12 @@ void Match::GameOver() {
   // ponytail: PES re-runs the writer on each period-10 tick; the match is over before a second one.
   if (pesClock->Record().period == static_cast<uint32_t>(pesForfeitConstants.postMatchPeriod))
     ApplyPostMatchForfeits();
+}
+
+int Match::PesPlayState() {
+  const RefereeBuffer& buf = GetRefereeBuffer();
+  const bool ready = buf.ReadyForTake(GetActualTime_ms()) || buf.started;
+  return pes::PlayStateFor(IsInPlay() && !IsInSetPiece(), buf.active, ready);
 }
 
 bool Match::SideBelowMinimumPlayers() {
@@ -886,7 +894,14 @@ void Match::Process() {
   if (pesLoop) {
     WritePesMovementRecords(*this);
     WritePesTrapActors(*this);
+    WritePesMaHolders(*this);
     RunPesTrapTicks(*this);
+    // PES's per-tick ankle shove (FUN_140792E10, call 0x14079355C) acts on the root the engine chain has just written, so it runs after
+    // RunPesTrapTicks. Hypothesis under test (docs/re/pes-re-throwin-ankle.md): running it before the chain let the chain's root win.
+    for (int t = 0; t < 2; ++t) GetTeam(t)->GetController()->PushPieceTakerBehindLine();
+    RunPesDribbleTicks(*this);
+    RunPesActorCounters(*this);
+    RunPesBodyScans(*this);
   }
 
   if (pesLoop) {
@@ -1012,10 +1027,11 @@ void Match::Process() {
           if (!who) continue;
           const pes::MoveStepRecord& ms = who->GetMoveStep();
           const Anim* a = who->CastHumanoid()->GetCurrentAnim();
-          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f\n",
+          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f | %.1f m from the ball, %.1f m/s\n",
                  who->GetPlayerData()->GetLastName().c_str(), who->GetID(), int(ms.state), int(ms.previous),
                  int(a->functionType), a->anim ? a->anim->GetName().c_str() : "-", a->frameNum,
-                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate);
+                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate, (who->GetPosition() - ballNow).Get2D().GetLength(),
+                 who->GetMovement().GetLength());
         }
       }
     }

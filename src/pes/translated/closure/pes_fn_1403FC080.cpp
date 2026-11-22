@@ -11,9 +11,6 @@
 // image constant @ 0x14252F6C8 (8 bytes)
 static constexpr uint64_t k_c14252F6C8_q = 0x00006FFFFF9D1174ULL;
 static constexpr double k_c14252F6C8_d = 6.0841860115234e-310; // 6.0841860115234e-310
-// image constant @ 0x14252F6D0 (8 bytes)
-static constexpr uint64_t k_c14252F6D0_q = 0x00006FFFFF9D10FCULL;
-static constexpr double k_c14252F6D0_d = 6.0841860115175e-310; // 6.0841860115175e-310
 
 void pes_fn_1403FC080(PesState& s);
 
@@ -73,10 +70,7 @@ void pes_fn_1403FC080(PesState& s) {
   }
   s.gpr[8] = (uint64_t)(uint32_t)((32768ULL));
   s.gpr[1] = (uint64_t)(s.gpr[3]);
-  { uint64_t _t = (uint64_t)(k_c14252F6D0_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); uint32_t _t = (uint32_t)s.gpr[8]; if (_t != 0x8000u && _t != 0x4000u) __builtin_trap(); s.gpr[0] = 1ULL; s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false; }

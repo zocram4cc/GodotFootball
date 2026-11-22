@@ -42,7 +42,7 @@ float Match::GetPesEventAge_s(int eventFrame) const {
 }
 
 void Match::QueuePesTouch(Player* player, uint32_t actionKind) {
-  pesPendingTouches.push_back(PendingPesTouch{player, actionKind, GetPesFrame()});
+  pesPendingTouches.push_back(PendingPesTouch{player, actionKind});
 }
 
 pes::ActorKey Match::PesActorKeyOf(const Player* player) {
@@ -63,6 +63,73 @@ pes::ActorKey Match::PesActorKeyOf(const Player* player) {
 int Match::PesSlotOf(const Player* player) {
   const pes::ActorKey key = PesActorKeyOf(player);
   return static_cast<int>(key.team) * pes::kSlotsPerSide + static_cast<int>(key.slot);
+}
+
+bool Match::PesOwnsDribble(Player& player) {
+  if (!PesLoop()) return false;
+  const int slot = PesSlotOf(&player);
+  if (PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) pesDribbleSwitched[slot] = false;
+  if (!pesDribbleSwitched[slot]) return false;
+  // PES's Dribble action plays its own clips (the tick's SetMotion issues), so a body on any other clip has been taken from it: a trip or
+  // tackle interrupt (the contact system), a ball action. PES would switch such a man to the action that owns the new clip (Fall, Tackle,
+  // Kick...); GF derives that action from the clip (WritePesTrapActors), so the man leaves PES's dribble when his body leaves its clips.
+  const Anim* clip = player.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  if (!pes::IsPesDribbleFamily(family)) pesDribbleSwitched[slot] = false;
+  return pesDribbleSwitched[slot];
+}
+
+namespace {
+// The engine world's heap (a zero-filled arena): the ResManager's archives and graph, and one control graph per slot. Sized from a run of
+// the body load and 22 constructions (tests/pes_anime_engine_test.cpp prints the live bytes) with room for the frame's scratch.
+constexpr uint64_t kPesAnimeHeapBytes = 768ull << 20;
+// The player block FUN_1406E03D0 constructs (P: at least 0x3BC0 bytes) the engine's constructor writes its anime fields into.
+constexpr uint64_t kPesAnimePlayerBytes = 0x3C00;
+}  // namespace
+
+pes::PesFoxWorld& Match::PesAnimeWorldOf() {
+  if (!pesAnimeWorld) {
+    if (pesVfs == nullptr)
+      throw std::runtime_error("PES anime engine: the install's file system is missing: give MatchSetup::pesVfs");
+    pesAnimeWorld = std::make_unique<pes::PesFoxWorld>(pes::AnimeWorldTemplate(pesImagePath, *pesVfs, kPesAnimeHeapBytes), *pesVfs);
+  }
+  return *pesAnimeWorld;
+}
+
+pes::PesTrapExternals& Match::PesTrapExternalsOf() {
+  if (!pesTrapBound) BindPesTrapWorld();
+  return pesTrapView;
+}
+
+// The trap world on the match's one PES memory (cut 3, OneWorld): the anime world's memory, which holds the booted image and heap and the
+// template's loader regions (shared; every trap call borrows them), with the trap world's window in the memory's storage and G's global in the
+// image. The trap chain reads the booted globals (the ResManager at 0x1437CEAA0 among them), not the dump's.
+void Match::BindPesTrapWorld() {
+  if (pesTrapBound) return;
+  pes::PesMemory& memory = PesAnimeWorldOf().Memory();
+  pesWorld->BindMemory(memory);
+  pesTrapView.image = memory.Image();
+  pesTrapView.imageBase = pes::PesMemory::kImageBase;
+  pesTrapView.imageBytes = memory.ImageBytes();
+  pesTrapView.borrowed = memory.SharedWindows();
+  pesTrapBound = true;
+}
+
+uint64_t Match::PesAnimePlayerOf(int slot) {
+  uint64_t& p = pesAnimePlayers[static_cast<std::size_t>(slot)];
+  if (p == 0) {
+    pes::PesFoxWorld& world = PesAnimeWorldOf();
+    p = world.Alloc(kPesAnimePlayerBytes);
+    if (p == 0) throw std::runtime_error("PES anime engine: the heap is full");
+    // ponytail: the collision object FUN_1406E03D0 passes (*(P+0x3AA0), set by FUN_1406EB670) has no GF source; 0. The constructor only
+    // stores it at A+0x78 (FUN_141AFB090); the frame's phases do not read it on the path the engine takes (OPEN: INF from the decompile).
+    world.ConstructAnime(p, 0);
+  }
+  return p;
+}
+
+void Match::PesAnimeIssue(const Player* player, const pes::MotionRequest& request) {
+  PesAnimeWorldOf().IssueMotion(PesAnimePlayerOf(PesSlotOf(player)), request);
 }
 
 Player* Match::GetPesActorPlayer(const pes::ActorKey& key) {
@@ -125,7 +192,15 @@ void Match::ProcessPesEventStage() {
     in.lastToucher = static_cast<int>(key.team) * kStartersPerSide +
                      std::min(static_cast<int>(key.slot), kStartersPerSide - 1);
     in.lastToucherSlot = static_cast<int>(key.slot);
-    in.frame = touch.frame;
+    if (pesKickTarget != nullptr) {
+      const pes::ActorKey target = PesActorKeyOf(pesKickTarget);
+      in.kickTarget = static_cast<int>(target.team) * kStartersPerSide + std::min(static_cast<int>(target.slot), kStartersPerSide - 1);
+      in.kickTargetSlot = static_cast<int>(target.slot);
+    }
+    // PES's ball stage and event stage run in one tick, so a touch is stamped with the tick it is emitted in. GF queues the touch in the team
+    // stage, which runs after this one, so the queued frame is the previous tick: the writer 0x14092ED30 (gate: frames since the newest
+    // kind-7 event is 0 or 2) then never sees a touch as current.
+    in.frame = frame;
     in.phase = phase;
     in.state = kStateWord;
     in.restartState = restartState;
@@ -139,7 +214,7 @@ void Match::ProcessPesEventStage() {
     pes::SnapshotInput snap;
     snap.store = &pesEvents;
     snap.current = &touchRecord;
-    snap.frame = touch.frame;
+    snap.frame = frame;
     snap.phase = phase;
     snap.state = kStateWord;
     pes::EventRecord snapshot;

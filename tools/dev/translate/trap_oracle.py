@@ -18,7 +18,8 @@ manifest.tsv, one record per line, tab separated:
                                       (the physique scale G, a named oracle input)
 
 Usage: PES_EXE=<pes_full.bin> python3 trap_oracle.py SNAP CASE_DIR TRACE_DIR HOOKS OUT_DIR   (harness Python: unicorn)
-  CASE_DIR  = snapdiff's <out>/gen/14079A470/snap_<label> (corpus.jsonl, maps.txt, ok_calls.bin, ok_delta.bin)
+  CASE_DIR  = snapdiff's <out>/gen/<root>/snap_<label> (corpus.jsonl, maps.txt, ok_calls.bin, ok_delta.bin); <root> is 14079A470
+              (trap kind 0, the default) or 140797CD0 (the trap tick: the manifest then carries an `R root` line)
   TRACE_DIR = the frame_trace output of the capture (pool/pages.bin)
 """
 import mmap
@@ -178,6 +179,9 @@ def main():
         return kind, idx, a - base
 
     lines = ["R\t%s\t%#x" % (r, regs[r]) for r in REGS]
+    # The root the capture ran: kind-0 (14079A470, the default) or the trap tick (140797CD0; its r8 names the cell that holds the frame).
+    if "140797CD0" in case_dir:
+        lines.insert(0, "R\troot\t0x140797cd0")
     for off in range(0, 0x80, 8):
         lines.append("R\tstk%#x\t%#x" % (off, u64(regs["rsp"] + off)))
     rsp = regs["rsp"]

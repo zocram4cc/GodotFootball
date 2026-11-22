@@ -1,0 +1,215 @@
+{
+ "label": "adjwrap_poked",
+ "seed": 2,
+ "as": "0x141EB3AF0",
+ "fields": [
+  {
+   "name": "adj",
+   "at": "rcx",
+   "type": "u64",
+   "values": [
+    943049600
+   ]
+  },
+  {
+   "name": "chain",
+   "at": "rdx",
+   "type": "u64",
+   "values": [
+    935011216
+   ]
+  },
+  {
+   "name": "y_cnt",
+   "at": "va:0x3835cb8c",
+   "type": "u16",
+   "values": [
+    1
+   ]
+  },
+  {
+   "name": "y_flag",
+   "at": "va:0x3835cba4",
+   "type": "u8",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "y_err",
+   "at": "va:0x3835cba8",
+   "type": "f32",
+   "values": [
+    -9.1875
+   ]
+  },
+  {
+   "name": "y_acc",
+   "at": "va:0x3835cbac",
+   "type": "f32",
+   "values": [
+    245.5548095703125
+   ]
+  },
+  {
+   "name": "y_curve",
+   "at": "va:0x3835cbb0",
+   "type": "u8",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "y_lead",
+   "at": "va:0x3835cbb1",
+   "type": "u8",
+   "values": [
+    255
+   ]
+  },
+  {
+   "name": "y_tail",
+   "at": "va:0x3835cbb4",
+   "type": "f32",
+   "values": [
+    0.0
+   ]
+  },
+  {
+   "name": "h_state",
+   "at": "va:0x3835cb50",
+   "type": "u32",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "h_cnt",
+   "at": "va:0x3835cb54",
+   "type": "u16",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "h_start",
+   "at": "va:0x3835cb56",
+   "type": "u16",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "h_end",
+   "at": "va:0x3835cb58",
+   "type": "u16",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "h_flag",
+   "at": "va:0x3835cb5a",
+   "type": "u16",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "h_peak",
+   "at": "va:0x3835cb70",
+   "type": "u16",
+   "values": [
+    0
+   ]
+  },
+  {
+   "name": "h_amp",
+   "at": "va:0x3835cb74",
+   "type": "f32",
+   "values": [
+    0.0
+   ]
+  },
+  {
+   "name": "h_rise",
+   "at": "va:0x3835cb78",
+   "type": "f32",
+   "values": [
+    0.0
+   ]
+  },
+  {
+   "name": "h_fall",
+   "at": "va:0x3835cb7c",
+   "type": "f32",
+   "values": [
+    0.0
+   ]
+  },
+  {
+   "name": "ret",
+   "at": "ret",
+   "type": "u64",
+   "values": [
+    5400911546
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "yaw_ease_in_after_lead",
+   "y_cnt": 5,
+   "y_curve": 1,
+   "y_lead": 3,
+   "y_tail": 0.4,
+   "ret": 5400911546
+  },
+  {
+   "name": "yaw_ease_out_negative_lead",
+   "y_cnt": 9,
+   "y_curve": 2,
+   "y_lead": 255,
+   "ret": 5400911546
+  },
+  {
+   "name": "yaw_override_flag",
+   "y_cnt": 4,
+   "y_flag": 1,
+   "ret": 5400911546
+  },
+  {
+   "name": "yaw_finish_past_last_tick",
+   "y_cnt": 30,
+   "ret": 5400911546
+  },
+  {
+   "name": "height_rise_eased",
+   "adj": 943049544,
+   "h_state": 2,
+   "h_cnt": 5,
+   "h_start": 2,
+   "h_end": 20,
+   "h_flag": 1,
+   "h_peak": 10,
+   "h_amp": 0.3,
+   "h_rise": 0.03,
+   "h_fall": 0.02,
+   "ret": 5400911527
+  },
+  {
+   "name": "height_fall_linear",
+   "adj": 943049544,
+   "h_state": 2,
+   "h_cnt": 12,
+   "h_start": 2,
+   "h_end": 20,
+   "h_flag": 0,
+   "h_peak": 10,
+   "h_amp": 0.3,
+   "h_rise": 0.03,
+   "h_fall": 0.02,
+   "ret": 5400911527
+  }
+ ]
+}

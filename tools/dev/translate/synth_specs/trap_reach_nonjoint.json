@@ -1,0 +1,29 @@
+{
+ "label": "trapreachnonjoint",
+ "seed": 1,
+ "fields": [
+  {
+   "name": "mask",
+   "at": "va:0x14351E540",
+   "type": "hex",
+   "values": [
+    "00000000000000000000000000000000000000"
+   ]
+  },
+  {
+   "name": "a05",
+   "at": "va:0x4AC5BA35",
+   "type": "u8",
+   "values": [
+    0
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "nonjoint_pure",
+   "mask": "00000000000000000000000000000000000000",
+   "a05": 0
+  }
+ ]
+}

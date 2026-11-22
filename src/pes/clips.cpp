@@ -8,12 +8,13 @@
 namespace pes {
 namespace {
 
-constexpr int BODY_ARCHIVE_COUNT = 10;  // dt13 body_anime_file0..9.mtar
 constexpr const char* BODY_ARCHIVE = "common/anime/FoxAnim/Body/body_anime_file";
 constexpr const char* BODY_ARCHIVE_EXT = ".mtar";
 constexpr int HEX_BASE = 16;
 
 }  // namespace
+
+std::string BodyArchivePath(int index) { return BODY_ARCHIVE + std::to_string(index) + BODY_ARCHIVE_EXT; }
 
 uint32_t ClipId(std::string_view s) {
   if (s.size() > 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
@@ -25,8 +26,8 @@ uint32_t ClipId(std::string_view s) {
 }
 
 std::optional<std::vector<uint8_t>> FindBodyClip(const PesVfs& vfs, uint32_t hash, std::string* error) {
-  for (int i = 0; i < BODY_ARCHIVE_COUNT; ++i) {
-    auto bytes = vfs.Read(BODY_ARCHIVE + std::to_string(i) + BODY_ARCHIVE_EXT, error);
+  for (int i = 0; i < kBodyArchiveCount; ++i) {
+    auto bytes = vfs.Read(BodyArchivePath(i), error);
     if (!bytes) return std::nullopt;
     auto mtar = ParseMtar(*bytes, error);
     if (!mtar) return std::nullopt;

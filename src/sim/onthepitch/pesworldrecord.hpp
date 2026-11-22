@@ -10,17 +10,23 @@
 
 #include <cassert>
 #include <array>
+#include <optional>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 
 #include "pes/editsave.hpp"
+#include "onthepitch/pesanimechain.hpp"
 #include "pesclock.hpp"
 #include "pesevents.hpp"
 #include "pestrapworld.hpp"
+#include "pespassgetworld.hpp"
+#include "peskickchooser.hpp"
 #include "pesimagetables.hpp"
 #include "pes_native.hpp"
+#include "pesmemory.hpp"
+#include "pesbodyscan.hpp"
 
 struct PesState;  // the translated layer's call state (pes_state.hpp)
 
@@ -55,6 +61,28 @@ inline constexpr std::size_t kPitchRecordBytes = 0x48;
 // 1.1). The corridor angle reads its prediction samples (B+0x88 + 0x28*j, the record FUN_140A6CF70 indexes), the first of
 // which FUN_140A57800 names the ball's position, its velocity (FUN_140A57720 = B+0x2948) and the flag bytes at +0x4C and +0x80.
 inline constexpr std::size_t kBallPtrOffset = 0x40;
+// G's pointer to the roster block (the team tick's chain reads it: PES's roster G+0x180, 24 entries of 0x74 bytes whose u32 at
+// +0x20 is the entry's slot id and whose byte at +0xD is a flag). Every captured entry read 0xFF at +0x20 and 0 at +0xD (the
+// captured team ticks in play and in the stoppage alike), which the readers treat as "no entry". PES's writers, found by static
+// analysis (no hook yet): the factory FUN_142160080 (a 0x1EC10-byte owner, cached at holder+0x10), its constructor FUN_14214CA10
+// (owner+0 = 0xFF, the 24 entries at owner+4+i*0x74 from FUN_140A55940 with FUN_140A55F80 and the record FUN_140A6E650), and the
+// population FUN_142155AA0 (entries copied from a source list). G+0x180 points at a table laid out like that owner's entries (owner+4);
+// the store of the pointer itself is not traced. The kick request builder FUN_140833CD0 reads an
+// entry's id (+0x20) and flag (+0xD), and its record (+0x68) only after an id matched the kicker. No captured entry ever matches, so
+// the bytes this port leaves zero (the record, and the other defaults) are not read on that path. ponytail: the source list is not
+// ported; the other readers of G+0x180 are not audited.
+inline constexpr std::size_t kRosterPtrOffset = 0x180;
+inline constexpr int kRosterEntries = 24;
+inline constexpr std::size_t kRosterEntryBytes = 0x74;
+inline constexpr std::size_t kRosterSlotOffset = 0x20;
+inline constexpr uint32_t kRosterNoSlot = 0xFF;
+
+// G's pointer to the skip object the team tick's step 2 and the pass-target selector read (0x1423E7FD0 = its byte +0x9C; 0x140A431E0
+// reads its word +0x8C and the flag +0xA0+0xE2A0 once +0x9C is set). Every captured team tick read +0x9C = 0, so the selector ran
+// 0x1404FB380. GF holds the object with its bytes clear: nothing in GF raises the byte (OPEN: PES's writer of it).
+inline constexpr std::size_t kSkipPtrOffset = 0x3B0;
+inline constexpr std::size_t kSkipFlagOffset = 0x9C;
+inline constexpr std::size_t kSkipBytes = 0xA0;
 // G's pointer to the match-info block: the translated stoppage functions read MI = *(G+0x270) (pes-re-ref-record.md 1.1).
 inline constexpr std::size_t kMatchInfoPtrOffset = 0x270;
 
@@ -67,6 +95,9 @@ inline constexpr std::size_t kMatchInfoPeriodOffset = 0x1168;
 // the decode's). Offsides are the three words the involvement reads at play state 1.
 inline constexpr std::size_t kMiRestartArmedOffset = 0x11B2;    // u8: the restart-armed flag (116C == 3)
 inline constexpr std::size_t kMiWalkStateOffset = 0x1775;     // u8: the FSM byte the carrier walk vetoes passes and clears on (3, 9, 10)
+// MI+0x1748 + slot (0..21): the man's on-pitch byte (the selector's chain tests it before naming a man; captured 1 for each of the 22 men
+// on the pitch, pes-re-holder-tree.md section 2 "on-pitch [+0x1748]").
+inline constexpr std::size_t kMiOnPitchOffset = 0x1748;
 inline constexpr std::size_t kMiOffsideFlagOffset = 0x1544;    // u32: 0 none, 1 flagged
 inline constexpr std::size_t kMiOffsideAOffset = 0x1548;       // u32
 inline constexpr std::size_t kMiOffsideBOffset = 0x154C;       // u32: the offside category
@@ -124,11 +155,15 @@ static_assert(sizeof(PesTableEntry) == kTableEntryBytes);
 struct PesWorldTables {
   std::array<uint8_t, kBallPtrOffset> reserved_head{};        // G+0x0 .. G+0x40
   uint64_t ball = 0;                                          // G+0x40: the ball record (BallVa)
-  std::array<uint8_t, kMatchInfoPtrOffset - kBallPtrOffset - sizeof(uint64_t)> reserved_ball{};  // G+0x48 .. G+0x270
+  std::array<uint8_t, kRosterPtrOffset - kBallPtrOffset - sizeof(uint64_t)> reserved_ball{};  // G+0x48 .. G+0x180
+  uint64_t roster = 0;                                        // G+0x180: the roster block (RosterVa)
+  std::array<uint8_t, kMatchInfoPtrOffset - kRosterPtrOffset - sizeof(uint64_t)> reserved_roster{};  // G+0x188 .. G+0x270
   uint64_t match = 0;                                         // G+0x270: the VA of the match-info block (MatchInfoVa)
   std::array<uint8_t, kFrameRandomPtrOffset - kMatchInfoPtrOffset - sizeof(uint64_t)> reserved_match{};  // G+0x278 .. G+0x360
   uint64_t frameRandom = 0;                                   // G+0x360: the frame-random record (FrameRandomVa)
-  std::array<uint8_t, kSideTableAOffset - kFrameRandomPtrOffset - sizeof(uint64_t)> reserved_mid{};  // G+0x368 .. G+0x1928
+  std::array<uint8_t, kSkipPtrOffset - kFrameRandomPtrOffset - sizeof(uint64_t)> reserved_frand{};  // G+0x368 .. G+0x3B0
+  uint64_t skip = 0;                                          // G+0x3B0: the skip object (SkipVa)
+  std::array<uint8_t, kSideTableAOffset - kSkipPtrOffset - sizeof(uint64_t)> reserved_mid{};  // G+0x3B8 .. G+0x1928
   std::array<PesTableEntry, kSideCount> sideA{};                      // G+0x1928 (0x140A48A30)
   std::array<PesTableEntry, kSideCount> sideB{};                      // G+0x1978 (0x140A489D0)
   std::array<PesTableEntry, kAnimeCount> anime{};                     // G+0x19C8 (0x140A48910)
@@ -196,6 +231,10 @@ inline constexpr std::size_t kManVelYOffset = 0x578;        // f32
 inline constexpr std::size_t kManVelZOffset = 0x57C;        // f32
 inline constexpr std::size_t kManActionOffset = 0x5D0;      // s32 action word
 inline constexpr std::size_t kManActionPrevOffset = 0x5D4;  // s32
+// The man record's AI action word values the selector's chain reads: 5 = PASS_GET (the mover's state for the team's pass target,
+// pes-re-receiving.md 2) and the idle word 1 that 14 of the 22 men carried in the captured in-play team tick (seq732).
+inline constexpr uint32_t kActionPassGet = 5;
+inline constexpr uint32_t kManActionIdle = 1;
 inline constexpr std::size_t kManTouchingOffset = 0x661;    // u8 bool
 inline constexpr std::size_t kManRepeatOffset = 0x6B8;      // s32 repeat count
 // The man record's bound: the slot record starts after it (pes-re-player-record.md 1.3).
@@ -213,6 +252,10 @@ inline constexpr std::size_t kSlotByteA4Offset = 0xA4;      // u8
 inline constexpr std::size_t kSlotAbilityOffset = 0x70;
 inline constexpr uint32_t kAbilitySpeedId = 0x27;
 inline constexpr uint32_t kAbilityJumpId = 0x2C;
+// The Acceleration byte (0x2B, docs/re/pes-re-anim-select.md 1.3; movestep.hpp kAbilityAcceleration): the playback and the ramp of every
+// locomotion entry read it through the anime interface's accessor 0x1406E6660 (AbilityWeight -> TurnPlayback), so a window that leaves it 0
+// plays every single clip at the base playback.
+inline constexpr uint32_t kAbilityAccelerationId = 0x2B;
 inline constexpr uint32_t kAbilityHeightId = 0x31;
 // Block byte 0x34: 0..1 in the clamp table (0x142613C60) and different per player in every captured roster (INF: the stronger foot,
 // 1 = left; the captured rows are not Player.bin's, so the id is not checked against it). The store step leaves it unchanged (cells 1.0).
@@ -278,6 +321,42 @@ inline void StoreU64(uint8_t* record, std::size_t offset, uint64_t value) {
   std::memcpy(record + offset, &value, sizeof value);
 }
 
+// PES's roster-entry default: FUN_140A55940 (memset 0x74; byte+1 = index; dword+2 = 0xFF; byte+0xC = 0)
+// calls FUN_140A55F80 (the defaults) and FUN_140A6E6C0 (the 12-byte record at +0x68). Entries 2..23
+// reproduce the captured roster table (live2/pid480109/seq001) byte-for-byte except +0x18, where the
+// capture holds kRosterCapturedSlot18 and the writer's own store (0xFFFFFFFF) does not match it: INF,
+// the writer of that byte was not found. Entries 0 and 1 differ from the capture in many bytes (their
+// captured bytes differ from the writer's stores; writer not found): INF, they keep the writer's
+// defaults. The owner (FUN_14214CA10) and the source list (FUN_142155AA0) are not ported.
+inline constexpr uint32_t kRosterCapturedSlot18 = 0x20;
+inline constexpr std::size_t kRosterRecordOffset = 0x68;
+inline constexpr std::size_t kRosterRecordBytes = 12;
+inline constexpr uint8_t kRosterRecord[kRosterRecordBytes] = {0x00, 0x01, 0x00, 0x02, 0x00, 0x00,
+                                                              0x01, 0x01, 0x01, 0x01, 0x00, 0x00};
+inline void InitRosterEntry(uint8_t* entry, uint8_t index) {
+  std::memset(entry, 0, kRosterEntryBytes);
+  entry[0] = 0x01;
+  entry[1] = index;
+  StoreU32(entry, 2, kRosterNoSlot);
+  entry[0x0C] = 0;
+  entry[0x08] = 0;
+  StoreU32(entry, 0x10, 0xFFFFFFFFu);
+  StoreU32(entry, 0x18, index >= 2 ? kRosterCapturedSlot18 : 0xFFFFFFFFu);
+  StoreU32(entry, kRosterSlotOffset, kRosterNoSlot);
+  StoreU32(entry, 0x24, kRosterNoSlot);
+  entry[0x06] = 0;
+  entry[0x0D] = 0x00;
+  entry[0x0E] = 0x01;
+  StoreU32(entry, 0x2C, kRosterNoSlot);
+  StoreU64(entry, 0x34, 0);
+  StoreU64(entry, 0x3C, 0);
+  StoreU64(entry, 0x44, 0);
+  StoreU64(entry, 0x4C, 0);
+  StoreU64(entry, 0x54, 0);
+  StoreU32(entry, 0x64, 0);
+  std::memcpy(entry + kRosterRecordOffset, kRosterRecord, kRosterRecordBytes);
+}
+
 // A team record (G's side tables name them). Its attack angle is an f32 at +0x250 (CONFIRMED on-path in the corridor
 // angle's side record, seq021: bytes +0x250..+0x253), its attack sign a signed byte at +0x254 (A5Judge 1.2). The danger
 // writer 0x140699960 reads the u32 at +0x6D4 (6 answers danger at once), and the unit updater 0x1421019D0 reads the u32 words
@@ -296,11 +375,57 @@ inline constexpr std::size_t kSidePlayerInfoStride = 0x128;
 inline constexpr std::size_t kSideSkillMaskOffset = 0x78;
 // The designated taker's slot: u32 at +0x7C of the SIDE record (G's first table, 0x140A48A30; `CMP EDX,[RAX+0x7C]` 0x1421101C7).
 inline constexpr std::size_t kSideKickerOffset = 0x7C;
+// The team record's pass target: the u32 at +0x78 is a slot id (< 0x16 valid, 0xFF none). Its only writer is the team tick's pass-target
+// selector 0x1404FB2A0 (and 0x1404FB780 / 0x1404FB380 / 0x1404F0E50 under it: pes-re-lane-leaves.md 4; the "any store through a
+// register" scan found no other). The latch byte +0x255 and the attack-sign byte +0x254 are the selector's inputs on the team record.
+inline constexpr std::size_t kSidePassTargetOffset = 0x78;
+inline constexpr uint32_t kNoPassTarget = 0xFF;
+inline constexpr std::size_t kSideLatchOffset = 0x255;
 // The unit info's tier word BP+0x60 (0x14063C9F0 stores *0x140A40BD0(side record)): the side record's u32 at +0xA294 unless its
 // byte +0xA29C is set (the match setting the menus write, 0x140A424E0; GF's match writes it once).
 inline constexpr std::size_t kSideTierOffset = 0xA294;
 inline constexpr std::size_t kSideTierFlagOffset = 0xA29C;
-inline constexpr std::size_t kSideRecordBytes = 0xA2A0;
+// The side record is PES's team record T, 0xC138 bytes (pesteamconcepts.hpp kTeamRecordBytes: the furthest T read of the pilot
+// specs). The press writer, coordinator and eval address T through G's table A (0x140A48A30) and through their own
+// argument (r8); in the captures both name byte-identical records (live2/pid296049 seq4753/seq4754: +0x78, +0x7C, +0xF1,
+// +0x250, +0x254, +0xA294, +0xA53C, +0xB709, +0xB8A4 equal), so the window keeps ONE record per side and passes it as both.
+inline constexpr std::size_t kSideRecordBytes = 0xC138;
+// The press records in T (docs/re/pes-re-press-eval.md, pes-re-press-coord.md, pes-re-press-life.md; the offsets are what the
+// translated 0x140536FC0, 0x140633940 and 0x140634470 read and write).
+inline constexpr std::size_t kTeamDesignatedOffset = 0x78;     // u32: the designated man (0..21, 0xFF none); the writer needs it invalid
+inline constexpr std::size_t kTeamSecondOffset = 0x7C;         // u32: PP[1], copied from T+0x7C by the coordinator
+inline constexpr std::size_t kTeamArmedOffset = 0xF1;          // u8: the concept byte the writer's body gate ORs with +0xB712 and +0xB715
+inline constexpr std::size_t kTeamFrameOffset = 0x21C;         // u32: the stamp FUN_140A42940 pushes on a slot's action ring
+inline constexpr std::size_t kTeamHeadingModeOffset = 0x6EC;   // u32: the coordinator's cover heading (0: 180 if sign > 0 else 0)
+inline constexpr std::size_t kTeamMarkPartnerOffset = 0x558;   // u32[11]: the mark partner of slot k (FUN_140A62960's MARK words); > 21 none
+inline constexpr std::size_t kTeamSwapPartnerOffset = 0x620;   // u32[11]: the same for state 0x3D
+inline constexpr std::size_t kTeamRoleClassOffset = 0x87D0;    // i32 at +8 per slot: the role class RI the eval and the writer read
+inline constexpr std::size_t kTeamRoleClassStride = 8;
+inline constexpr std::size_t kTeamKeepXOffset = 0x4B4C;        // f32 at +12 per slot: the margin the eval's mode-4 test reads
+inline constexpr std::size_t kTeamActionOffset = 0xA2A0;       // u32[11]: the slot's action word (0x34 PRESS, 0x33 DELAY, 0x3A MATCH_UP, 0 none)
+inline constexpr uint32_t kTeamActionPress = 0x34;             // T+0xA2A0 words: PRESS and DELAY (FUN_140A42940's setter)
+inline constexpr uint32_t kTeamActionDelay = 0x33;
+inline constexpr uint32_t kTeamActionMatchUp = 0x3A;           // the MATCH_UP word FUN_140536210 writes with T+0x7C
+inline constexpr uint32_t kTeamActionMark = 0x36;              // the mark pass's word (FUN_140534A20 via SetPartner 0x140A42B90): the man marks T+0x558[slot]
+inline constexpr std::size_t kTeamPressSlotsOffset = 0xA548;   // u32[4]: the men the writer enrolled (0xFF none); +0xA558 the held man
+inline constexpr std::size_t kTeamPressTimerOffset = 0xA53C;   // u8: the press timer (0 in every capture)
+inline constexpr std::size_t kTeamOrderWordOffset = 0xB748;    // u32[11]: the order word (0x24 bars the eval's candidate)
+inline constexpr uint32_t kTeamOrderPress = 0x26;              // the order word the dispatcher's loop turns into PRESS or DELAY (concept 0x26)
+inline constexpr uint64_t kDispatcherPpOffset = 0x54;          // the coordinator's PP is the dispatcher's param_1 + 0x54 (FUN_140535C60: FUN_140634470(param_1 + 0x54, ...))
+inline constexpr std::size_t kTeamTargetWordOffset = 0xB88C;   // u16[11]: the reason word the coordinator and eval write
+inline constexpr std::size_t kTeamAttackLevelOffset = 0xB8A4;  // i32: the attack level (>= 3 widens the press)
+inline constexpr uint32_t kTeamNoMan = 0xFF;
+inline constexpr uint32_t kMiPlayStateLive = 1;                // MI+0x116C: in play (2 or 3 stopped)
+inline constexpr std::size_t kMiPlayStateOffset = 0x116C;
+// G+0x180: a POINTER to the 24-entry list (stride 0x74; the id u32 at +0x20) the press tests scan; an id >= 22 is no man.
+inline constexpr std::size_t kWorldListOffset = 0x180;
+inline constexpr int kWorldListEntries = 24;
+inline constexpr std::size_t kWorldListStride = 0x74;
+inline constexpr std::size_t kWorldListIdOffset = 0x20;
+// MA+0x2601C: the press holder (the last toucher; 0xFF none).
+// The press call frame: the side argument {ctx, Y + 0x62B4, side u32, flag byte at +0x14} (the rdx of the dispatcher, writer, coordinator and
+// eval). PP = {holder, second designated X, second presser} is the coordinator's own state, in the brain object Y (kBrainDispatcherOffset).
+inline constexpr std::size_t kPressArgBytes = 32;
 struct PesSideRecord {
   std::array<uint8_t, kSideRecordBytes> bytes{};
 };
@@ -358,6 +483,7 @@ struct PesCtxRecord {
   std::array<uint8_t, kCtxBytes> bytes{};
 };
 
+
 // MA, a side's AI record (docs/re/pes-re-score-rows.md, pes-re-defensive-shape.md): the score rows' blocks (pesscorerows.hpp),
 // the ball copy at +0x2482C (x, height, z) and the carrier id u32 at +0x2483C. Its bytes run to the last field the angle
 // reads (+0x24850), rounded up. Each sorted block is 200 bytes: two teams' 11 entries of (slot id u32, value f32) at
@@ -366,6 +492,15 @@ inline constexpr std::size_t kMaLaneListAOffset = 0x229B4;  // list[0] (0x140A71
 inline constexpr std::size_t kMaLaneListBOffset = 0x22B9C;  // list[1] (argument == 1)
 inline constexpr std::size_t kMaListTeamStride = 0x58;
 inline constexpr int kMaListEntries = 11;
+// The ball list (writer FUN_14045B090, docs/ports/pes-port-KickInputs.md section 1): per team 11 {u32 slot, f32 squared distance to the
+// ball} at +0x2470C + team * kMaListTeamStride, ascending; the counts (u8 per team) at +0x247BC; the rank of each slot (u8 per slot,
+// 0x0A when absent) at +0x247BE; the bearing from the ball to each man (f32 degrees per slot) at +0x247D4.
+inline constexpr std::size_t kMaBallListOffset = 0x2470C, kMaBallListCountOffset = 0x247BC, kMaBallListRankOffset = 0x247BE;
+inline constexpr std::size_t kMaBallListBearingOffset = 0x247D4;
+// The arrival-order list the selector's holder tree reads (0x1404F0E50: `MA+0x24908 + (side * 11 + rank) * 8`, the first entry's id is
+// its default candidate): per team 11 (slot id u32, frames f32) entries, nearest to the ball first (captured, seq732/seq850). PES's
+// writer is 0x14045E0D0 (docs/re/pes-re-lane-inputs.md), translated: PesWorld::RunArrivalList.
+inline constexpr std::size_t kMaArrivalListOffset = 0x24908;
 inline constexpr std::size_t kMaBallOffset = 0x2482C;       // f32 x, +4 height, +8 z
 inline constexpr std::size_t kMaCarrierIdOffset = 0x2483C;  // u32
 // The ball owner's slot id (u32, 0xFF none): 0x140A627E0(ctx, 0) answers it to the carrier walk, which compares its side with BP+0x24.
@@ -375,6 +510,62 @@ inline constexpr std::size_t kMaBytes = 0x26040;
 inline constexpr uint32_t kMaNoCarrier = 0xFFFFFFFFu;
 struct PesMaRecord {
   std::array<uint8_t, kMaBytes> bytes{};
+};
+
+// The team brain Y (the object the team tick 0x1404F6C30 takes in rcx, one per side; PES's own layout, pes-re-teamtick.md 2.2): the
+// side id u32 at +8, the AI context X the tick binds at +0x6D48 (ctx: +0x18 MA, +0xE0 E) and the team record T it binds at +0x6D50 for
+// the duration of the tick (cleared at its end, step 48). The selector's chain also keeps three words in it (+0x6CFC, +0x6D00,
+// +0x6D04) and F0E50 reads further brain fields (the oracle manifests list them: tools/dev/translate/teampass_oracle.py).
+inline constexpr std::size_t kBrainSideOffset = 0x8;
+inline constexpr std::size_t kBrainCtxOffset = 0x6D48;
+inline constexpr std::size_t kBrainTeamOffset = 0x6D50;
+inline constexpr std::size_t kBrainBytes = 0x6E00;
+inline constexpr std::size_t kBrainDispatcherOffset = 0x4200;  // the dispatcher's param_1 = Y + 0x4200 (FUN_1404F6C30: lea rcx,[rdi+0x4200])
+inline constexpr std::size_t kBrainSideCtxOffset = 0x62B4;     // the second word of the dispatcher's argument struct: Y + 0x62B4
+struct PesBrainRecord {
+  std::array<uint8_t, kBrainBytes> bytes{};
+};
+struct PesRosterBlock {
+  std::array<uint8_t, kRosterEntries * kRosterEntryBytes> bytes{};
+};
+struct PesSkipRecord {
+  std::array<uint8_t, kSkipBytes> bytes{};
+};
+
+// The side's AI object, the `this` of the AI tick's callees (the arrival-list writer 0x14045E0D0, the ball-list writer 0x14045B090):
+// +8 names the context array, +0x508 the side's AI record MA. The array's entries are pointers to records the window already holds
+// (0x14045E0D0's reads, CONFIRMED on live2/pid1887719 seq556: entry 0 MI, 1 the setup record, 2 the pitch, 4 the ball B, 5 the roster block,
+// 7 the event store E, 8 + slot the man records P, 0x1E + slot the slot records, 0x34 + slot the anime records, 0x4A + side the team-info
+// records, 0x4C + side the team records T, 0x4E the chaser object 0x140A52310 reads).
+inline constexpr std::size_t kAiContextPtrOffset = 0x8;
+inline constexpr std::size_t kAiSliceCounterOffset = 0x10;  // +0x10: the ball-list slice counter (teamAIcontroller's AI slice)
+inline constexpr std::size_t kAiMaPtrOffset = 0x508;
+inline constexpr std::size_t kAiArrayOffset = 0x520;
+inline constexpr std::size_t kAiArrayMatchInfo = 0, kAiArraySetup = 1, kAiArrayPitch = 2, kAiArrayBall = 4, kAiArrayRoster = 5,
+                             kAiArrayEvents = 7, kAiArrayMen = 8, kAiArraySlots = 0x1E, kAiArrayAnime = 0x34, kAiArrayInfo = 0x4A,
+                             kAiArraySides = 0x4C, kAiArrayChaser = 0x4E;
+inline constexpr std::size_t kAiArrayEntries = 0x4F;
+// ponytail: the setup record (entry 1: its bytes +0x6E + side are a per-side flag the arrival-list writer tests before it reads MA+0x253C4's
+// masks, which the window leaves zero, so the flag changes nothing yet) and the chaser object (entry 0x4E, read by 0x140A52310) are
+// zero here: their writers are OPEN.
+inline constexpr std::size_t kAiSetupOffset = kAiArrayOffset + kAiArrayEntries * sizeof(uint64_t);
+inline constexpr std::size_t kAiSetupBytes = 0x80;
+inline constexpr std::size_t kAiChaserOffset = kAiSetupOffset + kAiSetupBytes;
+inline constexpr std::size_t kAiChaserBytes = 0x100;
+inline constexpr std::size_t kAiBytes = kAiChaserOffset + kAiChaserBytes;
+struct PesAiRecord {
+  std::array<uint8_t, kAiBytes> bytes{};
+};
+
+// A side's squad records (the match setup's player blocks, PES: 0x28 records of 0xF0 bytes, FUN_1408C6560) and the pointer array
+// FUN_140A3B3A0 takes. PES's FUN_1408C7510 initializes each record (the rating table = 99 among its defaults), the match build fills the
+// id at +4 (nonzero: the constructor copies only those records into the team-info entry, from +0x30) and the constructor numbers them.
+inline constexpr int kSquadCount = 0x28;
+inline constexpr std::size_t kSquadRecordBytes = 0xF0;
+inline constexpr std::size_t kSquadRecordIdOffset = 4;
+struct PesSquadSide {
+  std::array<uint8_t, kSquadCount * kSquadRecordBytes> records{};
+  std::array<uint64_t, kSquadCount> pointers{};
 };
 
 // A side's carrier block BP (the unit set's per-carrier object, PES offsets; docs: pes-port-MatchInfo4.md 7.1). The danger
@@ -588,6 +779,19 @@ struct PesSanctionImage {
 };
 inline constexpr std::size_t kSanctionOffset = kStackOffset + kStackBytes;
 
+// The press call frames, one pair per side: PP (the coordinator's rcx: {holder, X, second presser}) and the side argument
+// {ctx VA, 0, side} (rdx of the writer, coordinator and eval). They persist: PP is the coordinator's own state. `list` is the
+// 24-entry array G+0x180 POINTS at (the press reads `*(G+0x180)` in FUN_140536FC0 and FUN_140536690, then entry + 0x74 * i + 0x20): GF has
+// no such list, so every id reads "no man" (PesWorld's constructor).
+struct alignas(8) PesPressImage {
+  // The selector's AL per side (RunPassTarget's result): the caller's SIL, the dispatcher call's r9 (0x1404F784E, 0x1404F793D).
+  std::array<uint8_t, kSideCount> selector{};
+  std::array<std::array<uint64_t, kPressArgBytes / sizeof(uint64_t)>, kSideCount> arg{};
+  std::array<uint8_t, kWorldListEntries * kWorldListStride> list{};
+  // The man index the dispatcher's order-word loop hands FUN_14062AF10 by pointer (FUN_140535C60's local_res10).
+  uint32_t orderIndex = 0;
+};
+
 // The match-info block (PES's MI): the period record the clock writes in place (pesclock.hpp), at its PES offset, and the
 // frame counter after it.
 struct PesMatchInfo {
@@ -600,6 +804,14 @@ static_assert(offsetof(PesMatchInfo, period) == kMatchInfoPeriodOffset);
 static_assert(offsetof(PesMatchInfo, frame) == kMiFrameOffset);
 static_assert(sizeof(PesMatchInfo) == kMatchInfoBytes);
 static_assert(kMiRestartKindOffset + kJudgeSyncBytes <= kMatchInfoBytes, "the synced part of JR lies in the match-info block");
+// PES's per-slot object X: FUN_1409211E0 allocates kSlotObjectBytes (0x1A5E0) per on-pitch slot, and FUN_14091E9F0 builds it. Inside X the
+// ctor FUN_14091EDB0 builds M = X+0x958, the presser action A0 (vtable 0x142634948) sits at X+0x10E70 and the dispatch context A2 at
+// X+0xACE8 (docs/re/pes-re-press-owner.md section 7; the size is the allocator's, CONFIRMED from its decompile). Not the team press's
+// call frames (PesPressImage, pespress.cpp): X is the man's own object, which holds his presser action among the rest.
+inline constexpr std::size_t kSlotObjectBytes = 0x1A5E0;
+struct PesSlotObjectImage {
+  std::array<uint8_t, kSlotObjectBytes> bytes{};
+};
 
 // The whole window: G's header, then the blocks. Heap-owned by PesWorld, so the bytes never move.
 struct PesWorldImage {
@@ -621,6 +833,14 @@ struct PesWorldImage {
   PesSanctionImage sanction{};                   // the sanction tree's records (kSanctionOffset); E is `events` above
   std::array<uint8_t, kTickFrameBytes> tickFrame{};    // the action tick's caller frame F (pestrapworld.hpp), written per call
   std::array<uint8_t, kTickFrameXBytes> tickFrameX{};  // the object F+0x868 names
+  std::array<PesBrainRecord, kSideCount> brain{};      // each side's team brain Y (the pass-target selector's rcx)
+  PesRosterBlock roster{};                             // G+0x180's roster block
+  PesSkipRecord skip{};                                // G+0x3B0's skip object
+  std::array<PesAiRecord, kSideCount> ai{};            // each side's AI object and context array (the arrival-list writer's rcx)
+  PesPressImage press{};                         // the press call frames (kPressOffset)
+  std::array<PesSquadSide, kSideCount> squad{};        // each side's squad records (the team-info constructor's source)
+  std::array<PesPassGetImage, kSlotCount> passGet{};   // each man's ActionPassGet object, pc and command record R (pespassgetworld.hpp)
+  std::array<PesSlotObjectImage, kSlotCount> slotObject{};  // each on-pitch slot's X (PES's per-slot object; kSlotObjectBytes each), the last member
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -641,6 +861,27 @@ inline constexpr std::size_t kTickFrameOffset = kSanctionOffset + sizeof(PesSanc
 inline constexpr std::size_t kTickFrameXOffset = kTickFrameOffset + kTickFrameBytes;
 static_assert(offsetof(PesWorldImage, tickFrame) == kTickFrameOffset);
 static_assert(offsetof(PesWorldImage, tickFrameX) == kTickFrameXOffset);
+inline constexpr std::size_t kBrainOffset = kTickFrameXOffset + kTickFrameXBytes;
+inline constexpr std::size_t kRosterOffset = kBrainOffset + static_cast<std::size_t>(kSideCount) * kBrainBytes;
+inline constexpr std::size_t kSkipOffset = kRosterOffset + sizeof(PesRosterBlock);
+static_assert(offsetof(PesWorldImage, brain) == kBrainOffset);
+static_assert(offsetof(PesWorldImage, roster) == kRosterOffset);
+static_assert(offsetof(PesWorldImage, skip) == kSkipOffset);
+inline constexpr std::size_t kAiOffset = kSkipOffset + sizeof(PesSkipRecord);
+static_assert(offsetof(PesWorldImage, ai) == kAiOffset);
+
+// The ball record's active byte (FUN_140A57940 answers it): PES's ball constructor sets it (0x140A572B4: mov byte [rbx+0x2928], 1) and
+// only the FixDemo scene state machine clears it (0x141FD00BD through the setter 0x140A57990); GF never hides the ball record.
+inline constexpr std::size_t kBallActiveOffset = 0x2928;
+inline constexpr std::size_t kPressOffset = (kAiOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesAiRecord) + 7) & ~std::size_t{7};
+static_assert(offsetof(PesWorldImage, press) == kPressOffset);
+inline constexpr std::size_t kSquadOffset = (kPressOffset + sizeof(PesPressImage) + 7) & ~std::size_t{7};
+static_assert(offsetof(PesWorldImage, squad) == kSquadOffset);
+inline constexpr std::size_t kPassGetOffset = (kSquadOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesSquadSide) + 7) & ~std::size_t{7};
+static_assert(offsetof(PesWorldImage, passGet) == kPassGetOffset);
+// The per-slot objects X follow the ActionPassGet records, indexed side * kSlotsPerSide + slot like the trap images.
+inline constexpr std::size_t kSlotObjectOffset = kPassGetOffset + static_cast<std::size_t>(kSlotCount) * sizeof(PesPassGetImage);
+static_assert(offsetof(PesWorldImage, slotObject) == kSlotObjectOffset);
 
 // What the danger builder reads outside GF's window (tests: the capture's heap bytes) and the byte log of its writes.
 struct PesDangerExternals {
@@ -650,12 +891,37 @@ struct PesDangerExternals {
 
 inline constexpr std::size_t kWorldBytes = sizeof(PesWorldImage);
 
+// The window and the heap of a PesWorld: its own (a world built alone), or the match's PES memory's once BindMemory has run (the memory owns
+// them, so the world does not free them).
+struct PesWindowDeleter {
+  bool owned = true;
+  void operator()(PesWorldImage* p) const {
+    if (owned) delete p;
+  }
+};
+struct PesHeapDeleter {
+  bool owned = true;
+  void operator()(PesHeap* p) const {
+    if (owned) delete p;
+  }
+};
+
 class PesWorld {
  public:
-  PesWorld() : image_(std::make_unique<PesWorldImage>()) {
+  PesWorld() : image_(new PesWorldImage(), PesWindowDeleter{true}) {
     image_->tables.ball = BallVa();
     image_->tables.match = MatchInfoVa();
     image_->tables.frameRandom = FrameRandomVa();
+    image_->tables.roster = RosterVa();
+    image_->tables.skip = SkipVa();
+    for (int entry = 0; entry < kRosterEntries; ++entry)
+      InitRosterEntry(image_->roster.bytes.data() + entry * kRosterEntryBytes, static_cast<uint8_t>(entry));
+    image_->ball.bytes[kBallActiveOffset] = 1;
+    for (int team = 0; team < kSideCount; ++team) {
+      StoreU32(image_->sides[team].bytes.data(), kSidePassTargetOffset, kNoPassTarget);
+      StoreU32(Brain(team), kBrainSideOffset, static_cast<uint32_t>(team));
+      StoreU64(Brain(team), kBrainCtxOffset, CtxVa(team));
+    }
     image_->tables.pitch = PitchVa();
     for (int team = 0; team < kSideCount; ++team) {
       SetEntry(WorldTable::kSideA, team, SideVa(team));
@@ -671,7 +937,15 @@ class PesWorld {
       StoreU64(Ctx(side), kCtxMaOffset, MaVa(side));
       StoreU64(Ctx(side), kCtxEventsOffset, EventsVa());
     }
+    // PES's PP starts {0xFF, 0xFF, 0xFF} (coordinator captures before a first presser): Y + 0x4254, three words.
+    for (int side = 0; side < kSideCount; ++side)
+      for (int i = 0; i < 3; ++i)
+        StoreU32(Brain(side), kBrainDispatcherOffset + kDispatcherPpOffset + sizeof(uint32_t) * i, kTeamNoMan);
+    StoreU64(Bytes(), kWorldListOffset, kWorldWindowVa + kPressOffset + offsetof(PesPressImage, list));
+    for (int i = 0; i < kWorldListEntries; ++i)
+      StoreU32(image_->press.list.data(), kWorldListStride * i + kWorldListIdOffset, 0xFFFFFFFFu);
     BindSanction();
+    for (int side = 0; side < kSideCount; ++side) BindAi(side);
   }
   PesWorld(const PesWorld&) = delete;
   ~PesWorld();
@@ -679,6 +953,10 @@ class PesWorld {
 
   // The window's bytes: PesMem::window maps them at kWorldWindowVa for kWorldBytes.
   uint8_t* Bytes() { return reinterpret_cast<uint8_t*>(image_.get()); }
+
+  // Binds the world to the match's PES memory (cut 3): the window moves into the memory's storage and the heap becomes the memory's (both
+  // shared with the anime engine's world). Once, before any call on the world's heap; G's global is set to the window's VA.
+  void BindMemory(PesMemory& memory);
 
   // The VAs a slot's three records sit at (a table entry names one of these once bound). Officials use the same stride.
   static constexpr uint64_t BlockVa(int slot) {
@@ -699,13 +977,57 @@ class PesWorld {
   static constexpr uint64_t FrameRandomVa() { return kWorldWindowVa + kFrameRandomOffset; }
   // The side's AI context, its AI record MA, and the event store E (kEventNewestOffset etc. are offsets into E).
   static constexpr uint64_t CtxVa(int side) { return kWorldWindowVa + kCtxOffset + static_cast<uint64_t>(side) * kCtxBytes; }
+  static constexpr uint64_t BrainVa(int side) { return kWorldWindowVa + kBrainOffset + static_cast<uint64_t>(side) * kBrainBytes; }
+  static constexpr uint64_t RosterVa() { return kWorldWindowVa + kRosterOffset; }
+  uint8_t* Skip() { return image_->skip.bytes.data(); }
+  uint8_t* Roster() { return image_->roster.bytes.data(); }
+  static constexpr uint64_t SkipVa() { return kWorldWindowVa + kSkipOffset; }
+  static constexpr uint64_t AiVa(int side) { return kWorldWindowVa + kAiOffset + static_cast<uint64_t>(side) * kAiBytes; }
+  uint8_t* Ai(int side) { return image_->ai[side].bytes.data(); }
+  // PES's per-slot object X (kSlotObjectBytes), indexed side * kSlotsPerSide + slot like the trap images.
+  static constexpr uint64_t SlotObjectVa(int index) {
+    return kWorldWindowVa + kSlotObjectOffset + static_cast<uint64_t>(index) * kSlotObjectBytes;
+  }
+  uint8_t* SlotObject(int index) { return image_->slotObject[index].bytes.data(); }
+
+  // The ActionPassGet records of `slot` (pespassgetworld.hpp): the object (rcx), pc (rdx), command record R (r8) and the u32 r9 points at.
+  static constexpr uint64_t PassGetVa(int slot) { return kWorldWindowVa + kPassGetOffset + static_cast<uint64_t>(slot) * sizeof(PesPassGetImage); }
+  static constexpr uint64_t PassGetPcVa(int slot) { return PassGetVa(slot) + offsetof(PesPassGetImage, pc); }
+  static constexpr uint64_t PassGetRVa(int slot) { return PassGetVa(slot) + offsetof(PesPassGetImage, r); }
+  static constexpr uint64_t PassGetArgVa(int slot) { return PassGetVa(slot) + offsetof(PesPassGetImage, arg); }
+  uint8_t* PassGetObject(int slot) { return image_->passGet[slot].object.data(); }
+  uint8_t* PassGetPc(int slot) { return image_->passGet[slot].pc.data(); }
+  uint8_t* PassGetR(int slot) { return image_->passGet[slot].r.data(); }
+  uint8_t* Brain(int side) { return image_->brain[side].bytes.data(); }
+  // The team record's pass target T+0x78 (a slot id, kNoPassTarget when none): written by PES's selector, RunPassTarget.
+  uint32_t PassTarget(int side) { return LoadU32(SideRecord(side), kSidePassTargetOffset); }
+  // PES's team tick steps 34-35 for one side: binds the tick's team record (Y+0x6D50, cleared at the tick's end, step 48) and runs the
+  // pass-target selector 0x1404FB2A0 on the window (it reaches 0x1404FB380 and 0x1404F0E50 on the window's own records). Returns the
+  // selector's answer byte (0x1404FB2A0's al: whether the id changed). The caller stages the records the chain reads first.
+  // `playState` is MI+0x116C (the window's period record holds it only under the PES loop; the caller's PlayStateFor stands in, restored
+  // after the call, as RunEntryAim does). `writeLog` (tests) collects every byte the chain stores, by window VA.
+  bool RunPassTarget(int side, uint32_t playState, std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr);
+  // The arrival-list writer 0x14045E0D0 for one side's AI object: rewrites MA(side)+0x24840 and +0x24908 (per team 11 {slot id, frames}, nearest
+  // first) from the window's records. The caller stages what it reads (MI on-pitch bytes and frame, the men's positions, the ball record).
+  void RunArrivalList(int side, std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr);
   static constexpr uint64_t MaVa(int side) { return kWorldWindowVa + kMaOffset + static_cast<uint64_t>(side) * kMaBytes; }
   static constexpr uint64_t EventsVa() { return kWorldWindowVa + kEventsOffset; }
   uint8_t* Ctx(int side) { return image_->ctx[side].bytes.data(); }
   uint8_t* Ma(int side) { return image_->ma[side].bytes.data(); }
+  // PES's ball-list writer FUN_14045B090 (translated, set kick) on the window for `side`'s AI object, as FUN_140457070 calls it at
+  // 0x140457568: MA+0x2470C (each team's men on the pitch by squared distance to the ball: {slot, d2} x 11 per team, counts at
+  // +0x247BC, ranks at +0x247BE, bearings at +0x247D4) and the goal-geometry words MA+0x228DC..0x228E8. `onPitch[slot]` is MI+0x1748
+  // (the flag the writer tests; the match's own state).
+  void RunBallNearest(int side, const std::array<bool, 22>& onPitch, PesTrapExternals& ext);
+  static constexpr int kBallListMen = 22;
+  static constexpr std::size_t kBallListFrameBytes = 0x40;
   EventStoreImage& EventImage() { return image_->events; }
   // E as the store's own view: every event the match routes lands in the window.
   EventStore Events() { return EventStore(image_->events); }
+  // Empties the event store's rings (a new situation) but keeps the match-statistics blocks inside E (E + 0x750D0 .. per side): PES
+  // clears its event rings on a restart, not the statistics; a wipe leaves their anti-tamper cells invalid (the reader aborts).
+  void ResetEvents();
+  uint8_t* EventBytes() { return reinterpret_cast<uint8_t*>(&image_->events); }
   // The block's state is already live (a test that loaded a capture's BP): RunCarrierUpdate continues it instead of resetting.
   void AdoptCarrierState(int side) { stateReady_[side] = constructed_[side] = true; }
   // A side's carrier block BP (kBp* offsets) and the Clear unit object beside it (the unit's r8).
@@ -771,6 +1093,13 @@ class PesWorld {
   // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
   // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
   void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }
+  // One more image range the window's calls read (the member adjusters' vtable slots: pestrapactor.hpp memberVtableSlots).
+  void AddImageSegment(uint64_t va, const uint8_t* bytes, std::size_t count) {
+    imageTables_.segments.push_back(PesTrapSegment{va, std::vector<uint8_t>(bytes, bytes + count)});
+  }
+  // Gives a window call the bound image tables (the event store's none record 0x1436F3A40 and the frame-rate cells among them); every
+  // call that reads an event query or the fps cells needs them.
+  void AttachImageTables(::PesState& s) const;
   // Runs the Clear unit 0x142109EB0 on the window for `carrierSlot` of `side`: the answer type (5 when the danger byte is
   // set, else 0: the unit stores nothing) and the corridor angle it stored (degrees, 0.0 when none).
   struct ClearAnswer {
@@ -782,19 +1111,10 @@ class PesWorld {
   // state persists per player). Its window VA is rdx of the chain.
   static constexpr uint64_t PVa(int slot) { return kWorldWindowVa + kTrapOffset + static_cast<uint64_t>(slot) * sizeof(PesTrapImage); }
   uint8_t* P(int slot) { return image_->trap[slot].p.data(); }
-  // The physique chain's two objects (P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G), written by WriteActorP.
-  static constexpr uint64_t PhysiqueAVa(int slot) { return PVa(slot) + kTrapPBytes; }
-  static constexpr uint64_t PhysiqueBVa(int slot) { return PhysiqueAVa(slot) + kPhysiqueObjectBytes; }
-  uint8_t* PhysiqueA(int slot) { return image_->trap[slot].physiqueA.data(); }
-  uint8_t* PhysiqueB(int slot) { return image_->trap[slot].physiqueB.data(); }
-  // The anime layer objects the tick reaches (pestrapworld.hpp), after the physique chain's two.
-  static constexpr uint64_t O1Va(int slot) { return PVa(slot) + kTrapO1Offset; }
-  static constexpr uint64_t O2Va(int slot) { return PVa(slot) + kTrapO2Offset; }
+  // The anime chain is the engine player's own (P+0xA08 -> A, bound by BindAnimeChain): A+0xF0 is B, A+0x188 the root-point object O2.
   static constexpr uint64_t QVa(int slot) { return PVa(slot) + kTrapQOffset; }
   static constexpr uint64_t RVa(int slot) { return PVa(slot) + kTrapROffset; }
   static constexpr uint64_t SVa(int slot) { return PVa(slot) + kTrapSOffset; }
-  uint8_t* O1(int slot) { return image_->trap[slot].o1.data(); }
-  uint8_t* O2(int slot) { return image_->trap[slot].o2.data(); }
   uint8_t* Q(int slot) { return image_->trap[slot].q.data(); }
   uint8_t* R(int slot) { return image_->trap[slot].r.data(); }
   uint8_t* S(int slot) { return image_->trap[slot].s.data(); }
@@ -802,11 +1122,108 @@ class PesWorld {
   static constexpr uint64_t TickFrameVa() { return kWorldWindowVa + kTickFrameOffset; }
   static constexpr uint64_t TickFrameXVa() { return kWorldWindowVa + kTickFrameXOffset; }
   uint8_t* TickFrame() { return image_->tickFrame.data(); }
+  const uint8_t* TickFrameConst() const { return image_->tickFrame.data(); }
   uint8_t* TickFrameX() { return image_->tickFrameX.data(); }
   // PES's Trap action tick 0x140797CD0 on the window for `slot`'s P (rcx = the action, rdx = P, r8 = a stack slot holding F): the
   // phase machine the action runs each logic frame. `ext` is the chain's (the loader data and the image). A path no capture
   // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
   PesTickResult RunTrapTick(int slot, PesTrapExternals& ext);
+  // PES's ActionPassGet tick 0x14094E0E0 on the window for `slot`'s records (rcx = the object, rdx = pc, r8 = R, r9 = the action id's
+  // cell), the loader data it reads lent as in the trap runs (`ext`: the registry's PassGet entry, the motion records, the image).
+  // The route state it keeps lives in the object between calls. `writeLog` (ext) records every byte the call writes. A path no real call
+  // reached aborts in the translated dispatch (pes_dispatch_missing), loudly.
+  // `ext.globals`: the entries whose caller stores a value in the image's writable globals, per call (e.g. the registry pointer
+  // 0x1437F4808 holds its runtime value, not the file's): (VA, value) pairs, written before the run.
+  // `ext.segments`: the run's call-out replies (each a PesTrapSegment: VA and bytes), moved in and returned like the trap runs.
+  void RunPassGetTick(int slot, PesTrapExternals& ext);
+  // The ActionPassGet tick as the match runs it for the PASS_GET receiver in `slot` (his P record and the world window are current):
+  // pc is built from the slot (id, ctx, P), the action id cell holds `actionId`, the object is constructed on first use, and the
+  // command record R keeps its state between ticks (PES's A+0x874.. likewise). Returns what R holds after the tick.
+  PesPassGetResult RunPassGetAction(int slot, uint32_t actionId, PesTrapExternals& ext);  // The image sections a window run reads at fixed VAs (the .rdata block 0x14252F000, the .data block 0x14339B000): the
+  // FixDemo rig's own memory layout, shared by every run that dispatches on an image vtable cell (tests). The run's memory
+  // keeps them whole (no overlay): the bytes are the file's, which is what PES's own run read there.
+  void AttachImageRun(uint64_t va, std::vector<uint8_t> bytes);
+
+  // A THROW_DISPATCH hook (tests): pes_dispatch_missing throws `PesDispatchMissing` while it is set, so a missing
+  // translation is a loud failure a test can message instead of aborting the process. Never set in production code.
+  static void SetDispatchThrowStatic(bool on);
+  // The constructor rows only (BuildPassGetObject): the window's object state without running PES's bytes. Tests overlay a
+  // captured object's bytes on it (the capture holds PES's heap pointers for the route cells, which must be re-pinned to the
+  // window's own VAs afterwards).
+  void ConstructPassGetObject(int slot);
+  // One PES frame of the Dribble action tick 0x1407B37D0 on `slot`'s P (rcx = the table's id-4 action object, rdx = P, r8 = the
+  // same caller frame F the trap tick takes). A path no proof reached aborts in the translated dispatch, loudly. Returns
+  // P+0xAC8 after the tick so the caller sees the dribble's own switch-outs, and which SetMotion the tick made: PES stores P+0x375C = 1
+  // in SetMotion (0x1406F1061) and 2 in its series variant (0x1406F18C3) and nothing reads the cell, so the issue is read off the
+  // call's own write log (the last store to the cell), never from a value GF put there.
+  struct DribbleTickResult {
+    uint8_t action = 0;
+    uint8_t issue = 0;  // 0 none, kMotionIssueSingle, kMotionIssueSeries
+  };
+  DribbleTickResult RunDribbleTick(int slot, PesTrapExternals& ext);
+  // PES's AI frame builder FUN_1409F1F20 on `slot`: builds the tick frame F (TickFrame()) from the man's decision record, the way PES builds it
+  // before every action tick. The controller objects S, T and X (pestrapworld.hpp kDecision*) live in the allocator, filled from the man record
+  // and `decision`. The next RunDribbleTick then runs on this frame (F+0x868 names X).
+  void RunDecisionFrame(int slot, const AiFrameDecision& decision, PesTrapExternals& ext);
+  // The pieces of it: the plan record Q and the team block T of `slot`'s controller objects (allocated on first use), the plan a decision maps to,
+  // and the builder run over whatever Q and T hold (tests write real captured state there).
+  uint8_t* DecisionPlan(int slot);
+  uint8_t* DecisionTeam(int slot);
+  void FillPlan(int slot, const AiFrameDecision& decision);
+  // The AI's decision template T+0x874 for `slot`: PES's constructor defaults, then the words the AI writes (kTpl*), from the decision and the man.
+  void FillTemplate(int slot, const AiFrameDecision& decision, PesTrapExternals& ext);
+  // aiFlag is the builder's seventh argument, the AI object's byte at +0x95C (1 in the kick-off calls, 0 in play).
+  void RunFrameBuilder(int slot, PesTrapExternals& ext, uint8_t aiFlag = 0);
+  // The motion the series variant's first entry names for `slot` (nullopt when the vector is empty or its data is not in the allocator's arena), and
+  // that entry's mirror byte: what the anime layer plays first. Valid after a tick whose `issue` was kMotionIssueSeries.
+  struct SeriesFirst {
+    uint16_t motion = 0;
+    bool mirror = false;
+  };
+  std::optional<SeriesFirst> SeriesFirstOf(int slot) const;
+  // A block from PES's allocator on GF memory (PesHeap), for the containers PES's constructors reserve (ConstructActorP's series vectors).
+  uint64_t HeapAlloc(uint64_t bytes, uint64_t align);
+  // The bytes of a block HeapAlloc returned (null when [va, va + bytes) is not in the arena).
+  uint8_t* HeapHost(uint64_t va, uint64_t bytes);
+  // The ball side of one man's touch, as the ball executor 0x140425010 runs it for a single toucher: the driver's out record `rec` (what the
+  // body scan filled, flags +0x10D bit 0 set) goes through the aggregator's kind dispatch (FUN_140865B80 builds its context, FUN_140865D70
+  // answers the touch vector and spin), the vector takes the frame rate (0x14351AE54, 0x14042581E..), and the candidate builder FUN_140874860
+  // (the kick application 0x140870A40's body) answers the ball's new motion: velocity at +0xC, spin at +0x18, in PES's axes (x, height, z).
+  // GF has no ball body B: its state lives in GF's Ball, so the builder's own previous-state inputs (B+0x64) are zero and the result's
+  // position copy is not read. A record type the executor treats specially (7: the vertical clamp; 8: no kick) aborts loudly.
+  struct BallTouchResult {
+    std::array<float, 3> velocity{};
+    std::array<float, 3> spin{};
+  };
+  BallTouchResult RunBallTouch(int slot, const PesBodyScanOut& rec, PesTrapExternals& ext);
+  // PES's body contact scan 0x1406EDCE0 on the window for `slot`'s P (rcx = P, rdx = the driver's output record, zeroed in the call's
+  // stack): the per-frame scan the trap tick's contact frame feeds (pesbodyscan.hpp). Returns the record the scan filled; P+0x2460's
+  // touched bit (kPFlagTouched) is the reach test's answer.
+  PesBodyScanOut RunBodyScan(int slot, PesTrapExternals& ext);
+  // The tick's adjuster outputs, read by ReadAdjusterFrame after RunAdjusters.
+  // ponytail: the height adjuster's output (+0x18, metres of root height) has no consumer: GF's body has no root height (2D contract).
+  struct AdjusterFrame {
+    bool strikeMoved = false;
+    float x = 0.0f, z = 0.0f;
+    bool yawStepped = false;
+    bool yawIsRate = false;
+    float yawRad = 0.0f;
+  };
+  // One tick of `slot`'s anime driver FUN_141EB5E70 (rcx = P, xmm1 = the tick in seconds): the body adjusters (strike P+0x428, height
+  // P+0x498, yaw P+0x4D0) through FUN_141EB3AF0, the chain's phases on the engine's BodyAnimControl, and the outputs into B. The caller
+  // runs it where the engine's phase run was, before the joint writer.
+  void RunAdjusters(int slot, float tickSeconds, PesTrapExternals& ext);
+  // The tick's outputs from B: strikeMoved and the root displacement (x, z: the step B+0x90 and B+0x98 minus the root point O2+0xD0,
+  // PES axes). The yaw: in the flag (rate) mode yawIsRate and yawRad = B+0xBC (radians this tick); else the absolute yaw,
+  // yawRad = 2 * atan2(B+0xA4 (sin of half the yaw), B+0xAC (cos of half the yaw)).
+  AdjusterFrame ReadAdjusterFrame(int slot);
+  // FUN_141EB35A0(P+0x4D0, from, to, ticks, override) then FUN_141EB3AE0: arms the yaw adjuster (facing degrees, the trap world's sense).
+  void ArmYaw(int slot, float fromDeg, float toDeg, int ticks, bool overrideMode);
+  // FUN_141EB56D0(P, &angle, 1): the root-facing write: P+0x20 takes the angle and the yaw adjuster is armed over one tick without error.
+  void SetRootFacing(int slot, float angleDeg);
+  // The joint block (pesbodyscan.hpp) from the bones' world frames, as FUN_141EB49B0 leaves it: last tick's cells move to the previous
+  // slots, the masked bones' positions and rotations are written, P+0xA04 is set.
+  void WriteJointBlock(int slot, const BoneFrames& frames, const std::array<bool, kScanBoneCount>& mask);
   // The planned touch's heading and kind a man's committed trap carries (F+0x744 / F+0x748), kept with the window because PES keeps
   // them in the caller's per-man state (OPEN: where). SetTickFrame writes them, the body's heading and the weight into F and F+0x868's object.
   struct TickPlan {
@@ -820,6 +1237,78 @@ class PesWorld {
   // arguments), then the chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp); its segments are lent to
   // the call (moved in and back), so the loader data is never copied.
   PesTrapResult RunTrapKind0(int slot, const PesTrapRequest& request, PesTrapExternals& ext);
+  // FUN_1406B4C10(P, action): the "may the man take `action`" gate. It names `action` in P's action table and calls that action's
+  // slot +0x10; for the Trap action (id 7, FUN_1409FA520's first test: reaction gate 4a) that is 0x14079BBE0: the man's CURRENT
+  // action id (P+0xAC8) must be one the Trap action may follow, and that action's own slot +0x70 handler must accept (action, P, 7).
+  // Reads P and the loader data; `ext` is lent as in RunTrapTick.
+  bool RunTrapAdmit(int slot, uint32_t action, PesTrapExternals& ext);
+  // PES's kick request builder FUN_140833CD0 (translated, set kick) on the window for `slot`'s P, as the Kick start FUN_140724CC0
+  // calls it: the order's cmd and record in the frame above the stack arguments, the request out at the frame's request slot.
+  // `ext` as for RunKickChooser. The Kick object's three fields the builder takes as arguments (last order's +8, last stamp, the
+  // word the 8th argument points to) are the order's own +8, the match frame and zero (ponytail at the call).
+  PesKickRequest RunKickRequest(int slot, const PesKickOrder& order, PesTrapExternals& ext);
+  // PES's kick chooser FUN_1408364D0 on the window for `slot`'s P: the request laid out as the Kick start's frame (peskickchooser.hpp),
+  // P, the ball, MI, man and slot records from the window, the image and loader data from `ext` (the chain's externals, lent for the
+  // call). A kind outside the translated closure aborts loudly (pes_dispatch_missing).
+  PesKickDescriptor RunKickChooser(int slot, const PesKickRequest& request, PesTrapExternals& ext);
+  // Links `slot`'s P to the engine player's chain (P+0xA08 = the player's +0xA08, the BodyAnimControl its phases run on): the chain the adjuster
+  // driver and the joint writer read. P+0xA04 = 1 (the anime player is built).
+  void BindAnimeChain(int slot, uint64_t engineP);
+  // B+0xC0 = g (the G the root-bone arm pushes), on the chain's B (A+0xF0).
+  void WriteAnimeG(int slot, float g);
+  // The chain's root point O2+0xD0 = the 12 bytes at `position12` (the man's position) and 1.0.
+  void WriteAnimeRootPoint(int slot, const uint8_t* position12);
+  // The player's joint block, PES's order in the player's tick: RunAdjusters leaves the pose in the chain's arrays; RunAnimeJoints writes
+  // the placement object (O2 rows and joint count) and runs FUN_141EB49B0 (P+0x538.. the joint positions, P+0x700.. the rotations).
+  // RunPlayerUpdate runs FUN_1406F6CE0 (the player update: P+0xB1C, the joint block P+0xB38..0xBA0, the per-tick flags).
+  void RunAnimeJoints(int slot, PesTrapExternals& ext);
+  void RunPlayerUpdate(int slot, PesTrapExternals& ext);
+  // A P-only translated function (rcx = P) on the window with the externals lent.
+  void RunOnP(int slot, void (*fn)(PesState&), PesTrapExternals& ext);
+  // PES's DemoInfoRef writer FUN_1406EB250 (translated; SYNTHETIC proof over the throw-in captures, results_trapaction.json) on `slot`'s P: it
+  // allocates the DemoInfoRef at P+0x3AC8 and the PLAYER object at P+0x3AD0 in PES's heap and registers the player's name (PLAYER_<side><index>) in
+  // the registry singleton DAT_1437F0AC8, which the match memory's boot built. PES calls it once per man from its actor setup FUN_1406EB670
+  // (0x1406EBA84), after the slot byte P+0x2458 is stored. No-op when the object exists. Runs on the match's PES memory (PesMemory::Call: its
+  // heap, stack and thread block, which PES's allocator wrapper reads), so the world must be bound (BindMemory).
+  void BuildDemoInfoRef(int slot);
+  // The bookkeeping block of FUN_140792E10 after FUN_1406EC260 answers true (0x140793425..0x14079341E): P+0x2460 |= 0x80, then on the
+  // DemoInfoRef at P+0x3AC8: W = FUN_1404511E0(it); if FUN_140A605E0(W) (the byte W+0x8E) then FUN_140A607D0(W, 0) clears it; FUN_140445750(it).
+  // Returns false (and counts a skip) when the man has no DemoInfoRef.
+  bool RunBookkeeping(int slot);
+  // PES's joint reader FUN_141EB51A0 (translated) for joint `joint` of `slot`'s P: the joint's (x, y, z) into out, read from the joint
+  // block the last tick wrote (P+0x538 + 12 * joint). False when the anime is not built (P+0xA04 == 0): PES's reader would answer zeros.
+  bool JointPosition(int slot, int joint, PesTrapExternals& ext, float out[3]);
+  // PES's joint push FUN_141EB5BB0 (translated) on `slot`'s P with the flag 1: the root target (x, y, z) in PES axes goes into the root
+  // adjuster A = P+0x428 through FUN_141EB37B0; A's steps move GF's root (PesWorld::StepAdjusters, RootMotion).
+  void RunAnkleShove(int slot, float x, float y, float z, PesTrapExternals& ext);
+  // Runs a translated PES function on `slot`'s world with rcx, rdx and r8 set and xmm2 set to xmm2 (the x64 argument registers the
+  // function reads); returns rax. Used for PES's gate reads (FUN_1406B0ED0, FUN_1406E68C0, FUN_1406AF620, FUN_1406B08A0).
+  uint64_t CallPesFn(void (*fn)(PesState&), uint64_t rcx, uint64_t rdx, uint64_t r8, float xmm2, PesTrapExternals& ext);
+  // PES's guard chain of FUN_140792E10 before the push's joint reads: the taking state (P+0x245C == 1), test A (e < AF620), then B =
+  // B08A0, FUN_1406EC260 (translated, read-only; its boolean gates the A branch's bookkeeping block: the flag write P+0x2460 |= 0x80 is
+  // ported, its calls need the object at P+0x3AC8), and test B (e < B). e = E68C0(P, s), s the throw-in action id (P+0xAE0). True when the
+  // push may run.
+  // ponytail: test B reads e from the throw-in table (entries at P+0x354, stride 0x14; count P+0x420; factor P+0x35C). PES writes that
+  // table every tick for every man: FUN_1409F1640 (the man tick) -> FUN_1409F1E70 -> FUN_1408BE100 (gated by P+0xA07/A06) ->
+  // FUN_141EB4650. GF does not run that writer, so the table is empty and e reads 0: test B stays open where PES's closes (e = 20 or 34).
+  // The writer's source is the BodyAnimControl at P+0xA08, which GF builds in the fox world (PesAnimePlayerOf), not in this trap record.
+  // FUN_141EB4650 is translated and proven (SYNTHETIC 4/4 over the throw-in captures, results_trapaction.json, closure_animeupd.json, in the layer); GF
+  // runs it per man once P+0xA08 is the real control (the match memory now maps the window, so ConstructAnime builds it on P in place).
+  // Upgrade: the two-worlds item (one PES address space, the trap world on the fox mapping), then the writer runs per tick in this record.
+  // A block reached with no P+0x3AC8 object is counted (BookkeepingSkips) and its calls are not run; the count must read 0 after that port.
+  bool PushGateOpen(int slot, PesTrapExternals& ext);
+  // Blocks reached with no P+0x3AC8 object since the process started (the regression check: 0 once the object is built).
+  static std::size_t BookkeepingSkips();
+  // PES's Kick start FUN_140724CC0 (the Kick action's vtable slot 13; translated, set kick; 11 real kick_try calls, one of which starts a
+  // kick, and SYNTHETIC states for the branches no real call took) on `slot`'s P, as the AI order path calls it each tick until it
+  // answers: the Kick object (the action table's pointer for the pass ids), P, the ball record, the info record whose +0xB8 holds the
+  // order's cmd, and the output record. The can-enter gate, the request builder, the chooser, the clip row and the Animetable cell are
+  // PES's own inside it. Requires RunAnimeJoints / RunPlayerUpdate this tick (the gate reads the joint block).
+  PesKickStartResult RunKickStart(int slot, const PesKickOrder& order, PesTrapExternals& ext);
+  // PES's root-motion reader FUN_141AFDF10 (translated, set kickroot) on `slot`'s chain, as the kick geometry test FUN_140829E80 calls
+  // it at 0x14082B02F: the displacement the clip of `motion` has made by `seconds` into it (x, y, z, w; the mover track's position in
+  // PES axes), evaluated through the player's pose slot.
+  std::array<float, 4> RunRootMotion(int slot, uint32_t motion, float seconds, PesTrapExternals& ext);
   // The movestep's two reads of the player object P, PES's translated code on the window with `slot`'s P's pieces bound (the slot at
   // P+0x2458; the anime interface at P+0xAB8, whose vtable is the image's 0x1425E3508, bound by BindImageTables; for the aim flag
   // P+0x3AC0, the side's context, whose +0xE0 names the event store). Both overwrite those P fields, which the trap chain's own run
@@ -837,6 +1326,8 @@ class PesWorld {
     StoreF32(Ma(side), kMaBallOffset + 8, z);
   }
   void SetMaCarrier(int side, uint32_t id) { StoreU32(Ma(side), kMaCarrierIdOffset, id); }
+  // The ball copy's owner word at MA+0x24838 (u32, a slot id when < 0x16): the arrival-list writer 0x14045E0D0 and the AI tick read it.
+  void SetMaBallOwner(int side, uint32_t id) { StoreU32(Ma(side), kMaBallOffset + 0xC, id); }
   // The ball owner's slot id in MA (0xFF none).
   void SetMaOwner(int side, uint32_t id) { StoreU32(Ma(side), kMaOwnerOffset, id); }
   // Entry `rank` of team `team`'s list in MA list block `list` (0 or 1): the slot id, then the value.
@@ -920,9 +1411,83 @@ class PesWorld {
   // byte there also carries the keeper-class stand-in the run code reads).
   JudgeVerdict DecideContact(const ContactFacts& facts);
 
+  // ---- PES's press team step on the window: the coordinator 0x140634470, then the writer 0x140536FC0 (FUN_140535C60's order; the
+  // coordinator calls the target eval 0x140633940). They read and write T = the side record, MA, MI, E, G's list and the man
+  // records; the facts below are GF's producers of the T fields PES's AI writes elsewhere (each `ponytail:` at its use names the
+  // PES writer). The press result is T+0xA2A0 (the action words), +0xA548 (the enrolled men) and PP[2] (the second presser). ----
+  struct PressFacts {
+    uint32_t holder = kTeamNoMan;      // MA+0x2601C: the last toucher (FUN_140457070), 0xFF none
+    uint32_t playState = 0;            // MI+0x116C
+    uint32_t frame = 0;                // T+0x21C
+    uint32_t attackLevel = 0;          // T+0xB8A4
+    uint32_t teamLevelRaw = 0;         // T+0xA294: the side's level x100 (the mark pass 0x140534A20 tests it through 0x140A604D0)
+    int attackSign = 0;                // T+0x254 (+1: the side attacks +x)
+    float attackAngle_deg = 0.0f;      // T+0x250
+    uint8_t armed = 0;                 // T+0xF1
+    std::array<bool, kSlotCount> onPitch{};           // MI+0x1748, both sides' slots
+    std::array<uint32_t, kSlotsPerSide> roleClass{};  // T+0x4C00 (0: the keeper) and T+0x87D0
+    std::array<float, kSlotsPerSide> keepX{};         // T+0x4B4C + 12 k
+    const uint8_t* sheet = nullptr;                   // the side's team sheet S (kSheetBytes), copied to T+0x8E08
+  };
+  void StagePress(int side, const PressFacts& facts);
+  void RunPressCoordinator(int side);
+  void RunPressWriter(int side);
+  // FUN_140536690, the dispatcher's slot reset (translated; run between the coordinator and the writer, as FUN_140535C60 does):
+  // a slot holding PRESS or DELAY that is not the coordinator's second presser PP[2] and not enrolled in T+0xA548[0..3] goes
+  // back to 0; its set-piece tail (T+0xF0 / T+0x140) starts a press through FUN_14062AF10 when T+0xF1 is 0.
+  void ResetPress(int side);
+  // The dispatcher's MATCH_UP step (FUN_140535C60: the clear of the last tick's MATCH_UP man, then FUN_140536210): T+0x7C and the
+  // 0x3A word of the own man whose partner word T+0x558 is the holder. Run after StagePress, before the coordinator, which reads
+  // T+0x7C. ponytail: the writer's first loop wants an anime entry with +0x1C != 0 and +0x1A <= +0x1C (a per-slot counter pair whose
+  // writer is undecoded, pes-re-record-ids.md section 4): the own men get {0, 1} for the run and their words are put back.
+  // Removal: the pair's writer.
+  void RunMatchUp(int side);
+  // FUN_140535C60 whole (translated, 24 of 24 calls bit-exact over real and rebuilt captures): the defence passes, the MATCH_UP step,
+  // the coordinator, the slot reset, the writer and the order-word loop, in PES's order, on the brain object's param_1 = Y + 0x4200.
+  // `selector` is the selector's AL (RunPassTarget's result), the call's r9. Run after StagePress; it keeps its own state in Y.
+  // The anime pair stand-in of RunMatchUp applies to the writer inside it too. T+0x558 (the mark partners) is the mark pass's.
+  void RunPressDispatch(int side);
+  // Test seam: a mark partner word T+0x558[slot] (a global man id, 0xFF none), the state the mark pass leaves between calls.
+  void SetMarkPartner(int side, int slot, uint32_t who) { StoreU32(SideRecord(side), kTeamMarkPartnerOffset + sizeof(uint32_t) * slot, who); }
+  // The dispatcher's order-word loop (FUN_140535C60 0x140536011-0x140536059), after the writer: a slot whose order word
+  // T+0xB748+4k is 0x26 and whose action word is neither DELAY nor PRESS gets DELAY when FUN_14062AF10 finds another presser
+  // with the ball on his side, else PRESS, through the setter 0x140A42940. Nothing in GF writes the order words (the concept
+  // that does, 0x26 at +0x7B8, is unported: docs/re/pes-re-concept-index.md), so the loop is inert until a test or the concept does.
+  void RunPressOrders(int side);
+  // The slot's action word T+0xA2A0[slot] (0x34 PRESS, 0x33 DELAY, 0 none) and PP[2], the coordinator's second presser.
+  uint32_t PressAction(int side, int slot) { return LoadU32(SideRecord(side), kTeamActionOffset + sizeof(uint32_t) * slot); }
+  uint32_t PressSecond(int side) const {
+    return LoadU32(image_->brain[side].bytes.data(), kBrainDispatcherOffset + kDispatcherPpOffset + 2 * sizeof(uint32_t));
+  }
+  // PP is the dispatcher's param_1 + 0x54 (param_1 = the team-tick object Y + 0x4200), so it lives in the brain object Y.
+  static constexpr uint64_t PressPpVa(int side) { return BrainVa(side) + kBrainDispatcherOffset + kDispatcherPpOffset; }
+  static constexpr uint64_t PressArgVa(int side) {
+    return kWorldWindowVa + kPressOffset + offsetof(PesPressImage, arg) + static_cast<uint64_t>(side) * kPressArgBytes;
+  }
+  static constexpr uint64_t PressOrderIndexVa() {
+    return kWorldWindowVa + kPressOffset + offsetof(PesPressImage, orderIndex);
+  }
+
   static constexpr uint64_t AnimeVa(int slot) { return BlockVa(slot); }
   static constexpr uint64_t ManVa(int slot) { return BlockVa(slot) + kManRecordOffset; }
   static constexpr uint64_t SlotVa(int slot) { return BlockVa(slot) + kSlotRecordOffset; }
+  // The match-statistics block of each side (E + 0x750D0 + side * 0x59650, FUN_140A3E8A0 + FUN_140535650's stride): PES's anti-tamper
+  // cells (a salted FNV hash the reader re-computes) are written by the block's constructor FUN_1408C6B80, which PES runs once at match
+  // load; ConstructStats runs the translated constructor on both blocks (2 of 2 calls bit-exact over a real capture's blocks), so the
+  // dispatcher's defence pass reads valid cells. StatsValue is the reader FUN_1408C9190 (statistic `stat`, column `col` < 9).
+  void ConstructStats();
+  uint32_t StatsValue(int side, uint32_t stat, int col);
+  // PES's team-info construction (the match setup builds the side info G's table B names): FUN_1408C7510 initializes each side's 0x28
+  // squad records (translated; proven on synthetic calls over a real capture), the 11 men on the pitch get their id (slot + 1) at record +4,
+  // and FUN_140A3B3A0 copies those records into the team-info entries and numbers the slots (translated, the same proof). The record
+  // defaults (the rating table = 99) are PES's, not staged. Needs the install tables (BindImageTables).
+  void BuildTeamInfo();
+  static constexpr uint64_t SquadRecordVa(int side, int k) {
+    return kWorldWindowVa + kSquadOffset + static_cast<uint64_t>(side) * sizeof(PesSquadSide) + static_cast<uint64_t>(k) * kSquadRecordBytes;
+  }
+  static constexpr uint64_t SquadPointersVa(int side) {
+    return kWorldWindowVa + kSquadOffset + static_cast<uint64_t>(side) * sizeof(PesSquadSide) + offsetof(PesSquadSide, pointers);
+  }
 
   // Host bytes of a slot's block (its anime record starts at its first byte).
   uint8_t* Block(int slot) { return image_->blocks[slot].bytes.data(); }
@@ -994,6 +1559,8 @@ class PesWorld {
   uint8_t* BallRecord() { return image_->ball.bytes.data(); }
   uint8_t* PitchRecord() { return image_->pitch.bytes.data(); }
   uint8_t* FrameRandomRecord() { return image_->frameRandom.bytes.data(); }
+  // The roster block (kRosterEntries entries of kRosterEntryBytes): the constructor's fill, or a capture's bytes in a test.
+  uint8_t* RosterRecord() { return image_->roster.bytes.data(); }
   uint8_t* SideRecord(int team) { return image_->sides[team].bytes.data(); }
   uint8_t* TeamInfoRecord(int team) { return image_->teamInfos[team].bytes.data(); }
   // The match setting the unit info's tier word reads (the side record's +0xA294; the flag byte clear).
@@ -1027,6 +1594,10 @@ class PesWorld {
  private:
   // Points G's field info, the side-B team info, A1 and its blocks at the sanction image (the ctor).
   void BindSanction();
+  // The side's AI object's context array: pointers to the window's records (kAi* above). Bound once, at construction.
+  void BindAi(int side);
+  // A call over the match's PES memory with this world's window mapped: the engine chain's objects live in the memory's heap. Needs BindMemory.
+  PesState MemoryCall();
   PesTableEntry& Entry(WorldTable table, int index) {
     switch (table) {
       case WorldTable::kSideA: return image_->tables.sideA.at(index);
@@ -1037,9 +1608,18 @@ class PesWorld {
     }
   }
 
-  std::unique_ptr<PesWorldImage> image_;
+  std::unique_ptr<PesWorldImage, PesWindowDeleter> image_;
   std::array<TickPlan, kSlotCount> tickPlan_{};
-  std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
+  struct ImageRun { uint64_t va = 0; std::vector<uint8_t> bytes{}; };
+  std::vector<ImageRun> imageRuns_;  // the image sections a window run reads at fixed VAs (AttachImageRun; RunPassGetTick lends them)
+  void EnsureDecisionBlocks(int slot);
+  struct DecisionBlocks {
+    uint64_t s = 0, t = 0, x = 0, vec = 0;  // the allocator blocks of RunDecisionFrame's S, T, X and param_6 vector
+  };
+  std::array<DecisionBlocks, kSlotCount> decision_{};
+  int frameBuiltFor_ = -1;  // the slot RunDecisionFrame built F for: the next RunDribbleTick keeps F's own F+0x868 / F+0x870
+  PesMemory* memory_ = nullptr;  // the match's PES memory once BindMemory has run: the calls that need PES's runtime (allocator, TLS) and the engine chain's calls run over it
+  std::unique_ptr<PesHeap, PesHeapDeleter> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder, or the match's PES memory's (BindMemory); the BP lists live in it
   std::array<bool, kSideCount> stateReady_{};  // the side's BP state has been constructed (RunCarrierUpdate)
   std::array<bool, kSideCount> constructed_{};  // the side's BP was built by PES's constructor 0x14210D320 (RunCarrierConstruct)
   PesImageTables imageTables_;     // the install's table bytes the window runs read at register-held addresses (BindImageTables)

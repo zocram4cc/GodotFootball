@@ -81,6 +81,15 @@ add_executable(pes_judge_decide_test pes_judge_decide_test.cpp)
 target_link_libraries(pes_judge_decide_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_judge_decide_test)
 
+add_executable(pes_press_world_test pes_press_world_test.cpp)
+target_link_libraries(pes_press_world_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_press_world_test)
+
+add_executable(pes_press_kickoff_test pes_press_kickoff_test.cpp)
+target_link_libraries(pes_press_kickoff_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_press_kickoff_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_press_kickoff_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_foul_whistle_test pes_foul_whistle_test.cpp)
 target_link_libraries(pes_foul_whistle_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_foul_whistle_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -99,13 +108,24 @@ add_executable(pes_restart_sequencer_test pes_restart_sequencer_test.cpp)
 target_link_libraries(pes_restart_sequencer_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_restart_sequencer_test)
 
-add_executable(pes_restart_delay_test pes_restart_delay_test.cpp pes_stall_test.cpp)
+add_executable(pes_restart_delay_test pes_restart_delay_test.cpp pes_stall_test.cpp pes_kick_start_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # One process for the family: its seeded matches run once per process and are shared between its tests (pes_shared_match.hpp).
-# PesStall's tests are compiled in because they play the seed-7 match the restart tests play.
-add_test(NAME pes_restart_delay_test COMMAND pes_restart_delay_test)
+# PesStall's and PesKickStart's tests are compiled in because they play the seed-7 match the restart tests play.
+add_test(NAME pes_restart_delay_test COMMAND pes_restart_delay_test --gtest_filter=-PesStallQuick.*)
 set_tests_properties(pes_restart_delay_test PROPERTIES TIMEOUT 10800)
+# The quick stall target (PesStallQuick in pes_stall_test.cpp): the stall census over the first kQuickMinutes of the seed-7 match.
+# It runs alone, so the family's run and its time do not change.
+add_test(NAME pes_stall_quick COMMAND pes_restart_delay_test --gtest_filter=PesStallQuick.*)
+set_tests_properties(pes_stall_quick PROPERTIES TIMEOUT 1800)
+
+add_executable(pes_hang_test pes_hang_test.cpp)
+target_link_libraries(pes_hang_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_hang_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+# Seed 11's two-minute PES-loop match: a stalled match ends at the stall watch's bound (pes_hang_test.cpp).
+add_test(NAME pes_hang_test COMMAND pes_hang_test)
+set_tests_properties(pes_hang_test PROPERTIES TIMEOUT 1800)
 
 add_executable(pes_throwin_release_test pes_throwin_release_test.cpp)
 target_link_libraries(pes_throwin_release_test PRIVATE gfsim pesfmt GTest::gtest_main)
@@ -159,10 +179,18 @@ add_executable(pes_holder_latch_test pes_holder_latch_test.cpp)
 target_link_libraries(pes_holder_latch_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_holder_latch_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_holder_latch_test PROPERTIES TIMEOUT 1800)
+add_executable(pes_pass_target_test pes_pass_target_test.cpp)
+target_link_libraries(pes_pass_target_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_pass_target_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_pass_target_test PROPERTIES TIMEOUT 1800)
 
 add_executable(pes_receive_test pes_receive_test.cpp)
 target_link_libraries(pes_receive_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_receive_test)
+
+add_executable(pes_decision_frame_test pes_decision_frame_test.cpp)
+target_link_libraries(pes_decision_frame_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_decision_frame_test)
 
 add_executable(pes_challenge_counters_test pes_challenge_counters_test.cpp)
 target_link_libraries(pes_challenge_counters_test PRIVATE gfsim pesfmt GTest::gtest_main)
@@ -237,6 +265,10 @@ gtest_discover_tests(sim_substitution_test PROPERTIES TIMEOUT 1800)
 add_executable(pes_kick_error_test pes_kick_error_test.cpp)
 target_link_libraries(pes_kick_error_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_kick_error_test)
+
+add_executable(pes_kick_motion_test pes_kick_motion_test.cpp)
+target_link_libraries(pes_kick_motion_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_kick_motion_test)
 
 add_executable(pes_penalty_scatter_test pes_penalty_scatter_test.cpp)
 target_link_libraries(pes_penalty_scatter_test PRIVATE gfsim pesfmt GTest::gtest_main)

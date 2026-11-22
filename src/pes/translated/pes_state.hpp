@@ -59,6 +59,9 @@ struct PesMem {
   // Writable scratch: sorted (base, bytes) regions (harness regions).
   struct Seg { uint64_t base; std::vector<uint8_t> bytes; };
   std::vector<Seg> segs;
+  // READ_LOG: every address rd() served, appended in order (a read-log diff between PES's own replay and GF's window
+  // run; tests). Mutable: rd() is const and the log is diagnostic.
+  mutable std::vector<std::pair<uint64_t, unsigned>>* readLog = nullptr;
   // Whole-file flat image view (run.py maps a flat dump: file offset = VA -
   // flat_base). A private copy-on-write mapping in the diff main, so writes
   // persist across cases as in the harness. Null means no image view.
@@ -113,7 +116,68 @@ struct PesMem {
       return flat + (addr - flat_base);
     return nullptr;
   }
+  // The host pointer wfind(addr, 1) answers, and how many bytes from addr it holds: the same region up to the next region start above
+  // addr (every region's start is a boundary, so no byte in the span would resolve to another region). Null: no region takes a write at
+  // addr, and the span's bytes take none either. `len` is at least 1 (the span is never empty).
+  uint8_t* WriteSpan(uint64_t addr, uint64_t& len) {
+    uint64_t next = ~0ULL;   // the first region start above addr
+    uint64_t own = ~0ULL;    // the end of the region wfind picks for addr
+    uint8_t* hit = nullptr;
+    bool picked = false;
+    const auto boundary = [&](uint64_t base) { if (base > addr && base < next) next = base; };
+    for (const Window& w : services) {
+      boundary(w.base);
+      if (!picked && w.rw && w.base <= addr && addr < w.base + w.size) {
+        picked = true; hit = w.rw + (addr - w.base); own = w.base + w.size;
+      }
+    }
+    boundary(window.base);
+    if (window.ro || window.rw) {
+      if (!picked && window_hit(addr, 1)) {
+        picked = true; hit = window.rw ? window.rw + (addr - window.base) : nullptr; own = window.base + window.size;
+      }
+    }
+    for (auto& s : segs) {
+      boundary(s.base);
+      if (!picked && s.base <= addr && addr < s.base + s.bytes.size()) {
+        picked = true; hit = s.bytes.data() + (addr - s.base); own = s.base + s.bytes.size();
+      }
+    }
+    if (flat) {
+      boundary(flat_base);
+      if (!picked && flat_base <= addr && addr < flat_base + flat_size) {
+        picked = true; hit = flat + (addr - flat_base); own = flat_base + flat_size;
+      }
+    }
+    len = std::min(own, next) - addr;
+    return hit;
+  }
+  // n one-byte writes of the low byte of c from addr (the translated memset): one region lookup per span, not per byte. Each written byte
+  // logs exactly as wr(addr + i, c, 1) does (wlog), and a byte no region takes is dropped, as wr drops it. The snapshot mode keeps the
+  // per-byte path, which walks the snapshot's pages.
+  void wfill(uint64_t addr, uint8_t c, uint64_t n) {
+    if (snap) {
+      for (uint64_t i = 0; i < n; ++i) wr(addr + i, c, 1);
+      return;
+    }
+    while (n > 0) {
+      uint64_t len = 0;
+      uint8_t* p = WriteSpan(addr, len);
+      const uint64_t k = std::min(len, n);
+      if (p) {
+        std::memset(p, c, k);
+        if (wlog)
+          for (uint64_t i = 0; i < k; ++i) wlog->push_back({addr + i, c});
+      }
+      addr += k;
+      n -= k;
+    }
+  }
+  // Test seam (tests/pes_engine_fixture.hpp): called with (addr, n) for every read that finds no region. Such a read returns zero, as
+  // it always has; the seam only lets a test see it. Null in production: a miss costs one branch.
+  static inline void (*read_miss)(uint64_t addr, unsigned n) = nullptr;
   uint64_t rd(uint64_t addr, unsigned n) const {
+    if (readLog) readLog->push_back({addr, n});
     if (const uint8_t* p = service_at(addr, n)) {
       uint64_t v = 0;
       std::memcpy(&v, p, n);
@@ -128,6 +192,7 @@ struct PesMem {
     const uint8_t* p = find(addr, n);
     uint64_t v = 0;
     if (p) std::memcpy(&v, p, n);
+    else if (read_miss) read_miss(addr, n);
     return v;
   }
   void wr(uint64_t addr, uint64_t v, unsigned n) {
@@ -202,6 +267,7 @@ struct PesState {
   // Emitted-code memory shorthands (forward to mem).
   uint64_t rd(uint64_t a, unsigned n) const { return mem.rd(a, n); }
   void wr(uint64_t a, uint64_t v, unsigned n) { mem.wr(a, v, n); }
+  void fill(uint64_t a, uint8_t c, uint64_t n) { mem.wfill(a, c, n); }
   float rdf(uint64_t a) const { return mem.rdf(a); }
   void wrf(uint64_t a, float f) { mem.wrf(a, f); }
   double rdd(uint64_t a) const { return mem.rdd(a); }

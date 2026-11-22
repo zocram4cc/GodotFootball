@@ -19,6 +19,10 @@ namespace pesmovestep {
 // Runs one MOVESTEP tick for an active player. It is a no-op when the PES install is absent
 // (no PES21_ROOT), so a checkout without the game can still run.
 void ProcessMoveStep(Player& player, Match& match);
+// One frame of the man's body adjusters (PES's anime driver FUN_141EB5E70: the root, height and yaw adjusters through FUN_141EB3AF0),
+// after the MOVESTEP entry and the Trap action have armed them: the strike's root displacement and the yaw step move GF's body root.
+// A no-op with pes_loop off.
+void StepAdjusters(Player& player, Match& match);
 // PES's AI think for one player, run every tick by Player::Process after the controller's process: the decision MOVESTEP
 // reads on the next tick. A no-op with pes_loop off.
 void Think(Player& player, Match& match);
@@ -31,23 +35,29 @@ pes::MoveReq TickRequest(Player& player, Match& match);
 // PES's frame of a GF point (x, GF y, GF z) -> (x, height = GF z, ground z = -GF y), the order of P+8, P+0xc, P+0x10.
 // The adapter gives MOVESTEP every position and displacement through this one function.
 void PesFrame(float gfX, float gfY, float gfZ, float out[3]);
+// PES's last-tick displacement: the record's point moves to the man's position now, and the displacement is the step from the old one
+// (FUN_141eb50b0 index 1; see pesmovestep.cpp AdvanceDisplacement). Called once per match frame.
+void AdvanceDisplacement(pes::MoveStepRecord& rec, const Vector3& pos);
 // PES's bearing (degrees, folded to [0, 360)) of a GF ground offset (gfX, gfZ) = (dx, coords[1] delta).
 // PES's z is -coords[1] (referee.cpp:197), so the bearing is atan2(dx, -gfZ). Every heading the
 // adapter gives PES is read through this one function.
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ);
 // The PES motion number the humanoid plays (movestep.hpp's CurrentMotion), or -1 when the AI's own clip plays.
 int CurrentMotionOf(Player& player);
-// MOVESTEP's decision: the first queued command that is movement. Ball actions ride the pending ball request the kick dispatcher
-// consumes (docs/re/pes-re-decision-read.md 1 and 3), so MOVESTEP steers by the movement command. A keeper's Deflect is a hand
-// action with no move target, and a BallControl is the carrier's dribble ("ball control belongs to the man who has the ball",
-// elizacontroller.cpp): neither steers a man who does not hold the ball (holdsBall false).
+// MOVESTEP's decision. PES builds one movement command and the reaction chooser replaces it with the reaction it fires
+// (docs/re/pes-re-defender-decisions.md 1), so the first queued non-movement command is the decision, and the first movement only
+// when none is queued. Ball actions ride the pending ball request the kick dispatcher consumes (docs/re/pes-re-decision-read.md 1
+// and 3). A keeper's Deflect is a hand action with no move target, and a BallControl is the carrier's dribble ("ball control belongs
+// to the man who has the ball", elizacontroller.cpp): neither steers a man who does not hold the ball (holdsBall false).
 std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue, bool holdsBall);
 // PES's command id (cmd[0], req[0x16]) for GF's movement command: MOVE (2), or 0 with no command or a ball action.
 int CommandIdFor(const PlayerCommand* cmd);
 // PES's move kind (cmd[0x16], req[0]) for a player's move: the near keeper kind (4) for a keeper, else the mid kind (0).
 int MoveKindFor(bool keeper);
-// The physique block's height in whole cm (PM+0x30; GF's physical_height is that /100, so rounding restores it).
-float PhysiqueHeightCmOf(const Player& player);
+// The man's height in whole cm: the physique block's and the trap world's height input (P+0x3B18 = this / 180, the writer FUN_1406EB210).
+// PES's own height byte when he has a PES record (the roster row's 0x31, the byte the EDIT save carries), else his database height in
+// metres. GF's `physical_height` stat is not the height: CalculateStat runs it through the development curve (1.8 reads 0.6).
+float PhysiqueHeightCmOf(const Match& match, Player& player);
 // The Speed ability byte (slot record +0x97, 40..99). ponytail: no GF source for PES's base row; physical_velocity stands in.
 float SpeedByteOf(const Player& player);
 

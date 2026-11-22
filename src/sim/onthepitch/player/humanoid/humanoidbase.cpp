@@ -473,12 +473,63 @@ bool HumanoidBase::OnPesTrap() const {
              static_cast<int>(pes::PesClipFamily::kTrap);
 }
 
-bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family) {
+bool HumanoidBase::OnPesClip() const {
+  if (!currentAnim->anim || currentAnim->functionType != e_FunctionType_Special) return false;
+  const int family = std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str());
+  return pes::IsPesClipFamily(family) || pes::IsPesLocomotionFamily(family) || pes::IsPesTrapFamily(family);
+}
+
+float HumanoidBase::PesClipNaturalSpeed(int motion) {
+  CrudeSelectionQuery query;
+  query.byFunctionType = true;
+  query.functionType = e_FunctionType_Special;
+  query.byIncomingVelocity = false;
+  query.byIncomingBodyDirection = false;
+  query.bySide = false;
+  query.properties.Set("specialvar1", static_cast<int>(pes::PesClipFamily::kLocomotion));
+  query.properties.Set("specialvar2", motion);
+  DataSet dataSet;
+  anims->CrudeSelection(dataSet, query);
+  if (dataSet.empty()) return 0.0f;
+  Animation* anim = anims->GetAnim(*dataSet.begin());
+  const int frames = static_cast<int>(anim->GetFrameCount());
+  if (frames < 2) return 0.0f;
+  const std::vector<Vector3>& positions = match->GetAnimPositionCache(anim);
+  if (positions.size() < 2) return 0.0f;
+  const float travel_m = (positions.back() - positions.front()).Get2D().GetLength();
+  return travel_m / (static_cast<float>(frames - 1) * pes::kGfAnimFrame_s);
+}
+
+float HumanoidBase::ClipFramesPerTick() const {
+  return OnPesClip() ? static_cast<float>(Match::kTick_ms / 1000.0 / pes::kGfAnimFrame_s) : 1.0f;
+}
+
+bool HumanoidBase::OnPesDribble() const {
+  return currentAnim->anim && currentAnim->functionType == e_FunctionType_Special &&
+         std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str()) ==
+             static_cast<int>(pes::PesClipFamily::kDribble);
+}
+
+bool HumanoidBase::PlayIssuedClip(const pes::MotionRequest& request, pes::PesClipFamily family) {
+  // PES's SetMotion pushes the layer record into the man's engine control each time it is called (FUN_1406E5FC0's flush), whatever the
+  // GF body does with the clip.
+  if (match->PesLoop()) match->PesAnimeIssue(static_cast<const Player*>(player), request);
+  return PlayIssuedClip(request.motion, request.playback, request.mirror, family, request.startTime);
+}
+
+bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::PesClipFamily family, float startTime) {
   const bool onLocomotion = OnPesLocomotion();
-  const bool onFamily = family == pes::PesClipFamily::kTrap ? OnPesTrap() : onLocomotion;
-  // The body takes an issued clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES clip
-  // already on the body (a trap's clip takes over a locomotion clip, as PES's action switch does). A ball action keeps the body.
-  if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion && !OnPesTrap()) return false;
+  const bool onFamily = family == pes::PesClipFamily::kTrap     ? OnPesTrap()
+                        : family == pes::PesClipFamily::kDribble ? OnPesDribble()
+                                                                 : onLocomotion;
+  // The body takes an issued locomotion clip where GF's own selection would let a movement clip take it: an AI movement clip, or a PES
+  // clip already on the body. A ball action keeps the body. A trap clip is not refused here: PES's reaction gate 4a (the Trap action's
+  // slot +0x10, PlayerController::_ReceiveCandidate) decided from the man's PES action whether he may take the trap, and PES's action
+  // switch then replaces whatever clip he was in.
+  // A dribble clip is the Dribble action's own tick issuing it (the man is in PES's Dribble action), so it replaces the body's clip the same way.
+  if (family != pes::PesClipFamily::kTrap && family != pes::PesClipFamily::kDribble &&
+      currentAnim->functionType != e_FunctionType_Movement && !onLocomotion && !OnPesTrap() && !OnPesDribble())
+    return false;
   // The same motion plays on: a re-issue changes its rate only, while the clip has frames left. A clip at its last frame
   // starts again from its first (PES's issue is a restart, movestep.hpp IssuedClip), because the body's own Switch at the
   // last frame is held in STOP and ACCELERATE (PesPoseHeld), so a re-issue is the only way that clip moves on.
@@ -505,7 +556,8 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::
   currentAnim->anim = anims->GetAnim(chosen);
   currentAnim->id = chosen;
   currentAnim->functionType = e_FunctionType_Special;
-  currentAnim->frameNum = 0;
+  // SetMotion's start time: the motion plays from that frame (GF's clip frames are kGfAnimFrame_s long).
+  currentAnim->frameNum = std::min(static_cast<int>(std::lround(startTime / pes::kGfAnimFrame_s)), currentAnim->anim->GetFrameCount() - 1);
   currentAnim->framePhase = 0.0f;
   currentAnim->playbackRate = playback;
   // A trap clip touches the ball at its contact frame (AddPesClips' touchframe, the install's first HitData record), where the ball
@@ -682,6 +734,16 @@ void HumanoidBase::WarpRoot(const Vector3& offset, radian yaw) {
   spatialState.directionVec = spatialState.directionVec.GetRotated2D(yaw);
   spatialState.bodyDirectionVec = spatialState.bodyDirectionVec.GetRotated2D(yaw);
   spatialState.bodyAngle = ModulateIntoRange(-pi, pi, spatialState.bodyAngle + yaw);
+}
+
+void HumanoidBase::TurnRoot(radian yaw) {
+  WarpRoot(Vector3(0), yaw);
+  nextStartPos = spatialState.position + (nextStartPos - spatialState.position).GetRotated2D(yaw);
+  std::vector<Vector3>& path = currentAnim->positions;
+  const std::size_t at = static_cast<std::size_t>(currentAnim->frameNum);
+  if (path.size() <= at) return;
+  const Vector3 pivot = path[at];
+  for (std::size_t k = at + 1; k < path.size(); ++k) path[k] = pivot + (path[k] - pivot).GetRotated2D(yaw);
 }
 
 bool HumanoidBase::TripMe(const Vector3& tripVector, int tripType) {
@@ -1353,7 +1415,11 @@ void HumanoidBase::CalculateSpatialState() {
   assert(currentAnim->movementSmuggleOffset.coords[2] == 0.0f);
   assert(position.coords[2] == 0.0f);
 
-  spatialState.actualMovement = (position - previousPosition2D) * 100.0f;
+  // m/s of the step this tick took. A GF clip advances one 10 ms frame per tick, so its step times 100 is the clip's speed; a PES clip
+  // advances a tick of real time, so its step times the tick rate is.
+  const float stepToMetresPerSecond =
+      OnPesClip() ? static_cast<float>(1000.0 / Match::kTick_ms) : static_cast<float>(1.0 / pes::kGfAnimFrame_s);
+  spatialState.actualMovement = (position - previousPosition2D) * stepToMetresPerSecond;
   float positionOffsetMovementIgnoreFactor = 0.5f;
   spatialState.physicsMovement =
       spatialState.actualMovement - (spatialState.actionSmuggleMovement) -

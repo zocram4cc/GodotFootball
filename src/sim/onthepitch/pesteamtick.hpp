@@ -74,6 +74,9 @@ constexpr int kPlayStateInPlay = 1;
 // MI+0x116C == 2: stopped but no restart is armed or taken (plan-selector §1's stoppage arm tests
 // for exactly this; PlayStateFor in pes/movestep.hpp produces it).
 inline constexpr int kPlayStateStopped = 2;
+// MI+0x116C == 3: set-play ready, an awarded restart prepared or taken up to the release touch (PlayStateFor;
+// docs/re/pes-re-taker-release.md 1.6).
+inline constexpr int kPlayStateSetPlayReady = 3;
 
 // MI+0x1554, the restart kind (pes-re-A5Judge.md's JR table): 1 kick-off, 2 throw-in,
 // 3 goal kick, 4 corner, 5 free kick, 6 penalty kick, 7 period end (plan-selector §4: the

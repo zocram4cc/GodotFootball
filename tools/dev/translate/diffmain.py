@@ -5,6 +5,7 @@ Feeds the harness corpus into the translated C++ and compares outputs bit
 for bit. Memory setup mirrors run.py set_inputs + regions_init/patch_addrs.
 Floats compare by IEEE bits.
 """
+import os
 import json
 import struct
 
@@ -216,6 +217,7 @@ def gen_snap(va, callees, native=False, vec_arg=None):
     pages, so the written bytes differ by heap addresses; the row then also carries the heap's allocation counts.
     vec_arg: a GPR index (2 = rdx) holding a std::vector<u32>* argument; the row carries the vector's elements read
     after the call ("vec"), the heap-independent output the two runs are compared on (native_seam_check.py)."""
+    arena = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "import_stubs.json")))["os_arena"]
     V = va[2:]
     fns = sorted({V} | {c[2:] for c in callees})
     L = []
@@ -229,12 +231,15 @@ def gen_snap(va, callees, native=False, vec_arg=None):
     L.append('#include <cstdlib>')
     L.append('#include <fcntl.h>')
     L.append('#include <sys/stat.h>')
+    L.append('#include <sys/mman.h>')
     L.append('#include <unistd.h>')
     L.append('#include <vector>')
     for f in fns:
         L.append('void pes_fn_%s(PesState& s);' % f)
     L.append('// One traced call (snapcase.py CALL_REC): 16 GPRs, 16 XMM (lo, hi), the return address.')
     L.append('struct CallRec { uint64_t v[49]; };')
+    L.append('// The VirtualAlloc model\'s OS arena (import_stubs.json "os_arena"): zero pages the translated side reads and writes in place.')
+    L.append('static constexpr uint64_t kOsArenaVa = %sULL, kOsArenaBytes = %sULL;' % (arena["base"], arena["bytes"]))
     L.append('int main(int argc, char** argv) {')
     L.append('  if (argc < 8) return 2;')
     L.append('  int mfd = open(argv[2], O_RDONLY); if (mfd < 0) return 2;')
@@ -258,6 +263,9 @@ def gen_snap(va, callees, native=False, vec_arg=None):
     L.append('  if (n && fread(recs.data(), sizeof(CallRec), n, cf) != n) return 2;')
     L.append('  fclose(cf);')
     L.append('  FILE* out = fopen(argv[4], "w"); if (!out) return 2;')
+    L.append('  uint8_t* arena = (uint8_t*)mmap(nullptr, kOsArenaBytes, PROT_READ | PROT_WRITE,')
+    L.append('                                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);')
+    L.append('  if (arena == MAP_FAILED) return 2;')
     L.append('  for (size_t i = 0; i < n; ++i) {')
     L.append('    snap.over.clear();')
     L.append('    uint64_t np = dwords[dpos++];')
@@ -270,6 +278,8 @@ def gen_snap(va, callees, native=False, vec_arg=None):
     L.append('    const uint64_t* r = recs[i].v;')
     L.append('    PesState s;')
     L.append('    s.mem.snap = &snap;')
+    L.append('    madvise(arena, kOsArenaBytes, MADV_DONTNEED);  // the OS arena reads as zeros at every call')
+    L.append('    s.mem.services.push_back(PesMem::Window{kOsArenaVa, kOsArenaBytes, nullptr, arena});')
     if native:
         L.append('    PesHeap heap;')
         L.append('    heap.Attach(s);')

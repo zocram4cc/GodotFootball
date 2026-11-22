@@ -22,14 +22,20 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <string>
+#include <vector>
+#include <cstdio>
 #include <cstring>
+#include <cstdio>
 #include <map>
 #include <utility>
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
 #include "pes/movestep.hpp"
+#include "pesballlist.hpp"
 #include "pesmovestep.hpp"
+#include "player/humanoid/pesplayernode.hpp"
 #include "pestrapactor.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
@@ -192,8 +198,40 @@ void TeamAIController::TickScoreRows() {
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
   scoreRows_.Bind(world.Ma(team->GetID()));  // the rows are views over this side's MA record: the window is the store
-  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(), pesPath, world);
+  const bool forced = !match->IsInPlay() || !scoreRows_.Latched();
+  scoreRows_.Tick(players, k, match->GetSimFrame(), forced, pesPath, world);
+  TickBallList(forced);
   WriteMaRecord();
+}
+
+// FUN_140457070's ball-list block (0x140457568 calls FUN_14045B090): nothing while the writer is unlatched; forced (the flag the
+// score rows take: the stoppage states MI+0x11B0 in {8, 0xB, 0xE, 0x12}, which GF has no word for; ScoreRowWriter's ponytail) it
+// runs at once; otherwise it runs when the slice counter passes the limit of pesballlist.hpp (the in-play state 0x14..0x16).
+// The writer's man flags are the match's on-pitch men (MI+0x1748), the ball its record 0 and speed the window's.
+void TeamAIController::TickBallList(bool forced) {
+  if (!match->PesLoop() || !scoreRows_.Latched()) return;
+  pes::PesWorld& world = match->PesWorldOf();
+  const int side = team->GetID();
+  int8_t* counter = reinterpret_cast<int8_t*>(world.Ai(side) + pes::kAiSliceCounterOffset);
+  if (!forced) {
+    float v[3];
+    world.BallVelocity(v);
+    const pes::PesTrapExternals& ext = match->PesTrapExternalsOf();
+    float negKmh;  // DAT_14259D65C: the install's km/h factor (-3.6), read from the exe's image
+    std::memcpy(&negKmh, ext.image + (pes::kBallListSpeedFactorVa - ext.imageBase), sizeof negKmh);
+    const int speed = static_cast<int>(std::sqrt(v[1] * v[1] + v[0] * v[0] + v[2] * v[2]) * negKmh);
+    const int limit = pes::BallListSliceLimit(pes::BallListFreshEvent(reinterpret_cast<const uint8_t*>(&world.EventImage())), speed);
+    *counter = static_cast<int8_t>(*counter + 1);
+    if (*counter <= limit) return;
+  }
+  std::array<bool, 22> onPitch{};
+  for (Team* t : {team, match->GetTeam(1 - side)}) {
+    std::vector<Player*> squad;
+    t->GetActivePlayers(squad);
+    for (Player* p : squad) onPitch[static_cast<std::size_t>(match->PesSlotOf(p))] = true;
+  }
+  world.RunBallNearest(side, onPitch, match->PesTrapExternalsOf());
+  *counter = 0;
 }
 
 void TeamAIController::WriteMaRecord() {
@@ -1281,6 +1319,10 @@ Vector3 TeamAIController::PrepareCornerStand(const Vector3& spot, Player* taker,
   return Vector3(stand.x, stand.y, 0.0f);
 }
 
+namespace {
+Vector3 ThrowInStandPoint(Match& match, const Player* taker);
+}  // namespace
+
 void TeamAIController::AdvancePieceWalk() {
   if (!pieceWalk || taker == nullptr) return;
   // PES's SeamlessThrowin phase 1 (docs/re/pes-re-throwin-choreography.md 3.2): the pickup clip 0xCF5 plays when the ball, at the
@@ -1328,6 +1370,11 @@ void TeamAIController::AdvancePieceWalk() {
       pieceWarping = true;
       pieceWarpTicks = kLiftTicks;
       pieceWarpTo = pieceCarrySpot;
+      // PES's phase-4 lift clip (throwin_seamless_liftupball, motion 0xD01, 14 frames; docs/re/pes-re-throwin-choreography.md 3.2).
+      // The body lifts the ball while the root warp moves him onto the spot; the clip's pose keeps the nearer ankle clear of the line
+      // through the warp.
+      constexpr int kLiftMotion = 0xd01;
+      taker->CastHumanoid()->PlayIssuedClip(kLiftMotion, 1.0f, false, pes::PesClipFamily::kTrap);
     }
   }
   // The root warp of the clip: an even step per tick onto the warp's end (the contact point, or the carry spot). It is the clip's
@@ -1355,6 +1402,13 @@ void TeamAIController::AdvancePieceWalk() {
     pieceWarping = false;
     if (pieceCarrying) {
       pieceLifted = true;
+      // PES's ThrowinLoop SetKick (0x140794280, docs/re/pes-re-throwin-choreography.md 4.1) puts the lifted taker on his stand point as the
+      // loop starts: the release key's ball is over the restart point, so he stands the key's length outside the touchline (live PES, loop and
+      // key: root z = R + 0.773). The lift walked him to the carry spot, F1 + 0.7, which is inside that stand.
+      taker->WarpRoot((ThrowInStandPoint(*match, taker) - taker->GetPosition()).Get2D(), 0.0f);
+      // PES's phase 5 starts the loop when the lift clip ends (docs/re/pes-re-throwin-choreography.md 3.2): the loop is issued once, here.
+      constexpr int kThrowInLoopMotion = 0xcf4;
+      taker->CastHumanoid()->PlayIssuedClip(kThrowInLoopMotion, 1.0f, false, pes::PesClipFamily::kTrap);
     } else {
       pieceCarrying = true;
       pieceWalkTarget = pieceCarrySpot;
@@ -1388,17 +1442,61 @@ Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
 namespace {
 
 // PES's throw-in key clip (ThrowinLoop's SetKick and release clip, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1): the
-// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1).
-// ponytail: the body scale (PES's player +0x3B18) is taken as 1.
+// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1), scaled by the taker's own
+// physique P+0x3B18 (PesBodyScaleOf below).
 constexpr int kThrowInKeyMotion = 0xcfa;
-pes::Vec3 ThrowInKeyOffset(Match& match) {
+// PES's player physique scale: FUN_1406EB210 (0x1406EB23E) writes P+0x3B18 = height_cm / DAT_142598580 (180.0) from the setup
+// record's height, and FUN_1406E8CC0 scales a clip's ball offset by it (x and z clamped to DAT_1425DDF78..DAT_1425DDF80 = 0.9166..
+// 1.0833, y not clamped). Read the way PES reads it: the window's P for the man's slot (the actor writer stores the same value there).
+float PesBodyScaleOf(Match& match, const Player* player) {
+  if (player == nullptr) return 1.0f;
+  const uint8_t* p = match.PesWorldOf().P(match.PesSlotOf(player));
+  float scale = 0.0f;
+  std::memcpy(&scale, p + pes::kPF3B18Offset, sizeof scale);
+  return scale > 0.0f ? scale : 1.0f;  // 0: the window's P was not written this tick
+}
+
+pes::Vec3 ThrowInKeyOffset(Match& match, const Player* taker) {
   const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
   const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
-  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
+  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), PesBodyScaleOf(match, taker), false,
                                pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
 }
 
 }  // namespace
+
+void TeamAIController::PushPieceTakerBehindLine() {
+  // Before the release only: the restart is pending until the touch (the carry flag stays set after it, until the next restart).
+  if (!match->PesLoop() || !match->IsInSetPiece() || setPieceType != e_SetPiece_ThrowIn || taker == nullptr || !IsCarryingBall() ||
+      !PieceTakerArrived())
+    return;
+  // PES's constants, read from the image as PES reads them: the margin DAT_142588200 (0.1 m) and the signs DAT_142588218 (-1.0, a
+  // negative ankle z) and DAT_14256AE1C (1.0). F[1] is the pitch half-width (pesFieldHalfWidth, F1 0x42083D70).
+  constexpr uint64_t kAnkleMarginVa = 0x142588200, kSignNegativeVa = 0x142588218, kSignDefaultVa = 0x14256AE1C;
+  constexpr int kLeftAnkleJoint = 3, kRightAnkleJoint = 6;  // PES joint i is rig joint i+1: left_ankle, right_ankle (KickJoints 1)
+  pes::PesWorld& world = match->PesWorldOf();
+  pes::PesTrapExternals& ext = match->PesTrapExternalsOf();
+  const auto imageFloat = [&ext](uint64_t va) {
+    float value = 0.0f;
+    std::memcpy(&value, ext.image + (va - ext.imageBase), sizeof value);
+    return value;
+  };
+  const int slot = match->PesSlotOf(taker);
+  // PES's guard chain before the joint reads (FUN_140792E10: the taking state, tests A and B around the A branch's bookkeeping
+  // block): PesWorld::PushGateOpen, which runs PES's own translated functions on the taker's record.
+  if (!world.PushGateOpen(slot, ext)) return;
+  float left[3], right[3];
+  if (!world.JointPosition(slot, kLeftAnkleJoint, ext, left) || !world.JointPosition(slot, kRightAnkleJoint, ext, right)) return;
+  // The nearer ankle by |z|, joint 3 on a tie: FUN_140792E10's cmovbe.
+  const float* nearer = std::fabs(left[2]) <= std::fabs(right[2]) ? left : right;
+  const float threshold = pesFieldHalfWidth + imageFloat(kAnkleMarginVa);
+  const float absZ = std::fabs(nearer[2]);
+  if (absZ >= threshold) return;  // not short: no push
+  const float sign = nearer[2] < 0.0f ? imageFloat(kSignNegativeVa) : imageFloat(kSignDefaultVa);
+  float root[3];
+  std::memcpy(root, world.P(slot) + pes::kPPosOffset, sizeof root);  // P+8: x, y, z (PES axes)
+  world.RunAnkleShove(slot, root[0], root[1], root[2] + (threshold - absZ) * sign, ext);
+}
 
 void TeamAIController::PinBallAtRelease() {
   // A carrier holds the ball at his release row's key; a placed (ceremony) taker holds it at his SetKick key, the point the
@@ -1415,14 +1513,14 @@ void TeamAIController::PinBallAtRelease() {
       pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
                                                     match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
     }
-    constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
+    const float kPhysique = PesBodyScaleOf(*match, taker);  // PES's +0x3B18 (height_cm / 180), read from the window's P
     constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
     const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
     const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
     const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
     offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   } else {
-    offset = ThrowInKeyOffset(*match);
+    offset = ThrowInKeyOffset(*match, taker);
   }
   const Vector3 pos = taker->GetPosition();
   const Vector3 facing = taker->GetDirectionVec();
@@ -1460,9 +1558,16 @@ int CeremonyRoleClass(e_PlayerRole role) {
 
 // A placed throw-in taker's stand point (PES's ThrowinLoop SetKick, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1):
 // the release key's horizontal length outside the touchline over the restart point.
-float ThrowInStandLength_m(Match& match) {
-  const pes::Vec3 offset = ThrowInKeyOffset(match);
+float ThrowInStandLength_m(Match& match, const Player* taker) {
+  const pes::Vec3 offset = ThrowInKeyOffset(match, taker);
   return std::hypot(offset.x, offset.z);
+}
+
+// A placed throw-in taker's stand point (PES's ThrowinLoop SetKick): the restart point, pushed outward by the release key's length.
+Vector3 ThrowInStandPoint(Match& match, const Player* taker) {
+  const Vector3 restart = match.GetReferee()->GetBuffer().restartPos;
+  const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
+  return Vector3(restart.coords[0], restart.coords[1] + outward * ThrowInStandLength_m(match, taker), 0.0f);
 }
 
 }  // namespace
@@ -2100,10 +2205,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       pieceWalkTarget = ballPos;
       pieceCarrySpot = Vector3(carry.x, carry.z, 0.0f);
       if (!seamlessRestart && taker) {
-        const Vector3 restart = match->GetReferee()->GetBuffer().restartPos;
-        const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
-        const float standIn_m = ThrowInStandLength_m(*match);
-        taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * standIn_m, 0.0f), ballPos);
+        taker->ResetPosition(ThrowInStandPoint(*match, taker), ballPos);
         pieceHeld = true;
       }
     } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
@@ -2174,6 +2276,10 @@ constexpr float kMsPerSecond = 1000.0f;
 // FUN_140a74ec0 returns 0xffffffff frames when the newest restart was not a
 // kick-off; the caller reads it unsigned, i.e. "forever".
 constexpr float kNoKickOff_s = 1e9f;
+// T+0x250, the team's attack angle in degrees, paired with the sign byte T+0x254: live2/pid296049 seq4754 holds 270.0 beside
+// sign -1 (the team attacks -x); the +x value is its half-turn (INF, the stand-in the retired second-presser port used).
+constexpr float kAttackAngleMinusX_deg = 270.0f;
+constexpr float kAttackAnglePlusX_deg = 90.0f;
 
 // The PES concept ids this port runs, in the selector's ascending walk.
 constexpr int kPortedConcepts[] = {pes::kConceptSideCounter, pes::kConceptForeCheckPress,
@@ -2392,16 +2498,17 @@ Player* TeamAIController::GetTeamPressurePlayer() {
 Player* TeamAIController::GetLoosePressMan() {
   const int side = team->GetID();
   const auto& players = team->GetAllPlayers();
-  for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
-    if (pressState.role[side * 11 + k] == pes::kPressState) return players[k].get();
+  pes::PesWorld& world = match->PesWorldOf();
+  for (int k = 0; k < pes::kSlotsPerSide && k < static_cast<int>(players.size()); ++k) {
+    if (world.PressAction(side, k) == pes::kTeamActionPress) return players[k].get();
   }
   return nullptr;
 }
 
 bool TeamAIController::IsLoosePresser(const PlayerBase* p) const {
   const auto& players = team->GetAllPlayers();
-  for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
-    if (players[k].get() == p) return pes::PressIsLoosePresser(pressState.role, team->GetID(), k);
+  for (int k = 0; k < pes::kSlotsPerSide && k < static_cast<int>(players.size()); ++k) {
+    if (players[k].get() == p) return match->PesWorldOf().PressAction(team->GetID(), k) == pes::kTeamActionPress;
   }
   return false;
 }
@@ -2409,297 +2516,78 @@ bool TeamAIController::IsLoosePresser(const PlayerBase* p) const {
 bool TeamAIController::PressOrDelay(const PlayerBase* p) {
   const bool teamPressure = GetTeamPressurePlayer() == p;
   if (!match->PesLoop()) return teamPressure;
+  // PES's pressOrDelay flag (pesreceive.hpp): P+0x5D0 in {0x33, 0x34}, the writer's DELAY and PRESS words.
   const auto& players = team->GetAllPlayers();
-  for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
-    if (players[k].get() == p) return pes::PressOrDelayFlag(teamPressure, pressState.role, team->GetID(), k);
+  for (int k = 0; k < pes::kSlotsPerSide && k < static_cast<int>(players.size()); ++k) {
+    if (players[k].get() != p) continue;
+    const uint32_t word = match->PesWorldOf().PressAction(team->GetID(), k);
+    return teamPressure || word == pes::kTeamActionPress || word == pes::kTeamActionDelay;
   }
   return teamPressure;
 }
 
+// FUN_140535C60 on the world window (PesWorld::RunPressDispatch): the defence passes and the mark pass (T+0x558 and the MARK/COVER
+// words), the MATCH_UP step, the coordinator 0x140634470, the slot reset FUN_140536690, the writer 0x140536FC0 and the order-word loop,
+// all PES's. GF stages the T fields PES's AI writes elsewhere (PesWorld::StagePress), each named below with its PES writer. PES path only.
 void TeamAIController::PesPressTick() {
-  // FUN_140535C60 order: the coordinator (FUN_140634470) runs before the sweep, so the writer sees this
-  // tick's second presser and keeps him (PressWriterWord).
-  PesSecondPresserTick();
-  PesLooseWriterTick();
-}
-
-void TeamAIController::PesLooseWriterTick() {
+  if (!match->PesLoop()) return;
+  pes::PesWorld& world = match->PesWorldOf();
   const int side = team->GetID();
-  const uint32_t stamp = static_cast<uint32_t>(match->GetSimFrame());
-  // Renewal + reset is the lifecycle (press-life 10): whoever is not picked below is reset to NOTHING,
-  // so a presser stops the tick the writer drops him, except the coordinator's second presser, whose life
-  // the coordinator owns (PressWriterWord: PES FUN_140535C60 skips a slot already PRESS). PES path only:
-  // the GF path keeps its designated chase untouched.
-  auto resetAll = [&]() {
-    for (int k = 0; k < 11; ++k) {
-      const int man = side * 11 + k;
-      pressState.SetAction(man, pes::PressWriterWord(man, pes::kPressNoMan, coordState.second), stamp);
-    }
-    for (int i = 0; i < 4; ++i) pressState.pressSlot[i] = -1;
-  };
-  if (!match->PesLoop() || !match->IsInPlay() || match->IsInSetPiece() ||
-      match->GetBallRetainer() != nullptr) {
-    resetAll();
-    return;
+  WriteMaRecord();  // MA's ball copy and carrier, the point the press reads (the score rows keep MA's lists)
+  pes::PesWorld::PressFacts f;
+  // T+0x78 is the selector's output (Team::RunPesPassTarget, FUN_1404FB2A0, team-tick step 40c): the press reads the window's word, as
+  // PES's dispatcher (call 0x1404F7955) runs after the selector (0x1404F784B). T+0x7C is the MATCH_UP writer's (PesWorld::RunMatchUp).
+  // MA+0x2601C: the last toucher (FUN_140457070, W1 0x14045725A; Match::RecomputePesHolder).
+  const Player* holder = match->GetPesHolder();
+  if (holder != nullptr) {
+    const pes::ActorKey key = match->PesActorKeyOf(holder);
+    if (key.Valid() && key.team < 2 && key.slot < pes::kSlotsPerSide)
+      f.holder = static_cast<uint32_t>(key.team) * pes::kSlotsPerSide + key.slot;
   }
-  // Owned is not loose. ponytail: PES reads its carrier (MA+0x2601c); GF's
-  // retainer misses dribblers, so ownership is proximity plus the newest touch
-  // being his. Any owner's ball stops both sides' loose pick.
-  const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
-  Player* newestMan = newest.present ? match->GetPesActorPlayer(newest.actor) : nullptr;
-  for (int s = 0; s < 2; ++s) {
-    for (const auto& p : match->GetTeam(s)->GetAllPlayers()) {
-      if (p->HasPossession() && p.get() == newestMan) {
-        resetAll();
-        return;
-      }
-    }
-  }
-  // The pick: the §6 pass-1 score over the enrolled men, winner within the
-  // (18+7r) radius. Enrolment is the §5 table's shape (on-pitch, outfield,
-  // not owning); the §5 tally itself serves the skipped §3.2 multi-press.
-  const pes::PressConstants& c = match->GetPesPressConstants();
-  const Vector3 ball = match->GetBall()->Predict(0);
-  const auto& players = team->GetAllPlayers();
-  pes::PressPickInput in;
-  // ponytail: the side reference (FUN_140a71540, straight-back FUN_140a4db20
-  // or the ball-goal bearing under T+0xb712) is not decoded; the ball-to-goal
-  // bearing stands in, preferring goal-side pressers.
-  const float goalX = -static_cast<float>(team->GetSide()) * pitchHalfW;
-  // The writer's gate (FUN_140536FC0, 0x140537332; S1Watch's decode): the sample is BallInfo sample 0, the ball now, and the
-  // point is the MA ball copy (MA+0x2482C/+0x24834). GF stand-in: both are the ball now (Predict(0)).
-  in.ballX = ball.coords[0];
-  in.ballZ = ball.coords[1];
-  in.sampleX = ball.coords[0];
-  in.sampleZ = ball.coords[1];
-  in.referenceDeg = pes::PressBearingDeg(c, ball.coords[0], ball.coords[1], goalX, 0.0f);
-  for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
-    const int man = side * 11 + k;
-    Player* p = players[k].get();
-    in.posX[man] = p->GetPosition().coords[0];
-    in.posZ[man] = p->GetPosition().coords[1];
-    // The keeper's rush owns him (the keeper branch); an owning man is owned.
-    const bool keeper = p->GetFormationEntry().role == e_PlayerRole_GK;
-    in.onField[man] =
-        p->IsActive() && !keeper && !(p->HasPossession() && p == newestMan);
-    in.role[k] = pressState.role[man];
-  }
-  for (int i = 0; i < 4; ++i) in.pressSlotMan[i] = pressState.pressSlot[i];
-  const std::vector<pes::PressCandidate> bucket = pes::RunPresserPass1(c, in, side);
-  // The gate (FUN_140536FC0, 0x140537332) and the pick: the same test for a fresh pick and a renewal.
-  const int winner = pes::PressWinner(c, in, bucket);
-  for (int k = 0; k < 11; ++k) {
-    const int man = side * 11 + k;
-    pressState.SetAction(man, pes::PressWriterWord(man, winner, coordState.second), stamp);
-  }
-  pressState.pressSlot[0] = winner;
-  for (int i = 1; i < 4; ++i) pressState.pressSlot[i] = -1;
-}
-
-void TeamAIController::PesSecondPresserTick() {
-  const int side = team->GetID();
-  // T+0x254, the attack sign: the team attacks towards -side (the goalX convention PesLooseWriterTick uses).
-  const float sign = -static_cast<float>(team->GetSide());
-  if (!match->PesLoop()) {
-    coordState = pes::PressCoordState{};
-    return;
-  }
-  const pes::PressConstants& c = match->GetPesPressConstants();
-  const uint32_t stamp = static_cast<uint32_t>(match->GetSimFrame());
-  const int fps = static_cast<int>(c.framesPerSec);
-  const Vector3 ball = match->GetBall()->Predict(0);
-  // B+0x18 and the high test, both read as GF's ball height (ponytail: PES's two ball words are not split).
-  const bool lifted = ball.coords[2] > c.gateBallHeight_m;
-  auto dist2 = [](float ax, float az, float bx, float bz) {
-    return (bx - ax) * (bx - ax) + (bz - az) * (bz - az);
-  };
-
-  // MA+0x2601C (FUN_140457070, W1 0x14045725A; the per-tick recompute Match::RecomputePesHolder): the holder,
-  // carried apart from GF's retainer (Match::GetPesHolder) - it persists on a loose ball, so the reaction keeps
-  // its man while the ball is in transit.
-  const Player* holderPlayer = match->GetPesHolder();
-  int holder = pes::kPressNoMan;
-  if (holderPlayer != nullptr) {
-    const pes::ActorKey key = match->PesActorKeyOf(holderPlayer);
-    if (key.Valid() && key.team < 2 && key.slot < pes::kPressSideMen)
-      holder = static_cast<int>(key.team) * pes::kPressSideMen + static_cast<int>(key.slot);
-  }
-  const bool holderValid = holder < pes::kPressTeamMen;
-  // The newest valid ring-0 touch: the T+0x78 stand-in for this side's last kick (the real writer is OPEN; the
-  // opponent-kick fallback T_opp+0x78 is absent).
-  pes::ActorKey touch{};
-  bool touchValid = false;
-  for (int n = 0; n < 8 && !touchValid; ++n) {
-    const pes::NewestEventView view = pes::EventAt(match->GetPesEvents(), n);
-    touchValid = view.present && view.actor.Valid() && view.actor.team < 2 && view.actor.slot < pes::kPressSideMen;
-    if (touchValid) touch = view.actor;
-  }
-  const bool kickValid = touchValid && static_cast<int>(touch.team) == side;
-  const int kickMan = kickValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
-                                : pes::kPressNoMan;
-
-  // The men by team index (side * 11 + slot), and this side's slot words.
-  pes::PressEvalInput in;
-  in.side = side;
-  in.sign = sign;
-  in.fps = fps;
-  std::array<Player*, pes::kPressTeamMen> players{};
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  f.playState = static_cast<uint32_t>(pes::PlayStateFor(
+      match->IsInPlay(), buffer.active, buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started));
+  f.frame = static_cast<uint32_t>(match->GetSimFrame());
+  f.attackLevel = static_cast<uint32_t>(teamTick.b8a4);
+  f.teamLevelRaw = static_cast<uint32_t>(match->GetTeamLevelRaw(side));
+  f.attackSign = -team->GetSide();
+  f.attackAngle_deg = f.attackSign > 0 ? kAttackAnglePlusX_deg : kAttackAngleMinusX_deg;
+  // T+0xF1 / +0xB712 / +0xB715: the writer's body gate. ponytail: PES's event walk sets them on event type 7 (FUN_140501283 /
+  // FUN_140501468, press-layer-port pass 8); GF has no such writer, so the gate stands open on the PES path.
+  f.armed = 1;
   for (int t = 0; t < 2; ++t) {
     const auto& roster = match->GetTeam(t)->GetAllPlayers();
-    for (int k = 0; k < pes::kPressSideMen && k < static_cast<int>(roster.size()); ++k) {
-      const int man = t * pes::kPressSideMen + k;
-      Player* p = roster[k].get();
-      players[man] = p;
-      in.men[man].x = p->GetPosition().coords[0];
-      in.men[man].z = p->GetPosition().coords[1];
-      in.men[man].active = p->IsActive();
-      // ponytail: the goalkeeper role stands in for the PES kinds the eval excludes.
-      in.men[man].excludedKind = p->GetFormationEntry().role == e_PlayerRole_GK;
-      if (t == side) {
-        in.slots[k].roleClass = RoleClassOfSlot(k);  // ponytail: the B class stands in for T+0x87D0
-        in.slots[k].keepX = in.men[man].x;           // ponytail: T+0x4B4C is not carried; the margin reads his x
-      }
-    }
+    for (int k = 0; k < pes::kSlotsPerSide && k < static_cast<int>(roster.size()); ++k)
+      f.onPitch[t * pes::kSlotsPerSide + k] = roster[k]->IsActive();
   }
-  float hx = 0.0f, hz = 0.0f, holderFacing = 0.0f;
-  if (holderValid && players[holder] != nullptr) {
-    hx = in.men[holder].x;
-    hz = in.men[holder].z;
-    const Vector3 dir = players[holder]->GetDirectionVec();
-    holderFacing = pes::PressBearingDeg(c, 0.0f, 0.0f, dir.coords[0], dir.coords[1]);  // H+0x554 stand-in
+  const auto& players = team->GetAllPlayers();
+  for (int k = 0; k < pes::kSlotsPerSide && k < static_cast<int>(players.size()); ++k) {
+    f.roleClass[k] = static_cast<uint32_t>(RoleClassOfSlot(k));
+    // ponytail: T+0x4B4C (the eval's mode-4 margin, FUN_140633940 0x140634308) is not carried; the man's own x stands in.
+    f.keepX[k] = players[k]->GetPosition().coords[0];
   }
-
-  // The side's active man nearest the holder: the entry-0 man of the holder's list (the match-up man is not carried).
-  auto nearestOwn = [&]() {
-    int best = pes::kPressNoMan;
-    float bestD2 = 0.0f;
-    for (int k = 0; k < pes::kPressSideMen; ++k) {
-      const int man = side * pes::kPressSideMen + k;
-      if (man == holder || !in.men[man].active) continue;
-      const float d = dist2(hx, hz, in.men[man].x, in.men[man].z);
-      if (best == pes::kPressNoMan || d < bestD2) {
-        best = man;
-        bestD2 = d;
-      }
-    }
-    return best;
-  };
-  const int nearest = holderValid ? nearestOwn() : pes::kPressNoMan;
-
-  // FUN_1406324a0 (class 5) and FUN_140632ae0 (the class). Flags 0xd, 4, 6 and 1 are stand-ins false.
-  pes::PressClassFiveInput cin;
-  cin.holder = holder;
-  cin.cand = nearest;
-  cin.clauseOk = !lifted || !kickValid;  // (B+0x18 <= 1.5 and not high) or T+0x78 > 21
-  if (nearest < pes::kPressTeamMen) {
-    cin.keeperKind = in.men[nearest].excludedKind;
-    cin.roleClass = RoleClassOfSlot(nearest % pes::kPressSideMen);
-    cin.ballDist_m = std::sqrt(dist2(ball.coords[0], ball.coords[1], in.men[nearest].x, in.men[nearest].z));
-  }
-  const int classFiveMan = holderValid ? pes::PressClassFiveMan(c, cin) : pes::kPressNoMan;
-  pes::PressClassInput clsIn;
-  clsIn.flagFiveMan = classFiveMan < pes::kPressTeamMen;
-  const int cls = pes::PressClass(clsIn);
-
-  // Step 2: the reason words are cleared, except the second presser's slot (PP[2]).
-  const int prevSecond = coordState.second;
-  const int prevX = coordState.xMan;
-  for (int k = 0; k < pes::kPressSideMen; ++k) {
-    if (!(prevSecond < pes::kPressTeamMen && k == prevSecond % pes::kPressSideMen)) coordState.reason[k] = 0;
-  }
-  // Step 3: maintain (FUN_140632e70) the second presser: keep him as PRESS, or release him.
-  if (prevSecond < pes::kPressTeamMen) {
-    const int k = prevSecond % pes::kPressSideMen;
-    const bool xOk = prevX < pes::kPressTeamMen;
-    pes::PressMaintainInput mi;
-    mi.inPlay = match->IsInPlay() && !match->IsInSetPiece() && !match->GetRefereeBuffer().active;
-    mi.slot = k;
-    mi.man = prevSecond;
-    mi.tableWord = pressState.role[prevSecond];
-    mi.holderNow = holder;
-    mi.holderRecorded = coordState.holder;
-    mi.holderFromTouch = holderValid;  // MA+0x2601C valid: the holder is the newest toucher (W1's rule)
-    mi.reason = coordState.reason[k];
-    mi.classFiveNow = classFiveMan;
-    mi.lifted = lifted;
-    mi.teamKickMan = kickMan;
-    mi.xMan = prevX;
-    mi.roleClass = RoleClassOfSlot(k);
-    if (holderValid) {
-      mi.manToHolderDistSq = dist2(hx, hz, in.men[prevSecond].x, in.men[prevSecond].z);
-      if (xOk) {
-        mi.bearingVsCoverDeg = std::fabs(pes::PressSideAngleDeg(
-            c, pes::PressBearingDeg(c, hx, hz, in.men[prevSecond].x, in.men[prevSecond].z),
-            pes::PressBearingDeg(c, hx, hz, in.men[prevX].x, in.men[prevX].z)));
-      }
-      mi.xCloserToTeamPoint =
-          xOk && dist2(ball.coords[0], ball.coords[1], in.men[prevX].x, in.men[prevX].z) <
-                     dist2(ball.coords[0], ball.coords[1], hx, hz);
-    }
-    if (xOk) mi.manToXDistSq = dist2(in.men[prevX].x, in.men[prevX].z, in.men[prevSecond].x, in.men[prevSecond].z);
-    const pes::PressStampRing& ring = pressState.actionRing[prevSecond];
-    mi.stampFirst = ring.slots[ring.head].first;
-    mi.stampLast = ring.slots[ring.head].last;
-    mi.windowFrames = static_cast<uint32_t>(2 * fps);
-    if (pes::PressPresserKept(c, mi)) {
-      pressState.SetAction(prevSecond, pes::kPressState, stamp);    // FUN_140a42940: keep, PRESS
-    } else {
-      pressState.SetAction(prevSecond, pes::kNothingState, stamp);  // FUN_140a40820: the slot reset
-      coordState.second = pes::kPressNoMan;
-    }
-  }
-
-  // Step 4: PP[0] is the holder. No holder ends the pass.
-  coordState.holder = holder;
-  if (!holderValid) return;
-  // Step 5: PP[1] (T+0x7C stand-in: the side's man nearest the holder), then the in-play test.
-  coordState.xMan = nearest;
-  if (!match->IsInPlay() || match->IsInSetPiece() || match->GetRefereeBuffer().active) return;  // a restart pending (referee buffer) is not PES's state 1
-
-  // Step 7: the gate (FUN_140632780). Classes other than 5 need PP[1].
-  if (cls != pes::kPressClassFive && coordState.xMan >= pes::kPressTeamMen) return;
-  pes::PressGateInput g;
-  g.ballHeight_m = ball.coords[2];
-  g.teamKickValid = kickValid;
-  g.classFive = cls == pes::kPressClassFive;
-  if (coordState.xMan < pes::kPressTeamMen) {
-    const float xx = in.men[coordState.xMan].x;
-    const float xz = in.men[coordState.xMan].z;
-    g.cover = pes::PressCoverByHolder(c, std::sqrt(dist2(hx, hz, xx, xz)), pes::PressBearingDeg(c, hx, hz, xx, xz),
-                                      sign > 0.0f ? 180.0f : 0.0f);  // T+0x6EC stand-in: heading by the sign
-  }
-  // FUN_140481B00: the holder's facing against the attack bearing (T+0x250; ponytail: 90 forward, 270 back).
-  g.facingToAttack_deg = std::fabs(pes::PressSideAngleDeg(c, sign > 0.0f ? 90.0f : 270.0f, holderFacing));
-  if (!pes::PressGatePasses(c, g)) return;
-
-  // Step 9: the aggressive flag A. The press point stands in as the ball (FUN_14063FDC0 is OPEN); the frontline
-  // style is the defensive-style toggle (FUN_140a62180(ctx, side, 4)).
-  bool aggressive = teamRecord.sheet.Toggle(pes::kDefensiveStyle) == 0 && sign * ball.coords[0] > 0.0f;
-  aggressive = aggressive || (sign * ball.coords[0] < c.evalThetaBase_m - pesPenaltyAreaLineX &&
-                              std::fabs(ball.coords[1]) < pesPenaltyAreaHalfWidth);
-
-  // Step 10: the dispatch. Class 5 takes the holder's nearest side man; class 7 needs A; the eval picks the rest.
-  if (cls == pes::kPressClassFive) {
-    if (nearest < pes::kPressTeamMen) {
-      coordState.second = nearest;
-      coordState.reason[nearest % pes::kPressSideMen] = pes::kPressClassFive;
-      pressState.SetAction(nearest, pes::kPressState, stamp);
-    }
-    return;
-  }
-  if (cls == pes::kPressClassSix || (cls == pes::kPressClassSeven && !aggressive)) return;
-  pes::PressEvalInput ein = in;
-  ein.ref = holder;
-  ein.excluded = coordState.xMan;
-  ein.incumbent = coordState.second;
-  ein.mode = cls;
-  ein.aggressive = aggressive;
-  const pes::PressEvalResult r = pes::PressEvalPick(c, ein);
-  coordState.second = r.man;  // FUN_140633940 returns PP[2]: the man, or none
-  if (r.man < pes::kPressTeamMen) {
-    coordState.reason[r.man % pes::kPressSideMen] = r.mode;
-    pressState.SetAction(r.man, pes::kPressState, stamp);
-  }
+  f.sheet = teamRecord.sheet.Bytes();
+  // The carrier units read MA+0x2601C as the ball OWNER (elizacontroller.cpp sets it before RunCarrierUpdate); the press reads it
+  // as the last toucher. ponytail: both are one PES field (FUN_140457070 W1); until the owner is that field, the press run borrows
+  // it and puts the carrier's value back.
+  const uint32_t owner = pes::LoadU32(world.Ma(side), pes::kMaOwnerOffset);
+  // The unit updater 0x1421019D0 also reads T+0x4C00 (the unit words, zero before the press stages the role classes there), so the
+  // press run borrows those words too. ponytail: PES keeps one T+0x4C00 for both readers; remove once GF stages that word once.
+  std::array<uint32_t, pes::kSlotsPerSide> unitWords{};
+  for (int k = 0; k < pes::kSlotsPerSide; ++k)
+    unitWords[k] = pes::LoadU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k);
+  // MI+0x1748 (the on-pitch bytes) are the same: nothing else in GF sets them (zero = "no man on the pitch" for the carrier chain).
+  // With the real bytes the chain reaches PES plan paths the translated layer does not hold (pes-loop aborts at 0x14211BF40, then
+  // 0x142132E20), so the press borrows them too. ponytail: remove with the carrier closure's widening (DribbleProposal), which
+  // lets the carrier chain read the real bytes.
+  std::array<uint8_t, pes::kSlotCount> onPitch{};
+  std::memcpy(onPitch.data(), world.MatchInfo() + pes::kMiOnPitchOffset, onPitch.size());
+  world.StagePress(side, f);
+  world.RunPressDispatch(side);
+  world.SetMaOwner(side, owner);
+  for (int k = 0; k < pes::kSlotsPerSide; ++k)
+    pes::StoreU32(world.SideRecord(side), pes::kSideUnitWordsOffset + sizeof(uint32_t) * k, unitWords[k]);
+  std::memcpy(world.MatchInfo() + pes::kMiOnPitchOffset, onPitch.data(), onPitch.size());
 }
 
 bool TeamAIController::StartConcept(int id) {
@@ -2926,9 +2814,7 @@ void TeamAIController::UpdateStrategy() {
   // taken (plan-selector §1 vs roles §2). Only the in-play-only work below uses the narrower gate.
   const bool pesInPlay = match->IsInPlay();
   const bool inPlay = pesInPlay && !match->IsInSetPiece();
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
-  const int playState = pes::PlayStateFor(
-      match->IsInPlay(), buffer.active, buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started);
+  const int playState = match->PesPlayState();
   if (pesPath) {
     // Steps 8 and 9 first, as in PES's order: the stopped select (8) and the out-of-play clear of
     // the reaction delays (9) read the latch, MI+0x116C and MI+0x1554 before the drift reads anything.
@@ -3019,10 +2905,8 @@ void TeamAIController::PesStep55() {
 }
 
 pes::run::ReleaseRoute TeamAIController::PesStep48() {
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
   pes::run::ReleaseDispatchInput in;
-  in.playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
-                                    buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started);
+  in.playState = match->PesPlayState();
   // ponytail: the ==3 arm (FUN_140642670), the else arm (FUN_14057F590), the
   // carrier-record gate (FUN_140A3E190), the MI+0x1198 frame window and the
   // MI+0x173C 2-slot scan read record tables with no GF counterpart
@@ -3281,6 +3165,7 @@ void TeamAIController::SetUpRoleArrays() {
                                  pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece()),
                                  match->PesRestartKind()),
                              &roles);
+  pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
 }
 
 // The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). Both take the level of
@@ -3300,6 +3185,7 @@ void TeamAIController::WriteRoleArrays(bool head) {
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamRecord.sheet,
                              level, &roles);
+  pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
   // ponytail: `level` is the role level, the matrix row of WriteSideRoles. WriteSlotPoints takes the sheet phase
   // (FUN_1404F5F10: f = 2 - (F != 0), 0 when MI+0x116C != 1 && MI+0x1554 == 1; 0x1404F5F38-4A). They coincide on every
   // reachable path today (audit F6); split them when a level-0 phase lands.
@@ -3320,8 +3206,10 @@ void TeamAIController::WriteRoleArrays(bool head) {
   }
   if (match->PesLoop()) UpdateLaneLine();
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
-  if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
+  if (roleSwap && possession && pes::roles::TailSwapAllowed(roles)) {
     pes::roles::SwapB(&roles, roleSwap->first, roleSwap->second);
+    pes::roles::StoreSideRoles(roles, match->PesWorldOf().SideRecord(team->GetID()));
+  }
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
@@ -3352,9 +3240,7 @@ void TeamAIController::UpdatePesSheetPlan() {
   // setup word (setup+0x1FC) likewise stands at 0 (keep) until its writer is found.
   constexpr bool kRestartGate8D = false;
   constexpr bool kSetupWordNonZero = false;
-  const RefereeBuffer& buffer = match->GetRefereeBuffer();
-  const int playState = pes::PlayStateFor(
-      match->IsInPlay(), buffer.active, buffer.ReadyForTake(match->GetActualTime_ms()) || buffer.started);
+  const int playState = match->PesPlayState();
   if (playState == pes::kPlayStateStopped && kRestartGate8D) {
     teamRecord.sheet.SetPlan(pes::StoppagePlan2(teamRecord.sheet.Plan(), kSetupWordNonZero));
     return;
@@ -3475,19 +3361,27 @@ void WritePesManMovement(Player& pl, uint8_t* man) {
 
 namespace {
 
-// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state.
-pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
+// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state. `p` is P's bytes as the last tick left them.
+pes::PesActorFacts TrapFactsOf(const Match& match, Player& pl, int slot, bool carrier, const uint8_t* p) {
   pes::PesActorFacts f;
   f.slot = slot;
   f.side = slot / pes::kSlotsPerSide;
-  f.heightCm = pesmovestep::PhysiqueHeightCmOf(pl);
+  f.heightCm = pesmovestep::PhysiqueHeightCmOf(match, pl);
   const pes::MoveStepRecord& rec = pl.GetMoveStep();
   f.phase = static_cast<uint8_t>(rec.state);  // P+0x245C is the MOVESTEP record's state
-  // ponytail: GF has no PES action id for the body (P+0xAC8; MOVESTEP's AnimeState answers 2 for movement-like functions too).
-  // The receiving man is in MOVE (2) or STEP_MOVE (3) when entry 3 fires (the six kind-0 captures show both with the same
-  // phases), and nothing in GF tells them apart, so MOVE stands in for the pair and the previous pair. A body action that has an
-  // id replaces this.
-  f.action = f.sub = f.prevAction = f.prevSub = pes::kAnimeActionMove;
+  // P+0xAC8..0xACB: the PES action the body runs (pes::AnimeActionOfClip, from the clip it plays), stored the way FUN_1406EEBB0 stores it
+  // (pes::ActionIdsAfterSwitch: the previous pair takes the current one on a change). A trap clip is the exception: PES's own action
+  // ticks write the action it leaves for (the end handler 0x14079E5C0 calls FUN_1406EEBB0 for DRIBBLE or MOVE while the body is still on
+  // the trap clip), so P keeps what they wrote.
+  const Anim* clip = pl.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  const uint8_t derived = pes::AnimeActionOfClip(pl.GetCurrentFunctionType(), family, carrier);
+  const pes::ActionIds held{p[pes::kPByteAC8Offset], p[pes::kPByteAC9Offset], p[pes::kPPrevActionOffset], p[pes::kPPrevActionOffset + 1]};
+  const pes::ActionIds ids = derived == pes::kAnimeActionTrap ? held : pes::ActionIdsAfterSwitch(held, derived);
+  f.action = ids.action;
+  f.sub = ids.sub;
+  f.prevAction = ids.prevAction;
+  f.prevSub = ids.prevSub;
   // P+0xAE0: the PES motion number of the clip the humanoid plays; the AI's own clip has none, so the no-motion sentinel.
   const int motion = pesmovestep::CurrentMotionOf(pl);
   f.motion = motion < 0 ? pes::kPNoMotion : static_cast<uint16_t>(motion);
@@ -3496,13 +3390,15 @@ pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
   constexpr float kGfAnimFrame_s = 0.01f;
   if (motion >= 0) {
     const Anim* clip = pl.GetCurrentAnim();
-    if (pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
+    // A finished dribble clip stays listed at its last frame: the Dribble action leaves a clip only through its frame count (FUN_1407B9280's
+    // `iVar4 <= iVar5` arm, the frame the table lists), and PES's anime layer holds a finished non-looping motion. INF: no capture of a
+    // dribble clip's end.
+    if (pes::IsPesDribbleFamily(family) || pl.GetFrameNum() < clip->anim->GetFrameCount() - 1) {
       f.playing[0].id = static_cast<uint16_t>(motion);
       f.playing[0].seconds = static_cast<float>(pl.GetFrameNum()) * kGfAnimFrame_s;
       f.playingCount = 1;
     }
   }
-  f.kickApproach = 0;  // the kick approach (adjuster A) is never armed in GF
   // P+0x277C / +0x2780: the first dwell's elapsed and limit, MOVESTEP's carried words req[0x1a] / req[0x1b].
   const auto carried = [&rec](int word) {
     float v;
@@ -3550,16 +3446,61 @@ void WritePesTrapActors(Match& match) {
       for (std::size_t k = 0; k < pes::kVelocityRingEntries; ++k)
         std::memcpy(open.velocityRing.data() + k * pes::kVelocityRingEntryBytes, man + pes::kManVelXOffset,
                     pes::kVelocityRingEntryBytes);
-      pes::PesActorFacts facts = TrapFactsOf(*p, slot);
+      pes::PesActorFacts facts = TrapFactsOf(match, *p, slot, match.GetPesHolder() == p.get(), match.PesWorldOf().P(slot));
       facts.trapActive = match.PesWorldOf().P(slot)[pes::kPByteAC8Offset] == pes::kAnimeActionTrap;
+      // PES-owned dribble: P says Dribble and the body's clip is not GF's own dribble (GfOwnsDribble). GF-derived Dribble stays GF's
+      // (rewritten below, no runner); a PES switch (trap end -> act4 start) puts P in Dribble, and only those men get the runner.
+      facts.dribbleActive = !facts.trapActive && match.PesOwnsDribble(*p);
+      match.PesWorldOf().BindAnimeChain(slot, match.PesAnimePlayerOf(slot));
       pes::WriteActorP(match.PesWorldOf(), facts, open, match.GetPesActorConstants(), match.GetPesStaminaConstants(),
                        match.GetPesMoveStepConstants().physique);
+      // PES's actor setup builds the man's DemoInfoRef once (FUN_1406EB670 -> FUN_1406EB250, after the slot byte WriteActorP stored): the
+      // writer runs on the boot's registry (pes::CreateRegistry), inside the match memory.
+      match.PesWorldOf().BuildDemoInfoRef(slot);
       // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
       // cell whose hash does not match (0x140A58550). The ring index's clock dword has no GF source: the match's clock stands in
       // (WriteSlotStamina's ponytail).
       pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
                             static_cast<uint32_t>(match.GetActualTime_ms()));
+      // The anime player's joint block, PES's order in the player's tick: the adjuster driver FUN_141EB5E70 (the three adjusters, then the
+      // chain's phases on the engine's BodyAnimControl at P+0xA08) leaves the pose in the chain's arrays and its outputs in B; the joint
+      // writer and the player update follow.
+      match.PesWorldOf().RunAdjusters(slot, 1.0f / pes::kPesTickHz, match.PesTrapExternalsOf());
+      match.PesWorldOf().RunAnimeJoints(slot, match.PesTrapExternalsOf());
+      match.PesWorldOf().RunPlayerUpdate(slot, match.PesTrapExternalsOf());
     }
+  }
+}
+// PES's holder MA+0x2601C for the window (pestrapworld.hpp kMaOwnerOffset): W1's value is the actor of the newest ring-1 touch
+// key, which GF's RecomputePesHolder adopts as the sticky pesHolder (match.hpp). The trap end chain (the switch 0x1406EEBB0's
+// carrier arm at 0x1406EEBC5, the act4 start 0x1407A38E0's holder gate FUN_1406EC5F0) reads it through P+0x3AC0 -> Ctx+0x18 -> MA
+// (the Ctx binding is PesWorld's own: P+0x3AC0 holds CtxVa(f.side), Ctx+0x18 holds MaVa(side)), so it is fed before the trap
+// ticks from the sticky holder — not from GF's retainer (SetMaOwner's eliza writer), which clears on the possession flicker
+// while PES's holder persists on a loose ball until a newer key replaces it. Both sides' MA hold the one global carrier.
+void WritePesMaHolders(Match& match) {
+  const Player* holder = match.GetPesHolder();
+  const uint32_t id =
+      holder != nullptr ? static_cast<uint32_t>(match.PesSlotOf(holder)) : static_cast<uint32_t>(pes::kMiNoSlot);
+  for (int side = 0; side < 2; ++side) match.PesWorldOf().SetMaOwner(side, id);
+}
+
+// The Dribble action's SetMotion of a tick is the clip the body plays (the trap tick's phase-0 SetMotion is played the same way,
+// RunPesTrapTicks). The single variant (FUN_1406F0F70) names the motion in P+0xAE0 with the rate P+0x3758 and the mirror byte P+0x2472. The
+// series variant (FUN_1406F14E0, the stand/idle handlers) fills P's series vector instead and the anime layer plays its entries in order: the
+// body plays the first entry at the rate the last SetMotion stored (P+0x3758: INF, the series variant stores no rate), and takes the next
+// from the dribble tick's own issues.
+void PlayDribbleIssue(Match& match, Player& p, int slot, uint8_t issue) {
+  const uint8_t* pb = match.PesWorldOf().P(slot);
+  float playback;
+  std::memcpy(&playback, pb + pes::kPPlaybackOffset, sizeof playback);
+  if (issue == pes::kMotionIssueSingle) {
+    uint16_t motion;
+    std::memcpy(&motion, pb + pes::kPWordAE0Offset, sizeof motion);
+    match.NotePesDribbleIssue(slot, motion, p.CastHumanoid()->PlayIssuedClip(motion, playback, pb[pes::kPMirrorOffset] != 0, pes::PesClipFamily::kDribble));
+  } else if (issue == pes::kMotionIssueSeries) {
+    const auto first = match.PesWorldOf().SeriesFirstOf(slot);
+    if (!first) return;
+    match.NotePesDribbleIssue(slot, first->motion, p.CastHumanoid()->PlayIssuedClip(first->motion, playback, first->mirror, pes::PesClipFamily::kDribble));
   }
 }
 
@@ -3577,15 +3518,173 @@ void RunPesTrapTicks(Match& match) {
       ++written;
       const int slot = match.PesSlotOf(p.get());
       uint8_t* pb = world.P(slot);
-      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) continue;
+      if (pb[pes::kPByteAC8Offset] != pes::kAnimeActionTrap) {
+        // A running strike adjuster is stepped by the per-man anime tick whatever action the man is in (pesmovestep::StepAdjusters),
+        // so a Trap that switched out (trap end -> Dribble, a GF action) still finishes its walk onto the ball there.
+        continue;
+      }
       const uint8_t phaseBefore = pb[pes::kPPhaseOffset];
       // GF's heading is atan2(y, x); PES's yaw is atan2(x, y) (the man record's facing).
       const Vector3 dir = p->GetDirectionVec();
       const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
       world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
       const pes::PesTickResult r = world.RunTrapTick(slot, match.PesTrapExternalsOf());
-      if (phaseBefore == 0)
-        p->CastHumanoid()->PlayIssuedClip(r.motion, r.playback, r.mirror != 0, pes::PesClipFamily::kTrap);
+      match.NotePesTrapTickIssue(slot, r.issue);
+      if (phaseBefore == 0) {
+        pes::MotionRequest issued;
+        issued.motion = r.motion;
+        issued.mirror = r.mirror != 0;
+        issued.playback = r.playback;
+        issued.startTime = r.startTime;
+        issued.duration = r.blend;
+        issued.transition = pes::TransitionOfKind(r.kind);
+        p->CastHumanoid()->PlayIssuedClip(issued, pes::PesClipFamily::kTrap);
+      }
+      // The end handler's switch (0x1406EEBB0) ran the act4 start (0x1407A38E0) inside this tick, and its SetMotion issued the Dribble
+      // action's first motion into P+0xAE0: that is the clip the body plays from here, as the dribble tick's own issues are.
+      else if (r.action == pes::kAnimeActionDribble)
+        PlayDribbleIssue(match, *p, slot, r.issue);
+      // The end handler's switch put him in the Dribble action: from here PES's dribble tick owns his body (Match::PesOwnsDribble).
+      if (r.action == pes::kAnimeActionDribble) match.SetPesDribbleSwitched(slot, true);
+      // The strike adjuster the start armed is stepped by the per-man anime tick (pesmovestep::StepAdjusters -> PesWorld::StepAdjusters,
+      // PES's wrapper FUN_141EB3AF0), which warps the root by its frame displacement.
+    }
+  }
+}
+// Every man PES owns in the Dribble action runs PES's dribble tick 0x1407B37D0 on his P and the world window, after the trap
+// ticks (a trap end can switch a man into Dribble mid-block). Only PES-switched men run: P says Dribble while the body's clip
+// does not derive it (same predicate as WritePesTrapActors' dribbleActive). GF-derived Dribble (a BallControl clip of the
+// carrier) stays GF's: its P was rewritten above and no dribble params were ever set up for it. A path no proof reached aborts
+// in the translated dispatch, loudly (survey first).
+void RunPesDribbleTicks(Match& match) {
+  pes::PesWorld& world = match.PesWorldOf();
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      uint8_t* pb = world.P(slot);
+      if (!match.PesOwnsDribble(*p)) continue;
+      const Vector3 dir = p->GetDirectionVec();
+      constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f, kRadToDeg = 180.0f / 3.14159265358979323846f;
+      const float heading_deg = std::atan2(dir.coords[1], dir.coords[0]) * kRadToDeg;
+      world.SetTickFrame(slot, std::fmod(kQuarterTurn_deg - heading_deg + kFullTurn_deg, kFullTurn_deg));
+      // The tick's frame F is built by PES's AI frame builder (FUN_1409F1F20) from the AI's decision for the man. ponytail: PES's AI think
+      // (FUN_1409257B0, FUN_14092ED30) is not ported; the decision is GF's AI command (Player::Think's first movement command): its speed
+      // names the plan's row, the man runs to the ball (the run-to point of every captured dribbler frame is the ball's sample 0), and the
+      // order is the dribble's (kind 3, mode 4 on 11 of 12 real dribble-tick frames). Upgrade: PES's AI writes the template and the plan.
+      constexpr float kKmhPerMps = 3.6f, kDribbleOrderKind = 3.0f, kDribbleMode = 4.0f;
+      pes::AiFrameDecision decision;
+      const std::optional<PlayerCommand>& command = p->GetPesDecision().command;
+      if (command) {
+        decision.active = true;
+        // ponytail: this stands in for PES's AI ORDER, it is not a tuning knob. GF's AI command for a PES-owned dribbler is idle on 11,613 of 12,000
+        // ticks (GF's controller does not know PES owns his body), which the builder reads as speed class 0 (weight 0: the stand/turn series, never a
+        // run onto the ball); PES's AI orders a run for him: the 12 real dribble-tick frames are class 3 on 10 and class 4 on 2 (F[0] = 7). So the
+        // plan's row speed is at least the run band. Upgrade: PES's AI think (FUN_1409257B0 / FUN_14092ED30) writes the template and the plan.
+        decision.speedKmh = std::max(command->desiredVelocityFloat * kKmhPerMps, pes::kSpeedClassBandsKmh[2]);
+        decision.kind = static_cast<uint32_t>(kDribbleOrderKind);
+        decision.mode = static_cast<uint32_t>(kDribbleMode);
+        decision.frameStamp = world.MatchFrame();
+        decision.situation = pes::kTplSituationDribble;
+        decision.pathPoints = 0;
+        const Vector3 ball = match.GetBall()->Predict(0);
+        decision.target[0] = ball.coords[0];
+        decision.target[1] = ball.coords[2];
+        decision.target[2] = ball.coords[1];  // PES z = coords[1] (WritePesManMovement, PesPoint): the man record's own frame
+      }
+      world.RunDecisionFrame(slot, decision, match.PesTrapExternalsOf());
+      const pes::PesWorld::DribbleTickResult tick = world.RunDribbleTick(slot, match.PesTrapExternalsOf());
+      PlayDribbleIssue(match, *p, slot, tick.issue);
+      if (tick.action != pes::kAnimeActionDribble) match.SetPesDribbleSwitched(slot, false);  // the dribble tick switched him out
+    }
+  }
+}
+
+// Every active man's tick counters count one tick, after the action ticks (FUN_1406E5FC0 calls FUN_1406F6790 at 0x1406E60F8 after the
+// action's slot 4): the dribble's touch gate reads the ticks since the last action change (P+0x2818).
+void RunPesActorCounters(Match& match) {
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      pes::AdvanceActorTickCounters(match.PesWorldOf().P(match.PesSlotOf(p.get())));
+    }
+  }
+}
+
+namespace {
+// PES's axes (x, height, z) of a GF world point: GF's z is the height and its y is PES's z (the ball sample writer, ball.hpp).
+std::array<float, 3> PesPoint(const Vector3& v) { return {v.coords[0], v.coords[2], v.coords[1]}; }
+
+// The man's skeleton as PES's joint block holds it: each collision bone's world position and rotation in PES's axes.
+// ponytail: the pose is the one GF's humanoid last posed (the previous tick's put), FUN_141EB49B0's anime layer pose is not run
+// (AnimeLayer), and the node rotations are GF's W*Rs joint frames, which differ from PES's joint frames F_b by 1.5 degrees at the leg,
+// 5.8 at the foot and about 22 at the forearm and hand (docs/re/pes-re-collision.md 4). The anime layer's joint writer removes this.
+pes::BoneFrames BoneFramesOf(Player& player, const pesrig::Rig& rig) {
+  pes::BoneFrames frames;
+  const auto& nodes = player.GetNodeMap();
+  for (std::size_t bone = 0; bone < pes::kScanBoneCount; ++bone) {
+    const std::optional<int> joint = pesrig::ResolveBone(rig, pes::kScanBoneNames[bone], nullptr);
+    assert(joint.has_value());
+    const boost::intrusive_ptr<blunted::Node>& node = nodes.at(rig.bones[*joint].gfName);
+    frames[bone].position = PesPoint(node->GetDerivedPosition());
+    // The rotation's axis changes basis with the position: (x, y, z) -> (x, z, y), a reflection, so the rotation about the swapped axis
+    // turns the other way and the vector part is negated.
+    const blunted::Quaternion q = node->GetDerivedRotation();
+    frames[bone].rotation = {-q.elements[0], -q.elements[2], -q.elements[1], q.elements[3]};
+  }
+  return frames;
+}
+}  // namespace
+
+// Every man in the Trap action runs PES's body contact scan 0x1406EDCE0 on the window after his action tick: the tick sets the contact
+// pending bit on the clip's contact frame, the scan's reach test answers it, and a touch request in the output record is the man's
+// grant to touch the ball (Match::TakePesTouch, the humanoid's contact).
+void RunPesBodyScans(Match& match) {
+  pes::PesWorld& world = match.PesWorldOf();
+  match.ClearPesTouches();
+  // The ball record's byte +0x279C is PES's copy of the ball body's byte B+0x48, taken on every ball update (0x140871A5C in
+  // 0x140870E90, B = the ball entity's +0x20). B+0x48 has one writer on any match path: the script binding 0x140BEB330 (a 0/1 from the
+  // two-row table at 0x1426CBAF8, picked by a script argument), and nothing in GF's match runs a script; otherwise it keeps its
+  // constructed value 0xFF. All six real reach-test captures (live2/pid3332804 seq088..seq1475) hold 0xFF in both cells while the ball
+  // is loose, in a pass and at rest, and the holder MA+0x2601C is a different cell (the last toucher, never cleared). So the byte is
+  // PES's constant for this match, not GF's holder: the scan's "owner is another man" refusal never fires, as in PES.
+  world.BallRecord()[pes::kBallOwnerOffset] = pes::kBallNoOwner;
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      // The scan runs the current action's reach test (slot +0xB8): the Trap action's FUN_140799060 and the Dribble action's FUN_1407B7720.
+      if (world.P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionTrap && !match.PesOwnsDribble(*p)) continue;
+      world.WriteJointBlock(slot, BoneFramesOf(*p, match.GetRig()), match.GetPesActorConstants().jointMask);
+      const bool pendingBefore = (pes::LoadU32(world.P(slot), pes::kPFlagsOffset) & pes::kPFlagContactPending) != 0;
+      const pes::PesBodyScanOut out = world.RunBodyScan(slot, match.PesTrapExternalsOf());
+      if (match.PesOwnsDribble(*p)) match.NotePesDribbleScan(out.TouchRequested(), pendingBefore);
+      if (out.TouchRequested()) {
+        if (match.PesOwnsDribble(*p)) {
+          // A dribbler's touch has no GF clip frame to carry it (the trap's is the humanoid's contact, TakePesTouch): PES's ball executor takes the
+          // scan's record to the kick application, and the ball's new motion is what GF's ball takes (PesWorld::RunBallTouch).
+          const pes::PesWorld::BallTouchResult kick = world.RunBallTouch(slot, out, match.PesTrapExternalsOf());
+          // PES's axes (x, height, z) -> GF's (x, y = PES z, z = height). The candidate's +0x18 is the ball's raw spin (FUN_140874860 stores
+          // omega * DAT_14349f740 there; FUN_140870A40 copies it into the ball state with FUN_140731BB0): the same Fox-axes raw vector Ball::
+          // SetRotation blends toward (it takes GF's axes in units of 1/0.001 raw), so the kick's spin is applied whole (bias 1), as the
+          // candidate replaces the ball's previous spin in PES.
+          match.GetBall()->Touch(Vector3(kick.velocity[0], kick.velocity[2], kick.velocity[1]));
+          constexpr float kRawToGfSpin = 1000.0f;  // Ball::SetRotation's 0.001 (raw = GF axis value * 0.001)
+          match.GetBall()->SetRotation(kick.spin[0] * kRawToGfSpin, -kick.spin[2] * kRawToGfSpin, kick.spin[1] * kRawToGfSpin, 1.0f);
+          match.GetTeam(t)->SetLastTouchPlayer(p.get(), e_TouchType_Intentional_Kicked);
+          match.GetMatchData()->RecordBallTouch(t);
+          p->UpdatePossessionStats(false);
+          match.NotePesDribbleKick();
+        } else {
+          match.GrantPesTouch(slot, out);
+        }
+      }
     }
   }
 }

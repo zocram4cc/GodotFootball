@@ -27,6 +27,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -42,7 +43,14 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_core.json", "core"), ("results_stoppage.json", "stoppage"),
         ("results_fixdemo.json", "fixdemo"), ("results_trapaction.json", "trapaction"),
         ("results_dribble.json", "dribble"), ("results_proccam.json", "proccam"),
-        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"))
+        ("results_kickkind.json", "kickkind"), ("results_kickshot.json", "kickkind"), ("results_kick.json", "kick"),
+        ("results_kickbranch.json", "kick"), ("results_kickleaf.json", "kick"), ("results_kickgate.json", "kick"),
+        ("results_kickballnear.json", "kick"), ("results_kickjoints.json", "kick"), ("results_animelayer.json", "kick"),
+        ("results_throwin.json", "kick"),
+        ("results_kickroot.json", "kickroot"), ("results_kickturn.json", "kickroot"),
+        ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"), ("results_teampass.json", "teampass"),
+        ("results_gkdribble.json", "gkdribble"),
+        ("results_press.json", "press"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -55,6 +63,16 @@ INDIRECT_EDGES = {
     "0x141F616F0": ("0x140400F50", "0x140400DF0", "0x140B28910"),
     # 0x1415A01DC is the CFG check thunk `jmp [IAT]`; the unpacked image's slot holds a bare `ret` (0x1415A02B0).
     "0x1415A01DC": ("0x1415A02B0",),
+    # 0x1406F6CE0 (kick joints) dispatches its action slot through a vtable read ([obj] then slot +0x90, pes_dispatch_lookup). Every
+    # distinct code target of that slot across the anime::match::action vtables (94 MSVC-RTTI vtables; pes-port-StallBreaker7.md) is
+    # listed: 35 VAs. 0x141794410 is DemoAction's slot, shared by 42 vtables.
+    "0x1406F6CE0": (
+        "0x140727D90", "0x14072C550", "0x1407318F0", "0x140731A70", "0x1407348F0", "0x14073DD50", "0x140743610", "0x1407436E0",
+        "0x14074A590", "0x140770290", "0x140774680", "0x140775A90", "0x140781440", "0x140783840", "0x140785AF0", "0x140789D00",
+        "0x140789F60", "0x140791DD0", "0x14079DBB0", "0x1407A1490", "0x1407A2660", "0x1407A3190", "0x1407C4FA0", "0x1407D1DC0",
+        "0x1407E11B0", "0x1407E6DC0", "0x1407EBF80", "0x1407EE930", "0x1407EF440", "0x1407EFEE0", "0x1407F0920", "0x140806E00",
+        "0x1408549C0", "0x140854A70", "0x141794410",
+    ),
     # 0x14159EFF8 is the array constructor loop (`call rsi` at 0x14159F039 with rsi = the element constructor the caller passes in
     # r9). The element constructors are the r9 constants of its layer callers (every caller in the layer, scanned): the ones PES's
     # seq203 replay reached (trace.json site 0x14159F039: 0x140400DF0, 0x141F55A10, 0x14086CDE0) and the rest, which the find-or-create
@@ -156,12 +174,21 @@ def gap_count(text):
     return sum(text.count(m) for m in GAP_MARKERS)
 
 
+def linked_callees(text):
+    return len(set(CALLEE.findall(text)))
+
+
 def choose_variant(old, new):
     """Two translations of one function under different sets' universes: the one with fewer gaps (a callee one set lacks
-    becomes an abort there; the layer keeps the variant that links more of what PES runs). None when they differ with as
-    many gaps: a real conflict."""
+    becomes an abort there; the layer keeps the variant that links more of what PES runs). With as many gaps, the one that
+    links fewer callees: a set whose universe holds a tail target the other lacks keeps the call behind a trap (a path the
+    other set's recorded cases never took), and linking it would pull that target's whole closure into every set holding the
+    function. None when they differ with as many gaps and as many links: a real conflict."""
     a, b = gap_count(old), gap_count(new)
-    return new if b < a else old if a < b else None
+    if a != b:
+        return new if b < a else old
+    la, lb = linked_callees(old), linked_callees(new)
+    return new if lb < la else old if la < lb else None
 
 
 TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
@@ -184,8 +211,11 @@ def silent_tail_sites(members, exempt=frozenset()):
 UNHANDLED_DEAD_NOISE = {
     "0x140480030": "FADD/FILD/OUT after the cold path's final int3 (labels L_1404803A9..C5 end in traps)",
     "0x1404B6ED0": "FDIV/OUTSD after the unconditional goto L_1404B74FF, behind no reached label",
+    "0x140721800": "IRETD/CMPSD after the unconditional goto L_1407231E2 (kick chooser closure): the labels L_140723290..L_14072329C "
+                   "are reached only by conditional jumps inside the noise itself, so no reachable branch lands there",
     "0x1405EC600": "POP/RETF/ADD after the final unconditional goto L_1405ED02B (0x1405ED1ED JMP), behind no label",
     "0x1407AD150": "OUT/RETF/XLATB at 0x1407ADF9C..0x1407ADFC2, after the final unconditional JMP 0x1407ADEC2 and its NOP pad (no branch before 0x1407ADF99 targets it; the one indirect JMP is a table in the image's data)",
+    "0x140706350": "FILD/FIMUL/OUT/OUTSB at 0x140707E94..0x140707EDC, after the final unconditional JMP 0x140706DEA (0x140707E8D) and its NOP: the function's switch table (4-byte entries) is data, and the only branches in that range target other bytes of the same noise (capstone scan of 0x140706350..0x140707EE0); in the generated text L_140707EA8..L_140707F4F follow goto L_140706DEA with no label between, and every goto into them sits inside the same block (the closure's 12 real proof calls are bit-exact)",
 }
 
 
@@ -206,6 +236,21 @@ def subsystem_of(spec, name):
     return (spec.get("subsystem") or name).lower().replace(" ", "_").replace("-", "_")
 
 
+def ponytails():
+    """{VA: (parent VA, note)} for the closure members that a results row proves through its parent's snapdiff (the row field
+    `parent`, the note in `ponytail`). They are not recorded bit-exact on their own: the parent's replay ran them."""
+    out = {}
+    for fname, _ in SETS:
+        with open(os.path.join(HERE, fname)) as f:
+            for r in json.load(f)["results"]:
+                if r.get("parent"):
+                    out[r["va"]] = (r["parent"], r.get("ponytail", ""))
+    for va, (parent, _) in out.items():
+        if va not in closure_members(parent):
+            raise SystemExit("gen_translated: %s is not in the closure of its parent %s" % (va, parent))
+    return out
+
+
 def build(image):
     """{VA: member} for the whole layer; member = raw text, recorded flag, subsystem, harness status."""
     recs = records()
@@ -218,10 +263,15 @@ def build(image):
             sub_of[va] = subsystem_of(spec, name)
     for va, _, diffed, fc in recs:
         status.setdefault(va, "bit-exact" if diffed else (fc or "not diffed"))
+    parents = ponytails()
+    for va, (parent, _) in parents.items():
+        status[va] = "proved by parent %s" % parent
     # Each recorded function's closure (itself plus the callees it links), translated once.
     texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
+        # The root's indirect targets are in its universe: a tail jump between them is a direct jump, not an out-of-set gap.
+        universe = universe | set(INDIRECT_EDGES.get(va, ()))
         members = closure_members(va)
         universe = link_universe(universe, members)
         queue, seen = [va] + sorted(members - {va}), {va} | members
@@ -239,10 +289,13 @@ def build(image):
                     texts[cur] = pick
             texts.setdefault(cur, text)
             for cv in [("0x" + c.upper()) for c in CALLEE.findall(text)] + list(INDIRECT_EDGES.get(cur, ())):
-                if cv != cur and cv in universe and cv not in seen:
+                # An indirect edge names its target (the table's resolved VA): it joins the closure whatever the set's universe holds.
+                if cv != cur and (cv in universe or cv in INDIRECT_EDGES.get(cur, ())) and cv not in seen:
                     seen.add(cv)
                     queue.append(cv)
-        closure_of[va] = seen
+        # A root recorded in two sets (0x14092ED30: trapaction's counter B and press's manthink) is walked once per set; its layer text
+        # is one variant (choose_variant), whose callees may come from either set's universe, so the root keeps every walk's members.
+        closure_of[va] = closure_of.get(va, set()) | seen
     if conflicts:
         raise SystemExit("gen_translated: %d conflicts:\n  %s" % (len(conflicts), "\n  ".join(conflicts[:30])))
     # Never ship a callee the harness recorded as mistranslated: a recorded function whose closure reaches one is left
@@ -258,7 +311,8 @@ def build(image):
             continue
         for cur in closure_of[va]:
             members.setdefault(cur, {"raw": texts[cur], "recorded": cur in bit_vas,
-                                     "sub": sub_of.get(cur, CLOSURE), "status": status.get(cur, "no record")})
+                                     "sub": sub_of.get(cur, CLOSURE), "status": status.get(cur, "no record"),
+                                     "ponytail": parents.get(cur, (None, ""))[1]})
     for cur, m in members.items():
         for c in CALLEE.findall(m["raw"]):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
@@ -283,8 +337,11 @@ def lint(members):
 def member_text(va, m):
     if m["recorded"]:
         return m["raw"]
-    return ("// Closure member: a direct callee of recorded functions, committed so they link. "
-            "Harness record: %s. Not recorded bit-exact on its own.\n" % m["status"]) + m["raw"]
+    head = ("// Closure member: a direct callee of recorded functions, committed so they link. "
+            "Harness record: %s. Not recorded bit-exact on its own.\n" % m["status"])
+    if m["ponytail"]:
+        head += "// ponytail: %s\n" % m["ponytail"]
+    return head + m["raw"]
 
 
 def layer_files(members):
@@ -316,21 +373,37 @@ def write_layer(root, files):
             os.rmdir(d)
 
 
+def untracked(root, rels):
+    """The generated files git does not track. --check compares the disk, so a file the regeneration wrote but the commit
+    never added passes in that worktree while a checkout of the commit cannot link (MergeLane2 merge 4425ef0f left seven
+    pes_fn_* untracked). Outside a git checkout (an exported tree) there is nothing to compare against."""
+    proc = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=root, capture_output=True)
+    if proc.returncode != 0:
+        if b"not a git repository" in proc.stderr:
+            return []
+        raise SystemExit("gen_translated: git ls-files failed in %s: %s" % (root, proc.stderr.decode().strip()))
+    tracked = set(proc.stdout.decode().split("\0")) - {""}
+    return sorted(rel for rel in rels if rel not in tracked)
+
+
 def check_layer(root, files):
-    """Drift lines: a committed file that differs, is missing, or is unexpected."""
+    """Drift lines: a committed file that differs, is missing, is unexpected, or exists on disk without being tracked."""
     drift = []
     have = {os.path.relpath(p, root) for p in glob.glob(os.path.join(root, "*", "pes_fn_*.cpp"))}
+    present = []
     for rel, text in sorted(files.items()):
         path = os.path.join(root, rel)
         if not os.path.exists(path):
             drift.append("missing %s" % rel)
             continue
+        present.append(rel)
         with open(path) as f:
             cur = f.read()
         if cur == text or HAND_REFINED in "".join(cur.splitlines(True)[:3]):
             continue
         drift.append("differs %s" % rel)
     drift += ["unexpected %s" % rel for rel in sorted(have - set(files))]
+    drift += ["untracked %s" % rel for rel in untracked(root, present)]
     return drift
 
 

@@ -1,0 +1,23 @@
+{
+ "note": "the functions the snapdiff proof of 0x141EB5E70 ran beyond its direct callees (closure adjtick, closure.py --spec-set kick --tag adjtick): the chain's indirect targets (P's class vtable +0x18, the chain's vtable +0x20 driver and +0x38 runner) and the adjuster steps. Added (AnimeLayer7 cut): the runner 0x141AFC4A0's guarded branch (its memset of a scratch frame and the scope object): 0x1415A1720 (the jmp [0x14252FD98] thunk to VCRUNTIME140!memset, modelled by import_stubs.json), the scope constructor 0x1403EFDF0 and its pop 0x1403EFEB0 (through the thunk 0x1403EFF50), and the list walk 0x1403F0030 the pop calls. VAs only.",
+ "root": "0x141EB5E70",
+ "members": [
+  "0x1406EEDF0",
+  "0x141AF3AF0",
+  "0x141AF3CA0",
+  "0x141AF7A90",
+  "0x141AFC4A0",
+  "0x141EB3320",
+  "0x141EB3350",
+  "0x141EB3360",
+  "0x141EB3AF0",
+  "0x141EB5E70",
+  "0x1403EFDF0",
+  "0x1403EFEB0",
+  "0x1403EFF50",
+  "0x1403F0030",
+  "0x1415A1720",
+  "0x141AF4480",
+  "0x141AEEE50"
+ ]
+}

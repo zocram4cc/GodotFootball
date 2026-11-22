@@ -63,7 +63,7 @@ constexpr size_t MOTION_SLOTS = 0x1125;
 
 // DAT_1425dc370: one dword per kind, the list cap (animation, subHit, cancel, rot, foot, pivot).
 constexpr uint64_t CAPS_VA = 0x1425dc370;
-constexpr uint64_t CAP_ANIMATION_KIND = 0, CAP_SUB_HIT_KIND = 2, CAP_CANCEL_KIND = 5,
+constexpr uint64_t CAP_ANIMATION_KIND = 0, CAP_HIT_KIND = 1, CAP_SUB_HIT_KIND = 2, CAP_CANCEL_KIND = 5,
                    CAP_ROT_KIND = 6, CAP_FOOT_KIND = 9, CAP_PIVOT_KIND = 12;
 
 template <typename T>
@@ -103,6 +103,12 @@ const MotionTiming* Mbinfo::Timing(int m) const {
 const std::vector<HitRecord>& Mbinfo::Hits(int m) const {
   return m >= 0 && size_t(m) < hits_.size() ? hits_[m] : kNoHits;
 }
+int Mbinfo::HitCount(int m) const {
+  // The builder (FUN_1406AD300) drops a record past the cap; a motion past the table has no record of its own.
+  return m >= 0 && size_t(m) < MOTION_SLOTS && size_t(m) < hits_.size()
+             ? int(std::min<size_t>(hits_[m].size(), hitCap_))
+             : 0;
+}
 const CancelRecord* Mbinfo::Cancel(int m) const {
   return m >= 0 && size_t(m) < cancel_.size() && cancel_[m] ? &*cancel_[m] : nullptr;
 }
@@ -113,6 +119,13 @@ const MotionRecord& Mbinfo::Motion(int m) const {
 int MotionRecord::CancelFrames(int i) const {
   if (i < 0 || size_t(i) >= cancel.size()) return 0;
   return cancel[i];
+}
+std::array<float, 2> MotionRecord::BlendRoot() const {
+  return blendRoot.empty() ? std::array<float, 2>{0.0f, 0.0f} : blendRoot[0];  // the zero fallback object, 0x1436F2430
+}
+std::array<float, 2> MotionRecord::CancelRoot(int i) const {
+  if (i < 0 || size_t(i) >= cancelRoot.size()) return {0.0f, 0.0f};  // the zero fallback object, 0x1436F2500
+  return cancelRoot[i];
 }
 int MotionRecord::FootPair(int i) const {
   if (i < 0 || size_t(i) >= foot.size()) return 0;
@@ -132,7 +145,7 @@ std::optional<MotionCaps> LoadMotionCaps(const PeImage& exe, std::string* error)
   const auto cap = [&](uint64_t kind, uint32_t* out) {
     return ReadU32(exe, CAPS_VA + 4 * kind, out);
   };
-  if (!cap(CAP_ANIMATION_KIND, &c.animation) || !cap(CAP_SUB_HIT_KIND, &c.subHit) ||
+  if (!cap(CAP_ANIMATION_KIND, &c.animation) || !cap(CAP_HIT_KIND, &c.hit) || !cap(CAP_SUB_HIT_KIND, &c.subHit) ||
       !cap(CAP_CANCEL_KIND, &c.cancel) || !cap(CAP_ROT_KIND, &c.rot) ||
       !cap(CAP_FOOT_KIND, &c.foot) || !cap(CAP_PIVOT_KIND, &c.pivot)) {
     *error = "mbinfo: the list caps at DAT_1425dc370 are not in the exe";
@@ -153,6 +166,7 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     return std::nullopt;
   }
   Mbinfo m;
+  m.hitCap_ = caps.hit;
   m.motions_.resize(MOTION_SLOTS);
   const auto inTable = [](uint32_t motion) { return motion < MOTION_SLOTS; };
   for (size_t o = 0; o < animation.size(); o += ANIMATION_RECORD) {
@@ -169,6 +183,8 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     if (inTable(motion)) {
       Admit(m.motions_[motion].blend, caps.animation, t.blendStart);
       Admit(m.motions_[motion].blendWords, caps.animation, std::array<uint32_t, 2>{a, b});
+      // FUN_1406af6d0's reads: out[0] = dword 3 (f[1]), out[2] = dword 2 (f[0]).
+      Admit(m.motions_[motion].blendRoot, caps.animation, std::array<float, 2>{f[1], f[0]});
     }
   }
   for (size_t o = 0; o < hitData.size(); o += HIT_RECORD) {
@@ -193,6 +209,9 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     if (inTable(motion)) {
       Admit(m.motions_[motion].cancel, caps.cancel, int(w >> FRAME_SHIFT & CANCEL_FRAME_MASK));
       Admit(m.motions_[motion].cancelWords, caps.cancel, std::array<uint32_t, 2>{w, At<uint32_t>(cancelData, o + 4)});
+      // FUN_1406af9a0's reads: out[0] = dword 2, out[2] = dword 1 of the record (the same order as the words above).
+      Admit(m.motions_[motion].cancelRoot, caps.cancel,
+            std::array<float, 2>{At<float>(cancelData, o + 8), At<float>(cancelData, o + 4)});
     }
   }
   for (size_t o = 0; o < bins.rotData.size(); o += ROT_RECORD) {

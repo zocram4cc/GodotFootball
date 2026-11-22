@@ -327,6 +327,9 @@ int main(int argc, char** argv) {
   if (!animetable) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
   if (!mbinfo) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's kick motion pick (docs/ports/pes-port-KickMotion.md): the clip table from the VFS, the swap tables from the exe.
+  auto kickMotionConstants = pes::LoadKickMotionConstants(*exe, vfs, &err);
+  if (!kickMotionConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // PES 2021's standing-tackle sub-kind (pes-re-contact-port.md stage C): the
   // per-kind group tables and the readiness mask's constants.
   auto tackleConstants = pes::LoadTackleConstants(*exe, &err);
@@ -390,6 +393,7 @@ int main(int argc, char** argv) {
   setup.pesForfeitConstants = &*forfeitConstants;
   setup.pesRestartSpotConstants = &*restartSpotConstants;
   setup.pesKickErrorConstants = &*kickErrorConstants;
+  setup.pesKickMotionConstants = &*kickMotionConstants;
   setup.pesCarrierConstants = &*carrierConstants;
   setup.pesDefensiveShapeConstants = &*defensiveShapeConstants;
   setup.pesDefenderDecisionConstants = &*defenderDecisionConstants;
@@ -409,6 +413,7 @@ int main(int argc, char** argv) {
   setup.pesMoveStepConstants = &*moveStepConstants;
   setup.pesMarkTableConstants = &*markTableConstants;
   setup.pesTrapSource = &*trapSource;
+  setup.pesVfs = &vfs;
   setup.pesImageTables = &*imageTables;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
@@ -439,10 +444,30 @@ int main(int argc, char** argv) {
     }
     watch.Observe(match);
     if (parityLog) parity.Observe(match);
-    if (watch.Stalled())
+    if (watch.Stalled()) {
+      const RefereeBuffer& rb = match.GetRefereeBuffer();
+      if (rb.taker) {
+        const Anim* clip = rb.taker->GetCurrentAnim();
+        const Vector3 ball = match.GetBall()->Predict(0);
+        std::fprintf(stderr, "[stall-taker] fn=%d clip=%s frame=%d/%d ms=%d<-%d dist=%.2f speed=%.2f ballSpeed=%.2f ball=%.1f,%.1f,%.1f held=%d walking=%d pickingUp=%d carrying=%d retainer=%d touchAnim=%d\n",
+                    int(rb.taker->GetCurrentFunctionType()), clip->anim ? clip->anim->GetName().c_str() : "-", clip->frameNum,
+                    clip->anim ? clip->anim->GetFrameCount() : 0, int(rb.taker->GetMoveStep().state),
+                    int(rb.taker->GetMoveStep().previous), double((rb.taker->GetPosition() - ball).Get2D().GetLength()),
+                    double(rb.taker->GetMovement().GetLength()), double(match.GetBall()->GetMovement().GetLength()),
+                    ball.coords[0], ball.coords[1], ball.coords[2],
+                    int(rb.taker->GetTeam()->GetController()->IsPieceTakerHeld(rb.taker)),
+                    int(rb.taker->GetTeam()->GetController()->IsPieceTakerWalking(rb.taker)),
+                    int(rb.taker->GetTeam()->GetController()->IsPickingUp()),
+                    int(rb.taker->GetTeam()->GetController()->IsCarryingBall()), int(match.GetBallRetainer() == rb.taker),
+                    rb.taker->TouchAnim() ? 1 : 0);
+      }
       return std::fprintf(stderr,
-                          "[restart] stalled: no restart within %lu ticks (limit %lu ticks)\n",
-                          watch.LongestTicks(), watch.LimitTicks()), 1;
+                          "[restart] stalled: no restart within %lu ticks (limit %lu ticks) | set piece %d in-play %d buffer active %d prepared %d started %d piece %d taker %s\n",
+                          watch.LongestTicks(), watch.LimitTicks(), int(match.IsInSetPiece()), int(match.IsInPlay()),
+                          int(rb.active), int(rb.prepared), int(rb.started), int(rb.desiredSetPiece),
+                          rb.taker ? rb.taker->GetPlayerData()->GetLastName().c_str() : "none"),
+             1;
+    }
   }
   PrintMatchReport(match, stdout);
   const double tickSeconds = Match::kTick_ms / 1000.0;
@@ -453,6 +478,9 @@ int main(int argc, char** argv) {
               inPlaySeconds, holdTicks, holdSeconds);
   std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
   std::printf("[idle] %lu episodes, stalls %lu\n", watch.IdleEpisodes(), watch.IdleStallEpisodes());
+  const pes::KickMotionStats& kicks = match.PesKickMotionStats();
+  std::printf("[kickmotion] %u kicks, no clip %u, descriptor 1 %u, in-flight Q %u, Kick start tries %u none %u\n", kicks.kicks,
+              kicks.noClip, kicks.descriptorOne, kicks.inFlight, kicks.tries, kicks.answeredNone);
   if (parityLog) parity.Print(match, stdout);
   return 0;
 }

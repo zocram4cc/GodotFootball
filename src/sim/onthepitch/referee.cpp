@@ -1246,6 +1246,35 @@ void Referee::ContactEvent(Player* victim, Player* fouler, pes::ContactAction fo
   if (level > 0) RecordFoul(victim, fouler, level);
 }
 
+void Referee::AwardShootoutKick(int teamID, const Vector3& spot) {
+  // The penalty award's buffer (ContactEvent's penalty branch): the shooting side's restart at the spot, held for a penalty.
+  buffer.desiredSetPiece = e_SetPiece_Penalty;
+  buffer.teamID = teamID;
+  buffer.restartPos = spot;
+  buffer.stopTime = match->GetActualTime_ms();
+  ScheduleStop(this, buffer.stopTime, false, kPesHoldFoul);
+  buffer.endPhase = false;
+  buffer.active = true;
+  buffer.prepared = false;
+  buffer.started = false;
+}
+
+void Referee::StageShootoutKick() {
+  // Process's restart stages (prepare when due, take when released) for the armed penalty, as Process runs them while play is
+  // stopped. The shootout's own kick is not in play and not in a set piece until the release.
+  if (!buffer.active || match->IsInPlay() || match->IsInSetPiece()) return;
+  const unsigned long now_ms = match->GetActualTime_ms();
+  if (!buffer.prepared && buffer.prepareTime <= now_ms) {
+    buffer.prepared = true;
+    PrepareSetPiece(buffer.desiredSetPiece);
+  }
+  if (!buffer.started && buffer.startTime <= now_ms && ReleasesRestart(match, buffer)) {
+    buffer.started = true;
+    match->StartPlay();
+    match->StartSetPiece();
+  }
+}
+
 void Referee::CancelSetPiece() {
   buffer.chiefSpot.reset();
   buffer.active = false;

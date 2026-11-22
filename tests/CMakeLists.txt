@@ -67,9 +67,60 @@ add_executable(pes_trap_oracle_test pes_trap_oracle_test.cpp)
 target_link_libraries(pes_trap_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_trap_oracle_test)
 
+add_executable(pes_kick_chooser_oracle_test pes_kick_chooser_oracle_test.cpp)
+target_link_libraries(pes_kick_chooser_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_kick_chooser_oracle_test)
+
+add_executable(pes_kick_root_test pes_kick_root_test.cpp)
+target_link_libraries(pes_kick_root_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_kick_root_test)
+
+add_executable(pes_ball_list_test pes_ball_list_test.cpp)
+target_link_libraries(pes_ball_list_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_ball_list_test)
+
+add_executable(pes_roster_entry_test pes_roster_entry_test.cpp)
+target_link_libraries(pes_roster_entry_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_roster_entry_test)
+
+add_executable(pes_vsprintf_model_test pes_vsprintf_model_test.cpp)
+target_link_libraries(pes_vsprintf_model_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_vsprintf_model_test)
+
+add_executable(pes_joint_block_test pes_joint_block_test.cpp)
+target_link_libraries(pes_joint_block_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_joint_block_test)
+
+add_executable(pes_fox_world_test pes_fox_world_test.cpp)
+target_link_libraries(pes_fox_world_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_fox_world_test)
+
+add_executable(pes_anime_engine_test pes_anime_engine_test.cpp)
+target_link_libraries(pes_anime_engine_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_anime_engine_test)
+
+add_executable(pes_adjuster_tick_test pes_adjuster_tick_test.cpp)
+target_link_libraries(pes_adjuster_tick_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_adjuster_tick_test)
+
+add_executable(pes_fox_template_test pes_fox_template_test.cpp)
+target_link_libraries(pes_fox_template_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_fox_template_test)
+
+add_executable(pes_kick_header_oracle_test pes_kick_header_oracle_test.cpp)
+target_link_libraries(pes_kick_header_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_kick_header_oracle_test)
+
 add_executable(pes_trap_data_test pes_trap_data_test.cpp)
 target_link_libraries(pes_trap_data_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_trap_data_test)
+
+add_executable(pes_engine_fixture_test pes_engine_fixture_test.cpp)
+target_link_libraries(pes_engine_fixture_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_engine_fixture_test)
+add_executable(pes_press_object_test pes_press_object_test.cpp)
+target_link_libraries(pes_press_object_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_press_object_test)
 
 add_executable(pes_physique_test pes_physique_test.cpp)
 target_link_libraries(pes_physique_test PRIVATE pesfmt pestranslated GTest::gtest_main)
@@ -78,6 +129,7 @@ gtest_discover_tests(pes_physique_test)
 add_executable(pes_stamina_cells_test pes_stamina_cells_test.cpp)
 target_link_libraries(pes_stamina_cells_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_stamina_cells_test)
+
 add_executable(pes_danger_oracle_test pes_danger_oracle_test.cpp)
 target_link_libraries(pes_danger_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_danger_oracle_test)
@@ -85,6 +137,15 @@ gtest_discover_tests(pes_danger_oracle_test)
 add_executable(pes_walk_oracle_test pes_walk_oracle_test.cpp)
 target_link_libraries(pes_walk_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_walk_oracle_test)
+
+add_executable(pes_teampass_oracle_test pes_teampass_oracle_test.cpp)
+target_link_libraries(pes_teampass_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_teampass_oracle_test)
+
+add_executable(pes_passget_oracle_test pes_passget_oracle_test.cpp)
+target_include_directories(pes_passget_oracle_test PRIVATE ${CMAKE_SOURCE_DIR}/tests/sim)
+target_link_libraries(pes_passget_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_passget_oracle_test)
 
 add_executable(pes_dribble_oracle_test pes_dribble_oracle_test.cpp)
 target_link_libraries(pes_dribble_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
@@ -172,6 +233,30 @@ add_executable(pes_movestep_test pes_movestep_test.cpp)
 target_link_libraries(pes_movestep_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
 gtest_discover_tests(pes_movestep_test)
 
+add_executable(pes_movestep_turn_entry_test pes_movestep_turn_entry_test.cpp)
+target_link_libraries(pes_movestep_turn_entry_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_turn_entry_test)
+
+add_executable(pes_movestep_goto_entry_test pes_movestep_goto_entry_test.cpp)
+target_link_libraries(pes_movestep_goto_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_goto_entry_test)
+
+add_executable(pes_movestep_turnstop_entry_test pes_movestep_turnstop_entry_test.cpp)
+target_link_libraries(pes_movestep_turnstop_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_turnstop_entry_test)
+
+add_executable(pes_movestep_stepchange_entry_test pes_movestep_stepchange_entry_test.cpp)
+target_link_libraries(pes_movestep_stepchange_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_stepchange_entry_test)
+
+add_executable(pes_movestep_idleturn_entry_test pes_movestep_idleturn_entry_test.cpp)
+target_link_libraries(pes_movestep_idleturn_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_idleturn_entry_test)
+
+add_executable(pes_movestep_gotorun_test pes_movestep_gotorun_test.cpp)
+target_link_libraries(pes_movestep_gotorun_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_gotorun_test)
+
 add_executable(pes_movestep_run_test pes_movestep_run_test.cpp movestep_probe_stubs.cpp)
 target_link_libraries(pes_movestep_run_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_run_test)
@@ -252,7 +337,7 @@ add_test(NAME godot_post_meter_test
 set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 900)
 
 add_executable(pes_events_test pes_events_test.cpp)
-target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_link_libraries(pes_events_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_events_test)
 
 add_executable(pes_possession_test pes_possession_test.cpp)
@@ -304,6 +389,13 @@ add_test(NAME translate_switch_tables_test
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_tables.py'")
 set_tests_properties(translate_switch_tables_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 
+# A JMP-reg switch whose bounds check is more than 20 instructions above it still resolves (FUN_141B16140's second switch under
+# the anime IK stage): synthetic image, compiled and run. Needs g++. Skips (77) without GF_DIFF_PYTHON.
+add_test(NAME translate_switch_far_guard_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_switch_far_guard.py'")
+set_tests_properties(translate_switch_far_guard_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
 # The lint behind gen_translated: every live read of a read-only image address is found (reaching definitions) and every
 # declared or constant one is baked. Synthetic image, compiled and run with no image view. Needs g++. Skips (77) without
 # GF_DIFF_PYTHON.
@@ -331,6 +423,10 @@ set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
 add_test(NAME translate_synth_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_synth.py)
 set_tests_properties(translate_synth_test PROPERTIES TIMEOUT 120)
+# synth.py's __stdio_common_vsprintf_s model (the conversions PES's writers use, e.g. the DemoInfoRef player name PLAYER_A08). Plain python3.
+add_test(NAME translate_synth_models_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_synth_models.py)
+set_tests_properties(translate_synth_models_test PROPERTIES TIMEOUT 120)
 
 # capz.py (capture pack/unpack): a full capture round-trips byte-identical, a sparse slim one is never packed and unpacks
 # sparse. Plain python3 + zstd.
@@ -352,6 +448,18 @@ set_tests_properties(pes_capd_test PROPERTIES TIMEOUT 60)
 add_test(NAME auto_slim_test
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/rendezvous/test_auto_slim.py)
 set_tests_properties(auto_slim_test PROPERTIES TIMEOUT 60)
+
+# Capture-set registry: the slim and pack refusal, the broken-link check, the oracle manifests (small fixture trees).
+add_test(NAME capsets_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/capsets/test_capsets.py)
+set_tests_properties(capsets_test PROPERTIES TIMEOUT 60)
+
+# readset.py's --windows classification: imports unicorn, so it runs under the harness Python (GF_DIFF_PYTHON) only.
+if(DEFINED ENV{GF_DIFF_PYTHON})
+  add_test(NAME readset_windows_test
+    COMMAND $ENV{GF_DIFF_PYTHON} ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_readset_windows.py)
+  set_tests_properties(readset_windows_test PROPERTIES TIMEOUT 120)
+endif()
 
 # Adding one translated function must not recompile the layer: no pes_fn TU includes translated.hpp or the dispatch
 # table, and one added member changes only its TU, translated.hpp and pes_dispatch_gen.cpp. Plain python3.

@@ -32,6 +32,7 @@
 #include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "onthepitch/pesdodge.hpp"
+#include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/matchpressure.hpp"
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/setpiecelaws.hpp"
@@ -49,6 +50,10 @@
 #include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesgoalkick.hpp"
 
+// A penalty taker runs up to the ball and strikes it from this reach (PES's approach: the run is the taker's own, the strike is
+// not sent before it). Measured in the shootout (pes_loop, seed 7): the run stops 1.5-2.0 m short of the ball, and the strike from
+// there scores. ponytail: 2.5 m is a GF stand-in for the reach at which the strike connects; PES's contact is not decoded.
+constexpr float kPenaltyStrikeReach_m = 2.5f;
 namespace {
 
 // PES's angle fold (0x140481b00, report 4): wrap at 360, fold at 180.
@@ -116,6 +121,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
   // PES's loose-ball presser (press-life 3/10): his movement is the ActionPress below, not a dribble.
   const bool loosePresser = match->PesLoop() && team->GetController()->IsLoosePresser(player);
+  // PES's PASS_GET man walks to the ball with ActionPassGet (the approach) and is no carrier until his touch: the on-ball branches
+  // (the carrier's brain, the BallControl) stand aside for him, whatever the geometric HasPossession says while he is still walking.
+  const bool passGetMan = match->PesLoop() && team->PassGetReceiver() == player;
 
   // celebrate good times come on!
 
@@ -323,7 +331,11 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       actionCommand.touchInfo.autoDirectionBias = 0.0f;
       actionCommand.touchInfo.desiredDirection = actionCommand.touchInfo.inputDirection;
       actionCommand.touchInfo.desiredPower = aimPower;
-      commandQueue.push_back(actionCommand);
+      // In PES loop the strike is not sent until the taker is at the ball: the run below brings him there (the penalty is a restart's
+      // approach, as a free kick's is). Outside the PES loop the strike goes out as it always did.
+      const float ballReach_m = (match->GetBall()->Predict(0) - player->GetPosition()).Get2D().GetLength();
+      if (!match->PesLoop() || ballReach_m <= kPenaltyStrikeReach_m)
+        commandQueue.push_back(actionCommand);
 
     } else {
       actionCommand.desiredFunctionType = e_FunctionType_ShortPass;
@@ -529,7 +541,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       if (restart == e_SetPiece_ThrowIn &&
           toBall.GetLength() <= match->GetPesSetPieceTakerConstants().throwInPickupReach_m) {
         CastPlayer()->SelectRetainAnim();
-      } else if (restart == e_SetPiece_FreeKick || restart == e_SetPiece_Corner || restart == e_SetPiece_Penalty) {
+      } else if (restart == e_SetPiece_FreeKick || restart == e_SetPiece_Corner ||
+                 (restart == e_SetPiece_Penalty && toBall.GetLength() > kPenaltyStrikeReach_m)) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = true;
@@ -555,6 +568,30 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         commandQueue.push_back(stand);
         return;
       }
+    }
+
+    // PES's ThrowinLoop (id 26, docs/re/pes-re-throwin-choreography.md 4.1; Update 0x140793590) owns the lifted taker until the throw:
+    // an in-place turn loop on the stored spot, no locomotion from the AI. He holds the ball from the pickup's contact on (3.2 phase 2,
+    // ap+0x2460 |= 0x300), which is GF's retainer: GF's throw clip (pass/idle/special/000_throw) is selected only for the retainer, and
+    // GF's ball-control walk below was what made him one (the possession band), walking him after the ball he holds and over the line
+    // (TheThrowInTakersAnklesStayBehindTheLine: nearer ankle 34.43 -> 33.86 m on Movement clips at 1.5-3.3 m/s).
+    // ponytail: the loop's parametric turn (group 94) and its side step are not ported; the stand turns to the throw's aim as the turn does.
+    if (match->PesLoop() && restart == e_SetPiece_ThrowIn && team->GetController()->HoldsRoot(CastPlayer()) &&
+        team->GetController()->IsCarryingBall()) {
+      if (match->GetBallRetainer() != player) match->SetBallRetainer(CastPlayer());
+      // PES's loop turns him to the throw's bearing (phase 2), so the pass queued after this command finds the clip for his facing.
+      const Vector3 aim = actionCommand.touchInfo.desiredDirection.GetLength() > 0.0f
+                              ? actionCommand.touchInfo.desiredDirection.Get2D().GetNormalized(player->GetDirectionVec())
+                              : player->GetDirectionVec();
+      PlayerCommand stand;
+      stand.desiredFunctionType = e_FunctionType_Movement;
+      stand.useDesiredMovement = true;
+      stand.desiredDirection = aim;
+      stand.desiredVelocityFloat = idleVelocity;
+      stand.useDesiredLookAt = true;
+      stand.desiredLookAt = player->GetPosition() + aim * 10.0f;
+      commandQueue.push_back(stand);
+      return;
     }
 
     if (match->GetBallRetainer() != player) {  // must be set piece taker, then
@@ -631,12 +668,19 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // does. So step onto it first - once he has it, the branch below is
       // business as usual.
       const float ballSpeed_ms = match->GetBall()->GetMovement().GetLength();
-      const bool hasIt = match->GetBallRetainer() == player || CastPlayer()->HasPossession();
+      // PES picks the carrier by its holder (MA+0x2601C, RecomputePesHolder); GF's reach-based possession took a presser 0.7 m off a
+      // resting ball into the carrier brain, whose pass never found a touch (pes-port-StallLive12 section 1).
+      const bool hasIt = match->GetBallRetainer() == player ||
+                         (match->PesLoop() ? match->GetPesHolder() == player : CastPlayer()->HasPossession());
       // Not gated on the stalemate clock. The inPlay-1 stalls this exists for
       // idle at 5-14 s, well under ShouldReleaseBall's 15, so gating on it would
       // leave the measured case untouched. Close, designated, and without it:
       // step onto it.
-      if (!hasIt && ballSpeed_ms <= GameplayTuning::kStalemateBallSpeed_ms) {
+      if (match->PesLoop() && !hasIt && !match->GetPesHolder() && team->PassGetReceiver() != player) {
+        // PES's ActionPress (docs/re/pes-re-press-life.md 8): a loose ball with no holder is approached by the man the press names, in
+        // reach of it as well as out of reach. GF's designated man in reach queued nothing here, so he stood beside a resting ball.
+        _PressApproach(commandQueue);
+      } else if (!hasIt && ballSpeed_ms <= GameplayTuning::kStalemateBallSpeed_ms) {
         // GF's chase step, off the PES path: a PES loose ball is approached by the PRESS man's ActionPress
         // (pes-re-press-life §8), and the designated man is no chaser (pes-re-first-touch §7.1).
         if (!match->PesLoop()) {
@@ -655,7 +699,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
             extraHaste = true;
           }
         }
-      } else if (!loosePresser || hasIt) {
+      } else if ((!loosePresser || hasIt) && !passGetMan) {
         GetOnTheBallCommands(commandQueue, rawInputDirection, rawInputVelocityFloat);
         // A loose-ball presser without the ball: nothing here, the press steers him below.
       }
@@ -667,34 +711,11 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // whole pitch for the rest of the half (measured: 32:19 to 45:00).
       // A loose-ball presser steers through the movement command below.
       const Vector3 toBall = match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-      if (match->PesLoop() && !match->GetBallRetainer()) {
-        // PES's ActionPress approach (docs/re/pes-re-press-life.md sections 7 and 9): the ball now, or his own base when the
-        // ball sample at k ticks sits nearer the base, at the press speed curve. PES sends a PRESS man to a loose ball; GF's
-        // designated man stands in for him here. MOVESTEP steers by this command's target (pesmovestep MovementDecision).
-        const pes::PressConstants& press = match->GetPesPressConstants();
-        const Vector3 ballNow = match->GetBall()->Predict(0);
-        const Vector3 sample = match->GetBall()->Predict(
-            static_cast<unsigned int>(pes::PressTargetTick(press) * Match::kTick_ms));
-        // ponytail: his base (AI+0x1414) is GF's adapted formation position.
-        const Vector3 base = team->GetController()->GetAdaptedFormationPosition(CastPlayer(), true);
-        const bool atBall = pes::PressTargetIsBall({sample.coords[0], sample.coords[1]},
-                                                   {ballNow.coords[0], ballNow.coords[1]},
-                                                   {base.coords[0], base.coords[1]});
-        const Vector3 target = atBall ? ballNow.Get2D() : base.Get2D();
-        const Vector3 toTarget = target - CastPlayer()->GetPosition();
-        // m/s to km/h is arithmetic (3600/1000), not a PES number.
-        const float speedKmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
-        PlayerCommand approach;
-        approach.desiredFunctionType = e_FunctionType_Movement;
-        approach.useDesiredMovement = false;
-        approach.useDesiredLookAt = true;
-        approach.desiredDirection = toTarget.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
-        approach.desiredVelocityFloat = pes::PressCommandSpeed_ms(press, toTarget.GetLength(), speedKmh,
-                                                                  distanceToVelocityMultiplier);
-        approach.desiredLookAt = target;
-        approach.useDesiredTarget = true;
-        approach.desiredTarget = target;
-        commandQueue.push_back(approach);
+      // The PASS_GET receiver is the designated man too, but PES runs ActionPassGet's approach for him, not ActionPress: _PassGetApproach
+      // below queues his command. This block's press command would otherwise come first in the queue and steer him (a walk-pace
+      // command on a resting ball, the seed-7 stale pass targets).
+      if (match->PesLoop() && !match->GetPesHolder() && team->PassGetReceiver() != player) {
+        _PressApproach(commandQueue);
       } else if (!match->PesLoop() && toBall.GetLength() > 0.5f) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
@@ -805,7 +826,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // A keeper whose PES rush has won the race (KP_PRESS, pes-re-goalkeeper.md 10.3) goes for the ball.
     // ponytail: PES moves him with its keeper mover (action 0x3e, not decoded); GF's ball control stands in for it.
     const bool keeperRush = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK && keeperRushing;
-    if (!match->PesLoop() || CastPlayer()->HasPossession() || keeperRush)
+    if ((!match->PesLoop() || CastPlayer()->HasPossession() || keeperRush) && !passGetMan)
       _BallControlCommand(commandQueue, false, false,
                           false);  // last param true == enable sticky run direction.
 
@@ -932,12 +953,15 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
                                                      distanceToVelocityMultiplier);
     }
 
-    inputVelocityFloat = RangeVelocity(inputVelocityFloat);  // emulate controller quantization
+    // GF's controller quantisation stands in for a human's stick; PES's presser is planned (FUN_1406788B0 returns max(1, fps*dist) ticks,
+    // docs/re/pes-re-press-life.md 9) and is never commanded to a stop short of an unreached target: quantised, 2.6*dist fell under
+    // RangeVelocity's 1.8 m/s step inside 0.69 m and stood him beside a resting ball (docs/re/pes-re-approach.md G1).
+    if (!pressTarget) inputVelocityFloat = RangeVelocity(inputVelocityFloat);  // emulate controller quantization
 
     // PES's PASS_GET receiver runs ActionPassGet's approach (BallFollow): to
     // the ball path's nearest point, clamped onto the pitch. GF's magnet
     // approach is for everyone else.
-    if (team->PassGetReceiver() == player && !hasPossession)
+    if (team->PassGetReceiver() == player && (passGetMan || !hasPossession))
       _PassGetApproach(commandQueue);
     else
       _MovementCommand(commandQueue, forceMagnet, extraHaste, pressTarget);
@@ -1073,6 +1097,11 @@ void WriteSlotAbilities(const Match& match, pes::PesWorld& world, int slot, Play
   world.StoreLiveAbility(slot, pes::kAbilitySpeedId, bin ? bin->speed : byteOf("physical_velocity"),
                          cellsOf("physical_velocity", false));
   world.StoreLiveAbility(slot, pes::kAbilityJumpId, bin ? bin->jump : byteOf("physical_jump"), cellsOf("physical_jump", true));
+  // The Acceleration byte (0x2B): a player with a roster row takes his row's byte (LoadRosterRow copied it); one without takes GF's
+  // Acceleration stat over 100, the stat the team's ability read takes. PES's stat rebuild 0x14092AF10 stores it through the same
+  // cells as Jump (the fatigue factor covers 0x28..0x2C, pes-re-stamina-drain.md 4).
+  const uint8_t acceleration = bin && bin->row ? (*bin->row)[pes::kAbilityAccelerationId] : byteOf("physical_acceleration");
+  world.StoreLiveAbility(slot, pes::kAbilityAccelerationId, acceleration, cellsOf("physical_acceleration", true));
   world.StoreLiveAbility(slot, pes::kAbilityHeightId,
                          bin ? bin->heightCm : static_cast<uint8_t>(std::clamp(data->GetHeight() * 100.0f, 0.0f, 255.0f)));
   world.StoreLiveAbility(slot, pes::kAbilityStrongerFootId, match.LeftFootedOf(data) ? 1 : 0);
@@ -1137,7 +1166,9 @@ pes::SlideAggressionInput ElizaController::_SlideAggression() {
   return in;
 }
 
-void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
+// GF mode (pes_loop off): the legacy receiver approach, kept for the switch-off baseline. ponytail: GF's distance-to-velocity ramp stands in
+// for PES's route; the PES path below (_PassGetApproach) runs ActionPassGet's own tick and has no GF part.
+void ElizaController::_PassGetApproachGf(PlayerCommandQueue& commandQueue) {
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
   // FUN_140a4d340 searches the prediction one PES frame at a time, 0..0xf9.
   constexpr int kPredictionFrames = 0xf9;
@@ -1160,6 +1191,62 @@ void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
   // reduced) - GF's distance-to-velocity ramp stands in.
   command.desiredVelocityFloat = RangeVelocity(
       clamp((target - me).GetLength() * distanceToVelocityMultiplier, 0.0f, sprintVelocity));
+  command.useDesiredLookAt = true;
+  command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
+  commandQueue.push_back(command);
+}
+
+void ElizaController::_PressApproach(PlayerCommandQueue& commandQueue) {
+  // PES's ActionPress approach (docs/re/pes-re-press-life.md sections 7 and 9): the ball now, or his own base when the ball sample at k
+  // ticks sits nearer the base, at the press speed curve. PES sends a PRESS man to a loose ball; GF's designated man stands in for him here.
+  // MOVESTEP steers by this command's target (pesmovestep MovementDecision).
+  const pes::PressConstants& press = match->GetPesPressConstants();
+  const Vector3 ballNow = match->GetBall()->Predict(0);
+  const Vector3 sample = match->GetBall()->Predict(static_cast<unsigned int>(pes::PressTargetTick(press) * Match::kTick_ms));
+  // ponytail: his base (AI+0x1414) is GF's adapted formation position.
+  const Vector3 base = team->GetController()->GetAdaptedFormationPosition(CastPlayer(), true);
+  const bool atBall = pes::PressTargetIsBall({sample.coords[0], sample.coords[1]}, {ballNow.coords[0], ballNow.coords[1]},
+                                             {base.coords[0], base.coords[1]});
+  const Vector3 target = atBall ? ballNow.Get2D() : base.Get2D();
+  const Vector3 toTarget = target - CastPlayer()->GetPosition();
+  // m/s to km/h is arithmetic (3600/1000), not a PES number.
+  const float speedKmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
+  PlayerCommand approach;
+  approach.desiredFunctionType = e_FunctionType_Movement;
+  approach.useDesiredMovement = false;
+  approach.useDesiredLookAt = true;
+  approach.desiredDirection = toTarget.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+  approach.desiredVelocityFloat =
+      pes::PressCommandSpeed_ms(press, toTarget.GetLength(), speedKmh, distanceToVelocityMultiplier);
+  approach.desiredLookAt = target;
+  approach.useDesiredTarget = true;
+  approach.desiredTarget = target;
+  commandQueue.push_back(approach);
+}
+
+void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
+  if (!match->PesLoop()) return _PassGetApproachGf(commandQueue);
+  // PES's ActionPassGet tick (0x14094E0E0) on the world window: it leaves the target point and the speed class in the command record
+  // (docs/re/pes-re-receiving.md 4, pes-re-decision-read.md). The action id 5 is PASS_GET (R+0x874).
+  constexpr uint32_t kPassGetAction = 5;
+  const pes::PesPassGetResult r =
+      match->PesWorldOf().RunPassGetAction(match->PesSlotOf(CastPlayer()), kPassGetAction, match->PesTrapExternalsOf());
+  const Vector3 me = CastPlayer()->GetPosition();
+  // PES's axes (x, height, z) are the window's frame: GF's (x, y) is (x, z), as the ball samples.
+  const Vector3 target(r.target[0], r.target[2], 0);
+  PlayerCommand command;
+  command.desiredFunctionType = e_FunctionType_Movement;
+  command.useDesiredMovement = true;
+  command.desiredDirection = (target - me).Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+  // The command record's words as FUN_1406B7560 reads them (R+0x874.. is cmd+0): taken as PES left them, no GF class or ramp.
+  command.usePesWords = true;
+  command.pesWords = {static_cast<int>(r.commandId), static_cast<int>(r.moveKind), static_cast<int>(r.precise),
+                      static_cast<int>(r.speedClass), r.speedUse, r.speedKmh,
+                      {r.look[0], r.look[1], r.look[2]}};
+  command.useDesiredTarget = true;
+  command.desiredTarget = target;
+  // km/h to m/s is arithmetic (3600/1000), not a PES number: GF's own readers of the command (the humanoid's velocity level) take m/s.
+  command.desiredVelocityFloat = r.speedKmh / 3.6f;
   command.useDesiredLookAt = true;
   command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
   commandQueue.push_back(command);
@@ -2566,7 +2653,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   pes::ShootInput shoot;
   shoot.zone = zone;
   shoot.ballHeight_m = ballHeight;
-  shoot.height_m = CastPlayer()->GetStat("physical_height") * 100.0f;
+  shoot.height_m = pesmovestep::PhysiqueHeightCmOf(*match, *CastPlayer());
   shoot.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
   shoot.planId = carrierImage.id;
   shoot.aimVsFacing_deg = aimVsFacing;
@@ -2828,8 +2915,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // the state's owned byte reads, so it is written first.
   pes::PesWorld& pesWorld = match->PesWorldOf();
   const int sideIndex = team->GetID();
-  Player* ballOwner = match->GetBallRetainer();
-  pesWorld.SetMaOwner(sideIndex, ballOwner != nullptr ? static_cast<uint32_t>(match->PesSlotOf(ballOwner)) : pes::kMiNoSlot);
+  Player* pesHolder = match->GetPesHolder();
+  pesWorld.SetMaOwner(sideIndex, pesHolder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(pesHolder)) : pes::kMiNoSlot);
   // ponytail: the CPU tier setting (side record +0xA294, written by the menus' 0x140A424E0 callers 0x141FBE480 / 0x141FB9FB0)
   // is the live play setting, tier 5 (docs/re/pes-re-A4Carrier.md 3); GF has no such menu.
   pesWorld.SetSideTier(sideIndex, static_cast<uint32_t>(pes::kBpTierLive));
@@ -2861,7 +2948,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       pes::LongMate m;
       m.index = mate->GetID();
       m.advance_m = attackSign * mate->GetPosition().coords[0];
-      m.height_cm = mate->GetStat("physical_height") * 100.0f;
+      m.height_cm = pesmovestep::PhysiqueHeightCmOf(*match, *mate);
       longIn.mates.push_back(m);
     }
     longPass = pes::PassLongUnit(longIn, carrier);
@@ -3107,7 +3194,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // DirectHighBall gate below.
     pes::VolatileBallInput volatileIn;
     volatileIn.ballHeight_m = ctxPoint.y;  // K+0x44
-    volatileIn.carrierHeight_m = CastPlayer()->GetStat("physical_height");
+    volatileIn.carrierHeight_m = pesmovestep::PhysiqueHeightCmOf(*match, *CastPlayer()) / 100.0f;
     volatileIn.ballTrackFlag = sample0.valid;
     volatileIn.anchor = sample0.xz;
     volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};

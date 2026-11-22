@@ -69,6 +69,14 @@ std::optional<std::array<int, kRegisteredRoles>> LoadRoleClassMap(const PeImage&
   return classOf;
 }
 
+void StoreSideRoles(const SideRoles& roles, uint8_t* sideRecord) {
+  for (int slot = 0; slot < kSideSlots; ++slot) {
+    const uint32_t a = static_cast<uint32_t>(roles.a[slot]), b = static_cast<uint32_t>(roles.b[slot]);
+    std::memcpy(sideRecord + kSideRoleAOffset + 4 * slot, &a, sizeof a);
+    std::memcpy(sideRecord + kSideRoleBOffset + 4 * slot, &b, sizeof b);
+  }
+}
+
 void WriteSideRoles(const std::array<int, kRegisteredRoles>& classOf, const TeamSheet& sheet,
                     int level, SideRoles* roles) {
   for (int slot = 0; slot < kSideSlots; ++slot) {

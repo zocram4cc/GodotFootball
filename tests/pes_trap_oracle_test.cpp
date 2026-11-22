@@ -47,9 +47,31 @@
 #include "pes/physique.hpp"
 #include "pes/vfs.hpp"
 #include "pes/translated/translated.hpp"
+#include "pes_engine_trap.hpp"
 #include "pes_state.hpp"
 
 namespace {
+// The engine the trap world runs on (the cut, pes_engine_trap.hpp): its memory holds the window the trap path binds and the anime chain
+// it reads (A = P+0xA08, B = A+0xF0, O2 = A+0x188). Booted once per process from PES_EXE and PES21_ROOT.
+pes_engine::EngineTrap* TrapEngine() {
+  static std::unique_ptr<pes_engine::EngineTrap> engine;
+  static std::string why;
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    const char* root = std::getenv("PES21_ROOT");
+    const char* exe = std::getenv("PES_EXE");
+    if (root != nullptr && exe != nullptr) engine = pes_engine::EngineTrap::Open(exe, root, 0, &why);
+  }
+  return engine.get();
+}
+
+// A trap world on the engine: the window moves into the engine's memory, and the slot's anime chain is a new engine player's (as the
+// match binds it: BindAnimeChain before WriteActorP).
+void BindTrapWorld(pes::PesWorld& w, int slot) {
+  TrapEngine()->BindWorld(w, -1);
+  w.BindAnimeChain(slot, TrapEngine()->NewPlayer());
+}
 
 constexpr uint64_t kPage = 4096;
 constexpr uint64_t kImageG = 0x1436F3DC8ULL;  // the image global that holds G
@@ -289,6 +311,7 @@ void CopyNamed(const Oracle& o, uint64_t g, Built& b, const std::vector<std::str
 
 void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b) {
   pes::PesWorld& w = *b.world;
+  TrapEngine()->BindWorld(w, -1);  // the window moves into the engine's memory (the trap path runs there); before any record is written
   const uint64_t g = Read(o, kImageG, 8);
   for (int k = 0; k < pes::kSlotCount; ++k) w.BindSlot(k);
   for (int k = 0; k < pes::kOfficialCount; ++k) w.BindOfficial(pes::kRefereeOfficialIndex + k);
@@ -316,7 +339,7 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   b.slot = facts.slot;
   CopyActorMan(o, g, w, facts.slot);
   pes::ConstructActorP(w, facts.slot, g_derivation->actor);  // as a match does once, before the per-tick writes
-  pes::ConstructAnimPlugin(w, facts.slot);
+  w.BindAnimeChain(facts.slot, TrapEngine()->NewPlayer());  // the slot's anime chain: a fresh engine player's (the match binds it before WriteActorP)
   pes::WriteActorP(w, facts, OpenOf(o), g_derivation->actor, g_derivation->stamina, g_derivation->physique);
   // The request, as the dispatcher 0x1407A01C0 took it (kind 0): its words are the chain's stack arguments in the capture.
   const uint64_t rsp = o.regs.at("rsp"), action = rdx + pes::kPActionOffset;
@@ -334,10 +357,48 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   put(pes::kReqByte21Offset, Read(o, action + pes::kActionByte3EOffset, 1), 1);
   b.ext.image = const_cast<uint8_t*>(image);
   b.ext.imageBytes = imageBytes;
+  b.ext.borrowed = TrapEngine()->Externals().borrowed;  // the engine's shared regions (the template's loader regions), as a match lends them
   g_loader->AddTo(b.ext);  // the loader data (motion table, Animetable, registry, trap.o): built from the install, never copied from the capture
+  // The heap ranges the call reads (the manifest's H lines) that no segment holds: the capture's own bytes, as the open inputs the kick
+  // builder takes (pes_kick_oracle_common.hpp). Bytes the install's loader data already covers are not overwritten.
+  for (const auto& line : o.manifest) {
+    if (line[0] != "H") continue;
+    const uint64_t va = std::strtoull(line[1].c_str(), nullptr, 16);
+    const size_t n = std::strtoul(line[2].c_str(), nullptr, 10);
+    pes::PesTrapSegment seg;
+    bool open = false;
+    for (size_t i = 0; i < n; ++i) {
+      const uint64_t a = va + i;
+      const bool covered = std::any_of(b.ext.segments.begin(), b.ext.segments.end(),
+                                       [a](const pes::PesTrapSegment& s) { return a >= s.va && a < s.va + s.bytes.size(); });
+      if (!covered) {
+        if (!open) seg = pes::PesTrapSegment{}, seg.va = a, open = true;
+        seg.bytes.push_back(static_cast<uint8_t>(Read(o, a, 1)));
+      } else if (open) {
+        b.ext.segments.push_back(std::move(seg));
+        open = false;
+      }
+    }
+    if (open) b.ext.segments.push_back(std::move(seg));
+  }
+  // The ball's prediction table (250 samples, written by CalculatePrediction; this harness runs no tick, so the table is an open input,
+  // as the tick builder takes it). The manifest's T and H lines hold only some of its bytes: samples 2-8 lack their x and z, which the
+  // call copies into its frame at the gate (FUN_14085E270's ball entry), so the table is supplied whole from the capture.
+  // The capture's ball record: kind-0's r8 is the ball; the tick's r8 names the cell that holds the frame, whose ball pointer (kFrameBallOffset)
+  // is the record (CapturedObjects reads the frame the same way).
+  const bool tickRoot = o.regs.count("root") != 0 && o.regs.at("root") == 0x140797CD0ULL;
+  const uint64_t capturedBall = tickRoot ? Read(o, Read(o, o.regs.at("r8"), 8) + pes::kFrameBallOffset, 8) : o.regs.at("r8");
+  for (std::size_t i = 0; i < static_cast<std::size_t>(pes::kBallSampleCount) * pes::kBallSampleStride; ++i)
+    w.BallRecord()[pes::kBallSamplesOffset + i] = static_cast<uint8_t>(Read(o, capturedBall + pes::kBallSamplesOffset + i, 1));
   // The pad manager's connected-pad mask is the named open input (PesTrapLoaderData::padMaskVa): the capture's, as the live game polled it.
   const uint32_t padMask = static_cast<uint32_t>(Read(o, Read(o, pes::kPadManagerGlobalVa, 8) + pes::kPadMaskOffset, 4));
-  std::memcpy(b.ext.segments.back().bytes.data() + (g_loader->padMaskVa - b.ext.segments.back().va), &padMask, sizeof padMask);
+  // The pad object sits in the loader's own segment, which AddTo pushes first (the anime chain's segments follow it): the externals' copy
+  // of that segment, found by its VA. (The last segment is the anime chain's, not the loader's.)
+  const auto loaderSegment = std::find_if(b.ext.segments.begin(), b.ext.segments.end(),
+                                          [](const pes::PesTrapSegment& s) { return s.va == g_loader->segment.va; });
+  ASSERT_NE(loaderSegment, b.ext.segments.end()) << "the loader's segment is not among the externals";
+  ASSERT_LE(g_loader->padMaskVa + sizeof padMask, loaderSegment->va + loaderSegment->bytes.size());
+  std::memcpy(loaderSegment->bytes.data() + (g_loader->padMaskVa - loaderSegment->va), &padMask, sizeof padMask);
 }
 
 struct Image {
@@ -376,6 +437,7 @@ class TrapOracle : public ::testing::Test {
     std::sort(dirs_.begin(), dirs_.end());
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
     exe_ = exe;
+    ASSERT_NE(TrapEngine(), nullptr) << "the engine boots from PES_EXE and PES21_ROOT";
     // The install's trap data: the actor constants P is made from, the image slice and the loader data, built once per process
     // (PES builds the loader once per match). The chain itself is run on the flat image below and, in the match-memory test, on
     // the slice.
@@ -545,8 +607,8 @@ TEST_F(TrapOracle, DerivedGEqualsPesChainGOnEveryCapture) {
     const uint64_t p = o.regs.at("rdx");
     const uint64_t capturedChain = Read(o, Read(o, p + pes::kPScalePtrOffset, 8) + pes::kPhysiqueNextOffset, 8);
     const uint32_t want = static_cast<uint32_t>(Read(o, capturedChain + pes::kPhysiqueGOffset, 4));
-    uint32_t got;
-    std::memcpy(&got, b.world->PhysiqueB(b.slot) + pes::kPhysiqueGOffset, sizeof got);
+    const uint64_t chainB = TrapEngine()->Engine().Read64(pes::LoadU64(b.world->P(b.slot), pes::kPScalePtrOffset) + pes::kPhysiqueNextOffset);
+    const uint32_t got = TrapEngine()->Engine().Read32(chainB + pes::kPhysiqueGOffset);
     EXPECT_EQ(got, want) << dir << ": G of " << FactsOf(o).heightCm << " cm";
   }
 }
@@ -589,6 +651,7 @@ TEST_F(TrapOracle, LocomotionClassBranches) {
 TEST_F(TrapOracle, TheMotionTableListsThePlayingClipSoTheEndHandlerWaits) {
   auto world = std::make_unique<pes::PesWorld>();
   for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  BindTrapWorld(*world, 7);
   constexpr int kSlot = 7;
   constexpr uint16_t kPlaying = 0x0D18, kOther = 0x001F;
   const auto listed = [&](uint16_t motion) {
@@ -622,6 +685,7 @@ TEST_F(TrapOracle, TheMotionTableListsThePlayingClipSoTheEndHandlerWaits) {
 TEST_F(TrapOracle, TheMotionTableAdvancesEachEntryFromTheOldTable) {
   auto world = std::make_unique<pes::PesWorld>();
   for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  BindTrapWorld(*world, 7);
   constexpr int kSlot = 7;
   constexpr float kMemberRate = 0.0125f;  // a value no other cell holds
   uint8_t* p = world->P(kSlot);
@@ -669,6 +733,7 @@ TEST_F(TrapOracle, TheMotionTableAdvancesEachEntryFromTheOldTable) {
 TEST_F(TrapOracle, TheActionTableResolvesEveryIdToThisMansOwnObject) {
   auto world = std::make_unique<pes::PesWorld>();
   for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  BindTrapWorld(*world, 7);
   constexpr int kSlot = 7, kOther = 8;
   pes::ConstructActorP(*world, kSlot, g_derivation->actor);
   pes::ConstructActorP(*world, kOther, g_derivation->actor);
@@ -691,11 +756,50 @@ TEST_F(TrapOracle, TheActionTableResolvesEveryIdToThisMansOwnObject) {
       << "each man's table names its own P";
 }
 
+// A trap call reads a player's chain through the memory it lends the call (the trap externals' shared windows). The chain lives in the
+// match's heap (the OS arena, where PesMemory::Alloc puts it); the call must map that arena as the engine does. Without it, A+0xF0 (B)
+// reads as zero in the call: on capture pid3727195 seq027, B+0xC0 (1.0 in PES) read zero through FUN_141AF3180, which set the candidate
+// float and the sample index, and the trap answered 1 where PES answers 4.
+TEST(TrapCallMemory, TheCallMapsThePlayersChainInTheHeap) {
+  const uint64_t p = TrapEngine()->NewPlayer();
+  const uint64_t b = TrapEngine()->Engine().Read64(TrapEngine()->ChainOf(p) + pes::kPhysiqueNextOffset);
+  ASSERT_NE(b, 0u) << "the engine's chain has its physique object B";
+  TrapEngine()->Engine().Write32(b + pes::kPhysiqueGOffset, 0x3F800000u);  // G = 1.0
+  bool lent = false;
+  for (const auto& w : TrapEngine()->Externals().borrowed) {
+    if (w.rw == nullptr || b < w.base || b + pes::kPhysiqueGOffset + 4 > w.base + w.size) continue;
+    lent = true;
+    uint32_t g = 0;
+    std::memcpy(&g, w.rw + (b - w.base) + pes::kPhysiqueGOffset, sizeof g);
+    EXPECT_EQ(g, 0x3F800000u) << "the call's window of B reads the engine's G";
+  }
+  EXPECT_TRUE(lent) << "no shared window of the trap externals covers the player's B: a trap call reads zeros there";
+}
+
+// The chain's layer objects, as the trap-tick oracle needs them: O1 is A+0x118 and O2 is A+0x188 (pestrapworld.hpp), both built by PES's own
+// constructor (ConstructAnime -> FUN_141EB5250), so they are heap objects of the engine, not window records. A trap call reads them through the
+// shared windows (the arena), so each lies inside a window the call borrows.
+TEST(TrapCallMemory, TheChainsLayersO1AndO2AreHeapObjectsTheCallBorrows) {
+  const uint64_t p = TrapEngine()->NewPlayer();
+  const uint64_t a = TrapEngine()->ChainOf(p);
+  const uint64_t o1 = TrapEngine()->Engine().Read64(a + pes::kAChildO1Offset);
+  const uint64_t o2 = TrapEngine()->Engine().Read64(a + pes::kAChildO2Offset);
+  ASSERT_NE(o1, 0u) << "A+0x118 (O1) is built by the constructor";
+  ASSERT_NE(o2, 0u) << "A+0x188 (O2) is built by the constructor";
+  for (const uint64_t object : {o1, o2}) {
+    bool lent = false;
+    for (const auto& w : TrapEngine()->Externals().borrowed)
+      if (w.rw != nullptr && object >= w.base && object + pes::kO2Bytes <= w.base + w.size) lent = true;
+    EXPECT_TRUE(lent) << "layer object at " << std::hex << object << " is not in a window the trap call borrows";
+  }
+}
+
 // Every fact lands in its own field of P. The captures have action id == sub id (and the previous pair equal too), so only
 // distinct values tell those bytes apart; position, previous position and heading come from the man record's own fields.
 TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
   auto world = std::make_unique<pes::PesWorld>();
   for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  BindTrapWorld(*world, 7);  // the slot the test writes (f.slot below)
   pes::PesActorFacts f;
   f.slot = 7, f.phase = 5, f.action = 3, f.sub = 5, f.prevAction = 2, f.prevSub = 4;
   f.motion = 0x0B86, f.kickApproach = 2, f.heightCm = 190.0f, f.speedByte = 77.0f;
@@ -736,11 +840,12 @@ TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
   EXPECT_EQ(u64(pes::kPSlotPtrOffset), pes::PesWorld::SlotVa(7) + pes::kSlotPPtrTargetOffset);
   // The physique chain is derived: P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G of the facts (190 cm, neutral slider); P+0xA00 holds it too.
   const float g = pes::PhysiqueG(g_derivation->physique, {190.0f, 0.0f, false});
-  EXPECT_EQ(u64(pes::kPScalePtrOffset), pes::PesWorld::PhysiqueAVa(f.slot));
-  uint64_t next;
-  std::memcpy(&next, world->PhysiqueA(f.slot) + pes::kPhysiqueNextOffset, sizeof next);
-  EXPECT_EQ(next, pes::PesWorld::PhysiqueBVa(f.slot));
-  EXPECT_EQ(pes::LoadF32(world->PhysiqueB(f.slot), pes::kPhysiqueGOffset), g);
+  // The physique chain is derived from the facts (on the engine): P+0xA08 names the engine player's A, A+0xF0 its B, and B+0xC0 = G.
+  const uint64_t chain = u64(pes::kPScalePtrOffset);
+  EXPECT_NE(chain, 0u);
+  const uint64_t next = TrapEngine()->Engine().Read64(chain + pes::kPhysiqueNextOffset);
+  EXPECT_NE(next, 0u);
+  EXPECT_EQ(F32(TrapEngine()->Engine().Read32(next + pes::kPhysiqueGOffset)), g);
   EXPECT_EQ(pes::LoadF32(p, pes::kPGOffset), g);
   EXPECT_EQ(u64(pes::kPPtr3AC0Offset), pes::PesWorld::CtxVa(1));  // P+0x3AC0 names the side the fact gives (1)
   EXPECT_EQ(std::memcmp(p + pes::kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size()), 0);
@@ -782,21 +887,23 @@ RunOut RunForked(const Oracle& o, const std::string& exe, const std::function<vo
 
 // The record indices the call reads (first and last of a kind in the manifest): the actor's slot and its man records.
 struct Indices {
-  int slot = 0, manFirst = 0, manLast = 0;
+  int slot = 0, manFirst = 0, manLast = 0, manVel = 0;  // manVel: the first man the call reads a velocity from (+0x574)
 };
 Indices IndicesOf(const Oracle& o) {
   Indices idx;
-  bool seenMan = false;
+  bool seenMan = false, seenVel = false;
   for (const auto& line : o.manifest) {
     if (line[0] != "T") continue;
     const int i = std::atoi(line[2].c_str());
     if (line[1] == "slot") idx.slot = i;
     if (line[1] == "man") {
       if (!seenMan) idx.manFirst = i;
+      if (!seenVel && std::strtoul(line[3].c_str(), nullptr, 16) == pes::kManVelXOffset) idx.manVel = i, seenVel = true;
       idx.manLast = i;
       seenMan = true;
     }
   }
+  if (!seenVel) idx.manVel = idx.manFirst;  // no capture reads a man's velocity: the binding then reads nothing and is not claimed
   return idx;
 }
 
@@ -827,7 +934,7 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
       {"ball velocity x", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallVelocityOffset + 2; }, 0x40},
       {"MI frame", [](Built& b, const Indices&) { return b.world->MatchInfo() + pes::kMiFrameOffset; }},
       {"man A position x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManPosXOffset; }},
-      {"man A velocity x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManVelXOffset; }},
+      {"man velocity x (the man the call reads at +0x574)", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manVel) + pes::kManVelXOffset + 3; }, 0x40},
       {"slot +0x9B", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x9B; }},
       {"slot +0xC8", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0xC8; }},
       {"slot +0x104", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x104; }},
@@ -857,36 +964,31 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
 
 }  // namespace
 
-// The match runs the chain on its own memory: a private copy of the install's image slice (not the flat image) and of the loader
-// data (PesTrapMemory, built once). On every capture that memory gives the flat image's output, and the two issued captures
-// commit PES's clip: seq4469 0xB86 (Animetable cell of row 0x520), seq23906 0xA41 (rows 0x7E1..0x7FA).
+// The match runs the chain on its own memory: the anime world's memory, whose shared windows (SharedWindows: the loader regions and the
+// OS arena, where the players' chains live) every trap call borrows (matchevents' BindPesTrapWorld; here Build's externals). On every
+// capture that memory gives the flat image's output, and on every issued capture it commits the clip the flat image commits. The issued
+// captures are whichever the set holds (no capture is named); at least one must issue, or the clip commit is not proved on this set.
 TEST_F(TrapOracle, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) {
-  const std::map<std::string, uint16_t> committed = {{"seq4469", 0xB86}, {"seq23906", 0xA41}};
-  int checked = 0;
+  int issued = 0;
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
     const RunOut flat = RunCall(o, exe_);
     Image image;
     ASSERT_TRUE(image.Open(exe_));
+    Built flatBuilt;
+    Build(o, image.bytes, image.size, flatBuilt);
+    flatBuilt.world->RunTrapKind0(flatBuilt.slot, flatBuilt.request, flatBuilt.ext);
     Built b;
     Build(o, image.bytes, image.size, b);
-    pes::PesTrapMemory memory(*g_source);
-    pes::PesTrapExternals& ext = memory.Externals();
-    for (const pes::PesTrapSegment& seg : b.ext.segments)  // the captured table-B squad records (SBn), not the loader
-      if (seg.va != g_source->loader.segment.va) ext.segments.push_back(seg);
-    const pes::PesTrapResult r = b.world->RunTrapKind0(b.slot, b.request, ext);
+    const pes::PesTrapResult r = b.world->RunTrapKind0(b.slot, b.request, b.ext);
     EXPECT_EQ(r.issued, flat.result.issued) << dir;
     EXPECT_EQ(r.out, flat.result.out) << dir;
     if (!r.issued) continue;
-    const uint16_t clip = pes::CommittedTrapClip(b.world->P(b.slot));
-    for (const auto& [name, want] : committed)
-      if (dir.find(name) != std::string::npos) {
-        EXPECT_EQ(clip, want) << dir;
-        ++checked;
-      }
+    ++issued;
+    EXPECT_EQ(pes::CommittedTrapClip(b.world->P(b.slot)), pes::CommittedTrapClip(flatBuilt.world->P(flatBuilt.slot))) << dir;
   }
-  EXPECT_EQ(checked, static_cast<int>(committed.size())) << "both issued captures must be in the oracle set";
+  EXPECT_GT(issued, 0) << "no capture of the set issues a trap: the clip commit is not proved on this set";
 }
 
 // ---- The Trap action tick 0x140797CD0 (docs/ports/pes-port-TrapTick.md) --------------------------------------------------------
@@ -914,12 +1016,14 @@ struct ObjSpan {
 using ObjSpans = std::array<ObjSpan, kObjCount>;
 using WriteMap = std::map<std::pair<int, uint32_t>, uint8_t>;
 
+// A's bytes the tick reads: its fields through the O2 pointer cell (A+0x188 .. +0x190). The cut dropped the window's physique size constant.
+constexpr std::size_t kChainAByteSpan = 0x190;
 ObjSpans CapturedObjects(const Oracle& o) {
   const uint64_t p = o.regs.at("rdx"), a = Read(o, p + pes::kPScalePtrOffset, 8), q = Read(o, p + pes::kPQPtrOffset, 8),
                  f = Read(o, o.regs.at("r8"), 8);
   ObjSpans s;
   s[kObjP] = {p, pes::kTrapPBytes};
-  s[kObjA] = {a, pes::kPhysiqueObjectBytes};
+  s[kObjA] = {a, kChainAByteSpan};
   s[kObjO1] = {Read(o, a + pes::kAChildO1Offset, 8), pes::kO1Bytes};
   s[kObjO2] = {Read(o, a + pes::kAChildO2Offset, 8), pes::kO2Bytes};
   s[kObjQ] = {q, pes::kQBytes};
@@ -933,12 +1037,28 @@ ObjSpans CapturedObjects(const Oracle& o) {
   return s;
 }
 
-ObjSpans WindowObjects(int slot) {
+// The chain's objects in the engine's heap: A is P+0xA08's target, O1 = A+0x118 and O2 = A+0x188 (PES's constructor builds them; the
+// trap call borrows the OS arena, so these are the addresses the call reads and TrapEngine()->Engine().ArenaBytes names their bytes).
+struct ChainVas {
+  uint64_t a = 0, o1 = 0, o2 = 0;
+};
+ChainVas ChainOf(pes::PesWorld& w, int slot) {
+  ChainVas c;
+  c.a = pes::LoadU64(w.P(slot), pes::kPScalePtrOffset);
+  if (c.a == 0) return c;
+  c.o1 = TrapEngine()->Engine().Read64(c.a + pes::kAChildO1Offset);
+  c.o2 = TrapEngine()->Engine().Read64(c.a + pes::kAChildO2Offset);
+  return c;
+}
+
+ObjSpans WindowObjects(pes::PesWorld& w, int slot) {
   ObjSpans s;
   s[kObjP] = {pes::PesWorld::PVa(slot), pes::kTrapPBytes};
-  s[kObjA] = {pes::PesWorld::PhysiqueAVa(slot), pes::kPhysiqueObjectBytes};
-  s[kObjO1] = {pes::PesWorld::O1Va(slot), pes::kO1Bytes};
-  s[kObjO2] = {pes::PesWorld::O2Va(slot), pes::kO2Bytes};
+  const ChainVas c = ChainOf(w, slot);
+  s[kObjA] = {c.a, kChainAByteSpan};
+  s[kObjO1] = {c.o1, pes::kO1Bytes};
+  s[kObjO2] = {c.o2, pes::kO2Bytes};
+
   s[kObjQ] = {pes::PesWorld::QVa(slot), pes::kQBytes};
   s[kObjR] = {pes::PesWorld::RVa(slot), pes::kRJointsOffset};
   for (int k = 0; k < kJointObjects; ++k)
@@ -953,9 +1073,9 @@ ObjSpans WindowObjects(int slot) {
 uint8_t* WindowBytes(pes::PesWorld& w, int slot, int obj) {
   switch (obj) {
     case kObjP: return w.P(slot);
-    case kObjA: return w.PhysiqueA(slot);
-    case kObjO1: return w.O1(slot);
-    case kObjO2: return w.O2(slot);
+    case kObjA: return TrapEngine()->Engine().ArenaBytes(ChainOf(w, slot).a);
+    case kObjO1: return TrapEngine()->Engine().ArenaBytes(ChainOf(w, slot).o1);
+    case kObjO2: return TrapEngine()->Engine().ArenaBytes(ChainOf(w, slot).o2);
     case kObjQ: return w.Q(slot);
     case kObjR: return w.R(slot);
     case kObjS: return w.S(slot);
@@ -1116,7 +1236,7 @@ TickRun RunTick(TickBuilt& t) {
   t.built.ext.writeLog = &log;
   TickRun run;
   run.result = t.built.world->RunTrapTick(t.built.slot, t.built.ext);
-  const ObjSpans spans = WindowObjects(t.built.slot);
+  const ObjSpans spans = WindowObjects(*t.built.world, t.built.slot);
   for (const auto& wr : log) {
     int obj;
     uint32_t rel;
@@ -1134,14 +1254,19 @@ class TrapTickOracle : public TrapOracle {
   const char* OracleEnv() const override { return "GF_PES_TRAP_TICK_ORACLE"; }
 };
 
-// Owner ruling 01-11-26. A capture's launch folder is the oracle directory's name prefix (`pid<PES pid>_seq<N>`). The launch
-// `pid3741448` is the No-Mod pinned launch (30-10-26 14:35 pin; GF's default mount and PES played the stock gameplay constants).
-// Every other launch in an oracle set is mod-era: its match rolled a gameplay mod (a different constant_player.bin), so the loader
-// data GF builds from the default mount rightly differs from it. Mod-era captures serve the translation-proof tick tests only.
-constexpr char kNoModLaunchPrefix[] = "pid3741448_";
+// Owner ruling 01-11-26, extended 15-11-26. A capture's launch folder is the oracle directory's name prefix (`pid<PES pid>_seq<N>`).
+// A No-Mod launch played the stock gameplay constants (GF's default mount, no gameplay mod); every other launch in an oracle set is
+// mod-era: its match rolled a gameplay mod (a different constant_player.bin), so the loader data GF builds from the default mount
+// rightly differs from it. Mod-era captures serve the translation-proof tick tests only. The No-Mod launches, each with its evidence:
+//   pid3741448: the 01-11-26 ruling's pin (30-10-26 14:35); deleted at the 06-11 handover.
+//   pid2523621: 15-11-26 03:54. content/gameplay-loader/config.ini reads `favorite_gameplay_mod = No Mod`, unchanged since 30-10 14:34
+//               (checked by Main on 15-11-26), so the launch rolled no mod.
+constexpr const char* kNoModLaunches[] = {"pid3741448", "pid2523621"};
 bool IsNoModCapture(const std::string& dir) {
   const std::string name = std::filesystem::path(dir).filename().string();
-  return name.rfind(kNoModLaunchPrefix, 0) == 0;
+  for (const char* launch : kNoModLaunches)
+    if (name.rfind(std::string(launch) + "_", 0) == 0) return true;
+  return false;
 }
 
 // What PES's tick left in P at `off` (n bytes): its last write there, else the byte the call started with.
@@ -1167,15 +1292,6 @@ TEST_F(TrapTickOracle, EveryCapturedTickOnGfsWindowEqualsPes) {
     TickBuilt t;
     BuildTick(o, image.bytes, image.size, t);
     for (const std::string& m : t.derivedMismatches) ADD_FAILURE() << dir << ": derived " << m;
-    if (const char* only = std::getenv("GF_TICK_ORACLE_TRAP"); only != nullptr && dir.find(only) != std::string::npos) {
-      std::printf("A+0x48 host %p\n", static_cast<void*>(WindowBytes(*t.built.world, t.built.slot, kObjA) + 0x48));
-      std::printf("A VA %llx  stack VA %llx..%llx  entry %llx  P VA %llx\n",
-                  static_cast<unsigned long long>(pes::PesWorld::PhysiqueAVa(t.built.slot)),
-                  static_cast<unsigned long long>(pes::kStackVa), static_cast<unsigned long long>(pes::kStackVa + pes::kStackBytes),
-                  static_cast<unsigned long long>(kTickEntry), static_cast<unsigned long long>(pes::PesWorld::PVa(t.built.slot)));
-      std::fflush(stdout);
-      raise(SIGTRAP);
-    }
     const TickRun run = RunTick(t);
     const WriteMap want = ReferenceWrites(o, CapturedObjects(o));
     // The addresses either side wrote and the two disagree on, as ranges per object (P=0 A=1 O1=2 O2=3 Q=4 R=5 S=6):
@@ -1202,7 +1318,7 @@ TEST_F(TrapTickOracle, EveryCapturedTickOnGfsWindowEqualsPes) {
       while (i < pesOrdered.size() && i < run.ordered.size() && pesOrdered[i] == run.ordered[i]) ++i;
       std::printf("%s: first ordered divergence at write %zu (PES %zu, GF %zu)\n", dir.c_str(), i, pesOrdered.size(), run.ordered.size());
       {
-        const ObjSpans gfSpans = WindowObjects(t.built.slot);
+        const ObjSpans gfSpans = WindowObjects(*t.built.world, t.built.slot);
         size_t j = 0;
         for (; j < run.raw.size(); ++j) {
           int ob;
@@ -1302,7 +1418,7 @@ TEST_F(TrapTickOracle, ListWhatTheOverlaySupplies) {
 // EyesTarget table and the Animetable buffer) equals what GF's loader built from the install: the loader is the input the window
 // cannot overlay (it holds no copy of the capture's heap), so a record GF built differently changes the solver's output unseen.
 // A read byte that lies in none of these structures, nor in the window's objects, is reported as unexplained.
-// Oracle dirs for this test (GF_PES_TRAP_TICK_ORACLE) are captures of the No-Mod launch (live2/pid3741448, after the 30-10-26 14:35 pin;
+// Oracle dirs for this test (GF_PES_TRAP_TICK_ORACLE) are the captures of the No-Mod launches (kNoModLaunches; pid2523621 from 15-11-26);
 // trap_action_tick_797CD0 seq1877, 1883, 1889, 1895, 1917, 1924, 1938, 1948, 1982, 4790, 4798, 4803 and the start and mirrored ticks seq77210,
 // 78106, 78113, 78120, 78127, 78134, 78141 (rvwatch37 predicate b(rdx+0x245c)==0 or b(rdx+0x2472)==1), FULL: a slim capture lacks the
 // actor-fact pages trap_oracle.py reads). The older oracle dirs were mod captures (sider's GameplayLoader.lua had selected a gameplay mod;

@@ -65,16 +65,17 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 
 }  // namespace
 
-// PES's ActionPress steers the loose-ball presser to its target, the ball now or his own base (docs/re/pes-re-press-life.md
-// section 8, step 6). His movement command must name that target: a command without one projects its direction a second
-// ahead (pesmovestep FillCommandWords), which overshoots a ball a few metres away. Scope: a presser who does not hold the ball
-// and is not the PASS_GET receiver (ActionPassGet's approach is another PES action, not this port's), with a movement decision.
+// PES's ActionPress steers the man whose T+0xA2A0 word is PRESS to its target, the ball now or his own base
+// (docs/re/pes-re-press-life.md section 8, step 6). His movement command must name that target: a command without one projects its
+// direction a second ahead (pesmovestep FillCommandWords), which overshoots a ball a few metres away. Scope: a PRESS man while the
+// ball is in play and no set piece is armed (PES starts one through the MATCH_UP writer and the coordinator, which need an
+// opposing last toucher or carrier: not on a free ball, 0 of 4527 free-ball ticks of seed 7 held a PRESS man, 76 ticks of 12651 in
+// all), who does not hold the ball and is not the PASS_GET receiver (ActionPassGet's approach is another PES action, not this
+// port's), with a movement decision.
 TEST(PesPressApproach, ALoosePresserCommandNamesTheActionPressTarget) {
   unsigned long steered = 0, unnamed = 0;
   RunPesLoopMatch([&](Match& match) {
-    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
-                       match.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
-    if (!loose) return;
+    if (!match.IsInPlay() || match.IsInSetPiece()) return;
     for (int t = 0; t < 2; ++t) {
       Team* team = match.GetTeam(t);
       Player* presser = team->GetController()->GetLoosePressMan();
@@ -85,6 +86,51 @@ TEST(PesPressApproach, ALoosePresserCommandNamesTheActionPressTarget) {
       if (!command->useDesiredTarget) ++unnamed;
     }
   });
-  EXPECT_GT(steered, 0ul) << "no loose presser was steered in the match";
-  EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << steered << " loose-presser movement commands named no target";
+  EXPECT_GT(steered, 0ul) << "no PRESS man was steered in the match";
+  EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << steered << " PRESS-man movement commands named no target";
+}
+
+// A loose ball at rest with no PES holder is approached by its designated man when he is within reach of it: PES's ActionPress
+// names a target (the ball, or his base when the base is nearer the ball's sample), in reach as well as out of it. Scope: an
+// outfield designated man within 2 m (the band the stall census measured the men in, pes-port-StallLive13 section 3) whose decision
+// is a movement or none; a keeper plays PES's KP actions (pes-re-goalkeeper.md), and a slide or special is a reaction action, not
+// the approach. A movement with no target is the failure.
+TEST(PesPressApproach, ADesignatedManWithNoHolderIsCommandedToTheRestingBall) {
+  constexpr float kReach_m = 2.0f;
+  unsigned long chased = 0, unnamed = 0;
+  RunPesLoopMatch([&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() && !match.GetPesHolder() &&
+                       match.GetBall()->GetMovement().GetLength() <= GameplayTuning::kStalemateBallSpeed_ms;
+    if (!loose) return;
+    Player* designated = match.GetDesignatedPossessionPlayer();
+    const Vector3 ball = match.GetBall()->Predict(0);
+    if (!designated || designated->HasPossession() || designated->GetTeam()->PassGetReceiver() == designated ||
+        designated->GetFormationEntry().role == e_PlayerRole_GK)
+      return;
+    if ((designated->GetPosition() - ball).Get2D().GetLength() > kReach_m) return;
+    const std::optional<PlayerCommand>& command = designated->GetPesDecision().command;
+    if (command && command->desiredFunctionType != e_FunctionType_Movement) return;
+    ++chased;
+    if (!command || !command->useDesiredTarget) ++unnamed;
+  });
+  EXPECT_GT(chased, 0ul) << "no loose ball at rest with a designated man in reach was seen in the match";
+  EXPECT_EQ(unnamed, 0ul) << unnamed << " of " << chased << " designated-man movement ticks in reach named no target";
+}
+
+// The carrier's dribble (BallControl) is the decision only for the man who holds the ball: PES's ball control belongs to its holder
+// (MA+0x2601C, GetPesHolder), the same man the controller's carrier brain reads. A man whom GF's reach-based possession puts beside a
+// ball that nobody holds must not take the dribble as his decision.
+TEST(PesPressApproach, ANoManWhoDoesNotHoldTheBallIsDecidedByTheDribble) {
+  unsigned long dribbled = 0;
+  RunPesLoopMatch([&](Match& match) {
+    for (int t = 0; t < 2; ++t) {
+      for (const auto& player : match.GetTeam(t)->GetAllPlayers()) {
+        const std::optional<PlayerCommand>& command = player->GetPesDecision().command;
+        if (!command || command->desiredFunctionType != e_FunctionType_BallControl) continue;
+        if (match.GetPesHolder() == player.get() || match.GetBallRetainer() == player.get()) continue;
+        ++dribbled;
+      }
+    }
+  });
+  EXPECT_EQ(dribbled, 0ul) << dribbled << " dribble decisions were taken by men who do not hold the ball";
 }

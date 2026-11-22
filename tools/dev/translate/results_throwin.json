@@ -1,0 +1,41 @@
+{
+ "note": "FUN_140792E10 (the throw-in Update): the non-push path on the real captures and the push branch on SYNTHETIC states made from them (proof_throwin; scratch/push_proof.py). Labelled per record.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "reached": 28,
+    "total": 106,
+    "fraction": 0.2642
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 23 of 23. REAL: 3 captured calls of tipush_140792E10 (seq29621, seq29625, seq29642; the non-push path, guard tests A and B fail) and SYNTHETIC: 20 states (synth.py from the same captures, the nearer ankle's z inside F[1]+0.1 m at depths 0.01-0.36 m, the negative side and joint 6, and the table factor f set so that test B passes (e = 0 or 17 < 18); each state enters FUN_141EB5BB0, the push).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 23,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 28,
+     "total": 106,
+     "fraction": 0.2642
+    },
+    "replayed": 23,
+    "source": "tools/dev/translate/results_throwin.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140792E10",
+   "closure_file": "closure_throwin.json",
+   "synthetic": true,
+   "synthetic_cases": 20
+  }
+ ]
+}

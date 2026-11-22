@@ -61,6 +61,10 @@ for _r in REGSET:
     else:
         PARENT[_r] = _r
 
+# The packer's section of relocated and obfuscated code (.impdata: 0x143D14000 up to .reloc at 0x15B952000, the image's section table): its `ret`
+# may be a computed jump (emit_branch). A list so a test can name its synthetic function's range.
+COMPUTED_RET_RANGES = [(0x143D14000, 0x15B952000)]
+
 CCMAP = {
     "JZ": "z", "JE": "z", "JNZ": "nz", "JNE": "nz",
     "JC": "c", "JB": "c", "JNAE": "c", "JNC": "nc", "JAE": "nc",
@@ -386,9 +390,15 @@ def image_pointer(em, breg, ia):
     return vals.pop() if len(vals) == 1 and None not in vals else None
 
 
+# The origin set's poison element: a conditional move chooses between an image table and a value no image holds (a caller's pointer).
+# Such a base is an ordinary memory read: the window and the bake apply only when every candidate is an image table.
+MIXED = "mixed"
+
+
 def image_origins(em, breg, ia, seen=None):
     """The image VAs register parent breg before instruction ia may be derived from: image_value defs, followed through
-    pointer arithmetic, register copies and LEAs (a loop-walked pointer keeps its origin)."""
+    pointer arithmetic, register copies and LEAs (a loop-walked pointer keeps its origin). MIXED is added when a conditional
+    move's candidates are image-derived and runtime-derived alike (the caller must not window or bake that base)."""
     seen = set() if seen is None else seen
     out = set()
     for d in reg_defs(em, breg, ia):
@@ -403,6 +413,18 @@ def image_origins(em, breg, ia, seen=None):
             continue
         _, m, ops = em.lines[d]
         if not ops or ops[0].strip().lower() not in GPR:
+            continue
+        if m.startswith("CMOV") and len(ops) == 2:
+            # A conditional move keeps the destination's old value or takes the source (the loop base of 0x1406B9B20 is
+            # `cmove r11, rax` between two image tables). Each candidate is followed on its own, with its own copy of seen.
+            cands = []
+            for r in ops[0:2]:
+                p = PARENT.get(r.strip().lower())
+                cands.append(image_origins(em, p, d, set(seen)) if p in GPR else set())
+            if any(cands) and not all(cands):
+                out.add(MIXED)
+            for c in cands:
+                out |= c
             continue
         if m in ("ADD", "SUB", "INC", "DEC", "AND"):
             regs = [ops[0]] + (ops[1:2] if m == "ADD" else [])
@@ -484,6 +506,12 @@ def _import_tables():
     return _IMPORT_TABLES
 
 
+def _os_arena():
+    """import_stubs.json's os_arena as ints: {"base", "bytes", "block"}, the VirtualAlloc model's arena."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return {k: int(v, 16) for k, v in json.load(open(os.path.join(here, "import_stubs.json")))["os_arena"].items() if k != "note"}
+
+
 def absolute_slot(op):
     """The slot VA of an absolute memory operand (qword ptr [0x...]), or None."""
     m = IMPORT_SLOT_OP.match(op.strip().lower())
@@ -510,6 +538,13 @@ def import_model_lines(op, jump):
     if e["do"] == "return":
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
         return ["{ " + push_ret + " s.gpr[0] = %dULL;%s }" % (value, pop_ret)]
+    if e["do"] == "wait":
+        # WaitForSingleObject(rcx = handle, edx = ms), the code_hex model: INFINITE (edx == 0xFFFFFFFF) is satisfied (eax = 0), any other
+        # timeout expires (eax = 0x102). Only rax changes.
+        return ["{ " + push_ret + " s.gpr[0] = ((uint32_t)s.gpr[2] == 0xFFFFFFFFu) ? 0ULL : 0x102ULL;%s }" % pop_ret]
+    if e["do"] == "nop":
+        # An export that returns with every register the caller reads unchanged (__chkstk: the probe only commits stack pages).
+        return ["{ " + push_ret + pop_ret + " }"]
     if e["do"] == "memcpy":
         # Win64 memcpy(rcx=dst, rdx=src, r8=n): push rdi, push rsi, rep movsb (byte writes, forward), rax=dst,
         # rcx=0; the pops restore rsi and rdi (16 bytes of stack), then the ret (8 more) for a call.
@@ -539,11 +574,23 @@ def import_model_lines(op, jump):
                 " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
                 " uint64_t _dst = s.gpr[1], _n = s.gpr[8]; uint8_t _c = (uint8_t)s.gpr[2];"
                 " s.gpr[9] = _dst;"
-                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, _c, 1);"
+                " s.fill(_dst, _c, _n);"
                 " s.gpr[0] = _dst; s.gpr[1] = 0; s.gpr[4] += 8;%s }" % pop_ret]
     if e["do"] == "vsprintf_s":
         # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
         return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "strcpy_s":
+        # ucrtbase strcpy_s(rcx = dst, rdx = size, r8 = src), the code_hex model register for register: dst or size zero is EINVAL (0x16),
+        # no write; src zero writes dst[0] = 0 then EINVAL; else the copy walks r9 from dst with r8 = src - dst, rdx counting the bytes
+        # left (the NUL ends it first: rax 0); no room left is dst[0] = 0 and ERANGE (0x22).
+        return ["{ " + push_ret + " uint64_t _d = s.gpr[1];"
+                " if (_d == 0 || s.gpr[2] == 0) s.gpr[0] = 0x16ULL;"
+                " else if (s.gpr[8] == 0) { s.wr(_d, 0, 1); s.gpr[0] = 0x16ULL; }"
+                " else { s.gpr[9] = _d; s.gpr[8] -= _d;"
+                "   for (;;) { uint64_t _a = s.rd(s.gpr[8] + s.gpr[9], 1); s.wr(s.gpr[9], _a, 1); s.gpr[9] += 1;"
+                "     if (_a == 0) { s.gpr[0] = 0; break; }"
+                "     s.gpr[2] -= 1; if (s.gpr[2] == 0) { s.wr(_d, 0, 1); s.gpr[0] = 0x22ULL; break; } } }"
+                "%s }" % pop_ret]
     if e["do"] == "memcmp":
         # Win64 memcmp(rcx = a, rdx = b, r8 = n): pes_model_memcmp (pes_stubs.hpp) mirrors the import_stubs.json code_hex
         # register for register where a caller can see it (the scratch registers it leaves are spilled by callers).
@@ -559,10 +606,47 @@ def import_model_lines(op, jump):
         # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
         value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
         return ["{ " + push_ret + (" s.wr(s.gpr[1], %dULL, 8); s.gpr[0] = 1;%s }" % (value, pop_ret))]
+    if e["do"] == "sysinfo":
+        # GetSystemInfo(rcx = SYSTEM_INFO *), the code_hex model register for register: three dword stores (dwPageSize +4, dwNumberOfProcessors
+        # +0x20, dwAllocationGranularity +0x28), no register or flag touched.
+        return ["{ " + push_ret + " s.wr(s.gpr[1] + 4ULL, 0x1000ULL, 4); s.wr(s.gpr[1] + 0x20ULL, 0x10ULL, 4);"
+                " s.wr(s.gpr[1] + 0x28ULL, 0x10000ULL, 4);%s }" % pop_ret]
+    if e["do"] == "tlsalloc":
+        # TlsAlloc(), the code_hex model register for register: the lowest clear bit of PEB.TlsBitmapBits (PEB = gs:[0x60], bits at +0x328) is set
+        # and returned (rax); rcx = the new bits (the old when all 64 are taken, rax = -1); rdx = the bsf result (the inverted bits, 0, when none).
+        return ["{ " + push_ret + " uint64_t _peb = s.rd(s.gs_base + 0x60ULL, 8); uint64_t _bits = s.rd(_peb + 0x328ULL, 8);"
+                " s.gpr[1] = _bits; s.gpr[2] = ~_bits;"
+                " if (s.gpr[2] == 0) { s.gpr[0] = 0xFFFFFFFFULL; }"
+                " else { uint64_t _i = (uint64_t)__builtin_ctzll(s.gpr[2]); s.gpr[2] = _i; s.gpr[1] = _bits | (1ULL << _i);"
+                "   s.wr(_peb + 0x328ULL, s.gpr[1], 8); s.gpr[0] = _i; }%s }" % pop_ret]
     if e["do"] == "tebread":
         # DWORD read from the thread block at gs:[offset], zero-extended into rax (GetLastError: TEB.LastErrorValue).
         off = int(str(e["offset"]), 0)
         return ["{ " + push_ret + (" s.gpr[0] = (uint64_t)s.rd(s.gs_base + %dULL, 4);%s }" % (off, pop_ret))]
+    if e["do"] == "set_last_error":
+        # SetLastError(ecx), the code_hex model register for register: rax = the thread block's self pointer (gs:[0x30]), TEB.LastErrorValue
+        # (+0x68) = ecx, no flag touched.
+        return ["{ " + push_ret + " s.gpr[0] = s.rd(s.gs_base + 0x30ULL, 8); s.wr(s.gpr[0] + 0x68ULL, s.gpr[1], 4);%s }" % pop_ret]
+    if e["do"] == "wc2mb":
+        # WideCharToMultiByte, ASCII narrowing: the code_hex model register for register (r10 = out, r11 = cbOut, rax = n or 0, and on a copy rcx = n, dl = last byte).
+        return ["{ " + push_ret + " uint64_t _o = s.rd(s.gpr[4] + 0x28ULL, 8); uint32_t _cb = (uint32_t)s.rd(s.gpr[4] + 0x30ULL, 4); uint32_t _n = (uint32_t)s.gpr[9];"
+                " if (_n == 0xFFFFFFFFu) { _n = 0; while (s.rd(s.gpr[8] + 2ULL * _n, 2) != 0) ++_n; ++_n; }"
+                " s.gpr[10] = _o; s.gpr[11] = _cb; s.gpr[0] = _n;"
+                " if (_cb != 0) { if (_cb < _n) { s.gpr[0] = 0; } else { uint32_t _i = 0; uint8_t _b = (uint8_t)s.gpr[2];"
+                " for (; _i < _n; ++_i) { _b = (uint8_t)s.rd(s.gpr[8] + 2ULL * _i, 1); s.wr(_o + _i, _b, 1); }"
+                " s.gpr[1] = _i; s.gpr[2] = (s.gpr[2] & ~0xFFULL) | _b; } }%s }" % pop_ret]
+    if e["do"] == "time64":
+        # _time64(rcx = out): rax = the model's time; stored at *rcx when rcx != 0 (the code_hex model register for register).
+        return ["{ " + push_ret + " s.gpr[0] = 1794205125ULL; if (s.gpr[1] != 0) s.wr(s.gpr[1], 1794205125ULL, 8);%s }" % pop_ret]
+    if e["do"] == "cwd_w":
+        # GetCurrentDirectoryW(ecx, rdx = buf): the wide stand-in for a drive root and its terminator at [rdx], rax = 3 (the code_hex model register for register).
+        return ["{ " + push_ret + " s.wr(s.gpr[2], 0x5C003A0043ULL, 8); s.gpr[0] = 3ULL;%s }" % pop_ret]
+    if e["do"] == "module_file_name":
+        # GetModuleFileNameA(h, buf = rdx, size): the code_hex model register for register: the 14-byte stand-in image path and its terminator into [rdx], rax = 14.
+        return ["{ " + push_ret + " s.wr(s.gpr[2], 0x30325345505C3A43ULL, 8); s.wr(s.gpr[2] + 8, 0x652E3132ULL, 4); s.wr(s.gpr[2] + 12, 0x6578ULL, 2); s.wr(s.gpr[2] + 14, 0ULL, 1); s.gpr[0] = 14ULL;%s }" % pop_ret]
+    if e["do"] == "iob_func":
+        # __acrt_iob_func(ecx), the code_hex model register for register: rax = 0x3000001000 + (uint32)ecx * 0x30, rcx = 0x3000001000.
+        return ["{ " + push_ret + " s.gpr[0] = (uint64_t)(uint32_t)s.gpr[1] * 0x30ULL + 0x3000001000ULL; s.gpr[1] = 0x3000001000ULL;%s }" % pop_ret]
     if e["do"] == "tls_get":
         # TlsGetValue(index): TEB.TlsSlots[index] for index < 64 (x64 TEB +0x1480), else NULL.
         return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"
@@ -581,6 +665,33 @@ def import_model_lines(op, jump):
                 " if ((_v & 0xFFFFu) != 0) __builtin_trap();"
                 " uint32_t _n = _v + 0x10000u; s.wr(s.gpr[1], (uint64_t)_n, 4);"
                 " s.gpr[0] = _v; s.gpr[2] = _v; s.gpr[1] = _n;%s }" % pop_ret]
+    if e["do"] == "srw_init":
+        # RtlInitializeSRWLock(rcx=lock): the lock's pointer word is cleared (`mov qword ptr [rcx], 0; ret`); no register changes.
+        return ["{ " + push_ret + " s.wr(s.gpr[1], 0ULL, 8);%s }" % pop_ret]
+    if e["do"] == "srw_acquire_exclusive":
+        # RtlAcquireSRWLockExclusive(rcx=lock), the code_hex model register for register and byte for byte: rsi and rbx pushed below the
+        # return slot R (restored by the pops), the frame is 0x38 bytes (locals at R-0x48+0x2c: the dword, its high word 1, its low word
+        # (low - 2) | 1); `lock add word [lock], 2`; a nonzero shared count (high word) is the int3 path (a trap here); the dword stored is
+        # the locals' dword; rax = rdx = the dword read, rcx = the dword stored.
+        return ["{ " + push_ret + " const uint64_t _R = s.gpr[4], _l = s.gpr[1];"
+                " s.wr(_R - 8, s.gpr[6], 8); s.wr(_R - 16, s.gpr[3], 8);"
+                " s.wr(_l, (uint64_t)(uint16_t)((uint16_t)s.rd(_l, 2) + 2u), 2);"
+                " const uint32_t _v = (uint32_t)s.rd(_l, 4); const uint64_t _t = _R - 0x48 + 0x2c;"
+                " s.wr(_t, (uint64_t)_v, 4);"
+                " if ((_v >> 16) != 0) __builtin_trap();"
+                " s.wr(_t + 2, 1ULL, 2); s.wr(_t, (uint64_t)(uint16_t)(((uint32_t)(uint16_t)_v - 2u) | 1u), 2);"
+                " const uint32_t _n = (uint32_t)s.rd(_t, 4); s.wr(_l, (uint64_t)_n, 4);"
+                " s.gpr[0] = _v; s.gpr[2] = _v; s.gpr[1] = _n;%s }" % pop_ret]
+    if e["do"] == "srw_release_exclusive":
+        # RtlReleaseSRWLockExclusive(rcx=lock), the code_hex model: rsi and rbx pushed below the return slot (restored); the dword read must
+        # have bit 0 set and no other bit of its low word set (else int3: a trap here); the dword stored is the low word with bit 0 clear
+        # and the high word zero; rax = the dword read, rdx = the dword stored, rcx = the lock; the wake routine is a plain return.
+        return ["{ " + push_ret + " const uint64_t _R = s.gpr[4], _l = s.gpr[1];"
+                " s.wr(_R - 8, s.gpr[6], 8); s.wr(_R - 16, s.gpr[3], 8);"
+                " const uint32_t _b = (uint32_t)s.rd(_l, 4);"
+                " if ((_b & 1u) == 0 || (_b & 0xFFFEu) != 0) __builtin_trap();"
+                " const uint32_t _e = _b & 0xFFFEu; s.wr(_l, (uint64_t)_e, 4);"
+                " s.gpr[0] = _b; s.gpr[2] = _e;%s }" % pop_ret]
     if e["do"] == "srw_release_shared":
         # RtlReleaseSRWLockShared(rcx=lock): fast path only; [lock] -= 0x10000 when bit 0 is clear and the shared count
         # is nonzero; rax = old; rdx = count - 1; r8 = new; rcx unchanged. Any other case is int3 in the harness: a trap.
@@ -643,6 +754,45 @@ def import_model_lines(op, jump):
         return ["{ " + push_ret + " uint64_t _b = s.xmm[0][0]; s.wr(s.gpr[4] + 8ULL, _b, 8);"
                 " s.gpr[1] = 0x7FF0000000000000ULL;"
                 " s.gpr[0] = ((_b & 0x7FFFFFFFFFFFFFFFULL) - s.gpr[1]) >> 63;%s }" % pop_ret]
+    if e["do"] == "strstr":
+        # VCRUNTIME140 strstr(rcx = hay, rdx = needle): the code_hex model register for register. r8 = needle; r9 / r10 are the
+        # inner cursors of the last attempt; rcx ends at the match (or the hay's NUL); rax = the match or 0.
+        return ["{ " + push_ret + " uint64_t _hay = s.gpr[1], _nd = s.gpr[2], _r9 = 0, _r10 = 0; bool _found = false;"
+                " s.gpr[8] = _nd;"
+                " for (;;) { _r9 = _hay; _r10 = _nd;"
+                "   for (;;) { uint8_t _a = (uint8_t)s.rd(_r10, 1); if (_a == 0) { _found = true; break; }"
+                "     if (_a != (uint8_t)s.rd(_r9, 1)) break; ++_r9; ++_r10; }"
+                "   if (_found || (uint8_t)s.rd(_hay, 1) == 0) break; ++_hay; }"
+                " s.gpr[1] = _hay; s.gpr[9] = _r9; s.gpr[10] = _r10; s.gpr[0] = _found ? _hay : 0ULL;%s }" % pop_ret]
+    if e["do"] == "strchr":
+        # VCRUNTIME140 strchr(rcx = s, dl = c): the code_hex model register for register. rcx ends at the match or at the NUL,
+        # rax = that address, or 0 when the NUL is reached without a match (the terminating NUL is a match for c = 0).
+        return ["{ " + push_ret + " uint64_t _p = s.gpr[1]; uint8_t _c = (uint8_t)s.gpr[2]; uint64_t _r = 0;"
+                " for (;; ++_p) { uint8_t _a = (uint8_t)s.rd(_p, 1); if (_a == _c) { _r = _p; break; } if (_a == 0) break; }"
+                " s.gpr[1] = _p; s.gpr[0] = _r;%s }" % pop_ret]
+    if e["do"] == "strrchr":
+        # VCRUNTIME140 strrchr(rcx = s, dl = c): the code_hex model register for register. rax = the last byte equal to c (the
+        # terminating NUL included), else 0; rcx ends at the NUL.
+        return ["{ " + push_ret + " uint64_t _p = s.gpr[1]; uint8_t _c = (uint8_t)s.gpr[2]; uint64_t _r = 0;"
+                " for (;; ++_p) { uint8_t _a = (uint8_t)s.rd(_p, 1); if (_a == _c) _r = _p; if (_a == 0) break; }"
+                " s.gpr[1] = _p; s.gpr[0] = _r;%s }" % pop_ret]
+    if e["do"] == "virtualalloc":
+        # KERNEL32 VirtualAlloc(rcx = addr, rdx = size, r8d = type), the code_hex model register for register. MEM_RESET (0x80000):
+        # rax = addr, nothing else. MEM_COMMIT|MEM_RESERVE (0x3000) with addr 0: r10 = the arena cell, rax = the block (the cell,
+        # or the arena's second 4 MiB block when it is 0), r9 = the cell's new value = block + the size rounded up to 4 MiB, which
+        # is stored in the cell. Any other form is the model's int3: a trap here.
+        base = _os_arena()["base"]
+        return ["{ " + push_ret + " uint32_t _t = (uint32_t)s.gpr[8];"
+                " if (_t == 0x80000u) s.gpr[0] = s.gpr[1];"
+                " else { if (_t != 0x3000u || s.gpr[1] != 0) __builtin_trap();"
+                " s.gpr[10] = %dULL; uint64_t _b = s.rd(s.gpr[10], 8); if (_b == 0) _b = %dULL;"
+                " s.gpr[0] = _b; s.gpr[9] = ((s.gpr[2] + 0x3FFFFFULL) & 0xFFFFFFFFFFC00000ULL) + _b; s.wr(s.gpr[10], s.gpr[9], 8); }"
+                "%s }" % (base, base + 0x400000, pop_ret)]
+    if e["do"] == "virtualfree":
+        # KERNEL32 VirtualFree(rcx = addr, rdx = size, r8d = type), the code_hex model: MEM_RELEASE (0x8000) or MEM_DECOMMIT (0x4000)
+        # returns TRUE (eax = 1, rax's upper half zero), no byte written; any other type is the model's int3, a trap here.
+        return ["{ " + push_ret + " uint32_t _t = (uint32_t)s.gpr[8]; if (_t != 0x8000u && _t != 0x4000u) __builtin_trap();"
+                " s.gpr[0] = 1ULL;%s }" % pop_ret]
     if e["do"] == "fdtest":
         # ucrtbase _fdtest(rcx=float*): the code_hex model register for register. exp = the word at +2 & 0x7F80 (left in rdx);
         # all-ones exponent: 1 for an infinity (mantissa zero), else 2; else a zero is 0; else the exponent negated in dx
@@ -719,7 +869,7 @@ class Emitter:
         if self.cur is None or mp.get("seg"):
             return
         for reg in (mp["base"], mp["index"]):
-            for o in image_origins(self, PARENT.get(reg, reg), self.cur) if reg else ():
+            for o in (x for x in image_origins(self, PARENT.get(reg, reg), self.cur) if x != MIXED) if reg else ():
                 v = o + mp["disp"]
                 if not self.img.writable(v) and not any(lo <= v < hi and bound for lo, hi, bound in ro_windows()):
                     self.live_ro.add((self.lines[self.cur][0], v))
@@ -751,8 +901,10 @@ class Emitter:
         128-bit read."""
         if self.cur is None or width == 128 or mp.get("seg"):
             return None
-        starts = {o + mp["disp"] for reg in (mp["base"], mp["index"]) if reg
-                  for o in image_origins(self, PARENT.get(reg, reg), self.cur)}
+        origins = [o for reg in (mp["base"], mp["index"]) if reg for o in image_origins(self, PARENT.get(reg, reg), self.cur)]
+        if MIXED in origins:  # a candidate that no image holds: an ordinary memory read
+            return None
+        starts = {o + mp["disp"] for o in origins}
         if not starts or any(self.img.writable(v) for v in starts):
             return None
         held = [(lo, hi, bound) for lo, hi, bound in ro_windows() if all(lo <= v < hi for v in starts)]
@@ -934,6 +1086,20 @@ class Emitter:
             return self.do_shift(m, ops)
         if m in ("ROR", "ROL"):
             return self.do_rotate(m, ops)
+        if m in ("SHLD", "SHRD"):
+            return self.do_double_shift(m, ops)
+        if m in ("RCL", "RCR"):
+            return self.do_rotate_carry(m, ops)
+        if m in ("STC", "CLC", "CMC"):
+            return ["s.cf = %s;" % {"STC": "true", "CLC": "false", "CMC": "!s.cf"}[m]]
+        if m == "PUSHFQ":
+            # RFLAGS as the flags the translator tracks (CF, PF, ZF, SF, OF) plus the always-set bit 1 and IF (user mode); AF, DF, TF read 0.
+            return ["s.gpr[4] -= 8;",
+                    "s.wr(s.gpr[4], 0x202ULL | (s.cf ? 1ULL : 0ULL) | (s.pf ? 4ULL : 0ULL) | (s.zf ? 0x40ULL : 0ULL)"
+                    " | (s.sf ? 0x80ULL : 0ULL) | (s.of ? 0x800ULL : 0ULL), 8);"]
+        if m == "POPFQ":
+            return ["{ uint64_t _f = s.rd(s.gpr[4], 8); s.gpr[4] += 8; s.cf = (_f & 1) != 0; s.pf = (_f & 4) != 0;"
+                    " s.zf = (_f & 0x40) != 0; s.sf = (_f & 0x80) != 0; s.of = (_f & 0x800) != 0; }"]
         if m in ("XADD", "CMPXCHG"):
             return self.do_xadd(m, ops)
         if m in ("IMUL", "MUL"):
@@ -1256,6 +1422,57 @@ class Emitter:
         else:
             out.append("  " + reg_write(dst, "_r"))
         out.append("}")
+        return out
+
+    def do_double_shift(self, m, ops):
+        # SHLD/SHRD dst, src, count: the count is masked to 5 bits (6 for 64-bit operands); a zero count changes nothing. SHRD shifts dst right
+        # and fills from src's low bits (CF = the last bit out of dst); SHLD shifts left and fills from src's high bits. ZF/SF from the result;
+        # OF (count 1) = the sign changed. AF and PF are not tracked.
+        dst, src = ops[0], ops[1]
+        w = self.op_width(dst)
+        mm = {16: "0xFFFF", 32: "0xFFFFFFFF", 64: "0xFFFFFFFFFFFFFFFF"}[w]
+        a, b = self.val_of(dst, w), self.val_of(src, w)
+        c = self.val_of(ops[2], 8)
+        if m == "SHRD":
+            r, cf = "((_a >> _n) | (_b << (%d - _n))) & %sULL" % (w, mm), "((_a >> (_n - 1)) & 1) != 0"
+        else:
+            r, cf = "((_a << _n) | (_b >> (%d - _n))) & %sULL" % (w, mm), "((_a >> (%d - _n)) & 1) != 0" % w
+        out = ["{ uint64_t _a = (uint64_t)(%s) & %sULL, _b = (uint64_t)(%s) & %sULL, _n = (uint64_t)(%s) & %dULL;"
+               % (a, mm, b, mm, c, 63 if w == 64 else 31),
+               "  if (_n != 0 && _n <= %d) {" % w,
+               "    uint64_t _r = %s;" % r,
+               "    s.cf = %s; s.zf = (_r == 0); s.sf = ((_r >> %d) & 1) != 0;" % (cf, w - 1),
+               "    if (_n == 1) s.of = (((_r ^ _a) >> %d) & 1) != 0;" % (w - 1)]
+        out.append("    " + (self.mem_store(dst[dst.find("["):], "_r", w, None) if "[" in dst else reg_write(dst, "_r")))
+        out += ["  }", "}"]
+        return out
+
+    def do_rotate_carry(self, m, ops):
+        # RCL/RCR dst, count: a rotate through CF, so a (width + 1)-bit rotate by count mod (width + 1) (count masked to 5 bits, 6 for 64-bit).
+        # CF = the bit rotated out; for count 1, OF = RCL: new MSB xor new CF, RCR: the two top bits of the result xor.
+        dst = ops[0]
+        w = self.op_width(dst)
+        mm = {8: "0xFF", 16: "0xFFFF", 32: "0xFFFFFFFF", 64: "0xFFFFFFFFFFFFFFFF"}[w]
+        a = self.val_of(dst, w)
+        c = self.val_of(ops[1], 8) if len(ops) > 1 else "1ULL"
+        if m == "RCR":
+            rot = "((_v >> _k) | (_v << (%d - _k))) & _m" % (w + 1)
+            of = "(((_r >> %d) ^ (_r >> %d)) & 1) != 0" % (w - 1, w - 2)
+        else:
+            rot = "((_v << _k) | (_v >> (%d - _k))) & _m" % (w + 1)
+            of = "(((_r >> %d) & 1) ^ (_cf ? 1 : 0)) != 0" % (w - 1)
+        out = ["{ uint64_t _a = (uint64_t)(%s) & %sULL, _n = (uint64_t)(%s) & %dULL;"
+               % (a, mm, c, 63 if w == 64 else 31),
+               "  uint64_t _k = _n %% %d;" % (w + 1),
+               "  if (_k != 0) {",
+               "    unsigned __int128 _v = ((unsigned __int128)(s.cf ? 1 : 0) << %d) | _a;" % w,
+               "    unsigned __int128 _m = (((unsigned __int128)1) << %d) - 1;" % (w + 1),
+               "    _v = %s;" % rot,
+               "    uint64_t _r = (uint64_t)_v & %sULL; bool _cf = ((_v >> %d) & 1) != 0;" % (mm, w),
+               "    s.cf = _cf;",
+               "    if (_n == 1) s.of = %s;" % of]
+        out.append("    " + (self.mem_store(dst[dst.find("["):], "_r", w, None) if "[" in dst else reg_write(dst, "_r")))
+        out += ["  }", "}"]
         return out
 
     def do_xadd(self, m, ops):
@@ -1984,6 +2201,17 @@ class Emitter:
     def emit_branch(self, mnem, ops, addr, ctx):
         m = mnem.upper()
         if m == "RET":
+            if any(lo <= addr < hi for lo, hi in COMPUTED_RET_RANGES):
+                # The packer's obfuscated code (.impdata) uses `push target; ... ret` as a jump: the word at [rsp] is the target, not the caller's
+                # return slot. The return slot is the one rsp had at the function's entry (_entry_rsp): a `ret` at any other depth pops a word
+                # the function pushed, which is entered through the dispatch table (an untranslated target is the loud abort naming its VA); the
+                # entered function returns to the slot below it, which is the caller's, so this function then returns too (a tail jump). A
+                # `ret` at the entry depth is an ordinary return whatever the slot holds (a root call from GF leaves a stale word there).
+                return ["{ uint64_t _t = s.rd(s.gpr[4], 8);",
+                        "  if (s.gpr[4] != _entry_rsp && _t != 0) { s.gpr[4] += 8; PesDispatch _d = pes_dispatch_lookup(_t);",
+                        "    if (_d.fn == 0) pes_dispatch_missing(_t);",
+                        "    else _d.fn(s); } }",
+                        "return;"]
             return ["return;"]
         if m == "CALL":
             if not is_imm(ops[0].strip()):
@@ -2092,6 +2320,12 @@ class Emitter:
             if ctx.get("addrs") and tgt not in ctx["addrs"]:
                 return ["__builtin_trap(); /* LOOP target is not an instruction of this body */"]
             return ["s.gpr[1] -= 1; if (s.gpr[1] != 0) goto L_%X;" % tgt]
+        if m == "JRCXZ":
+            # JRCXZ rel8: taken when RCX == 0 (64-bit address size); flags are untouched, RCX is not decremented.
+            tgt = imm_val(ops[0])
+            if ctx.get("addrs") and tgt not in ctx["addrs"]:
+                return ["__builtin_trap(); /* JRCXZ target is not an instruction of this body */"]
+            return ["if (s.gpr[1] == 0) goto L_%X;" % tgt]
         cc = cc_of(m)
         if cc:
             tgt = imm_val(ops[0])
@@ -2257,7 +2491,7 @@ def prepass(lines, img):
             t = imm_val(ops[0])
             if t in addrs:
                 labels.add(t)
-        elif m == "LOOP" and ops and is_imm(ops[0]):
+        elif m in ("LOOP", "JRCXZ") and ops and is_imm(ops[0]):
             t = imm_val(ops[0])
             if t in addrs:
                 labels.add(t)
@@ -2304,7 +2538,8 @@ def prepass(lines, img):
                 if mp and mp["absolute"] is not None:
                     baseva = mp["absolute"]
             break
-        for j in range(i - 1, max(-1, i - 20), -1):
+        # 48: a second switch under the same bounds check sits past 20 instructions (FUN_141B16140's second JMP rcx).
+        for j in range(i - 1, max(-1, i - 48), -1):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "JA" and ops2 and is_imm(ops2[0]):
                 default = imm_val(ops2[0])
@@ -2397,6 +2632,9 @@ def stub_lines(do):
     if do == "abort":
         # Tamper trap: reaching it aborts, exactly as the harness errors.
         return ["abort();"]
+    if do.startswith("service_"):
+        # A GF service (stubs.py SERVICE_DOS): GF's implementation answers the call over the same registers and stack.
+        return ["pes_service_%s(s);" % do[len("service_"):]]
     raise ValueError("stub_lines: no model for %r" % (do,))
 
 
@@ -2441,7 +2679,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
                  "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR", "BSWAP",
                  "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
-                 "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
+                 "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP", "SHLD", "SHRD", "RCL", "RCR", "PUSHFQ", "POPFQ", "STC", "CLC", "CMC"):
             out = em.emit_alu(m, ops)
         elif m in ("MOVSS", "MOVSD", "MOVD", "ADDSS", "SUBSS", "MULSS",
                    "DIVSS", "MAXSS", "MINSS", "COMISS", "UCOMISS",
@@ -2471,7 +2709,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
             out = ["__builtin_trap();"]
         elif m in ("DIV", "IDIV"):
             out = em.do_div(m, ops)
-        elif m in CCMAP or m in ("RET", "CALL", "JMP", "LOOP"):
+        elif m in CCMAP or m in ("RET", "CALL", "JMP", "LOOP", "JRCXZ"):
             out = em.emit_branch(m, ops, addr, ctx)
         elif m.startswith("SET") or m.startswith("CMOV"):
             out = em.emit_set_cmov(m, ops)
@@ -2567,7 +2805,8 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
     body = flow.structure_lines(["  " + l for l in flat])
     if body is None:
         body = ["  " + l for l in flat]
-    src = head + ["", "void pes_fn_%s(PesState& s) {" % va[2:]] + body + ["}"]
+    entry = ["  const uint64_t _entry_rsp = s.gpr[4];"] if any("_entry_rsp" in l for l in body) else []
+    src = head + ["", "void pes_fn_%s(PesState& s) {" % va[2:]] + entry + body + ["}"]
     return src, []
 
 

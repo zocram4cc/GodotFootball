@@ -324,7 +324,8 @@ class RateHost : public pes::MoveHost {
     return c;
   }
   int PickN(int) override { return 0; }
-  bool Percent(int) override { return false; }
+  bool Percent(int) override { ++percentDraws; return false; }
+  int percentDraws = 0;
   int CommandSpeedClass() const override { return 0; }
   float RateCeiling() const override { return 1.0f; }
   float CommandSpeedKmh() const override { return 0.0f; }
@@ -338,17 +339,34 @@ class RateHost : public pes::MoveHost {
   int MoveStatePrevious() const override { return 0; }
   float RecordF0bec() const override { return f0bec; }
   void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
+  void SetRootFacing(float angleDeg) override { rootFacings.push_back(angleDeg); }
+  void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) override {
+    yawArms.push_back({fromDeg, toDeg, ticks, overrideMode});
+  }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
+  void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
     for (int i = 0; i < 3; ++i) out[i] = index < 2 ? 0.0f : position[i];
   }
   void OwnPosition(float out[3]) const override {
     for (int i = 0; i < 3; ++i) out[i] = position[i];
   }
-  bool IsReplay() const override { return false; }
-  void Issue(const pes::MotionRequest&) override {}
+  // The production adapter's heading to a ground point: FoldFull(atan2(dx, dz)) in degrees, 0 for a coincident point.
+  float HeadingToPointDeg(const float point[3]) const override {
+    constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
+    float own[3];
+    OwnPosition(own);
+    if (point[2] == own[2] && point[0] == own[0]) return 0.0f;
+    return pes::FoldFull(std::atan2(point[0] - own[0], point[2] - own[2]) * kDegPerRad, run);
+  }
+  bool IsReplay() const override { return replay; }
+  void Issue(const pes::MotionRequest& request) override {
+    lastIssue = request;
+    ++issueCalls;
+  }
   const pes::StepScalars& StepConstants() const override { return step; }
-  float BandSpeedKmh(int, float) const override { return 0.0f; }
+  // The carrier slot: the ball holder's slot, or -1 when nobody holds it (0xFF in the team record is nobody).
+  int CarrierSlot() const override { return team.ballOwner == 0xFF ? -1 : static_cast<int>(team.ballOwner); }
   bool MirrorChoice(bool) const override { return false; }
   int FootBand() const override { return 0; }
   const pes::RunConstants& RunConstantsView() const override { return run; }
@@ -369,6 +387,7 @@ class RateHost : public pes::MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  bool FacingAdjusterBusy() const override { return false; }
   int AbilityByte(int) const override { return abilityByte; }
   bool EntryAimFlag() const override { return entryAim; }
   int abilityByte = 50;   // FUN_1406e6660's answer
@@ -378,6 +397,7 @@ class RateHost : public pes::MoveHost {
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return facingDeg; }
+  float BodyDeg() const override { return bodyDeg; }
   float BallBearingDeg() const override { return ballBearingDeg; }
   int ActionIndex() const override { return actionIndex; }
   int RelatedSlot() const override { return relatedSlot; }
@@ -408,6 +428,7 @@ class RateHost : public pes::MoveHost {
   pes::IdleRowTables idleRows{};
   pes::MotionRecord record;  // the motion table entry the host hands the handlers
   float facingDeg = 0.0f;
+  float bodyDeg = 0.0f;  // SYNTHETIC: P+0x28, the body's yaw (FUN_1406d2590 reads it against the facing)
   float ballBearingDeg = 0.0f;
   int actionIndex = 0;
   int relatedSlot = -1;
@@ -426,10 +447,20 @@ class RateHost : public pes::MoveHost {
   int recordActionB = 5;
   float f0bec = 0.0f;
   int f0becWrites = 0;
+  struct YawArm {
+    float from, to;
+    int ticks;
+    bool overrideMode;
+  };
+  std::vector<float> rootFacings;
+  std::vector<YawArm> yawArms;
   int cellCalls = 0;
   int lastCellRow = -1;
   int lastCellColumn = -1;
   bool lastCellWalk = false;
+  bool replay = false;
+  pes::MotionRequest lastIssue;
+  int issueCalls = 0;
   int currentMotion = 0;
   int currentClipFrames = 0;
   int animeState = 0;
@@ -646,6 +677,19 @@ TEST(Idle, IssuesTheIdleClipWhenTheStayDecisionRefuses) {
   EXPECT_EQ(req.U(pes::moveword::kLiveKind) & 0xffu, 0u);
 }
 
+// The pose hold (HoldsBodyPose): the states whose exit reads the finished clip are held (STOP, ACCELERATE, RUN_TURN_RUN, GOTO_RUN),
+// so the clip's end does not hand the body to the AI's clip. GOTO_RUN's exit waits for the clip's blend-or-last tick (0x1406bec55);
+// released at the clip's end the pes-loop smoke (seed 7) stalled its restart taker (no restart within 1758 ticks, 05a9c542). IDLE
+// and IDLE_TURN are measured not held: holding IDLE_TURN stalled the restart (12fa66d8), holding IDLE also stalled it.
+TEST(PoseHold, TheStatesWhoseExitWaitsOnTheFinishedClipHoldTheBody) {
+  for (int s = 0; s < pes::kMoveStateCount; ++s) {
+    const auto state = static_cast<pes::MoveState>(s);
+    const bool held = state == pes::MoveState::kStop || state == pes::MoveState::kAccelerate ||
+                      state == pes::MoveState::kRunTurnRun || state == pes::MoveState::kGotoRun;
+    EXPECT_EQ(pes::HoldsBodyPose(state), held) << "state " << s;
+  }
+}
+
 TEST(IdleTurn, WritesTheTurnLockInsideTheReorientWindow) {
   RateHost host = IdleHost();
   pes::MoveReq req = StayRefused();
@@ -657,6 +701,28 @@ TEST(IdleTurn, WritesTheTurnLockInsideTheReorientWindow) {
   pes::movestep::IdleTurn(host, req);
   EXPECT_EQ(req.U(0x3c) & 0xffu, 1u);
   EXPECT_EQ(req.U(0x3e), 3u);
+}
+
+// FUN_1406bfe70's idle issue (d_1406bfe70.c: `if (iVar9 <= iVar6)` block): past the clip's fixed tick, with no turn candidate, the
+// IDLE clip is DUE (byte req[0x2f] = 1), its blend is 0.2 (req[0x32] = 0x3e4ccccd), the second dwell limit is 0.2 (req[0x2e]),
+// and FUN_1406ebf30(P, 0x32) is drawn for every kind (kinds other than 3 and 6 then take the cell's mirror). The port wrote 0.05
+// for both, drew only for kinds 3 and 6, and never raised the due byte: the IDLE clip was not issued, so a body held on the
+// finished turn clip (HoldsBodyPose) stayed on it while the FSM ran IDLE.
+TEST(IdleTurn, TheIdleIssuePastTheFixedTickIsDueWithATwoTenthsBlendAndDwell) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  req.SetU(pes::moveword::kLookBucketAlt, 0);  // no turn candidate
+  host.currentMotion = 0x100;
+  host.record.rot = {pes::RotRecord{/*offset*/ 0, /*start*/ 0, /*end*/ 2}};
+  host.record.blend = {1};  // 2 frames
+  host.currentClipFrames = 10;
+  pes::movestep::IdleTurn(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kMotionPending) & 0xffu, 1u) << "the IDLE clip is due";
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.2f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.2f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), 1.0f);
+  EXPECT_EQ(host.percentDraws, 1) << "FUN_1406ebf30(P, 0x32) is drawn for every kind";
 }
 
 // IDLE_TURN's turn-lock test (0x1406BFF72..0x1406BFFA1): FUN_14043a0a0(req[2], req[0x18]), the facing against the stamp, over the
@@ -675,6 +741,158 @@ TEST(IdleTurn, TheTurnPerTickIsTheFacingAgainstTheStampNotTheClipTickSum) {
   pes::movestep::IdleTurn(host, req);
   EXPECT_EQ(req.U(pes::moveword::kTurnLockFlag) & 0xffu, 1u);
   EXPECT_EQ(int(req.U(pes::moveword::kTurnLockTicks)), end - start);
+}
+
+// FUN_1406d1390, the IDLE_TURN entry. The tables are synthetic (distinct values, so a row or a column read from the wrong table or index
+// differs): the install's own rows and columns are read by the install test (tables.idleTurnRow, LoadRunTables).
+namespace {
+RateHost TurnEntryHost() {
+  RateHost host = IdleHost();
+  host.run.deg1575 = 157.5f;
+  host.run.deg167p5 = 167.5f;
+  host.run.deg168p75 = 168.75f;
+  host.run.negDeg167p5 = -167.5f;
+  host.run.ballSampleTicks = 20.0f;
+  host.run.blend1667 = 1.0f / 6.0f;
+  host.style.radToDeg = 57.2957795f;
+  for (int kind = 0; kind < 8; ++kind) host.tables.idleTurnRow[kind] = 0x700 + 3 * kind;
+  for (int bucket = 0; bucket < 10; ++bucket) host.tables.bucketColumn[bucket] = 2 * bucket + 1;
+  // The production reads the IDLE_TURN row and column from the step tables (StepTablesView); the same PES values here.
+  for (int kind = 0; kind < 8; ++kind) host.stepTables.idleTurnRow[kind] = 0x700 + 3 * kind;
+  for (int bucket = 0; bucket < 10; ++bucket) host.stepTables.bucketColumn[bucket] = 2 * bucket + 1;
+  // The step scalars EnterIdleTurn reads (the install values): 20 km/h over 60 ticks samples the ball 18 ticks ahead, the 1/6 s blend,
+  // the +-167.5 degree clamp, the 22.5 and 168.75 gates.
+  host.step.one = 1.0f;
+  host.step.negOne = -1.0f;
+  host.step.half = 0.5f;
+  host.step.full = 360.0f;
+  host.step.halfTurn = 180.0f;
+  host.step.kmh20 = 20.0f;
+  host.step.ticks60 = 60.0f;
+  host.step.s0p1667 = 1.0f / 6.0f;
+  host.step.deg22p5 = 22.5f;
+  host.step.deg167p5 = 167.5f;
+  host.step.neg167p5 = -167.5f;
+  host.step.deg168p75 = 168.75f;
+  return host;
+}
+
+pes::MoveReq TurnEntryReq(uint32_t kind, uint32_t lookBucket, float facing, float lookHeading, float facingError) {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, kind);
+  req.SetU(pes::moveword::kLookBucketAlt, lookBucket);
+  req.SetF(pes::moveword::kFacing, facing);
+  req.SetF(pes::moveword::kLookHeading, lookHeading);
+  req.SetF(pes::moveword::kFacingError, facingError);
+  return req;
+}
+}  // namespace
+
+// FUN_1406D1390 does not issue the clip from inside the entry: its vt+0x10 of +0xac0 writes the request (motion, mirror, the 1/6 s
+// blend, playback 1.0) and leaves it due (req[0x2f]), and FUN_1406B8340's tail issues it. This test used to assert an immediate
+// `Issue` call, which PES does not do; the PES oracle (pes_movestep_idleturn_entry_test, 1,452 rows word-for-word) pins the due flag.
+TEST(EnterIdleTurn, IssuesTheTurnRowOfTheKindAtTheColumnOfTheLookBucketAndRequestsIdleTurn) {
+  RateHost host = TurnEntryHost();
+  pes::MoveReq req = TurnEntryReq(5, 6, 30.0f, 40.0f, 10.0f);
+  pes::movestep::EnterIdleTurn(host, req);
+  EXPECT_EQ(host.lastCellRow, host.tables.idleTurnRow[5]);
+  EXPECT_EQ(host.lastCellColumn, host.tables.bucketColumn[6]);
+  EXPECT_EQ(host.issueCalls, 0) << "the entry leaves the clip due; the body tail issues it (FUN_1406B8340)";
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(0x100 + host.tables.idleTurnRow[5])) << "the due clip is the cell the lookup answered";
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 1.0f / 6.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), 1.0f);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdleTurn));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kLiveKind), 5u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed2), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 1.0f / 6.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRecordStampB), req.F(pes::moveword::kLookHeading)) << "req[0x18] is the look heading (req[3])";
+  EXPECT_EQ(req.U(pes::moveword::kTurnLockFlag) & 0xffu, 0u);
+}
+
+TEST(EnterIdleTurn, TheReplayActionAndAStoppedKindThreeTakeTheReplayRowEveryOtherCaseTheKindsRow) {
+  RateHost replay = TurnEntryHost();
+  replay.animeState = pes::kReplayAnimeState;  // PES 0x1406D1638..0x1406D1649: vt+0x28 == 0x4A is the replay action
+  pes::MoveReq a = TurnEntryReq(2, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(replay, a);
+  EXPECT_EQ(replay.lastCellRow, pes::kIdleTurnReplayRow);
+
+  RateHost stopped = TurnEntryHost();
+  stopped.matchPhase = 2;
+  pes::MoveReq b = TurnEntryReq(3, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(stopped, b);
+  EXPECT_EQ(stopped.lastCellRow, pes::kIdleTurnReplayRow);
+
+  RateHost flagged = TurnEntryHost();
+  flagged.team.maFlag25930 = true;
+  pes::MoveReq c = TurnEntryReq(3, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(flagged, c);
+  EXPECT_EQ(flagged.lastCellRow, pes::kIdleTurnReplayRow);
+
+  RateHost live = TurnEntryHost();
+  pes::MoveReq d = TurnEntryReq(3, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(live, d);
+  EXPECT_EQ(live.lastCellRow, live.tables.idleTurnRow[3]);
+
+  RateHost stoppedOther = TurnEntryHost();
+  stoppedOther.matchPhase = 2;
+  pes::MoveReq e = TurnEntryReq(4, 0, 0.0f, 0.0f, 0.0f);
+  pes::movestep::EnterIdleTurn(stoppedOther, e);
+  EXPECT_EQ(stoppedOther.lastCellRow, stoppedOther.tables.idleTurnRow[4]) << "only kind 3 takes the stoppage row";
+}
+
+TEST(EnterIdleTurn, TheLookHeadingStepsFromTheFacingByAtMost167p5Degrees) {
+  RateHost host = TurnEntryHost();
+  pes::MoveReq req = TurnEntryReq(0, 0, 0.0f, 190.0f, 0.0f);  // 170 degrees to the left of the facing
+  pes::movestep::EnterIdleTurn(host, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kLookHeading), 192.5f) << "167.5 of the 170 to turn";
+}
+
+// The flip arm: the look bucket 4 or 9, a facing error past 168.75 and the ball (or the look heading, with nobody owning the ball)
+// 22.5 to 157.5 degrees off to the side opposite the error: the turn goes the other way round.
+TEST(EnterIdleTurn, TheLookBucketFlipsWhenTheBallIsOnTheSideOppositeTheFacingErrorAndNobodyOwnsIt) {
+  RateHost host = TurnEntryHost();
+  host.ballSample[18][0] = -1.0f;  // the ball 1 m to the side the error leans towards (heading 270)
+  host.team.ballOwner = 0xFF;      // nobody owns it: the look heading (90) is the side that counts
+  pes::MoveReq req = TurnEntryReq(0, 4, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kLookBucketAlt), 9u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kFacingError), 167.5f);
+  EXPECT_EQ(host.lastCellColumn, host.tables.bucketColumn[9]) << "the issue reads the flipped bucket's column";
+
+  RateHost owned = TurnEntryHost();
+  owned.ballSample[18][0] = -1.0f;
+  owned.team.ballOwner = 3;  // a man owns it: the ball's own bearing counts, and it agrees with the error
+  pes::MoveReq kept = TurnEntryReq(0, 4, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(owned, kept);
+  EXPECT_EQ(kept.U(pes::moveword::kLookBucketAlt), 4u);
+  EXPECT_FLOAT_EQ(kept.F(pes::moveword::kFacingError), -175.0f);
+
+  RateHost flipBack = TurnEntryHost();
+  flipBack.team.ballOwner = 0xFF;
+  pes::MoveReq nine = TurnEntryReq(0, 9, 0.0f, 270.0f, 175.0f);  // bucket 9 flips to 4 with the error -167.5
+  pes::movestep::EnterIdleTurn(flipBack, nine);
+  EXPECT_EQ(nine.U(pes::moveword::kLookBucketAlt), 4u);
+  EXPECT_FLOAT_EQ(nine.F(pes::moveword::kFacingError), -167.5f);
+}
+
+TEST(EnterIdleTurn, TheFlipArmNeedsOpenPlayAndAFacingErrorPast168p75) {
+  RateHost stopped = TurnEntryHost();
+  stopped.matchPhase = 2;
+  pes::MoveReq a = TurnEntryReq(0, 4, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(stopped, a);
+  EXPECT_EQ(a.U(pes::moveword::kLookBucketAlt), 4u);
+
+  RateHost small = TurnEntryHost();
+  pes::MoveReq b = TurnEntryReq(0, 4, 0.0f, 90.0f, -168.0f);
+  pes::movestep::EnterIdleTurn(small, b);
+  EXPECT_EQ(b.U(pes::moveword::kLookBucketAlt), 4u);
+
+  RateHost otherBucket = TurnEntryHost();
+  pes::MoveReq c = TurnEntryReq(0, 6, 0.0f, 90.0f, -175.0f);
+  pes::movestep::EnterIdleTurn(otherBucket, c);
+  EXPECT_EQ(c.U(pes::moveword::kLookBucketAlt), 6u);
 }
 
 TEST(IdleOther, IssuesTheIdleClipAndTheRootFacingTailForCommand121) {
@@ -797,15 +1015,19 @@ TEST(Init, AStandingPlayerWhoStaysGoesIdle) {
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
 }
 
-TEST(SimTail, CopiesTheSlipFacingAfterSlipdownEvenWhenRootFacingIsSet) {
-  RateHost host = IdleHost();
-  pes::MoveStepRecord rec;
-  pes::MoveReq req;
-  req.SetF(pes::moveword::kSlipAngle, 123.0f);
-  req.SetByte(pes::moveword::kRootFacing, 1);
-  req.SetF(pes::moveword::kRootFacingAngle, 300.0f);
-  pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kRunTurnRunSlipdown);
-  EXPECT_FLOAT_EQ(host.f0bec, 123.0f);
+// The slip tail of RUN_TURN_RUN_SLIPDOWN (FUN_1406c2f80) stores its damped facing at byte offsets 0xe8 / 0xec of the request, the
+// words 0x3a / 0x3b that FUN_1406b8340's tail copies to P+0xbec when the flag is set: one rule for every state.
+TEST(SimTail, CopiesTheSlipFacingOnlyWhenTheSlipFlagIsSet) {
+  for (const bool flagged : {true, false}) {
+    RateHost host = IdleHost();
+    host.f0bec = 7.0f;
+    pes::MoveStepRecord rec;
+    pes::MoveReq req;
+    req.SetF(pes::moveword::kSlipAngle, 123.0f);
+    req.SetByte(pes::moveword::kSlipActive, flagged ? 1 : 0);
+    pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kRunTurnRunSlipdown);
+    EXPECT_FLOAT_EQ(host.f0bec, flagged ? 123.0f : 7.0f);
+  }
 }
 
 TEST(SimTail, CopiesTheRootFacingOnOtherStatesOnlyWhenTheFlagIsSet) {
@@ -828,6 +1050,31 @@ TEST(SimTail, StoresTheRequestsPlaybackSpeed) {
   req.SetF(pes::moveword::kPlayback, 0.75f);
   pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kIdle);
   EXPECT_FLOAT_EQ(rec.playbackSpeed, 0.75f);
+}
+
+// FUN_1406b8340's body tail: the root-facing write (req[0x3a], angle req[0x3b]) and the yaw adjuster's arm (req[0x3c]: from the facing
+// req[2] to the stamp req[0x3d] over req[0x3e] ticks, override flag byte req[0x3f]), in that order.
+TEST(SimTail, TheBodyTailWritesTheRootFacingAndArmsTheYawAdjusterFromTheLockWords) {
+  RateHost host = IdleHost();
+  pes::MoveReq req;
+  pes::movestep::ApplyBodyTail(host, req);
+  EXPECT_TRUE(host.rootFacings.empty());
+  EXPECT_TRUE(host.yawArms.empty());
+  req.SetByte(pes::moveword::kRootFacing, 1);
+  req.SetF(pes::moveword::kRootFacingAngle, 210.0f);
+  req.SetF(pes::moveword::kFacing, 181.5f);
+  req.SetByte(pes::moveword::kTurnLockFlag, 1);
+  req.SetF(pes::moveword::kTurnLockStamp, 109.0f);
+  req.SetU(pes::moveword::kTurnLockTicks, 22u);
+  req.SetByte(pes::moveword::kTurnLockDir, 1);
+  pes::movestep::ApplyBodyTail(host, req);
+  ASSERT_EQ(host.rootFacings.size(), 1u);
+  EXPECT_FLOAT_EQ(host.rootFacings[0], 210.0f);
+  ASSERT_EQ(host.yawArms.size(), 1u);
+  EXPECT_FLOAT_EQ(host.yawArms[0].from, 181.5f);
+  EXPECT_FLOAT_EQ(host.yawArms[0].to, 109.0f);
+  EXPECT_EQ(host.yawArms[0].ticks, 22);
+  EXPECT_TRUE(host.yawArms[0].overrideMode);
 }
 
 // The clip the FSM last issued, as the viewer plays it. Each issue is a new clip in PES, so a
@@ -1519,6 +1766,7 @@ pes::movestep::MoveTargetInput OriginCommand() {
   pes::movestep::MoveTargetInput in;
   in.facingDeg = 0.0f;
   in.speedBand = 0;
+  in.phase = 4;  // seq7527's phase, not listed: the body is facing plus the centre (the displacement body has its own test)
   in.desiredKmh = 5.0f;
   return in;
 }
@@ -1539,6 +1787,23 @@ TEST(MoveFill, SpeedBandIsTheCommandsOwnBandForTwoCommands) {
   pes::MoveReq b;
   pes::movestep::FillMoveTarget(b, dash, FoldConstants(), SyntheticBuckets());
   EXPECT_EQ(static_cast<int>(b.U(pes::moveword::kCommandSpeedClass)), 3);
+}
+
+// FUN_1406b7560 line 62 and 306: req[0xb] (a byte) is cmd+0x5C5, the use-class-rate flag the PASS_GET command's R+0xE39 supplies.
+TEST(MoveFill, UseClassRateByteIsTheCommandsFlagForTwoCommands) {
+  pes::movestep::MoveTargetInput on = OriginCommand();
+  on.targetZ = 6.0f;
+  on.speedBand = 1;
+  on.useClassRate = true;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, on, FoldConstants(), SyntheticBuckets());
+  EXPECT_TRUE(a.Flag(pes::moveword::kUseClassRate));
+
+  pes::movestep::MoveTargetInput off = on;
+  off.useClassRate = false;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, off, FoldConstants(), SyntheticBuckets());
+  EXPECT_FALSE(b.Flag(pes::moveword::kUseClassRate));
 }
 
 TEST(MoveFill, PreciseWordIsTheCommandsStopFlagForTwoCommands) {
@@ -1570,6 +1835,32 @@ TEST(MoveFill, TheLookWordIsTheLookDistanceWhenTheCommandHasALookPoint) {
   pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
   EXPECT_NEAR(req.F(pes::moveword::kDistToTarget), 8.0f, 1e-4f);
   EXPECT_NEAR(req.F(pes::moveword::kDistToLook), 5.0f, 1e-4f) << "PES 129-136: the look distance when the look block is valid";
+}
+
+// PES's captured request (live2/pid1062473 seq3229, the IDLE request at the handler's entry): facing (req[2]) 195.1 and body
+// (req[4]) 15.1. In the actions d_1406b7560.c 252-268 lists, the body is the last-tick displacement heading with no facing
+// added (fVar17 = fVar21). The MOVE action is not listed: its body is facing plus the centre (236-250).
+TEST(MoveFill, TheBodyFollowsItsDisplacementInTheActionsTheFillerLists) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.facingDeg = 195.1f;
+  in.phase = 0;                // listed (PES 252): the body is the displacement heading
+  in.displacementDeg = 15.1f;  // the last-tick displacement heading
+  in.targetZ = 8.0f;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 15.1f, 1e-3f)
+      << "PES's body is the displacement heading in a listed phase (PES 252-268)";
+}
+
+TEST(MoveFill, TheBodyFacesItsMoveOutsideTheListedPhases) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.facingDeg = 195.1f;
+  in.phase = 4;               // seq7527's phase: facing plus the centre, not the displacement
+  in.displacementDeg = 15.1f;
+  in.targetZ = 8.0f;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 195.1f, 1e-3f);
 }
 
 TEST(MoveFill, TheLookWordFallsBackToTheTargetDistanceWithoutALookPoint) {

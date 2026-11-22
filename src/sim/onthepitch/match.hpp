@@ -31,7 +31,9 @@ class PlayerData;
 #include "officials.hpp"
 #include "pesstoppage.hpp"
 #include "peskickerror.hpp"
+#include "peskickmotion.hpp"
 #include "pesworldrecord.hpp"
+#include "pesfoxworld.hpp"
 #include "pesdodge.hpp"
 #include "pesclipreaders.hpp"
 #include "pestackle.hpp"
@@ -91,13 +93,14 @@ public:
   e_MatchPhase GetMatchPhase() const { return matchPhase; }
 
   void StartPlay() { inPlay = true; }
-  // PES's ball is dead at the whistle: on the PES path the stop zeroes it in place (velocity and
-  // spin), so the stop never inherits a flight. The prepare teleport still moves it to the spot.
-  void StopPlay() {
-    inPlay = false;
-    if (pesLoop) ball->Stop();
-  }
+  // PES's whistle leaves the ball alone: the whistle 0x14050E770 writes the stoppage words and no ball state
+  // (docs/ports/pes-port-TeamTick7.md §3), so a ball in flight keeps flying until the prepare places it.
+  void StopPlay() { inPlay = false; }
   bool IsInPlay() const { return inPlay; }
+  // PES's play state MI+0x116C as PES's code reads it: 1 in play, 3 set-play ready, 2 stopped (pes::PlayStateFor). GF's inPlay
+  // is also true through a set piece's take, but PES holds 3 through the take and writes 1 only at the release touch
+  // (docs/re/pes-re-taker-release.md 1.6), so a take reads as 3 here. Every PES-facing reader of the play state goes through this.
+  int PesPlayState();
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }
   Player* GetLastGoalScorer() const { return lastGoalScorer; }
@@ -122,6 +125,9 @@ public:
   };
   void RecordPassEvent(int kind, const Vector3& from, Player* target, Player* passer) {
     lastPassEvent = PassEvent{true, kind, from, target, GetActualTime_ms(), passer};
+    // PES's kick pushes the none key into ring 1. The kick is committed in the team tick, and its record is produced in the listener's
+    // event pass of the NEXT frame (pes-port-StallLive9 section 1), so W1 moves the holder then, not here.
+    pesKeyActor = nullptr;
   }
   const PassEvent& GetLastPassEvent() const { return lastPassEvent; }
 
@@ -182,12 +188,29 @@ public:
   // A touch of the ball, queued for the next event stage. `actionKind` is PES's action kind
   // (team.cpp maps the GF touch function onto it).
   void QueuePesTouch(Player* player, uint32_t actionKind);
+  // PES's ball record word +0x27E4 (G+0x40): the man the last pass was aimed at, written by the kick; the kind 1..3 touch events carry it as
+  // their second key (FUN_140A18940 cases 1-3, payload+0x38), where the pass-target selector 0x1404F0E50 reads it. Null: none.
+  void SetPesKickTarget(Player* target) { pesKickTarget = target; }
   // The player a store key names: his side's squad at the key's slot. Null for an invalid key.
   Player* GetPesActorPlayer(const pes::ActorKey& key);
+  // The player a PES slot id names (side * 11 + squad place, as PesSlotOf makes it): null for 0xFF and any id past the 22 men.
+  Player* GetPesSlotPlayer(uint32_t slot) {
+    if (slot >= 2 * static_cast<uint32_t>(pes::kSlotsPerSide)) return nullptr;
+    pes::ActorKey key;
+    key.team = slot / pes::kSlotsPerSide;
+    key.slot = slot % pes::kSlotsPerSide;
+    return GetPesActorPlayer(key);
+  }
   // The store key of a player: his side and his squad index.
   pes::ActorKey PesActorKeyOf(const Player* player);
   // The PES slot (side * 11 + squad place) of an on-pitch player: the table entries and block holding his records.
   int PesSlotOf(const Player* player);
+  // PES owns this man's body through its Dribble action: PES's own tick put him there (the trap end's switch, RunPesTrapTicks) and has not taken
+  // him out since (RunPesDribbleTicks), and P+0xAC8 still says Dribble. A man whose P merely says Dribble because GF derives it from his clip
+  // (a BallControl clip of the carrier) is GF's: his P is rewritten from the clip every tick, and when the clip ends he leaves the action with
+  // it. The flag is GF state about who owns the body, not a PES cell.
+  bool PesOwnsDribble(Player& player);
+  void SetPesDribbleSwitched(int slot, bool switched) { pesDribbleSwitched[slot] = switched; }
   // PES's G tables and per-player blocks (pesworldrecord.hpp), owned by the match for the whole match.
   pes::PesWorld& PesWorldOf() { return *pesWorld; }
   // Seconds since a store record's frame, on PES's game-speed frames.
@@ -259,8 +282,8 @@ public:
   // W1's per-tick recompute (0x14045725A, MOV [RBP+0x2601C],EDI in FUN_140457070) behind the step switch
   // FUN_140458880 (checker 0x140458912; docs/re/pes-re-restart-step.md 3): the arm-and-run steps
   // 8/0xB/0xE/0x12 latch the run flag (set at 0x140457087/098, never cleared) and run the recompute;
-  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder adopts the
-  // key when it runs, never null, so the holder has no clear of its own.
+  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder becomes the newest ring-1 key's actor,
+  // or none when the key is the kick's none key (W1 writes 0xFF then, pes-holder-clear section 2).
   void RecomputePesHolder() {
     switch (pesRestartStep) {
       case 0x08:
@@ -277,7 +300,7 @@ public:
       default:
         return;
     }
-    if (pesKeyActor) pesHolder = pesKeyActor;
+    pesHolder = pesKeyActor;
     if (pesHolder != pesHolderSeen) {
       pesHolderSeen = pesHolder;
       pesHolderSince_ms = actualTime_ms;
@@ -302,7 +325,52 @@ public:
   // PES's Trap action chain (pestrapdata.hpp): the actor constants P is made from, and the match's own copy of the image slice and
   // loader data the chain runs on, built once at construction.
   const pes::PesActorConstants& GetPesActorConstants() const { return pesActorConstants; }
-  pes::PesTrapExternals& PesTrapExternalsOf() { return pesTrapMemory->Externals(); }
+  pes::PesTrapExternals& PesTrapExternalsOf();  // the trap world's externals over the match's PES memory (bound on first use)
+  void BindPesTrapWorld();                       // the trap world on the match's one PES memory (matchevents.cpp)
+  // PES's per-player anime engine graph (pesfoxworld.hpp), built from the install on first use: the translated fox load chain fills the
+  // ResManager from the body animation files, and the player constructor makes each slot's BodyAnimControl. PesAnimePlayerOf(slot) is the
+  // engine's player block of a slot (constructed on first use).
+  pes::PesFoxWorld& PesAnimeWorldOf();
+  uint64_t PesAnimePlayerOf(int slot);
+  // The clip a player's body was issued, pushed into his engine control (PesFoxWorld::IssueMotion): PlayIssuedClip's seam, PES mode only.
+  void PesAnimeIssue(const Player* player, const pes::MotionRequest& request);
+  // PES's body contact scan (pesbodyscan.hpp), run for each man in the Trap action after his action tick (RunPesBodyScans): the scan's
+  // answer per PES slot, kept until the man's body takes it (TakePesTouch). A grant is the scan having filled the driver's output record
+  // with a touch request: the reach test passed on this tick's contact frame.
+  void GrantPesTouch(int slot, const pes::PesBodyScanOut& out) { pesTouch[slot] = out; pesTouchGranted[slot] = true; }
+  bool TakePesTouch(int slot, pes::PesBodyScanOut* out) {
+    if (!pesTouchGranted[slot]) return false;
+    pesTouchGranted[slot] = false;
+    ++pesTouchesTaken[slot];
+    *out = pesTouch[slot];
+    return true;
+  }
+  // How many grants slot's body has taken in this match (the tests' witness that a touch was a grant).
+  unsigned PesTouchesTaken(int slot) const { return pesTouchesTaken[slot]; }
+  // The dribble tick's SetMotion issues (RunPesDribbleTicks) and the ones the body could not play, by motion number (the tests' witness
+  // that PES's issue reached the body).
+  void NotePesDribbleIssue(int slot, int motion, bool played) {
+    ++pesDribbleIssues;
+    pesDribbleIssuedMotion[slot] = static_cast<uint16_t>(motion);
+    if (!played) ++pesDribbleIssuesUnplayed[motion];
+  }
+  // The motion a man's last Dribble-action issue named (single: P+0xAE0; series: the vector's first entry), by slot.
+  uint16_t PesDribbleIssuedMotion(int slot) const { return pesDribbleIssuedMotion[slot]; }
+  unsigned PesDribbleIssues() const { return pesDribbleIssues; }
+  // Dribbler touches the ball executor applied to the ball (RunPesBodyScans; the tests' witness that a PES dribble moves the ball).
+  void NotePesDribbleKick() { ++pesDribbleKicks; }
+  // Body scans run for PES-owned dribblers, and those whose reach test granted a touch (the tests' witness of where a dribble touch stops).
+  void NotePesDribbleScan(bool granted, bool contactPending) { ++pesDribbleScans; if (granted) ++pesDribbleGrants; if (contactPending) ++pesDribbleContactPending; }
+  unsigned PesDribbleScans() const { return pesDribbleScans; }
+  unsigned PesDribbleGrants() const { return pesDribbleGrants; }
+  unsigned PesDribbleContactPending() const { return pesDribbleContactPending; }
+  unsigned PesDribbleKicks() const { return pesDribbleKicks; }
+  // The last SetMotion kind a man's Trap tick issued (RunPesTrapTicks; PesTickResult::issue), by slot (the tests' witness).
+  void NotePesTrapTickIssue(int slot, uint8_t issue) { pesTrapTickIssue[slot] = issue; }
+  uint8_t PesTrapTickIssue(int slot) const { return pesTrapTickIssue[slot]; }
+  const std::map<int, unsigned>& PesDribbleIssuesUnplayed() const { return pesDribbleIssuesUnplayed; }
+  // A grant lives for the tick that made it (the bodies take it in the same tick's team stage): RunPesBodyScans clears the last tick's.
+  void ClearPesTouches() { pesTouchGranted.fill(false); }
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
   // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
   // takes the named fallback.
@@ -334,6 +402,11 @@ public:
   const pes::KickErrorConstants& GetPesKickErrorConstants() const {
     return pesKickErrorConstants;
   }
+  // PES 2021's kick motion pick (docs/ports/pes-port-KickMotion.md).
+  const pes::KickMotionConstants& GetPesKickMotionConstants() const {
+    return pesKickMotionConstants;
+  }
+  pes::KickMotionStats& PesKickMotionStats() { return pesKickMotionStats; }
   const pes::StoppageConstants& GetPesStoppageConstants() const {
     return pesStoppageConstants;
   }
@@ -666,13 +739,13 @@ protected:
   // The routing table and constants PES's event store (the world window's E, pesevents.hpp) is written with.
   pes::EventRingTable pesEventRings{};
   pes::EventConstants pesEventConstants{};
-  // Touches queued for the next event stage: PES's action kind, and the frame of the touch.
+  // Touches queued for the next event stage: PES's action kind. The event stage stamps each with its own frame.
   struct PendingPesTouch {
     Player* player = nullptr;
     uint32_t actionKind = 0;
-    int frame = 0;
   };
   std::vector<PendingPesTouch> pesPendingTouches;
+  Player* pesKickTarget = nullptr;  // the ball record's +0x27E4 (SetPesKickTarget)
   // The detectors' own stored words (their "+8" words), kept between ticks.
   struct PesDetectorState {
     int phase = 0;
@@ -725,6 +798,8 @@ protected:
   pes::ForfeitConstants pesForfeitConstants{};
   pes::RestartSpotConstants pesRestartSpotConstants{};
   pes::KickErrorConstants pesKickErrorConstants{};
+  pes::KickMotionConstants pesKickMotionConstants{};
+  pes::KickMotionStats pesKickMotionStats{};
   pes::CarrierConstants pesCarrierConstants{};
   pes::DefenderDecisionConstants pesDefenderDecisionConstants{};
   pes::ContactConstants pesContactConstants{};
@@ -754,7 +829,22 @@ protected:
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   pes::PesActorConstants pesActorConstants{};
-  std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
+  pes::PesTrapExternals pesTrapView;  // the trap world's externals over the memory (set by BindPesTrapWorld)
+  bool pesTrapBound = false;
+  std::unique_ptr<pes::PesFoxWorld> pesAnimeWorld;
+  std::array<uint64_t, pes::kSlotCount> pesAnimePlayers{};
+  const pes::PesVfs* pesVfs = nullptr;
+  std::string pesImagePath;
+  std::array<unsigned, pes::kSlotCount> pesTouchesTaken{};
+  unsigned pesDribbleIssues = 0;
+  unsigned pesDribbleKicks = 0;
+  std::array<bool, pes::kSlotCount> pesDribbleSwitched{};
+  unsigned pesDribbleScans = 0, pesDribbleGrants = 0, pesDribbleContactPending = 0;
+  std::array<uint16_t, pes::kSlotCount> pesDribbleIssuedMotion{};
+  std::array<uint8_t, pes::kSlotCount> pesTrapTickIssue{};
+  std::map<int, unsigned> pesDribbleIssuesUnplayed;
+  std::array<pes::PesBodyScanOut, pes::kSlotCount> pesTouch{};
+  std::array<bool, pes::kSlotCount> pesTouchGranted{};
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
   std::optional<pes::formation::FormationTables> pesFormations;
   std::optional<pes::formation::SheetConstants> pesSheetConstants;

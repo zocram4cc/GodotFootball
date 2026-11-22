@@ -1,0 +1,69 @@
+{
+ "label": "rootfacing_synth",
+ "seed": 4,
+ "as": "0x141EB56D0",
+ "fields": [
+  {
+   "name": "p",
+   "at": "rcx",
+   "type": "u64",
+   "values": [
+    811978912
+   ]
+  },
+  {
+   "name": "ang",
+   "at": "rdx",
+   "type": "u64",
+   "values": [
+    475004456
+   ]
+  },
+  {
+   "name": "full",
+   "at": "r8",
+   "type": "u64",
+   "values": [
+    1
+   ]
+  },
+  {
+   "name": "val",
+   "at": "va:475004456",
+   "type": "f32",
+   "values": [
+    0.0
+   ]
+  },
+  {
+   "name": "ret",
+   "at": "ret",
+   "type": "u64",
+   "values": [
+    5400911557
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "name": "face_0",
+   "val": 10.0
+  },
+  {
+   "name": "face_1",
+   "val": 359.5
+  },
+  {
+   "name": "face_2",
+   "val": 180.0
+  },
+  {
+   "name": "face_3",
+   "val": 0.0
+  },
+  {
+   "name": "face_4",
+   "val": 26.6087589263916
+  }
+ ]
+}

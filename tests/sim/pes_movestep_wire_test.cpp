@@ -5,7 +5,11 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -20,12 +24,17 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesmovestep.hpp"
+#include "onthepitch/pestrapworld.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/player/humanoid/animcollection.hpp"
 #include "onthepitch/team.hpp"
 #include "pes/exe.hpp"
 #include "pes/mbinfo.hpp"
 #include "pes/movestep.hpp"
+#include "pes/movestep_turn.hpp"
+#include "pes/translated/pes_state.hpp"
+#include "pes/translated/translated.hpp"
 #include "pes/vfs.hpp"
 #include "pes_match_constants.hpp"
 #include "rig/rig.hpp"
@@ -34,6 +43,13 @@
 
 namespace {
 
+// A SetMotion issue of `motion` at the clip's own speed.
+pes::MotionRequest IssueOf(int motion) {
+  pes::MotionRequest request;
+  request.motion = motion;
+  request.playback = 1.0f;
+  return request;
+}
 constexpr int kHomeTeam = 1, kAwayTeam = 2;
 constexpr unsigned int kSeed = 1000;
 constexpr int kTicks = 900;  // about 17 s of play
@@ -130,7 +146,9 @@ bool IsPesFamily(int family) {
   // A trap clip is a PES motion too: PES's trap end handler 0x14079E5C0 waits while the playing motion is in the anime's table.
   return family == static_cast<int>(pes::PesClipFamily::kDodge) ||
          family == static_cast<int>(pes::PesClipFamily::kTackle) || family == LocomotionFamily() ||
-         family == static_cast<int>(pes::PesClipFamily::kTrap);
+         family == static_cast<int>(pes::PesClipFamily::kTrap) ||
+         // The dribble family: a PES-owned dribbler's SetMotion clips carry PES motion numbers (CurrentMotionOf reads them).
+         family == static_cast<int>(pes::PesClipFamily::kDribble);
 }
 
 }  // namespace
@@ -273,6 +291,19 @@ TEST(MoveStepWire, ABearingToAGroundPointIsTakenOnPesZ) {
       << "a point at GF +coords[0] is PES +x: bearing 90";
 }
 
+// FUN_14046f260 (the body of 0x14046f230) and FUN_140439e50, the two heading helpers MOVESTEP reads, both open with
+// `if (to.z == from.z && to.x == from.x) { *out = 0; return; }`: two coincident points have bearing 0. atan2(+0, -(+0)) is 180,
+// so a ball held at the man's root read 180: StayDecision (FUN_1406b6bb0) then took its 180-degree gate against a look point
+// directly behind him and sent a throw-in carrier through IDLE -> GOTO_RUN -> STEP_LOOP -> STOP forever (stalled seed 7 pes-loop).
+TEST(MoveStepWire, ABearingBetweenCoincidentPointsIsZero) {
+  pes::RunConstants k{};
+  k.full = 360.0f;
+  k.half_turn = 180.0f;
+  k.wrapFull = -360.0f;
+  EXPECT_EQ(pesmovestep::PesBearingDeg(k, 0.0f, 0.0f), 0.0f);
+  EXPECT_EQ(pesmovestep::PesBearingDeg(k, -0.0f, -0.0f), 0.0f);
+}
+
 // StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
 // Built on main, nothing stores it, so the ceiling reads zero.
 TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {
@@ -352,6 +383,44 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
   EXPECT_EQ(restarted, 0);
 }
 
+// PES's anime engine steps a motion's clock by one tick of real time per tick at rate 1 (FUN_141AF7A90 sets the step `tick * 300` units of
+// 1/300 s, FUN_141AF3100 reads seconds back with 1/300; SetSpeed's real calls hold rate 1.0), so an issued clip of L seconds ends after
+// L * 54 / rate ticks. GF's clip frames are 10 ms and the tick is 1000/54 ms: a clip must advance 1.852 frames per tick at rate 1. On the
+// base it advanced ONE frame per tick (0.54 of PES's speed: a trap's contact frame came at tick 29.5 against PES's 17).
+TEST(MoveStepWire, APesClipAdvancesATickOfRealTimePerTick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr double kFramesPerTick = 1000.0 / 54.0 / 10.0;  // the 10 ms engine frame in ticks of 1/54 s
+  constexpr double kTolerance = 0.03;
+  double framesAdvanced = 0.0, ticksCounted = 0.0;
+  for (int t = 0; t < kTicks; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<const Animation*> before;
+    std::vector<int> frameBefore, placementBefore;
+    for (Player* p : ps) {
+      const Anim* a = p->GetCurrentAnim();
+      before.push_back(a ? a->anim : nullptr);
+      frameBefore.push_back(a ? a->frameNum : 0);
+      placementBefore.push_back(p->CastHumanoid()->GetPlacementCount());
+    }
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      const Anim* a = ps[i]->GetCurrentAnim();
+      if (ps[i]->CastHumanoid()->GetPlacementCount() != placementBefore[i]) continue;
+      if (!a || !a->anim || a->anim != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
+      // A clip that ran into its last frame is clamped there: only ticks that stayed clear of the end say what the rate is.
+      if (a->frameNum <= frameBefore[i] || a->frameNum >= a->anim->GetFrameCount() - 1) continue;
+      framesAdvanced += a->frameNum - frameBefore[i];
+      ticksCounted += a->playbackRate;  // the clip's rate this tick: PES's rate is a factor on the real-time step
+    }
+  }
+  ASSERT_GT(ticksCounted, 200.0) << "no PES clip played long enough";
+  EXPECT_NEAR(framesAdvanced / ticksCounted, kFramesPerTick, kFramesPerTick * kTolerance)
+      << "frames per tick at rate 1 (PES: a tick of real time, 1.852 frames of 10 ms)";
+}
+
 // A re-issue of the motion the body already plays changes its rate only (humanoidbase.cpp's hold). Built
 // without the hold, the re-issue selects the clip again and restarts it from frame 0.
 TEST(MoveStepWire, AReIssueOfThePlayedMotionDoesNotRestartTheClip) {
@@ -367,7 +436,7 @@ TEST(MoveStepWire, AReIssueOfThePlayedMotionDoesNotRestartTheClip) {
       if (played.family != LocomotionFamily() || a->frameNum < 3) continue;
       const Animation* clipBefore = a->anim;
       const int frameBefore = a->frameNum;
-      p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
+      p->CastHumanoid()->PlayIssuedClip(IssueOf(played.motion));
       printf("[movestep-hold] frame %d re-issued, now %d\n", frameBefore, a->frameNum);
       EXPECT_EQ(a->anim, clipBefore);
       EXPECT_GE(a->frameNum, frameBefore);
@@ -452,7 +521,7 @@ TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
 // look bucket (word 0xd) is off straight and the facing error's magnitude is at least 33.75 degrees (VA 0x1425cc688); the
 // call is at VA 0x1406ca51f. Built on main, that else arm is empty and the bucket it tests is the move bucket (word 8), so
 // a stop with a turned body holds for the whole match: the trace held one for 72 ticks. Every active player is set into
-// STOP, and none on a MOVE clip may still be in STOP after 60 ticks.
+// STOP, and none on a MOVE clip may stay in STOP for 60 ticks: each must leave it at least once.
 TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
   Properties config;
   config.SetBool("pes_loop", true);
@@ -473,8 +542,16 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
       pesmovestep::RequestStop(*p, *match);
       if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
     }
+    // The bodies do not move in this harness (only MOVESTEP is stepped), so a man the AI tells to run is sent out of STOP into
+    // GOTO_RUN and RUN_LOOP and, finding no ground speed, enters STOP again, as PES's no-class arm does. Where the 60th tick
+    // falls in that cycle says nothing about a hold; the defect is a STOP that never leaves, so each man is watched for the
+    // first tick on which his state is not STOP.
+    std::set<Player*> left;
     for (int t = 0; t < kStopTicks; ++t) {
-      for (Player* p : stopped) pesmovestep::ProcessMoveStep(*p, *match);
+      for (Player* p : stopped) {
+        pesmovestep::ProcessMoveStep(*p, *match);
+        if (p->GetMoveStep().state != pes::MoveState::kStop) left.insert(p);
+      }
     }
     for (Player* p : stopped) {
       ++forced;
@@ -485,11 +562,11 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
       auto* body = p->CastHumanoid();
       if (!body->IsMovementClip() || IsBallActionFunction(body->GetCurrentFunctionType())) continue;
       ++counted;
-      if (p->GetMoveStep().state == pes::MoveState::kStop) ++held;
+      if (left.count(p) == 0) ++held;
     }
   }
   EXPECT_GT(counted, 0) << "no forced STOP was on a MOVE clip, so the bound was not tested (" << forced << " forced)";
-  EXPECT_EQ(held, 0) << held << " of " << counted << " forced STOPs on a MOVE clip still held after " << kStopTicks
+  EXPECT_EQ(held, 0) << held << " of " << counted << " forced STOPs on a MOVE clip never left the STOP in " << kStopTicks
                      << " ticks";
 }
 
@@ -569,6 +646,24 @@ TEST(MoveStepWire, AKeeperWithoutTheBallIsSteeredByTheWalkBehindHisHandsAndTheDr
   EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{hands}, true).has_value()) << "a lone Deflect is not a movement";
 }
 
+// PES builds one movement command first (the PRESS locomotion), then the reaction chooser replaces it with the reaction it fires
+// (docs/re/pes-re-defender-decisions.md 1). A press-designated man's approach is queued before the slide the chooser fires, so the
+// slide is his decision: the approach stands only when no reaction fires.
+TEST(MoveStepWire, AFiredSlideReplacesTheApproachOfAPressDesignatedMan) {
+  PlayerCommand approach;
+  approach.desiredFunctionType = e_FunctionType_Movement;
+  approach.useDesiredTarget = true;
+  approach.desiredVelocityFloat = sprintVelocity;
+  PlayerCommand slide;
+  slide.desiredFunctionType = e_FunctionType_Sliding;
+  const std::optional<PlayerCommand> fired = pesmovestep::MovementDecision(PlayerCommandQueue{approach, slide}, false);
+  ASSERT_TRUE(fired.has_value());
+  EXPECT_EQ(fired->desiredFunctionType, e_FunctionType_Sliding) << "the approach queued before a fired slide took the decision";
+  const std::optional<PlayerCommand> alone = pesmovestep::MovementDecision(PlayerCommandQueue{approach}, false);
+  ASSERT_TRUE(alone.has_value());
+  EXPECT_EQ(alone->desiredFunctionType, e_FunctionType_Movement) << "the approach must stand when no reaction fired";
+}
+
 // The seed-7 stall (pes_stall_test): a ball at rest 2.3 m from the keeper, on the goal side of him, in his box; the keeper is the
 // designated man and no outfield man is near. His queue is [Deflect, BallControl, Movement toward the ball], and MOVESTEP's decision
 // took the Deflect (a keeper hand action carrying no movement: velocity 0) and so held him in IDLE <-> IDLE_OTHER at frame 0 of the
@@ -630,6 +725,38 @@ TEST(MoveStepWire, AMoveTargetWithin20CmOfTheRootSteersByTheBall) {
   const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
   EXPECT_NEAR(req.F(pes::moveword::kMoveTargetX), ball.coords[0], 1e-3f);
   EXPECT_NEAR(req.F(pes::moveword::kMoveTargetZ), -ball.coords[1], 1e-3f);
+}
+
+// A command that carries PES's own command words (the ActionPassGet tick's R: id, kind, precise, speed class, use-class-rate byte and
+// desired km/h, FUN_1406b7560 lines 52-62 and 305-307) reaches the request as they stand, not as the classes GF derives from the
+// command's velocity (a sprint-level velocity here would derive class 4 and no class-rate flag).
+TEST(MoveStepWire, ThePesCommandWordsReachTheRequestUnchanged) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = p->GetPosition() + Vector3(6.0f, 0.0f, 0.0f);
+  c.desiredVelocityFloat = sprintVelocity;
+  c.usePesWords = true;
+  c.pesWords = {5, 8, 0, 1, true, 5.0f};
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq on = pesmovestep::TickRequest(*p, *match);
+  EXPECT_EQ(on.U(pes::moveword::kCommandSpeedClass), 0u) << "cmd[0x17] = 1 maps to band 0 (FUN_1406b8de0), not the dash GF derives";
+  EXPECT_NEAR(on.F(pes::moveword::kDesiredSpeedKmh), 5.0f, 1e-4f) << "cmd[0x172]";
+  EXPECT_TRUE(on.Flag(pes::moveword::kUseClassRate)) << "cmd+0x5C5";
+  EXPECT_EQ(on.U(pes::moveword::kCommandId), 5u) << "cmd[0]";
+  EXPECT_EQ(on.U(pes::moveword::kKind), 2u) << "cmd[0x16] = 8 is read as 2";
+  c.pesWords.useClassRate = false;
+  c.pesWords.speedClass = 3;
+  c.pesWords.desiredKmh = 11.0f;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq off = pesmovestep::TickRequest(*p, *match);
+  EXPECT_FALSE(off.Flag(pes::moveword::kUseClassRate));
+  EXPECT_NEAR(off.F(pes::moveword::kDesiredSpeedKmh), 11.0f, 1e-4f);
+  EXPECT_NE(off.U(pes::moveword::kCommandSpeedClass), on.U(pes::moveword::kCommandSpeedClass));
 }
 
 // The request steers by the AI's decision on the tick the decision changes, not by the clip the mover plays: a decision
@@ -702,7 +829,7 @@ TEST(MoveStepWire, ASameMotionReissueRestartsAFinishedClip) {
   ASSERT_NE(p, nullptr) << "no player played a PES locomotion clip in 2000 ticks";
   Anim* anim = const_cast<Anim*>(p->GetCurrentAnim());  // the test sets the clip's frame, as the humanoid does while it plays
   anim->frameNum = anim->anim->GetFrameCount() - 1;
-  p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
+  p->CastHumanoid()->PlayIssuedClip(IssueOf(played.motion));
   EXPECT_EQ(p->GetCurrentAnim()->frameNum, 0) << "a finished clip did not start again on its own motion";
 }
 
@@ -733,7 +860,7 @@ TEST(MoveStepWire, AnIssuedTrapClipTouchesAtItsContactFrame) {
   match->StartPlay();
   for (int t = 0; t < 60; ++t) match->Process();
   Player* p = FirstPlayer(*match);
-  ASSERT_TRUE(p->CastHumanoid()->PlayIssuedClip(motion, 1.0f, false, pes::PesClipFamily::kTrap));
+  ASSERT_TRUE(p->CastHumanoid()->PlayIssuedClip(IssueOf(motion), pes::PesClipFamily::kTrap));
   EXPECT_EQ(p->GetCurrentAnim()->touchFrame, pes::PesTouchAnimFrame(hitFrame));
 }
 
@@ -833,6 +960,64 @@ TEST(MoveStepWire, TheFacingWordIsTheRootYawNotTheTravelDirection) {
   EXPECT_EQ(wrong, 0) << wrong << " of " << split << " split ticks read the travel direction as the facing";
 }
 
+// PES's turn is the yaw adjuster P+0x4D0: FUN_1406B8340's tail arms it (FUN_141EB35A0) from the facing to the turn lock's heading over
+// req[0x3E] ticks, FUN_141EB3AF0 steps it each frame (vtable +0x18 = FUN_141EB1A50: curve 0 is the error spread evenly, `fVar6 /
+// iVar2 + acc`, so the N steps sum to the error), and FUN_1406EEDF0 hands each step to the anime request as a rotation about the
+// vertical axis. GF never ran any of it: a turn clip played its 0.5 degrees a tick and the man kept his heading. The root yaw must
+// move by the armed error over the armed ticks (the trap world's sense: PES's yaw is atan2(x, GF y); the P window holds that sense).
+TEST(RootMotion, ATurnTheYawAdjusterIsArmedWithTurnsTheManByItsErrorOverItsTicks) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kTicks = 3000;
+  constexpr float kMinError_deg = 30.0f;  // a turn, not a trap's trim
+  constexpr int kMinTicks = 8;
+  constexpr float kDegPerRad = 57.2957795f;
+  constexpr int kSlots = 22;
+  constexpr float kLow = 0.6f, kHigh = 1.4f;  // the clip's own body yaw adds a few degrees to the adjuster's error
+  auto facing = [&](Player* p) {  // PES's facing in the trap world: atan2(x, GF y)
+    const Vector3 v = p->GetRootDirectionVec();
+    return std::atan2(v.coords[0], v.coords[1]) * kDegPerRad;
+  };
+  auto fold = [](float d) { return std::fmod(d + 540.0f, 360.0f) - 180.0f; };
+  struct Watch {
+    bool on = false;
+    float error = 0.0f, start = 0.0f, last = 0.0f;
+    int ticks = 0, elapsed = 0;
+  };
+  std::array<Watch, kSlots> watch{};
+  std::vector<float> ratios;
+  pes::PesWorld& world = match->PesWorldOf();
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const int slot = match->PesSlotOf(p);
+      Watch& w = watch.at(slot);
+      const uint8_t* yaw = world.P(slot) + pes::kPYawAdjusterOffset;
+      uint32_t state;
+      int16_t count, ticks;
+      float error;
+      std::memcpy(&state, yaw + pes::kAdjStateOffset, sizeof state);
+      std::memcpy(&count, yaw + pes::kAdjCountOffset, sizeof count);
+      std::memcpy(&ticks, yaw + 0x10, sizeof ticks);
+      std::memcpy(&error, yaw + 0x28, sizeof error);
+      const float now = facing(p);
+      if (!w.on && state == pes::kAdjRunning && count == 2 && ticks >= kMinTicks && std::fabs(error) >= kMinError_deg) {
+        w = {true, error, w.last, now, ticks, 1};  // armed and stepped once this tick: the facing before is last tick's
+      } else if (w.on && ++w.elapsed >= w.ticks) {
+        ratios.push_back(fold(now - w.start) / w.error);
+        w.on = false;
+      }
+      w.last = now;
+    }
+  }
+  ASSERT_FALSE(ratios.empty()) << "no yaw adjuster was ever armed with a turn of " << kMinError_deg << " degrees";
+  std::sort(ratios.begin(), ratios.end());
+  const float median = ratios[ratios.size() / 2];
+  EXPECT_GT(median, kLow) << ratios.size() << " turns; the body turned less than the armed error";
+  EXPECT_LT(median, kHigh) << ratios.size() << " turns; the body turned more than the armed error";
+}
+
 // The throw-in hold (SelectRetainAnim) starts from a body whose root and travel differ, and it keeps the root's yaw: the lift
 // left the carrier facing the pitch, and the hold continues that facing, not the pitch centre (humanoid.cpp SelectRetainAnim).
 // The body here has just stepped sideways, so its travel is 90 degrees off its facing. Before this change the hold turned the
@@ -903,4 +1088,309 @@ TEST(MoveStepWire, AJogMoveWiresTheMoveIdAndDerivesThePreciseWord) {
   EXPECT_EQ(req.U(pes::moveword::kCommandId), 2u) << "cmd[0] is the MOVE action";
   EXPECT_EQ(req.U(pes::moveword::kKind), 0u) << "an outfield move is the mid kind";
   EXPECT_EQ(req.U(pes::moveword::kPrecise), 1u) << "the set clause: MOVE at a jog with the anime state set";
+}
+
+// The STOP entry's run-stop arm asks the anime interface's vt+0xE0 selector (FUN_1406BA0D0) for its motion: the row is
+// DAT_1425ddb50[kind + class * 8] and the column DAT_1425dd988[bucket]. The port asked the Animetable for the raw bucket as the
+// column on the stop-row table, so every odd bucket found no cell: the request carried motion -1 and PES's tail never issues
+// that (FUN_1406B8340 tail: `-1 < iVar9`). Seed 7 pes-loop, the first 1500 ticks.
+TEST(MoveStepWire, NoMoveStepIssueRequestsNoMotion) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  match->StartPlay();
+  int issues = 0, noMotion = 0;
+  for (int t = 0; t < 1500; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<uint32_t> serial;
+    for (Player* p : ps) serial.push_back(p->GetIssuedClip().serial);
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      if (ps[i]->GetIssuedClip().serial == serial[i]) continue;
+      ++issues;
+      if (ps[i]->GetIssuedClip().request.motion < 0) ++noMotion;
+    }
+  }
+  printf("[movestep-nomotion] issues %d, issues with no motion %d\n", issues, noMotion);
+  EXPECT_GT(issues, 0);
+  EXPECT_EQ(noMotion, 0) << "every issue names a motion";
+}
+
+// The FSM drives a body whose clip PES numbers: a state that reads the clip (RUN_TURN_RUN is one) on a body playing the AI's own
+// movement clip reads CurrentMotion -1, never meets its exit tests and stands there for good (TeamTick4: a named receiver stood
+// 5 s). PES's anime player keeps a finished clip as the current motion until the next issue, so the handler sees its own clip
+// to the end. No man whose body the FSM drives may sit in RUN_TURN_RUN on a clip PES does not number for a second, and none may
+// stand a second on a finished clip in RUN_TURN_RUN (the hold must not freeze a body either).
+TEST(MoveStepWire, NoManSitsInRunTurnRunOnAClipPesDoesNotNumber) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  match->StartPlay();
+  constexpr int kOneSecond = Match::kFramesPerSecond;
+  std::map<const Player*, int> run, finished;
+  int longest = 0, longestFinished = 0;
+  for (int t = 0; t < 3000; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const bool drivenOnOwnClip = p->GetCurrentFunctionType() == e_FunctionType_Movement;
+      const bool stuck = p->GetMoveStep().state == pes::MoveState::kRunTurnRun && drivenOnOwnClip;
+      run[p] = stuck ? run[p] + 1 : 0;
+      longest = std::max(longest, run[p]);
+      const Anim* a = p->GetCurrentAnim();
+      // A held set-piece taker is in his standby action (not MOVE), so MOVESTEP does not tick for him (ProcessMoveStep).
+      const bool fsmTicks = p->CastHumanoid()->IsMovementClip() && !p->GetTeam()->GetController()->IsPieceTakerHeld(p);
+      const bool atEnd = fsmTicks && a->anim && a->frameNum >= a->anim->GetFrameCount() - 1 && pesmovestep::CurrentMotionOf(*p) >= 0;
+      finished[p] = atEnd && p->GetMoveStep().state == pes::MoveState::kRunTurnRun ? finished[p] + 1 : 0;
+      longestFinished = std::max(longestFinished, finished[p]);
+    }
+  }
+  printf("[movestep-rtr] longest stretch in RUN_TURN_RUN on the AI's own clip %d ticks, on a finished PES clip %d ticks\n", longest,
+         longestFinished);
+  EXPECT_LT(longest, kOneSecond);
+  EXPECT_LT(longestFinished, kOneSecond);
+}
+
+// RUN_TURN_RUN's two motion-set predicates are hand-ported from FUN_140a6e290 / FUN_140a6e2e0 (pure tests of a u16 motion id).
+// The translated functions are the oracle: every motion id answers the same.
+TEST(MoveStepWire, TheMotionSetPredicatesAgreeWithTheTranslatedFunctions) {
+  constexpr uint64_t kBase = 0x10000;
+  int checked = 0;
+  for (int motion = 0; motion <= 0xffff; ++motion) {
+    uint8_t bytes[2] = {static_cast<uint8_t>(motion & 0xff), static_cast<uint8_t>(motion >> 8)};
+    for (const bool halted : {false, true}) {
+      PesState s;
+      s.mem.window = {kBase, sizeof bytes, bytes, nullptr};
+      s.gpr[1] = kBase;
+      (halted ? ::pes_fn_140A6E2E0 : ::pes_fn_140A6E290)(s);
+      const bool oracle = (s.gpr[0] & 0xffu) != 0;
+      const bool port = halted ? pes::movestep::MotionIsHalted(motion) : pes::movestep::MotionIsRunning(motion);
+      ASSERT_EQ(port, oracle) << (halted ? "halted " : "running ") << motion;
+      ++checked;
+    }
+  }
+  EXPECT_EQ(checked, 2 * 0x10000);
+}
+
+// STEP_TURN_RUN's fading-clip predicate is hand-ported from FUN_140a6e4f0 (a pure test of the u16 motion id); the translated
+// function is the oracle over every motion id.
+TEST(MoveStepWire, TheFadingMotionSetAgreesWithTheTranslatedFunction) {
+  constexpr uint64_t kBase = 0x10000;
+  int members = 0;
+  for (int motion = 0; motion <= 0xffff; ++motion) {
+    uint8_t bytes[2] = {static_cast<uint8_t>(motion & 0xff), static_cast<uint8_t>(motion >> 8)};
+    PesState s;
+    s.mem.window = {kBase, sizeof bytes, bytes, nullptr};
+    s.gpr[1] = kBase;
+    ::pes_fn_140A6E4F0(s);
+    const bool oracle = (s.gpr[0] & 0xffu) != 0;
+    ASSERT_EQ(pes::movestep::MotionIsFading(motion), oracle) << motion;
+    members += oracle ? 1 : 0;
+  }
+  EXPECT_GT(members, 0);
+}
+
+
+// PES reads a root's speed as the root's displacement of the tick times the tick rate (FUN_1406EA110: `|dxz| * 54 * 3.6` km/h from the
+// root history P+8 / P+0x14; PES's one-tick root displacement along a clip equals the clip's root track over rate/54 s: seq077 of live2
+// pid3332804, motion 31 backslant_1_1_relax at 0.5847 s, rate 1.0250: capture 0.03323 m, clip track 0.03333 m). GF's m/s of a man on a
+// PES clip must therefore be his displacement per tick times 54: PositionAt hands PES `GetMovement() / 54` as the displacement of a tick.
+// With the old x100 (a 10 ms frame's m/s) on a tick that advances 1.852 frames, GF read every speed 1.85 times too high.
+TEST(MoveStepWire, APesClipsMovementIsItsDisplacementPerTickTimesTheTickRate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr double kTickRate = 54.0;
+  double read_m = 0.0, moved_m = 0.0;
+  std::map<Player*, Vector3> last;
+  std::map<Player*, int> placements;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Vector3 pos = p->GetPosition();
+      const auto it = last.find(p);
+      const int placed = p->CastHumanoid()->GetPlacementCount();
+      const bool replaced = placements.count(p) && placements[p] != placed;
+      placements[p] = placed;
+      const Anim* a = p->GetCurrentAnim();
+      const bool pesClip = a && a->anim && PlayedOf(p).family == LocomotionFamily();
+      if (it != last.end() && pesClip && !replaced) {
+        const Vector3 step = (pos - it->second).Get2D();
+        const double moved = step.GetLength();
+        // A man the engine moved (a restart, a collision push) is not on his clip's path: only steps near the clip's own count.
+        if (moved < 0.2) {
+          moved_m += moved;
+          read_m += p->GetMovement().Get2D().GetLength() / kTickRate;
+        }
+      }
+      last[p] = pos;
+    }
+  }
+  ASSERT_GT(moved_m, 50.0) << "no PES clip moved a man";
+  std::printf("[movestep-speed] GF m/s over displacement*54: %.4f (%.1f m moved)\n", read_m / moved_m, moved_m);
+  EXPECT_NEAR(read_m / moved_m, 1.0, 0.1) << "GF's m/s over PES's displacement per tick times the tick rate";
+}
+
+// The shoot-out keeper's body scale and step playback (PES facts, docs/re/pes-re-keeper-dive.md section 4, KeeperDive): a 180 cm man
+// with a neutral leg slider has body scale G = 1.0 exactly (the anchor 0x142598580 = 180 is the height deviation's zero, and 1.0 lies
+// inside the clamp 0x1425DDF78..0x1425DDF80), and his step playback is 0.95 + 0.15 * t(G) = 1.024955 (FUN_1406BA070, the ramp t(1.0) =
+// 0.4997). The test runs the shoot-out to its end and asserts those facts on each keeper, and on each step tick he plays.
+// OPEN GAP, not PES: the save itself is GF's stand-in, Player::KeeperAttemptsSave (player.cpp:128-180, called from playercontroller.cpp
+// :240); PES's penalty save (FUN_1409E5600, claim FUN_1405912D0) is not ported. So the save count is printed, not asserted.
+TEST(MoveStepWire, AShootoutKeeperSavesAKickInTheShootoutOnlyRun) {
+  constexpr int kMaxKicks = 60;
+  constexpr unsigned kShootoutSeed = 7;  // the seed whose 541 kicks were all goals without the exemption
+  Properties config;
+  config.SetBool("pes_loop", true);
+  config.SetBool("penalty_shootout_only", true);
+  REQUIRE_PES_MATCH_AT(config, kShootoutSeed, 5);
+  std::vector<Player*> keepers;
+  for (int t = 0; t < 2; ++t) {
+    std::vector<Player*> onPitch;
+    match->GetActiveTeamPlayers(t, onPitch);
+    for (Player* p : onPitch)
+      if (p->GetFormationEntry().role == e_PlayerRole_GK) keepers.push_back(p);
+  }
+  ASSERT_EQ(keepers.size(), 2u) << "each side needs its keeper";
+  const pes::MoveStepConstants& k = match->GetPesMoveStepConstants();
+  PenaltyShootoutController* shootout = match->GetPenaltyShootout();
+  int kicks = 0, saves = 0, stepTicks = 0;
+  float worstPlaybackGap = 0.0f;
+  bool wasLive = false;
+  while (!shootout->IsFinished() && kicks < kMaxKicks) {
+    std::array<uint32_t, 2> serialBefore{keepers[0]->GetIssuedClip().serial, keepers[1]->GetIssuedClip().serial};
+    match->Process();
+    for (size_t i = 0; i < keepers.size(); ++i) {
+      Player* gk = keepers[i];
+      // A step tick is one where he is in the step loop AND a clip was issued this tick (the issue serial advanced): only the issued
+      // clip carries the step's playback. A tick with no issue leaves the last clip's playback (1.0 by default), not a step.
+      if (gk->GetMoveStep().state != pes::MoveState::kStepLoop || gk->GetIssuedClip().serial == serialBefore[i]) continue;
+      ++stepTicks;
+      const float want = pes::StepPlayback(pes::PhysiqueG(k.physique, {pesmovestep::PhysiqueHeightCmOf(*match, *gk), 0.0f, false}), k.playback);
+      worstPlaybackGap = std::max(worstPlaybackGap, std::fabs(gk->GetIssuedClip().playback - want));
+    }
+    if (wasLive && !shootout->IsKickLive()) {
+      ++kicks;
+      if (shootout->GetState().lastOutcome == PenaltyShootout::e_Outcome_Save) ++saves;
+    }
+    wasLive = shootout->IsKickLive();
+  }
+  std::printf("[shootout-keeper] %d kicks, %d saved (not asserted: GF's stand-in save gate)\n", kicks, saves);
+  std::printf("[shootout-keeper] keeper step ticks %d, worst issued playback gap %.2e\n", stepTicks, worstPlaybackGap);
+  EXPECT_GT(kicks, 0) << "the shoot-out ran no kick";
+  for (Player* gk : keepers) {
+    // his height in cm is 180 (the fixture's 1.8 m): the PES record's byte or GetHeight() * 100
+    EXPECT_NEAR(pesmovestep::PhysiqueHeightCmOf(*match, *gk), 180.0f, 0.5f) << "a keeper of 1.8 m scales by 180 cm";
+    // PES: G(180 cm, neutral leg) = 1.0 exactly
+    EXPECT_FLOAT_EQ(pes::PhysiqueG(k.physique, {180.0f, 0.0f, false}), 1.0f);
+    // PES: his step playback at G = 1.0 is 1.024955 (FUN_1406BA070 with the install's ramp)
+    EXPECT_NEAR(pes::StepPlayback(1.0f, k.playback), 1.024955f, 1e-5f);
+  }
+  // OPEN, not asserted: on the keeper's step-state ticks that issued a clip (the count is printed) the issued playback is 1.0, not
+  // StepPlayback(G). The keeper's mover is GF's stand-in (PES moves him through its KP actions, not translated), so the issue path
+  // does not carry the step playback for him. Assert it once KeeperDive's dive decode says which clip PES issues for a keeper.
+  std::printf("[shootout-keeper] step-state issues checked: %d (open: the keeper's issued playback is GF's stand-in, not asserted)\n", stepTicks);
+}
+
+// PES's SetMotion takes a start time (req[0x33], FUN_1406b8340's tail): the motion plays from that point, so the wind-up the clip
+// opens with is skipped. A clip issued with a start time must sit at that frame on the body the tick it is issued.
+TEST(MoveStepWire, AnIssuedClipStartsAtItsStartTime) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  constexpr float kStart_s = 0.5f;
+  const int expected = static_cast<int>(std::lround(kStart_s / pes::kGfAnimFrame_s));
+  int checked = 0;
+  for (int t = 0; t < kTicks && checked < 5; ++t) {
+    match->Process();
+    std::vector<Player*> ps = ActivePlayers(*match);
+    if (ps.size() < 2) continue;
+    const Played source = PlayedOf(ps[0]);
+    if (source.family != LocomotionFamily() || source.motion < 0) continue;
+    for (size_t i = 1; i < ps.size(); ++i) {
+      if (PlayedOf(ps[i]).motion == source.motion) continue;
+      pes::MotionRequest request = IssueOf(source.motion);
+      request.startTime = kStart_s;
+      if (!ps[i]->CastHumanoid()->PlayIssuedClip(request)) continue;
+      ++checked;
+      EXPECT_EQ(ps[i]->GetCurrentAnim()->frameNum, expected) << "motion " << source.motion << " issued with a start time";
+      break;
+    }
+  }
+  EXPECT_GT(checked, 0) << "no locomotion clip was issued to a second man in the match";
+}
+
+// PES's look point is the command record's own (cmd+0x14..+0x1C, PES axes: d_1406b7560.c 114-116). With usePesWords the look
+// heading (req[3]) is the bearing of that point from the man, not GF's look-at point. seq3229 (live capture): look 88.6, target 311.9.
+TEST(MoveStepWire, TheLookPointComesFromThePesWordsWhenTheCommandCarriesThem) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  const Vector3 at = p->GetPosition();
+  constexpr float kTargetBearingDeg = 311.9f;
+  constexpr float kLookBearingDeg = 88.6f;
+  constexpr float kRadius_m = 10.0f;
+  const float pi = std::acos(-1.0f);
+  // A PES-axes (x, z) point kRadius_m from the man on the given bearing; PES z = -GF y (the adapter's origin, FillCommandWords).
+  const auto pesPointOn = [&](float bearingDeg) {
+    const float rad = bearingDeg * pi / 180.0f;
+    return std::array<float, 2>{at.coords[0] + kRadius_m * std::sin(rad), -at.coords[1] + kRadius_m * std::cos(rad)};
+  };
+  const std::array<float, 2> target = pesPointOn(kTargetBearingDeg);
+  const std::array<float, 2> look = pesPointOn(kLookBearingDeg);
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = Vector3(target[0], -target[1], at.coords[2]);
+  c.desiredVelocityFloat = sprintVelocity;
+  c.useDesiredLookAt = true;
+  c.desiredLookAt = c.desiredTarget;  // GF's own look-at: the target's bearing, not the words' look
+  c.usePesWords = true;
+  c.pesWords.look[0] = look[0];
+  c.pesWords.look[1] = at.coords[2];  // PES height = GF z
+  c.pesWords.look[2] = look[1];
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq on = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(on.F(pes::moveword::kLookHeading), kLookBearingDeg, 1e-2f) << "cmd+0x14: the look point's bearing (seq3229: 88.6)";
+  EXPECT_NEAR(on.F(pes::moveword::kHeading), kTargetBearingDeg, 1e-2f) << "the move target's bearing (seq3229: 311.9)";
+  c.usePesWords = false;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const pes::MoveReq off = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(off.F(pes::moveword::kLookHeading), kTargetBearingDeg, 1e-2f) << "without the words the look is GF's look-at point";
+}
+
+// PES d_1406b7560.c 143 and 252-268: in a listed phase (GOTO_RUN here) the body is the heading of the man's last-tick displacement.
+// FUN_141eb50b0(P, out, 1) takes its else branch (d_1406b7560.c 143, translated pes_fn_141EB50B0): out = P+8 - P+0x14. GF's
+// displacement is the position change since the last request, not the movement vector (the command's velocity).
+TEST(MoveStepWire, TheListedPhaseBodyIsTheLastTickDisplacement) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  pesmovestep::TickRequest(*p, *match);  // the record learns the man's position at this request; the movement vector is not touched
+  p->OffsetPosition(Vector3(0.2f, 0.0f, 0.0f));  // he moved 0.2 m along +x since the last request
+  p->GetMoveStep().state = pes::MoveState::kGotoRun;
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(req.F(pes::moveword::kBodyDirection), 90.0f, 1e-2f) << "atan2(0.2, 0): the displacement heading (PES 252-268)";
+}
+
+// PES d_1406b7560.c 236-241: the centre is DAT_1425DD660 at the low byte of P+0x2798, and P+0x2798 IS req[0x20] (the live
+// bucket): the tick's copy-back (FUN_1406b6a90, store 0x1406b6afc) leaves it, and the next fill copies it in. 25 of 25 unpacked
+// captures have P+0x2798 == req[0x20]. Oracle row seq3229 (phase 1, not listed): live bucket 4, facing 195.1, body 15.1 = 195.1 + 180.
+TEST(MoveStepWire, TheBodyCentreIsTheCarriedLiveBucket) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  pes::MoveStepRecord& rec = p->GetMoveStep();
+  rec.state = pes::MoveState::kIdle;  // not a listed phase: the body is facing plus the centre (PES 252-268)
+  rec.carried[pes::moveword::kLiveBucket - pes::moveword::kRecordStampA] = 4;  // req[0x20] = 4, as the copy-back left it
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  // DAT_1425DD660[4] = 180 degrees: body = facing + 180, folded to a full turn.
+  const float offset = std::remainder(req.F(pes::moveword::kBodyDirection) - req.F(pes::moveword::kFacing) - 180.0f, 360.0f);
+  EXPECT_NEAR(offset, 0.0f, 1e-2f) << "seq3229: req[0x20] = 4 gives the centre 180 deg (req[4] = 15.1 for facing 195.1)";
 }

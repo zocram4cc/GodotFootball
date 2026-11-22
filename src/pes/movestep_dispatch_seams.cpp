@@ -46,15 +46,22 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req) {
   return false;
 }
 
-// FUN_1406b8340's tail: the P+0xbec copy and the playback store. The slip state takes req[0xec]
-// unconditionally; every other state takes req[0x3b] only when req[0x3a] asks for it.
+// FUN_1406b8340's tail: the P+0xbec copy and the playback store. The root-facing write (req[0x3a] set, angle req[0x3b]) is what
+// the slip tail of RUN_TURN_RUN_SLIPDOWN writes too: PES's byte offsets 0xe8 / 0xec are those words in every state.
 void ApplyTail(MoveStepRecord& rec, MoveHost& host, MoveReq& req, MoveState stateAtEntry) {
-  if (stateAtEntry == MoveState::kRunTurnRunSlipdown) {
-    host.SetRecordF0bec(req.F(moveword::kSlipAngle));
-  } else if (req.Flag(moveword::kRootFacing)) {
-    host.SetRecordF0bec(req.F(moveword::kRootFacingAngle));
-  }
+  (void)stateAtEntry;
+  if (req.Flag(moveword::kRootFacing)) host.SetRecordF0bec(req.F(moveword::kRootFacingAngle));
   rec.playbackSpeed = req.F(moveword::kPlayback);
+}
+
+// FUN_1406b8340's body tail: `if (req[0x3a]) FUN_141eb56d0(P, &req[0x3b], 1)`, then `if (req[0x3c]) { FUN_141eb35a0(P+0x4d0, req[2],
+// req[0x3d], req[0x3e], req[0x3f] byte); FUN_141eb3ae0(P+0x4d0); }` (decompile of FUN_1406b8340: locals local_670/local_66c and
+// local_668/local_664/local_660/local_65c, offsets 0xe8, 0xec and 0xf0..0xfc of the request).
+void ApplyBodyTail(MoveHost& host, const MoveReq& req) {
+  if (req.Flag(moveword::kRootFacing)) host.SetRootFacing(req.F(moveword::kRootFacingAngle));
+  if (req.Flag(moveword::kTurnLockFlag))
+    host.ArmYawAdjuster(req.F(moveword::kFacing), req.F(moveword::kTurnLockStamp),
+                        static_cast<int>(req.U(moveword::kTurnLockTicks)), req.Flag(moveword::kTurnLockDir));
 }
 
 }  // namespace movestep

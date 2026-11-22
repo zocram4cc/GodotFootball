@@ -179,3 +179,21 @@ static inline void pes_model_memcmp(PesState& s) {
     if (by(a) != by(a + d)) { byte_diff(); return; }
   fin(0, a);
 }
+
+// GF services (stubs.json kind "gf-service"): a direct call to one of PES's file-system API functions (the CRI Fs layer under the file
+// handle's reader FUN_1414A9280) runs GF's implementation (pes_native.cpp) over the same registers and stack, in place of the call.
+void pes_service_fs_stat(PesState& s);
+void pes_service_fs_op_create(PesState& s);
+void pes_service_fs_op_callback(PesState& s);
+void pes_service_fs_op_read(PesState& s);
+void pes_service_fs_op_status(PesState& s);
+void pes_service_fs_op_destroy(PesState& s);
+// The anime singleton's creation (stubs.json gf-service 0x141AEB7C0; pes_native.cpp): GF builds the object by meaning.
+void pes_service_anime_singleton(PesState& s);
+// Stand-ins for the packer's virtualized functions 0x143E98DA0 (a pool's set-max-size) and 0x143DFA780 (lua_atpanic): stubs.json gf-service.
+void pes_service_packer_pool_set_max(PesState& s);
+void pes_service_packer_lua_atpanic(PesState& s);
+void pes_service_packer_lua_setallocf(PesState& s);  // 0x143DFCCE0
+void pes_service_packer_array_ctor_a(PesState& s);   // 0x1444CE440: 16 objects at the array in rcx
+void pes_service_packer_array_ctor_b(PesState& s);   // 0x1444C7960: 20 objects at the array in rcx
+void pes_service_gfx_device_alloc(PesState& s);      // 0x141957C60: no graphics device, the allocation fails
