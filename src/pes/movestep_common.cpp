@@ -56,6 +56,16 @@ constexpr float kDegPerRadian = 180.0f / 3.14159265358979323846f;
 float TargetBearingDeg(float dx, float dz, const RunConstants& k) {
   return FoldFull(std::atan2(dx, dz) * kDegPerRadian, k);
 }
+// The phases whose body is the displacement heading (d_1406b7560.c 252-266, the vt+0x20 tests on P+0x245c): 0, 5-10, 12, 15, 16, 18, 19.
+// Phase 3 is listed too, under the timer P+0x281A (d_1406b7560.c 262-265), which GF does not model: GF takes the centre for it.
+// ponytail: an approximation for phase 3 until P+0x281A and FUN_141e532d0 are ported.
+bool ActionFollowsDisplacement(int phase) {
+  constexpr int kListed[] = {0, 5, 6, 7, 8, 9, 10, 12, 15, 16, 18, 19};
+  for (const int listed : kListed) {
+    if (listed == phase) return true;
+  }
+  return false;
+}
 // FUN_14043a0a0: an angle difference wrapped into (-180, 180].
 float TargetTurnDeg(float deg, const RunConstants& k) {
   if (k.half_turn < deg) return deg - k.full;
@@ -82,9 +92,14 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   const float toLookZ = in.lookZ - in.originZ;
   const float lookDist = std::sqrt(toLookX * toLookX + toLookZ * toLookZ);
   const float lookHeading = lookDist > 0.0f ? TargetBearingDeg(toLookX, toLookZ, k) : in.facingDeg;
-  // PES 0x1406B7E25: req[4] = wrap360(DAT_1425DD660[bucket] + facing), FoldFull's single fold. The bucket is
-  // the caller's flag (MoveTargetInput::bodyBucket); PES reads that flag from host+0x2798 (see the header).
-  const float body = FoldFull(buckets.centre[in.bodyBucket] + in.facingDeg, k);
+  // PES 0x1406B7E25: req[4] = wrap360(DAT_1425DD660[bucket] + facing), FoldFull's single fold. The bucket is the low byte of P+0x2798,
+  // which is req[0x20] (MoveTargetInput::bodyBucket). PES 236-268: the body is facing plus the centre (236-250), except in the listed
+  // actions: there it is the last-tick displacement heading with no facing added (fVar17 = fVar21, 268).
+  // ponytail: PES reads DAT_1425DD660 past its ten entries for an index >= 10. No writer stores one (the bucket writers store 0..9),
+  // so an index outside the table takes the facing.
+  const bool centreInTable = in.bodyBucket >= 0 && static_cast<size_t>(in.bodyBucket) < buckets.centre.size();
+  const float centre = centreInTable ? buckets.centre[in.bodyBucket] : 0.0f;
+  const float body = ActionFollowsDisplacement(in.phase) ? in.displacementDeg : FoldFull(centre + in.facingDeg, k);
   const float turnToFacing = TargetTurnDeg(targetHeading - in.facingDeg, k);  // req[5]
   const float turnToBody = TargetTurnDeg(targetHeading - body, k);           // req[6]
   const float lookError = TargetTurnDeg(lookHeading - in.facingDeg, k);      // req[7]
@@ -105,6 +120,7 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   req.SetF(moveword::kDistToLook, in.lookValid ? lookDist : targetDist);  // PES FUN_1406b7560 lines 129-136: the look distance when the look block is valid, else the target distance
   req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(in.speedBand));
   req.SetF(moveword::kDesiredSpeedKmh, in.desiredKmh);
+  req.SetByte(moveword::kUseClassRate, in.useClassRate ? 1 : 0);  // PES 62/306: param_2+0xb = cmd+0x5C5
   req.SetU(moveword::kPrecise, in.precise ? 1u : 0u);
   const int kind = in.moveKind == 8 ? 2 : in.moveKind;  // PES 55-57: cmd[0x16] of 8 is written as kind 2
   req.SetU(moveword::kKind, static_cast<uint32_t>(kind));  // PES 228: *param_2 = the remapped kind

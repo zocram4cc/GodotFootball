@@ -35,6 +35,9 @@ pes::MoveReq TickRequest(Player& player, Match& match);
 // PES's frame of a GF point (x, GF y, GF z) -> (x, height = GF z, ground z = -GF y), the order of P+8, P+0xc, P+0x10.
 // The adapter gives MOVESTEP every position and displacement through this one function.
 void PesFrame(float gfX, float gfY, float gfZ, float out[3]);
+// PES's last-tick displacement: the record's point moves to the man's position now, and the displacement is the step from the old one
+// (FUN_141eb50b0 index 1; see pesmovestep.cpp AdvanceDisplacement). Called once per match frame.
+void AdvanceDisplacement(pes::MoveStepRecord& rec, const Vector3& pos);
 // PES's bearing (degrees, folded to [0, 360)) of a GF ground offset (gfX, gfZ) = (dx, coords[1] delta).
 // PES's z is -coords[1] (referee.cpp:197), so the bearing is atan2(dx, -gfZ). Every heading the
 // adapter gives PES is read through this one function.

@@ -142,6 +142,11 @@ add_executable(pes_teampass_oracle_test pes_teampass_oracle_test.cpp)
 target_link_libraries(pes_teampass_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_teampass_oracle_test)
 
+add_executable(pes_passget_oracle_test pes_passget_oracle_test.cpp)
+target_include_directories(pes_passget_oracle_test PRIVATE ${CMAKE_SOURCE_DIR}/tests/sim)
+target_link_libraries(pes_passget_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_passget_oracle_test)
+
 add_executable(pes_dribble_oracle_test pes_dribble_oracle_test.cpp)
 target_link_libraries(pes_dribble_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_dribble_oracle_test)
@@ -231,6 +236,26 @@ gtest_discover_tests(pes_movestep_test)
 add_executable(pes_movestep_turn_entry_test pes_movestep_turn_entry_test.cpp)
 target_link_libraries(pes_movestep_turn_entry_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
 gtest_discover_tests(pes_movestep_turn_entry_test)
+
+add_executable(pes_movestep_goto_entry_test pes_movestep_goto_entry_test.cpp)
+target_link_libraries(pes_movestep_goto_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_goto_entry_test)
+
+add_executable(pes_movestep_turnstop_entry_test pes_movestep_turnstop_entry_test.cpp)
+target_link_libraries(pes_movestep_turnstop_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_turnstop_entry_test)
+
+add_executable(pes_movestep_stepchange_entry_test pes_movestep_stepchange_entry_test.cpp)
+target_link_libraries(pes_movestep_stepchange_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_stepchange_entry_test)
+
+add_executable(pes_movestep_idleturn_entry_test pes_movestep_idleturn_entry_test.cpp)
+target_link_libraries(pes_movestep_idleturn_entry_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_idleturn_entry_test)
+
+add_executable(pes_movestep_gotorun_test pes_movestep_gotorun_test.cpp)
+target_link_libraries(pes_movestep_gotorun_test PRIVATE gfsim pesfmt pestranslated pesmovestepcore GTest::gtest_main)
+gtest_discover_tests(pes_movestep_gotorun_test)
 
 add_executable(pes_movestep_run_test pes_movestep_run_test.cpp movestep_probe_stubs.cpp)
 target_link_libraries(pes_movestep_run_test PRIVATE pesfmt GTest::gtest_main)

@@ -60,11 +60,34 @@ inline constexpr std::size_t kPByteB08Offset = 0xB08;
 inline constexpr std::size_t kPByte2458Offset = 0x2458;
 inline constexpr std::size_t kPPhaseOffset = 0x245C;      // u8: the locomotion phase (class table index; not read by the chain)
 inline constexpr std::size_t kPPrevActionOffset = 0xACA;  // u8: the previous action id; +0xACB its sub id
+// The per-man anime update FUN_1406F6790's counter block (0x1406F67C4..0x1406F685F): saturating tick counters P+0x2814..0x2819 and +0x281A
+// (each `if (b != 0xFF) ++b`), and the u16 P+0x2824 (`if (w != 0) --w`). +0x2818 is the ticks since the last action change (the switch's
+// clearer 0x1406EB5FF zeroes it; the reset 0x1406EE769 sets +0x2818/+0x2819 to 0xFF); the dribble's touch gate 0x1407EB8A0 reads it.
+inline constexpr std::size_t kPTickCounterFirstOffset = 0x2814;
+inline constexpr std::size_t kPTickCounterCount = 6;           // +0x2814..+0x2819
+inline constexpr std::size_t kPTickCounter281AOffset = 0x281A;  // incremented after +0x2818, before +0x2819: independent bytes, order immaterial
+inline constexpr std::size_t kPCooldown2824Offset = 0x2824;     // u16, counts down to 0
 inline constexpr std::size_t kPWord277COffset = 0x277C;   // f32; +0x2780 the next f32: the class writer's phase-1 test
 inline constexpr std::size_t kPF377CScaleOffset = 0x377C;  // f32: the rate ceiling FUN_1406F99F0 stores (0x1406F9B4C)
 inline constexpr std::size_t kPPtr3AC0Offset = 0x3AC0;     // pointer (read, handed on)
 inline constexpr std::size_t kPSlotPtrOffset = 0x3AD8;     // pointer into the actor's slot record (+0x15C0)
 inline constexpr std::size_t kPF3B18Offset = 0x3B18;       // f32
+// SetMotion's issue cell: FUN_1406F0F70 stores 1 at 0x1406F1061, its series variant FUN_1406F14E0 stores 2 at 0x1406F18C3 (the switch and the
+// reset store their own values at 0x1406EB983 / 0x1406EE87C). The image's code never reads it (scan of every [reg+0x375C] access), so GF only
+// observes the stores in a tick's write log (PesWorld::RunDribbleTick), and never writes it.
+inline constexpr std::size_t kPMotionIssuedOffset = 0x375C;
+inline constexpr uint8_t kMotionIssueSingle = 1, kMotionIssueSeries = 2;
+// The series variant (FUN_1406F14E0, called by the dribble's stand/idle handlers such as FUN_1407C18B0) stores no motion in P+0xAE0: it clears
+// and fills a vector in P (count u32 at +0x3B90, capacity +0x3B94, data pointer +0x3B98), one 0x38-byte entry per motion of the series id
+// (+8 u32 motion, +0xC f32 seconds = the clip's length * the rate, +0x10 u8 mirror), and sets P+0x3B50 = -1; the anime layer plays the entries.
+inline constexpr std::size_t kPSeriesCountOffset = 0x3B90, kPSeriesDataOffset = 0x3B98;
+// The two vectors are constructed with room (a real P: count 0, capacity 8 / 0x10, data allocated: live2/pid1270903 seq282, P+0x3B90..0x3BA8), so
+// the series SetMotion's push never reaches the growth path 0x14022C690 (a jemalloc call GF's allocator does not model). GF reserves the
+// longest group (9 entries in Parametricblendtable.bin) rounded up, and the float vector's 0x10.
+inline constexpr std::size_t kPSeriesCapacityOffset = 0x3B94, kPSeriesFloatCountOffset = 0x3BA0, kPSeriesFloatCapacityOffset = 0x3BA4,
+                             kPSeriesFloatDataOffset = 0x3BA8;
+inline constexpr uint32_t kSeriesReserve = 0x10;
+inline constexpr std::size_t kSeriesEntryBytes = 0x38, kSeriesMotionOffset = 8, kSeriesMirrorOffset = 0x10;
 inline constexpr std::size_t kPPlaybackOffset = 0x3758;    // f32: the playback rate SetMotion stores (FUN_1406F0F70)
 inline constexpr std::size_t kSlotPPtrTargetOffset = 0x15C0;  // the slot-record offset P+0x3AD8 names
 // The constructor FUN_1406E03D0's non-zero stores in P's tail (0x1406E0xxx stores; the member at +0x3B90 is FUN_1406E07D0's).
@@ -101,6 +124,7 @@ inline constexpr std::size_t kAdjTicksOffset = 0x10;  // s16: the last step's ti
 inline constexpr std::size_t kAdjStepOffset = 0x14;   // 3 x f32 (x, y, z): the layer's root point (FUN_141AF3CA0), then the step's result
 inline constexpr std::size_t kAdjYawOutOffset = 0x20; // f32: the yaw adjuster's per-tick rotation (rad; degrees when the flag below is 1)
 inline constexpr std::size_t kAdjYawFlagOffset = 0x24; // u8: the yaw adjuster's override flag (FUN_141EB35A0's 5th argument)
+inline constexpr std::size_t kAdjModeOffset = 0x6D;  // u8: 1 strike (FUN_141EB39A0), 2 approach (FUN_141EB3910); FUN_141EB1A20 clears it
 inline constexpr uint32_t kAdjRunning = 2;
 
 // The request the Trap action's +0x68 slot takes (r9 of 0x1407A01C0), 0x24 bytes in PES's layout
@@ -157,6 +181,19 @@ inline constexpr std::size_t kPBookkeepingObjectOffset = 0x3AC8;  // P+0x3AC8: t
 // R is a joint chain header (+0x10 -> its pointer array at +0x30, +0x18 a length, +0x20 the joint count); S (P+0x3AE8 target) is a
 // small record whose +0x14 SetMotion writes.
 inline constexpr std::size_t kAChildO1Offset = 0x118, kAChildO2Offset = 0x188;
+// The anime chain's layer-rate cell the dribble's contact window reads: FUN_141AF3330(chain = A, 0, 0) returns the rate of layer 0, or
+// -1.0 (DAT_142588218) when FUN_141AF2C20 finds no layer. Its path (CONFIRMED by the decompile and by live2/pid1270903 seq282, where the cell
+// holds 1.0286555 = P+0x3758 = the playing motion's table rate): A+0x88 -> Y, Y+0x10 -> Z, Z+0xF8 -> T (T+0x48 = the current list, T+0x4C & 3 == 1,
+// entry 0 at T: a non-null data pointer and an int count > 0 at +0xC), and A+0xF8 -> L with L+0xB8 = the layer count and L+0xC0 -> the layers,
+// 0x30 bytes each, the rate (f32) at +0x14. The anime layer writes the rate in its SetMotion (vtable +0x80/+0x88: not in GF's window); GF keeps
+// the cell equal to P+0x3758, the rate FUN_1406F0F70 stored (WriteActorP), as it keeps the physique G beside it.
+inline constexpr std::size_t kAChainYOffset = 0x88, kAChainLayerOffset = 0xF8;
+inline constexpr std::size_t kChainYZOffset = 0x10, kChainYBytes = 0x20, kChainZTableOffset = 0xF8, kChainZBytes = 0x108;
+inline constexpr std::size_t kLayerTableBytes = 0x60, kLayerTableIndexOffset = 0x48, kLayerTableKindOffset = 0x4C, kLayerTableEntryDataOffset = 0,
+                             kLayerTableEntryCountOffset = 0xC;
+// The layer object L: FUN_141AF6E40 (SetSpeed) calls FUN_141AEE290 on L+0xB8, which walks the vectors at L+0xD8 and L+0xE8 (their counts are the words at
+// L+0xD8 / L+0xE8: a count read from the next heap block ran the loop to billions) and ORs bit 1 into L+0x13C: the object holds zeros through +0x140.
+inline constexpr std::size_t kLayerObjectBytes = 0x140, kLayerCountOffset = 0xB8, kLayerDataOffset = 0xC0, kLayerBytes = 0x30, kLayerRateOffset = 0x14;
 // O1 is the AnimPlugin object FUN_141B158F0 constructs: 0x1378 bytes (nine layer objects embedded, the layer pointer array at +0xB0 pointing
 // back into it), rounded up to 0x1380. pesanimplugin_stores.inc is that constructor's output (gen_animplugin.py).
 // R is the joint chain: its 0x90-byte header is followed by the joint objects, one allocation in PES (CONFIRMED on seq1917: R+0x90 is the
@@ -207,6 +244,60 @@ inline constexpr int32_t kTickKindControl = 3, kTickKindDirectional = 4;
 inline constexpr std::size_t kFrameWeightOffset = 0x5E4;
 inline constexpr float kTickWeightControl = 0.6f, kTickWeightDirectional = 1.0f;
 
+// The AI frame builder FUN_1409F1F20 (live2 fbF captures: 14 REAL calls, kick-off and open play) builds F from three controller objects
+// the window does not own: S (0x50 bytes: S+4 the slot, S+0x38 the man's P), T = S+0x50 (the team AI block: +0x5C the speed class the AI
+// last chose, +0x5D4 and +0x19B4 -1.0 when unset, +0x874 the AI scratch the constructor copies into F, outputs +0x1960 / +0x1964) and
+// Q = A+0xC8, the AI's plan record for the man. Q's low part is the plan the AI wrote: +3 the current point index, +4 the point count
+// class, +8 the points (12 bytes each: x, height, z; with +4 != 0 the target is point index+2), +0x108 the current row, +0x3F4 the
+// row count (0 = no plan), and the rows from +0x3FC, 0x10 bytes each: +0 the speed in km/h, +4 the gait row of the weight table
+// (0..2), +8 a flag byte. Its high part (+0x554..) is the man (facing, position) and, from +0x5D0, the builder's own previous outputs
+// that FUN_1409F20C0 copies back after every build (kRetained*). Read off the 14 captures and the decompile of FUN_1409F20C0.
+// P+0x18 names the side's AI record MA and P+0xE0 the event store E (the builder reads MA+0x2601C, MA+0x24xxx and E's rings through them on every fbF capture).
+inline constexpr std::size_t kPMaPtrOffset = 0x18, kPEventStorePtrOffset = 0xE0;
+inline constexpr std::size_t kDecisionSBytes = 0x50, kDecisionTBytes = 0x1A00, kPlanBytes = 0x700;
+inline constexpr std::size_t kDecisionSSlotOffset = 0x4, kDecisionSPOffset = 0x38;
+inline constexpr std::size_t kDecisionTSpeedClassOffset = 0x5C, kDecisionTUnsetAOffset = 0x5D4, kDecisionTUnsetBOffset = 0x19B4;
+inline constexpr std::size_t kDecisionTScratchOffset = 0x874, kDecisionTOutClassOffset = 0x1960, kDecisionTOutWeightOffset = 0x1964;
+inline constexpr std::size_t kPlanIndexOffset = 0x3, kPlanPointCountOffset = 0x4, kPlanPointsOffset = 0x8, kPlanPointBytes = 0xC;
+// With Q+4 != 0 the target is the point at Q + (index + 2) * 12 (FUN_140A75720); with Q+4 == 0 it is the point at Q+8 (FUN_140A76240).
+inline constexpr std::size_t kPlanPathBias = 2;
+inline constexpr std::size_t kPlanRowOffset = 0x108, kPlanRowCountOffset = 0x3F4, kPlanRowsOffset = 0x3FC, kPlanRowBytes = 0x10;
+inline constexpr std::size_t kPlanRowSpeedOffset = 0x0, kPlanRowGaitOffset = 0x4, kPlanRowFlagOffset = 0x8;
+inline constexpr std::size_t kPlanFacingOffset = 0x554, kPlanFacing2Offset = 0x558, kPlanPosOffset = 0x55C;
+inline constexpr std::size_t kRetainedMode = 0x5E0, kRetainedHeading = 0x5E4, kRetainedWeight = 0x5E8, kRetainedTarget = 0x5EC,
+                             kRetainedSecond = 0x5F8, kRetainedF54 = 0x604, kRetainedF58 = 0x608;
+inline constexpr float kDecisionUnset = -1.0f;
+inline constexpr float kPlanLeadRowSpeedKmh = 16.0f;  // every captured plan's leading row (gait 1, 16 km/h, flag 1)
+inline constexpr uint32_t kPlanLeadRowGait = 1;
+// T+0x874's idle AI scratch, read off every one of the 14 captures' entry state (words 0..19; the constructor FUN_140A854B0 copies it).
+inline constexpr uint32_t kDecisionScratch[20] = {0, 0, 0x18, 0, 0, 0, 0xBF800000u, 0, 0, 0, 0, 0, 0xBF800000u, 0, 0, 0, 0xBF800000u, 0, 0xFF, 1};
+// T+0x874 is the AI's F-shaped decision template: PES's driver FUN_140928FC0 rebuilds it every frame from the constructor's defaults (FUN_140A85270 +
+// FUN_140A85820) and the AI think (FUN_1409257B0, FUN_14092ED30) then writes the order into it. The words below are the ones the 8 open-play
+// captures show the AI writing, read off them: the order kind and mode, the frame stamp (MI+0x1198), the target point (several copies), the man's
+// own position (two copies), the distance to the target and the unit direction to it (two copies each), the situation code and the speed class.
+inline constexpr std::size_t kTplKind = 0x0, kTplMode = 0x4, kTplFrame = 0x10, kTplTargetX = 0x14, kTplTargetY = 0x18, kTplTargetZ = 0x1C, kTplTarget2X = 0x20, kTplTarget2Z = 0x28;
+inline constexpr std::size_t kTplSituation = 0x58, kTplClass = 0x5C, kTplTarget3X = 0x70, kTplTarget3Z = 0x78, kTplDist = 0x7C, kTplPosX = 0x80, kTplPosZ = 0x88;
+inline constexpr std::size_t kTplTarget4X = 0x8C, kTplTarget4Z = 0x94, kTplPos2X = 0x188, kTplPos2Z = 0x190, kTplDirX = 0x194, kTplDirZ = 0x19C, kTplDist2 = 0x1A0;
+inline constexpr std::size_t kTplTarget5X = 0x1AC, kTplTarget5Z = 0x1B4, kTplDir2X = 0x1B8, kTplDir2Z = 0x1C0, kTplPointCount = 0x6C;
+// The 12 real dribble-tick frames all hold F+0x58 = 3 and F+0x6C = 0 (no path): the dribble's own situation.
+inline constexpr uint32_t kTplSituationDribble = 3;
+inline constexpr uint32_t kTplSituationRecompute = 8;  // F+0x58 in the template of every open-play call whose situation is recomputed (FUN_1409F3930 tests it)
+// PES's run-entry bands (km/h) that name speed classes 1..4: walk, jog, run, dash (pesmovestep.cpp CommandSpeedClassOf; FUN_1406B8DE0).
+inline constexpr float kSpeedClassBandsKmh[4] = {5.0f, 11.0f, 16.0f, 28.0f};
+// The AI's plan for one man, in PES's frame: what GF's AI command says, mapped into Q.
+struct AiFrameDecision {
+  bool active = false;       // a plan exists (Q+0x3F4 rows)
+  float speedKmh = 0.0f;     // the row's speed: PES's run-entry bands (5, 11, 16, 28 km/h) name the walk, jog, run and dash classes
+  uint32_t gaitRow = 1;      // the row of FUN_140A756C0's weight table
+  float target[3] = {0, 0, 0};  // x, height, z
+  uint8_t aiFlag = 0;        // the AI object's byte +0x95C, the builder's seventh argument
+  uint32_t kind = 1;         // template F[0]: the order kind (1: go to the target point)
+  uint32_t mode = 3;         // template F[1]: the mode the AI asks for
+  uint32_t frameStamp = 0;   // template F+0x10: the logic frame (MI+0x1198)
+  uint32_t situation = kTplSituationRecompute;  // template F+0x58
+  uint32_t pathPoints = 2;   // template F+0x6C: the AI's path points (0 on every real dribble frame)
+};
+
 // What a tick leaves for the body: the motion number the anime layer plays (P+0xAE0), its mirror byte (P+0x2472), the segment
 // index (P+0x2471), the playback rate (P+0x3758) and the phase byte (P+0x245C) the next tick switches on, and SetMotion's other
 // stores (FUN_1406F0F70): the start time (P+0x3B54), the blend time (P+0x3B88) and the transition kind byte (P+0x3B84).
@@ -222,6 +313,8 @@ struct PesTickResult {
   uint8_t segment = 0;
   uint8_t phase = 0;
   float playback = 0.0f;
+  uint8_t action = 0;  // P+0xAC8 after the tick: the end handler's switch (0x1406EEBB0) may have left the Trap action
+  uint8_t issue = 0;   // the last store to P+0x375C in the tick's write log: 0 none, kMotionIssueSingle, kMotionIssueSeries
 };
 
 // The clip a successful call commits: the Trap action object's u16 at +8 (P+0xC80), a motion number of the Animetable
@@ -248,6 +341,7 @@ struct PesTrapExternals {
   std::vector<PesTrapSegment> segments;  // lent to a call (PesWorld::RunTrapKind0 moves them in and back)
   std::vector<std::pair<uint64_t, uint64_t>> globals;  // (image VA, 8-byte value)
   std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr;  // every byte the call writes, in order (tests)
+  std::vector<std::pair<uint64_t, unsigned>>* readLog = nullptr;  // every read the call makes, in order (tests: the read-log diff)
   std::vector<PesMem::Window> borrowed;  // the regions of the match's PES memory a call maps as they are (not copied, not lent)
 };
 

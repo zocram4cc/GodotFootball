@@ -4,6 +4,7 @@
 
 #include <cmath>
 
+#include "pes/movestep_issue.hpp"
 #include "pes/movestep_run.hpp"
 
 namespace pes {
@@ -19,7 +20,6 @@ constexpr int kRowTurnD = 0x572;    // the swing arm
 constexpr int kRowStamina = 0x565;  // the tired-man row replacing 0x564 / 0x561
 constexpr int kRowTired0 = 0x564;
 constexpr int kRowTired1 = 0x561;
-constexpr uint32_t kMotionLimit = 0x1125;  // FUN_1406d8620 / the tail: a motion at or past it has no hit record
 constexpr int kMotionLo = 0x8ac, kMotionSkip = 0x8af, kMotionHi = 0x8b1;  // 0x1406d021c, 0x1406d0228, 0x1406d0234
 constexpr uint32_t kSlots = 22;            // a slot below 0x16 is a player
 constexpr uint32_t kBucketA = 4, kBucketB = 9;  // the look buckets the arms flip between
@@ -30,83 +30,22 @@ constexpr int kPercentClose3 = 0x1e, kPercentClose = 0x14;
 constexpr int kAnimeClassKeeper = 0x12;
 constexpr int kStateStop = 6, kStateGoto = 8;       // the state byte values of the long-duration test, 0x1406d0eeb
 constexpr uint32_t kCmdWhistleA = 0x2f, kCmdFirst = 0x1d;  // req[0x16] == 0x2f, or 0x1d..0x1f
-constexpr int kRequestLookBlockValidByte = 0x148;  // FUN_140a6e6b0(req + 0x144): the byte at +4
-constexpr int kRequestLookPointWord = 0x53;        // FUN_140a76240(req + 0x144) of a clear index: req + 0x144 + 8
-constexpr int kHitDistanceWord = 0x34;             // req+0xd0, written by FUN_1406d8620
 
 float Sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
 }  // namespace
 
 std::optional<TurnEntryTables> LoadTurnEntryTables(const PeImage& exe, std::string* error) {
+  constexpr uint64_t kClassFlagsVa = 0x1426484f0;  // FUN_140a6e4b0's table
   TurnEntryTables t;
   if (!exe.ReadVa(kFootFlagVa, t.footFlag.size(), t.footFlag.data()) ||
-      !exe.ReadVa(kFootFlagTurnVa, t.footFlagTurn.size(), t.footFlagTurn.data())) {
+      !exe.ReadVa(kFootFlagTurnVa, t.footFlagTurn.size(), t.footFlagTurn.data()) ||
+      !exe.ReadVa(kClassFlagsVa, sizeof t.classFlags, reinterpret_cast<uint8_t*>(t.classFlags.data()))) {
     *error = "turn entry tables: .rdata unreadable";
     return std::nullopt;
   }
   return t;
 }
-
-float AbilityWeight(MoveHost& host, bool da) {
-  const RunConstants& k = host.RunConstantsView();
-  const int own = host.ActionIndex();
-  if (static_cast<uint32_t>(own) >= kSlots) return 0.0f;  // 0x1406e9fac CMP EAX,0x15 / JA
-  float ability = static_cast<float>(host.AbilityByte(da ? kAbilityDa : kAbilityAcceleration));
-  const int condition = host.Team().Condition(own);
-  if (static_cast<uint32_t>(condition) <= 10u)  // 0x1406ea054 CMP AL,0xa / JA
-    ability -= k.condition10 - static_cast<float>(condition);
-  if (ability <= k.rec40) return 0.0f;
-  if (ability >= k.rec99) return k.one;
-  return (ability - k.rec40) / k.rec59;
-}
-
-float ClipHitSeconds(const MoveHost& host, int motion, float playback, int index) {
-  if (static_cast<uint32_t>(motion) >= kMotionLimit) return 0.0f;
-  const float one = host.RunConstantsView().one;  // DAT_14256ae1c: the rate both readers take
-  int ticks = host.ClipTicks(ClipReader::kBlend, motion, one, 0);
-  const int count = host.Motion(motion).CancelCount();  // FUN_1406afbc0(.., 5)
-  if (count > 0) {
-    uint32_t at = static_cast<uint32_t>(index);
-    if (static_cast<uint32_t>(count) <= at) at = static_cast<uint32_t>(count) - 1u;
-    ticks = host.ClipTicks(ClipReader::kCancel, motion, one, static_cast<int>(at));
-  }
-  return (static_cast<float>(ticks) / host.TicksPerSecond()) / playback;
-}
-
-void WriteIssue(MoveHost& host, MoveReq& req, const MotionRequest& issue) {
-  using namespace moveword;
-  if (static_cast<uint32_t>(issue.motion) < kMotionLimit) {
-    req.SetF(kDwellLimit, ClipHitSeconds(host, issue.motion, issue.playback, 0));  // req+0x6c
-    req.SetF(kHitDistanceWord, host.ClipHitDistance(issue.motion, host.PhysiqueG(), 0));
-  } else {
-    req.SetU(kDwellLimit, 0);
-    req.SetU(kHitDistanceWord, 0);
-  }
-  req.SetF(kDwellLimit2, issue.duration);                              // req+0xb8
-  req.SetF(kDuration, issue.duration);                                 // req+0xc8
-  req.SetF(kPlayback, issue.playback);                                 // req+0xd4
-  req.SetU(kMotion, static_cast<uint32_t>(issue.motion));              // req+0xc0
-  req.SetU(kTransitionWord, static_cast<uint32_t>(issue.transition));  // req+0xd8
-  req.SetF(kStartTime, issue.startTime);                               // req+0xcc
-  req.SetU(kDwellElapsed, 0);                                          // req+0x68
-  req.SetU(kDwellElapsed2, 0);                                         // req+0xb4
-  req.SetByte(kMotionPending, 1);                                      // req+0xbc
-  req.SetByte(kMirror, issue.mirror ? 1 : 0);                          // req+0xc4
-}
-
-namespace {
-
-// The shared look-bucket flip of the arms: bucket 4 <-> 9, the look delta set to -180 / +180 by the bucket it LEAVES
-// (0x1406d04d6..0x1406d04f0: the delta is the old bucket's, 4 gives -180, the new bucket is 9).
-void FlipLookBucket(MoveReq& req, const RunConstants& k) {
-  using namespace moveword;
-  const bool four = req.U(kLookBucket) == kBucketA;
-  req.SetF(kLookDelta, four ? k.wrapHalf : k.half_turn);
-  req.SetU(kLookBucket, four ? kBucketB : kBucketA);
-}
-
-}  // namespace
 
 bool EnterGotoTurn(MoveHost& host, MoveReq& req) {
   using namespace moveword;
@@ -120,9 +59,8 @@ bool EnterGotoTurn(MoveHost& host, MoveReq& req) {
   const int motion = host.CurrentMotion();
   if (motion < kMotionLo || motion == kMotionSkip || motion > kMotionHi) return false;
 
-  // 0x1406d02b8..0x1406d0313: the match-up flag (FUN_140a62960 over the own slot's side) picks the DA byte for the playback.
-  const bool matchUp = host.Team().IsMatchUpMan(host.ActionIndex());
-  const float playback = TurnPlayback(host.PhysiqueG(), AbilityWeight(host, matchUp), host.PlaybackConstantsView());
+  // 0x1406d02b8..0x1406d0313: the match-up flag picks the DA byte for the playback.
+  const float playback = EntryPlayback(host);
   req.SetF(kPlayback, playback);  // 0x1406d0377
 
   bool forced = false;    // local_res18's low byte: an arm flipped the look bucket or took the swing
@@ -152,9 +90,9 @@ bool EnterGotoTurn(MoveHost& host, MoveReq& req) {
   if (req.U(kLookBucket) == kBucketA || req.U(kLookBucket) == kBucketB) {  // 0x1406d0387..0x1406d038f
     float look = req.F(kHeading);
     const float facingError = std::fabs(req.F(kFacingError));
-    if (req.FlagAtByte(kRequestLookBlockValidByte)) {
+    if (RequestLookCount(req) != 0) {  // 0x1406d03b1: FUN_140a6e6b0(req + 0x144), TEST AL,AL
       float point[3];
-      for (int i = 0; i < 3; ++i) point[i] = req.F(kRequestLookPointWord + i);
+      RequestLookPoint(req, point);  // 0x1406d03bf: FUN_140a76240(req + 0x144)
       look = host.HeadingToPointDeg(point);  // 0x1406d03d1: FUN_140439e50(P+8, the block's point)
     }
     const float lookTurn = PesAngleDiff(req.F(kHeading), look, k);  // 0x1406d03da..0x1406d0413 (FUN_14043a0a0 inlined)
@@ -308,13 +246,7 @@ bool EnterGotoTurn(MoveHost& host, MoveReq& req) {
   const int frames = host.CurrentClipFrames();
   const MotionRequest issue{cellMotion, cellMirror, 0, duration, playback, static_cast<float>(frames + 1) / tps};
   WriteIssue(host, req, issue);
-  if (static_cast<uint32_t>(cellMotion) < kMotionLimit) {
-    req.SetU(kHitFrame, req.U(kDwellLimit));            // req[0x28] = the clip's hit seconds
-    req.SetU(kHitMotion, req.U(kHitDistanceWord));      // req[0x27] = the hit distance
-  } else {
-    req.SetU(kHitFrame, 0);
-    req.SetU(kHitMotion, 0);
-  }
+  CopyHitWords(req, cellMotion);
 
   // The root-facing rate: the facing plus the look bucket's centre, folded, against the heading, over the hit seconds.
   float rootFacing = FoldFull(req.F(kFacing), k);

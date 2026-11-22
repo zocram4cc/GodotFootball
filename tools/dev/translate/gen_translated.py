@@ -61,6 +61,16 @@ INDIRECT_EDGES = {
     "0x141F616F0": ("0x140400F50", "0x140400DF0", "0x140B28910"),
     # 0x1415A01DC is the CFG check thunk `jmp [IAT]`; the unpacked image's slot holds a bare `ret` (0x1415A02B0).
     "0x1415A01DC": ("0x1415A02B0",),
+    # 0x1406F6CE0 (kick joints) dispatches its action slot through a vtable read ([obj] then slot +0x90, pes_dispatch_lookup). Every
+    # distinct code target of that slot across the anime::match::action vtables (94 MSVC-RTTI vtables; pes-port-StallBreaker7.md) is
+    # listed: 35 VAs. 0x141794410 is DemoAction's slot, shared by 42 vtables.
+    "0x1406F6CE0": (
+        "0x140727D90", "0x14072C550", "0x1407318F0", "0x140731A70", "0x1407348F0", "0x14073DD50", "0x140743610", "0x1407436E0",
+        "0x14074A590", "0x140770290", "0x140774680", "0x140775A90", "0x140781440", "0x140783840", "0x140785AF0", "0x140789D00",
+        "0x140789F60", "0x140791DD0", "0x14079DBB0", "0x1407A1490", "0x1407A2660", "0x1407A3190", "0x1407C4FA0", "0x1407D1DC0",
+        "0x1407E11B0", "0x1407E6DC0", "0x1407EBF80", "0x1407EE930", "0x1407EF440", "0x1407EFEE0", "0x1407F0920", "0x140806E00",
+        "0x1408549C0", "0x140854A70", "0x141794410",
+    ),
 }
 
 
@@ -183,7 +193,7 @@ UNHANDLED_DEAD_NOISE = {
                    "are reached only by conditional jumps inside the noise itself, so no reachable branch lands there",
     "0x1405EC600": "POP/RETF/ADD after the final unconditional goto L_1405ED02B (0x1405ED1ED JMP), behind no label",
     "0x1407AD150": "OUT/RETF/XLATB at 0x1407ADF9C..0x1407ADFC2, after the final unconditional JMP 0x1407ADEC2 and its NOP pad (no branch before 0x1407ADF99 targets it; the one indirect JMP is a table in the image's data)",
-    "0x140706350": "OUTSB/LOOP/FIMUL/FILD/OUT at L_140707EA8..L_140707F4F (generated lines 2441-2521), after the unconditional goto L_140706DEA (line 2422) with no label in between; every goto into those labels (lines 2442-2483) sits inside the same block, so no reachable path enters it (the closure's 12 real proof calls are bit-exact)",
+    "0x140706350": "FILD/FIMUL/OUT/OUTSB at 0x140707E94..0x140707EDC, after the final unconditional JMP 0x140706DEA (0x140707E8D) and its NOP: the function's switch table (4-byte entries) is data, and the only branches in that range target other bytes of the same noise (capstone scan of 0x140706350..0x140707EE0); in the generated text L_140707EA8..L_140707F4F follow goto L_140706DEA with no label between, and every goto into them sits inside the same block (the closure's 12 real proof calls are bit-exact)",
 }
 
 
@@ -238,6 +248,8 @@ def build(image):
     texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
+        # The root's indirect targets are in its universe: a tail jump between them is a direct jump, not an out-of-set gap.
+        universe = universe | set(INDIRECT_EDGES.get(va, ()))
         members = closure_members(va)
         universe = link_universe(universe, members)
         queue, seen = [va] + sorted(members - {va}), {va} | members
@@ -255,7 +267,8 @@ def build(image):
                     texts[cur] = pick
             texts.setdefault(cur, text)
             for cv in [("0x" + c.upper()) for c in CALLEE.findall(text)] + list(INDIRECT_EDGES.get(cur, ())):
-                if cv != cur and cv in universe and cv not in seen:
+                # An indirect edge names its target (the table's resolved VA): it joins the closure whatever the set's universe holds.
+                if cv != cur and (cv in universe or cv in INDIRECT_EDGES.get(cur, ())) and cv not in seen:
                     seen.add(cv)
                     queue.append(cv)
         closure_of[va] = seen

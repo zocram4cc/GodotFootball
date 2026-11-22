@@ -54,7 +54,7 @@ inline uint8_t* RecordOf(pes::PesWorld& w, int side, const std::string& kind, in
 // (`walk`): bp = rcx, ctx = *(rdx + 8).
 inline uint64_t CapturedBase(const Oracle& o, uint64_t g, const std::string& kind, int idx, bool walk) {
   const auto entry = [&](size_t table) { return Read(o, g + table + static_cast<size_t>(idx) * pes::kTableEntryBytes, 8); };
-  const uint64_t ctx = walk ? Read(o, o.regs.at("rdx") + pes::kUnitCtxOffset, 8) : o.regs.at("rdx");
+  const uint64_t ctx = o.ctxVa ? o.ctxVa : walk ? Read(o, o.regs.at("rdx") + pes::kUnitCtxOffset, 8) : o.regs.at("rdx");
   if (kind == "B") return Read(o, g + pes::kBallPtrOffset, 8);
   if (kind == "MI") return Read(o, g + pes::kMatchInfoPtrOffset, 8);
   if (kind == "pitch") return Read(o, g + pes::kPitchPtrOffset, 8);
@@ -64,7 +64,7 @@ inline uint64_t CapturedBase(const Oracle& o, uint64_t g, const std::string& kin
   if (kind == "anime") return entry(pes::kAnimeTableOffset);
   if (kind == "man") return entry(pes::kManTableOffset);
   if (kind == "slot") return entry(pes::kSlotTableOffset);
-  if (kind == "bp") return walk ? o.regs.at("rcx") : o.regs.at("r8") - pes::kBpUnitInfoOffset;
+  if (kind == "bp") return o.ctxVa ? 0 : walk ? o.regs.at("rcx") : o.regs.at("r8") - pes::kBpUnitInfoOffset;  // an object call (ctxVa) holds no BP
   if (kind == "ctx") return ctx;
   if (kind == "ma") return Read(o, ctx + pes::kCtxMaOffset, 8);
   if (kind == "e") return Read(o, ctx + pes::kCtxEventsOffset, 8);
@@ -137,20 +137,21 @@ namespace pes_oracle {
 // a builder-shaped call: bp = r8 - 0x1C, ctx = rdx), for tests that run a PES writer on the window and compare its output to the
 // capture's bytes (a live-in manifest holds only what the capture's own call read; a longer chain reads more). The window's own ctx
 // pointers to MA and E stay.
-inline void CopyRecords(const Oracle& o, Built& b, bool walk);
+inline void CopyRecords(const Oracle& o, Built& b, bool walk, int sideOverride = -1);
 inline void BuildFull(const Oracle& o, Built& b) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
   w.BindImageTables(InstallTables());
   b.side = static_cast<int>(Read(o, o.regs.at("rcx") + pes::kBpUnitInfoOffset + pes::kUnitSideOffset, 4));
-  CopyRecords(o, b, true);
+  CopyRecords(o, b, true, -1);
 }
 
-inline void CopyRecords(const Oracle& o, Built& b, bool walk) {
+inline void CopyRecords(const Oracle& o, Built& b, bool walk, int sideOverride) {
   pes::PesWorld& w = *b.world;
+  const int side = sideOverride >= 0 ? sideOverride : b.side;
   const uint64_t g = Read(o, kImageG, 8);
   const auto copy = [&](const char* kind, int idx, size_t bytes, size_t skipLo = 0, size_t skipHi = 0) {
-    uint8_t* dst = RecordOf(w, b.side, kind, idx);
+    uint8_t* dst = RecordOf(w, side, kind, idx);
     const uint64_t base = CapturedBase(o, g, kind, idx, walk);
     ASSERT_NE(dst, nullptr) << kind;
     if (base == 0) return;  // an official the capture's table does not hold (the fourth official has no entry)
@@ -166,8 +167,8 @@ inline void CopyRecords(const Oracle& o, Built& b, bool walk) {
   for (int k = 0; k < pes::kAnimeCount; ++k) copy("anime", k, pes::kManRecordOffset);
   for (int k = 0; k < pes::kManCount; ++k) copy("man", k, pes::kManRecordBytes);
   for (int k = 0; k < pes::kSlotCount; ++k) copy("slot", k, pes::kPlayerBlockBytes - pes::kSlotRecordOffset);
-  copy("bp", 0, pes::kBpBytes);
-  uint8_t* ctx = w.Ctx(b.side);
+  copy("bp", 0, pes::kBpBytes, 0, 0);  // side-specific callers pass sideOverride
+  uint8_t* ctx = w.Ctx(side);
   uint64_t maVa = 0, eventsVa = 0;
   std::memcpy(&maVa, ctx + pes::kCtxMaOffset, sizeof(maVa));
   std::memcpy(&eventsVa, ctx + pes::kCtxEventsOffset, sizeof(eventsVa));

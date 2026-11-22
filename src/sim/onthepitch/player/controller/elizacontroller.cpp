@@ -49,6 +49,10 @@
 #include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesgoalkick.hpp"
 
+// A penalty taker runs up to the ball and strikes it from this reach (PES's approach: the run is the taker's own, the strike is
+// not sent before it). Measured in the shootout (pes_loop, seed 7): the run stops 1.5-2.0 m short of the ball, and the strike from
+// there scores. ponytail: 2.5 m is a GF stand-in for the reach at which the strike connects; PES's contact is not decoded.
+constexpr float kPenaltyStrikeReach_m = 2.5f;
 namespace {
 
 // PES's angle fold (0x140481b00, report 4): wrap at 360, fold at 180.
@@ -323,7 +327,11 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       actionCommand.touchInfo.autoDirectionBias = 0.0f;
       actionCommand.touchInfo.desiredDirection = actionCommand.touchInfo.inputDirection;
       actionCommand.touchInfo.desiredPower = aimPower;
-      commandQueue.push_back(actionCommand);
+      // In PES loop the strike is not sent until the taker is at the ball: the run below brings him there (the penalty is a restart's
+      // approach, as a free kick's is). Outside the PES loop the strike goes out as it always did.
+      const float ballReach_m = (match->GetBall()->Predict(0) - player->GetPosition()).Get2D().GetLength();
+      if (!match->PesLoop() || ballReach_m <= kPenaltyStrikeReach_m)
+        commandQueue.push_back(actionCommand);
 
     } else {
       actionCommand.desiredFunctionType = e_FunctionType_ShortPass;
@@ -529,7 +537,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       if (restart == e_SetPiece_ThrowIn &&
           toBall.GetLength() <= match->GetPesSetPieceTakerConstants().throwInPickupReach_m) {
         CastPlayer()->SelectRetainAnim();
-      } else if (restart == e_SetPiece_FreeKick || restart == e_SetPiece_Corner || restart == e_SetPiece_Penalty) {
+      } else if (restart == e_SetPiece_FreeKick || restart == e_SetPiece_Corner ||
+                 (restart == e_SetPiece_Penalty && toBall.GetLength() > kPenaltyStrikeReach_m)) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = true;
@@ -1148,6 +1157,36 @@ pes::SlideAggressionInput ElizaController::_SlideAggression() {
   return in;
 }
 
+// GF mode (pes_loop off): the legacy receiver approach, kept for the switch-off baseline. ponytail: GF's distance-to-velocity ramp stands in
+// for PES's route; the PES path below (_PassGetApproach) runs ActionPassGet's own tick and has no GF part.
+void ElizaController::_PassGetApproachGf(PlayerCommandQueue& commandQueue) {
+  const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
+  // FUN_140a4d340 searches the prediction one PES frame at a time, 0..0xf9.
+  constexpr int kPredictionFrames = 0xf9;
+  const float frame_ms = pesball::kPesTick_s * 1000.0f;
+  std::vector<pes::Point2> path;
+  path.reserve(kPredictionFrames);
+  for (int f = 0; f < kPredictionFrames; ++f) {
+    const Vector3 b = _mentalImage->GetBallPrediction(static_cast<int>(f * frame_ms));
+    path.push_back({b.coords[0], b.coords[1]});
+  }
+  const Vector3 me = CastPlayer()->GetPosition();
+  const pes::Point2 p =
+      pes::ReceivingPoint(k, path, {me.coords[0], me.coords[1]}, pitchHalfW, pitchHalfH);
+  const Vector3 target(p.x, p.y, 0);
+  PlayerCommand command;
+  command.desiredFunctionType = e_FunctionType_Movement;
+  command.useDesiredMovement = true;
+  command.desiredDirection = (target - me).Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+  // ponytail: the route's speed choice (BallFollow slots 0x58/0x60, not
+  // reduced) - GF's distance-to-velocity ramp stands in.
+  command.desiredVelocityFloat = RangeVelocity(
+      clamp((target - me).GetLength() * distanceToVelocityMultiplier, 0.0f, sprintVelocity));
+  command.useDesiredLookAt = true;
+  command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
+  commandQueue.push_back(command);
+}
+
 void ElizaController::_PressApproach(PlayerCommandQueue& commandQueue) {
   // PES's ActionPress approach (docs/re/pes-re-press-life.md sections 7 and 9): the ball now, or his own base when the ball sample at k
   // ticks sits nearer the base, at the press speed curve. PES sends a PRESS man to a loose ball; GF's designated man stands in for him here.
@@ -1177,28 +1216,28 @@ void ElizaController::_PressApproach(PlayerCommandQueue& commandQueue) {
 }
 
 void ElizaController::_PassGetApproach(PlayerCommandQueue& commandQueue) {
-  const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
-  // FUN_140a4d340 searches the prediction one PES frame at a time, 0..0xf9.
-  constexpr int kPredictionFrames = 0xf9;
-  const float frame_ms = pesball::kPesTick_s * 1000.0f;
-  std::vector<pes::Point2> path;
-  path.reserve(kPredictionFrames);
-  for (int f = 0; f < kPredictionFrames; ++f) {
-    const Vector3 b = _mentalImage->GetBallPrediction(static_cast<int>(f * frame_ms));
-    path.push_back({b.coords[0], b.coords[1]});
-  }
+  if (!match->PesLoop()) return _PassGetApproachGf(commandQueue);
+  // PES's ActionPassGet tick (0x14094E0E0) on the world window: it leaves the target point and the speed class in the command record
+  // (docs/re/pes-re-receiving.md 4, pes-re-decision-read.md). The action id 5 is PASS_GET (R+0x874).
+  constexpr uint32_t kPassGetAction = 5;
+  const pes::PesPassGetResult r =
+      match->PesWorldOf().RunPassGetAction(match->PesSlotOf(CastPlayer()), kPassGetAction, match->PesTrapExternalsOf());
   const Vector3 me = CastPlayer()->GetPosition();
-  const pes::Point2 p =
-      pes::ReceivingPoint(k, path, {me.coords[0], me.coords[1]}, pitchHalfW, pitchHalfH);
-  const Vector3 target(p.x, p.y, 0);
+  // PES's axes (x, height, z) are the window's frame: GF's (x, y) is (x, z), as the ball samples.
+  const Vector3 target(r.target[0], r.target[2], 0);
   PlayerCommand command;
   command.desiredFunctionType = e_FunctionType_Movement;
   command.useDesiredMovement = true;
   command.desiredDirection = (target - me).Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
-  // ponytail: the route's speed choice (BallFollow slots 0x58/0x60, not
-  // reduced) - GF's distance-to-velocity ramp stands in.
-  command.desiredVelocityFloat = RangeVelocity(
-      clamp((target - me).GetLength() * distanceToVelocityMultiplier, 0.0f, sprintVelocity));
+  // The command record's words as FUN_1406B7560 reads them (R+0x874.. is cmd+0): taken as PES left them, no GF class or ramp.
+  command.usePesWords = true;
+  command.pesWords = {static_cast<int>(r.commandId), static_cast<int>(r.moveKind), static_cast<int>(r.precise),
+                      static_cast<int>(r.speedClass), r.speedUse, r.speedKmh,
+                      {r.look[0], r.look[1], r.look[2]}};
+  command.useDesiredTarget = true;
+  command.desiredTarget = target;
+  // km/h to m/s is arithmetic (3600/1000), not a PES number: GF's own readers of the command (the humanoid's velocity level) take m/s.
+  command.desiredVelocityFloat = r.speedKmh / 3.6f;
   command.useDesiredLookAt = true;
   command.desiredLookAt = _mentalImage->GetBallPrediction(0).Get2D();
   commandQueue.push_back(command);

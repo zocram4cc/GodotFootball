@@ -155,6 +155,22 @@ float TableSinDeg(float x, float s, const SpeedClassConstants& k) {
   return ((k.one - frac) * k.sinQuarter[i] + frac * k.sinQuarter[i + 1]) * scale;
 }
 
+// FUN_1404bcad0(v, angle): the (x, z) of v rotated by the angle folded into [0, 360), through FUN_140a92c80's table sine for both
+// the sine and the cosine (sin(a + 90)).
+void RotateXZ(float v[3], float angleDeg, const SpeedClassConstants& k) {
+  float a = angleDeg;
+  if (0.0f <= a) {
+    if (!(a < k.full)) a -= k.full;
+  } else {
+    a += k.full;
+  }
+  const float cosA = TableSinDeg(a + k.quarter, k.one, k);
+  const float sinA = TableSinDeg(a, k.one, k);
+  const float x = v[0], z = v[2];
+  v[2] = cosA * z - sinA * x;
+  v[0] = sinA * z + cosA * x;
+}
+
 int SpeedClassOf(float desiredKmh, float deltaDeg, const SpeedClassConstants& k) {
   const float turn = WrapHalfTurn(deltaDeg, k);
   // FUN_14081e340: the turn factor is FUN_140a92c80(|turn| + 90, 1) = sin(|turn| + 90) = cos(turn).
@@ -283,6 +299,8 @@ const struct {
     {0x14259bdec, STEP_FIELD(six)},
     {0x14259bdd4, STEP_FIELD(threeQuarters)},
     {0x14257a194, STEP_FIELD(s0p7)},   // 0.7: FUN_1406c1070 0x1406c1411, FUN_1406c6480 0x1406c6b48
+    {0x1425ddfc8, STEP_FIELD(deg167p5)},   // FUN_1406d1390: the turn-back step and FUN_140a92950's clamp
+    {0x1425ddff8, STEP_FIELD(neg167p5)},   // FUN_1406d1390: the pre-step's negated turn-back error
     {0x1425656c0, STEP_FIELD(four)},   // FUN_1406c6480: comiss at 0x1406c6b18
     {0x1425c48a0, STEP_FIELD(s0p15)},  // FUN_1406c6480: movss at 0x1406c6bb8
 };
@@ -309,6 +327,11 @@ std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error)
     return std::nullopt;
   }
   std::memcpy(t.bucketDegrees.data(), degrees, sizeof degrees);
+  constexpr uint64_t IDLE_TURN_ROW_VA = 0x1425dda30;  // FUN_1406d1390 0x1406d15f8..
+  if (!ReadI32Array(exe, IDLE_TURN_ROW_VA, t.idleTurnRow.data(), t.idleTurnRow.size())) {
+    *error = "movestep step: the IDLE_TURN row table is unreadable";
+    return std::nullopt;
+  }
   // FUN_1406b70d0's distance rows (StepTables' turn rows), four floats each.
   constexpr uint64_t TURN_FRONT_VA = 0x1425dde70, TURN_BACK_VA = 0x1425dde80, TURN_CENTRE_VA = 0x1425dde90;
   if (!exe.ReadVa(TURN_FRONT_VA, sizeof t.turnFront, reinterpret_cast<uint8_t*>(t.turnFront.data())) ||
@@ -352,6 +375,22 @@ void RecordIssue(IssuedClip& issued, const MotionRequest& request, const Paramet
     issued.request.group = groups.group[request.group];
   }
   ++issued.serial;
+}
+
+MotionRequest DueRequest(const MoveReq& req, int foot) {
+  MotionRequest r;
+  r.motion = static_cast<int>(req.U(moveword::kMotion));
+  r.mirror = req.Flag(moveword::kMirror);
+  r.transition = static_cast<int>(req.U(moveword::kTransitionWord));
+  r.duration = req.F(moveword::kDuration);
+  r.playback = req.F(moveword::kPlayback);
+  r.startTime = req.F(moveword::kStartTime);
+  const uint32_t param = req.U(moveword::kParamState);
+  r.group = param == moveword::kSingleClip ? -1 : static_cast<int>(param);
+  r.startRate = req.F(moveword::kStartRate);
+  r.rate = req.F(moveword::kRate);
+  r.foot = foot;
+  return r;
 }
 
 

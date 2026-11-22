@@ -15,8 +15,10 @@
 #include "pes/movestep.hpp"
 #include "movestep_team_synthetic.hpp"
 #include "clip_ticks_fake.hpp"
+#include "pes/movestep_issue.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_turn.hpp"
+#include "pes/movestep_turn_entry.hpp"
 
 // The group-B test probe's stand-ins for the symbols other groups own (see
 // movestep_probe_stubs.cpp). They record the call and return the neutral answer, so a test
@@ -115,9 +117,7 @@ class SyntheticHost : public pes::MoveHost {
   float RecordF2468() const override { return f2468; }
   int MoveStatePrevious() const override { return previousState; }
   float RecordF0bec() const override { return f0bec; }
-  void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
-  void SetRootFacing(float) override {}
-  void ArmYawAdjuster(float, float, int, bool) override {}
+  void SetRecordF0bec(float value) override { if (f0becWrites == 0) firstF0bec = value; f0bec = value; ++f0becWrites; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
   void RingSample(int index, float out[3]) const override { PositionAt(index, out); }
   void PositionAt(int index, float out[3]) const override {
@@ -146,15 +146,59 @@ class SyntheticHost : public pes::MoveHost {
     return pes::FakeClipTicks(record, reader, rate, index, TicksPerSecond());
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
-  bool ClipFlag() const override { return false; }
-  int AbilityByte(int) const override { return abilityByte; }
+  bool ClipFlag() const override { return clipFlag; }
+  bool FacingAdjusterBusy() const override { return facingAdjusterBusy; }
+  bool facingAdjusterBusy = false;  // FUN_141eb3320: the yaw adjuster's state word == 2
+  // SYNTHETIC answers for the reads of FUN_1406ce820 (EnterGotoRun); every test states the ones its branch reads.
+  const pes::TurnEntryTables& TurnEntryTablesView() const override { return turnEntry; }
+  int CarrierSlot() const override { return carrier; }
+  int AnimeRecordClass(int) const override { return animeClass; }
+  int RecordTicks(int) const override { return recordTicks; }
+  bool MatchObjectFlag2c0() const override { return trainer; }
+  float HeadingToPointDeg(const float[3]) const override { return pointHeading; }
+  void CountAnalyserEvent(bool flag, int motion) override { analyser.emplace_back(flag, motion); }
+  float TeamAnchorHeading(bool) const override { return anchorHeading; }
+  float PitchLimit() const override { return pitchLimit; }
+  int JostleTarget(bool) const override { return jostleTarget; }
+  float AnimeRecordFloat(int, int offset) const override { return offset == 0xc8 ? markedFloat : turnFloat; }
+  void TargetVelocity(int, float, float out[3]) const override { for (int i = 0; i < 3; ++i) out[i] = targetVelocity[i]; }
+  int ActionSubByte() const override { return actionSub; }
+  pes::TurnEntryTables turnEntry{};
+  bool clipFlag = false;
+  int carrier = 0x16;
+  int animeClass = 0;
+  int recordTicks = 0;
+  bool trainer = false;
+  float pointHeading = 0.0f;
+  std::vector<std::pair<bool, int>> analyser;
+  float anchorHeading = 0.0f;
+  float pitchLimit = 0.0f;
+  int jostleTarget = -1;
+  float markedFloat = 0.0f, turnFloat = 0.0f;
+  float targetVelocity[3] = {0.0f, 0.0f, 0.0f};
+  int actionSub = 0;
+  int AbilityByte(int id) const override { return id == pes::kAbilityDa ? daByte : abilityByte; }
   bool EntryAimFlag() const override { return entryAim; }
-  int abilityByte = 50;   // FUN_1406e6660's answer
+  int abilityByte = 50;   // FUN_1406e6660's answer for Acceleration (0x2b)
+  int daByte = 50;        // and for DA (0x15), the match-up man's byte
   bool entryAim = false;  // FUN_1406ba7d0's answer
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return speedClass; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return facingDeg; }
+  // The production adapter writes the player's facing (P+0x20) here (FUN_141EB56D0 with the angle): the same field FacingDeg reads.
+  void SetRootFacing(float angleDeg) override { facingDeg = angleDeg; }
+  // The production adapter arms PesWorld's yaw adjuster (PesWorld::ArmYaw); a unit test has no PesWorld, so it records the arm.
+  struct YawArm {
+    float fromDeg;
+    float toDeg;
+    int ticks;
+    bool overrideMode;
+  };
+  std::vector<YawArm> yawArms;
+  void ArmYawAdjuster(float fromDeg, float toDeg, int ticks, bool overrideMode) override {
+    yawArms.push_back({fromDeg, toDeg, ticks, overrideMode});
+  }
   float BallBearingDeg() const override { return 0.0f; }
   int ActionIndex() const override { return 0; }
   int RelatedSlot() const override { return -1; }
@@ -196,6 +240,7 @@ class SyntheticHost : public pes::MoveHost {
   int previousState = 0;
   float f0bec = 0.0f;
   int f0becWrites = 0;
+  float firstF0bec = 0.0f;  // the first value written (later arms overwrite the yaw lock)
   pes::AngleBucketConstants buckets{};
   float positions[12][3] = {};
   int phase = 1;
@@ -226,6 +271,17 @@ class SyntheticHost : public pes::MoveHost {
   int lastCellColumn = -1;
   bool lastCellWalk = false;
 };
+
+// The StepScalars the GOTO_RUN handler reads, at the install's values.
+pes::StepScalars SyntheticStep() {
+  pes::StepScalars s{};
+  s.one = 1.0f; s.negOne = -1.0f; s.half = 0.5f; s.full = 360.0f; s.wrapFull = -360.0f; s.halfTurn = 180.0f;
+  s.ticks60 = 60.0f; s.two = 2.0f; s.four = 4.0f; s.dist3 = 3.0f;
+  s.kmh5 = 5.0f; s.kmh8 = 8.0f; s.kmh11 = 11.0f; s.kmh13p5 = 13.5f; s.kmh16 = 16.0f; s.kmh22 = 22.0f; s.kmh3p6 = 3.6f;
+  s.deg16p875 = 16.875f; s.deg22p5 = 22.5f; s.deg45 = 45.0f; s.deg90 = 90.0f; s.deg112p5 = 112.5f; s.deg135 = 135.0f;
+  s.s0p3 = 0.3f; s.s0p6 = 0.6f; s.s0p15 = 0.15f; s.s0p85 = 0.85f; s.sq8100 = 8100.0f;
+  return s;
+}
 
 // The synthetic constants: the install values, but any test may change one to expose a branch.
 // The install relations test checks the real ones; these are for the arithmetic.
@@ -319,6 +375,9 @@ pes::RunConstants SyntheticRun() {
   k.rec40 = 40.0f;            // 0x14259be2c
   k.rec59 = 59.0f;            // 0x1425cb2fc
   k.rec99 = 99.0f;            // 0x1425c48cc
+  k.condition10 = 10.0f;      // 0x142588210
+  k.stopPlaybackFloor = 0.9f;  // 0x14258c260
+  k.centi = 0.01f;            // 0x14256ae18
   k.frame50 = 50.0f;          // 0x14259be34
   k.frame95 = 95.0f;          // 0x1425c594c
   k.replay45 = 0.45f;         // 0x14256b140
@@ -379,12 +438,6 @@ TEST(RunConstantsInstall, LoadsTheExeConstantsWithTheirRelations) {
   EXPECT_LT(k->deg90, k->deg1125b);
   EXPECT_LT(k->deg1125b, k->deg135);
   EXPECT_LT(k->deg135, k->deg1575);
-  // FUN_1406d1390's flip arm: its clamp sits under the error gate, the flipped error is the clamp's negative, and the ball sample's
-  // look-ahead is the word the reserve window's low edge reads.
-  EXPECT_LT(k->deg1575, k->deg167p5);
-  EXPECT_LT(k->deg167p5, k->deg168p75);
-  EXPECT_FLOAT_EQ(k->negDeg167p5, -k->deg167p5);
-  EXPECT_FLOAT_EQ(k->ballSampleTicks, k->reserveLow);
   // The ordered speed ladder, the ordered rate ladder and the blends.
   EXPECT_LT(k->kmh5, k->kmh8);
   EXPECT_LT(k->kmh8, k->kmh11);
@@ -440,7 +493,6 @@ TEST(RunTablesInstall, LoadsTheInterfaceTablesWithTheirRelations) {
     EXPECT_GT(t->gotoRow[i], 0) << "goto row " << i;
     EXPECT_GT(t->turnStopRow[i], 0) << "turn-stop row " << i;
   }
-  for (int i = 0; i < 8; ++i) EXPECT_GT(t->idleTurnRow[i], 0) << "idle-turn row " << i;
   for (int i = 0; i < 16; ++i) EXPECT_GT(t->styleGroup[i], 0) << "style member " << i;
   // FUN_1406d2030's representative-motion table (DAT_1425ddcf0) is 17 styles x 4 members: the ladder returns styles
   // 0..15 and the jostle loop's override (FUN_1406c0170) style 0x10, so a shorter load leaves the jostle style reading
@@ -552,253 +604,107 @@ TEST(RunRateGuard, StoresTheRateOnlyWhenItIsAtMostStepBaseOfTheCeiling) {
 // select each exit, with a host whose cross-group calls are inert.
 // ---------------------------------------------------------------------------------------------
 
-// A command flag BYTE at a request byte offset (cmd+0x5be.. -> req byte 0x3d..0x3f): not a word and not a word's low byte.
-void SetCommandFlagByte(pes::MoveReq& req, int byteOffset) {
-  req.SetU(byteOffset >> 2, req.U(byteOffset >> 2) | (1u << ((byteOffset & 3) * 8)));
-}
-
-// FUN_1406bdf10's re-entry arm (0x1406be37c..0x1406be3fa) is the clip's live frame BEFORE ITS END (`CMP EBP,R12D; JGE`, 0x1406be3b3;
-// R12D = FUN_1406b1d00), not before its first hit tick, and it fires on a body direction or a turn more than 45 degrees off in either
-// direction (ANDPS abs at 0x1406be3dd and 0x1406be3b8's XMM9) or the command flag byte at BYTE offset 0x3f (0x1406be3eb).
-pes::RotRecord ClipEnding(int rotEnd) {
+// The host of the GOTO_RUN tests: the install's scalars and a clip of 54 ticks (rotation start 0, end 30 -> int(2 * 30 * 54/60 + 0.5)).
+void SetUpGotoRun(SyntheticHost& h, int clipFrame) {
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.stepConstants = SyntheticStep();
   pes::RotRecord rot;
-  rot.offset = 0;
   rot.start = 0;
-  rot.end = rotEnd;
-  return rot;
-}
-
-// A GOTO_RUN request that would re-plan: class 2, both band words zero, the live bucket nonzero (no draw overwrites the clip end).
-pes::MoveReq ReEntryRequest() {
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
-  req.SetU(pes::moveword::kLiveBucket, 2u);
-  return req;
-}
-
-bool EnteredGotoRun(const pes::MoveReq& req) {
-  return req.Flag(pes::moveword::kChangeState) && req.U(pes::moveword::kNextState) == uint32_t(pes::MoveState::kGotoRun);
-}
-
-TEST(GotoRun, ReEntersWhileTheFrameIsBeforeTheClipEndWhateverTheTurnsSign) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  h.record.rot.push_back(ClipEnding(10));  // end = int(2 * 10 * 54 / 60 + 0.5) = 18 ticks
-  h.currentClipFrames = 5;
-  pes::MoveReq req = ReEntryRequest();
-  req.SetF(pes::moveword::kTurn, -80.0f);
-  pes::movestep::GotoRun(h, req);
-  EXPECT_TRUE(EnteredGotoRun(req)) << "|req[6]| > 45 with the frame before the clip end re-plans (0x1406be3dd)";
-
-  SyntheticHost after;
-  after.runConstants = SyntheticRun();
-  after.runTables = SyntheticTables();
-  after.record.rot.push_back(ClipEnding(10));
-  after.currentClipFrames = 20;  // past the end: PES's `CMP EBP,R12D; JGE` skips the re-entry
-  pes::MoveReq late = ReEntryRequest();
-  late.SetF(pes::moveword::kTurn, -80.0f);
-  pes::movestep::GotoRun(after, late);
-  EXPECT_FALSE(EnteredGotoRun(late)) << "a clip at or past its end does not re-plan";
-}
-
-TEST(GotoRun, TheReEntryFlagIsTheRequestByteAtOffset3fNotWordThreeF) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  h.record.rot.push_back(ClipEnding(10));
-  h.currentClipFrames = 5;
-  pes::MoveReq byteSet = ReEntryRequest();
-  byteSet.SetU(0xf, 1u << 24);  // byte offset 0x3f is byte 3 of word 0xf (0x1406be3eb: CMP byte ptr [RDI+0x3f],0)
-  pes::movestep::GotoRun(h, byteSet);
-  EXPECT_TRUE(EnteredGotoRun(byteSet));
-
-  SyntheticHost g;
-  g.runConstants = SyntheticRun();
-  g.runTables = SyntheticTables();
-  g.record.rot.push_back(ClipEnding(10));
-  g.currentClipFrames = 5;
-  pes::MoveReq wordSet = ReEntryRequest();
-  wordSet.SetByte(pes::moveword::kTurnLockDir, 1);  // word 0x3f's low byte is the turn lock's direction, not this flag
-  pes::movestep::GotoRun(g, wordSet);
-  EXPECT_FALSE(EnteredGotoRun(wordSet));
-}
-
-// 0x1406be146..0x1406be17c: with the live bucket (req[0x20]) at 0 or 5 the clip end (R12D) is REPLACED by the draw
-// int(tps * 8 / 60 + 0.5); any other bucket keeps the record's end.
-TEST(GotoRun, TheClipEndIsTheDrawWhenTheLiveBucketIsZeroOrFive) {
-  for (const uint32_t bucket : {0u, 5u, 2u}) {
-    SyntheticHost h;
-    h.runConstants = SyntheticRun();
-    h.runTables = SyntheticTables();
-    h.record.rot.push_back(ClipEnding(2));  // end = int(2 * 2 * 54 / 60 + 0.5) = 4 ticks
-    h.currentClipFrames = 5;
-    pes::MoveReq req = ReEntryRequest();
-    req.SetU(pes::moveword::kLiveBucket, bucket);
-    req.SetF(pes::moveword::kTurn, 80.0f);
-    pes::movestep::GotoRun(h, req);
-    const int draw = static_cast<int>(h.ticks * h.runConstants.kmh8 / h.runConstants.kmh60 + h.runConstants.half);
-    ASSERT_GT(draw, h.currentClipFrames);
-    EXPECT_EQ(EnteredGotoRun(req), bucket != 2u) << "bucket " << bucket;
-  }
-}
-
-// 0x1406be21b..0x1406be244: the turn lock holds while total <= frame < (total + 2 end) / 3, with no +1; it stores the lock heading as
-// a float in word 0x3d (0x1406be2ee) and the tick count in word 0x3e.
-TEST(GotoRun, TheTurnLockWindowEndsAtAThirdOfTheWayToTheClipEnd) {
-  for (const int frame : {11, 12}) {
-    SyntheticHost h;
-    h.runConstants = SyntheticRun();
-    h.runTables = SyntheticTables();
-    h.record.rot.push_back(ClipEnding(10));  // total 0, end 18: the window is frames 0..11
-    h.currentClipFrames = frame;
-    pes::MoveReq req;
-    req.SetU(pes::moveword::kLiveBucket, 2u);
-    req.SetF(pes::moveword::kHeading, 10.0f);
-    pes::movestep::GotoRun(h, req);
-    if (frame == 11) {
-      EXPECT_FLOAT_EQ(req.F(pes::moveword::kTurnLockStamp), 10.0f);
-      EXPECT_EQ(req.U(pes::moveword::kTurnLockTicks), 7u) << "int((18 - 11) / 1 + 0.5)";
-    } else {
-      EXPECT_EQ(req.U(pes::moveword::kTurnLockTicks), 0u) << "frame 12 is outside the window";
-    }
-  }
-}
-
-// 0x1406be5f6 (MOVAPS XMM1,XMM7; XMM7 = FUN_14043a0a0(req[2], req[4]) from 0x1406be386): the stop entry's bucket is that of the signed
-// body-direction difference, not of the stamp's bearing.
-TEST(GotoRun, TheStopArmTakesTheBucketOfTheBodyDirection) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  h.buckets.wide = {-180.0f, -157.5f, -112.5f, -67.5f, -22.5f, 0.0f, 22.5f, 67.5f, 112.5f, 157.5f, 180.0f};
-  h.buckets.bucket = {9, 8, 7, 6, 5, 0, 1, 2, 3, 4};
-  h.buckets.hysteresisUp = 5.0f;
-  h.buckets.hysteresisDown = -5.0f;
-  h.record.rot.push_back(ClipEnding(10));
-  h.record.rot.back().start = 20;  // total 36: the frame is inside the clip, so the arm's clip gate holds
-  h.currentClipFrames = 5;
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kLiveBucket, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
-  req.SetU(pes::moveword::kClassWord, 2u);  // the band GOTO_RUN left: keeps the re-entry (0x1406be39b: req[0x1f] < 1) closed
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 90.0f);        // the stamp's bearing: 90 degrees, past the 56.25 stop gate
-  req.SetF(pes::moveword::kBodyDirection, 160.0f);  // the body direction: another bucket than the bearing's
-  pes::movestep::GotoRun(h, req);
-  const int bodyBucket = pes::movestep::AngleBucket(h.buckets, 160.0f, 10, false);
-  ASSERT_NE(bodyBucket, pes::movestep::AngleBucket(h.buckets, 90.0f, 10, false));
-  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle)) << "the stop arm ran (class word cleared)";
-  EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 2u);
-  EXPECT_EQ(req.U(pes::moveword::kLiveBucket), static_cast<uint32_t>(bodyBucket));
-}
-
-// 0x1406be629..: past the clip's end the facing re-aims at the heading by at most 157.5 degrees a second (0x1406be8cc: DIVSS by tps).
-TEST(GotoRun, TheRePlanTurnsTheFacingByAtMostTheTurnRatePerTick) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  h.record.rot.push_back(ClipEnding(0));
-  h.currentClipFrames = 6;
-  h.previousState = static_cast<int>(pes::MoveState::kIdle);  // IDLE's second dwell keeps the stop arm closed
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
-  req.SetU(pes::moveword::kLiveBucket, 2u);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 40.0f);  // inside the 45-degree turn allowance: the straight-ahead re-plan
-  req.SetF(pes::moveword::kDwellLimit2, 0.35f);
-  pes::movestep::GotoRun(h, req);
-  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRootFacingAngle), h.runConstants.deg1575 / h.ticks);
-}
-
-
-TEST(GotoRun, ClampsTheBodyTurnToTheLookLimitBeforeTurning) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
-  req.SetU(pes::moveword::kBandTarget, 1u);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 170.0f);  // 170 degrees: inside the 180 gate
-  req.SetF(pes::moveword::kTurn, 170.0f);
-  req.SetF(pes::moveword::kDuration, 0.05f);
-  req.SetF(pes::moveword::kDwellLimit, 0.05f);
-  pes::movestep::GotoRun(h, req);
-  const float rootFacing = req.F(pes::moveword::kRootFacingAngle);
-  // PES's guard returns early when the desired turn is at or past 112.5 degrees, which this
-  // request is not; the written angle must be the heading turned by the clamped 180 limit.
-  EXPECT_LE(rootFacing, 180.0f);
-  EXPECT_GE(rootFacing, -180.0f);
-}
-
-// FUN_1406bdf10's stop arm (goto_bdf10.c lines 215-217) waits for IDLE's second dwell when the state before the current
-// one is IDLE (P+0x245d, read at VA 0x1406be573): a GOTO_RUN that IDLE's stay decision just entered must not reach the
-// stop arm while that dwell runs.
-TEST(GotoRun, TheStopArmWaitsForIdleSecondDwellAfterLeavingIdle) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  pes::RotRecord rot;
-  rot.start = 30;  // a clip still running (its total is 54 ticks), so the stop arm's clip gate holds
+  rot.end = 30;
   h.record.rot.push_back(rot);
-  h.previousState = static_cast<int>(pes::MoveState::kIdle);
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
-  req.SetU(pes::moveword::kClassWord, 2u);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees: past the 56.25-degree stop bearing
-  req.SetF(pes::moveword::kDwellElapsed2, 0.0f);
-  req.SetF(pes::moveword::kDwellLimit2, 0.35f);
-  pes::movestep::GotoRun(h, req);
-  // The stop arm waits, so the handler falls through to the cruise, whose run entry (PES's vt+0, FUN_1406bdf10 line 630)
-  // requests RUN_LOOP. The stop arm's own exits (STOP, IDLE) are not taken.
-  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
-  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
+  h.currentClipFrames = clipFrame;
 }
 
-// PES's GOTO_RUN STOP entry writes the class word 0x1f to 0 before FUN_1406d5d60 (FUN_1406bdf10 line 227 of its
-// decompile); the no-class arm then answers IDLE. Left at the band GOTO_RUN ran in, the word takes the run-stop arm,
-// which answers STOP, and the FSM goes back and forth between the two states every tick.
+// FUN_1406bdf10's re-entry (0x1406be37c..0x1406be3ff): the class word, the previous band and the command class ask for it, the
+// clip has not reached its end (EBP < R12D), and the BODY turn |req[4] - req[2]| is past 45 degrees (here -90; the signed
+// request turn req[6] is only -10). The port compared the signed turn and the clip against its hit tick.
+TEST(GotoRun, TheReEntryReadsTheBodyTurnAndNeedsTheClipBeforeItsEnd) {
+  for (const bool beforeEnd : {true, false}) {
+    SCOPED_TRACE(beforeEnd);
+    SyntheticHost h;
+    SetUpGotoRun(h, beforeEnd ? 5 : 60);
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetU(pes::moveword::kClassWord, 0u);
+    req.SetU(pes::moveword::kPrevClassWord, 0u);
+    req.SetU(pes::moveword::kLiveBucket, 1u);
+    req.SetF(pes::moveword::kFacing, 0.0f);
+    req.SetF(pes::moveword::kBodyDirection, 270.0f);  // 270 folds to -90 from the facing
+    req.SetF(pes::moveword::kTurn, -10.0f);
+    pes::movestep::GotoRun(h, req);
+    const bool requestedGotoRun = req.Flag(pes::moveword::kChangeState) && req.U(pes::moveword::kNextState) == uint32_t(pes::MoveState::kGotoRun);
+    EXPECT_EQ(requestedGotoRun, beforeEnd);
+  }
+}
+
+// 0x1406be573..0x1406be5ae: the stop arm is open when the state before the current one is not IDLE, or the second dwell has
+// run past its limit, or the command id is 5; GOTO_RUN entered from IDLE (P+0x245d == IDLE) with its second dwell still
+// running keeps the arm shut. Open, a heading 90 degrees off the stamp (past 56.25) stops the man: FUN_1406d5d60 answers.
+TEST(GotoRun, TheStopArmIsShutRightAfterIdleWhileTheSecondDwellRuns) {
+  for (const bool afterIdle : {true, false}) {
+    SCOPED_TRACE(afterIdle);
+    SyntheticHost h;
+    SetUpGotoRun(h, 5);
+    h.previousState = static_cast<int>(afterIdle ? pes::MoveState::kIdle : pes::MoveState::kRunLoop);
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetU(pes::moveword::kClassWord, 2u);
+    req.SetU(pes::moveword::kLiveBucket, 1u);
+    req.SetF(pes::moveword::kFacing, 0.0f);
+    req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees off the stamp (0)
+    req.SetF(pes::moveword::kDwellElapsed2, 0.0f);
+    req.SetF(pes::moveword::kDwellLimit2, 0.35f);
+    pes::movestep::GotoRun(h, req);
+    const uint32_t next = req.U(pes::moveword::kNextState);
+    const bool stopped = req.Flag(pes::moveword::kChangeState) && (next == uint32_t(pes::MoveState::kIdle) || next == uint32_t(pes::MoveState::kStop));
+    EXPECT_EQ(stopped, !afterIdle);
+  }
+}
+
+// PES's GOTO_RUN STOP entry writes the class word 0x1f to 0 and the speed word 0x1d to 5.0 before FUN_1406d5d60 (0x1406be5ea..
+// 0x1406be618); the no-class arm then answers IDLE. Left at the band GOTO_RUN ran in, the word takes the run-stop arm, which
+// answers STOP, and the FSM goes back and forth between the two states every tick. The previous bucket req[0x25] takes the live
+// bucket req[0x20] (the port wrote the move bucket req[8] for both).
 TEST(GotoRun, TheStopEntryClearsTheClassWordSoTheStopAnswersIdle) {
   SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  pes::RotRecord rot;
-  rot.start = 30;  // a clip still running (its total is 54 ticks), so the stop arm's clip gate holds
-  h.record.rot.push_back(rot);
+  SetUpGotoRun(h, 5);
   pes::MoveReq req;
   req.SetU(pes::moveword::kCommandSpeedClass, 2u);
   req.SetU(pes::moveword::kClassWord, 2u);  // the band GOTO_RUN left in word 0x1f
+  req.SetU(pes::moveword::kLiveBucket, 3u);
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees: past the 56.25-degree stop bearing
   pes::movestep::GotoRun(h, req);
   EXPECT_EQ(req.U(pes::moveword::kClassWord), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kStopSpeedWord), 5.0f);
+  EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 3u);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
 }
 
-// PES's GOTO exit ends in the +0xac0 vt+0 call (FUN_1406bdf10 line 630), the run entry FUN_1406d2030. It picks the style's
-// motion row at the rate band, writes the 0.1 dwell limit and the mirror, and requests RUN_LOOP; the dispatcher's tail issues
-// the clip. The cruise used to issue a motion of -1 from its own stand-in instead.
-TEST(GotoRun, TheCruiseHandsOverToTheRunEntryAndRequestsRunLoop) {
+// 0x1406bec79: the run entry at the end of the clip. With the clip past its end, a command class above 2 and the previous band
+// below 3, the second root-facing step (0x1406be913..) writes req[0x3a]/req[0x3b] first, then FUN_1406d2030 (vt+0) requests
+// RUN_LOOP with the request's rate clamped to [0, ceiling]; the run entry issues no clip itself.
+TEST(GotoRun, TheRunEntryAtTheClipsEndRequestsRunLoopAfterTheSecondRootFacingStep) {
   SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  h.previousState = static_cast<int>(pes::MoveState::kIdle);  // IDLE's second dwell keeps the stop arm (0x1406be573) closed
-  for (int i = 0; i < 64; ++i) h.runTables.styleGroup[i] = 0x100 + i;  // distinct rows: a wrong row reads a wrong motion
+  SetUpGotoRun(h, 60);
+  for (int i = 0; i < 64; ++i) h.runTables.styleGroup[i] = 0x100 + i;
   pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kClassWord, 0u);
+  req.SetU(pes::moveword::kPrevClassWord, 0u);
+  req.SetU(pes::moveword::kLiveBucket, 1u);
   req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees: past the 45-degree cruise allowance
+  req.SetF(pes::moveword::kHeading, 10.0f);
   pes::movestep::GotoRun(h, req);
   EXPECT_EQ(h.issues, 0) << "the run entry issues nothing; the dispatcher's tail issues the clip";
+  EXPECT_EQ(req.U(pes::moveword::kRootFacing) & 0xffu, 1u);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.1f);
   const float rate = req.F(pes::moveword::kRate);
-  const int band = rate < h.runConstants.rate0225 ? 0 : (rate < h.runConstants.blend04 ? 1 : (rate < h.runConstants.rate07 ? 2 : 3));
-  EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(h.runTables.styleGroup[req.U(pes::moveword::kParamState) * 4 + band]))
-      << "the motion is the style's row at the rate band";
+  EXPECT_GE(rate, 0.0f);
+  EXPECT_LE(rate, h.rateCeiling);
 }
 
 // The run entry's motion row is the style's row at the band its rate falls in (FUN_1406d2030 lines 109-121). With the
@@ -895,7 +801,7 @@ TEST(Stop, RePlansIntoGotoRunWhenTheTurnLockWordsAreSetAndTheStayDecisionHolds) 
   req.SetF(pes::moveword::kTurn, 2.0f);
   req.SetF(pes::moveword::kFacingError, 2.0f);
   // The turn-lock bytes 0x3d, 0x3e and 0x3f (stop_dec.c:64-66): one of them set is enough for the arm.
-  SetCommandFlagByte(req, 0x3d);
+  req.SetByte(pes::moveword::kAngle3d, 1);
   // The ground speed under 16 km/h: the host's last-tick displacement stays zero.
   h.currentKmh = 0.0f;
   pes::probe::Reset();
@@ -1787,8 +1693,7 @@ TEST(RunLoop, RePlansIntoGotoRunWhenTheClassIsHighAndTheRateIsLow) {
   req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // above 2
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kRate, 0.2f);             // at or below 0.225
-  req.SetF(pes::moveword::kDistToLook, 5.0f);       // over 3 m: the LOOK distance, req[0x12] ([RSI+0x48], 0x1406c0357)
-  h.moveConstants.dist3 = 3.0f;
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);     // over 3 m
   req.SetF(pes::moveword::kTurn, 60.0f);            // past 56.25
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, 60.0f);
@@ -2051,8 +1956,8 @@ TEST(EnterAccelerate, IssuesThePlaybackWordWithTheStartLadder) {
   req.SetU(pes::moveword::kMoveBucket, 3u);
   pes::probe::Reset();
   EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
-  EXPECT_GT(h.issued.playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
-  EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is the 0.15/0.75/0.5 ladder";
+  EXPECT_GT(pes::DueRequest(req, 0).playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
+  EXPECT_LE(pes::DueRequest(req, 0).startTime, 1.0f) << "the start time is the 0.15/0.75/0.5 ladder";
 }
 
 // EnterAccelerate's desired angle (FUN_1406ccd00 lines 150-154): with the body 150 degrees from the facing, the entry
@@ -2155,74 +2060,6 @@ TEST(EnterDecelerate, WritesTheBandWordOneAndTheStateWordTen) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
 
-// EnterGotoRun's distance/speed arm (FUN_1406ce820 block 5): on the 0x5ca row with a column
-// of 8/9, a ball within reach takes row 0x662 on the Percent(40) draw, else 0x661. The test
-// stands the ball a metre away and the draw at "below 40".
-TEST(EnterGotoRun, TakesTheDrawRowWhenTheBallIsWithinReach) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runTables = SyntheticTables();
-  h.runTables.gotoRow[0 + 1 * 8] = 0x5ca;  // kind 0, cls 1 picks the distance arm's row
-  h.percent = true;  // the Percent(40) draw holds
-  h.positions[0][0] = 0.0f;
-  h.positions[0][1] = 0.0f;
-  // BallSample returns the origin; the player stands at the origin, so the ball is within
-  // reach and the row becomes 0x662.
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kKind, 0u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 0.0f);
-  req.SetF(pes::moveword::kLookHeading, 0.0f);
-  req.SetF(pes::moveword::kBodyDirection, 0.0f);
-  req.SetF(pes::moveword::kTurn, 0.0f);
-  req.SetF(pes::moveword::kFacingError, 0.0f);
-  req.SetU(pes::moveword::kMoveBucket, 0u);
-  req.SetU(pes::moveword::kLookBucket, 0u);
-  req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
-  req.SetF(pes::moveword::kRate, 0.5f);
-  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
-  req.SetF(pes::moveword::kDwellLimit, 0.0f);
-  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
-  pes::probe::Reset();
-  pes::movestep::EnterGotoRun(h, req, false);
-  // The entry always requests ACCELERATE (state 7) from this path; the distance arm's row
-  // pick is observed through the issued cell: the draw held, so the row is 0x662.
-  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
-  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
-  EXPECT_EQ(h.lastCellRow, 0x662);
-  EXPECT_EQ(h.percentArg, 40);
-  // The foot flag is DAT_1425dd930's byte of the look bucket (LAB_1406cf683), not the picked cell's mirror: bucket 0's column 9 cell
-  // mirrors, the table byte here is 0.
-  EXPECT_EQ(req.U(pes::moveword::kFootFlag) & 0xffu, uint32_t(h.runTables.footFlag[0]));
-  EXPECT_EQ(h.issued.mirror, true);
-  // The lost draw takes the base row instead.
-  SyntheticHost h2;
-  h2.runConstants = SyntheticRun();
-  h2.runTables = SyntheticTables();
-  h2.runTables.gotoRow[0 + 1 * 8] = 0x5ca;
-  h2.percent = false;
-  pes::MoveReq req2;
-  req2.SetU(pes::moveword::kKind, 0u);
-  req2.SetU(pes::moveword::kCommandSpeedClass, 1u);
-  req2.SetF(pes::moveword::kFacing, 0.0f);
-  req2.SetF(pes::moveword::kHeading, 0.0f);
-  req2.SetF(pes::moveword::kLookHeading, 0.0f);
-  req2.SetF(pes::moveword::kBodyDirection, 0.0f);
-  req2.SetF(pes::moveword::kTurn, 0.0f);
-  req2.SetF(pes::moveword::kFacingError, 0.0f);
-  req2.SetU(pes::moveword::kMoveBucket, 0u);
-  req2.SetU(pes::moveword::kLookBucket, 0u);
-  req2.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
-  req2.SetF(pes::moveword::kRate, 0.5f);
-  req2.SetF(pes::moveword::kPlaybackDefault, 1.0f);
-  req2.SetF(pes::moveword::kDwellLimit, 0.0f);
-  req2.SetF(pes::moveword::kDwellElapsed, 0.0f);
-  pes::probe::Reset();
-  pes::movestep::EnterGotoRun(h2, req2, false);
-  EXPECT_EQ(h2.lastCellRow, 0x661);
-}
-
 // PES 0x1406CEF83-0x1406CEFA4 (TeamDecode 4, override 2): the turn-lock byte 0x3F sets the GOTO row to 0x566 whatever the
 // column; the column changes only when it is 8 or 9 already. The port set 0x564 and only for columns 8 and 9.
 TEST(EnterGotoRun, TheTurnLockByteSetsTheRowToTheTurnLockRowForAnyColumn) {
@@ -2241,7 +2078,7 @@ TEST(EnterGotoRun, TheTurnLockByteSetsTheRowToTheTurnLockRowForAnyColumn) {
   req.SetU(pes::moveword::kMoveBucket, 3u);
   req.SetU(pes::moveword::kLookBucket, 3u);
   req.SetU(pes::moveword::kLookBucketAlt, 3u);  // bucket 3: column 15, which override 2 leaves alone
-  SetCommandFlagByte(req, 0x3f);  // the command's flag byte at request byte offset 0x3f
+  req.SetU(0xf, 1u << 24);  // the turn-lock byte at request byte offset 0x3f (word 0xf, byte 3)
   req.SetF(pes::moveword::kFacingError, 10.0f);
   req.SetF(pes::moveword::kLookDelta, 10.0f);
   req.SetF(pes::moveword::kRate, 0.6f);
@@ -2266,7 +2103,7 @@ TEST(EnterGotoRun, TheTurnLockColumnIsNineWhenTheFacingErrorIsNegative) {
   req.SetU(pes::moveword::kMoveBucket, 5u);
   req.SetU(pes::moveword::kLookBucket, 5u);
   req.SetU(pes::moveword::kLookBucketAlt, 5u);  // bucket 5: column 8, which override 2 may move
-  SetCommandFlagByte(req, 0x3f);
+  req.SetU(0xf, 1u << 24);
   req.SetF(pes::moveword::kFacingError, -10.0f);  // XMM8 (0.0) > req[7] (-10): column 9
   req.SetF(pes::moveword::kLookDelta, 10.0f);
   req.SetF(pes::moveword::kRate, 0.6f);
@@ -2274,95 +2111,6 @@ TEST(EnterGotoRun, TheTurnLockColumnIsNineWhenTheFacingErrorIsNegative) {
   pes::movestep::EnterGotoRun(h, req, false);
   EXPECT_EQ(h.lastCellColumn, 9) << "PES's column is 9 when req[7] < 0 (SETA on XMM8 = 0.0)";
   EXPECT_EQ(h.lastCellRow, 0x566);
-}
-
-// FUN_1406ce820's closing writes (d_1406ce820.c 742-778, LAB_1406d013b): the live bucket req[0x20] takes the look bucket (the port wrote
-// req[0x25]); the speed words are req[0x22] = the desired speed clamped to [5, 28] and req[0x1d] = clamped to [5, 16]; req[0x1e] is the
-// kind; the root-facing stamp req[0x17] uses the bucket centre table DAT_1425dd660 at the UNCLAMPED look bucket.
-TEST(EnterGotoRun, ClosesWithTheLiveBucketTheTwoSpeedWordsAndTheCentreOfTheLookBucket) {
-  SyntheticHost h;
-  h.runConstants = SyntheticRun();
-  h.runConstants.kmh28 = 28.0f;
-  h.runTables = SyntheticTables();
-  h.runTables.bucketColumn = {9, 11, 13, 15, 17, 8, 6, 4, 2, 0};
-  h.runTables.footFlag = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
-  h.buckets.centre = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 0.0f, -45.0f, -90.0f, -135.0f, 180.0f};
-  pes::MoveReq req;
-  req.SetU(pes::moveword::kKind, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
-  req.SetU(pes::moveword::kLookBucket, 6u);
-  req.SetF(pes::moveword::kDesiredSpeedKmh, 20.0f);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 0.0f);
-  req.SetF(pes::moveword::kDwellLimit, 0.5f);
-  pes::movestep::EnterGotoRun(h, req, true);
-  EXPECT_EQ(req.U(pes::moveword::kLiveBucket), 6u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 20.0f) << "req[0x22] clamps to [5, 28]";
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kStopSpeedWord), h.runConstants.kmh16) << "req[0x1d] clamps to [5, 16]";
-  EXPECT_EQ(req.U(pes::moveword::kLiveKind), 2u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRecordStampA), 45.0f / 0.5f) << "bucket 6's centre is -45: the root faces -45, the heading is 45 away";
-  EXPECT_EQ(req.U(pes::moveword::kFootFlag) & 0xffu, 1u) << "DAT_1425dd930[6]";
-  EXPECT_EQ(h.issued.transition, 1) << "the entry's own flag argument rides the issue (d_1406ce820.c 700)";
-}
-
-// 0x1406c0321..0x1406c0387: RUN_LOOP's second re-plan reads the LOOK distance (req[0x12]) and both turn magnitudes: a turn of -80 re-plans
-// a class-3 man, and a far TARGET with a near look point does not.
-TEST(RunLoop, TheReplanReadsTheLookDistanceAndTheTurnsMagnitude) {
-  for (const bool farLook : {true, false}) {
-    SyntheticHost h;
-    h.runConstants = SyntheticRun();
-    h.runTables = SyntheticTables();
-    h.moveConstants.dist3 = 3.0f;
-    h.currentMotion = 0x8bb;
-    pes::MoveReq req;
-    req.SetU(pes::moveword::kKind, 2u);
-    req.SetU(pes::moveword::kCommandSpeedClass, 3u);
-    req.SetU(pes::moveword::kRateBand, 1u);
-    req.SetF(pes::moveword::kRate, 0.2f);
-    req.SetF(pes::moveword::kTurn, -80.0f);
-    req.SetF(pes::moveword::kDistToTarget, 10.0f);
-    req.SetF(pes::moveword::kDistToLook, farLook ? 10.0f : 1.0f);
-    req.SetF(pes::moveword::kDwellLimit, 1.0f);
-    pes::probe::Reset();
-    pes::movestep::RunLoop(h, req);
-    EXPECT_EQ(req.Flag(pes::moveword::kChangeState) && req.U(pes::moveword::kNextState) == uint32_t(pes::MoveState::kGotoRun),
-              farLook);
-  }
-}
-
-// EnterGotoRun's out-of-play arm (FUN_1406ce820 block 6): outside open-play phase 1, a row in
-// the two 0xa014-bit bands takes row 0x5cc. In play the arm never fires.
-TEST(EnterGotoRun, TakesTheOutOfPlayRowOnlyOutsideOpenPlay) {
-  for (int phase : {1, 0}) {
-    SyntheticHost h;
-    h.runConstants = SyntheticRun();
-    h.runTables = SyntheticTables();
-    h.runTables.gotoRow[0 + 1 * 8] = 0x2;  // a row inside the 0xa014 bands
-    h.phase = phase;
-    h.percent = false;
-    pes::MoveReq req;
-    req.SetU(pes::moveword::kKind, 0u);
-    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
-    req.SetF(pes::moveword::kFacing, 0.0f);
-    req.SetF(pes::moveword::kHeading, 0.0f);
-    req.SetF(pes::moveword::kLookHeading, 0.0f);
-    req.SetF(pes::moveword::kBodyDirection, 0.0f);
-    req.SetF(pes::moveword::kTurn, 0.0f);
-    req.SetF(pes::moveword::kFacingError, 0.0f);
-    req.SetU(pes::moveword::kMoveBucket, 0u);
-    req.SetU(pes::moveword::kLookBucket, 0u);
-    req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
-    req.SetF(pes::moveword::kRate, 0.5f);
-    req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
-    req.SetF(pes::moveword::kDwellLimit, 0.0f);
-    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
-    pes::probe::Reset();
-    pes::movestep::EnterGotoRun(h, req, false);
-    // Column for bucket 0 is 9 (synthetic bucketColumn[0] = 9), so block 5's column gate
-    // (column - 8 < 2) holds but the row is 0x2, not 0x5ca: block 5 is skipped. Block 6's
-    // verdict is the picked row.
-    EXPECT_EQ(h.lastCellRow, phase == 1 ? 0x2 : 0x5cc) << "phase " << phase;
-  }
 }
 
 // EnterDecelerate's issue (FUN_1406cdaf0:337-339): vt+0x10 takes (req, motion, mirror, 0,
@@ -2402,8 +2150,8 @@ TEST(EnterDecelerate, IssuesThePlaybackWordWithTheStartLadder) {
   req.SetU(pes::moveword::kMoveBucket, 3u);
   pes::probe::Reset();
   EXPECT_TRUE(pes::movestep::EnterDecelerate(h, req));
-  EXPECT_GT(h.issued.playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
-  EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is 0.2/0, never a km/h rung";
+  EXPECT_GT(pes::DueRequest(req, 0).playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
+  EXPECT_LE(pes::DueRequest(req, 0).startTime, 1.0f) << "the start time is 0.2/0, never a km/h rung";
 }
 
 // PES 57-61: a no-class tick (class word -1) with the precise word set, or outside the match phase 1, is TURN_STOP
@@ -2983,4 +2731,388 @@ TEST(RateToSpeed, IsTheThreeSegmentCurveWithTheGScaleOnTheLowTwoSegments) {
   EXPECT_NEAR(pes::RateToSpeedFor(0.45f, g, t, kFloor), g * 4.0f + (0.45f - 0.3f) / 0.3f * 2.0f * g, 1e-5f);
   EXPECT_NEAR(pes::RateToSpeedFor(0.8f, g, t, kFloor), g * 6.0f + (0.8f - 0.6f) / 0.4f * 3.0f, 1e-5f) << "the top segment has no g factor on the slope";
   EXPECT_NEAR(pes::RateToSpeedFor(0.01f, g, t, 0.1f), g * 2.0f, 1e-5f) << "a rate under the floor reads the floor";
+}
+
+// ---------------------------------------------------------------------------------------------
+// The playback p of the entries (StepAudit3). PES's entries compute req[0x35] as vt+0x50(vt+0x30(flag)) = TurnPlayback(G,
+// AbilityWeight(flag)) (FUN_1406e9f10 over FUN_1406e9f90): Acceleration (0x2b) normally, DA (0x15) for the match-up man, each less
+// (10 - condition) at a condition of 10 or below. The port had `MirrorChoice ? 1.0 : 0.5`. The host answers a byte whose weight is
+// far from both 0.5 and 1, so the stand-in cannot reproduce it.
+// ---------------------------------------------------------------------------------------------
+namespace {
+
+void SetPlaybackConstants(SyntheticHost& h) {
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.playback.gLow = 0.9166f;
+  h.playback.gHigh = 1.0833f;
+  h.playback.gSlope = -0.1667f;
+  h.playback.one = 1.0f;
+  h.playback.stepSlope = 0.15f;
+  h.playback.stepBase = 0.95f;
+  h.playback.turnP2 = 0.1f;
+  h.playback.turnT = 0.05f;
+  h.abilityByte = 52;  // weight (52 - 40) / 59
+  h.daByte = 91;       // weight (91 - 40) / 59: the match-up man's byte
+}
+
+// FUN_1406e9f90: clamp((byte - 40) / 59, 0, 1) for the byte the flag picks, less (10 - c) at a condition c <= 10.
+float ExpectedWeight(const SyntheticHost& h, int byte, int condition = 100) {
+  float b = static_cast<float>(byte);
+  if (condition <= 10) b -= 10.0f - static_cast<float>(condition);
+  if (b <= h.runConstants.rec40) return 0.0f;
+  if (b >= h.runConstants.rec99) return 1.0f;
+  return (b - h.runConstants.rec40) / h.runConstants.rec59;
+}
+
+float ExpectedPlayback(const SyntheticHost& h, float weight) { return pes::TurnPlayback(h.g, weight, h.playback); }
+
+pes::MoveReq AcceleratingRequest() {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  return req;
+}
+
+}  // namespace
+
+TEST(EnterAccelerate, ThePlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.currentMotion = 0x8bb;
+    h.currentClipFrames = 2;
+    h.positions[1][0] = 1.0f;
+    h.mirrorChoice = mirror;  // the old stand-in's input: it must not matter
+    pes::MoveReq req = AcceleratingRequest();
+    ASSERT_TRUE(pes::movestep::EnterAccelerate(h, req));
+    const float expected = ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte));
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), expected) << "mirror " << mirror;
+    EXPECT_FLOAT_EQ(pes::DueRequest(req, 0).playback, expected) << "the clip is issued at the entry's playback";
+  }
+}
+
+TEST(EnterAccelerate, TheMatchUpManTakesTheDaByteAndAConditionAtTenCutsTheByte) {
+  SyntheticHost h;
+  SetPlaybackConstants(h);
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;
+  h.team.matchUp[h.ActionIndex()] = true;
+  h.team.condition = 4;  // FUN_140a581c0 answers <= 10: the byte loses 10 - 4
+  pes::MoveReq req = AcceleratingRequest();
+  ASSERT_TRUE(pes::movestep::EnterAccelerate(h, req));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), ExpectedPlayback(h, ExpectedWeight(h, h.daByte, h.team.condition)));
+}
+
+TEST(EnterDecelerate, ThePlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.currentMotion = 0x8bb;
+    h.currentClipFrames = 2;
+    h.positions[1][0] = 1.0f;
+    h.mirrorChoice = mirror;
+    pes::MoveReq req = AcceleratingRequest();
+    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+    ASSERT_TRUE(pes::movestep::EnterDecelerate(h, req));
+    const float expected = ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte));
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), expected) << "mirror " << mirror;
+    EXPECT_FLOAT_EQ(pes::DueRequest(req, 0).playback, expected);
+  }
+}
+
+TEST(EnterStop, TheRunStopArmPlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.mirrorChoice = mirror;
+    h.abilityByte = 99;  // weight 1: TurnPlayback lands inside [0.9, 1.5] (0x1406d5fb3, 0x1406d5fbf) so it is kept
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kClassWord, 1u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kFacingError, 30.0f);
+    pes::movestep::EnterStop(h, req);
+    const float raw = ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte));
+    ASSERT_GE(raw, h.runConstants.stopPlaybackFloor);
+    ASSERT_LE(raw, h.runConstants.dist1m5);
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), raw) << "mirror " << mirror;
+  }
+}
+
+TEST(EnterStop, ThePlaybackOutsideTheBandResetsToOneAndTheClipIsIssuedAtIt) {
+  SyntheticHost h;
+  SetPlaybackConstants(h);
+  h.abilityByte = 40;  // weight 0
+  h.playback.stepBase = 0.2f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 30.0f);
+  ASSERT_LT(ExpectedPlayback(h, 0.0f), h.runConstants.stopPlaybackFloor);
+  pes::movestep::EnterStop(h, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), h.runConstants.one);
+  EXPECT_FLOAT_EQ(pes::DueRequest(req, 0).playback, h.runConstants.one);
+}
+
+TEST(EnterGotoRun, ThePlaybackIsTheAbilityWeightNotAMirrorChoice) {
+  for (const bool mirror : {false, true}) {
+    SyntheticHost h;
+    SetPlaybackConstants(h);
+    h.mirrorChoice = mirror;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 0u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+    req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
+    req.SetF(pes::moveword::kRate, 0.5f);
+    pes::movestep::EnterGotoRun(h, req, false);
+    EXPECT_FLOAT_EQ(req.F(pes::moveword::kPlayback), ExpectedPlayback(h, ExpectedWeight(h, h.abilityByte)))
+        << "mirror " << mirror;
+  }
+}
+
+// The hit words (FUN_1406ce820's two vt+0xab8 calls after the issue): req[0x28] = the clip's hit seconds, req[0x27] = its hit
+// distance, the values WriteIssue stored (req[0x1b], req[0x34]) from the clip's own records, not MotionStartTime and G.
+TEST(EnterGotoRun, TheHitWordsAreTheClipsHitSecondsAndDistance) {
+  SyntheticHost h;
+  SetPlaybackConstants(h);
+  h.startTime = 0.77f;  // the old stand-in wrote this into req[0x28]
+  h.g = 1.25f;
+  h.record.blend = {30};
+  h.record.blendWords = {{0u, 30u << 10}};
+  h.record.blendRoot = {{300.0f, 400.0f}};  // x 3 m, z 4 m after the centimetre scale
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 0u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
+  req.SetF(pes::moveword::kRate, 0.5f);
+  pes::movestep::EnterGotoRun(h, req, false);
+  const float playback = req.F(pes::moveword::kPlayback);
+  const float seconds = (static_cast<float>(h.ClipTicks(pes::ClipReader::kBlend, 0, 1.0f, 0)) / h.TicksPerSecond()) / playback;
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kHitFrame), seconds);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kHitMotion), std::sqrt(4.0f * 4.0f + 3.0f * 3.0f) * h.g);
+}
+
+// FUN_1406e7730: the cancel record at min(index, count - 1) replaces the blend record's offset when the clip has any.
+TEST(ClipHitDistance, ACancelRecordReplacesTheBlendOffsetAndTheIndexClampsToTheLastRecord) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.record.blendRoot = {{300.0f, 400.0f}};
+  h.record.cancel = {10, 20};
+  h.record.cancelRoot = {{600.0f, 800.0f}, {30.0f, 40.0f}};
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 0), 10.0f * 2.0f) << "record 0: 6 m, 8 m";
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 1), 0.5f * 2.0f);
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 2), 0.5f * 2.0f) << "index == count is already past the list: the last record";
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 9), 0.5f * 2.0f) << "index 9 clamps to the last record (count - 1)";
+  h.record.cancel.clear();
+  h.record.cancelRoot.clear();
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 7, 2.0f, 0), 5.0f * 2.0f) << "no cancel record: the blend record's offset";
+  EXPECT_FLOAT_EQ(pes::ClipHitDistance(h, 0x1125, 2.0f, 0), 0.0f) << "a motion at or past the table has no hit record";
+}
+
+// FUN_140a6e290 / FUN_140a6e2e0 on the playing clip's motion (vt+0x18 of +0xab8): the running set (0xbe7, 0x8c7, 0x8cb, 0xb4f, 0xbe5,
+// 0xbe9, 0xc08, 0xc0f) and the halted set (0xc09, 0xc0d, 0xc0e, 0xc11, 0xc12). The ACCELERATE and DECELERATE handlers read them at
+// five sites (d_1406bb570.c 210-213, 515-518, 596-599; d_1406bcd20.c 149-152, 432-435). The port held them clear.
+
+static bool SameRequestWords(const pes::MoveReq& a, const pes::MoveReq& b) {
+  for (int w = 0; w < pes::kMoveReqWords; ++w)
+    if (a.U(w) != b.U(w)) return false;
+  return true;
+}
+
+// d_1406bb570.c 207-213: the pre-empt gate needs BOTH predicates clear. The motion 0x8bb is in neither set, 0xc08 is running and
+// 0xc09 is halted.
+TEST(Accelerate, ThePreEmptGateIsShutWhileTheClipIsInTheRunningOrHaltedSet) {
+  // The premise of TakesTheRunTurnRunEntryThroughTheClassThreeGate: through the open pre-empt the class-3 gate enters RUN_TURN_RUN.
+  const auto runTurnRunCalls = [](int motion) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentKmh = 0.0f;
+    h.currentMotion = motion;
+    h.currentClipFrames = 2;
+    pes::RotRecord rot;
+    rot.start = 30;
+    h.record.rot.push_back(rot);
+    h.rateCeiling = 1.0f;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+    req.SetU(pes::moveword::kRateBand, 1u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 70.0f);
+    req.SetF(pes::moveword::kRecordStampB, 75.0f);
+    req.SetF(pes::moveword::kLookHeading, 0.0f);
+    req.SetF(pes::moveword::kLookDelta, 100.0f);
+    req.SetF(pes::moveword::kTurn, 2.0f);
+    req.SetF(pes::moveword::kFacingError, 2.0f);
+    req.SetF(pes::moveword::kRate, 0.6f);
+    req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+    req.SetF(pes::moveword::kDwellLimit, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+    pes::probe::Reset();
+    pes::movestep::Accelerate(h, req);
+    return pes::probe::runTurnRunCalls;
+  };
+  ASSERT_GE(runTurnRunCalls(0x8bb), 1);
+  for (const int motion : {0xc08, 0xc09}) EXPECT_EQ(runTurnRunCalls(motion), 0) << "motion " << std::hex << motion;
+}
+
+// d_1406bb570.c 515-526: while the playing clip is in either set and the live frame is short of the remain, the yaw step's rate is
+// 22.5 degrees a second (DAT_14259d618), not the cap. The premise of TheMidTickAndTheTriggerBearingsAreTheRemainAndTheTurnAndBodyError
+// (remain 7 ticks, live frame 5), whose rate is the cap 180 / 54; here it is 22.5 / 54 a tick.
+TEST(ArmH, TheRateDropsToTwentyTwoAndAHalfWhileARunningOrHaltedClipIsShortOfTheRemain) {
+  for (const int motion : {0xc08, 0xc09}) {
+    SyntheticHost h;
+    ArmHSetUp(h);
+    h.currentMotion = motion;
+    pes::RotRecord rot;
+    rot.start = 0;
+    rot.end = 10;
+    rot.offset = 1;
+    h.record.rot = {rot};
+    h.record.blend = {4};
+    h.record.cancel = {0, 0, 0};
+    pes::MoveReq req = ArmHRequest(10.0f);
+    req.SetF(pes::moveword::kRecordStampB, 40.0f);
+    req.SetF(pes::moveword::kLookHeading, 40.0f);
+    pes::movestep::Accelerate(h, req);
+    EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 22.5f / 54.0f, 1e-3f) << "motion " << std::hex << motion;
+  }
+}
+
+// d_1406bb570.c 594-602: the band below the command class (the arm after the GOTO_RUN exit) sets the flag only while both motion
+// predicates are clear; the turn is under the span (45 degrees at band 1).
+TEST(Accelerate, TheFlagArmFlagNeedsBothMotionPredicatesClear) {
+  const auto run = [](int motion) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentMotion = motion;
+    h.currentClipFrames = 0;
+    h.record.blend = {100};
+    h.record.cancel = {0, 0, 0};
+    h.commandClass = 2;
+    h.commandKmh = 10.0f;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetU(pes::moveword::kRateBand, 1u);
+    pes::movestep::Accelerate(h, req);
+    return req;
+  };
+  // The flag ends the clip, the exit runs the run entry and requests RUN_LOOP.
+  ASSERT_EQ(run(0x8bb).U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
+  for (const int motion : {0xc08, 0xc09}) {
+    EXPECT_NE(run(motion).U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop)) << "motion " << std::hex << motion;
+  }
+}
+
+// d_1406bcd20.c 144-153: DECELERATE's pre-empt gate also needs both motion predicates clear (a running-set clip jumps over it to the
+// LAB_1406bd3a0 block, the halted set does the same).
+TEST(Decelerate, ThePreEmptGateIsShutWhileTheClipIsInTheRunningOrHaltedSet) {
+  // Through the open pre-empt a small turn (under 56.25 degrees) with a look delta past 90, band under 2 and class 3 enters RUN_TURN_RUN.
+  const auto runTurnRunCalls = [](int motion) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentKmh = 0.0f;
+    h.currentMotion = motion;
+    h.currentClipFrames = 2;
+    pes::RotRecord rot;
+    rot.start = 0;  // DECELERATE's frame gate is `hitTotal + 1 <= live < ticks * 6 / 60 + 0.5`
+    h.record.rot.push_back(rot);
+    h.rateCeiling = 1.0f;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+    req.SetU(pes::moveword::kRateBand, 1u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 12.0f);  // the first bearing |heading - facing| is 2 degrees, under 5.625
+    req.SetF(pes::moveword::kRecordStampB, 75.0f);
+    req.SetF(pes::moveword::kLookHeading, 0.0f);
+    req.SetF(pes::moveword::kLookDelta, 100.0f);
+    req.SetF(pes::moveword::kTurn, 2.0f);
+    req.SetF(pes::moveword::kFacingError, 2.0f);
+    req.SetF(pes::moveword::kRate, 0.6f);
+    req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+    req.SetF(pes::moveword::kDwellLimit, 1.0f);
+    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+    pes::probe::Reset();
+    pes::movestep::Decelerate(h, req);
+    return pes::probe::runTurnRunCalls;
+  };
+  ASSERT_GE(runTurnRunCalls(0x8bb), 1);
+  for (const int motion : {0xc08, 0xc09}) EXPECT_EQ(runTurnRunCalls(motion), 0) << "motion " << std::hex << motion;
+}
+
+// d_1406bb570.c 148-194 and d_1406bcd20.c's turn lock: FUN_141eb3320(P+0x4d0) (the yaw adjuster's state word == 2) closes the lock
+// while the adjuster is running. The port held it idle whatever the host said.
+TEST(TurnLock, ABusyFacingAdjusterClosesTheLockInAccelerateAndDecelerate) {
+  for (const bool busy : {false, true}) {
+    SyntheticHost a;
+    LockSetUp(a, 1, 8, 5);
+    a.facingAdjusterBusy = busy;
+    pes::MoveReq accelerate = LockRequest(60.0f, 0.0f, 0.0f);
+    pes::movestep::Accelerate(a, accelerate);
+    EXPECT_EQ(accelerate.U(pes::moveword::kReorientFlag) & 0xffu, busy ? 0u : 1u) << "Accelerate busy " << busy;
+
+    SyntheticHost d;
+    LockSetUp(d, 1, 8, 5);
+    d.record.cancel = {40, 40, 40};
+    d.facingAdjusterBusy = busy;
+    pes::MoveReq decelerate = LockRequest(60.0f, 0.0f, 0.0f);
+    pes::movestep::Decelerate(d, decelerate);
+    EXPECT_EQ(decelerate.U(pes::moveword::kReorientFlag) & 0xffu, busy ? 0u : 1u) << "Decelerate busy " << busy;
+  }
+}
+
+// d_1406bcd20.c 432-437 (asm 0x1406bd6a9..0x1406bd6d8): DECELERATE's bearing arm steps the record's facing by an allowance of 90 degrees
+// for an unsigned clip (180 for a signed one); while the playing clip is in the running or halted set and the live frame is short of the
+// clip's end the allowance is 22.5. The yaw lock P+0xbec takes the facing plus the allowance.
+TEST(Decelerate, TheBearingArmAllowanceDropsToTwentyTwoAndAHalfForARunningOrHaltedClip) {
+  const auto f0bec = [](int motion, float* writes) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.currentMotion = motion;
+    h.currentClipFrames = 8;
+    pes::RotRecord rot;
+    rot.start = 0;
+    rot.end = 10;
+    rot.offset = 0;  // an unsigned clip: no hit offset, so the allowance base is 90
+    h.record.rot = {rot};
+    h.record.blend = {100};
+    h.record.cancel = {8, 8, 8};
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetU(pes::moveword::kRateBand, 2u);
+    req.SetF(pes::moveword::kFacing, 0.0f);
+    req.SetF(pes::moveword::kHeading, 10.0f);
+    req.SetF(pes::moveword::kRecordStampB, 10.0f);
+    req.SetF(pes::moveword::kLookHeading, 340.0f);  // the second bearing |heading - look| is 30 degrees, past 11.25 (the sign is the port's InlineDiffDeg)
+    pes::movestep::Decelerate(h, req);
+    *writes = static_cast<float>(h.f0becWrites);
+    return h.firstF0bec;
+  };
+  float writes = 0.0f;
+  EXPECT_NEAR(f0bec(0x8bb, &writes), 90.0f, 1e-3f);
+  ASSERT_GE(writes, 1.0f);
+  for (const int motion : {0xc08, 0xc09}) EXPECT_NEAR(f0bec(motion, &writes), 22.5f, 1e-3f) << "motion " << std::hex << motion;
 }

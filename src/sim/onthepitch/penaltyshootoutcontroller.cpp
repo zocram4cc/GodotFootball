@@ -69,6 +69,8 @@ void PenaltyShootoutController::Reset() {
   started = false;
   nextEventTime_ms = 0;
   kickStartTime_ms = 0;
+  kickArranged = false;
+  kickReleased = false;
   aimY = 0.0f;
   aimHeight = 0.0f;
   aimPower = 0.8f;
@@ -199,25 +201,15 @@ void PenaltyShootoutController::SetUpKick() {
   const Vector3 goalCentre = GetGoalCentre();
   const Vector3 towardsGoal = (goalCentre - spot).GetNormalized(Vector3(1, 0, 0));
 
-  // Standing the chosen taker next to the ball makes him the closest player, so
-  // the set-piece preparation picks him as the taker of the penalty.
+  // Standing the chosen taker next to the ball makes him the closest player, so the set-piece preparation picks him as the taker
+  // of the penalty. The referee arms the penalty now: the restart machinery prepares it and releases it when due (StageShootoutKick),
+  // and ArrangeKick places the players once it is prepared, because the set piece's own placement runs at the preparation.
   if (currentTaker)
     currentTaker->ResetPosition(spot - towardsGoal, goalCentre);
 
-  match->GetTeam(state.shootingTeam)
-      ->GetController()
-      ->PrepareSetPiece(e_SetPiece_Penalty, state.shootingTeam);
-
-  // The set piece lines both teams up around the box, which is not what a
-  // shootout looks like: only the taker belongs in the area, only the defending
-  // keeper belongs in the goal, and everybody else waits on the halfway line.
-  PositionPlayers();
-  match->GetBall()->ResetSituation(spot);
-
-  // The set-piece preparation picks a taker by proximity, which is not the man
-  // whose turn it is; the shootout's rotation wins.
-  if (currentTaker)
-    match->GetTeam(state.shootingTeam)->GetController()->SetPieceTaker(currentTaker);
+  kickArranged = false;
+  kickReleased = false;
+  match->GetReferee()->AwardShootoutKick(state.shootingTeam, spot);
 }
 
 void PenaltyShootoutController::PositionPlayers() {
@@ -265,11 +257,17 @@ void PenaltyShootoutController::AnchorKeeper() {
       GetPenaltySpot());
 }
 
-void PenaltyShootoutController::BeginKick() {
-  // Live play, so the taker shoots and the keeper dives for real.
-  match->StartSetPiece();
-  match->StartPlay();
-  kickStartTime_ms = match->GetActualTime_ms();
+void PenaltyShootoutController::ArrangeKick() {
+  // The set-piece preparation has run (the referee's PrepareSetPiece): the set piece lined both teams up around the box, which is
+  // not what a shootout looks like. Only the taker belongs in the area, only the defending keeper in the goal, and everybody else
+  // waits on the halfway line. The shootout's rotation names the taker, since the preparation picked him by proximity.
+  const Vector3 spot = GetPenaltySpot();
+  PositionPlayers();
+  match->GetBall()->ResetSituation(spot);
+  if (currentTaker) {
+    match->GetTeam(state.shootingTeam)->GetController()->SetPieceTaker(currentTaker);
+    match->GetReferee()->Buffer().taker = currentTaker;
+  }
 }
 
 std::string PenaltyShootoutController::GetScoreLine() const {
@@ -300,8 +298,9 @@ PenaltyShootout::KickObservation PenaltyShootoutController::ObserveBall() {
   // needs a run-up, so for the first second or so of a kick the ball is sitting
   // motionless on the spot — reading that as a finished kick scored a MISS
   // before anyone had touched it. Wait for it to leave the spot.
-  if ((ballPos - GetPenaltySpot()).GetLength() > 0.5f ||
-      match->GetBall()->GetMovement().GetLength() > 2.0f)
+  // A strike is the ball leaving the spot. Its speed is not read here: after the spot reset the ball's movement reads a stale
+  // 42 m/s with the ball still on the spot, and a speed test settled every kick as a MISS five seconds on, untouched.
+  if ((ballPos - GetPenaltySpot()).GetLength() > 0.5f)
     ballStruck = true;
   // The keeper touched the ball when the engine's touch record names him during this
   // kick. Read from the match, not from how close he stood: a deflection is made at
@@ -356,6 +355,19 @@ void PenaltyShootoutController::Process() {
   // While a kick is live, let it play out on the pitch. What the ball does is
   // what gets recorded: the scatter in SetUpKick aims the kick and decides nothing.
   if (state.phase == PenaltyShootout::e_Phase_Execution) {
+    // The referee's restart stages prepare the penalty and release it (StageShootoutKick). Once it is prepared the shootout places
+    // the players (ArrangeKick), and the run-up clock starts at the release, when the referee puts the kick in play.
+    Referee* referee = match->GetReferee();
+    referee->StageShootoutKick();
+    if (!kickArranged && referee->GetBuffer().prepared) {
+      ArrangeKick();
+      kickArranged = true;
+    }
+    if (!kickReleased && match->IsInPlay()) {
+      kickReleased = true;
+      kickStartTime_ms = match->GetActualTime_ms();
+    }
+    if (!kickReleased) return;
     // One of the two keepers is defending the end he did not defend during the
     // match, so his instinct is to walk back to his own goal. He is only hauled
     // back if he abandons this one altogether, and at most once per kick:
@@ -407,7 +419,6 @@ void PenaltyShootoutController::Process() {
     case PenaltyShootout::e_Phase_Positioning:
       SetUpKick();
       PenaltyShootout::BeginKick(state);
-      BeginKick();
       break;
 
     case PenaltyShootout::e_Phase_Resolution:

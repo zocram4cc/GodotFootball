@@ -272,6 +272,8 @@ class FakeHost : public MoveHost {
   }
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
+  bool FacingAdjusterBusy() const override { return facingAdjusterBusy; }
+  bool facingAdjusterBusy = false;  // FUN_141eb3320: the yaw adjuster's state word == 2
   int AbilityByte(int id) const override { return id == 0x29 ? abilityByte : 0; }
   bool EntryAimFlag() const override { return entryAim; }
   void CountAnalyserEvent(bool flag, int motion) override { analyserCalls.push_back({flag, motion}); }
@@ -775,7 +777,7 @@ TEST(RunTurnStep, TheScriptedStateSkipsTheLadderButTheExitGateStillIssuesTheStep
   FillRequest(&req);
   req.SetU(pes::moveword::kCommandSpeedClass, 1);
   RunTurnStep(host, req, SyntheticTurn());
-  EXPECT_EQ(host.issues, 1);
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
   EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepLoop));
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
@@ -833,9 +835,9 @@ TEST(RunTurnStep, TheExitGateWidensTheBlendForAForwardKindThreeStep) {
     req.SetU(pes::moveword::kCommandSpeedClass, 1);
     req.SetU(pes::moveword::kKind, 3);
     RunTurnStep(host, req, SyntheticTurn());
-    ASSERT_EQ(host.issues, 1);
+    ASSERT_TRUE(req.Flag(pes::moveword::kMotionPending));
     const MoveTurnConstants k = SyntheticTurn();
-    EXPECT_FLOAT_EQ(host.issued.duration, forward > 0.5f ? k.blend03 : k.clipBlend) << "forward " << forward;
+    EXPECT_FLOAT_EQ(pes::DueRequest(req, 0).duration, forward > 0.5f ? k.blend03 : k.clipBlend) << "forward " << forward;
   }
 }
 // ---------------------------------------------------------------------------------------------
@@ -1099,8 +1101,8 @@ TEST(StepTurnRun, ReplaysARowThroughTheStepGridWhenTheClipIsYoung) {
   EXPECT_EQ(req.U(pes::moveword::kNextState) & 0xffu,
             static_cast<uint32_t>(MoveState::kStepLoop));
   // The clip request carries the step grid's blend duration (1/7.5 s).
-  EXPECT_GT(host.issued.motion, 0);
-  EXPECT_NEAR(host.issued.duration, 1.0f / 7.5f, 1e-6f);
+  EXPECT_GT(pes::DueRequest(req, 0).motion, 0);
+  EXPECT_NEAR(pes::DueRequest(req, 0).duration, 1.0f / 7.5f, 1e-6f);
 }
 
 // PES at 0x1406C905A: the reorient window's tight value is
@@ -1225,7 +1227,7 @@ TEST(StepTurnStep, ReplaysRowZeroX4eAtMotionZeroX39) {
   req.SetF(pes::moveword::kFacing, 0.0f);
   req.SetF(pes::moveword::kHeading, 5.0f);
   StepTurnStep(host, req, SyntheticTurn());
-  EXPECT_EQ(host.issued.motion, 0x4e);
+  EXPECT_EQ(pes::DueRequest(req, 0).motion, 0x4e);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1269,8 +1271,8 @@ TEST(EnterRunTurnRun, SelectsTheRowAndAsksForTheRunTurnRunState) {
   EXPECT_EQ(req.U(pes::moveword::kNextState) & 0xffu,
             static_cast<uint32_t>(MoveState::kRunTurnRun));
   // The entry issues the ladder's row with the vt+0x10 blend duration.
-  EXPECT_EQ(host.issued.motion, 0x5be);
-  EXPECT_NEAR(host.issued.duration, 1.0f / 6.0f, 1e-6f);
+  EXPECT_EQ(pes::DueRequest(req, 0).motion, 0x5be);
+  EXPECT_NEAR(pes::DueRequest(req, 0).duration, 1.0f / 6.0f, 1e-6f);
 }
 
 // 0x1406d7ed8 / 0x1406d851c: after a re-select the entry calls FUN_1406cba60(P, relax, motion), which counts the issued motion in
@@ -1334,7 +1336,7 @@ TEST(EnterRunTurnRun, AnEmptyCellSendsTheEntryToTurnStopWithNoClip) {
   host.cellMotion = -1;  // the cell is empty
   pes::movestep::turnStopEntries = 0;
   EnterRunTurnRun(host, req, SyntheticTurn());
-  EXPECT_EQ(host.issues, 0) << "an empty cell issues no clip";
+  EXPECT_FALSE(req.Flag(pes::moveword::kMotionPending)) << "an empty cell issues no clip";
   EXPECT_EQ(pes::movestep::turnStopEntries, 1) << "an empty cell hands the tick to TURN_STOP (FUN_1406D2590)";
 }
 
@@ -1883,16 +1885,21 @@ TEST(EnterStepTurnRun, RefusesASlowPlayer) {
 // The clip request IssueClip hands the host. PES's playback is a fraction (0.95 to 1.15 across
 // the squad) and the start is a time in seconds: neither may be cut to an integer or parked in
 // the parametric start-rate field, which SetMotion never reads.
-TEST(IssueClip, CarriesTheFractionalPlaybackAndTheStartTimeOfASingleClip) {
+TEST(IssueClip, StoresTheFractionalPlaybackAndTheStartTimeOfASingleClipInTheRequest) {
   FakeHost host;
-  pes::movestep::IssueClip(host, 0x3f, true, 0.2f, 0.95f, 0.25f);
-  EXPECT_EQ(host.issued.motion, 0x3f);
-  EXPECT_TRUE(host.issued.mirror);
-  EXPECT_EQ(host.issued.group, -1);
-  EXPECT_FLOAT_EQ(host.issued.duration, 0.2f);
-  EXPECT_FLOAT_EQ(host.issued.playback, 0.95f);
-  EXPECT_FLOAT_EQ(host.issued.startTime, 0.25f);
-  EXPECT_FLOAT_EQ(host.issued.startRate, 0.0f);
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kParamState, pes::moveword::kSingleClip);
+  pes::movestep::IssueClip(host, req, 0x3f, true, 0.2f, 0.95f, 0.25f);
+  const pes::MotionRequest due = pes::DueRequest(req, 0);
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  EXPECT_EQ(due.motion, 0x3f);
+  EXPECT_TRUE(due.mirror);
+  EXPECT_EQ(due.group, -1);
+  EXPECT_FLOAT_EQ(due.duration, 0.2f);
+  EXPECT_FLOAT_EQ(due.playback, 0.95f);
+  EXPECT_FLOAT_EQ(due.startTime, 0.25f);
+  EXPECT_FLOAT_EQ(due.startRate, 0.0f);
+  EXPECT_EQ(host.issues, 0) << "the clip is due for the tail; the handler does not play it";
 }
 
 }  // namespace
@@ -2155,8 +2162,9 @@ TEST(StepTurnRun, AClassThreeCommandAfterBandZeroReentersTheClip3bAndCopiesTheWo
   req.SetU(pes::moveword::kKind, 3u);
   pes::turnLockAnswer = false;
   StepTurnRun(host, req, SyntheticTurn());
-  EXPECT_EQ(host.issued.motion, 0x3b);
-  EXPECT_FLOAT_EQ(host.issued.startTime, 41.0f / 54.0f);
+  const pes::MotionRequest due = pes::DueRequest(req, 0);
+  EXPECT_EQ(due.motion, 0x3b);
+  EXPECT_FLOAT_EQ(due.startTime, 41.0f / 54.0f);
   EXPECT_FLOAT_EQ(req.F(0x18), 10.0f);
   EXPECT_EQ(req.U(0x20), 5u);
   EXPECT_EQ(req.U(pes::moveword::kPrevClassWord), 2u);
@@ -2258,9 +2266,10 @@ TEST(StepTurnStep, TheReplayClipsTakeTheMirrorAndBlendTheInstructionStreamPasses
     req.SetU(pes::moveword::kMoveBucket, 4u);
     req.SetU(0x20, 9u);
     StepTurnStep(host, req, SyntheticTurn());
-    EXPECT_EQ(host.issued.motion, arm.clip) << arm.motion;
-    EXPECT_EQ(host.issued.mirror, !arm.mirrorNegated) << arm.motion;  // mirrored clip: negated -> false, plain -> true
-    EXPECT_FLOAT_EQ(host.issued.duration, arm.blend) << arm.motion;
+    const pes::MotionRequest due = pes::DueRequest(req, 0);
+    EXPECT_EQ(due.motion, arm.clip) << arm.motion;
+    EXPECT_EQ(due.mirror, !arm.mirrorNegated) << arm.motion;  // mirrored clip: negated -> false, plain -> true
+    EXPECT_FLOAT_EQ(due.duration, arm.blend) << arm.motion;
     EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepTurnRun)) << arm.motion;
     EXPECT_FLOAT_EQ(req.F(0x18), 10.0f) << arm.motion;
     EXPECT_EQ(req.U(0x20), 4u) << arm.motion;
@@ -2293,4 +2302,82 @@ TEST(StepTurnStep, PastTheLiveEndTheBucketArgumentIsTheTableAngleAtTheBackBucket
   EXPECT_NE(req.U(0x20), static_cast<uint32_t>(pes::movestep::AngleBucket(host.buckets, 170.0f, 10, false)));
   EXPECT_EQ(req.U(pes::moveword::kPrevBucket), 9u);
   EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kStepLoop));
+}
+
+// FUN_141eb3320(P+0x4d0): each turn handler's reorient window needs the yaw adjuster NOT busy (its state word != 2): 0x1406c180f
+// (RUN_TURN_RUN), 0x1406c3... (RUN_TURN_STEP), 0x1406c8... (STEP_TURN_RUN), 0x1406c8fe5 (STEP_TURN_STEP). The port held the read idle.
+// Each test is the premise of the handler's window test with the adjuster busy: no reorientation is written.
+TEST(RunTurnRun, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 80.0f);
+  req.SetF(pes::moveword::kTurnedRow, 70.0f);
+  host.record = TurnRecordWithFrames();
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 1;
+  host.facingAdjusterBusy = true;
+  RunTurnRun(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 0u);
+}
+
+TEST(RunTurnStep, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  host.record = TurnRecordWithOffset();
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 45;
+  host.facingAdjusterBusy = true;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetF(pes::moveword::kHeading, 150.0f);
+  req.SetF(pes::moveword::kFacing, 20.0f);
+  req.SetF(0x17, 10.0f);
+  req.SetU(0x20, 3);
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kReorientFlag) & 0xffu, 0u);
+}
+
+TEST(StepTurnRun, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithFrames();
+  host.currentClipFrames = 2;
+  host.facingAdjusterBusy = true;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurnedRow, 10.0f);
+  req.SetF(pes::moveword::kRowAngle, 10.0f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  host.displacement[0] = 3.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 4.0f;
+  StepTurnRun(host, req, SyntheticTurn());
+  EXPECT_FALSE(req.Flag(pes::moveword::kReorientFlag));
+}
+
+TEST(StepTurnStep, TheReorientWindowStaysShutWhileTheFacingAdjusterIsBusy) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 45;
+  host.facingAdjusterBusy = true;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 100.0f);
+  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(0x17, 0.0f);
+  req.SetU(0x20, 0u);
+  req.SetU(pes::moveword::kMoveBucket, 2);
+  StepTurnStep(host, req, SyntheticTurn());
+  EXPECT_FALSE(req.Flag(pes::moveword::kReorientFlag));
 }

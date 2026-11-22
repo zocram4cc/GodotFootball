@@ -6,6 +6,61 @@
 #include <initializer_list>
 
 namespace pes {
+
+// Every row names the PES action GF's body runs and the PES site that writes that id (FUN_1406EEBB0 callers, the survey of its 125 direct call sites,
+// docs/ports/pes-port-TrapAdmit2.md section 4; the names are the image's table at 0x1434A5470). An id with no constant call site is entered by
+// the pending-command commit (FUN_1406EEA90 at 0x1406EEB78, edx = the command's action byte cmd[1]); its row is the command GF's body runs.
+uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier) {
+  switch (function) {
+    case e_FunctionType_Movement:
+      return kAnimeActionMove;  // 2: written at 0x14079E688 (the trap end handler), 0x1407976AA and every tick that hands the body back
+    case e_FunctionType_BallControl:
+      // 4: written at 0x1407A3934 (FUN_1407A38E0, the action's start). A man who is not the carrier is turned into MOVE by the switch's own
+      // 4/5 arm (0x1406EEBC5: anime +8 against FUN_140A627E0, the carrier), CONFIRMED by the decompile.
+      return carrier ? kAnimeActionDribble : kAnimeActionMove;
+    case e_FunctionType_Trap:
+      return kAnimeActionTrap;  // 7: written at 0x1407B0D57 (FUN_1407B0C33) and 0x1407B35E6 (FUN_1407B35DA)
+    case e_FunctionType_ShortPass:
+      return kAnimeActionShortPass;  // 9: written at 0x1407822CB (FUN_140781FC0, a pass tick)
+    case e_FunctionType_LongPass:
+    case e_FunctionType_HighPass:
+      return kAnimeActionLongPass;  // 8: no constant site, the command commit; the name is the table's
+    case e_FunctionType_Header:
+    case e_FunctionType_Shot:
+      // 0xA: no constant site, the command commit. INF for the header: PES's table has no header action, so a header is a kick action.
+      return kAnimeActionShoot;
+    case e_FunctionType_Sliding:
+      return kAnimeActionSliding;  // 0xB: no constant site, the command commit
+    case e_FunctionType_Trip:
+    case e_FunctionType_Interfere:
+      return kAnimeActionTackle;  // 0xD: no constant site, the command commit. INF: which GF function PES's tackle command is
+    case e_FunctionType_Catch:
+      return kAnimeActionKeeperCatch;  // 0x38: the table's name; no constant site
+    case e_FunctionType_Deflect:
+      return kAnimeActionKeeperDeflect;  // 0x3A: the table's name; no constant site
+    case e_FunctionType_Special:
+      if (specialVar1 == static_cast<int>(PesClipFamily::kDodge)) return kAnimeActionDodge;  // 0x15: no constant site, the command commit
+      if (specialVar1 == static_cast<int>(PesClipFamily::kTackle)) return kAnimeActionTackle;
+      if (IsPesLocomotionFamily(specialVar1)) return kAnimeActionMove;
+      if (IsPesTrapFamily(specialVar1)) return kAnimeActionTrap;
+      if (IsPesDribbleFamily(specialVar1)) return kAnimeActionDribble;
+      return kAnimeActionNothing;  // GF's own celebrations, cards and feints: no PES action
+    case e_FunctionType_None:
+      break;
+  }
+  return kAnimeActionNothing;
+}
+
+// FUN_1406EEBB0's id stores (decompile tail; asm: the same-action arm compares the sub at 0x1406EED32 and stores 0x1406EED36 / 0x1406EED43 / 0x1406EED54,
+// the action-change arm compares at 0x1406EED5C and stores 0x1406EED75 / 0x1406EED82 / 0x1406EED88, then 0x1406EED8F): the previous pair
+// takes the current pair whenever the action or the sub id changes, and a keep sub (0x5E) becomes the action itself on an action change.
+ActionIds ActionIdsAfterSwitch(const ActionIds& now, uint8_t request, uint8_t sub) {
+  if (request == now.action) {
+    if (sub == kActionSubKeep || sub == now.sub) return now;  // 0x1406EED96: nothing is stored
+    return {now.action, sub, now.action, now.sub};
+  }
+  return {request, sub == kActionSubKeep ? request : sub, now.action, now.sub};
+}
 namespace {
 
 // A rip-relative instruction the constant is read through: its bytes at `va` must start with `opcode`, the disp32 sits
@@ -161,7 +216,8 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   p[kPByte2458Offset] = static_cast<uint8_t>(f.slot);  // FUN_1406EB670's store 0x1406EB6C1
   std::memcpy(p + kPInterfaceVtable0Offset, &c.interfaceVtable[0], sizeof(uint64_t));
   std::memcpy(p + kPInterfaceVtable1Offset, &c.interfaceVtable[1], sizeof(uint64_t));
-  if (!f.trapActive) {  // else the tick owns these (PesActorFacts::trapActive)
+  const bool pesOwned = f.trapActive || f.dribbleActive;
+  if (!pesOwned) {  // else the tick owns these (PesActorFacts::trapActive)
     p[kPPhaseOffset] = f.phase;
     p[kPByteAC8Offset] = f.action;  // FUN_1406EEBB0's stores: current id and sub, then the previous pair
     p[kPByteAC9Offset] = f.sub;
@@ -173,7 +229,7 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   StoreF32(p, kPWord277COffset, f.word277C);
   StoreF32(p, kPWord277COffset + 4, f.word2780);
   RebuildMotionTable(p, f);
-  if (!f.trapActive) p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
+  if (!pesOwned) p[kPByteB08Offset] = LocomotionClass(c, f, p);  // FUN_1406D8BF0 (after the position it measures)
   const uint64_t slotPtr = PesWorld::SlotVa(f.slot) + kSlotPPtrTargetOffset;  // FUN_140925470: slot record + 0x15C0
   std::memcpy(p + kPSlotPtrOffset, &slotPtr, sizeof slotPtr);
   StoreF32(p, kPF3B18Offset, f.heightCm / c.heightDivisor);  // FUN_1406EB210 (0x1406EB23E)
@@ -217,8 +273,17 @@ void ConstructActorP(PesWorld& world, int slot, const PesActorConstants& c) {
   for (std::size_t k = 0; k < kMemberUnitRunCount; ++k) StoreF32(m, kMemberUnitRunOffset + 4 * k, 1.0f);
   StoreF32(m, kMemberScaleOffset, 1.0f);
   StoreU32(m, kMemberPairOffset, kMemberPairInit);
+  StoreU64(p, kPMaPtrOffset, PesWorld::MaVa(slot / kSlotsPerSide));
+  StoreU64(p, kPEventStorePtrOffset, PesWorld::EventsVa());
   for (const std::size_t at : kPTailNoneOffsets) StoreU32(p, at, 0xFFFFFFFFu);
   for (const std::size_t at : kPTailOneOffsets) StoreF32(p, at, 1.0f);
+  // The series SetMotion's vectors (pestrapworld.hpp kSeriesReserve): empty, with room and data.
+  const uint64_t seriesData = world.HeapAlloc(kSeriesReserve * kSeriesEntryBytes, sizeof(uint64_t));
+  const uint64_t floatData = world.HeapAlloc(kSeriesReserve * sizeof(float), sizeof(uint64_t));
+  StoreU32(p, kPSeriesCapacityOffset, kSeriesReserve);
+  std::memcpy(p + kPSeriesDataOffset, &seriesData, sizeof seriesData);
+  StoreU32(p, kPSeriesFloatCapacityOffset, kSeriesReserve);
+  std::memcpy(p + kPSeriesFloatDataOffset, &floatData, sizeof floatData);
   ConstructActionTable(world, slot);
 }
 
@@ -234,6 +299,20 @@ bool IsMemberStateCell(std::size_t pOffset) {
   for (std::size_t k = 0; k < kMemberUnitTableCount; ++k)
     if (in(kMemberUnitTableOffset + k * kMemberUnitTableStride + kMemberUnitTableCellOffset, 4)) return true;
   return false;
+}
+
+void AdvanceActorTickCounters(uint8_t* p) {
+  const auto saturatingIncrement = [p](std::size_t at) {
+    if (p[at] != 0xFF) ++p[at];  // 0x1406F67C4..: movzx eax, byte; cmp al, 0xFF; jnc skip; inc al; mov byte, al
+  };
+  for (std::size_t k = 0; k < kPTickCounterCount; ++k) saturatingIncrement(kPTickCounterFirstOffset + k);
+  saturatingIncrement(kPTickCounter281AOffset);
+  const uint16_t cooldown = static_cast<uint16_t>(p[kPCooldown2824Offset] | (p[kPCooldown2824Offset + 1] << 8));
+  if (cooldown != 0) {  // 0x1406F6849: movzx eax, word; test ax, ax; jz skip; dec ax; mov word, ax
+    const uint16_t next = static_cast<uint16_t>(cooldown - 1);
+    p[kPCooldown2824Offset] = static_cast<uint8_t>(next & 0xFF);
+    p[kPCooldown2824Offset + 1] = static_cast<uint8_t>(next >> 8);
+  }
 }
 
 void StartTrapAction(PesWorld& world, int slot) {

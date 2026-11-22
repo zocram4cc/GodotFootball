@@ -65,6 +65,20 @@ int Match::PesSlotOf(const Player* player) {
   return static_cast<int>(key.team) * pes::kSlotsPerSide + static_cast<int>(key.slot);
 }
 
+bool Match::PesOwnsDribble(Player& player) {
+  if (!PesLoop()) return false;
+  const int slot = PesSlotOf(&player);
+  if (PesWorldOf().P(slot)[pes::kPByteAC8Offset] != pes::kAnimeActionDribble) pesDribbleSwitched[slot] = false;
+  if (!pesDribbleSwitched[slot]) return false;
+  // PES's Dribble action plays its own clips (the tick's SetMotion issues), so a body on any other clip has been taken from it: a trip or
+  // tackle interrupt (the contact system), a ball action. PES would switch such a man to the action that owns the new clip (Fall, Tackle,
+  // Kick...); GF derives that action from the clip (WritePesTrapActors), so the man leaves PES's dribble when his body leaves its clips.
+  const Anim* clip = player.GetCurrentAnim();
+  const int family = clip && clip->anim ? std::atoi(clip->anim->GetVariable("specialvar1").c_str()) : 0;
+  if (!pes::IsPesDribbleFamily(family)) pesDribbleSwitched[slot] = false;
+  return pesDribbleSwitched[slot];
+}
+
 namespace {
 // The engine world's heap (a zero-filled arena): the ResManager's archives and graph, and one control graph per slot. Sized from a run of
 // the body load and 22 constructions (tests/pes_anime_engine_test.cpp prints the live bytes) with room for the frame's scratch.

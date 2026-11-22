@@ -33,6 +33,7 @@ struct Oracle {
   std::string row;  // corpus.jsonl's one reference row
   std::map<std::string, uint64_t> regs;
   std::vector<std::vector<std::string>> manifest;
+  uint64_t ctxVa = 0;  // the capture's ctx when the call's registers do not name it (a passget tick: *(pc + 0x38)); 0 = derived
 };
 
 inline std::vector<uint8_t> Slurp(const std::string& path) {
