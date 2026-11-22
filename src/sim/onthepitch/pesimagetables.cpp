@@ -58,6 +58,7 @@ std::optional<PesImageTables> LoadPesImageTables(const PeImage& exe, std::string
       !Read(exe, kFrameCellsVa, kFrameCellsBytes, &tables, error) ||
       !Read(exe, kBpVtablesVa, kBpVtablesBytes, &tables, error) ||
       !Read(exe, kPInterfaceVtableVa, kPInterfaceVtableBytes, &tables, error) ||
+      !Read(exe, kEmptyStringVa, 1, &tables, error) ||
       !EventNoneRecord(exe, &tables, error))
     return std::nullopt;
   uint8_t source[sizeof(float)];

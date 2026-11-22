@@ -46,6 +46,9 @@ inline constexpr uint64_t kPInterfaceVtableBytes = 0x90;
 inline constexpr uint64_t kTierTableVa = 0x142645A40;
 inline constexpr uint64_t kTierRows = 0x22;
 inline constexpr uint64_t kTierRowBytes = 0x20;
+// The NUL 0x1403B8170 reads when its literal fallback is taken (a `cmove` between this literal and a caller's pointer, so the
+// translator reads it live; ro_tables.json). One byte, read from the install with the others (a runtime binding, not a baked value).
+inline constexpr uint64_t kEmptyStringVa = 0x142583E32;
 // The event store's none record: the global every failed event query returns (`LEA RAX,[0x1436F3A40]` 0x140A3E97C in 0x140A3E940;
 // the same address in 0x140A3E5D0's tail and 0x140A3E190's out-of-range arm), 0x320 bytes (`IMUL RAX,RAX,0x320` 0x140A3E971, the
 // slot stride). It lies in .data's zero-initialised tail (past the exe's raw bytes), so the install holds no bytes for it: PES
