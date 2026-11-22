@@ -711,11 +711,10 @@ protected:
   // The routing table and constants PES's event store (the world window's E, pesevents.hpp) is written with.
   pes::EventRingTable pesEventRings{};
   pes::EventConstants pesEventConstants{};
-  // Touches queued for the next event stage: PES's action kind, and the frame of the touch.
+  // Touches queued for the next event stage: PES's action kind. The event stage stamps each with its own frame.
   struct PendingPesTouch {
     Player* player = nullptr;
     uint32_t actionKind = 0;
-    int frame = 0;
   };
   std::vector<PendingPesTouch> pesPendingTouches;
   Player* pesKickTarget = nullptr;  // the ball record's +0x27E4 (SetPesKickTarget)
