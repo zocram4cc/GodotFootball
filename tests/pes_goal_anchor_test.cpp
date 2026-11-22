@@ -400,9 +400,12 @@ pes::GoalAnchorFacts KindTwoFacts(const Case& c, std::array<float, 3> pos, uint3
   return f;
 }
 
-// RED (CutsceneAnchor 1, not disabled): the else arm 0x140471A80 -> 0x1404B6BD0 -> 0x14047AB20 -> 0x1404511E0 -> 0x140451C10 -> 0x141B55730
-// makes a virtual call on an object whose vtable is not mapped; GF aborts with PES_DISPATCH_UNTRANSLATED. The writer's zone decision
-// already runs in PlaceGoal. Stays red until that object is modelled.
+// RED. The else arm 0x140471A80 -> 0x1404B6BD0 runs to completion (no abort). T (A0+0x30) is written by 0x14047AB20 from a
+// 12-byte source vector that 0x1404B6BD0 fills from 0x140476010's result (its x, y, z: 0x140476010 reads the cut node through
+// [[G+0x2C0]+0x20] and 0x141E5D4C0). Probe (write-watch on PesMem::wr, return sites resolved with addr2line, ASLR off): the
+// three writes of each call give T = (-41.5502167, 0, 35.56), PES's T = (-41.6211472, 0, 35.56). T.y and T.z match; T.x differs.
+// The gap is in 0x140476010's x: GF's -41.5502167 is none of the four node fields it reads (live node +0x40 -37.90, +0x44 -57.58, +0x64 0, +0x80 57.58).
+// Next: trace 0x140476010's float path (cmp_ss / f64 conversions at its xmm0-xmm5) against PES's values.
 TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   std::string why;
   const auto exe = OpenExe(&why);
