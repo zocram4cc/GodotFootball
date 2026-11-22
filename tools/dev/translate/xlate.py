@@ -412,6 +412,10 @@ def image_origins(em, breg, ia, seen=None):
             regs = [ops[0]] + (ops[1:2] if m == "ADD" else [])
         elif m == "MOV":
             regs = ops[1:2]
+        elif m.startswith("CMOV") and len(ops) == 2:
+            # A conditional move keeps the destination's old value or takes the source: both are origins (the loop base of
+            # 0x1406B9B20 is `cmove r11, rax` between two image tables).
+            regs = ops[0:2]
         elif m == "LEA" and len(ops) == 2 and "[" in ops[1]:
             mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
             regs = [r for r in (mp["base"], mp["index"]) if r] if mp else []
