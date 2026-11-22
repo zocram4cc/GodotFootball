@@ -2389,6 +2389,9 @@ def stub_lines(do):
         return ["s.set_x_f32(0, pes_model_%s(s.x_f32(0)));" % do[:-5]]
     if do == "atan2f_xmm0":
         return ["s.set_x_f32(0, pes_model_atan2f(s.x_f32(0), s.x_f32(1)));"]
+    if do == "release_ok":
+        # heap-boundary: the pool's region release answers 0 (rax); the callers branch on it (stubs.json, run.py mirror).
+        return ["s.gpr[0] = 0ULL;"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":
