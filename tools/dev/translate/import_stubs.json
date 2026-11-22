@@ -275,6 +275,17 @@
         "kernel32!InitializeCriticalSectionAndSpinCount(rcx = LPCRITICAL_SECTION, edx = spin count): the Win64 section's fields, single thread (LockCount -1, the rest 0, SpinCount = edx), returns TRUE. Reached by PES's file-stream lock init 0x1403FF3E0 through IAT slot 0x14252F440 (CONFIRMED: `call [0x14252F440]` in the decompile of 0x1403FF3E0). The code_hex: mov [rcx],0; mov dword [rcx+8],-1; mov dword [rcx+0xC],0; mov [rcx+0x10],0; mov [rcx+0x18],0; mov edx,edx; mov [rcx+0x20],rdx; mov eax,1; ret.",
         "Hand-encoded; the bytes match the Presentation branch's model (commit 317585ac, origin/Presentation), taken here for this path only. Contract test: test_cs_init_model.py."
       ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "SetEvent",
+      "do": "return",
+      "value": 1,
+      "code_hex": "b801000000c3",
+      "why": [
+        "BOOL SetEvent(hEvent): TRUE on success. PES's file-handle state machine 0x1414A9680 calls it at the end of its completion path (IAT slot 0x14252F6E8, no arguments set up by the caller: the handle register is not meaningful there). Model: mov eax, 1; ret; nothing else changes. A GF replay runs no producer thread, so no waiter is woken and nothing is signalled.",
+        "Taken from origin/AnimeLayer's model (SetEvent return 1). Contract test: test_setevent_model.py. Translator mirror: do = return, value 1."
+      ]
     }
   ]
 }
