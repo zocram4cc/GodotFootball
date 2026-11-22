@@ -1301286,6 +1301286,31 @@
    "vtables": [],
    "walked": true
   },
+  "141E6C280": {
+   "boundary": null,
+   "callees": {
+    "141E823E0": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_141e6c280",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "demonode"
+   ],
+   "scope": "in",
+   "size": 214,
+   "source": "pdata",
+   "subsystem": "demonode",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "141E73720": {
    "boundary": null,
    "callees": {
@@ -1590560,6 +1590585,12 @@
     "members": 11,
     "roots": [
      "0x141E5C8F0"
+    ]
+   },
+   "demonode": {
+    "members": 2,
+    "roots": [
+     "0x141E6C280"
     ]
    }
   },

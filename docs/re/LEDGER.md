@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP c226f3f1d3e6013b -->
+<!-- LEDGER-STAMP 75aecbb27eac1860 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (no flags: reads docs, src and every results set; `--funclist` replaces the bridge's function list), `hand.json`, `offpath_allow.json`, `history.csv` (one row per regeneration that changes the counts)).
@@ -13,7 +13,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 | status | in scope | out of scope | all |
 |---|---|---|---|
-| total | 25865 | 18633 | 44498 |
+| total | 25866 | 18633 | 44499 |
 | ported | 405 | 0 | 405 |
 | diffed | 3767 | 0 | 3767 |
 | translated | 1834 | 0 | 1834 |
@@ -21,26 +21,26 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 | decoded | 1482 | 0 | 1482 |
 | leaf accessor | 1060 | 0 | 1060 |
 | engine | 1631 | 0 | 1631 |
-| undecoded | 15626 | 0 | 15626 |
+| undecoded | 15627 | 0 | 15627 |
 | inert | 1 | 0 | 1 |
 | out of scope | 0 | 18633 | 18633 |
 
-In scope with a verdict (CONFIRMED/OBS/DOC/INF): 3424 of 25865 (13.2%). Implemented (ported, diffed or translated): 6006 of 25865 (23.2%).
+In scope with a verdict (CONFIRMED/OBS/DOC/INF): 3424 of 25866 (13.2%). Implemented (ported, diffed or translated): 6006 of 25866 (23.2%).
 
 Proof behind the in-scope rows: diffed real 3744, diffed synthetic 23; translated record 0, translated closure 1834.
 
 Change since the previous regeneration (in scope, one line per status):
 
-- in_total: 25861 -> 25865 (+4) since 6485cd82b2 (2026-11-22)
-- ported: 405 -> 405 (+0) since 6485cd82b2 (2026-11-22)
-- diffed: 3767 -> 3767 (+0) since 6485cd82b2 (2026-11-22)
-- translated: 1834 -> 1834 (+0) since 6485cd82b2 (2026-11-22)
-- stand-in: 59 -> 59 (+0) since 6485cd82b2 (2026-11-22)
-- decoded: 1482 -> 1482 (+0) since 6485cd82b2 (2026-11-22)
-- leaf accessor: 1059 -> 1060 (+1) since 6485cd82b2 (2026-11-22)
-- engine: 1631 -> 1631 (+0) since 6485cd82b2 (2026-11-22)
-- undecoded: 15623 -> 15626 (+3) since 6485cd82b2 (2026-11-22)
-- inert: 1 -> 1 (+0) since 6485cd82b2 (2026-11-22)
+- in_total: 25865 -> 25866 (+1) since f6ffbad5be (2026-11-22)
+- ported: 405 -> 405 (+0) since f6ffbad5be (2026-11-22)
+- diffed: 3767 -> 3767 (+0) since f6ffbad5be (2026-11-22)
+- translated: 1834 -> 1834 (+0) since f6ffbad5be (2026-11-22)
+- stand-in: 59 -> 59 (+0) since f6ffbad5be (2026-11-22)
+- decoded: 1482 -> 1482 (+0) since f6ffbad5be (2026-11-22)
+- leaf accessor: 1060 -> 1060 (+0) since f6ffbad5be (2026-11-22)
+- engine: 1631 -> 1631 (+0) since f6ffbad5be (2026-11-22)
+- undecoded: 15626 -> 15627 (+1) since f6ffbad5be (2026-11-22)
+- inert: 1 -> 1 (+0) since f6ffbad5be (2026-11-22)
 
 ## Scope rules
 
@@ -175,7 +175,8 @@ Rows per subsystem and status:
 | in-match menu | 3783 | 10 | 30 | 38 | 3 | 30 | 379 | 83 | 3209 | 1 |
 | render | 297 | 0 | 0 | 7 | 0 | 0 | 0 | 290 | 0 | 0 |
 | cutlib | 4 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 3 | 0 |
-| total | 25865 | 405 | 3767 | 1834 | 59 | 1482 | 1060 | 1631 | 15626 | 1 |
+| demonode | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
+| total | 25866 | 405 | 3767 | 1834 | 59 | 1482 | 1060 | 1631 | 15627 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -197,7 +198,8 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | in-match menu | 3783 | 960 | 43 | 37 | 123 | 3660 | 0 |
 | render | 297 | 0 | 0 | 0 | 0 | 0 | 297 |
 | cutlib | 4 | 1 | 0 | 0 | 0 | 0 | 0 |
-| total | 25865 | 7821 | 4231 | 3736 | 17110 | 8419 | 297 |
+| demonode | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| total | 25866 | 7822 | 4231 | 3736 | 17110 | 8419 | 297 |
 
 ## Roots
 
@@ -14918,7 +14920,7 @@ Not found (owner's list):
 | 0x141E67B70 | FUN_141e67b70 | ported | - | - | - | src/sim/onthepitch/pestrapdata.hpp;src/sim/onthepitch/pestrapdata.cpp | 0 | 414 | y | doc | 141E67B70 |
 | 0x141E681C0 | FUN_141e681c0 | ported | - | OBS | pes-re-transitions.md | src/sim/onthepitch/pesreceive.cpp;src/sim/onthepitch/pesreceive.hpp | 0 | 1588 | y | doc | 141E681C0 |
 | 0x141E73720 | FUN_141e73720 | ported | - | OBS | pes-re-ball-constants.md | src/sim/onthepitch/pestrapdata.hpp;src/sim/onthepitch/pestrapdata.cpp | 0 | 460 | y | doc | 141E73720 |
-| 0x141E823E0 | FUN_141e823e0 | ported | - | OBS | pes-re-constant-team.md | src/sim/onthepitch/pestrapdata.cpp | 2 | 7 | y | doc | 141E823E0 |
+| 0x141E823E0 | FUN_141e823e0 | ported | - | OBS | pes-re-constant-team.md | src/sim/onthepitch/pestrapdata.cpp | 3 | 7 | y | doc | 141E823E0 |
 | 0x141EB26F0 | FUN_141eb26f0 | diffed | real | OBS | pes-re-gaps-anime.md | - | 4 | 15 | y | doc | 1407824A0>1406B8340>141EB26F0 |
 | 0x141EB27B0 | FUN_141eb27b0 | diffed | real | - | - | - | 1 | 109 | y | doc | 1406F19F0>1406FD740>141EB27B0 |
 | 0x141EB2950 | FUN_141eb2950 | undecoded | - | - | - | - | 1 | 404 | - | doc | 1406F19F0>1406FD740>141EB2950 |
@@ -26417,4 +26419,10 @@ Not found (owner's list):
 | 0x141E5C8F0 | FUN_141e5c8f0 | undecoded | - | - | - | - | 0 | 36 | - | closure |  |
 | 0x141E5D270 | FUN_141e5d270 | undecoded | - | - | - | - | 1 | 45 | - | closure |  |
 | 0x141E5D330 | FUN_141e5d330 | undecoded | - | - | - | - | 1 | 70 | - | closure |  |
+
+## demonode (1)
+
+| VA | name | status | proof | decode | cite | port | callers | size | pure | how | path |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0x141E6C280 | FUN_141e6c280 | undecoded | - | - | - | - | 0 | 214 | y | closure |  |
 

@@ -99410,5 +99410,45 @@
    "translated": true,
    "va": "0x141E5C8F0"
   }
+  ,
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_demonode.json",
+   "coverage": {
+    "0x141E6C280": {
+     "fraction": 0.9231,
+     "reached": 12,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the match-constant node parser 0x141E6C280 (the loader of a stadium demo area's constant node: for each of its self-relative offset words it resolves the sub-struct at rdx + [rdx] and copies its fields into the node at rcx). SYNTHETIC call over seq321's memory (synth.py, static 'as' spec, labelled): rcx = a zeroed 0x158-byte node, rdx = the 432-byte demoarea_st001.o of the install's constant_stadium.bin (the VFS winner, unwrapped from WESYS). 1 call, bit-exact, 0 mismatches, every written byte, own-block 12/13. NOT YET VALIDATED AGAINST THE LIVE NODE: the live cut-library entry 0x71 holds node fields 16.0 at +8 and -80.0 at +0xC, and no base in this object reproduces them (every 4-byte word tried as the base); the live object is not found in PES's memory by its prefix. Not wired into GF. Real calls: none in any capture.",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.9231,
+     "reached": 12,
+     "total": 13
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_demonode.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x141E6C280"
+  }
  ]
 }
