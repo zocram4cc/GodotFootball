@@ -21,7 +21,11 @@ class Conflict(Exception):
 
 def key_of(item):
     if isinstance(item, dict):
-        return ("va", item.get("va")) if "va" in item else None
+        if "va" in item:
+            return ("va", item["va"])
+        if "module" in item and "export" in item:      # import_stubs.json: one model per Windows export
+            return ("import", item["module"], item["export"])
+        return None
     return ("s", item) if isinstance(item, str) else None
 
 

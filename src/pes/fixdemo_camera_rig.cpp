@@ -52,27 +52,6 @@ constexpr uint64_t kUnnamedStaticVa = 0x143AC3DD0, kUnnamedStatic = 4;  // read 
 constexpr uint64_t kRngVa = 0x1436F36A8, kRngVtable = 0x1425DEF28, kRngWordsOff = 0x8, kRngFirstWord = 0x2F3D0;
 constexpr unsigned kRngWords = 4;
 
-constexpr size_t kReadChunk = 0x10000, kFileSector = 0x200;
-
-uint64_t ReadChunked(const PeImage& exe, uint64_t va, uint64_t n, std::vector<uint8_t>* out) {
-  // A section holds only its raw size in the file (the tail up to its virtual size is zero-filled by the loader): a chunk the
-  // image does not map whole is read sector by sector, and a sector it does not map stays zero.
-  out->assign(n, 0);
-  uint64_t mapped = 0;
-  for (uint64_t off = 0; off < n; off += kReadChunk) {
-    const uint64_t len = std::min<uint64_t>(kReadChunk, n - off);
-    if (exe.ReadVa(va + off, len, out->data() + off)) {
-      mapped += len;
-      continue;
-    }
-    for (uint64_t sub = 0; sub < len; sub += kFileSector) {
-      const uint64_t part = std::min<uint64_t>(kFileSector, len - sub);
-      if (exe.ReadVa(va + off + sub, part, out->data() + off + sub)) mapped += part;
-    }
-  }
-  return mapped;
-}
-
 [[noreturn]] void Die(const char* what, uint64_t v) {
   std::fprintf(stderr, "PES_CAMERA_RIG: %s %#llx\n", what, static_cast<unsigned long long>(v));
   std::abort();
@@ -115,7 +94,7 @@ std::unique_ptr<FixDemoCameraRig> FixDemoCameraRig::Create(const PeImage& exe, s
   PesState& s = impl->s;
   impl->heap->Attach(s);
   std::vector<uint8_t> rdata, data;
-  if (ReadChunked(exe, kRdataVa, kRdataBytes, &rdata) == 0 || ReadChunked(exe, kDataVa, kDataBytes, &data) == 0) {
+  if (exe.ReadSection(kRdataVa, kRdataBytes, &rdata) == 0 || exe.ReadSection(kDataVa, kDataBytes, &data) == 0) {
     if (error) *error = "the image does not map the data sections the FixDemo camera reads";
     return nullptr;
   }

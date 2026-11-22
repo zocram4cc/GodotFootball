@@ -99175,6 +99175,360 @@
    "synthetic_cases": 3,
    "translated": true,
    "va": "0x14211BF50"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_ctor.json",
+   "coverage": {
+    "0x14047DF00": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the DemoInfo sub-object's constructor 0x14047DF00 (writes the object X at its rcx, the vtable 0x14259C9E0 at X+0x40, the flag at X+0x48), replayed as a SYNTHETIC call on seq203's own memory (entry and rcx set; rcx = A0+0x118, the goal DemoInfo A0 of seq203; ret and stack unchanged): 1 call, bit-exact, every written byte. Real calls: none in any capture (the only direct caller is the world constructor 0x140441490 at 0x140442002, in the same image). The 0x141B55730 registry insert it reaches is run from the closure the replay entered (bounded).",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_ctor.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x14047DF00"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_factory.json",
+   "coverage": {
+    "0x140440FC0": {
+     "fraction": 0.6429,
+     "reached": 9,
+     "total": 14
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the registry's not-found factory 0x140440FC0 (no arguments; allocates a 0x20-byte object with vtable 0x14259C940 and a 0x174-byte block, initialised by 0x140441320), replayed as a SYNTHETIC call: the entry of the not-found path of 0x141B55730 (its callback 0x140421F40 runs first), over seq203's own memory and stack, the return address of the recorded call. 1 call, bit-exact, every written byte. Real calls: none recorded (PES had the DemoInfo names registered on seq203, so the factory was not run there).",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.6429,
+     "reached": 9,
+     "total": 14
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_factory.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x140440FC0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutanchor7.json",
+   "coverage": {
+    "0x141B6F220": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the registry's sub-map registration 0x141B6F220 (RegistryImpl+0x1d0: pushes the node (N2, copy callback, flag pointer) on the sub-map's list, the node from its free list or 0x1403FB410). Three SYNTHETIC calls over seq203's own memory and stack (labelled in their index.json): s5 and s6 (entry 0x141B6F220 and the thunk 0x141B6E9C0 with rcx = RegistryImpl) with the sub-map's free list non-empty as PES holds it, and freelist_empty (free list at +0x48 written 0, the allocation path). The flag pointer r9 is N1+0x18 (its value is not read by this function). Real calls: none recorded (PES registered this name on seq203 before the capture). 3 calls, bit-exact, every written byte, own-block 7/7.",
+   "proof": "snapdiff",
+   "requested": 3,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor7.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 3,
+   "translated": true,
+   "va": "0x141B6F220"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutanchor7.json",
+   "coverage": {
+    "0x141B6E9C0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the RegistryImpl's vslot +0x88 thunk 0x141B6E9C0 (add rcx,0x1d0; jmp 0x141B6F220), entered as the first-registration path of 0x140445750 calls it: a SYNTHETIC entry over seq203's memory with rcx = RegistryImpl (0xAB9F630, seq203's own), rdx/r8/r9 as 0x141B6F220's synthetic case. 1 call, bit-exact, own-block 1/1.",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor7.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x141B6E9C0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutanchor7.json",
+   "coverage": {
+    "0x140451010": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the sub-map's copy callback 0x140451010 (lea rdx,[rcx+0xbc]; add rcx,4; tail jump 0x140443240, the copy of N2's fields +0xBC.. to +4..). SYNTHETIC entry over seq203's memory with rcx = a block in the unused stack below rsp (rsp-0x3000, the synth_ctor rule). 1 call, bit-exact, every written byte, own-block 1/1. Real calls: none recorded.",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor7.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x140451010"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutlib.json",
+   "coverage": {
+    "0x141E5C8F0": {
+     "fraction": 0.9167,
+     "reached": 11,
+     "total": 12
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the cut library's builder 0x141E5C8F0 (the boot init step 0x140419D80 calls it once; it allocates the 0x18-byte library header at the global [0x1437F4808], zeroes it, constructs the sub-object at +0x18 with 0x14184D5C0, resizes the vector to the 234 cut names 0x141E5DE80 and stores the global; with the global set it returns 0). SYNTHETIC entries over seq321's memory (synth.py, static 'as' spec, labelled): the global 0 (1 call, returns 1) and a non-null global 55444544 (a synthetic value, not PES's own pointer; 1 call, returns 0, every byte unchanged). 2 calls, bit-exact, every written byte, own-block 11/12 (the allocation-failure arm is not reached: recorded, not gated). Real calls: none in any capture (the call runs at boot, before the captures).",
+   "proof": "snapdiff",
+   "requested": 2,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.9167,
+     "reached": 11,
+     "total": 12
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_snapdiff_cutlib.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 2,
+   "translated": true,
+   "va": "0x141E5C8F0"
+  }
+  ,
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_demonode.json",
+   "coverage": {
+    "0x141E6C280": {
+     "fraction": 0.9231,
+     "reached": 12,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the match-constant node parser 0x141E6C280 (the loader of a stadium demo area's constant node: for each of its self-relative offset words it resolves the sub-struct at rdx + [rdx] and copies its fields into the node at rcx). SYNTHETIC call over seq321's memory (synth.py, static 'as' spec, labelled): rcx = a zeroed 0x158-byte node, rdx = the 432-byte demoarea_st001.o of the install's constant_stadium.bin (the VFS winner, unwrapped from WESYS). 1 call, bit-exact, 0 mismatches, every written byte, own-block 12/13. VALIDATED AGAINST THE LIVE NODES (CutsceneAnchor11, read-only): PES's own parse of demoarea_st001.o equals live cut-library entry 0x71's node in every field the loader writes; the same holds for demoarea_st046.o and live entry 0x9E. The only differences are the constructor's vtable and flag at +0..+4 (not written by the parser) and heap bytes at +0xA9..+0xAB of the st046 node (never written by the parser). Not wired into GF.",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.9231,
+     "reached": 12,
+     "total": 13
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_demonode.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 1,
+   "translated": true,
+   "va": "0x141E6C280"
+  }
+  ,
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutname.json",
+   "coverage": {
+    "0x141E5CB40": {
+     "fraction": 0.9,
+     "reached": 90,
+     "total": 100
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the fill's name match 0x141E5CB40 (the loader of one match-constant item: strips the directory and extension of the item's name, matches the basename with the 234 names of the library table [0x1437F4808] (case-folded), and on a null slot creates the entry through 0x141E5E0A0 (the entry's factory 0x141E6C240 and constructor 0x141E6C100, then the node loader 0x141E6C280 with the item's object); on a found index it stores the index in the caller's list). SYNTHETIC states over seq321's memory (synth.py, static 'as' spec, labelled, values chosen by the case): create (slot 113 = demoarea_st001 cleared; the name 'demoarea_st001.o'; the object of the install's constant_stadium.bin), exists (the same name, the slot as PES filled it), nomatch (the name 'nomatch.o'). 3 calls, bit-exact, 0 mismatches, every written byte, own-block 90/100. The heap services 0x1403FBC10, 0x1403FBCB0 and 0x141B34CB0 are native in production and excluded from the closure. Real calls: none in any capture.",
+   "proof": "snapdiff",
+   "requested": 3,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.9,
+     "reached": 90,
+     "total": 100
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_snapdiff_cutname.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 3,
+   "translated": true,
+   "va": "0x141E5CB40"
+  }
+  ,
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutfill.json",
+   "coverage": {
+    "0x141E5D560": {
+     "fraction": 1.0,
+     "reached": 27,
+     "total": 27
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: the constant bin's fill 0x141E5D560 (the method of the group loader object, vtable 0x142B48C80 slot +8; for each item of the list (count, records offset, records of (argOff, flag, nameOff)) it runs the name match 0x141E5CB40 with the item's object, flag and name; a failed item stops the fill and frees the list; the group's kind is notified through 0x141E5BA70 with the list). SYNTHETIC states over seq321's memory (synth.py, static 'as' spec, labelled): two items where the first is created (slot 113 cleared; demoarea_st001) and the second exists (demoarea_st046); two items where both exist; and a no-match second item (failure). 3 calls, bit-exact, 0 mismatches, every written byte, own-block 27/27. The eight heap services of stubs.json native_services are native in production and excluded. Real calls: none in any capture (the fill runs at boot, before the captures).",
+   "proof": "snapdiff",
+   "requested": 3,
+   "snapdiff": {
+    "calls": 3,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 1.0,
+     "reached": 27,
+     "total": 27
+    },
+    "replayed": 3,
+    "source": "tools/dev/translate/results_snapdiff_cutfill.json"
+   },
+   "stubs": [],
+   "synthetic": true,
+   "synthetic_cases": 3,
+   "translated": true,
+   "va": "0x141E5D560"
   }
  ]
 }
