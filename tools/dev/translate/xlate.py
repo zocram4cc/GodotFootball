@@ -390,9 +390,15 @@ def image_pointer(em, breg, ia):
     return vals.pop() if len(vals) == 1 and None not in vals else None
 
 
+# The origin set's poison element: a conditional move chooses between an image table and a value no image holds (a caller's pointer).
+# Such a base is an ordinary memory read: the window and the bake apply only when every candidate is an image table.
+MIXED = "mixed"
+
+
 def image_origins(em, breg, ia, seen=None):
     """The image VAs register parent breg before instruction ia may be derived from: image_value defs, followed through
-    pointer arithmetic, register copies and LEAs (a loop-walked pointer keeps its origin)."""
+    pointer arithmetic, register copies and LEAs (a loop-walked pointer keeps its origin). MIXED is added when a conditional
+    move's candidates are image-derived and runtime-derived alike (the caller must not window or bake that base)."""
     seen = set() if seen is None else seen
     out = set()
     for d in reg_defs(em, breg, ia):
@@ -408,14 +414,22 @@ def image_origins(em, breg, ia, seen=None):
         _, m, ops = em.lines[d]
         if not ops or ops[0].strip().lower() not in GPR:
             continue
+        if m.startswith("CMOV") and len(ops) == 2:
+            # A conditional move keeps the destination's old value or takes the source (the loop base of 0x1406B9B20 is
+            # `cmove r11, rax` between two image tables). Each candidate is followed on its own, with its own copy of seen.
+            cands = []
+            for r in ops[0:2]:
+                p = PARENT.get(r.strip().lower())
+                cands.append(image_origins(em, p, d, set(seen)) if p in GPR else set())
+            if any(cands) and not all(cands):
+                out.add(MIXED)
+            for c in cands:
+                out |= c
+            continue
         if m in ("ADD", "SUB", "INC", "DEC", "AND"):
             regs = [ops[0]] + (ops[1:2] if m == "ADD" else [])
         elif m == "MOV":
             regs = ops[1:2]
-        elif m.startswith("CMOV") and len(ops) == 2:
-            # A conditional move keeps the destination's old value or takes the source: both are origins (the loop base of
-            # 0x1406B9B20 is `cmove r11, rax` between two image tables).
-            regs = ops[0:2]
         elif m == "LEA" and len(ops) == 2 and "[" in ops[1]:
             mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
             regs = [r for r in (mp["base"], mp["index"]) if r] if mp else []
@@ -843,7 +857,7 @@ class Emitter:
         if self.cur is None or mp.get("seg"):
             return
         for reg in (mp["base"], mp["index"]):
-            for o in image_origins(self, PARENT.get(reg, reg), self.cur) if reg else ():
+            for o in (x for x in image_origins(self, PARENT.get(reg, reg), self.cur) if x != MIXED) if reg else ():
                 v = o + mp["disp"]
                 if not self.img.writable(v) and not any(lo <= v < hi and bound for lo, hi, bound in ro_windows()):
                     self.live_ro.add((self.lines[self.cur][0], v))
@@ -875,8 +889,10 @@ class Emitter:
         128-bit read."""
         if self.cur is None or width == 128 or mp.get("seg"):
             return None
-        starts = {o + mp["disp"] for reg in (mp["base"], mp["index"]) if reg
-                  for o in image_origins(self, PARENT.get(reg, reg), self.cur)}
+        origins = [o for reg in (mp["base"], mp["index"]) if reg for o in image_origins(self, PARENT.get(reg, reg), self.cur)]
+        if MIXED in origins:  # a candidate that no image holds: an ordinary memory read
+            return None
+        starts = {o + mp["disp"] for o in origins}
         if not starts or any(self.img.writable(v) for v in starts):
             return None
         held = [(lo, hi, bound) for lo, hi, bound in ro_windows() if all(lo <= v < hi for v in starts)]
