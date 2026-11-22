@@ -11,9 +11,6 @@
 // image constant @ 0x14252F400 (8 bytes)
 static constexpr uint64_t k_c14252F400_q = 0x00006FFFFF9D0484ULL;
 static constexpr double k_c14252F400_d = 6.0841860113598e-310; // 6.0841860113598e-310
-// image constant @ 0x14252F408 (8 bytes)
-static constexpr uint64_t k_c14252F408_q = 0x00006FFFFF9D0904ULL;
-static constexpr double k_c14252F408_d = 6.0841860114167e-310; // 6.0841860114167e-310
 
 void pes_fn_14159F918(PesState& s);
 
@@ -63,10 +60,7 @@ void pes_fn_14159F918(PesState& s) {
     s.gpr[3] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
     __builtin_trap(); /* UNRESOLVED JMP rax */
   }
-  { uint64_t _t = (uint64_t)(k_c14252F408_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 1ULL; s.gpr[4] += 8; }
   s.gpr[1] = (uint64_t)(s.rd(0x143706788ULL, 8));
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
