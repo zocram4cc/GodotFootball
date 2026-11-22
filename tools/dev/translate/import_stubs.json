@@ -253,6 +253,18 @@
         "int _finite(double x): rax = 1 for a finite x, else 0. The DLL's own code, all 0x2A bytes of the export (ucrtbase 0x6FFFFEC86E30 in live2/pid3234533/seq6220, read by SnapMem.read; the slot 0x1425301D0 holds it there). 0x14088C010 calls it through the slot beside _isnan.",
         "Effects the translator's mirror (xlate.import_model_lines, do = finite) reproduces: the home slot [rsp+8] = bits of x, rcx = 0x7FF0000000000000, rax = (|bits| - rcx) >> 63."
       ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "CreateSemaphoreW",
+      "do": "return",
+      "value": "0x4",
+      "code_hex": "48b80400000000000000c3",
+      "why": [
+        "HANDLE CreateSemaphoreW(lpAttributes, lInitialCount, lMaximumCount, lpName): PES's file-stream constructor 0x141B38980 calls it through IAT slot 0x14252F1B8 with (0, count, max, 0) and stores the handle only when it is non-zero. Model: mov rax, 4; ret (a fixed small handle, as Wine's handle numbers are multiples of 4). The DLL's code is not read; the model is a stand-in for the handle's identity only.",
+        "ponytail: the handle is never waited on or released by GF's code: PES's file completion (WaitForSingleObject / ReleaseSemaphore) is replaced by PesVfs reads. A wait on this handle is not modelled, so it stops the run loudly (int3) instead of answering.",
+        "Effects the translator's mirror (xlate.import_model_lines, do = return, value 0x4) reproduces: rax = 4, nothing else."
+      ]
     }
   ]
 }
