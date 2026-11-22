@@ -21,6 +21,9 @@ class PeImage {
   std::optional<uint64_t> ReadU64(uint64_t va) const;
   std::string ReadCString(uint64_t va) const;  // empty when unmapped
   bool ReadVa(uint64_t va, size_t n, uint8_t* out) const;
+  // Reads n bytes at va into out (resized to n) for a data section: a section holds only its raw size in the file, and the tail up
+  // to its virtual size is zero (the loader's). Returns the bytes the image maps; unmapped bytes stay zero.
+  size_t ReadSection(uint64_t va, size_t n, std::vector<uint8_t>* out) const;
 
  private:
   struct Section { uint64_t va, size, raw; };

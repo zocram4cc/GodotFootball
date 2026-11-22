@@ -46,6 +46,12 @@ class JsonUnionMerge(unittest.TestCase):
         out = merge([dup, dup], [dup, dup, {"va": "0x2"}], [dup, dup, {"va": "0x3"}])
         self.assertEqual(out, [dup, dup, {"va": "0x2"}, {"va": "0x3"}])
 
+    def test_import_models_merge_by_module_and_export(self):
+        a = {"module": "ntdll.dll", "export": "RtlEnterCriticalSection", "value": 0}
+        b = {"module": "KERNEL32.dll", "export": "CreateSemaphoreW", "value": 4}
+        c = {"module": "KERNEL32.dll", "export": "SetEvent", "value": 1}
+        self.assertEqual(merge({"imports": [a]}, {"imports": [a, b]}, {"imports": [a, c]}), {"imports": [a, b, c]})
+
 
 if __name__ == "__main__":
     unittest.main()

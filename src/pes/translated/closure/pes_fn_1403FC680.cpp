@@ -10,7 +10,6 @@
 
 
 void pes_fn_1403FC680(PesState& s);
-void pes_fn_1403FC080(PesState& s);
 void pes_fn_1403FF410(PesState& s);
 
 void pes_fn_1403FC680(PesState& s) {
@@ -58,7 +57,7 @@ void pes_fn_1403FC680(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
   if (s.cond("nz")) goto L_1403FC6D3;
   s.gpr[2] = (uint64_t)(s.gpr[6]);
-  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403FC080(s); s.gpr[4] += 8; }
+  s.gpr[0] = 0ULL;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) & (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false; }

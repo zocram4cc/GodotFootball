@@ -87,6 +87,25 @@ bool PeImage::ReadVa(uint64_t va, size_t n, uint8_t* out) const {
   return false;
 }
 
+size_t PeImage::ReadSection(uint64_t va, size_t n, std::vector<uint8_t>* out) const {
+  // A chunk the image does not map whole is read sector by sector, and a sector it does not map stays zero.
+  constexpr size_t kReadChunk = 0x10000, kFileSector = 0x200;
+  out->assign(n, 0);
+  size_t mapped = 0;
+  for (size_t off = 0; off < n; off += kReadChunk) {
+    const size_t len = std::min(kReadChunk, n - off);
+    if (ReadVa(va + off, len, out->data() + off)) {
+      mapped += len;
+      continue;
+    }
+    for (size_t sub = 0; sub < len; sub += kFileSector) {
+      const size_t part = std::min(kFileSector, len - sub);
+      if (ReadVa(va + off + sub, part, out->data() + off + sub)) mapped += part;
+    }
+  }
+  return mapped;
+}
+
 std::optional<uint64_t> PeImage::ReadU64(uint64_t va) const {
   uint8_t b[8];
   if (!ReadVa(va, sizeof b, b)) return std::nullopt;
