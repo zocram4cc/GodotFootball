@@ -97972,6 +97972,24 @@
    "vtables": [],
    "walked": true
   },
+  "140266ED0": {
+   "boundary": null,
+   "callees": {
+    "140266CA0": "direct",
+    "14026A2B0": "direct",
+    "14028F250": "direct",
+    "1403CF770": "direct",
+    "1403D2E10": "direct",
+    "14159F6C0": "direct",
+    "14159F850": "direct",
+    "14159F8B0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 608,
+   "subsystem": "boot"
+  },
   "140267810": {
    "boundary": null,
    "callees": {
@@ -102859,6 +102877,19 @@
    "vtables": [],
    "walked": true
   },
+  "14029C3F0": {
+   "boundary": null,
+   "callees": {
+    "1403183D0": "direct",
+    "14035E150": "direct",
+    "1403CF7E0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 90,
+   "subsystem": "boot"
+  },
   "14029C450": {
    "boundary": null,
    "callees": {},
@@ -102884,6 +102915,22 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "14029C610": {
+   "boundary": null,
+   "callees": {
+    "1403183D0": "direct",
+    "14035E150": "direct",
+    "1403CF770": "direct",
+    "1403CF7E0": "direct",
+    "1403EAA50": "direct",
+    "1415A02B0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 149,
+   "subsystem": "boot"
   },
   "14029C800": {
    "boundary": null,
@@ -102915,6 +102962,42 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "14029C8B0": {
+   "boundary": null,
+   "callees": {
+    "14100D150": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 45,
+   "subsystem": "boot"
+  },
+  "14029C8E0": {
+   "boundary": null,
+   "callees": {
+    "1419E0900": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 45,
+   "subsystem": "boot"
+  },
+  "14029CA20": {
+   "boundary": null,
+   "callees": {
+    "14029DC60": "direct",
+    "14029DFB0": "direct",
+    "1403801D0": "direct",
+    "1403DB280": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 150,
+   "subsystem": "boot"
   },
   "14029CAE0": {
    "boundary": null,
@@ -156930,6 +157013,28 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "140401420": {
+   "boundary": null,
+   "callees": {
+    "1403FB5B0": "direct",
+    "1403FFCD0": "direct",
+    "140401630": "direct",
+    "140402370": "direct",
+    "14159F3E0": "direct",
+    "141B34850": "direct",
+    "141B348C0": "direct",
+    "141B3F680": "direct",
+    "141B49C80": "direct",
+    "141B50340": "direct",
+    "141B50400": "direct",
+    "141E9EEB0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 520,
+   "subsystem": "boot"
   },
   "140401EE0": {
    "boundary": null,
@@ -302221,6 +302326,30 @@
    "vtables": [],
    "walked": true
   },
+  "1406A9F20": {
+   "boundary": null,
+   "callees": {},
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 130,
+   "subsystem": "kick"
+  },
+  "1406AA590": {
+   "boundary": null,
+   "callees": {
+    "140227930": "direct",
+    "1403FB410": "direct",
+    "1403FB710": "direct",
+    "1403FB730": "direct",
+    "1415A1708": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 3287,
+   "subsystem": "kick"
+  },
   "1406ABB30": {
    "boundary": null,
    "callees": {},
@@ -417967,6 +418096,28 @@
    "vtables": [],
    "walked": true
   },
+  "140870E90": {
+   "boundary": null,
+   "callees": {
+    "1404335E0": "direct",
+    "140875550": "direct",
+    "140876200": "direct",
+    "140A57800": "direct",
+    "140A6CE90": "direct",
+    "140A6CEC0": "direct",
+    "140A6CF30": "direct",
+    "140A6CF70": "direct",
+    "14159F3E0": "direct",
+    "1415A1780": "direct",
+    "141B55830": "direct",
+    "141E532D0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 3256,
+   "subsystem": "teamai"
+  },
   "140871B50": {
    "boundary": null,
    "callees": {
@@ -437732,6 +437883,15 @@
    "vtables": [],
    "walked": true
   },
+  "1408C6560": {
+   "boundary": null,
+   "callees": {},
+   "how": "leaf",
+   "indirect": [],
+   "scope": "in",
+   "size": 51,
+   "subsystem": "world"
+  },
   "1408C6750": {
    "boundary": null,
    "callees": {},
@@ -437758,6 +437918,23 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "1408C6B80": {
+   "boundary": null,
+   "callees": {
+    "1408C6790": "direct",
+    "1408CA1F0": "direct",
+    "1408CA220": "direct",
+    "1408CA340": "direct",
+    "1408CB2A0": "direct",
+    "1414C4E60": "direct",
+    "14159EFF8": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 209,
+   "subsystem": "world"
   },
   "1408C6EB0": {
    "boundary": null,
@@ -541660,6 +541837,17 @@
    "vtables": [],
    "walked": true
   },
+  "140A3B3A0": {
+   "boundary": null,
+   "callees": {
+    "141084130": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 340,
+   "subsystem": "world"
+  },
   "140A3B500": {
    "boundary": null,
    "callees": {
@@ -556795,6 +556983,15 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "140A57990": {
+   "boundary": null,
+   "callees": {},
+   "how": "leaf",
+   "indirect": [],
+   "scope": "in",
+   "size": 7,
+   "subsystem": "world"
   },
   "140A579A0": {
    "boundary": null,
@@ -598656,6 +598853,28 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "140BEB330": {
+   "boundary": null,
+   "callees": {
+    "1403FB5B0": "direct",
+    "140402240": "direct",
+    "140402370": "direct",
+    "140CF3E20": "direct",
+    "140E3CF10": "direct",
+    "140E3DC90": "direct",
+    "140E4D1C0": "direct",
+    "140E5A790": "direct",
+    "140E7A680": "direct",
+    "140FF0A20": "direct",
+    "14103D820": "direct",
+    "14159F3E0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 409,
+   "subsystem": "teamai"
   },
   "140BEFF30": {
    "boundary": null,
@@ -977425,6 +977644,19 @@
    "vtables": [],
    "walked": true
   },
+  "14149A620": {
+   "boundary": null,
+   "callees": {
+    "1403FF3E0": "direct",
+    "14149AF60": "direct",
+    "14159EFF8": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 157,
+   "subsystem": "boot"
+  },
   "14149A760": {
    "boundary": null,
    "callees": {
@@ -977484,6 +977716,39 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "14149AB60": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "14149A620": "direct",
+    "14149ABE0": "direct",
+    "1414A3550": "direct",
+    "1414B08A0": "direct",
+    "1414B0E90": "direct",
+    "1414B11A0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 121,
+   "subsystem": "boot"
+  },
+  "14149ABE0": {
+   "boundary": null,
+   "callees": {
+    "14159F3E0": "direct",
+    "1415A1CC4": "direct",
+    "1415A1DA0": "direct",
+    "1415A64C0": "direct",
+    "1415A67AC": "direct",
+    "1415A67C0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 195,
+   "subsystem": "boot"
   },
   "14149ACB0": {
    "boundary": null,
@@ -979552,6 +979817,18 @@
    "vtables": [],
    "walked": true
   },
+  "1414A3550": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1414A26E0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 63,
+   "subsystem": "boot"
+  },
   "1414A3800": {
    "boundary": null,
    "callees": {
@@ -980961,6 +981238,72 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "1414A8F10": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "1403FF430": "direct",
+    "1403FF490": "direct",
+    "1414A22E0": "direct",
+    "1414A8A50": "direct",
+    "1414A9680": "direct",
+    "1414ABD10": "direct",
+    "1414ABD30": "direct",
+    "1414ABD70": "direct",
+    "1414ABD80": "direct",
+    "1414ABDB0": "direct",
+    "1414ABDC0": "direct",
+    "1414B0DD0": "direct",
+    "1414B0E80": "direct",
+    "14159F3E0": "direct",
+    "141963010": "direct",
+    "141963DC0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 825,
+   "subsystem": "boot"
+  },
+  "1414A9280": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "1403FF430": "direct",
+    "1403FF490": "direct",
+    "14149A470": "direct",
+    "14149AB50": "direct",
+    "1414A22E0": "direct",
+    "1414A3530": "direct",
+    "1414A3540": "direct",
+    "1414A9680": "direct",
+    "1414ABD10": "direct",
+    "1414ABD30": "direct",
+    "1414ABD80": "direct",
+    "1414ABDC0": "direct",
+    "1414B0850": "direct",
+    "1414B0DD0": "direct",
+    "14159F3E0": "direct",
+    "1415A2FD0": "direct",
+    "1415A6CA8": "direct",
+    "1415A6CBC": "direct",
+    "1415A70B4": "direct",
+    "1415A71B8": "direct",
+    "1415A734C": "direct",
+    "141963010": "direct",
+    "141963DC0": "direct",
+    "141B37D80": "direct",
+    "141B38980": "direct",
+    "1423D90E0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 747,
+   "subsystem": "boot"
   },
   "1414A9570": {
    "boundary": null,
@@ -983670,6 +984013,22 @@
    "vtables": [],
    "walked": true
   },
+  "1414B08A0": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "140402370": "direct",
+    "1414B0470": "direct",
+    "14159F3E0": "direct",
+    "141B379C0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 236,
+   "subsystem": "boot"
+  },
   "1414B0990": {
    "boundary": null,
    "callees": {
@@ -983754,6 +984113,50 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "1414B0E90": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "140402370": "direct",
+    "1414B0B80": "direct",
+    "14159F3E0": "direct",
+    "141B379C0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 236,
+   "subsystem": "boot"
+  },
+  "1414B11A0": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FB5B0": "direct",
+    "140402370": "direct",
+    "14159F3E0": "direct",
+    "141B37520": "direct",
+    "141B379C0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 273,
+   "subsystem": "boot"
+  },
+  "1414B1D90": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "1403FF3E0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 106,
+   "subsystem": "boot"
   },
   "1414B1E40": {
    "boundary": null,
@@ -1032460,6 +1032863,15 @@
    "tables": 0,
    "vtables": [],
    "walked": false
+  },
+  "1415A18FA": {
+   "boundary": null,
+   "callees": {},
+   "how": "leaf",
+   "indirect": [],
+   "scope": "in",
+   "size": 6,
+   "subsystem": "boot"
   },
   "1415A1906": {
    "boundary": null,
@@ -1111985,6 +1112397,35 @@
    "vtables": [],
    "walked": true
   },
+  "141AE77B0": {
+   "boundary": null,
+   "callees": {
+    "14028A390": "direct",
+    "140317720": "direct",
+    "1403CF7E0": "direct",
+    "141AE7940": "direct",
+    "141AE87F0": "direct",
+    "141AE8950": "direct",
+    "141AEA260": "direct",
+    "141AEB7C0": "direct",
+    "141AEBC10": "direct",
+    "141B02800": "direct",
+    "141B04300": "direct",
+    "141B04850": "direct",
+    "141B0BA70": "direct",
+    "141B0BB60": "direct",
+    "141B0BD20": "direct",
+    "141B0BE50": "direct",
+    "141B0C190": "direct",
+    "141B0C730": "direct",
+    "141B0CD20": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 346,
+   "subsystem": "boot"
+  },
   "141AE8210": {
    "boundary": null,
    "callees": {
@@ -1118213,6 +1118654,18 @@
    "vtables": [],
    "walked": false
   },
+  "141B02800": {
+   "boundary": null,
+   "callees": {
+    "140227920": "direct",
+    "141B01230": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 57,
+   "subsystem": "boot"
+  },
   "141B02840": {
    "boundary": null,
    "callees": {
@@ -1123904,6 +1124357,30 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "141B0BA70": {
+   "boundary": null,
+   "callees": {
+    "140269820": "direct",
+    "14026C190": "direct",
+    "14026C290": "direct",
+    "14026C2A0": "direct",
+    "14026CE40": "direct",
+    "14026CE60": "direct",
+    "14029DC60": "direct",
+    "14029DFB0": "direct",
+    "1402B8170": "direct",
+    "140303290": "direct",
+    "1403808E0": "direct",
+    "140380990": "direct",
+    "1403CF740": "direct",
+    "141B0B750": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 239,
+   "subsystem": "boot"
   },
   "141B0BF20": {
    "boundary": null,
@@ -1130669,6 +1131146,19 @@
    "vtables": [],
    "walked": true
   },
+  "141B348C0": {
+   "boundary": null,
+   "callees": {
+    "141B34E50": "direct",
+    "141B34EF0": "direct",
+    "141B36210": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 109,
+   "subsystem": "boot"
+  },
   "141B34A30": {
    "boundary": null,
    "callees": {
@@ -1134926,6 +1135416,17 @@
    "vtables": [],
    "walked": true
   },
+  "141B3FCE0": {
+   "boundary": null,
+   "callees": {
+    "141B37EE0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 54,
+   "subsystem": "boot"
+  },
   "141B40080": {
    "boundary": null,
    "callees": {
@@ -1135510,6 +1136011,15 @@
    "vtables": [],
    "walked": true
   },
+  "141B49C80": {
+   "boundary": null,
+   "callees": {},
+   "how": "leaf",
+   "indirect": [],
+   "scope": "in",
+   "size": 56,
+   "subsystem": "boot"
+  },
   "141B49EA0": {
    "boundary": null,
    "callees": {
@@ -1135793,6 +1136303,17 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "141B50400": {
+   "boundary": null,
+   "callees": {
+    "141B55F40": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 40,
+   "subsystem": "boot"
   },
   "141B50460": {
    "boundary": null,
@@ -1138051,6 +1138572,21 @@
    "vtables": [],
    "walked": true
   },
+  "141B55E70": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "141B37CC0": "direct",
+    "141B49C80": "direct",
+    "141B56170": "direct",
+    "141B6DAA0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 205,
+   "subsystem": "boot"
+  },
   "141B55F40": {
    "boundary": null,
    "callees": {},
@@ -1138076,6 +1138612,18 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "141B56170": {
+   "boundary": null,
+   "callees": {
+    "141B58E40": "direct",
+    "141B6DB60": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 124,
+   "subsystem": "boot"
   },
   "141B56AD0": {
    "boundary": {
@@ -1138954,6 +1139502,18 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "141B6DAA0": {
+   "boundary": null,
+   "callees": {
+    "141B37EE0": "direct",
+    "141B6DC00": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 97,
+   "subsystem": "boot"
   },
   "141B6E9C0": {
    "boundary": null,
@@ -1373576,6 +1374136,17 @@
    "vtables": [],
    "walked": true
   },
+  "141E6CDC0": {
+   "boundary": null,
+   "callees": {
+    "141E823E0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 455,
+   "subsystem": "trap"
+  },
   "141E73720": {
    "boundary": null,
    "callees": {
@@ -1405730,6 +1406301,24 @@
     }
    ],
    "walked": true
+  },
+  "141EC8D30": {
+   "boundary": null,
+   "callees": {
+    "1403FB5B0": "direct",
+    "140402240": "direct",
+    "14159F3E0": "direct",
+    "141EC8240": "direct",
+    "141EC85B0": "direct",
+    "141EC86D0": "direct",
+    "141EC9380": "direct",
+    "141EC95E0": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 946,
+   "subsystem": "boot"
   },
   "141EC9160": {
    "boundary": null,
@@ -1478688,6 +1479277,30 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "141FE4A30": {
+   "boundary": null,
+   "callees": {
+    "1403CF7E0": "direct",
+    "1403DEAB0": "direct",
+    "1403DFF50": "direct",
+    "1403DFF60": "direct",
+    "1408D8270": "direct",
+    "1408D8950": "direct",
+    "141AE7710": "direct",
+    "141AE77B0": "direct",
+    "141EA8BB0": "direct",
+    "141EB8E80": "direct",
+    "141EB95C0": "direct",
+    "141EBC560": "direct",
+    "141EC8C40": "direct",
+    "141EC8D30": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 209,
+   "subsystem": "boot"
   },
   "141FE4BF0": {
    "boundary": null,
@@ -1572896,6 +1573509,18 @@
    "tables": 0,
    "vtables": [],
    "walked": true
+  },
+  "142160080": {
+   "boundary": null,
+   "callees": {
+    "1403FB410": "direct",
+    "14214CA10": "direct"
+   },
+   "how": "pdata",
+   "indirect": [],
+   "scope": "in",
+   "size": 91,
+   "subsystem": "world"
   },
   "1421600E0": {
    "boundary": null,

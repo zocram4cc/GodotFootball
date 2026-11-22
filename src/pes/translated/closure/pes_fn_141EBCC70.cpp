@@ -13,6 +13,7 @@ static constexpr uint64_t k_c14252FA28_q = 0x00006FFFFA6CAD50ULL;
 static constexpr double k_c14252FA28_d = 6.0841817103142e-310; // 6.0841817103142e-310
 
 void pes_fn_141EBCC70(PesState& s);
+void pes_fn_1403FB5B0(PesState& s);
 
 void pes_fn_141EBCC70(PesState& s) {
   s.gpr[4] -= 8;
@@ -35,7 +36,7 @@ void pes_fn_141EBCC70(PesState& s) {
   s.gpr[2] = (uint64_t)(s.rd(((s.gpr[4]) + (0x58ULL)), 8));
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x30ULL)));
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)((2ULL)), 4);
-  /*OUT-OF-SET CALL 0x1403FB5B0*/ pes_dispatch_missing(0x1403FB5B0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1403FB5B0(s); s.gpr[4] += 8; }
   s.gpr[1] = (uint64_t)(((0x1425495A8ULL)));
   { uint64_t _t = (uint64_t)(k_c14252FA28_q); PesDispatch _d = pes_dispatch_lookup(_t);
     if (_d.fn == 0) pes_dispatch_missing(_t);

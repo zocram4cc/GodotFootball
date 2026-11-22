@@ -273,7 +273,9 @@ def build(image):
                 if cv != cur and (cv in universe or cv in INDIRECT_EDGES.get(cur, ())) and cv not in seen:
                     seen.add(cv)
                     queue.append(cv)
-        closure_of[va] = seen
+        # A root recorded in two sets (0x14092ED30: trapaction's counter B and press's manthink) is walked once per set; its layer text
+        # is one variant (choose_variant), whose callees may come from either set's universe, so the root keeps every walk's members.
+        closure_of[va] = closure_of.get(va, set()) | seen
     if conflicts:
         raise SystemExit("gen_translated: %d conflicts:\n  %s" % (len(conflicts), "\n  ".join(conflicts[:30])))
     # Never ship a callee the harness recorded as mistranslated: a recorded function whose closure reaches one is left
