@@ -410,6 +410,14 @@ TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   for (uint32_t dc : {5u, 100u, 161u}) {
     auto sel = MakeFor(*exe, kKindTwo);
     ASSERT_TRUE(sel) << why;
+    // Pre-state (Main's ruling for this capture): the stadium cut key the capture held, 0x71 (demoarea_st001), at the object
+    // G+0x2C0's +0x20 that 0x140476C50 reads as the lookup id (L_140476E58), with G = [0x1436F3DC8]. GF's runtime feed of this
+    // key is open; see the note at GF's time-scale object.
+    {
+      constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldTimeScale = 0x2C0, kStadiumKeyOff = 0x20, kStadiumCutKey = 0x71;
+      PesState& st = sel->State();
+      st.wr(st.rd(st.rd(kWorldSlotVa, 8) + kWorldTimeScale, 8) + kStadiumKeyOff, kStadiumCutKey, 4);
+    }
     const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, kKindTwo.pos, dc));
     ASSERT_TRUE(got) << "DC " << dc;
     EXPECT_EQ(got->bc, 2u) << "DC " << dc;
