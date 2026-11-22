@@ -95,3 +95,15 @@ Missing, with the blocker named:
 - Headless decompiles: 0x14091EDB0, 0x140512CA0 (base ctor), 0x140961F00 (ctor), 0x1405141F0 (driver), 0x140518E20 (dispatcher),
   0x140518DD0 (thunk, bytes read). The Ghidra bridge was down.
 - Scans: E8 callers of 0x140518E20 (8 sites), of 0x140961F00 (1: 0x14091F07D), of 0x140962440 (none).
+
+## 7. Correction: the per-slot object is X, not M (PressWire round 3, 22-11-26)
+
+- `FUN_14091EDB0` (the proven ctor) runs on M = X+0x958. Its caller `FUN_14091E9F0` is X's ctor: it sets X's vtable 0x1426329A8 at X+0
+  and the second vtable 0x142632A50 at X+0x950 (unit 0x12A), calls M's ctor, and stores X into the slot table at `0x1436F3FC0 + (side*11+slot)*8`.
+- X is allocated by `FUN_1409211E0`: `FUN_1403FB410(0x18, 0x1A5E0, 0, ...)`, then X's ctor, then `FUN_1409227D0`, `FUN_140921F70`,
+  `FUN_142101960(X+0x980)`. So PES's per-slot object is 0x1A5E0 bytes (CONFIRMED from the decompile of the allocator).
+- A0 = X+0x10E70 (= M+0xF518) and A2 = X+0xACE8 (= M+0xA390) sit inside X. The A2+0x40 owner P (`0x3DB01EE0` in seq10193) is OUTSIDE X
+  (X = 0x326E9670..0x32703C50 there): P is GF's trap P (`PVa(slot)`), not a member of X.
+- GF's player block (`kPlayerBlockBytes` 0x3F40) is not a member of X: it is the world's per-slot anime/man/slot record block. Neither is P.
+- Proven now: M's ctor only (6/6, `f704314b`). X's ctor (0x14091E9F0) and the driver are NOT proven: the hooks pw_14091E9F0,
+  pw_1405141F0, pw_140518E20 were requested from Main (round 3).
