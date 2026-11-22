@@ -682,6 +682,45 @@
    "va": "0x141E5C1E0",
    "synthetic": true,
    "synthetic_cases": 3
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cutfillst.json",
+   "coverage": {
+    "0x141E5D560": {
+     "reached": 22,
+     "total": 27,
+     "fraction": 0.8148
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 1 of 1: 0 REAL captured call(s) and 1 SYNTHETIC state(s) (synth.py: values chosen over a real capture's memory); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. the cut-library fill over the install's real constant_stadium.bin list (84 WESYS objects, unwrapped; one synthetic state, slot 113 empty): every object's name matched or created, the list freed on the success path; PES's bytes against the translated closure",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 22,
+     "total": 27,
+     "fraction": 0.8148
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x141E5D560",
+   "synthetic": true,
+   "synthetic_cases": 1
   }
  ]
 }
