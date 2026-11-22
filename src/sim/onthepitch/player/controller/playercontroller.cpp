@@ -293,6 +293,15 @@ void PlayerController::_BallControlCommand(PlayerCommandQueue& commandQueue,
     if (quantizeDirection)
       QuantizeDirection(command.desiredDirection, GetQuantizedDirectionBias());
     command.desiredVelocityFloat = inputVelocityFloat;
+    if (!CastPlayer()->HasPossession() && match->GetDesignatedPossessionPlayer() == player) {
+      // A designated man without the ball goes for it with the ball-control approach. The raw input is his own
+      // command, which is zero for a keeper the breaker picked: BallControl then stood him 2.8 m from a loose ball for 91 s
+      // (census: docs/ports/pes-port-StallLiveRun.md). ponytail: PES's loose-ball approach is not decoded; this is the walk the
+      // ball-control path already uses for a set-piece taker (elizacontroller.cpp, AI_GetBallControlMovement).
+      Vector3 approachLookAt;
+      AI_GetBallControlMovement(_mentalImage, CastPlayer(), inputDirection, walkVelocity, command.desiredDirection,
+                                command.desiredVelocityFloat, approachLookAt);
+    }
 
     if (FloatToEnumVelocity(command.desiredVelocityFloat) == e_Velocity_Idle &&
         idleTurnToOpponentGoal) {
