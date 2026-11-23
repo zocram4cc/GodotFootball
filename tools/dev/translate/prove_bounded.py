@@ -33,6 +33,7 @@ def main():
     ap.add_argument("--synth", action="append", default=[], help="a SYNTHETIC state of the root (synth.py output)")
     ap.add_argument("--note", default="", help="added to the record's note")
     ap.add_argument("--merge", action="store_true")
+    ap.add_argument("--native", action="store_true", help="snapdiff --native: also run each call on GF's native heap (links pes_native.cpp, which defines the gf-service stubs)")
     a = ap.parse_args()
     root = a.root.upper().replace("0X", "0x")
     image, hooks = os.environ["PES_EXE"], os.environ["RV_HOOKS"]
@@ -45,8 +46,9 @@ def main():
         snaps += ["--snapshot", "%s=%s" % (d, trace)]
     res = os.path.join(a.work, "res.json")
     out_dir = os.path.join(a.work, "build")
+    native = ["--native"] if a.native else []
     subprocess.call([sys.executable, os.path.join(HERE, "snapdiff.py"), "--image", image, "--out-dir", out_dir, "--spec-dir", SPEC_DIR,
-                     *snaps, "--only", root, "--hooks", hooks, "--bounded", "--results", res])
+                     *snaps, "--only", root, "--hooks", hooks, "--bounded", "--results", res, *native])
     raw = next((r for r in json.load(open(res))["results"] if r["va"].upper() == root.upper()), None)
     print("%s: proven=%s calls=%s replayed=%s excluded=%s mismatches=%s own_block=%s" % (
         root, raw and raw["proven"], raw and raw["calls"], raw and raw["replayed"], raw and raw["excluded"],

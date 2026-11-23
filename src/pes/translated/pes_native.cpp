@@ -461,9 +461,6 @@ void StoreObjectArray(PesState& s, uint64_t array, const uint64_t (&vtables)[N])
 void pes_service_packer_array_ctor_a(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayAVtables); }
 void pes_service_packer_array_ctor_b(PesState& s) { StoreObjectArray(s, s.gpr[1], kArrayBVtables); }
 
-// 0x141957C60(size): the graphics device's allocator; GF has no device, so the allocation fails (rax = 0) and the caller's own failure path runs.
-void pes_service_gfx_device_alloc(PesState& s) { s.gpr[0] = 0; }
-
 // ponytail: the anime singleton, built by GF (AnimeLayer7; owner ruling 17-11-26: PES builds it behind copy protection, which GF does
 // not run). PES's wrapper 0x141AEB7C0 allocates 0x2E0 bytes and calls the setter 0x141AEA910. The setter's Steam-dispatched calls
 // (0x1415A1720 at 0x141AEB096; 0x14164FB10 at 0x141AEAD8D, 0x141AEAE4C, 0x141AEAF03, 0x141AEAFBA) and its protection thunks are not

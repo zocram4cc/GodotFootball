@@ -196,4 +196,5 @@ void pes_service_packer_lua_atpanic(PesState& s);
 void pes_service_packer_lua_setallocf(PesState& s);  // 0x143DFCCE0
 void pes_service_packer_array_ctor_a(PesState& s);   // 0x1444CE440: 16 objects at the array in rcx
 void pes_service_packer_array_ctor_b(PesState& s);   // 0x1444C7960: 20 objects at the array in rcx
-void pes_service_gfx_device_alloc(PesState& s);      // 0x141957C60: no graphics device, the allocation fails
+// 0x141957C60: no graphics device, the allocation fails (rax = 0). Inline: the proof builds (snapdiff, prove_bounded) link no pes_native.cpp, and the GF side uses this same definition.
+inline void pes_service_gfx_device_alloc(PesState& s) { s.gpr[0] = 0; }
