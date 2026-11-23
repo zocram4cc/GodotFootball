@@ -46,9 +46,10 @@ constexpr unsigned long kMatchTickCap = 100000ul;
 // fastest are searched in that order. The tests search matches in turn until one has a throw-in.
 constexpr unsigned int kThrowInSeeds[] = {2u, 29u, 28u, 4u};
 // Ceremony takers (path B) need a match with a throw-in no seamless candidate can take (a taker counted when IsPieceTakerHeld at the
-// throw-in's start and its release ends the throw-in): releases on seeds 14 (2062), 25 (7275), 3 (9225), 26 (9320), 20 (11874), 24
-// (12167, two), 9 (24574), 8 (31163) and 28 (44657); none on the other seeds. Seed 11 did not finish within the census's 40 minutes.
-constexpr unsigned int kCeremonySeeds[] = {14u, 25u, 3u, 26u, 20u, 24u};
+// throw-in's start and its release ends the throw-in). Census on Integrate 19615d99 (23-11-26; seeds 1..30, same probe; the r18
+// list {14, 25, 3, 26, 20, 24} released none): releases on seeds 10 (5906), 8 (10657), 5 (19487), 17 (32895), 29 (33118) and 18
+// (37927), every one at the key; none on the other seeds that finished.
+constexpr unsigned int kCeremonySeeds[] = {10u, 8u, 5u, 17u, 29u, 18u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 // The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).
