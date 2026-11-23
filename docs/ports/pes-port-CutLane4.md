@@ -85,3 +85,64 @@ Scratch: <workdrive>/gf-CutLane-scratch (dec_w490.txt, dec_arr.txt, arr203.hex, 
 Results: gen_translated.py --check rc=0, 10,982 functions byte-identical (gen_check6.log). Full VFS scan of 3,468 .bin files
 outside Asset/ (scanvfs2.out): 0 hits for the u32, u16 or u8 pattern of the first 8 values, so the table is not a raw .bin under
 common/. Not searched: Asset/ and the other extensions (.fdc, .xml, .fpk, .ask, .gani).
+
+# Round 2 (answer to Main's queue item: translate and prove the tick 0x14047B460, call it per tick)
+
+Outcome: the tick is NOT translated into the layer, NOT wired into GF, and the wide test is still red. Nothing landed (no commit on top of 82ad8564). Blocker named in section 2.6 (the harness cannot replay the tick's gfx path).
+
+## R2.1 The tick's call site and its six arguments (CONFIRMED: disassembly of the image, call at 0x140446D2D)
+
+The DemoInfo handler 0x140446B20 (kind 4) calls the tick at 0x140446D2D after the gate 0x140472640 (0x140446D03):
+- rcx = D+0x1E8 (A0), D = rdi (the handler's rcx at entry, the DemoInfo).
+- rdx = **(D+0x17860)  (ctx: the list object's first qword).
+- r8  = *(D+0x17860)   (the list pointer; the tick's param_3, read as puVar4[0], puVar4[1] = begin/end).
+- r9  = D+0x2790       (the tick's param_4 object).
+- arg5 [rsp+0x28 at entry] = D (stored at 0x140446D25 as `mov [rsp+0x20], rdi`; 5th argument).
+- arg6 [rsp+0x30 at entry] = rbp, the handler's rdx at its entry (0x140446B45 `mov rbp, rdx`; stored at 0x140446D19).
+- The handler's rdx comes from its dispatcher 0x1404463B0 at 0x14044640B: `mov rdx, [rsp+0x60]` in the dispatcher's frame (its caller's stack argument). Not decoded (OPEN): who calls 0x1404463B0 and what it passes (its callers: not found by a rel32 scan; likely an indirect dispatch).
+- Recompute call inside the tick: 0x14047B851 region passes (A0, ctx, D, arg6) (CONFIRMED in dec_7b460.txt line 162). So the recompute's r8 IS the DemoInfo D, and its r9 IS arg6.
+- seq203 (pid2024691, recompute entry) values, CONFIRMED: rcx 0x31C53DB8, rdx 0x31C50798, r8 0x31C53BD0 (= D; check rcx = D+0x1E8 holds), r9 0x10E1F08C (arg6), rsp 0x1C4FF5D8. The list pointer *(D+0x17860) = 0x1C4FFC60 is a STACK address (the handler's frame, 0x688 above rsp), not heap: the list object is a stack-local of the step machine. GF has no such frame.
+
+## R2.2 The recompute's r8 is an out-object, not A0 (CONFIRMED by decompile and one experiment)
+
+- Recompute 0x140471A80 writes `*r8 = scene` (line 178 of dec_7b460.txt region: `*param_3 = uVar18`), the list at r8+0xC (`param_3[3]`, entries at param_3[uVar9*7+4]), r8+0x78 pointers, and calls the event builder `FUN_14047c500(param_3, ...)` (line 319) with r8 as its first argument. So r8 is the event/out record, and it is D in PES.
+- Experiment (scratch, reverted): GF passes r8 = a0 today (the ponytail in ArrangeGoal says so). Replacing it with a separate Zalloc(0x1000): the armed scene goes 1 -> 0 (GF pick cleared; target -57.5796 unchanged; still red at 434 and 438). So the current scene 1 is an aliasing artefact of r8 = A0, not a pick. The stand-in must not stay as is; PES's real D is needed.
+
+## R2.3 The table experiment (scratch, as Main asked): no change, kept out of the branch
+
+- seq203's 0x200 array bytes copied into a Zalloc'd buffer at G+0x1978 (+8): wide test unchanged (scene 1, target -57.58). The table alone does not reach the pick (R1 section 5).
+
+## R2.4 Closure of the tick (CONFIRMED by closure.py run; reverted, nothing committed)
+
+- `closure.py --spec-set core --tag tick 0x14047B460`: 375 members (1 seed). Written: 375 specs, of which 367 committed specs were kept (121 of them differ from the generator's output; the committed ones are kept without --regenerate) and 8 new specs in specs/core. The new set file, the universe.json rows and the 8 specs were reverted (they are reproducible with the command above, and only a proof-backed translation may land).
+- Members include the recompute (translated), the event builder 0x14047C500, the judge/sanction chain (0x14050AB20, 0x14050DE50, 0x14050AE30, 0x14050B2B0, 0x14050C3C0, 0x14050A8A0), the command object 0x1404511E0, the squad table 0x140A62EA0, and the callee 0x141B55830 whose vtable +0x88 is a deferred-job dispatch (indirect; the harness must model it).
+- Not translated: the tick's layer regeneration (gen_translated --check 10,982 byte-identical before this run; a new closure member set would change it).
+
+## R2.5 Synthetic-call proof of the tick (attempted; blocked)
+
+- Built `tick_calls.py` (scratch, not committed): one synthetic call of 0x14047B460 over seq203's full snapshot (rcx = D+0x1E8, rdx = ctx, r8 = *(D+0x17860), r9 = D+0x2790, [rsp+0x28] = D, [rsp+0x30] = arg6, [rsp] = 0x140446D32, the call record's ret matching [rsp], CONFIRMED: the first run failed on the ret mismatch, fixed). The replay ran PES's bytes for 50,000,000 instructions and stopped in a loop.
+- The loop is the graphics allocator: the stack at the stop holds 0x14195BD65 (after `call 0x141957C50`, the gfx device allocator thunk, stubs.json "service_gfx_device_alloc": rax = 0) inside the command-string builder 0x14195BD10, reached from the recompute's own callees (0x1404720B0 -> 0x140A62ED5 -> 0x141F5E3AB -> 0x1403FBCDC -> 0x141F55D12 -> 0x141F58F65 -> 0x1403FB504). CONFIRMED by stack peek.
+- Why the stub fails: the snapshot holds a live device object (DAT_1437C9238 = 0x1505BA0, CONFIRMED) whose vtable (0x7FF5FFEF0010) has +0x20 = 0 in the capture (the device DLL's code is not in the snapshot). The clean-boot stub says rax = 0, the captured state is a live device, so the replay enters a path PES did not take in this model. The real allocator result is not in any capture (OPEN).
+
+## R2.6 Rig request (what would settle the tick proof; Main to decide)
+
+Hook: the allocator's result for the recompute's calls. Ask for:
+- hook 0x14195BD10 (the command-string builder's entry), `--when` the caller is inside the recompute body: `ret >= 0x140471A80 and ret < 0x1404722F4`; cap 6; FULL; plus
+- hook 0x140446B20 (the kind-4 handler entry), cap 6; FULL, so the handler's dispatcher argument (arg6) and the tick's real entry state are on disk.
+What the capture must show: the rax that 0x141957C50 returned to 0x14195BD65 in PES (captured as the builder's stack slot [rsp+0x50] after the call, read from the next entry's memory), and the DemoInfo tick entry state with A0+0xEA = 1. Until one of these exists, the harness cannot replay the tick past its gfx allocation (INF: the same result for every call of the tick's recompute path).
+
+## R2.7 What GF did this round
+
+- No code change. `pes_goal_anchor_test` GoalAnchorKindTwo: wide test still red (scene 1, target -57.58; PES 0x300D9, -41.55, z 34). Other tests were not re-run this round (no code change since round 1's green: pes_goal_anchor 25/26, fixdemo_select 8/8, fixdemo_table 7/7).
+- The ponytail stand-in (r8 = a0, r9 = Zalloc) stays; the manual run+0x18 write stays. Both are named in code.
+
+## R2.8 Next exact steps
+
+1. Rig request R2.6 (or Main decides the gfx allocator model: the return value of 0x141957C50 in PES).
+2. Then: translate the tick (closure above, 375 members; regenerate the layer), replay the tick over seq203 with the allocator result from the capture, and assert the tick's arg5/arg6 path.
+3. Only after the tick proves: GF calls it with D (a DemoInfo object of 0x17860 + list bytes) instead of the r8 = a0 stand-in; then measure the wide test.
+4. The handler's dispatcher 0x1404463B0 caller (arg6 source) is still OPEN.
+
+Scratch (not committed): <workdrive>/gf-CutLane-scratch/tick/ (replay snapshot, 3.9 GB unpacked mem.bin: delete when done), tick_calls.py, stackpeek.py. seq203 is unpacked in gf-Rendezvous-scratch (3.9 GB) and was packed again (capz pack, CONFIRMED).
+
+Verdict (INF): the tick is translatable (closure is 375 members, all in the translator's universe), but its proof and its GF wiring both need the gfx allocator's real result and the deferred-job service, which GF has no model for. The wide test cannot move until the tick's arg5 (D) is an object GF builds from the same fields.
