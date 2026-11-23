@@ -91,12 +91,13 @@ public:
   // 3.1-3.2). A goal kick's keeper is placed on his stand point when the kick is prepared and held there until the ladder
   // releases it (pesgoalkick.hpp, docs/re/pes-re-kicker-standby.md section 4).
   bool IsPieceTakerWalking(const Player* player) const;
-  // True while PES's phase-4 lift owns the taker's body: the lift warp, from its start to its end. The AI's movement commands and the
-  // clip-end switch do not reach him during the lift. After it the loop plays once (phase 5) and the queued throw switches the body at
-  // the loop's end, as PES does; holding past the loop kept the throw from ever being selected (the set piece then never closed).
-  bool PieceTakerOwnsBody(const Player* player) const {
-    return pieceWalk && player == taker && pieceCarrying && pieceWarping;
-  }
+  // True while the taker's body is the throw-in's (PES's SEAMLESS_THROWIN, then THROWIN: docs/re/pes-re-throwin-choreography.md 3.2
+  // and 4.2): from the pickup until the release. The AI's movement commands and the MOVESTEP FSM do not reach him, and the queued throw
+  // is what selects his clips. Defined in teamAIcontroller.cpp (it reads the match's play state).
+  bool PieceTakerOwnsBody(const Player* player) const;
+  // True while the carrying taker's root warp runs (the carry's or the lift's): the clip-end switch waits for the warp. After the lift
+  // the loop plays once and its end switches to the queued throw, as PES does.
+  bool PieceTakerWarping(const Player* player) const;
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
   // True from the lift's end until the restart is over: the taker keeps the root yaw the lift left him with (PES's throw-in loop
@@ -285,9 +286,10 @@ protected:
   bool pieceWalk = false;      // a set-piece walk is pending (PES path only): a throw-in taker's or a goal-kick keeper's
   bool pieceCarrying = false;  // a throw-in taker has the ball: pieceWalkTarget is the carry spot
   int pieceReleaseRow = 0;     // the carry's release row, chosen as the take starts (0: not yet)
-  bool pieceWarping = false;   // the pickup clip is playing: the root warps onto pieceWarpTo until the contact frame
-  unsigned long pieceWarpTicks = 0;  // ticks left to the pickup's contact frame
-  Vector3 pieceWarpTo;         // the predicted ball at the contact frame, where the warp ends
+  bool pieceWarping = false;   // a SeamlessThrowin root warp runs (the pickup's, the carry's or the lift's): the root steps onto pieceWarpTo
+  bool pieceLifting = false;   // the running warp is the lift's (0xd01): the yaw turns to the pitch heading, and its end stands the taker
+  unsigned long pieceWarpTicks = 0;  // ticks left to the warp's end
+  Vector3 pieceWarpTo;         // where the warp ends: the predicted ball at the pickup's contact frame, then the carry spot
   bool pieceLifted = false;    // the lift clip has finished: the taker stands on the spot and the release may come (3.2 phase 5)
   bool pieceHeld = false;      // the taker was placed on his stand point at prepare and holds it until the release
   bool pieceHasLookAt = false;  // the placement set pieceLookAt (a corner's SetKick heading)

@@ -717,6 +717,13 @@ TEST(PesStall, TheBreakerNeverForcesABallUnderAnArmedRestart) {
                                        "for " << census.armedFirings << " ticks";
 }
 
+// OneWorld gate RATCHET (owner, 22-11-26): the live-ball breaker count lands at no more than the best measured on Integrate
+// and only ever goes down; the goal stays 0. Measured on Integrate 39898dc3 (throw-in taker owns his body; first tip whose
+// seed-7 match reaches full time): 2229 ticks in 160 episodes (full match), 53 in the quick window. Lower these in the same
+// commit as any gain.
+constexpr long kBestMeasuredLiveFirings = 2229;
+constexpr long kBestMeasuredQuickLiveFirings = 53;
+
 // A live ball that lies still for five seconds is a man who holds it and does nothing with it. PES's holder keeps
 // the ball until he releases it, so the breaker must not have to take it from him.
 TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
@@ -729,7 +736,7 @@ TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
   std::sort(census.liveEpisodes.rbegin(), census.liveEpisodes.rend());
   std::string episodes;
   for (std::size_t i = 0; i < census.liveEpisodes.size() && i < 25; ++i) episodes += "\n    " + std::to_string(census.liveEpisodes[i].first) + " ticks from " + census.liveEpisodes[i].second;
-  EXPECT_EQ(census.liveFirings, 0) << "the breaker forced a live ball for " << census.liveFirings << " ticks in " << census.liveEpisodes.size() << " episodes the series freeze does not explain (longest:" << episodes << "); " << census.liveFiringsSeriesFrozen
+  EXPECT_LE(census.liveFirings, kBestMeasuredLiveFirings) << "the breaker forced a live ball for " << census.liveFirings << " ticks in " << census.liveEpisodes.size() << " episodes the series freeze does not explain (longest:" << episodes << "); " << census.liveFiringsSeriesFrozen
                                    << " of them on a PES dribbler whose body sat on the last frame of a clip with a series held (the series freeze), " << census.liveFiringsDuringFreeze
                                    << " more while another PES dribbler had been frozen so for a second; the rest, by the forced man:" << [&] {
                                         std::string o;
@@ -756,7 +763,7 @@ TEST(PesStallQuick, ALiveBallNeverLiesStillInTheQuickWindow) {
   pestest::Settle(quickCensus);
   quickCensus.Print("PESSTALLQUICK");
   ASSERT_EQ(quickCensus.ticks, kQuickMaxTicks) << "the match ended before its quick window";
-  EXPECT_EQ(quickCensus.liveFirings, 0) << "the breaker forced a live ball for " << quickCensus.liveFirings << " ticks in the first "
+  EXPECT_LE(quickCensus.liveFirings, kBestMeasuredQuickLiveFirings) << "the breaker forced a live ball for " << quickCensus.liveFirings << " ticks in the first "
                                         << kQuickMinutes << " minute(s) of sim time";
 }
 

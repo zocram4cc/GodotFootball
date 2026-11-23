@@ -419,7 +419,7 @@ void Humanoid::Process() {
   const bool pesDribbleOwned = match->PesOwnsDribble(*CastPlayer());
   // The throw-in taker's clip does not switch the body while PES's throw-in action owns it (the same rule as the dribble's).
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer()) &&
-      !pesDribbleOwned && !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer())) {
+      !pesDribbleOwned && !CastPlayer()->GetTeam()->GetController()->PieceTakerWarping(CastPlayer())) {
     interruptAnim = e_InterruptAnim_Switch;
   }
 
@@ -556,7 +556,10 @@ void Humanoid::Process() {
         break;
     }
 
-    if (interruptAnim == e_InterruptAnim_Switch && !found) {
+    // The throw-in taker's body holds its last clip frame while the queue has no throw to play (PES's loop waits for the throw): nothing is
+    // applicable and the queue is asked again next tick, rather than the reset below.
+    if (interruptAnim == e_InterruptAnim_Switch && !found &&
+        !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer())) {
       Log(e_Warning, "Humanoid", "Process", "RED ALERT! NO APPLICABLE ANIM FOUND! NOOOO!");
       Log(e_Warning, "Humanoid", "Process",
           "currentanimtype: " + currentAnim->anim->GetVariable("type"));

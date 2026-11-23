@@ -7,6 +7,7 @@
 #include "pes/exe.hpp"
 #include "pes/inflate.hpp"
 #include "pes/vfs.hpp"
+#include "pes/stadium.hpp"
 #include "pes_native.hpp"
 #include "translated.hpp"
 
@@ -49,6 +50,13 @@ constexpr uint64_t kDbCategoryStride = 0x20, kDbGroupsOff = 0x168, kDbGroupCount
 constexpr uint64_t kDbSceneTableOff = 8;
 constexpr uint64_t kRowBytes = 0x78;  // key u16[10] at +0, then the fdc strings and b0/f/b1 (+0x68/+0x6C/+0x70)
 constexpr uint64_t kRowB0 = 0x68, kRowF = 0x6C, kRowB1 = 0x70;
+// The control table T3 (PES's CTRL, goal only): groups {u16 start, u16 count} at DB+cat*0x20+0x2C8, the group count u32 at +0x2D8,
+// the 0x2C-byte rows at +0x2E0. Read by 0x14428BBD0, which the variant matcher's caller 0x141F4FC30 reaches through the thunk
+// 0x140A7CAE0. A row: u16 keys[10] at +0, the float count u8 at +0x14, the id count u8 at +0x15, floats at +0x18, the scene id u32 at
+// +0x28 (the first of the file's ids; CONFIRMED on seq203: group 0x30005's records hold 0x300D9 and 0x300DB at +0x28, ni = 1 at +0x15
+// in the sampled rows, nf = 0).
+constexpr uint64_t kDbCtrlGroupsOff = 0x2C8, kDbCtrlCountOff = 0x2D8, kDbCtrlRowsOff = 0x2E0;
+constexpr uint64_t kCtrlRowBytes = 0x2C, kCtrlNf = 0x14, kCtrlNi = 0x15, kCtrlFloats = 0x18, kCtrlSceneId = 0x28;
 constexpr unsigned kKeyColumns = 10;
 // A scene-table step row (0x141F616F0's reads): kind u8 +0, fade f32 +4, cut u32 +8, flags u32 +0xC, c0 u8 +0x10, c1 u8 +0x11,
 // w0 u16 +0x12, w1 i16 +0x14, ten {u8,u8,u8} from +0x16, w2 i16 +0x34.
@@ -137,6 +145,8 @@ constexpr char kStadiumConstantPath[] = "common/match/constant/constant_stadium.
 // 0x140A7C800 takes it), the integer frame rate 0x14351AE50 (0x141E532E0 returns it) and the foul object (0x14047FEB0's layout).
 constexpr uint64_t kWorldAnimeTable = 0x19C8, kAnimeBytes = 0x60, kAnimeClass = 1, kAnimeFlags = 8, kAnimeSpeed = 0x54;
 constexpr uint64_t kWorldTimeScale = 0x2C0, kTimeScaleBytes = 0x60, kTimeScaleValue = 0x5C;
+constexpr uint64_t kTimeScaleStadiumKey = 0x20;  // the cut-library lookup id field (see Create)
+constexpr uint32_t kStadiumCutNameBase = 112;    // demoarea_st000's cut name index: st001 = 113 = 0x71, st046 = 158 = 0x9E
 constexpr unsigned kRefereeSlot = 0x16;
 constexpr uint64_t kA0Ready = 0xEC, kDemoInfoBytes = 0x40, kDemoInfoCut = 0x10, kFpsIntVa = 0x14351AE50;
 constexpr uint64_t kFoulBytes = 0x20, kFoulScene = 0, kFoulCountdown = 8, kFoulReady = 0xC, kMiFouler = 0x1590, kMiVictim = 0x1594;
@@ -212,15 +222,18 @@ struct FixDemoSelector::Impl {
   uint64_t referee = 0, demo = 0, foul = 0, timeScale = 0, slotTable = 0, history = 0;
   uint32_t gateSlot = 0, foulerSlot = 0, victimSlot = 0;
   bool goalPlaced = false;
+  GoalAnchor armed;  // tick A's result (ArrangeGoal): the target, radius, scene and zone that tick B's anchor is built on
   std::unique_ptr<PesCameraRegistry> registry;
   std::array<uint64_t, kPitchSlots> man{}, run{};
   std::array<uint64_t, 2> squad{}, teamInfo{};  // per side: the squad key table and the team info (+0x254: attack sign)
   float fullTurnDeg = 0;
+  uint32_t stadiumCutKey = 0;
 
   Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables,
        std::vector<uint8_t> listVtable, std::vector<uint8_t> stageVtable, std::vector<uint8_t> rdata, float fullTurn,
-       const std::vector<std::string>& cutGroupPaths, const std::string& stadiumPath, const std::vector<uint8_t>& stadiumList)
-      : tables(std::move(t)), fullTurnDeg(fullTurn) {
+       const std::vector<std::string>& cutGroupPaths, const std::string& stadiumPath, const std::vector<uint8_t>& stadiumList,
+       uint32_t cutKey)
+      : tables(std::move(t)), fullTurnDeg(fullTurn), stadiumCutKey(cutKey) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
     s.mem.img.push_back({kMathTablesVa, std::move(mathTables)});
@@ -327,6 +340,31 @@ struct FixDemoSelector::Impl {
     s.wr(ctx + kCtxPickMap, head, 8);
     s.wr(ctx + kCtxPickMap + 8, 0, 8);
   }
+  // PES's control table (T3) of one category, in the layout 0x14428BBD0 reads (see kDbCtrlGroupsOff). Only the goal has one.
+  void BuildControlTable(uint64_t base, const FixDemoTable& table) {
+    if (table.ctrlGroups.empty()) return;
+    uint32_t rowCount = 0;
+    for (const FixDemoCtrlGroup& g : table.ctrlGroups) rowCount = std::max<uint32_t>(rowCount, g.firstRow + static_cast<uint32_t>(g.rows.size()));
+    const uint64_t groups = heap->Alloc(table.ctrlGroups.size() * 4, 0x10);
+    const uint64_t rows = heap->Alloc(std::max<uint32_t>(rowCount, 1) * kCtrlRowBytes, 0x10);
+    for (size_t gi = 0; gi < table.ctrlGroups.size(); ++gi) {
+      const FixDemoCtrlGroup& g = table.ctrlGroups[gi];
+      s.wr(groups + gi * 4, g.firstRow, 2);
+      s.wr(groups + gi * 4 + 2, g.rows.size(), 2);
+      for (size_t ri = 0; ri < g.rows.size(); ++ri) {
+        const FixDemoCtrlRow& r = g.rows[ri];
+        const uint64_t row = rows + (g.firstRow + ri) * kCtrlRowBytes;
+        for (size_t k = 0; k < kKeyColumns && k < r.keys.size(); ++k) s.wr(row + k * 2, r.keys[k], 2);
+        s.wr(row + kCtrlNf, r.nf, 1);
+        s.wr(row + kCtrlNi, r.ni, 1);
+        for (size_t k = 0; k < r.floats.size(); ++k) s.wrf(row + kCtrlFloats + 4 * k, r.floats[k]);
+        s.wr(row + kCtrlSceneId, r.sceneId, 4);
+      }
+    }
+    s.wr(base + kDbCtrlGroupsOff, groups, 8);
+    s.wr(base + kDbCtrlCountOff, table.ctrlGroups.size(), 4);
+    s.wr(base + kDbCtrlRowsOff, rows, 8);
+  }
 
   void BuildDb() {
     db = heap->Alloc(kDbBytes, 0x10);
@@ -354,6 +392,7 @@ struct FixDemoSelector::Impl {
       s.wr(base + kDbGroupCountOff, table.cutGroups.size(), 4);
       s.wr(base + kDbRowsOff, rows, 8);
       BuildSceneTable(db + kDbSceneTableOff + static_cast<uint64_t>(cat) * kDbCategoryStride, table);
+      BuildControlTable(base, table);
     }
   }
 
@@ -487,6 +526,8 @@ struct FixDemoSelector::Impl {
     timeScale = Zalloc(kTimeScaleBytes);
     s.wrf(timeScale + kTimeScaleValue, 1.0f);
     s.wr(world + kWorldTimeScale, timeScale, 8);
+    // ponytail: the cut key the cut-library lookup reads at this field (see Create).
+    s.wr(timeScale + kTimeScaleStadiumKey, stadiumCutKey, 4);
     // Per side: the squad table 0x140A62EA0 maps a squad key through (word 0 = the side, word 1+i = slot i's key) and the
     // team info (G+(0xA1+side)*0x28; +0x254 = the attack sign 0x140476190 reads: 1 for side 0, 0xFF for side 1).
     // GF keys its squad by the index on the pitch, so the key of slot i is i.
@@ -573,13 +614,26 @@ struct FixDemoSelector::Impl {
     s.wr(record + kRecordSideAgain, side, 4);
   }
 
-  // The goal's anchor and the two inputs PES computes for it before the anchor (the builder 0x140478190): the scene's run
-  // radius A0+0xC by 0x140474CF0, then the celebration spot A0+0x30 by 0x140476C50, which the scorer's run object keeps as
-  // his target; the scene anchor 0x140474F00 and the flip 0x140478FF0 follow, as the DemoInfo's first tick runs them.
-  // The arena as PlaceGoal leaves it before the goal's calls: the scorer's slot, man and run object, the field facts, the
-  // attack bearings, and the DemoInfo's defaults (0x140478090) with its sub-object and rng state.
+  // Tick A's inputs PES computes before the anchor (the builder 0x140478190): the scene's run radius A0+0xC by 0x140474CF0, then the
+  // celebration spot A0+0x30 by 0x140476C50, which the scorer's run object keeps as his target. Tick B (AnchorGoal) runs the anchor.
+  // The arena as ArrangeGoal leaves it before the goal's calls: the scorer's facts (WriteMatchFacts), the run target cleared, and
+  // the DemoInfo's defaults (0x140478090) with its sub-object and rng state.
   bool Arrange(const GoalAnchorFacts& f) {
     if (f.scorerSlot >= kPitchSlots) return false;
+    WriteMatchFacts(f);
+    const uint64_t r = run[f.scorerSlot];
+    for (unsigned i = 0; i < 3; ++i) s.wrf(r + kRunTarget + 4 * i, 0.0f);  // the target is what 0x140476C50 is about to give him
+    // A0: the DemoInfo's defaults (0x140478090), then the fields the builder sets before the calls. The object persists across
+    // goals (PES builds it once, in the world's constructor); the defaults reset the per-goal fields it writes.
+    s.gpr[1] = a0;
+    Call(&pes_fn_140478090);
+    s.wr(a0 + kA0RngState, f.rngState, 4);
+    return true;
+  }
+
+  // The scorer's facts as both ticks read them (PES's per-frame values): the match info's scorer, the field info, the attack
+  // bearings, fps, and the man record's facing, move word, position and velocity. The run target is not touched here.
+  void WriteMatchFacts(const GoalAnchorFacts& f) {
     const uint32_t side = f.scorerSlot / kSideSlots, place = f.scorerSlot % kSideSlots;
     s.wr(matchInfo + kMiSlotMode, 1, 4);
     s.wr(matchInfo + kMiSlot, f.scorerSlot, 4);
@@ -590,20 +644,13 @@ struct FixDemoSelector::Impl {
     s.wrf(matchRecord + kAttackBearingSide1, f.attackDeg[1]);
     s.wrf(kFpsVa, f.fps);
     s.wr(kFpsIntVa, static_cast<uint32_t>(f.fps), 4);  // the integer copy 0x14047A710 multiplies (0x141E532E0 returns it)
-    const uint64_t m = man[f.scorerSlot], r = run[f.scorerSlot];
+    const uint64_t m = man[f.scorerSlot];
     s.wrf(m + kManFacing, f.facing);
     s.wr(m + kManMoveMode, f.moveMode, 4);
     for (unsigned i = 0; i < 3; ++i) {
       s.wrf(m + kManPos + 4 * i, f.pos[i]);
       s.wrf(m + kManVel + 4 * i, f.vel[i]);
-      s.wrf(r + kRunTarget + 4 * i, 0.0f);  // the target is what 0x140476C50 is about to give him
     }
-    // A0: the DemoInfo's defaults (0x140478090), then the fields the builder sets before the calls. The object persists across
-    // goals (PES builds it once, in the world's constructor); the defaults reset the per-goal fields it writes.
-    s.gpr[1] = a0;
-    Call(&pes_fn_140478090);
-    s.wr(a0 + kA0RngState, f.rngState, 4);
-    return true;
   }
 
   // The zone decision alone: PES's writer 0x1404B88B0 on the arena Arrange builds for `f`, with A0+0xDC = decisionCount. The
@@ -618,7 +665,10 @@ struct FixDemoSelector::Impl {
     return static_cast<uint32_t>(s.rd(a0 + kA0Bc, 4));
   }
 
-  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
+  // Tick A of a goal (PES's builder and the DemoInfo tick's zone decision and recompute, 0x1404B88B0 and 0x140471A80): the arrangement
+  // on the arena for `f`, the scene, the radius and the celebration spot, then the timers. Writes no position: the anchor is tick B
+  // (AnchorGoal), which PES runs on a later frame from the scorer's position of that frame.
+  std::optional<GoalAnchor> ArrangeGoal(const GoalAnchorFacts& f) {
     const auto goal = tables.find(kFixDemoGoal);
     if (goal == tables.end() || !Arrange(f)) return std::nullopt;
     const uint64_t r = run[f.scorerSlot];
@@ -698,8 +748,31 @@ struct FixDemoSelector::Impl {
     }
     out.sceneId = sceneId;
     out.scenes = scenes;
-    // ponytail: the writer of the run object's +0x18 is not decoded; it equals A0+0x30 on all 7 captured goals.
+    // ponytail: the translated chain (0x14047AB20 -> the command object's 0x140A60770) does not write the scorer's run object +0x18 (the
+    // T-writer test fails without the line below). Its PES writer is not decoded; GF writes A0+0x30 here, equal on the captured goals.
     for (unsigned i = 0; i < 3; ++i) s.wrf(r + kRunTarget + 4 * i, out.target[i]);
+    // The goal builder's last calls: the run object's timers (0x14047A710(A0, event): A0+0x14 = fps x 4 / scale, 10 for
+    // 0x3013D..F, A0+0x18 = fps x 30 / scale), and the DemoInfo's first cut id the tail's scene flag test reads (+0x10).
+    // ponytail: the builder first sets A0+0x130 = 0x1404790B0(A0, event) (the match setup's decider-goal flag read from G+0x2AD0:
+    // not translated, GF has no setup struct); it stays 0 here, as on the 13 captured goals of the default arm. A goal where PES
+    // sets it takes the timer's other arm (INF: the logged 0x30126 ran a 162-frame timer = fps x 3) and the gate's +0x131 hold; removed with
+    // 0x1404790B0.
+    s.wr(demo + kDemoInfoCut, scenes.empty() ? sceneId : scenes.front(), 4);
+    s.gpr[1] = a0;
+    s.gpr[2] = event;
+    Call(&pes_fn_14047A710);
+    gateSlot = f.scorerSlot;
+    goalPlaced = true;
+    armed = out;
+    return out;
+  }
+
+  // Tick B of a goal: PES's scene anchor (the writer 0x14047D280's kind-1 arm over 0x140474F00) and the flip 0x140478FF0, run on the
+  // arena ArrangeGoal set up, with the scorer's position of this tick (the man record that 0x140474F00 reads at its own frame).
+  std::optional<GoalAnchor> AnchorGoal(const GoalAnchorFacts& f) {
+    if (!goalPlaced || f.scorerSlot != gateSlot) return std::nullopt;
+    WriteMatchFacts(f);
+    GoalAnchor out = armed;
     // 0x140474F00(A0, arg2 (not read), &pos, &rotY)
     s.gpr[1] = a0;
     s.gpr[2] = 0;
@@ -720,19 +793,12 @@ struct FixDemoSelector::Impl {
     s.gpr[2] = 0;
     Call(&pes_fn_140478FF0);
     out.flip = (s.gpr[0] & 0xFF) != 0;
-    // The goal builder's last calls: the run object's timers (0x14047A710(A0, event): A0+0x14 = fps x 4 / scale, 10 for
-    // 0x3013D..F, A0+0x18 = fps x 30 / scale), and the DemoInfo's first cut id the tail's scene flag test reads (+0x10).
-    // ponytail: the builder first sets A0+0x130 = 0x1404790B0(A0, event) (the match setup's decider-goal flag read from G+0x2AD0:
-    // not translated, GF has no setup struct); it stays 0 here, as on the 13 captured goals of the default arm. A goal where PES
-    // sets it takes the timer's other arm (INF: the logged 0x30126 ran a 162-frame timer = fps x 3) and the gate's +0x131 hold; removed with
-    // 0x1404790B0.
-    s.wr(demo + kDemoInfoCut, scenes.empty() ? sceneId : scenes.front(), 4);
-    s.gpr[1] = a0;
-    s.gpr[2] = event;
-    Call(&pes_fn_14047A710);
-    gateSlot = f.scorerSlot;
-    goalPlaced = true;
     return out;
+  }
+
+  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
+    if (!ArrangeGoal(f)) return std::nullopt;
+    return AnchorGoal(f);
   }
 
   // One call of the goal gate 0x140472640(A0, event, DemoInfo) with the scorer as he is this frame; A0+0xEC after it.
@@ -854,7 +920,7 @@ struct FixDemoSelector::Impl {
 };
 
 std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTable> tables, const PeImage& exe,
-                                                         const PesVfs& vfs, std::string* error) {
+                                                         const PesVfs& vfs, int homeTeamId, std::string* error) {
   std::vector<uint8_t> image(kImageTablesBytes);
   if (!exe.ReadVa(kImageTablesVa, image.size(), image.data())) {
     if (error) *error = "the image does not map the FixDemo evaluator's switch tables";
@@ -916,9 +982,13 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
   if (!stadiumBlob) return nullptr;
   const auto stadiumList = UnwrapWesys(*stadiumBlob, kStadiumConstantPath, error);
   if (!stadiumList) return nullptr;
+  // ponytail: the cut key of the home stadium, the time-scale object's +0x20 that 0x140476C50 and 0x140476010 read as the cut
+  // library lookup id. 112 + TeamStadiumId(home) is provisional: st001 <-> 0x71 and st046 <-> 0x9E (CutsceneAnchor15/16). The writer
+  // of T+0x1C and T+0x20 in PES (both carry the key) is not located; this feed replaces it until that writer is translated.
+  const uint32_t cutKey = kStadiumCutNameBase + static_cast<uint32_t>(TeamStadiumId(vfs, homeTeamId));
   return std::unique_ptr<FixDemoSelector>(new FixDemoSelector(
       std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), std::move(stage), std::move(rdata), fullTurn,
-                             cutGroupPaths, stadiumPath, *stadiumList)));
+                             cutGroupPaths, stadiumPath, *stadiumList, cutKey)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -937,9 +1007,13 @@ void FixDemoSelector::Seed(uint32_t sessionSeed, uint32_t matchSeed) {
 void FixDemoSelector::BeginEvent(const FixDemoFacts& f) {
   Impl& m = *impl_;
   PesState& s = m.s;
-  for (uint64_t off = 0; off < kCtxBytes; off += 8) s.wr(m.ctx + off, 0, 8);  // 0x141F50B90 resets; unread fields stay 0
-  // ponytail: the reset's map clear (0x141F50B90 frees the nodes) is not run: the old nodes stay in the arena, a few dozen
-  // bytes per picked cut and event, against 8 MiB; a long session that fills it needs the clear translated.
+  // PES's ctx reset (0x141F50B90, translated) writes the event's defaults. It does not touch the pick cache (ctx+0x30) or the
+  // second map (ctx+0x40), which the constructor built: zeroing the whole ctx had wiped the second map, and the next map walk
+  // dereferenced its null head (SIGSEGV). The pick cache starts as a fresh sentinel per event.
+  // ponytail: the old pick-cache nodes are not freed (a few dozen bytes per picked cut and event, against 8 MiB); a long session
+  // that fills the arena needs PES's clear translated.
+  s.gpr[1] = m.ctx;
+  m.Call(&pes_fn_141F50B90);
   m.InitPickMap();
   const uint64_t c = m.ctx;
   s.wr(c + kCtxStadium, f.stadium, 4);
@@ -990,6 +1064,8 @@ std::optional<FixDemoRequest> FixDemoSelector::Request(uint32_t sceneId) {
   return req;
 }
 
+std::optional<GoalAnchor> FixDemoSelector::ArrangeGoal(const GoalAnchorFacts& facts) { return impl_->ArrangeGoal(facts); }
+std::optional<GoalAnchor> FixDemoSelector::AnchorGoal(const GoalAnchorFacts& facts) { return impl_->AnchorGoal(facts); }
 std::optional<GoalAnchor> FixDemoSelector::PlaceGoal(const GoalAnchorFacts& facts) { return impl_->PlaceGoal(facts); }
 
 std::optional<uint32_t> FixDemoSelector::ZoneDecision(const GoalAnchorFacts& facts, uint32_t decisionCount) {

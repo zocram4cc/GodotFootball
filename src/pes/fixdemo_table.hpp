@@ -63,6 +63,21 @@ struct FixDemoSceneRow {
   std::array<uint8_t, 4> tail{};
 };
 
+// One control row (PES's CTRL row, the 0x2C-byte record the variant matcher reads): the condition keys the row needs, its float and
+// the scene id it plays (the record's +0x28). The file lists several ids per row; the runtime record keeps the first.
+struct FixDemoCtrlRow {
+  std::vector<uint16_t> keys;  // the first 10 keys (condType << 8 | value)
+  uint8_t nf = 0;               // float count (the record's +0x14)
+  uint8_t ni = 0;               // id count the file lists (the record's +0x15; 0 rows hold no scene)
+  std::array<float, 4> floats{};  // the first 4 (the record's +0x18)
+  uint32_t sceneId = 0;         // the row's scene id (the record's +0x28)
+};
+
+struct FixDemoCtrlGroup {
+  uint32_t firstRow = 0;  // the group's slice start in the control row list (the DB's {start, count} pair)
+  std::vector<FixDemoCtrlRow> rows;
+};
+
 struct FixDemoTable {
   int version = 0;
   std::vector<FixDemoCutGroup> cutGroups;
@@ -71,6 +86,8 @@ struct FixDemoTable {
   std::vector<uint32_t> goalEditScenes;
   std::vector<FixDemoGoalPlayerScene> goalPlayerScenes;
   std::vector<FixDemoSceneRow> goalSceneRows;  // one per scene, in scene order
+  // Goal category only: the T3 control table, one group per cut group id (index = group - 1).
+  std::vector<FixDemoCtrlGroup> ctrlGroups;
 };
 
 // The VFS path of a cut layer a variant names: the category's cut_data folder + the name. Empty for an unknown category.

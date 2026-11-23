@@ -139,7 +139,8 @@ bool TablesMatchTheCapturedRun(const Install& in, const Event& e) {
 
 std::unique_ptr<pes::FixDemoSelector> Make(const Install& in) {
   std::string err;
-  auto sel = pes::FixDemoSelector::Create(in.tables, *in.exe, in.vfs, &err);
+  // The home team is not pinned by these tests (none reads the time-scale key); 0 is a team id the install's team list may not hold.
+  auto sel = pes::FixDemoSelector::Create(in.tables, *in.exe, in.vfs, 0, &err);
   EXPECT_TRUE(sel) << err;
   return sel;
 }
@@ -289,6 +290,37 @@ TEST(FixDemoSelect, TheCutLibraryHoldsOneSlotPerCutName) {
   ASSERT_GE(end, begin);
   pes_fn_141E5DE80(s);
   EXPECT_EQ((end - begin) / 8, s.gpr[0]);
+}
+
+// PES's stadium cut 0x71 (demoarea_st001, name index 113) is built by the fill 0x141E5D560 through its per-object insert 0x141E5CB40:
+// the slot holds a holder (0x141E5E0A0) whose +8 is the node the factory and ctor 0x141E6C240/0x141E6C100 make, loaded by the parser
+// 0x141E6C280 over the object's bytes. Live values (CONFIRMED, cutlib/live_node_71.bin read from seq204): -80.0 at node+8 and 16.0 at +0xC.
+TEST(FixDemoSelect, TheStadiumCutNodeHoldsPesLiveValues) {
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
+  auto sel = Make(in);
+  ASSERT_TRUE(sel);
+  PesState& s = sel->State();
+  constexpr uint64_t kCutLibraryVa = 0x1437F4808;  // the global the builder stores
+  constexpr uint64_t kStadiumCut = 0x71;           // demoarea_st001 (the wide-channel anchor's cut)
+  constexpr uint64_t kHolderNodeOff = 8, kNodeXOffset = 8, kNodeYOffset = 0xC;
+  constexpr float kLiveNodeX = -80.0f, kLiveNodeY = 16.0f;
+  const uint64_t header = s.rd(kCutLibraryVa, 8);
+  ASSERT_NE(header, 0u);
+  const uint64_t begin = s.rd(header, 8), end = s.rd(header + 8, 8);
+  ASSERT_GT(end - begin, kStadiumCut * 8);
+  const uint64_t holder = s.rd(begin + kStadiumCut * 8, 8);
+  ASSERT_NE(holder, 0u) << "slot 0x71 is empty: the fill did not build the cut's node";
+  const uint64_t node = s.rd(holder + kHolderNodeOff, 8);
+  ASSERT_NE(node, 0u);
+  const auto asFloat = [&](uint64_t va) {
+    const uint32_t bits = static_cast<uint32_t>(s.rd(va, 4));
+    float f;
+    std::memcpy(&f, &bits, sizeof f);
+    return f;
+  };
+  EXPECT_FLOAT_EQ(asFloat(node + kNodeXOffset), kLiveNodeX);
+  EXPECT_FLOAT_EQ(asFloat(node + kNodeYOffset), kLiveNodeY);
 }
 
 }  // namespace

@@ -105232,6 +105232,7 @@
   "140419D70": "tools/dev/translate/results_core.json",
   "14041EF30": "tools/dev/translate/results_presentation.json",
   "14041EF40": "tools/dev/translate/results_core.json",
+  "14041F2F0": "tools/dev/translate/results_trapaction.json",
   "140421F50": "tools/dev/translate/results_core.json",
   "140421F60": "tools/dev/translate/results_core.json",
   "140421F70": "tools/dev/translate/results_core.json",
@@ -105241,6 +105242,8 @@
   "140421FB0": "tools/dev/translate/results_core.json",
   "140421FC0": "tools/dev/translate/results_core.json",
   "140423B70": "tools/dev/translate/results_core.json",
+  "140425010": "tools/dev/translate/results_trapaction.json",
+  "140425A90": "tools/dev/translate/results_trapaction.json",
   "140426810": "tools/dev/translate/results_core.json",
   "140426C10": "tools/dev/translate/results_core.json",
   "140426C40": "tools/dev/translate/results_core.json",
@@ -105254,6 +105257,7 @@
   "14042D5E0": "tools/dev/translate/results_core.json",
   "14042D610": "tools/dev/translate/results_presentation.json",
   "1404309C0": "tools/dev/translate/results_core.json",
+  "140430C30": "tools/dev/translate/results_trapaction.json",
   "1404313C0": "tools/dev/translate/results_core.json",
   "140431710": "tools/dev/translate/results_core.json",
   "1404327A0": "tools/dev/translate/results_core.json",
@@ -105340,6 +105344,7 @@
   "1404703C0": "tools/dev/translate/results_core.json",
   "1404703D0": "tools/dev/translate/results_core.json",
   "1404703E0": "tools/dev/translate/results_core.json",
+  "1404704F0": "tools/dev/translate/results_trapaction.json",
   "1404705B0": "tools/dev/translate/results_cutscene.json",
   "140470D00": "tools/dev/translate/results_presentation.json",
   "140470D60": "tools/dev/translate/results.json",
@@ -106409,6 +106414,7 @@
   "140872210": "tools/dev/translate/results_core.json",
   "140872240": "tools/dev/translate/results_core.json",
   "1408722C0": "tools/dev/translate/results_core.json",
+  "140872C10": "tools/dev/translate/results_trapaction.json",
   "140874100": "tools/dev/translate/results_core.json",
   "1408742C0": "tools/dev/translate/results_core.json",
   "140874320": "tools/dev/translate/results_core.json",
@@ -226704,11 +226710,23 @@
    ],
    "name": "object"
   },
+  "140430C30": {
+   "files": [
+    "src/sim/onthepitch/pesworldrecord.hpp"
+   ],
+   "name": "it"
+  },
   "140430C66": {
    "files": [
     "src/sim/onthepitch/pesbodyscan.hpp"
    ],
    "name": "test"
+  },
+  "1404335B0": {
+   "files": [
+    "src/sim/onthepitch/pesworldrecord.hpp"
+   ],
+   "name": "it"
   },
   "1404356E0": {
    "files": [
@@ -227341,6 +227359,12 @@
    ],
    "name": "switch"
   },
+  "140476010": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "UnwrapWesys"
+  },
   "140476190": {
    "files": [
     "src/pes/fixdemo_select.hpp",
@@ -227471,7 +227495,7 @@
    "files": [
     "src/pes/fixdemo_select.cpp"
    ],
-   "name": null
+   "name": "chain"
   },
   "14047B460": {
    "files": [
@@ -239168,7 +239192,6 @@
   "140791EC0": {
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp",
-    "src/sim/onthepitch/pesmovestep.cpp",
     "src/sim/onthepitch/pessequencer.cpp",
     "src/sim/onthepitch/pessequencer.hpp",
     "src/sim/onthepitch/pesgoalkick.hpp",
@@ -240909,6 +240932,7 @@
   },
   "14091E9F0": {
    "files": [
+    "src/sim/onthepitch/pesworldrecord.cpp",
     "src/sim/onthepitch/pesworldrecord.hpp"
    ],
    "name": "kSlotObjectBytes"
@@ -240921,6 +240945,7 @@
   },
   "1409211E0": {
    "files": [
+    "src/sim/onthepitch/pesworldrecord.cpp",
     "src/sim/onthepitch/pesworldrecord.hpp"
    ],
    "name": "kSlotObjectBytes"
@@ -243377,6 +243402,12 @@
    ],
    "name": "arm"
   },
+  "140A60770": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "chain"
+  },
   "140A607D0": {
    "files": [
     "src/sim/onthepitch/pesworldrecord.hpp"
@@ -244180,6 +244211,12 @@
     "src/pes/fixdemo_select.cpp"
    ],
    "name": "library"
+  },
+  "140A7CAE0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "T3"
   },
   "140A7CB40": {
    "files": [
@@ -246594,6 +246631,12 @@
    ],
    "name": "seeding"
   },
+  "141F4CB6F": {
+   "files": [
+    "src/sim/onthepitch/pesworldrecord.hpp"
+   ],
+   "name": "it"
+  },
   "141F4D070": {
    "files": [
     "src/pes/fixdemo_select.hpp",
@@ -246637,6 +246680,12 @@
     "src/pes/fixdemo_select.cpp"
    ],
    "name": "values"
+  },
+  "141F4FC30": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "T3"
   },
   "141F4FDA0": {
    "files": [
@@ -253835,6 +253884,12 @@
     "src/sim/onthepitch/pesjudge.hpp"
    ],
    "name": null
+  },
+  "14428BBD0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "T3"
   }
  },
  "standins": {
@@ -253854,7 +253909,7 @@
    "src/sim/onthepitch/pesboot.hpp:30"
   ],
   "140422030": [
-   "src/sim/onthepitch/pesworldrecord.hpp:1384"
+   "src/sim/onthepitch/pesworldrecord.hpp:1393"
   ],
   "140425A90": [
    "src/sim/onthepitch/matchevents.cpp:160"
@@ -253877,7 +253932,7 @@
    "src/pes/movestep_run.cpp:2967"
   ],
   "140457070": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2571",
+   "src/sim/onthepitch/teamAIcontroller.cpp:2611",
    "src/sim/onthepitch/team.cpp:407"
   ],
   "14045725A": [
@@ -253886,23 +253941,32 @@
   "140470D60": [
    "src/pes/movestep_run.cpp:1119"
   ],
+  "140476010": [
+   "src/pes/fixdemo_select.cpp:985"
+  ],
   "140476190": [
    "src/pes/fixdemo_select.hpp:99"
   ],
+  "140476C50": [
+   "src/pes/fixdemo_select.cpp:985"
+  ],
   "140477570": [
-   "src/pes/fixdemo_select.cpp:197"
+   "src/pes/fixdemo_select.cpp:207"
   ],
   "1404790B0": [
-   "src/pes/fixdemo_select.cpp:725"
+   "src/pes/fixdemo_select.cpp:756"
   ],
   "1404793B0": [
-   "src/pes/fixdemo_select.cpp:197"
+   "src/pes/fixdemo_select.cpp:207"
   ],
   "1404794C0": [
-   "src/pes/fixdemo_select.cpp:197"
+   "src/pes/fixdemo_select.cpp:207"
+  ],
+  "14047AB20": [
+   "src/pes/fixdemo_select.cpp:751"
   ],
   "14047B460": [
-   "src/pes/fixdemo_select.cpp:195"
+   "src/pes/fixdemo_select.cpp:205"
   ],
   "14047C830": [
    "src/pes/cutscene_timeline.cpp:20"
@@ -253917,7 +253981,7 @@
    "src/sim/onthepitch/pessetpieceteam.hpp:164"
   ],
   "1404B6BD0": [
-   "src/pes/fixdemo_select.cpp:642"
+   "src/pes/fixdemo_select.cpp:692"
   ],
   "1404BCAD0": [
    "src/pes/movestep_turn.cpp:1098"
@@ -253936,7 +254000,7 @@
    "src/sim/onthepitch/pesmarktable.hpp:80"
   ],
   "1404F6720": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3815"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3855"
   ],
   "1404F68CB": [
    "src/sim/onthepitch/pesoffball.cpp:1642"
@@ -253948,16 +254012,16 @@
    "src/sim/onthepitch/pesoffball.cpp:1642"
   ],
   "1404F6D89": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2825"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2865"
   ],
   "1404F6D97": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2825"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2865"
   ],
   "1404F76E0": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3119"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3159"
   ],
   "1404F7807": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3119"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3159"
   ],
   "1404F8675": [
    "src/sim/onthepitch/pesteamtick.cpp:36"
@@ -253978,7 +254042,7 @@
    "src/sim/onthepitch/pesteamtick.hpp:45"
   ],
   "140501283": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2555"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2595"
   ],
   "140502758": [
    "src/sim/onthepitch/pesteamtick.cpp:86"
@@ -253994,7 +254058,7 @@
    "src/sim/onthepitch/pesjudge.cpp:141"
   ],
   "14051DA80": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3196"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3236"
   ],
   "14053E9A0": [
    "src/sim/onthepitch/pesteamconcepts.cpp:949"
@@ -254009,13 +254073,13 @@
    "src/sim/onthepitch/teamAIcontroller.cpp:261"
   ],
   "140579840": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2320"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2360"
   ],
   "14057F590": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2910"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2950"
   ],
   "14057F7EC": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2926"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2966"
   ],
   "1405A0D20": [
    "src/sim/onthepitch/pesoffball.cpp:1774"
@@ -254030,10 +254094,10 @@
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:3325"
   ],
   "140633940": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2566"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2606"
   ],
   "140634308": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2566"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2606"
   ],
   "14063A420": [
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:2597"
@@ -254051,7 +254115,7 @@
    "src/sim/onthepitch/pesmentality.hpp:164"
   ],
   "140642670": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2910"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2950"
   ],
   "140664EE0": [
    "src/sim/onthepitch/pesoffball.cpp:370"
@@ -254081,7 +254145,7 @@
    "src/pes/movestep_step.cpp:583"
   ],
   "1406DE990": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:1517"
+   "src/sim/onthepitch/teamAIcontroller.cpp:1556"
   ],
   "1406E03D0": [
    "src/sim/onthepitch/matchevents.cpp:124"
@@ -254099,14 +254163,14 @@
    "src/sim/onthepitch/matchevents.cpp:124"
   ],
   "1406EEBB0": [
-   "src/sim/onthepitch/player/humanoid/humanoid.cpp:2244",
-   "src/sim/onthepitch/player/humanoid/humanoid.cpp:2272"
+   "src/sim/onthepitch/player/humanoid/humanoid.cpp:2247",
+   "src/sim/onthepitch/player/humanoid/humanoid.cpp:2275"
   ],
   "140723320": [
    "src/sim/onthepitch/peskickerror.cpp:323"
   ],
   "140724CC0": [
-   "src/sim/onthepitch/pesworldrecord.cpp:478"
+   "src/sim/onthepitch/pesworldrecord.cpp:490"
   ],
   "140731D80": [
    "src/sim/onthepitch/pesgoalkick.hpp:140"
@@ -254158,13 +254222,13 @@
    "src/sim/onthepitch/pesmentality.cpp:523"
   ],
   "14092AF10": [
-   "src/sim/onthepitch/pesmovestep.cpp:700"
+   "src/sim/onthepitch/pesmovestep.cpp:699"
   ],
   "14092B7FC": [
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:1078"
   ],
   "14092B8A8": [
-   "src/sim/onthepitch/pesworldrecord.hpp:1063"
+   "src/sim/onthepitch/pesworldrecord.hpp:1072"
   ],
   "14092ED30": [
    "src/sim/onthepitch/team.cpp:411"
@@ -254173,13 +254237,13 @@
    "src/sim/onthepitch/player/controller/strategies/offtheball/goalie_default.cpp:106"
   ],
   "1409F1F20": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3573"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3613"
   ],
   "140A0DFD0": [
    "src/sim/onthepitch/pesreceive.hpp:243"
   ],
   "140A3B320": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3431"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3471"
   ],
   "140A3B520": [
    "src/sim/onthepitch/referee.cpp:847"
@@ -254205,7 +254269,7 @@
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:2920"
   ],
   "140A42580": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2979"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3019"
   ],
   "140A48910": [
    "src/sim/onthepitch/pesmovestep.cpp:533",
@@ -254242,7 +254306,7 @@
    "src/sim/onthepitch/pesmarktable.hpp:79"
   ],
   "140A53F90": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2409"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2449"
   ],
   "140A57800": [
    "src/sim/onthepitch/matchevents.cpp:273",
@@ -254252,7 +254316,7 @@
    "src/sim/onthepitch/pesstamina.hpp:206"
   ],
   "140A580A0": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3743"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3783"
   ],
   "140A581C0": [
    "src/sim/onthepitch/pesmovestep.cpp:97"
@@ -254267,6 +254331,9 @@
   "140A60300": [
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:1666"
   ],
+  "140A60770": [
+   "src/pes/fixdemo_select.cpp:751"
+  ],
   "140A627E0": [
    "src/sim/onthepitch/teamAIcontroller.cpp:242",
    "src/sim/onthepitch/pesmovestep.cpp:518",
@@ -254278,7 +254345,7 @@
    "src/pes/movestep_step.cpp:159"
   ],
   "140A62850": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3864"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3904"
   ],
   "140A62960": [
    "src/sim/onthepitch/pesmovestep.cpp:430",
@@ -254322,7 +254389,7 @@
    "src/sim/onthepitch/pesmovestep.cpp:485"
   ],
   "140A72E70": [
-   "src/sim/onthepitch/player/humanoid/humanoid.cpp:3447"
+   "src/sim/onthepitch/player/humanoid/humanoid.cpp:3450"
   ],
   "140A73E20": [
    "src/sim/onthepitch/pesmovestep.cpp:323"
@@ -254334,7 +254401,7 @@
    "src/sim/onthepitch/pescarrier.cpp:2181"
   ],
   "140A80D10": [
-   "src/sim/onthepitch/pesworldrecord.hpp:723"
+   "src/sim/onthepitch/pesworldrecord.hpp:732"
   ],
   "140A92C80": [
    "src/sim/onthepitch/pescarrier.cpp:115",
@@ -254366,7 +254433,7 @@
    "src/sim/onthepitch/pesboot.cpp:171"
   ],
   "1414A8790": [
-   "src/pes/fixdemo_select.cpp:436"
+   "src/pes/fixdemo_select.cpp:475"
   ],
   "1414B11A0": [
    "src/sim/onthepitch/pesboot.cpp:171"
@@ -254387,7 +254454,7 @@
    "src/pes/fdc.cpp:184"
   ],
   "141AD98B0": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3411",
+   "src/sim/onthepitch/teamAIcontroller.cpp:3451",
    "src/sim/onthepitch/pesmovestep.cpp:305"
   ],
   "141B348C0": [
@@ -254416,7 +254483,7 @@
    "src/sim/onthepitch/pescarrier.cpp:2050"
   ],
   "141E5D980": [
-   "src/pes/fixdemo_select.cpp:436"
+   "src/pes/fixdemo_select.cpp:475"
   ],
   "141E8B400": [
    "src/sim/onthepitch/pesfoxworld.hpp:117"
@@ -254428,7 +254495,7 @@
    "src/sim/onthepitch/pestrapactor.hpp:97"
   ],
   "141EB49B0": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3623"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3663"
   ],
   "141EB50B0": [
    "src/pes/movestep_turn.cpp:2829"
@@ -254446,19 +254513,16 @@
    "src/gdext/pes_cutscene_camera.hpp:28"
   ],
   "141F4D070": [
-   "src/pes/fixdemo_select.hpp:180"
-  ],
-  "141F50B90": [
-   "src/pes/fixdemo_select.cpp:941"
+   "src/pes/fixdemo_select.hpp:181"
   ],
   "141F51630": [
-   "src/pes/fixdemo_select.cpp:62"
+   "src/pes/fixdemo_select.cpp:70"
   ],
   "141F51FD0": [
    "src/pes/fixdemo_camera_list.hpp:56"
   ],
   "141F58FC0": [
-   "src/pes/fixdemo_select.hpp:180"
+   "src/pes/fixdemo_select.hpp:181"
   ],
   "141F59380": [
    "src/pes/cutscene_timeline.cpp:8"
@@ -254470,7 +254534,7 @@
    "src/gdext/pes_cutscene_camera.hpp:58"
   ],
   "141F5EC60": [
-   "src/pes/fixdemo_select.cpp:642"
+   "src/pes/fixdemo_select.cpp:692"
   ],
   "141F7A150": [
    "src/gdext/gf_match.cpp:482"
@@ -254497,13 +254561,13 @@
    "src/sim/onthepitch/pesboot.cpp:198"
   ],
   "14210DD60": [
-   "src/sim/onthepitch/pesworldrecord.cpp:334"
+   "src/sim/onthepitch/pesworldrecord.cpp:346"
   ],
   "14210E200": [
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:988"
   ],
   "14210E790": [
-   "src/sim/onthepitch/pesworldrecord.cpp:708"
+   "src/sim/onthepitch/pesworldrecord.cpp:720"
   ],
   "14210F090": [
    "src/sim/onthepitch/pescarrier.hpp:883"
@@ -254512,7 +254576,7 @@
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:988"
   ],
   "142117370": [
-   "src/sim/onthepitch/pesworldrecord.cpp:234"
+   "src/sim/onthepitch/pesworldrecord.cpp:246"
   ],
   "142118D20": [
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:3029",
@@ -254526,7 +254590,7 @@
    "src/sim/onthepitch/pescarrier.cpp:532"
   ],
   "14211AB10": [
-   "src/sim/onthepitch/pesworldrecord.cpp:294"
+   "src/sim/onthepitch/pesworldrecord.cpp:306"
   ],
   "14211AFB9": [
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:2575"
@@ -254574,13 +254638,13 @@
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:2874"
   ],
   "142132E20": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2581"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2621"
   ],
   "142135230": [
    "src/sim/onthepitch/pesgoalkick.hpp:129"
   ],
   "142135700": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:1427",
+   "src/sim/onthepitch/teamAIcontroller.cpp:1459",
    "src/sim/onthepitch/player/controller/elizacontroller.cpp:427"
   ],
   "142348F80": [
@@ -254611,7 +254675,7 @@
    "src/pes/playerdb.cpp:27"
   ],
   "143446058": [
-   "src/pes/fixdemo_select.cpp:95"
+   "src/pes/fixdemo_select.cpp:103"
   ],
   "14344EF78": [
    "src/sim/onthepitch/peskickerror.cpp:323"
@@ -254628,6 +254692,8 @@
  },
  "synthetic": [
   "140215210",
+  "14041F2F0",
+  "1404704F0",
   "140535C60",
   "140536210",
   "140536690",
@@ -258517,6 +258583,8 @@
   "14041DC80": "src/pes/translated/closure/pes_fn_14041DC80.cpp",
   "14041EF30": "src/pes/translated/camera/pes_fn_14041EF30.cpp",
   "14041EF40": "src/pes/translated/gameplay/pes_fn_14041EF40.cpp",
+  "14041F2F0": "src/pes/translated/pressback/pes_fn_14041F2F0.cpp",
+  "14041F8E0": "src/pes/translated/closure/pes_fn_14041F8E0.cpp",
   "140421F40": "src/pes/translated/closure/pes_fn_140421F40.cpp",
   "140421F50": "src/pes/translated/gameplay/pes_fn_140421F50.cpp",
   "140421F60": "src/pes/translated/gameplay/pes_fn_140421F60.cpp",
@@ -258528,6 +258596,9 @@
   "140421FC0": "src/pes/translated/gameplay/pes_fn_140421FC0.cpp",
   "1404234B0": "src/pes/translated/closure/pes_fn_1404234B0.cpp",
   "140423B70": "src/pes/translated/restart/pes_fn_140423B70.cpp",
+  "140425010": "src/pes/translated/ball/pes_fn_140425010.cpp",
+  "1404258B0": "src/pes/translated/closure/pes_fn_1404258B0.cpp",
+  "140425A90": "src/pes/translated/ball/pes_fn_140425A90.cpp",
   "140426810": "src/pes/translated/gameplay/pes_fn_140426810.cpp",
   "140426C10": "src/pes/translated/gameplay/pes_fn_140426C10.cpp",
   "140426C40": "src/pes/translated/gameplay/pes_fn_140426C40.cpp",
@@ -258544,6 +258615,8 @@
   "14042D610": "src/pes/translated/replay/pes_fn_14042D610.cpp",
   "14042F110": "src/pes/translated/closure/pes_fn_14042F110.cpp",
   "1404309C0": "src/pes/translated/animation/pes_fn_1404309C0.cpp",
+  "140430C30": "src/pes/translated/kind8ballsync/pes_fn_140430C30.cpp",
+  "140430E20": "src/pes/translated/closure/pes_fn_140430E20.cpp",
   "1404313C0": "src/pes/translated/gameplay/pes_fn_1404313C0.cpp",
   "140431710": "src/pes/translated/gameplay/pes_fn_140431710.cpp",
   "1404327A0": "src/pes/translated/gameplay/pes_fn_1404327A0.cpp",
@@ -258555,6 +258628,7 @@
   "140432B90": "src/pes/translated/gameplay/pes_fn_140432B90.cpp",
   "140432C40": "src/pes/translated/gameplay/pes_fn_140432C40.cpp",
   "140432CB0": "src/pes/translated/closure/pes_fn_140432CB0.cpp",
+  "1404335E0": "src/pes/translated/closure/pes_fn_1404335E0.cpp",
   "140433870": "src/pes/translated/closure/pes_fn_140433870.cpp",
   "140433930": "src/pes/translated/closure/pes_fn_140433930.cpp",
   "140433CF0": "src/pes/translated/gameplay/pes_fn_140433CF0.cpp",
@@ -258625,6 +258699,7 @@
   "140443FE0": "src/pes/translated/referee/pes_fn_140443FE0.cpp",
   "140444000": "src/pes/translated/restart/pes_fn_140444000.cpp",
   "1404441D0": "src/pes/translated/restart/pes_fn_1404441D0.cpp",
+  "140445670": "src/pes/translated/closure/pes_fn_140445670.cpp",
   "140445750": "src/pes/translated/closure/pes_fn_140445750.cpp",
   "1404457C0": "src/pes/translated/closure/pes_fn_1404457C0.cpp",
   "140445E70": "src/pes/translated/restart/pes_fn_140445E70.cpp",
@@ -258681,8 +258756,10 @@
   "1404703C0": "src/pes/translated/gameplay/pes_fn_1404703C0.cpp",
   "1404703D0": "src/pes/translated/gameplay/pes_fn_1404703D0.cpp",
   "1404703E0": "src/pes/translated/gameplay/pes_fn_1404703E0.cpp",
+  "1404704F0": "src/pes/translated/pressreg2/pes_fn_1404704F0.cpp",
   "1404705B0": "src/pes/translated/cutscene/pes_fn_1404705B0.cpp",
   "140470600": "src/pes/translated/closure/pes_fn_140470600.cpp",
+  "140470670": "src/pes/translated/closure/pes_fn_140470670.cpp",
   "1404706F0": "src/pes/translated/closure/pes_fn_1404706F0.cpp",
   "140470D00": "src/pes/translated/camera/pes_fn_140470D00.cpp",
   "140470D60": "src/pes/translated/restart/pes_fn_140470D60.cpp",
@@ -261119,17 +261196,25 @@
   "14086FC50": "src/pes/translated/camera/pes_fn_14086FC50.cpp",
   "140870A40": "src/pes/translated/closure/pes_fn_140870A40.cpp",
   "140871BE0": "src/pes/translated/closure/pes_fn_140871BE0.cpp",
+  "140871D30": "src/pes/translated/closure/pes_fn_140871D30.cpp",
   "140871FF0": "src/pes/translated/closure/pes_fn_140871FF0.cpp",
+  "1408720B0": "src/pes/translated/closure/pes_fn_1408720B0.cpp",
   "140872170": "src/pes/translated/ball/pes_fn_140872170.cpp",
   "140872200": "src/pes/translated/ball/pes_fn_140872200.cpp",
   "140872210": "src/pes/translated/ball/pes_fn_140872210.cpp",
   "140872240": "src/pes/translated/ball/pes_fn_140872240.cpp",
   "1408722C0": "src/pes/translated/ball/pes_fn_1408722C0.cpp",
+  "1408723D0": "src/pes/translated/closure/pes_fn_1408723D0.cpp",
+  "140872570": "src/pes/translated/closure/pes_fn_140872570.cpp",
+  "140872C10": "src/pes/translated/ball/pes_fn_140872C10.cpp",
   "140873C20": "src/pes/translated/closure/pes_fn_140873C20.cpp",
+  "140873E30": "src/pes/translated/closure/pes_fn_140873E30.cpp",
+  "140873EE0": "src/pes/translated/closure/pes_fn_140873EE0.cpp",
   "140874100": "src/pes/translated/ball/pes_fn_140874100.cpp",
   "1408742C0": "src/pes/translated/ball/pes_fn_1408742C0.cpp",
   "140874320": "src/pes/translated/ball/pes_fn_140874320.cpp",
   "140874370": "src/pes/translated/ball/pes_fn_140874370.cpp",
+  "1408743A0": "src/pes/translated/closure/pes_fn_1408743A0.cpp",
   "140874470": "src/pes/translated/closure/pes_fn_140874470.cpp",
   "1408747F0": "src/pes/translated/ball/pes_fn_1408747F0.cpp",
   "140874820": "src/pes/translated/restart/pes_fn_140874820.cpp",
@@ -261145,6 +261230,7 @@
   "140875F00": "src/pes/translated/ball/pes_fn_140875F00.cpp",
   "140875F20": "src/pes/translated/gameplay/pes_fn_140875F20.cpp",
   "140875FD0": "src/pes/translated/ball/pes_fn_140875FD0.cpp",
+  "140876020": "src/pes/translated/closure/pes_fn_140876020.cpp",
   "140876360": "src/pes/translated/closure/pes_fn_140876360.cpp",
   "14087B000": "src/pes/translated/gameplay/pes_fn_14087B000.cpp",
   "14087B110": "src/pes/translated/gameplay/pes_fn_14087B110.cpp",
@@ -261866,6 +261952,8 @@
   "140960DB0": "src/pes/translated/closure/pes_fn_140960DB0.cpp",
   "140961860": "src/pes/translated/closure/pes_fn_140961860.cpp",
   "140961F00": "src/pes/translated/closure/pes_fn_140961F00.cpp",
+  "1409621D0": "src/pes/translated/closure/pes_fn_1409621D0.cpp",
+  "140962250": "src/pes/translated/closure/pes_fn_140962250.cpp",
   "140962440": "src/pes/translated/ai/pes_fn_140962440.cpp",
   "140962AF0": "src/pes/translated/closure/pes_fn_140962AF0.cpp",
   "140962F50": "src/pes/translated/closure/pes_fn_140962F50.cpp",
@@ -262752,6 +262840,7 @@
   "140A73E30": "src/pes/translated/closure/pes_fn_140A73E30.cpp",
   "140A73E40": "src/pes/translated/camera/pes_fn_140A73E40.cpp",
   "140A73E90": "src/pes/translated/ball/pes_fn_140A73E90.cpp",
+  "140A73EA0": "src/pes/translated/closure/pes_fn_140A73EA0.cpp",
   "140A73F10": "src/pes/translated/camera/pes_fn_140A73F10.cpp",
   "140A73F20": "src/pes/translated/closure/pes_fn_140A73F20.cpp",
   "140A73F70": "src/pes/translated/restart/pes_fn_140A73F70.cpp",

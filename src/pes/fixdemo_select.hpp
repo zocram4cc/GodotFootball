@@ -149,10 +149,11 @@ class FixDemoSelector {
  public:
   // `tables`: the decoded table of every category the selector may be asked about (key = category). `exe`: the install's
   // PES2021.exe; the evaluator's switch tables live in PES's code (0x141F4F948.. and 0x141F508B0.., read by the translated
-  // `jmp` sequences) and are mapped from it. `vfs`: the install's VFS, which reads constant_stadium.bin for the cut library.
+  // `vfs`: the install's VFS, which reads constant_stadium.bin for the cut library. `homeTeamId`: the home team's DB id; its
+  // stadium's cut key is the cut library's lookup id for the stadium (see Create's note).
   // Null with *error when the image or the VFS does not provide them.
   static std::unique_ptr<FixDemoSelector> Create(std::map<int, FixDemoTable> tables, const PeImage& exe, const PesVfs& vfs,
-                                                 std::string* error);
+                                                 int homeTeamId, std::string* error);
   ~FixDemoSelector();
   FixDemoSelector(const FixDemoSelector&) = delete;
   FixDemoSelector& operator=(const FixDemoSelector&) = delete;
@@ -184,6 +185,12 @@ class FixDemoSelector {
   // The goal scene's anchor (writer 0x14047D280's kind-1 arm over the translated calc 0x140474F00, the wrap into [0, 360) with
   // [0x14259858C], and the flip 0x140478FF0), run on the arena: the scene row is the goal table's, laid into the DB at
   // +0x448/+0x450. Nullopt when the table has no row for the scene or the slot is not a pitch slot.
+  // The goal's two ticks. Tick A (ArrangeGoal): PES's builder and the DemoInfo tick's recompute, which write the scene, the radius
+  // and the celebration spot (the scorer's run object's target) from the facts of that tick; the timers. Tick B (AnchorGoal): the
+  // scene anchor 0x140474F00 and the flip, from the scorer's position of its own frame; it needs ArrangeGoal's arming for the same
+  // slot and returns nullopt before one. PlaceGoal runs both on the same facts (the goal placed in one frame).
+  std::optional<GoalAnchor> ArrangeGoal(const GoalAnchorFacts& facts);
+  std::optional<GoalAnchor> AnchorGoal(const GoalAnchorFacts& facts);
   std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& facts);
 
   // The goal's zone decision alone: PES's writer 0x1404B88B0 on the arena PlaceGoal would arrange for `facts`, with the DemoInfo

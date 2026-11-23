@@ -182,7 +182,8 @@ std::unique_ptr<pes::FixDemoSelector> MakeInstalled(const pes::PeImage& exe, pes
   auto decoded = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, why) : std::nullopt;
   if (!decoded) return nullptr;
   *table = *decoded;
-  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, *vfs, why);
+  // The goal anchor tests pin the stadium cut key themselves (the capture's 0x71); the home team is not read here.
+  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, *vfs, 0, why);
 }
 
 // A selector whose goal table holds only the case's scene row (the rest zero), at the scene's index.
@@ -192,7 +193,7 @@ std::unique_ptr<pes::FixDemoSelector> MakeFor(const pes::PeImage& exe, const Cas
   t.goalSceneRows.back() = RowOf(Unhex(c.rowHex));
   std::string err;
   const pes::PesVfs* vfs = InstallVfs(&err);
-  auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, *vfs, &err) : nullptr;
+  auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, *vfs, 0, &err) : nullptr;
   EXPECT_TRUE(sel) << err;
   return sel;
 }
@@ -306,7 +307,7 @@ TEST(GoalAnchor, RotationIsWrappedIntoOneTurn) {
     t.goalSceneRows.back().floats[8] = offset;
     std::string err;
     const pes::PesVfs* vfs = InstallVfs(&err);
-    auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, *vfs, &err) : nullptr;
+    auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, *vfs, 0, &err) : nullptr;
     const auto got = sel ? sel->PlaceGoal(FactsOf(c)) : std::nullopt;
     EXPECT_TRUE(got) << err;
     return got ? got->rotYDeg : -1.0f;
@@ -350,7 +351,7 @@ TEST(GoalAnchor, TheInstallsSceneRowIsTheRowPesHeld) {
   const auto bytes = vfs->Read(pes::FixDemoTablePath(pes::kFixDemoGoal), &err);
   const auto table = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, &err) : std::nullopt;
   if (!table) GTEST_SKIP() << err;
-  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, *vfs, &err);
+  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, *vfs, 0, &err);
   ASSERT_TRUE(sel) << err;
   PesState& s = sel->State();
   const uint64_t rows = s.rd(s.rd(pes::kFixDemoDbSlotVa, 8) + 0x448, 8);
@@ -396,28 +397,63 @@ pes::GoalAnchorFacts KindTwoFacts(const Case& c, std::array<float, 3> pos, uint3
   for (size_t k = 0; k < sizeof(kFieldBits) / sizeof(kFieldBits[0]); ++k) f.field[k] = F(kFieldBits[k]);
   f.fps = c.fps;
   f.attackDeg = {90.0f, 270.0f};  // side 1 attacks the -x end its spot is at (the captured T.x < 0), as FactsOf gives
+  // A0+0x114 at seq203's entry (the recompute's pre-state; the capture is read with a streamed zstd, nothing unpacked): the
+  // corner-spot and scene-pick generator the recompute draws from. Its value is the capture's own.
+  f.rngState = 1124239360u;
   f.decisionCount = decisionCount;
   return f;
 }
 
-// RED (CutsceneAnchor 1, not disabled): the else arm 0x140471A80 -> 0x1404B6BD0 -> 0x14047AB20 -> 0x1404511E0 -> 0x140451C10 -> 0x141B55730
-// makes a virtual call on an object whose vtable is not mapped; GF aborts with PES_DISPATCH_UNTRANSLATED. The writer's zone decision
-// already runs in PlaceGoal. Stays red until that object is modelled.
+// PES's stadium cut key (the capture held 0x71) at G+0x2C0's +0x20, the lookup id 0x140476C50 and 0x140476010 read (see
+// FixDemoSelector::Create).
+void SetStadiumCutKey(pes::FixDemoSelector& sel) {
+  constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldTimeScale = 0x2C0, kStadiumKeyOff = 0x20, kStadiumCutKey = 0x71;
+  PesState& st = sel.State();
+  st.wr(st.rd(st.rd(kWorldSlotVa, 8) + kWorldTimeScale, 8) + kStadiumKeyOff, kStadiumCutKey, 4);
+}
+
+// seq203's scorer: slot-19 man +0x55C (PES axes). The recompute tick ran on this position (policy 6: its own pre-state).
+const std::array<float, 3> kSeq203ManPos = {F(0xC2267C0E), F(0x00000000), F(0x41D18EBC)};
+
+// The two ticks PES runs for this goal (docs/re/pes-re-goal-anchor-feed.md section 2). Tick A is the DemoInfo tick that runs the
+// recompute 0x140471A80 (real call seq203, the scorer at z 26.19) and writes the celebration spot. Tick B is the anchor 0x140474F00
+// (real call seq204, the scorer at z 29.56, in the wide channel), which reads the scorer's position of its own tick. PES's spot is
+// (-41.6211472, 0, 35.56) and its anchor (-41.5502167, 0, 34).
 TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   std::string why;
   const auto exe = OpenExe(&why);
   if (!exe) GTEST_SKIP() << why;
   for (uint32_t dc : {5u, 100u, 161u}) {
-    auto sel = MakeFor(*exe, kKindTwo);
+    pes::FixDemoTable table;
+    auto sel = MakeInstalled(*exe, &table, &why);
     ASSERT_TRUE(sel) << why;
-    const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, kKindTwo.pos, dc));
+    const auto armed = sel->ArrangeGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, dc));
+    ASSERT_TRUE(armed) << "DC " << dc;
+    EXPECT_EQ(armed->bc, 2u) << "DC " << dc;
+    EXPECT_EQ(armed->radius, kKindTwo.radius) << "DC " << dc;
+    EXPECT_EQ(armed->sceneId, kKindTwo.sceneId) << "DC " << dc << " A0+8 (the scene the anchor reads its row by)";
+    for (int i = 0; i < 3; ++i) EXPECT_EQ(armed->target[i], kKindTwo.target[i]) << "DC " << dc << " T[" << i << "]";
+    const auto got = sel->AnchorGoal(KindTwoFacts(kKindTwo, kKindTwo.pos, dc));
     ASSERT_TRUE(got) << "DC " << dc;
-    EXPECT_EQ(got->bc, 2u) << "DC " << dc;
-    EXPECT_EQ(got->radius, kKindTwo.radius) << "DC " << dc;
-    for (int i = 0; i < 3; ++i) EXPECT_EQ(got->target[i], kKindTwo.target[i]) << "DC " << dc << " T[" << i << "]";
     for (int i = 0; i < 3; ++i) EXPECT_EQ(got->pos[i], kKindTwo.wantPos[i]) << "DC " << dc << " pos[" << i << "]";
     EXPECT_EQ(got->rotYDeg, kKindTwo.wantRotY) << "DC " << dc;
   }
+}
+
+// The recompute tick alone (real call seq203): the scorer's run object holds PES's celebration spot at +0x18 afterwards. The run
+// table (G+0x21E8, 0x28-byte entries whose first qword is the object) and the target's offset are PES's layout.
+TEST(GoalAnchorKindTwo, RecomputeTickWritesTheCelebrationSpotIntoTheScorersRunObject) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldRunTable = 0x21E8, kWorldTableStride = 0x28, kRunTarget = 0x18;
+  auto sel = MakeFor(*exe, kKindTwo);
+  ASSERT_TRUE(sel) << why;
+  SetStadiumCutKey(*sel);
+  ASSERT_TRUE(sel->ArrangeGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, 5)));
+  PesState& st = sel->State();
+  const uint64_t run = st.rd(st.rd(kWorldSlotVa, 8) + kWorldRunTable + kKindTwo.slot * kWorldTableStride, 8);
+  for (int i = 0; i < 3; ++i) EXPECT_EQ(st.rdf(run + kRunTarget + 4 * i), kKindTwo.target[i]) << "T[" << i << "]";
 }
 
 // The writer's zone decides BC; the default arm's BC is 8, so a zone-8 scorer cannot tell a fed writer from none. These
@@ -725,6 +761,35 @@ TEST(GoalScenes, ATrailingScorersGoalDoesNotPickTheScorersCelebration) {
   if (level == ~0u) GTEST_SKIP() << why;
   EXPECT_EQ(level, 0x30034u);
   EXPECT_NE(pickFor({1, 2}), level);
+}
+
+// The event facts go in before the goal's arrangement, whose else arm runs the recompute and the event builder over the arena.
+// BeginEvent used to zero the whole ctx, which left the second std::map's head null, so the arrangement's map walk faulted.
+// The facts are PES's: the seq204 ctx (stadium 0x52, subject and event side 1, slot 8, goal difference -1, 11 players a side).
+TEST(GoalAnchorKindTwo, EventFactsBeforeTheArrangementKeepTheArenaValid) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  pes::FixDemoTable table;
+  auto sel = MakeInstalled(*exe, &table, &why);
+  ASSERT_TRUE(sel) << why;
+  pes::FixDemoFacts facts;
+  facts.stadium = 0x52;
+  facts.subjectSide = 1;
+  facts.eventX = F(0xC2267C0E);
+  facts.eventZ = F(0x420E3D70);
+  facts.eventPlayerSide = 1;
+  facts.eventPlayerSlot = 8;
+  facts.goalDiff = -1;
+  facts.playersHome = 11;
+  facts.playersAway = 11;
+  sel->BeginEvent(facts);
+  SetStadiumCutKey(*sel);
+  const auto armed = sel->ArrangeGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, 5));
+  ASSERT_TRUE(armed);
+  EXPECT_EQ(armed->bc, 2u);
+  EXPECT_EQ(armed->radius, kKindTwo.radius);
+  for (int i = 0; i < 3; ++i) EXPECT_EQ(armed->target[i], kKindTwo.target[i]) << "T[" << i << "]";
 }
 
 }  // namespace

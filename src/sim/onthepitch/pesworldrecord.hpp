@@ -459,7 +459,16 @@ inline constexpr std::size_t kBallPointZOffset = 0x24;
 inline constexpr std::size_t kBallFlag4COffset = 0x4C;
 inline constexpr std::size_t kBallFlag80Offset = 0x80;
 inline constexpr std::size_t kBallHoldOffset = 0x2920;
-inline constexpr std::size_t kBallRecordBytes = 0x2960;
+// The ball object's extent, as far as PES's own code reads and writes it (a lower bound on the allocation; the allocator's
+// size is not yet cited). B's own fields end at B+0x296C. The snapshot record N = B+0x296C (FUN_1404335B0 passes N = B+0x296C to
+// the copy 0x140430C30, `lea rdx,[rcx+0x2970]` with rcx = B-4, CONFIRMED disassembly) has its own fields to N+0x296C, and the
+// copy reads N+0x2968..0x296B (CONFIRMED by 0x140430C30's six proven calls). The cell at B+0x52D8 (u16, zeroed by 0x141F4CB6F:
+// `mov word [rbx+0x52d8], 0`, CONFIRMED decompile) is the last byte of the object: 0x52DA bytes.
+inline constexpr std::size_t kBallSnapshotOffset = 0x296C;
+inline constexpr std::size_t kBallSnapshotCellOffset = 0x52D8;
+inline constexpr std::size_t kBallRecordBytes = (kBallSnapshotCellOffset + 2 + 15) & ~std::size_t{15};  // 0x52E0: the 0x52DA extent rounded to the 16-byte run
+static_assert(kBallSnapshotOffset + 0x2968 + sizeof(uint32_t) <= kBallRecordBytes, "the copy's last read of N lies in the object");
+static_assert(kBallSnapshotOffset + 0x296C <= kBallSnapshotCellOffset, "N's own fields end before the cell");
 static_assert(kBallSamplesOffset + (kBallSampleCount - 1) * kBallSampleStride == 0x2770, "sample 249 is the +0x2770 fallback");
 struct PesBallRecord {
   std::array<uint8_t, kBallRecordBytes> bytes{};
