@@ -1,0 +1,18 @@
+{
+ "note": "the functions the bounded proof of 0x141E5C8F0 (the cut library's builder) entered on its two synthetic states over seq321's memory (snapdiff --bounded, results_snapdiff_cutlib.json): the allocator 0x1403FB410 and its pool helpers (0x1403FB600, 0x1403FD830, 0x1403FDB10), its locks (0x1403FF430 / 0x1403FF490), the sub-object constructor 0x14184D5C0, the count 0x141E5DE80 and the vector resize 0x141E5D330 with its allocator 0x141E5D270, the teardown helper 0x141E5C7E0 and the memset 0x1415A1720. 0x1403FBC10 (heap_alloc) and 0x141B34CB0 (the forwarder's alloc) are native services in production (stubs.json native_services): the proof ran their translated bodies, the production dispatch does not, so they are not members.",
+ "root": "0x141E5C8F0",
+ "members": [
+  "0x1403FB410",
+  "0x1403FB600",
+  "0x1403FD830",
+  "0x1403FDB10",
+  "0x1403FF430",
+  "0x1403FF490",
+  "0x1415A1720",
+  "0x14184D5C0",
+  "0x141E5C7E0",
+  "0x141E5D270",
+  "0x141E5D330",
+  "0x141E5DE80"
+ ]
+}

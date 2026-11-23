@@ -35,6 +35,7 @@ ABORT_SLOTS = {0x14252FDE0: "abort"}
 DO_BY_KIND = {
     "return-input": {"sqrtf": "sqrt_xmm0"},
     "engine-noop": {None: "noop"},
+    "heap-boundary": {None: "release_ok"},
     "abort-trap": {"abort": "abort"},
     "libm": {"logf": "logf_xmm0", "powf": "powf_xmm0", "_isnan": "isnan_xmm0", "floorf": "floorf_xmm0",
              "sinf": "sinf_xmm0", "cosf": "cosf_xmm0", "tanf": "tanf_xmm0", "asinf": "asinf_xmm0",
@@ -49,7 +50,7 @@ DO_BY_KIND = {
 # stack, in place of the call. Not a model of a PES effect: GF is the other side of a seam (the file layer's reads). The harness runs PES's
 # own bytes for the callee, so a snapshot replay that reaches one stops; no proof does.
 SERVICE_DOS = frozenset(do for do in DO_BY_KIND["gf-service"].values())
-KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0",
+KNOWN_DO = {"sqrt_xmm0", "noop", "release_ok", "abort", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0",
             "cosf_xmm0", "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0",
             "unmodellable", None} | SERVICE_DOS
 
@@ -77,7 +78,7 @@ def load(path=DEFAULT):
 
 # The do values the translator and the harness both emit: the one set every spec set models the same way.
 MODEL_DOS = frozenset({"sqrt_xmm0", "logf_xmm0", "powf_xmm0", "isnan_xmm0", "floorf_xmm0", "sinf_xmm0", "cosf_xmm0",
-                       "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0", "noop", "abort"}) | SERVICE_DOS
+                       "tanf_xmm0", "asinf_xmm0", "atanf_xmm0", "acosf_xmm0", "atan2f_xmm0", "noop", "release_ok", "abort"}) | SERVICE_DOS
 
 
 def models(table):

@@ -105288,7 +105288,7 @@
   "140440F70": "tools/dev/translate/results_core.json",
   "140440F90": "tools/dev/translate/results_cutscene.json",
   "140440FA0": "tools/dev/translate/results_core.json",
-  "140440FC0": "tools/dev/translate/results_trapaction.json",
+  "140440FC0": "tools/dev/translate/results_snapdiff_factory.json",
   "140443390": "tools/dev/translate/results_core.json",
   "1404436C0": "tools/dev/translate/results_core.json",
   "140443FE0": "tools/dev/translate/results_core.json",
@@ -105309,6 +105309,7 @@
   "14044E230": "tools/dev/translate/results_core.json",
   "140450F10": "tools/dev/translate/results_core.json",
   "140450FB0": "tools/dev/translate/results_core.json",
+  "140451010": "tools/dev/translate/results_snapdiff_cutanchor7.json",
   "1404534F0": "tools/dev/translate/results_cutscene.json",
   "1404566A0": "tools/dev/translate/results_core.json",
   "140456CB0": "tools/dev/translate/results_core.json",
@@ -105380,6 +105381,7 @@
   "14047D280": "tools/dev/translate/results_core.json",
   "14047DD60": "tools/dev/translate/results_cutscene.json",
   "14047DDB0": "tools/dev/translate/results_cutscene.json",
+  "14047DF00": "tools/dev/translate/results_snapdiff_ctor.json",
   "14047EB00": "tools/dev/translate/results_core.json",
   "14047F170": "tools/dev/translate/results_snapdiff_foul.json",
   "14047FE90": "tools/dev/translate/results_core.json",
@@ -108258,6 +108260,7 @@
   "141B18940": "tools/dev/translate/results_core.json",
   "141B33D60": "tools/dev/translate/results_cutscene.json",
   "141B33EE0": "tools/dev/translate/results_core.json",
+  "141B34850": "tools/dev/translate/results_trapaction.json",
   "141B34B20": "tools/dev/translate/results_core.json",
   "141B40150": "tools/dev/translate/results_cutscene.json",
   "141B45690": "tools/dev/translate/results_presentation.json",
@@ -108266,6 +108269,8 @@
   "141B55E70": "tools/dev/translate/results_trapaction.json",
   "141B55F40": "tools/dev/translate/results_presentation.json",
   "141B59E20": "tools/dev/translate/results.json",
+  "141B6E9C0": "tools/dev/translate/results_snapdiff_cutanchor7.json",
+  "141B6F220": "tools/dev/translate/results_snapdiff_cutanchor7.json",
   "141B6F420": "tools/dev/translate/results_trapaction.json",
   "141B7FFD0": "tools/dev/translate/results_presentation.json",
   "141B805B0": "tools/dev/translate/results_presentation.json",
@@ -108319,14 +108324,21 @@
   "141E56120": "tools/dev/translate/results_cutscene.json",
   "141E59240": "tools/dev/translate/results_core.json",
   "141E59970": "tools/dev/translate/results_core.json",
+  "141E5BAF0": "tools/dev/translate/results_trapaction.json",
+  "141E5BC40": "tools/dev/translate/results_trapaction.json",
+  "141E5C1E0": "tools/dev/translate/results_trapaction.json",
+  "141E5C8F0": "tools/dev/translate/results_snapdiff_cutlib.json",
   "141E5CA20": "tools/dev/translate/results.json",
   "141E5CA70": "tools/dev/translate/results_core.json",
+  "141E5CB40": "tools/dev/translate/results_snapdiff_cutname.json",
   "141E5D4C0": "tools/dev/translate/results.json",
+  "141E5D560": "tools/dev/translate/results_snapdiff_cutfill.json",
   "141E5D8B0": "tools/dev/translate/results_presentation.json",
   "141E5DE60": "tools/dev/translate/results_presentation.json",
   "141E5DE80": "tools/dev/translate/results.json",
   "141E5E1F0": "tools/dev/translate/results_presentation.json",
   "141E5E200": "tools/dev/translate/results_presentation.json",
+  "141E6C280": "tools/dev/translate/results_snapdiff_demonode.json",
   "141E83A20": "tools/dev/translate/results_cutscene.json",
   "141E83AE0": "tools/dev/translate/results_cutscene.json",
   "141E844D0": "tools/dev/translate/results_cutscene.json",
@@ -226502,6 +226514,12 @@
    ],
    "name": "taken"
   },
+  "1403E8800": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "cache"
+  },
   "1403EFDF0": {
    "files": [
     "src/sim/onthepitch/pesmemory.cpp",
@@ -226589,6 +226607,18 @@
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
    "name": "constructor"
+  },
+  "140419610": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "paths"
+  },
+  "140419D80": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "library"
   },
   "14041E2B0": {
    "files": [
@@ -226834,6 +226864,12 @@
    ],
    "name": "KeeperSlot"
   },
+  "140441490": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "constructor"
+  },
   "1404441D0": {
    "files": [
     "src/sim/onthepitch/referee.cpp"
@@ -226989,7 +227025,8 @@
   },
   "1404511E0": {
    "files": [
-    "src/sim/onthepitch/pesworldrecord.hpp"
+    "src/sim/onthepitch/pesworldrecord.hpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "FUN_1404511E0"
   },
@@ -226998,6 +227035,12 @@
     "src/sim/onthepitch/match.cpp"
    ],
    "name": "found"
+  },
+  "140451C10": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": null
   },
   "1404526A0": {
    "files": [
@@ -227225,6 +227268,31 @@
    ],
    "name": "slots"
   },
+  "140471590": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "decision"
+  },
+  "140471A80": {
+   "files": [
+    "src/pes/fixdemo_select.hpp",
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "arm"
+  },
+  "140471ACB": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "for"
+  },
+  "140471AD2": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "decision"
+  },
   "140472640": {
    "files": [
     "src/sim/onthepitch/match.hpp",
@@ -227327,9 +227395,10 @@
   },
   "140478090": {
    "files": [
+    "src/pes/fixdemo_select.hpp",
     "src/pes/fixdemo_select.cpp"
    ],
-   "name": "defaults"
+   "name": "captured"
   },
   "140478190": {
    "files": [
@@ -227398,12 +227467,19 @@
    ],
    "name": "axes"
   },
+  "14047AB20": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": null
+  },
   "14047B460": {
    "files": [
+    "src/pes/fixdemo_select.cpp",
     "src/pes/cutscene_timeline.hpp",
     "src/pes/cutscene_timeline.cpp"
    ],
-   "name": "CutLength"
+   "name": "recompute"
   },
   "14047C500": {
    "files": [
@@ -227427,11 +227503,12 @@
     "src/pes/cutscene_timeline.cpp",
     "src/gdext/gf_match.cpp"
    ],
-   "name": "built"
+   "name": "captured"
   },
   "14047DF00": {
    "files": [
     "src/pes/fixdemo_select.hpp",
+    "src/pes/fixdemo_select.cpp",
     "src/gdext/gf_match.cpp"
    ],
    "name": "built"
@@ -227616,6 +227693,19 @@
     "src/sim/onthepitch/peskickerror.cpp"
    ],
    "name": "FUN_1404B6390"
+  },
+  "1404B6BD0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "it"
+  },
+  "1404B88B0": {
+   "files": [
+    "src/pes/fixdemo_select.hpp",
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "on"
   },
   "1404BCAD0": {
    "files": [
@@ -242412,6 +242502,12 @@
    ],
    "name": null
   },
+  "140A3FEF0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "object"
+  },
   "140A40000": {
    "files": [
     "src/sim/onthepitch/pesoffball.hpp"
@@ -244725,6 +244821,12 @@
    ],
    "name": "managers"
   },
+  "1414A8790": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "stream"
+  },
   "1414A89E0": {
    "files": [
     "src/sim/onthepitch/pesfoxworld.hpp"
@@ -245106,6 +245208,18 @@
    ],
    "name": "DigitCell"
   },
+  "1419F76E0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": null
+  },
+  "1419F787E": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "call"
+  },
   "141A874A0": {
    "files": [
     "src/gdext/pes_character.cpp"
@@ -245325,7 +245439,8 @@
   "141B34850": {
    "files": [
     "src/sim/onthepitch/pesboot.cpp",
-    "src/sim/onthepitch/pesboot.hpp"
+    "src/sim/onthepitch/pesboot.hpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "block"
   },
@@ -245343,6 +245458,12 @@
    ],
    "name": "seeding"
   },
+  "141B34E50": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "counter"
+  },
   "141B37EE0": {
    "files": [
     "src/sim/onthepitch/pesboot.cpp"
@@ -245354,6 +245475,30 @@
     "src/sim/onthepitch/pesboot.cpp"
    ],
    "name": "FUN_141B37F00"
+  },
+  "141B39230": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "Zalloc"
+  },
+  "141B39240": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "Zalloc"
+  },
+  "141B3D6F0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": null
+  },
+  "141B3DFB0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "call"
   },
   "141B3FCE0": {
    "files": [
@@ -245406,7 +245551,8 @@
   },
   "141B55730": {
    "files": [
-    "src/sim/onthepitch/pesboot.hpp"
+    "src/sim/onthepitch/pesboot.hpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "DAT_1437F0AC8"
   },
@@ -245418,7 +245564,8 @@
   },
   "141B55F40": {
    "files": [
-    "src/sim/onthepitch/pesboot.hpp"
+    "src/sim/onthepitch/pesboot.hpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "FUN_141B55E70"
   },
@@ -245525,6 +245672,30 @@
    ],
    "name": "byte"
   },
+  "141E5BAF0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "table"
+  },
+  "141E5BC40": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "CutGroupTable"
+  },
+  "141E5BEE0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "name"
+  },
+  "141E5C8F0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "library"
+  },
   "141E5CA20": {
    "files": [
     "src/sim/onthepitch/pestrapdata.hpp",
@@ -245532,6 +245703,18 @@
     "src/pes/movestep_common.cpp"
    ],
    "name": "FUN_141E5CA20"
+  },
+  "141E5D560": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "QueryPerformanceFrequency"
+  },
+  "141E5D980": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "stream"
   },
   "141E67B70": {
    "files": [
@@ -248703,7 +248886,8 @@
   "14252F000": {
    "files": [
     "src/sim/onthepitch/pesworldrecord.hpp",
-    "src/pes/fixdemo_camera_rig.cpp"
+    "src/pes/fixdemo_camera_rig.cpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "RunPassGetAction"
   },
@@ -250242,6 +250426,18 @@
     "src/pes/movestep.hpp"
    ],
    "name": "LoadDefensiveShapeConstants"
+  },
+  "14259C940": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "vtables"
+  },
+  "14259C9E0": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "vtables"
   },
   "14259CE38": {
    "files": [
@@ -252725,6 +252921,12 @@
    ],
    "name": "QueryPerformanceFrequency"
   },
+  "142AC1D38": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "zeroed"
+  },
   "142AC5B68": {
    "files": [
     "src/sim/onthepitch/pestrapdata.cpp"
@@ -252911,6 +253113,12 @@
     "src/sim/onthepitch/pesboot.cpp"
    ],
    "name": "path"
+  },
+  "143445E70": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "paths"
   },
   "143446000": {
    "files": [
@@ -253201,9 +253409,16 @@
    ],
    "name": "it"
   },
+  "1436ED000": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "cache"
+  },
   "1436EDE58": {
    "files": [
-    "src/pes/fixdemo_camera_rig.cpp"
+    "src/pes/fixdemo_camera_rig.cpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "QueryPerformanceFrequency"
   },
@@ -253337,6 +253552,18 @@
    ],
    "name": "ticks"
   },
+  "1437C9000": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "zeroed"
+  },
+  "1437C9238": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "zeroed"
+  },
   "1437CEA18": {
    "files": [
     "src/sim/onthepitch/pesfoxworld.cpp"
@@ -253351,11 +253578,35 @@
    ],
    "name": "globals"
   },
+  "1437F0000": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "slot"
+  },
   "1437F0110": {
    "files": [
     "src/pes/fixdemo_camera_rig.cpp"
    ],
    "name": "QueryPerformanceFrequency"
+  },
+  "1437F0428": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "registry"
+  },
+  "1437F0438": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "registry"
+  },
+  "1437F0538": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "registry"
   },
   "1437F0564": {
    "files": [
@@ -253371,7 +253622,8 @@
   },
   "1437F0AC8": {
    "files": [
-    "src/sim/onthepitch/pesboot.hpp"
+    "src/sim/onthepitch/pesboot.hpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "flag"
   },
@@ -253381,11 +253633,24 @@
    ],
    "name": "QueryPerformanceFrequency"
   },
+  "1437F4000": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "library"
+  },
+  "1437F4800": {
+   "files": [
+    "src/pes/fixdemo_select.cpp"
+   ],
+   "name": "table"
+  },
   "1437F4808": {
    "files": [
     "src/sim/onthepitch/pestrapdata.hpp",
     "src/sim/onthepitch/pesworldrecord.hpp",
-    "src/sim/onthepitch/pestrapworld.hpp"
+    "src/sim/onthepitch/pestrapworld.hpp",
+    "src/pes/fixdemo_select.cpp"
    ],
    "name": "registry"
   },
@@ -253625,16 +253890,19 @@
    "src/pes/fixdemo_select.hpp:99"
   ],
   "140477570": [
-   "src/pes/fixdemo_select.cpp:154"
+   "src/pes/fixdemo_select.cpp:197"
   ],
   "1404790B0": [
-   "src/pes/fixdemo_select.cpp:519"
+   "src/pes/fixdemo_select.cpp:725"
   ],
   "1404793B0": [
-   "src/pes/fixdemo_select.cpp:154"
+   "src/pes/fixdemo_select.cpp:197"
   ],
   "1404794C0": [
-   "src/pes/fixdemo_select.cpp:154"
+   "src/pes/fixdemo_select.cpp:197"
+  ],
+  "14047B460": [
+   "src/pes/fixdemo_select.cpp:195"
   ],
   "14047C830": [
    "src/pes/cutscene_timeline.cpp:20"
@@ -253647,6 +253915,9 @@
   ],
   "1404A8930": [
    "src/sim/onthepitch/pessetpieceteam.hpp:164"
+  ],
+  "1404B6BD0": [
+   "src/pes/fixdemo_select.cpp:642"
   ],
   "1404BCAD0": [
    "src/pes/movestep_turn.cpp:1098"
@@ -254094,6 +254365,9 @@
   "14149ABE0": [
    "src/sim/onthepitch/pesboot.cpp:171"
   ],
+  "1414A8790": [
+   "src/pes/fixdemo_select.cpp:436"
+  ],
   "1414B11A0": [
    "src/sim/onthepitch/pesboot.cpp:171"
   ],
@@ -254141,6 +254415,9 @@
   "141E53540": [
    "src/sim/onthepitch/pescarrier.cpp:2050"
   ],
+  "141E5D980": [
+   "src/pes/fixdemo_select.cpp:436"
+  ],
   "141E8B400": [
    "src/sim/onthepitch/pesfoxworld.hpp:117"
   ],
@@ -254169,19 +254446,19 @@
    "src/gdext/pes_cutscene_camera.hpp:28"
   ],
   "141F4D070": [
-   "src/pes/fixdemo_select.hpp:172"
+   "src/pes/fixdemo_select.hpp:180"
   ],
   "141F50B90": [
-   "src/pes/fixdemo_select.cpp:700"
+   "src/pes/fixdemo_select.cpp:941"
   ],
   "141F51630": [
-   "src/pes/fixdemo_select.cpp:59"
+   "src/pes/fixdemo_select.cpp:62"
   ],
   "141F51FD0": [
    "src/pes/fixdemo_camera_list.hpp:56"
   ],
   "141F58FC0": [
-   "src/pes/fixdemo_select.hpp:172"
+   "src/pes/fixdemo_select.hpp:180"
   ],
   "141F59380": [
    "src/pes/cutscene_timeline.cpp:8"
@@ -254192,6 +254469,9 @@
   "141F5CD00": [
    "src/gdext/pes_cutscene_camera.hpp:58"
   ],
+  "141F5EC60": [
+   "src/pes/fixdemo_select.cpp:642"
+  ],
   "141F7A150": [
    "src/gdext/gf_match.cpp:482"
   ],
@@ -254199,7 +254479,7 @@
    "src/gdext/pes_cutscene_camera.hpp:52"
   ],
   "141F7B630": [
-   "src/pes/fixdemo_camera_rig.cpp:159"
+   "src/pes/fixdemo_camera_rig.cpp:138"
   ],
   "141F7BFE0": [
    "src/gdext/pes_cutscene_camera.hpp:41"
@@ -254331,7 +254611,7 @@
    "src/pes/playerdb.cpp:27"
   ],
   "143446058": [
-   "src/pes/fixdemo_select.cpp:92"
+   "src/pes/fixdemo_select.cpp:95"
   ],
   "14344EF78": [
    "src/sim/onthepitch/peskickerror.cpp:323"
@@ -254348,7 +254628,6 @@
  },
  "synthetic": [
   "140215210",
-  "140440FC0",
   "140535C60",
   "140536210",
   "140536690",
@@ -254393,7 +254672,11 @@
   "140A18810",
   "140A3B3A0",
   "140A4C0F0",
+  "141B34850",
   "141B6F420",
+  "141E5BAF0",
+  "141E5BC40",
+  "141E5C1E0",
   "141EB35A0",
   "141EB3AF0",
   "141EB4650",
@@ -258208,6 +258491,7 @@
   "140403060": "src/pes/translated/closure/pes_fn_140403060.cpp",
   "1404056A0": "src/pes/translated/closure/pes_fn_1404056A0.cpp",
   "1404063C0": "src/pes/translated/gameplay/pes_fn_1404063C0.cpp",
+  "140406CC0": "src/pes/translated/closure/pes_fn_140406CC0.cpp",
   "140409430": "src/pes/translated/closure/pes_fn_140409430.cpp",
   "14040B7A0": "src/pes/translated/closure/pes_fn_14040B7A0.cpp",
   "14040B8C0": "src/pes/translated/closure/pes_fn_14040B8C0.cpp",
@@ -258215,6 +258499,7 @@
   "14040F370": "src/pes/translated/closure/pes_fn_14040F370.cpp",
   "140410260": "src/pes/translated/closure/pes_fn_140410260.cpp",
   "1404121D0": "src/pes/translated/closure/pes_fn_1404121D0.cpp",
+  "140412260": "src/pes/translated/closure/pes_fn_140412260.cpp",
   "140412300": "src/pes/translated/closure/pes_fn_140412300.cpp",
   "140413CE0": "src/pes/translated/restart/pes_fn_140413CE0.cpp",
   "140413FF0": "src/pes/translated/restart/pes_fn_140413FF0.cpp",
@@ -258228,6 +258513,8 @@
   "140419D70": "src/pes/translated/gameplay/pes_fn_140419D70.cpp",
   "14041B930": "src/pes/translated/closure/pes_fn_14041B930.cpp",
   "14041D1C0": "src/pes/translated/closure/pes_fn_14041D1C0.cpp",
+  "14041D3D0": "src/pes/translated/closure/pes_fn_14041D3D0.cpp",
+  "14041DC80": "src/pes/translated/closure/pes_fn_14041DC80.cpp",
   "14041EF30": "src/pes/translated/camera/pes_fn_14041EF30.cpp",
   "14041EF40": "src/pes/translated/gameplay/pes_fn_14041EF40.cpp",
   "140421F40": "src/pes/translated/closure/pes_fn_140421F40.cpp",
@@ -258250,6 +258537,7 @@
   "14042A3B0": "src/pes/translated/gameplay/pes_fn_14042A3B0.cpp",
   "14042A3C0": "src/pes/translated/gameplay/pes_fn_14042A3C0.cpp",
   "14042A7B0": "src/pes/translated/closure/pes_fn_14042A7B0.cpp",
+  "14042AE80": "src/pes/translated/closure/pes_fn_14042AE80.cpp",
   "14042C070": "src/pes/translated/replay/pes_fn_14042C070.cpp",
   "14042D470": "src/pes/translated/ai/pes_fn_14042D470.cpp",
   "14042D5E0": "src/pes/translated/animation/pes_fn_14042D5E0.cpp",
@@ -258329,8 +258617,9 @@
   "140440F70": "src/pes/translated/restart/pes_fn_140440F70.cpp",
   "140440F90": "src/pes/translated/cutscene/pes_fn_140440F90.cpp",
   "140440FA0": "src/pes/translated/restart/pes_fn_140440FA0.cpp",
-  "140440FC0": "src/pes/translated/objinit/pes_fn_140440FC0.cpp",
+  "140440FC0": "src/pes/translated/cutscene/pes_fn_140440FC0.cpp",
   "140441320": "src/pes/translated/closure/pes_fn_140441320.cpp",
+  "140443240": "src/pes/translated/closure/pes_fn_140443240.cpp",
   "140443390": "src/pes/translated/restart/pes_fn_140443390.cpp",
   "1404436C0": "src/pes/translated/restart/pes_fn_1404436C0.cpp",
   "140443FE0": "src/pes/translated/referee/pes_fn_140443FE0.cpp",
@@ -258355,6 +258644,7 @@
   "14044E230": "src/pes/translated/restart/pes_fn_14044E230.cpp",
   "140450F10": "src/pes/translated/restart/pes_fn_140450F10.cpp",
   "140450FB0": "src/pes/translated/restart/pes_fn_140450FB0.cpp",
+  "140451010": "src/pes/translated/cutscene/pes_fn_140451010.cpp",
   "1404511E0": "src/pes/translated/closure/pes_fn_1404511E0.cpp",
   "140451250": "src/pes/translated/closure/pes_fn_140451250.cpp",
   "140451C10": "src/pes/translated/closure/pes_fn_140451C10.cpp",
@@ -258471,6 +258761,7 @@
   "14047DDB0": "src/pes/translated/cutscene/pes_fn_14047DDB0.cpp",
   "14047DE00": "src/pes/translated/closure/pes_fn_14047DE00.cpp",
   "14047DE80": "src/pes/translated/closure/pes_fn_14047DE80.cpp",
+  "14047DF00": "src/pes/translated/gameplay/pes_fn_14047DF00.cpp",
   "14047E7D0": "src/pes/translated/closure/pes_fn_14047E7D0.cpp",
   "14047EB00": "src/pes/translated/restart/pes_fn_14047EB00.cpp",
   "14047ECD0": "src/pes/translated/closure/pes_fn_14047ECD0.cpp",
@@ -259903,6 +260194,7 @@
   "14069A430": "src/pes/translated/ball/pes_fn_14069A430.cpp",
   "14069A500": "src/pes/translated/ball/pes_fn_14069A500.cpp",
   "14069CD40": "src/pes/translated/closure/pes_fn_14069CD40.cpp",
+  "14069EE40": "src/pes/translated/closure/pes_fn_14069EE40.cpp",
   "14069F1C0": "src/pes/translated/replay/pes_fn_14069F1C0.cpp",
   "1406A3630": "src/pes/translated/closure/pes_fn_1406A3630.cpp",
   "1406A43D0": "src/pes/translated/closure/pes_fn_1406A43D0.cpp",
@@ -260821,6 +261113,8 @@
   "14086A3F0": "src/pes/translated/closure/pes_fn_14086A3F0.cpp",
   "14086C100": "src/pes/translated/ball/pes_fn_14086C100.cpp",
   "14086C1A0": "src/pes/translated/closure/pes_fn_14086C1A0.cpp",
+  "14086C830": "src/pes/translated/closure/pes_fn_14086C830.cpp",
+  "14086CDE0": "src/pes/translated/closure/pes_fn_14086CDE0.cpp",
   "14086D210": "src/pes/translated/ball/pes_fn_14086D210.cpp",
   "14086FC50": "src/pes/translated/camera/pes_fn_14086FC50.cpp",
   "140870A40": "src/pes/translated/closure/pes_fn_140870A40.cpp",
@@ -260831,6 +261125,7 @@
   "140872210": "src/pes/translated/ball/pes_fn_140872210.cpp",
   "140872240": "src/pes/translated/ball/pes_fn_140872240.cpp",
   "1408722C0": "src/pes/translated/ball/pes_fn_1408722C0.cpp",
+  "140873C20": "src/pes/translated/closure/pes_fn_140873C20.cpp",
   "140874100": "src/pes/translated/ball/pes_fn_140874100.cpp",
   "1408742C0": "src/pes/translated/ball/pes_fn_1408742C0.cpp",
   "140874320": "src/pes/translated/ball/pes_fn_140874320.cpp",
@@ -261685,12 +261980,15 @@
   "140A3B520": "src/pes/translated/ai/pes_fn_140A3B520.cpp",
   "140A3B560": "src/pes/translated/restart/pes_fn_140A3B560.cpp",
   "140A3B5B0": "src/pes/translated/restart/pes_fn_140A3B5B0.cpp",
+  "140A3B640": "src/pes/translated/closure/pes_fn_140A3B640.cpp",
   "140A3B830": "src/pes/translated/gameplay/pes_fn_140A3B830.cpp",
   "140A3B850": "src/pes/translated/gameplay/pes_fn_140A3B850.cpp",
   "140A3B8A0": "src/pes/translated/gameplay/pes_fn_140A3B8A0.cpp",
   "140A3B920": "src/pes/translated/gameplay/pes_fn_140A3B920.cpp",
+  "140A3B9B0": "src/pes/translated/closure/pes_fn_140A3B9B0.cpp",
   "140A3B9D0": "src/pes/translated/gameplay/pes_fn_140A3B9D0.cpp",
   "140A3BA50": "src/pes/translated/gameplay/pes_fn_140A3BA50.cpp",
+  "140A3BA90": "src/pes/translated/closure/pes_fn_140A3BA90.cpp",
   "140A3BCF0": "src/pes/translated/referee/pes_fn_140A3BCF0.cpp",
   "140A3BD80": "src/pes/translated/restart/pes_fn_140A3BD80.cpp",
   "140A3BDA0": "src/pes/translated/closure/pes_fn_140A3BDA0.cpp",
@@ -261718,6 +262016,7 @@
   "140A3C4C0": "src/pes/translated/restart/pes_fn_140A3C4C0.cpp",
   "140A3C500": "src/pes/translated/restart/pes_fn_140A3C500.cpp",
   "140A3C530": "src/pes/translated/restart/pes_fn_140A3C530.cpp",
+  "140A3C560": "src/pes/translated/closure/pes_fn_140A3C560.cpp",
   "140A3C850": "src/pes/translated/restart/pes_fn_140A3C850.cpp",
   "140A3C860": "src/pes/translated/restart/pes_fn_140A3C860.cpp",
   "140A3C870": "src/pes/translated/restart/pes_fn_140A3C870.cpp",
@@ -261737,6 +262036,7 @@
   "140A3CB80": "src/pes/translated/restart/pes_fn_140A3CB80.cpp",
   "140A3CB90": "src/pes/translated/restart/pes_fn_140A3CB90.cpp",
   "140A3CBB0": "src/pes/translated/cutscene/pes_fn_140A3CBB0.cpp",
+  "140A3CBC0": "src/pes/translated/closure/pes_fn_140A3CBC0.cpp",
   "140A3CD10": "src/pes/translated/referee/pes_fn_140A3CD10.cpp",
   "140A3CD50": "src/pes/translated/restart/pes_fn_140A3CD50.cpp",
   "140A3CD70": "src/pes/translated/restart/pes_fn_140A3CD70.cpp",
@@ -261786,6 +262086,7 @@
   "140A3F360": "src/pes/translated/gameplay/pes_fn_140A3F360.cpp",
   "140A3F390": "src/pes/translated/gameplay/pes_fn_140A3F390.cpp",
   "140A3F3D0": "src/pes/translated/ai/pes_fn_140A3F3D0.cpp",
+  "140A3F410": "src/pes/translated/closure/pes_fn_140A3F410.cpp",
   "140A3F500": "src/pes/translated/replay/pes_fn_140A3F500.cpp",
   "140A3F510": "src/pes/translated/gameplay/pes_fn_140A3F510.cpp",
   "140A3F530": "src/pes/translated/replay/pes_fn_140A3F530.cpp",
@@ -262273,9 +262574,11 @@
   "140A66FF0": "src/pes/translated/ai/pes_fn_140A66FF0.cpp",
   "140A67010": "src/pes/translated/closure/pes_fn_140A67010.cpp",
   "140A676B0": "src/pes/translated/gameplay/pes_fn_140A676B0.cpp",
+  "140A67800": "src/pes/translated/closure/pes_fn_140A67800.cpp",
   "140A67900": "src/pes/translated/closure/pes_fn_140A67900.cpp",
   "140A67A50": "src/pes/translated/cutscene/pes_fn_140A67A50.cpp",
   "140A67A90": "src/pes/translated/restart/pes_fn_140A67A90.cpp",
+  "140A67BB0": "src/pes/translated/closure/pes_fn_140A67BB0.cpp",
   "140A68820": "src/pes/translated/restart/pes_fn_140A68820.cpp",
   "140A688C0": "src/pes/translated/restart/pes_fn_140A688C0.cpp",
   "140A691B0": "src/pes/translated/restart/pes_fn_140A691B0.cpp",
@@ -262603,6 +262906,7 @@
   "140A81540": "src/pes/translated/cutscene/pes_fn_140A81540.cpp",
   "140A81570": "src/pes/translated/cutscene/pes_fn_140A81570.cpp",
   "140A81860": "src/pes/translated/closure/pes_fn_140A81860.cpp",
+  "140A818C0": "src/pes/translated/closure/pes_fn_140A818C0.cpp",
   "140A81910": "src/pes/translated/closure/pes_fn_140A81910.cpp",
   "140A81940": "src/pes/translated/closure/pes_fn_140A81940.cpp",
   "140A81AC0": "src/pes/translated/closure/pes_fn_140A81AC0.cpp",
@@ -263107,6 +263411,8 @@
   "1414A9660": "src/pes/translated/closure/pes_fn_1414A9660.cpp",
   "1414A9680": "src/pes/translated/closure/pes_fn_1414A9680.cpp",
   "1414A97B0": "src/pes/translated/hud/pes_fn_1414A97B0.cpp",
+  "1414A9800": "src/pes/translated/closure/pes_fn_1414A9800.cpp",
+  "1414A9860": "src/pes/translated/closure/pes_fn_1414A9860.cpp",
   "1414A98A0": "src/pes/translated/pre_match/pes_fn_1414A98A0.cpp",
   "1414A98D0": "src/pes/translated/pre_match/pes_fn_1414A98D0.cpp",
   "1414A9900": "src/pes/translated/pre_match/pes_fn_1414A9900.cpp",
@@ -264027,12 +264333,15 @@
   "141B34480": "src/pes/translated/closure/pes_fn_141B34480.cpp",
   "141B34600": "src/pes/translated/closure/pes_fn_141B34600.cpp",
   "141B34820": "src/pes/translated/closure/pes_fn_141B34820.cpp",
+  "141B34850": "src/pes/translated/in_match_menu/pes_fn_141B34850.cpp",
   "141B34A30": "src/pes/translated/closure/pes_fn_141B34A30.cpp",
   "141B34AA0": "src/pes/translated/closure/pes_fn_141B34AA0.cpp",
   "141B34AD0": "src/pes/translated/closure/pes_fn_141B34AD0.cpp",
   "141B34B20": "src/pes/translated/gameplay/pes_fn_141B34B20.cpp",
   "141B34E20": "src/pes/translated/closure/pes_fn_141B34E20.cpp",
   "141B34E40": "src/pes/translated/closure/pes_fn_141B34E40.cpp",
+  "141B34EF0": "src/pes/translated/closure/pes_fn_141B34EF0.cpp",
+  "141B36030": "src/pes/translated/closure/pes_fn_141B36030.cpp",
   "141B37520": "src/pes/translated/closure/pes_fn_141B37520.cpp",
   "141B37910": "src/pes/translated/closure/pes_fn_141B37910.cpp",
   "141B37970": "src/pes/translated/closure/pes_fn_141B37970.cpp",
@@ -264054,7 +264363,9 @@
   "141B39420": "src/pes/translated/closure/pes_fn_141B39420.cpp",
   "141B3BD50": "src/pes/translated/closure/pes_fn_141B3BD50.cpp",
   "141B3D6E0": "src/pes/translated/closure/pes_fn_141B3D6E0.cpp",
+  "141B3D6F0": "src/pes/translated/closure/pes_fn_141B3D6F0.cpp",
   "141B3DE00": "src/pes/translated/closure/pes_fn_141B3DE00.cpp",
+  "141B3DFB0": "src/pes/translated/closure/pes_fn_141B3DFB0.cpp",
   "141B40150": "src/pes/translated/cutscene/pes_fn_141B40150.cpp",
   "141B45690": "src/pes/translated/audio/pes_fn_141B45690.cpp",
   "141B49C80": "src/pes/translated/closure/pes_fn_141B49C80.cpp",
@@ -264076,14 +264387,14 @@
   "141B6DC00": "src/pes/translated/closure/pes_fn_141B6DC00.cpp",
   "141B6DD60": "src/pes/translated/closure/pes_fn_141B6DD60.cpp",
   "141B6DDB0": "src/pes/translated/closure/pes_fn_141B6DDB0.cpp",
-  "141B6E9C0": "src/pes/translated/closure/pes_fn_141B6E9C0.cpp",
+  "141B6E9C0": "src/pes/translated/cutscene/pes_fn_141B6E9C0.cpp",
   "141B6EAB0": "src/pes/translated/closure/pes_fn_141B6EAB0.cpp",
   "141B6EB70": "src/pes/translated/closure/pes_fn_141B6EB70.cpp",
   "141B6ECA0": "src/pes/translated/closure/pes_fn_141B6ECA0.cpp",
   "141B6ED10": "src/pes/translated/closure/pes_fn_141B6ED10.cpp",
   "141B6EDE0": "src/pes/translated/closure/pes_fn_141B6EDE0.cpp",
   "141B6EEB0": "src/pes/translated/closure/pes_fn_141B6EEB0.cpp",
-  "141B6F220": "src/pes/translated/closure/pes_fn_141B6F220.cpp",
+  "141B6F220": "src/pes/translated/cutscene/pes_fn_141B6F220.cpp",
   "141B6F420": "src/pes/translated/vecgrow/pes_fn_141B6F420.cpp",
   "141B6F9C0": "src/pes/translated/closure/pes_fn_141B6F9C0.cpp",
   "141B6FC80": "src/pes/translated/closure/pes_fn_141B6FC80.cpp",
@@ -264155,14 +264466,42 @@
   "141E56120": "src/pes/translated/cutscene/pes_fn_141E56120.cpp",
   "141E59240": "src/pes/translated/pre_match/pes_fn_141E59240.cpp",
   "141E59970": "src/pes/translated/pre_match/pes_fn_141E59970.cpp",
+  "141E5B8B0": "src/pes/translated/closure/pes_fn_141E5B8B0.cpp",
+  "141E5B900": "src/pes/translated/closure/pes_fn_141E5B900.cpp",
+  "141E5BA70": "src/pes/translated/closure/pes_fn_141E5BA70.cpp",
+  "141E5BAF0": "src/pes/translated/cutbaf/pes_fn_141E5BAF0.cpp",
+  "141E5BC40": "src/pes/translated/cutbc40/pes_fn_141E5BC40.cpp",
+  "141E5BEE0": "src/pes/translated/closure/pes_fn_141E5BEE0.cpp",
+  "141E5C1E0": "src/pes/translated/replay/pes_fn_141E5C1E0.cpp",
+  "141E5C690": "src/pes/translated/closure/pes_fn_141E5C690.cpp",
+  "141E5C7E0": "src/pes/translated/closure/pes_fn_141E5C7E0.cpp",
+  "141E5C8F0": "src/pes/translated/cutlib/pes_fn_141E5C8F0.cpp",
   "141E5CA20": "src/pes/translated/ai/pes_fn_141E5CA20.cpp",
   "141E5CA70": "src/pes/translated/ball/pes_fn_141E5CA70.cpp",
+  "141E5CB40": "src/pes/translated/replay/pes_fn_141E5CB40.cpp",
+  "141E5D0B0": "src/pes/translated/closure/pes_fn_141E5D0B0.cpp",
+  "141E5D270": "src/pes/translated/closure/pes_fn_141E5D270.cpp",
+  "141E5D330": "src/pes/translated/closure/pes_fn_141E5D330.cpp",
   "141E5D4C0": "src/pes/translated/ai/pes_fn_141E5D4C0.cpp",
+  "141E5D4E0": "src/pes/translated/closure/pes_fn_141E5D4E0.cpp",
+  "141E5D560": "src/pes/translated/replay/pes_fn_141E5D560.cpp",
+  "141E5D700": "src/pes/translated/closure/pes_fn_141E5D700.cpp",
   "141E5D8B0": "src/pes/translated/replay/pes_fn_141E5D8B0.cpp",
+  "141E5D8C0": "src/pes/translated/closure/pes_fn_141E5D8C0.cpp",
+  "141E5DD60": "src/pes/translated/closure/pes_fn_141E5DD60.cpp",
+  "141E5DDF0": "src/pes/translated/closure/pes_fn_141E5DDF0.cpp",
   "141E5DE60": "src/pes/translated/replay/pes_fn_141E5DE60.cpp",
   "141E5DE80": "src/pes/translated/ai/pes_fn_141E5DE80.cpp",
+  "141E5DE90": "src/pes/translated/closure/pes_fn_141E5DE90.cpp",
+  "141E5E0A0": "src/pes/translated/closure/pes_fn_141E5E0A0.cpp",
   "141E5E1F0": "src/pes/translated/replay/pes_fn_141E5E1F0.cpp",
   "141E5E200": "src/pes/translated/replay/pes_fn_141E5E200.cpp",
+  "141E5E210": "src/pes/translated/closure/pes_fn_141E5E210.cpp",
+  "141E6C100": "src/pes/translated/closure/pes_fn_141E6C100.cpp",
+  "141E6C240": "src/pes/translated/closure/pes_fn_141E6C240.cpp",
+  "141E6C280": "src/pes/translated/demonode/pes_fn_141E6C280.cpp",
+  "141E6FAC0": "src/pes/translated/closure/pes_fn_141E6FAC0.cpp",
+  "141E823E0": "src/pes/translated/closure/pes_fn_141E823E0.cpp",
   "141E83A20": "src/pes/translated/cutscene/pes_fn_141E83A20.cpp",
   "141E83AE0": "src/pes/translated/cutscene/pes_fn_141E83AE0.cpp",
   "141E844D0": "src/pes/translated/cutscene/pes_fn_141E844D0.cpp",
@@ -264176,6 +264515,7 @@
   "141E943B0": "src/pes/translated/closure/pes_fn_141E943B0.cpp",
   "141E94450": "src/pes/translated/closure/pes_fn_141E94450.cpp",
   "141E9B090": "src/pes/translated/cutscene/pes_fn_141E9B090.cpp",
+  "141E9B100": "src/pes/translated/closure/pes_fn_141E9B100.cpp",
   "141E9B140": "src/pes/translated/closure/pes_fn_141E9B140.cpp",
   "141E9B810": "src/pes/translated/cutscene/pes_fn_141E9B810.cpp",
   "141E9BA30": "src/pes/translated/closure/pes_fn_141E9BA30.cpp",
@@ -264439,6 +264779,7 @@
   "141F4C8C0": "src/pes/translated/closure/pes_fn_141F4C8C0.cpp",
   "141F4C900": "src/pes/translated/closure/pes_fn_141F4C900.cpp",
   "141F4C950": "src/pes/translated/closure/pes_fn_141F4C950.cpp",
+  "141F4CC10": "src/pes/translated/closure/pes_fn_141F4CC10.cpp",
   "141F4CEE0": "src/pes/translated/closure/pes_fn_141F4CEE0.cpp",
   "141F4D050": "src/pes/translated/cutscene/pes_fn_141F4D050.cpp",
   "141F4D070": "src/pes/translated/cutscene/pes_fn_141F4D070.cpp",
@@ -264482,11 +264823,15 @@
   "141F533D0": "src/pes/translated/closure/pes_fn_141F533D0.cpp",
   "141F53990": "src/pes/translated/closure/pes_fn_141F53990.cpp",
   "141F53A50": "src/pes/translated/closure/pes_fn_141F53A50.cpp",
+  "141F53AB0": "src/pes/translated/closure/pes_fn_141F53AB0.cpp",
+  "141F53B80": "src/pes/translated/closure/pes_fn_141F53B80.cpp",
+  "141F53C60": "src/pes/translated/closure/pes_fn_141F53C60.cpp",
   "141F53C70": "src/pes/translated/closure/pes_fn_141F53C70.cpp",
   "141F53DD0": "src/pes/translated/closure/pes_fn_141F53DD0.cpp",
   "141F53E80": "src/pes/translated/closure/pes_fn_141F53E80.cpp",
   "141F53F20": "src/pes/translated/closure/pes_fn_141F53F20.cpp",
   "141F54C50": "src/pes/translated/cutscene/pes_fn_141F54C50.cpp",
+  "141F54CB0": "src/pes/translated/closure/pes_fn_141F54CB0.cpp",
   "141F54D00": "src/pes/translated/cutscene/pes_fn_141F54D00.cpp",
   "141F54D50": "src/pes/translated/cutscene/pes_fn_141F54D50.cpp",
   "141F54DA0": "src/pes/translated/closure/pes_fn_141F54DA0.cpp",
@@ -264495,7 +264840,13 @@
   "141F55030": "src/pes/translated/closure/pes_fn_141F55030.cpp",
   "141F550A0": "src/pes/translated/closure/pes_fn_141F550A0.cpp",
   "141F55110": "src/pes/translated/closure/pes_fn_141F55110.cpp",
+  "141F55A10": "src/pes/translated/closure/pes_fn_141F55A10.cpp",
+  "141F561A0": "src/pes/translated/closure/pes_fn_141F561A0.cpp",
+  "141F56600": "src/pes/translated/closure/pes_fn_141F56600.cpp",
+  "141F56700": "src/pes/translated/closure/pes_fn_141F56700.cpp",
+  "141F56800": "src/pes/translated/closure/pes_fn_141F56800.cpp",
   "141F56FD0": "src/pes/translated/cutscene/pes_fn_141F56FD0.cpp",
+  "141F57540": "src/pes/translated/closure/pes_fn_141F57540.cpp",
   "141F59B20": "src/pes/translated/cutscene/pes_fn_141F59B20.cpp",
   "141F5A760": "src/pes/translated/cutscene/pes_fn_141F5A760.cpp",
   "141F5A8B0": "src/pes/translated/closure/pes_fn_141F5A8B0.cpp",
@@ -264503,7 +264854,9 @@
   "141F5B790": "src/pes/translated/cutscene/pes_fn_141F5B790.cpp",
   "141F5B810": "src/pes/translated/closure/pes_fn_141F5B810.cpp",
   "141F5B9A0": "src/pes/translated/restart/pes_fn_141F5B9A0.cpp",
+  "141F5C900": "src/pes/translated/closure/pes_fn_141F5C900.cpp",
   "141F5C9B0": "src/pes/translated/cutscene/pes_fn_141F5C9B0.cpp",
+  "141F5C9F0": "src/pes/translated/closure/pes_fn_141F5C9F0.cpp",
   "141F5CA70": "src/pes/translated/replay/pes_fn_141F5CA70.cpp",
   "141F5CC70": "src/pes/translated/cutscene/pes_fn_141F5CC70.cpp",
   "141F5D480": "src/pes/translated/restart/pes_fn_141F5D480.cpp",
@@ -264513,6 +264866,8 @@
   "141F5D620": "src/pes/translated/closure/pes_fn_141F5D620.cpp",
   "141F5D770": "src/pes/translated/closure/pes_fn_141F5D770.cpp",
   "141F5D7E0": "src/pes/translated/closure/pes_fn_141F5D7E0.cpp",
+  "141F5DA70": "src/pes/translated/closure/pes_fn_141F5DA70.cpp",
+  "141F5DBC0": "src/pes/translated/closure/pes_fn_141F5DBC0.cpp",
   "141F5DC50": "src/pes/translated/closure/pes_fn_141F5DC50.cpp",
   "141F5DE00": "src/pes/translated/closure/pes_fn_141F5DE00.cpp",
   "141F5E0E0": "src/pes/translated/closure/pes_fn_141F5E0E0.cpp",
@@ -264522,6 +264877,15 @@
   "141F5E7E0": "src/pes/translated/closure/pes_fn_141F5E7E0.cpp",
   "141F5EC60": "src/pes/translated/closure/pes_fn_141F5EC60.cpp",
   "141F5EE00": "src/pes/translated/closure/pes_fn_141F5EE00.cpp",
+  "141F5F330": "src/pes/translated/closure/pes_fn_141F5F330.cpp",
+  "141F5F480": "src/pes/translated/closure/pes_fn_141F5F480.cpp",
+  "141F5F610": "src/pes/translated/closure/pes_fn_141F5F610.cpp",
+  "141F5FA90": "src/pes/translated/closure/pes_fn_141F5FA90.cpp",
+  "141F5FC00": "src/pes/translated/closure/pes_fn_141F5FC00.cpp",
+  "141F60140": "src/pes/translated/closure/pes_fn_141F60140.cpp",
+  "141F60590": "src/pes/translated/closure/pes_fn_141F60590.cpp",
+  "141F60890": "src/pes/translated/closure/pes_fn_141F60890.cpp",
+  "141F608F0": "src/pes/translated/closure/pes_fn_141F608F0.cpp",
   "141F60E70": "src/pes/translated/cutscene/pes_fn_141F60E70.cpp",
   "141F60EF0": "src/pes/translated/closure/pes_fn_141F60EF0.cpp",
   "141F60F60": "src/pes/translated/closure/pes_fn_141F60F60.cpp",
@@ -264817,6 +265181,7 @@
   "14213BB40": "src/pes/translated/replay/pes_fn_14213BB40.cpp",
   "14213BE30": "src/pes/translated/replay/pes_fn_14213BE30.cpp",
   "14213E2F0": "src/pes/translated/closure/pes_fn_14213E2F0.cpp",
+  "14216A8A0": "src/pes/translated/closure/pes_fn_14216A8A0.cpp",
   "142172ED0": "src/pes/translated/replay/pes_fn_142172ED0.cpp",
   "1421738E0": "src/pes/translated/replay/pes_fn_1421738E0.cpp",
   "1421749D0": "src/pes/translated/replay/pes_fn_1421749D0.cpp",
@@ -265253,6 +265618,7 @@
   "144035D30": "src/pes/translated/closure/pes_fn_144035D30.cpp",
   "14404B5A0": "src/pes/translated/closure/pes_fn_14404B5A0.cpp",
   "1440558C0": "src/pes/translated/closure/pes_fn_1440558C0.cpp",
+  "14416E580": "src/pes/translated/closure/pes_fn_14416E580.cpp",
   "144232210": "src/pes/translated/closure/pes_fn_144232210.cpp",
   "14428B510": "src/pes/translated/closure/pes_fn_14428B510.cpp",
   "14428BBD0": "src/pes/translated/closure/pes_fn_14428BBD0.cpp",
@@ -265287,6 +265653,7 @@
   "15B051B70": "src/pes/translated/closure/pes_fn_15B051B70.cpp",
   "15B22BF70": "src/pes/translated/closure/pes_fn_15B22BF70.cpp",
   "15B596C70": "src/pes/translated/closure/pes_fn_15B596C70.cpp",
+  "15B59A660": "src/pes/translated/closure/pes_fn_15B59A660.cpp",
   "15B59A840": "src/pes/translated/closure/pes_fn_15B59A840.cpp",
   "15B6CC860": "src/pes/translated/closure/pes_fn_15B6CC860.cpp"
  }

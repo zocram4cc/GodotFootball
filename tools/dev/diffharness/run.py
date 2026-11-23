@@ -619,6 +619,10 @@ def install_hooks(mu, spec, RET_SENTINEL):
             # engine-noop (stubs.json): no effect on the success path; the
             # call is dropped, registers untouched, the return is popped below.
             pass
+        elif kind == "release_ok":
+            # heap-boundary (stubs.json, op release_ok): the pool's region release answers 0 (every region released); the
+            # callers read this result (the pool's count and bytes follow). The OS release itself is not run.
+            uc.reg_write(UC_X86_REG_RAX, 0)
         elif kind == "sqrt_xmm0":
             # return-input (stubs.json, op sqrtf): xmm0 low float = sqrtf(xmm0);
             # bits 32-127 kept, as sqrtss keeps them. IEEE-754 sqrt is correctly
