@@ -194,3 +194,38 @@ Verdict (INF): the tick is translatable (closure is 375 members, all in the tran
 
 - No code change this round. Branch tip 82ad8564 (ls-remote confirmed earlier this session). The wide test is still red; the pes_goal_anchor_test count is unchanged (25/26).
 - Scratch (not committed): <workdrive>/gf-CutLane-scratch/{stackpeek2.py, tickoracle.py, tickblock.py, tickarg6.py, runwriter.py, devpeek.py, tick_calls.py}. Unpacked seq203 mem.bin (3.9 GB) is in gf-Rendezvous-scratch/live2/pid2024691/seq203 (re-packed earlier; unpacked again for the runs, delete or pack when done) and the replay snapshot at gf-CutLane-scratch/tick/tick/seq203_pid2024691 (3.9 GB, delete when done).
+
+# Round 4 (Main's go: service, tick closure, snapdiff, ArrangeGoal with D, wide test, step 6)
+
+## R4.0 Result: NOT landed, NOT measured. Stopped at the service design, with the reason named.
+
+No code change; branch tip 82ad8564 (ls-remote confirmed). Wide test still red. Reason: the approved service cannot be written as the ruling states without a change to the shared proof surface; I did not guess it.
+
+## R4.1 What the service has to be (CONFIRMED by reading the code)
+
+- Today the thunk is `pes_service_gfx_device_alloc` in src/pes/translated/pes_stubs.hpp:200: `inline void ... { s.gpr[0] = 0; }`. The header says the proof builds (snapdiff, prove_bounded) link no pes_native.cpp, so the service must stay inline in pes_stubs.hpp, and the GF side uses the same definition.
+- So "a GF-owned zeroed scratch block" cannot come from `HeapOf(s).Alloc` (that lives in pes_native.cpp, which the proof builds do not link). It has to be a fixed VA that is writable in every PesState: `s.wr(kGfxBlockVa + k, 0, 8)` then `s.gpr[0] = kGfxBlockVa`.
+- That block VA must then be a mapped segment in every state that can reach the thunk. Right now only the FixDemoSelector arena maps segments; the harness (run.py) and the diff main (diffmain.gen_snap) need the same segment at the same VA (the pointer is written into memory, so its value must match on both sides, or the snapdiff byte compare fails). The harness side is also a new model: today run.py refuses any `service_*` callee (`GF service ... reached`, run.py:612-615), so no replay can reach the thunk at all. Making it a model means changing run.py, diffmain, stubs.json (`gfx_device_alloc` kind gf-service -> a model op) and the stubs.py op table together.
+- Writes to an unmapped VA in the proof builds are not defined by the code I read (LazyMap refuses unmapped data with `_refuse`), so the block segment must be mapped explicitly in each harness state. I did not verify the diffmain side.
+
+## R4.2 The condition (Main's ruling) — the list to re-check, not run
+
+Direct callers of the thunk (translated, grep of src/pes/translated/closure/*.cpp and tests/*.cpp; 14 files): closure/pes_fn_14195B660, 14195B820, 14195BAD0, 14195BBE0, 14195BCB0, 14195D660, 1419F6FF0, 1419F7570, 141A46890, 1423D3AA0, 1423D43D0, 1423D4A80, 1423D4D10; plus tests/pes_fox_world_test.cpp:327 (calls the inline directly). Transitive callers (every recorded proof whose closure reaches the thunk) are NOT enumerated yet: that needs closure.py --dry-run over each recorded root (the tick closure already reaches it through 0x14195BD10 and 0x141F5E3AB, R3.1). Until that list exists the condition cannot be checked, so the model cannot land.
+
+## R4.3 What I did instead
+
+- Deleted my replay copies: <workdrive>/gf-CutLane-scratch/tick (about 3.9 GB before, now gone; scratch is 22 MB). Left live2/pid2024691/seq203 as it is (it is still unpacked, 3.9 GB; Main packs it).
+- Did not run the tick closure translation or the layer regen (the closure would reach the thunk, so its specs would be proved under the answer-0 model that R3.0 says is wrong). Translating it before the service model is settled would produce a layer that is unsound for the tick.
+
+## R4.4 Next exact steps (for Main to approve or rescope)
+
+1. Pick the block VA (one fixed page, e.g. next to kStackVa in the FixDemo arena; to be listed in the proof harness's state). Confirm in diffmain how it maps writable segments; add the same segment in run.py and in the diff main.
+2. Change the model in stubs.json (`gfx_device_alloc` -> `gfx_device_block`, rax = block VA, zeroed block per call), the stubs.py op list, pes_stubs.hpp (inline, zeroes the block, returns its VA), and the harness model in run.py (the same zeroing and VA; remove the "GF service reached" refusal for this op only).
+3. Compute the transitive caller list of the thunk over the recorded roots (closure.py --dry-run per root; the results_*.json `proof: snapdiff` roots). Re-run every diff_*_recorded check on that list and gen --check; list them in the report with before/after verdicts. Any counterexample: keep answer-0 for that caller (per the ruling) and say so.
+4. Only then: translate the tick closure (closure.py --spec-set core --tag tick 0x14047B460, 375 members), regen the layer, snapdiff the tick over seq203 (the R3.0 replay with the block model on both sides; expected scene 0x300D9, bc 2, T (-41.62, 0, 35.56)), then ArrangeGoal (D object: D+0x1E8 = a0, list pointer at D+0x17860 to an empty {begin,end}, r9 = D+0x2790 inside a 0x18000-byte D, arg5 = D, arg6 = a zeroed object; delete the r8 = a0 and r9 = Zalloc stand-ins) and the wide test. Red is already on record (the test is red on 82ad8564).
+
+## R4.5 Verdict (INF)
+
+The tick path is ready on the PES side (R3.0). The GF side is blocked on the service's shape: an inline zeroed block needs a segment that every harness state maps, and that changes shared proof infrastructure. That is a Main decision (the ruling says the model is approved; the segment design and the condition's caller list are not in it yet).
+
+Tests run this round: none (no code change). Ratchet not measured.
