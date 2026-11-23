@@ -297,17 +297,18 @@ def tail_rows(spec, image, universe):
     return rows
 
 
-def runnable_extra(spec, image, depth_cap=80, universe=None):
+def runnable_extra(spec, image, depth_cap=80, universe=None, seeds_in=()):
     """Out-of-set direct callees the build can translate and call for
     real: stubs.json run-real kinds plus unmodellable entries whose whole
     why-chain is dispatchable. Transitively closed over direct CALLs
     decoded from the image (capstone, no bridge). Returns (extra, blocked)
     where blocked is {va: reason} for callees that stay unmodellable.
     With `universe` (the set the build translates into), the tail jumps of the spec's
-    function and its universe callees past their bodies join the seeds (tail_rows)."""
+    function and its universe callees past their bodies join the seeds (tail_rows).
+    `seeds_in` are extra walk roots (the harness-reached indirect targets of build_and_diff)."""
     import xlate
     harness = spec.get("harness") or {}
-    seeds = []
+    seeds = list(seeds_in)
     unseeded = {}  # unmodellable out-of-set callees the build cannot run: named, not dropped
     rows = list(harness.get("out_of_set_callees") or [])
     if universe is not None:
@@ -739,6 +740,13 @@ def build_and_diff(va, spec, args, pilot, nlines):
         if t not in seen:
             seen.add(t)
             need.append(t)
+    # A reached target's own direct callees join the build universe before it is translated: xlate links a callee only when
+    # it is in the universe, so one outside it (a pdata-less leaf such as 0x1403FB600, called by the reached 0x141B34D80)
+    # became an OUT-OF-SET abort that the dependency pass below could never see, and the function was recorded as a
+    # translator bug although PES and the translation agree.
+    if roots:
+        reached_extra, _ = runnable_extra({}, args.image, seeds_in=roots)
+        build_pilot.update(reached_extra)
     for cvi, cv in enumerate(need):
         p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
         if not os.path.exists(p):
