@@ -539,3 +539,4 @@ What each agent changed in GF, how it was tested, and what it left open. The dec
 |`pes-port-CutLane3b.md`|CutLane3 round 2: recompute builds the event struct from callees reading G+0x1978, which GF never writes; tick 0x14047B460 passes the recompute its own args|
 |`pes-port-CutLane3c.md`|CutLane3 round 3: G+0x1978 and run+0x18 writers not found by displacement scans (156,556 functions); next: world ctor 0x140441490, tick r9|
 |`pes-port-CutLane4.md`|CutLane4: G+0x1978 writer (world load 0x140A490B0) confirmed; 0x140A489D0 branches corrected; seq203's table copied into G+0x1978 leaves the wide test red (the tick's own args needed); table source not found|
+|`pes-port-Kind8Lane4.md`|Kind8Lane4: `7c2b571e` holder reds green by correcting the tests to PES (W1 0x140457259 stores 0xFF on the kick's none key; StallLive6 255 in flight); M1/M2 mutations red; the job copy 0x1404335B0 does not touch S+0x294|
