@@ -215,6 +215,7 @@ struct FixDemoSelector::Impl {
   uint64_t referee = 0, demo = 0, foul = 0, timeScale = 0, slotTable = 0, history = 0;
   uint32_t gateSlot = 0, foulerSlot = 0, victimSlot = 0;
   bool goalPlaced = false;
+  GoalAnchor armed;  // tick A's result (ArrangeGoal): the target, radius, scene and zone that tick B's anchor is built on
   std::unique_ptr<PesCameraRegistry> registry;
   std::array<uint64_t, kPitchSlots> man{}, run{};
   std::array<uint64_t, 2> squad{}, teamInfo{};  // per side: the squad key table and the team info (+0x254: attack sign)
@@ -580,13 +581,26 @@ struct FixDemoSelector::Impl {
     s.wr(record + kRecordSideAgain, side, 4);
   }
 
-  // The goal's anchor and the two inputs PES computes for it before the anchor (the builder 0x140478190): the scene's run
-  // radius A0+0xC by 0x140474CF0, then the celebration spot A0+0x30 by 0x140476C50, which the scorer's run object keeps as
-  // his target; the scene anchor 0x140474F00 and the flip 0x140478FF0 follow, as the DemoInfo's first tick runs them.
-  // The arena as PlaceGoal leaves it before the goal's calls: the scorer's slot, man and run object, the field facts, the
-  // attack bearings, and the DemoInfo's defaults (0x140478090) with its sub-object and rng state.
+  // Tick A's inputs PES computes before the anchor (the builder 0x140478190): the scene's run radius A0+0xC by 0x140474CF0, then the
+  // celebration spot A0+0x30 by 0x140476C50, which the scorer's run object keeps as his target. Tick B (AnchorGoal) runs the anchor.
+  // The arena as ArrangeGoal leaves it before the goal's calls: the scorer's facts (WriteMatchFacts), the run target cleared, and
+  // the DemoInfo's defaults (0x140478090) with its sub-object and rng state.
   bool Arrange(const GoalAnchorFacts& f) {
     if (f.scorerSlot >= kPitchSlots) return false;
+    WriteMatchFacts(f);
+    const uint64_t r = run[f.scorerSlot];
+    for (unsigned i = 0; i < 3; ++i) s.wrf(r + kRunTarget + 4 * i, 0.0f);  // the target is what 0x140476C50 is about to give him
+    // A0: the DemoInfo's defaults (0x140478090), then the fields the builder sets before the calls. The object persists across
+    // goals (PES builds it once, in the world's constructor); the defaults reset the per-goal fields it writes.
+    s.gpr[1] = a0;
+    Call(&pes_fn_140478090);
+    s.wr(a0 + kA0RngState, f.rngState, 4);
+    return true;
+  }
+
+  // The scorer's facts as both ticks read them (PES's per-frame values): the match info's scorer, the field info, the attack
+  // bearings, fps, and the man record's facing, move word, position and velocity. The run target is not touched here.
+  void WriteMatchFacts(const GoalAnchorFacts& f) {
     const uint32_t side = f.scorerSlot / kSideSlots, place = f.scorerSlot % kSideSlots;
     s.wr(matchInfo + kMiSlotMode, 1, 4);
     s.wr(matchInfo + kMiSlot, f.scorerSlot, 4);
@@ -597,20 +611,13 @@ struct FixDemoSelector::Impl {
     s.wrf(matchRecord + kAttackBearingSide1, f.attackDeg[1]);
     s.wrf(kFpsVa, f.fps);
     s.wr(kFpsIntVa, static_cast<uint32_t>(f.fps), 4);  // the integer copy 0x14047A710 multiplies (0x141E532E0 returns it)
-    const uint64_t m = man[f.scorerSlot], r = run[f.scorerSlot];
+    const uint64_t m = man[f.scorerSlot];
     s.wrf(m + kManFacing, f.facing);
     s.wr(m + kManMoveMode, f.moveMode, 4);
     for (unsigned i = 0; i < 3; ++i) {
       s.wrf(m + kManPos + 4 * i, f.pos[i]);
       s.wrf(m + kManVel + 4 * i, f.vel[i]);
-      s.wrf(r + kRunTarget + 4 * i, 0.0f);  // the target is what 0x140476C50 is about to give him
     }
-    // A0: the DemoInfo's defaults (0x140478090), then the fields the builder sets before the calls. The object persists across
-    // goals (PES builds it once, in the world's constructor); the defaults reset the per-goal fields it writes.
-    s.gpr[1] = a0;
-    Call(&pes_fn_140478090);
-    s.wr(a0 + kA0RngState, f.rngState, 4);
-    return true;
   }
 
   // The zone decision alone: PES's writer 0x1404B88B0 on the arena Arrange builds for `f`, with A0+0xDC = decisionCount. The
@@ -625,7 +632,10 @@ struct FixDemoSelector::Impl {
     return static_cast<uint32_t>(s.rd(a0 + kA0Bc, 4));
   }
 
-  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
+  // Tick A of a goal (PES's builder and the DemoInfo tick's zone decision and recompute, 0x1404B88B0 and 0x140471A80): the arrangement
+  // on the arena for `f`, the scene, the radius and the celebration spot, then the timers. Writes no position: the anchor is tick B
+  // (AnchorGoal), which PES runs on a later frame from the scorer's position of that frame.
+  std::optional<GoalAnchor> ArrangeGoal(const GoalAnchorFacts& f) {
     const auto goal = tables.find(kFixDemoGoal);
     if (goal == tables.end() || !Arrange(f)) return std::nullopt;
     const uint64_t r = run[f.scorerSlot];
@@ -705,8 +715,31 @@ struct FixDemoSelector::Impl {
     }
     out.sceneId = sceneId;
     out.scenes = scenes;
-    // ponytail: the writer of the run object's +0x18 is not decoded; it equals A0+0x30 on all 7 captured goals.
+    // ponytail: the translated chain (0x14047AB20 -> the command object's 0x140A60770) does not write the scorer's run object +0x18 (the
+    // T-writer test fails without the line below). Its PES writer is not decoded; GF writes A0+0x30 here, equal on the captured goals.
     for (unsigned i = 0; i < 3; ++i) s.wrf(r + kRunTarget + 4 * i, out.target[i]);
+    // The goal builder's last calls: the run object's timers (0x14047A710(A0, event): A0+0x14 = fps x 4 / scale, 10 for
+    // 0x3013D..F, A0+0x18 = fps x 30 / scale), and the DemoInfo's first cut id the tail's scene flag test reads (+0x10).
+    // ponytail: the builder first sets A0+0x130 = 0x1404790B0(A0, event) (the match setup's decider-goal flag read from G+0x2AD0:
+    // not translated, GF has no setup struct); it stays 0 here, as on the 13 captured goals of the default arm. A goal where PES
+    // sets it takes the timer's other arm (INF: the logged 0x30126 ran a 162-frame timer = fps x 3) and the gate's +0x131 hold; removed with
+    // 0x1404790B0.
+    s.wr(demo + kDemoInfoCut, scenes.empty() ? sceneId : scenes.front(), 4);
+    s.gpr[1] = a0;
+    s.gpr[2] = event;
+    Call(&pes_fn_14047A710);
+    gateSlot = f.scorerSlot;
+    goalPlaced = true;
+    armed = out;
+    return out;
+  }
+
+  // Tick B of a goal: PES's scene anchor (the writer 0x14047D280's kind-1 arm over 0x140474F00) and the flip 0x140478FF0, run on the
+  // arena ArrangeGoal set up, with the scorer's position of this tick (the man record that 0x140474F00 reads at its own frame).
+  std::optional<GoalAnchor> AnchorGoal(const GoalAnchorFacts& f) {
+    if (!goalPlaced || f.scorerSlot != gateSlot) return std::nullopt;
+    WriteMatchFacts(f);
+    GoalAnchor out = armed;
     // 0x140474F00(A0, arg2 (not read), &pos, &rotY)
     s.gpr[1] = a0;
     s.gpr[2] = 0;
@@ -727,19 +760,12 @@ struct FixDemoSelector::Impl {
     s.gpr[2] = 0;
     Call(&pes_fn_140478FF0);
     out.flip = (s.gpr[0] & 0xFF) != 0;
-    // The goal builder's last calls: the run object's timers (0x14047A710(A0, event): A0+0x14 = fps x 4 / scale, 10 for
-    // 0x3013D..F, A0+0x18 = fps x 30 / scale), and the DemoInfo's first cut id the tail's scene flag test reads (+0x10).
-    // ponytail: the builder first sets A0+0x130 = 0x1404790B0(A0, event) (the match setup's decider-goal flag read from G+0x2AD0:
-    // not translated, GF has no setup struct); it stays 0 here, as on the 13 captured goals of the default arm. A goal where PES
-    // sets it takes the timer's other arm (INF: the logged 0x30126 ran a 162-frame timer = fps x 3) and the gate's +0x131 hold; removed with
-    // 0x1404790B0.
-    s.wr(demo + kDemoInfoCut, scenes.empty() ? sceneId : scenes.front(), 4);
-    s.gpr[1] = a0;
-    s.gpr[2] = event;
-    Call(&pes_fn_14047A710);
-    gateSlot = f.scorerSlot;
-    goalPlaced = true;
     return out;
+  }
+
+  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
+    if (!ArrangeGoal(f)) return std::nullopt;
+    return AnchorGoal(f);
   }
 
   // One call of the goal gate 0x140472640(A0, event, DemoInfo) with the scorer as he is this frame; A0+0xEC after it.
@@ -1001,6 +1027,8 @@ std::optional<FixDemoRequest> FixDemoSelector::Request(uint32_t sceneId) {
   return req;
 }
 
+std::optional<GoalAnchor> FixDemoSelector::ArrangeGoal(const GoalAnchorFacts& facts) { return impl_->ArrangeGoal(facts); }
+std::optional<GoalAnchor> FixDemoSelector::AnchorGoal(const GoalAnchorFacts& facts) { return impl_->AnchorGoal(facts); }
 std::optional<GoalAnchor> FixDemoSelector::PlaceGoal(const GoalAnchorFacts& facts) { return impl_->PlaceGoal(facts); }
 
 std::optional<uint32_t> FixDemoSelector::ZoneDecision(const GoalAnchorFacts& facts, uint32_t decisionCount) {

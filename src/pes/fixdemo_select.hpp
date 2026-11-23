@@ -185,6 +185,12 @@ class FixDemoSelector {
   // The goal scene's anchor (writer 0x14047D280's kind-1 arm over the translated calc 0x140474F00, the wrap into [0, 360) with
   // [0x14259858C], and the flip 0x140478FF0), run on the arena: the scene row is the goal table's, laid into the DB at
   // +0x448/+0x450. Nullopt when the table has no row for the scene or the slot is not a pitch slot.
+  // The goal's two ticks. Tick A (ArrangeGoal): PES's builder and the DemoInfo tick's recompute, which write the scene, the radius
+  // and the celebration spot (the scorer's run object's target) from the facts of that tick; the timers. Tick B (AnchorGoal): the
+  // scene anchor 0x140474F00 and the flip, from the scorer's position of its own frame; it needs ArrangeGoal's arming for the same
+  // slot and returns nullopt before one. PlaceGoal runs both on the same facts (the goal placed in one frame).
+  std::optional<GoalAnchor> ArrangeGoal(const GoalAnchorFacts& facts);
+  std::optional<GoalAnchor> AnchorGoal(const GoalAnchorFacts& facts);
   std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& facts);
 
   // The goal's zone decision alone: PES's writer 0x1404B88B0 on the arena PlaceGoal would arrange for `facts`, with the DemoInfo

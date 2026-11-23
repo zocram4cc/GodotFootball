@@ -397,16 +397,28 @@ pes::GoalAnchorFacts KindTwoFacts(const Case& c, std::array<float, 3> pos, uint3
   for (size_t k = 0; k < sizeof(kFieldBits) / sizeof(kFieldBits[0]); ++k) f.field[k] = F(kFieldBits[k]);
   f.fps = c.fps;
   f.attackDeg = {90.0f, 270.0f};  // side 1 attacks the -x end its spot is at (the captured T.x < 0), as FactsOf gives
+  // A0+0x114 at seq203's entry (the recompute's pre-state; the capture is read with a streamed zstd, nothing unpacked): the
+  // corner-spot and scene-pick generator the recompute draws from. Its value is the capture's own.
+  f.rngState = 1124239360u;
   f.decisionCount = decisionCount;
   return f;
 }
 
-// RED. The else arm 0x140471A80 -> 0x1404B6BD0 runs to completion (no abort). T (A0+0x30) is written by 0x14047AB20 from a
-// 12-byte source vector that 0x1404B6BD0 fills from 0x140476010's result (its x, y, z: 0x140476010 reads the cut node through
-// [[G+0x2C0]+0x20] and 0x141E5D4C0). Probe (write-watch on PesMem::wr, return sites resolved with addr2line, ASLR off): the
-// three writes of each call give T = (-41.5502167, 0, 35.56), PES's T = (-41.6211472, 0, 35.56). T.y and T.z match; T.x differs.
-// The gap is in 0x140476010's x: GF's -41.5502167 is none of the four node fields it reads (live node +0x40 -37.90, +0x44 -57.58, +0x64 0, +0x80 57.58).
-// Next: trace 0x140476010's float path (cmp_ss / f64 conversions at its xmm0-xmm5) against PES's values.
+// PES's stadium cut key (the capture held 0x71) at G+0x2C0's +0x20, the lookup id 0x140476C50 and 0x140476010 read (see
+// FixDemoSelector::Create).
+void SetStadiumCutKey(pes::FixDemoSelector& sel) {
+  constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldTimeScale = 0x2C0, kStadiumKeyOff = 0x20, kStadiumCutKey = 0x71;
+  PesState& st = sel.State();
+  st.wr(st.rd(st.rd(kWorldSlotVa, 8) + kWorldTimeScale, 8) + kStadiumKeyOff, kStadiumCutKey, 4);
+}
+
+// seq203's scorer: slot-19 man +0x55C (PES axes). The recompute tick ran on this position (policy 6: its own pre-state).
+const std::array<float, 3> kSeq203ManPos = {F(0xC2267C0E), F(0x00000000), F(0x41D18EBC)};
+
+// The two ticks PES runs for this goal (docs/re/pes-re-goal-anchor-feed.md section 2). Tick A is the DemoInfo tick that runs the
+// recompute 0x140471A80 (real call seq203, the scorer at z 26.19) and writes the celebration spot. Tick B is the anchor 0x140474F00
+// (real call seq204, the scorer at z 29.56, in the wide channel), which reads the scorer's position of its own tick. PES's spot is
+// (-41.6211472, 0, 35.56) and its anchor (-41.5502167, 0, 34).
 TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   std::string why;
   const auto exe = OpenExe(&why);
@@ -414,25 +426,34 @@ TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   for (uint32_t dc : {5u, 100u, 161u}) {
     auto sel = MakeFor(*exe, kKindTwo);
     ASSERT_TRUE(sel) << why;
-    // Pre-state (Main's ruling for this capture): the stadium cut key the capture held, 0x71 (demoarea_st001), at the object
-    // G+0x2C0's +0x20 that 0x140476C50 reads as the lookup id (L_140476E58), with G = [0x1436F3DC8]. GF's runtime feed of this
-    // key is open; see the note at GF's time-scale object.
-    {
-      constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldTimeScale = 0x2C0, kStadiumKeyOff = 0x20, kStadiumCutKey = 0x71;
-      PesState& st = sel->State();
-      st.wr(st.rd(st.rd(kWorldSlotVa, 8) + kWorldTimeScale, 8) + kStadiumKeyOff, kStadiumCutKey, 4);
-    }
-    // The scorer's man position as PES's writer read it: seq203's slot-19 man record at +0x55C, (-41.6211472, 0, 26.1946945)
-    // (policy 6, Main's ruling). seq204's later goal position is kKindTwo.pos and is not what PES's T was computed from.
-    const std::array<float, 3> kSeq203ManPos = {F(0xC2267C0E), F(0x00000000), F(0x41D18EBC)};
-    const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, dc));
+    SetStadiumCutKey(*sel);
+    const auto armed = sel->ArrangeGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, dc));
+    ASSERT_TRUE(armed) << "DC " << dc;
+    EXPECT_EQ(armed->bc, 2u) << "DC " << dc;
+    EXPECT_EQ(armed->radius, kKindTwo.radius) << "DC " << dc;
+    EXPECT_EQ(armed->sceneId, kKindTwo.sceneId) << "DC " << dc << " A0+8 (the scene the anchor reads its row by)";
+    for (int i = 0; i < 3; ++i) EXPECT_EQ(armed->target[i], kKindTwo.target[i]) << "DC " << dc << " T[" << i << "]";
+    const auto got = sel->AnchorGoal(KindTwoFacts(kKindTwo, kKindTwo.pos, dc));
     ASSERT_TRUE(got) << "DC " << dc;
-    EXPECT_EQ(got->bc, 2u) << "DC " << dc;
-    EXPECT_EQ(got->radius, kKindTwo.radius) << "DC " << dc;
-    for (int i = 0; i < 3; ++i) EXPECT_EQ(got->target[i], kKindTwo.target[i]) << "DC " << dc << " T[" << i << "]";
     for (int i = 0; i < 3; ++i) EXPECT_EQ(got->pos[i], kKindTwo.wantPos[i]) << "DC " << dc << " pos[" << i << "]";
     EXPECT_EQ(got->rotYDeg, kKindTwo.wantRotY) << "DC " << dc;
   }
+}
+
+// The recompute tick alone (real call seq203): the scorer's run object holds PES's celebration spot at +0x18 afterwards. The run
+// table (G+0x21E8, 0x28-byte entries whose first qword is the object) and the target's offset are PES's layout.
+TEST(GoalAnchorKindTwo, RecomputeTickWritesTheCelebrationSpotIntoTheScorersRunObject) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldRunTable = 0x21E8, kWorldTableStride = 0x28, kRunTarget = 0x18;
+  auto sel = MakeFor(*exe, kKindTwo);
+  ASSERT_TRUE(sel) << why;
+  SetStadiumCutKey(*sel);
+  ASSERT_TRUE(sel->ArrangeGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, 5)));
+  PesState& st = sel->State();
+  const uint64_t run = st.rd(st.rd(kWorldSlotVa, 8) + kWorldRunTable + kKindTwo.slot * kWorldTableStride, 8);
+  for (int i = 0; i < 3; ++i) EXPECT_EQ(st.rdf(run + kRunTarget + 4 * i), kKindTwo.target[i]) << "T[" << i << "]";
 }
 
 // The writer's zone decides BC; the default arm's BC is 8, so a zone-8 scorer cannot tell a fed writer from none. These
