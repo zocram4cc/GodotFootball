@@ -1679026,6 +1679026,12 @@
      "0x140A179C0"
     ]
    },
+   "kind8a40": {
+    "members": 2,
+    "roots": [
+     "0x140425010"
+    ]
+   },
    "kind8ballsync": {
     "members": 34,
     "roots": [
