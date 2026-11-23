@@ -53,20 +53,21 @@ int main(int, char** v) {
 """
 
 
-def image(path):
+def image(path, code=CODE):
     img = bytearray(0x20000)
     struct.pack_into("<I", img, 0x3C, 0x80)
     img[0x80:0x84] = b"PE\0\0"
     struct.pack_into("<HHIIIHH", img, 0x84, 0x8664, 1, 0, 0, 0, 240, 0)  # one section
     struct.pack_into("<Q", img, 0x80 + 24 + 24, BASE)
     struct.pack_into("<II", img, 0x98 + 112 + 24, 0x400, 12)
-    struct.pack_into("<III", img, 0x400, FRVA, FRVA + len(CODE), 0x600)
+    struct.pack_into("<III", img, 0x400, FRVA, FRVA + len(code), 0x600)
     img[0x600:0x604] = bytes([0x01, 0, 0, 0])
     # .text: read-only code and data (flags: no 0x80000000 write bit)
     img[0x188:0x188 + 40] = b".text\0\0\0" + struct.pack("<IIIIIIHHI", 0x2000, 0x1000, 0x2000, 0x1000, 0, 0, 0, 0, 0x60000020)
-    img[FRVA:FRVA + len(CODE)] = CODE
-    img[MAP_RVA:MAP_RVA + 6] = bytes([0, 0, 0, 1, 1, 1])                  # actions 8..10 -> case 0, 11..13 -> case 1
-    struct.pack_into("<II", img, JT_RVA, FRVA + 0x27, FRVA + 0x2D)
+    img[FRVA:FRVA + len(code)] = code
+    if code is CODE:
+        img[MAP_RVA:MAP_RVA + 6] = bytes([0, 0, 0, 1, 1, 1])                  # actions 8..10 -> case 0, 11..13 -> case 1
+        struct.pack_into("<II", img, JT_RVA, FRVA + 0x27, FRVA + 0x2D)
     open(path, "wb").write(img)
 
 
@@ -102,6 +103,43 @@ class SwitchTables(unittest.TestCase):
 
     def test_past_the_guard_is_the_default(self):
         self.assertEqual(self.answer(0x20), "0")
+
+
+# A switch whose tables lie INSIDE the function's extent, after an in-range jmp (PES 0x140928710): the tables are data. The linear
+# walk must stop at them, or it decodes the byte map and the dword table as code (a junk `mov ss`) and the translator fails on it.
+INL_MAP_RVA, INL_JT_RVA = FRVA + 0x37, FRVA + 0x3D
+CODE_INLINE = (bytes.fromhex("8d42f8") + bytes.fromhex("83f805") + bytes.fromhex("772b")
+               + bytes.fromhex("4c8d05") + struct.pack("<i", -(FRVA + 0xF))
+               + bytes.fromhex("4898")
+               + bytes.fromhex("410fb68400") + struct.pack("<I", INL_MAP_RVA)
+               + bytes.fromhex("418b8c80") + struct.pack("<I", INL_JT_RVA)
+               + bytes.fromhex("4c01c1") + bytes.fromhex("ffe1")
+               + bytes.fromhex("b811000000c3")                 # case 0 (0x27)
+               + bytes.fromhex("b822000000c3")                 # case 1 (0x2D)
+               + bytes.fromhex("31c0")                         # default (0x33): xor eax,eax
+               + bytes.fromhex("eb14")                         # jmp 0x4B: in range, past the tables and the junk (0x35)
+               + bytes([0, 0, 0, 1, 1, 1])                     # byte map (0x37)
+               + struct.pack("<II", FRVA + 0x27, FRVA + 0x2D)  # dword table (0x3D)
+               + bytes.fromhex("8e9200000000")                 # junk that decodes as `mov ss, [rdx]` (0x45)
+               + bytes.fromhex("c3"))                          # ret (0x4B)
+
+
+class SwitchTableInTheExtent(unittest.TestCase):
+    def test_table_bytes_are_data_and_the_cases_still_decode(self):
+        pdata.KNOWN = frozenset()
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        img = os.path.join(d.name, "img.bin")
+        image(img, CODE_INLINE)
+        import capstone
+        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+        with open(img, "rb") as fh:
+            addrs = {i.address for i in pdata.Pdata(fh).decode(md, F)}
+        tables = set(range(F + 0x37, F + 0x45))
+        self.assertFalse(addrs & tables)
+        self.assertIn(F + 0x27, addrs)
+        self.assertIn(F + 0x2D, addrs)
+
 
 
 if __name__ == "__main__":
