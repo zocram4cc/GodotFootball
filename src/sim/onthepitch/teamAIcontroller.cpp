@@ -1496,10 +1496,12 @@ pes::Vec3 ThrowInKeyOffset(Match& match, const Player* taker) {
 }
 
 }  // namespace
-bool TeamAIController::ReleasePassPlaying(const Player* player, e_FunctionType clipFunction, bool clipPlaying) const {
-  return match->PesLoop() && match->IsInSetPiece() && setPieceType == e_SetPiece_ThrowIn && player == taker && clipPlaying &&
-         (clipFunction == e_FunctionType_ShortPass || clipFunction == e_FunctionType_LongPass ||
-          clipFunction == e_FunctionType_HighPass);
+bool TeamAIController::PieceTakerOwnsBody(const Player* player) const {
+  return pieceWalk && player == taker && match->IsInSetPiece() && (pieceWarping || pieceCarrying);
+}
+
+bool TeamAIController::PieceTakerWarping(const Player* player) const {
+  return pieceWalk && player == taker && pieceCarrying && pieceWarping;
 }
 
 void TeamAIController::PushPieceTakerBehindLine() {

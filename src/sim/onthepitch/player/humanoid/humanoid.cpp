@@ -419,7 +419,7 @@ void Humanoid::Process() {
   const bool pesDribbleOwned = match->PesOwnsDribble(*CastPlayer());
   // The throw-in taker's clip does not switch the body while PES's throw-in action owns it (the same rule as the dribble's).
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer()) &&
-      !pesDribbleOwned && !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer())) {
+      !pesDribbleOwned && !CastPlayer()->GetTeam()->GetController()->PieceTakerWarping(CastPlayer())) {
     interruptAnim = e_InterruptAnim_Switch;
   }
 
@@ -530,11 +530,6 @@ void Humanoid::Process() {
     bool found = false;
     bool preferPassAndShot = false;  // pass/shot and such; in that case we want trap/ballcontrol
                                      // anims to be less prefered
-    // PES's throw-in release is one action (docs/re/pes-re-throwin-choreography.md 4.2): while the taker's pass clip plays, that action owns
-    // the body (TeamAIController::ReleasePassPlaying). The AI's queue is not the same every tick (the Movement stand lands between the
-    // throw's passes), and a pass selected again restarts its clip before the release frame, so the ball never leaves his hands.
-    const bool throwInPassPlaying = CastPlayer()->GetTeam()->GetController()->ReleasePassPlaying(
-        CastPlayer(), currentAnim->functionType, currentAnim->frameNum < currentAnim->anim->GetFrameCount() - 1);
     for (unsigned int i = 0; i < commandQueue.size(); i++) {
       const PlayerCommand& command = commandQueue.at(i);
 
@@ -556,19 +551,15 @@ void Humanoid::Process() {
       if (CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer()) &&
           command.desiredFunctionType == e_FunctionType_Movement)
         continue;
-      // While the release pass plays it is the body's action: the AI's Movement does not reach him, and the queued pass is already
-      // applied, so it is not selected again (that would restart its clip before the release frame).
-      if (throwInPassPlaying) {
-        if (command.desiredFunctionType == e_FunctionType_Movement) continue;
-        found = true;
-        break;
-      }
       found = SelectAnim(command, interruptAnim, preferPassAndShot);
       if (found)
         break;
     }
 
-    if (interruptAnim == e_InterruptAnim_Switch && !found) {
+    // The throw-in taker's body holds its last clip frame while the queue has no throw to play (PES's loop waits for the throw): nothing is
+    // applicable and the queue is asked again next tick, rather than the reset below.
+    if (interruptAnim == e_InterruptAnim_Switch && !found &&
+        !CastPlayer()->GetTeam()->GetController()->PieceTakerOwnsBody(CastPlayer())) {
       Log(e_Warning, "Humanoid", "Process", "RED ALERT! NO APPLICABLE ANIM FOUND! NOOOO!");
       Log(e_Warning, "Humanoid", "Process",
           "currentanimtype: " + currentAnim->anim->GetVariable("type"));

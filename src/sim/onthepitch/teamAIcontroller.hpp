@@ -91,21 +91,18 @@ public:
   // 3.1-3.2). A goal kick's keeper is placed on his stand point when the kick is prepared and held there until the ladder
   // releases it (pesgoalkick.hpp, docs/re/pes-re-kicker-standby.md section 4).
   bool IsPieceTakerWalking(const Player* player) const;
-  // True while PES's phase-4 lift owns the taker's body: the lift warp, from its start to its end. The AI's movement commands and the
-  // clip-end switch do not reach him during the lift. After it the loop plays once (phase 5) and the queued throw switches the body at
-  // the loop's end, as PES does; holding past the loop kept the throw from ever being selected (the set piece then never closed).
-  bool PieceTakerOwnsBody(const Player* player) const {
-    return pieceWalk && player == taker && pieceCarrying && pieceWarping;
-  }
+  // True while the taker's body is the throw-in's (PES's SEAMLESS_THROWIN, then THROWIN: docs/re/pes-re-throwin-choreography.md 3.2
+  // and 4.2): from the pickup until the release. The AI's movement commands and the MOVESTEP FSM do not reach him, and the queued throw
+  // is what selects his clips. Defined in teamAIcontroller.cpp (it reads the match's play state).
+  bool PieceTakerOwnsBody(const Player* player) const;
+  // True while the carrying taker's root warp runs (the carry's or the lift's): the clip-end switch waits for the warp. After the lift
+  // the loop plays once and its end switches to the queued throw, as PES does.
+  bool PieceTakerWarping(const Player* player) const;
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
   // True from the lift's end until the restart is over: the taker keeps the root yaw the lift left him with (PES's throw-in loop
   // keeps the lift's yaw), so his clips start from it.
   bool HoldsRoot(const Player* player) const { return pieceLifted && player == taker; }
-  // PES's throw-in release is one action (docs/re/pes-re-throwin-choreography.md 4.2): while the taker's pass clip is still playing (the
-  // clip's function is a pass and it has not reached its last frame), that action owns his body. The MOVESTEP FSM does not tick and the
-  // AI's Movement does not reach him, and a queued pass is not selected again (a re-selected pass restarts its clip before the release).
-  bool ReleasePassPlaying(const Player* player, e_FunctionType clipFunction, bool clipPlaying) const;
   // The point a held taker looks at: his SetKick look point when the placement set one (a corner's heading), else the ball.
   Vector3 HeldTakerLookAt(const Vector3& ball) const { return pieceHasLookAt ? pieceLookAt : ball; }
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
