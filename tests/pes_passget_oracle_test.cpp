@@ -31,6 +31,28 @@ using pes_oracle::Field;
 using pes_oracle::Oracle;
 using pes_oracle::Read;
 
+// A private copy-on-write mapping of the flat image (PES_EXE): the chain writes image globals, and the file stays as it is
+// (the same mapping the trap and decision-frame oracles use since PesTrapMemory went away).
+struct Image {
+  uint8_t* map = nullptr;
+  uint64_t bytes = 0;
+  Image() {
+    const char* exe = std::getenv("PES_EXE");
+    if (exe == nullptr || *exe == '\0') return;
+    struct stat st;
+    const int fd = ::open(exe, O_RDONLY);
+    if (fd < 0 || ::fstat(fd, &st) != 0) return;
+    void* m = ::mmap(nullptr, static_cast<std::size_t>(st.st_size), PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    ::close(fd);
+    if (m == MAP_FAILED) return;
+    map = static_cast<uint8_t*>(m);
+    bytes = static_cast<uint64_t>(st.st_size);
+  }
+  ~Image() {
+    if (map != nullptr) ::munmap(map, bytes);
+  }
+};
+
 // PES's write log (corpus.jsonl's `w`, 18 hex chars per byte: "addr" + "value") filtered to a range.
 struct WriteLog {
   std::vector<std::pair<uint64_t, uint8_t>> bytes;
@@ -160,14 +182,15 @@ TEST_F(PassGetOracle, EveryCapturedTickOnGfsWindowWritesWhatPesWrote) {
     // "no output" reads as no dispatch, not as a passing zero. The survey env is deliberately unset.
     // The trap source (the constants' own, filled by FillMissingPesConstants from PES_EXE): its loader data (the registry,
     // the motion records) is staged by AddTo, and the image's own VAs (0x1426xxxxx vtable cells, .rdata tables) are read
-    // through the image slice the trap source already mapped.
+    // through a private mapping of the flat image.
     pes::PesTrapExternals ext;
     ASSERT_TRUE(pestest::SharedPesMatchConstants().trap.has_value()) << "PES trap data missing";
     pestest::SharedPesMatchConstants().trap->loader.AddTo(ext);
-    static pes::PesTrapMemory imageMem(*pestest::SharedPesMatchConstants().trap);
-    ext.image = imageMem.Externals().image;
-    ext.imageBase = imageMem.Externals().imageBase;
-    ext.imageBytes = imageMem.Externals().imageBytes;
+    static const Image kImage;
+    ASSERT_NE(kImage.map, nullptr) << "PES_EXE unset or unreadable";
+    ext.image = kImage.map;
+    ext.imageBase = pes::kImageBaseVa;
+    ext.imageBytes = kImage.bytes;
     std::vector<std::pair<uint64_t, uint8_t>> log;
     ext.writeLog = &log;
     // The capture's bytes outside the window (the heap the tick reads through the image globals, e.g. the image globals
