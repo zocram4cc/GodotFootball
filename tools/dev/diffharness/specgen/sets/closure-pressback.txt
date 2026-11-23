@@ -1,0 +1,6 @@
+0x14041F2F0	stand-in	pressback	seed
+0x1403FB410	stand-in	gameplay	callee
+0x1403FB5B0	stand-in	HUD	callee
+0x14041F8E0	stand-in	pressback	callee
+0x1403FB860	stand-in	gameplay	callee
+0x1403FB4F0	stand-in	HUD	callee

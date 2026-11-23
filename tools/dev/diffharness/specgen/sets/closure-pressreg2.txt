@@ -1,0 +1,7 @@
+0x1404704F0	stand-in	pressreg2	seed
+0x1403FB410	stand-in	gameplay	callee
+0x1403FB5B0	stand-in	HUD	callee
+0x140470670	stand-in	pressreg2	callee
+0x1403FB860	stand-in	gameplay	callee
+0x1403FB4F0	stand-in	HUD	callee
+0x140A73EA0	stand-in	AI	callee
