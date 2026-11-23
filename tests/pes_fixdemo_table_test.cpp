@@ -144,6 +144,28 @@ TEST(FixDemoTable, InstallTablesDecodeExactlyAndCutsStayInCategory) {
   }
 }
 
+// The goal table's T3 control table (PES's CTRL, stored at DB+cat*0x20+0x2C8): its groups are (start, count) slices of the 0x2C-byte
+// rows the variant matcher reads. The install's goal table must decode every row, and its groups must slice all of them in order.
+TEST(FixDemoTable, GoalControlTableKeepsEveryRowInItsGroups) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  constexpr int kGoal = 3;  // the goal category (scene ids are (cat << 16) | index)
+  auto bytes = vfs.Read(pes::FixDemoTablePath(kGoal), &err);
+  ASSERT_TRUE(bytes) << err;
+  auto d = pes::DecodeFixDemoTable(*bytes, kGoal, &err);
+  ASSERT_TRUE(d) << err;
+  ASSERT_FALSE(d->ctrlGroups.empty());
+  size_t rows = 0;
+  for (const pes::FixDemoCtrlGroup& g : d->ctrlGroups) {
+    EXPECT_EQ(g.firstRow, rows) << "the groups slice the rows in order";
+    rows += g.rows.size();
+  }
+  EXPECT_GT(rows, 0u);
+}
+
 TEST(FixDemoTable, CutDataPathsAreUnderTheCategoryCutDataAndMountedInTheInstall) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
