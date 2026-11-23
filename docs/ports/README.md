@@ -533,3 +533,8 @@ What each agent changed in GF, how it was tested, and what it left open. The dec
 |`pes-port-CutLane2.md`|CutLane2: `73406ffb`: two-tick split ArrangeGoal/AnchorGoal (T at seq203 -> run+0x18 = seq204's, test green); run+0x18 still a labelled manual write|
 |`pes-port-CutLane2-r2.md`|CutLane2 round 2: `9dd5011c`: goal control table (T3) kept and built in PES layout (scene 0x300D9 in group 0x30005, test green); matcher picks 0x300DB vs PES 0x300D9; wide test red; run+0x18 writer not 0x140A60770|
 |`pes-port-ThrowLane.md`|ThrowLane: HangFix `39898dc3`: the throw-in taker owns his body pickup..release (MOVESTEP/AI queue excluded); PesHang green, ankle green, throw-in 8/9 (ACeremony red, A/B pending); ALiveBall 2229 / quick 53|
+|`pes-port-PressLane3.md`|PressLane3: `d3d21026` pdata.py in-extent switch tables as data (18 functions), `44ee6899` gfx service inline + prove_bounded --native; tick 0x140928FC0 proven 3/3 (all 10 hooks restored), not landed: 318 closure members lack specs|
+|`pes-port-Kind8Lane3.md`|Kind8Lane3: `87d5588b` 0x140425010 proven 1/1; S+0x294 = 0 at entry in all 11 sync captures; bit-4 clearer candidates behind call [r10+0x88]|
+|`pes-port-CutLane3.md`|CutLane3: `0c8047f1` BeginEvent runs PES's ctx reset 0x141F50B90 (map-walk SIGSEGV fixed, red-first test); event facts do not move the pick|
+|`pes-port-CutLane3b.md`|CutLane3 round 2: recompute builds the event struct from callees reading G+0x1978, which GF never writes; tick 0x14047B460 passes the recompute its own args|
+|`pes-port-CutLane3c.md`|CutLane3 round 3: G+0x1978 and run+0x18 writers not found by displacement scans (156,556 functions); next: world ctor 0x140441490, tick r9|
