@@ -146,3 +146,51 @@ What the capture must show: the rax that 0x141957C50 returned to 0x14195BD65 in 
 Scratch (not committed): <workdrive>/gf-CutLane-scratch/tick/ (replay snapshot, 3.9 GB unpacked mem.bin: delete when done), tick_calls.py, stackpeek.py. seq203 is unpacked in gf-Rendezvous-scratch (3.9 GB) and was packed again (capz pack, CONFIRMED).
 
 Verdict (INF): the tick is translatable (closure is 375 members, all in the translator's universe), but its proof and its GF wiring both need the gfx allocator's real result and the deferred-job service, which GF has no model for. The wide test cannot move until the tick's arg5 (D) is an object GF builds from the same fields.
+
+# Round 3 (answer to Main's round-3 asks: existing captures, arg6 chain, run+0x18 writer)
+
+## R3.0 Top line (CONFIRMED by PES's own bytes, scratch scripts, nothing committed)
+
+- The round-2 blocker is gone. The gfx allocator was a harness artefact: `stubs.json` models 0x141957C50 as rax = 0, but the captured device is LIVE (see R3.1). With that one stub removed (not stubbed; the image bytes run), PES's bytes run the tick 0x14047B460 over the seq203 snapshot to its return (err None, returns to 0x140446D32).
+- The post-state equals PES's captured outputs: A0+8 = 0x300D9, A0+0xBC = 2, A0+0xEA = 0, A0+0x30 = (-41.62114716, 0, 35.55999756), which is what seq204 holds (CONFIRMED by zr.py read of seq204). These are the wide test's expected values. So the tick, run by PES's own code on the captured entry state, gives PES's answer. The GF wide failure is the stand-in ArrangeGoal (recompute called directly with r8 = a0, no tick), not the translation of the recompute.
+- Two substitutions change nothing on this state (CONFIRMED): the gfx device return replaced by a zeroed 64 KiB scratch block (60 allocator entries; same scene, bc, radius, T, EA), and arg6 replaced by a zeroed object (same outputs; ED = 1 both). So GF may use a zeroed block and a zeroed arg6 for this goal (ponytails), if the proof and the test agree.
+
+## R3.1 Existing captures (CONFIRMED, index.json + zr.py)
+
+- Six recompute_471A80 captures exist, all entry-state only (no post-state, no callee or allocator result): pid1267009/seq75234, pid1724101/seq4946, pid2024691/seq203, pid2024691/seq628 (same registers as seq203), pid2257154/seq9233, pid950952/seq7328. Each has the device chain live: [0x1437C9238] = device (0x13EE9D0 / 0x13EE900 / 0x1505BA0 / 0x13EE9D0 / 0x13EE9D0 / 0x13EEAA0, one per launch), [device] = an object whose first qword is the image vtable 0x142AC1D38 (seq203), and vt+0x20 = 0x141B3D8E0 (a PES-image method: `mov [rsp+8],rbx ... call 0x141B3F140`). So the device path is PES code in the image, not a missing DLL.
+- No capture holds a callee, allocator return or post-state for the gfx path. None are needed for the proof now (R3.0).
+- Hook names across all live2 index.json: no alloc, gfx, 14047B460 or 140446B20 hook exists yet (Main's cutk4/cutrc hooks are not in the archive).
+
+## R3.2 The handler's arg6 chain (INF beyond the first two hops; CONFIRMED where marked)
+
+- Handler 0x140446B20 (CONFIRMED): rbp = rdx at entry (0x140446B45 `mov rbp, rdx`); the tick's arg6 is rbp (0x140446D19 `mov [rsp+0x28], rbp`).
+- The handler's only caller: the dispatcher 0x140446390 (pdata function bounds 0x140446390..0x140446520, CONFIRMED by pdata.known_starts; the disasm at 0x1404463B0 is mid-function). Its call at 0x14044640B passes `rdx = [rsp+0x60]` (CONFIRMED from disasm), i.e. a dispatcher frame slot (INF: the dispatcher's incoming 5th argument; its prologue offset not decoded).
+- The dispatcher's only caller (rel32 scan, CONFIRMED): 0x14044C9A8 in the step function 0x14044C880 (pdata bounds 0x14044C880..0x14044CDA0). That call passes r9 = rdi, [rsp+0x20] = rbp, r8 = r14b, rcx = rbx, rdx = not set in that block. So the 5th argument is the step function's rbp (CONFIRMED).
+- The step function's rbp = its entry r9 (CONFIRMED: 0x14044C8A6 `mov rbp, r9`).
+- The step function's only caller (rel32 scan, CONFIRMED): the dispatcher itself at 0x14044629C, which passes r9 = [rsp+0xB0] (CONFIRMED disasm; a dispatcher frame slot, INF: an incoming stack argument of the dispatcher, the mutual pair closes on itself). Above that: no direct caller and no qword reference to 0x140446390 (scans of the image: none). The outer caller is indirect (OPEN).
+- So arg6 = a stack argument of the outermost dispatcher entry: its origin is an indirect call not found. Since arg6 is only a pointer the recompute reads through r9 (0x140A3FEF0), and the R3.0 test shows zeroing it changes nothing on seq203, GF can pass a zeroed object as arg6 with a ponytail naming this chain.
+
+## R3.3 The run+0x18 writer: NOT the tick (CONFIRMED by PES's bytes)
+
+- Run object for slot 19: G+0x21E8 + 19 * 0x28 -> 0x2DDCCFF4 (CONFIRMED, PES's post-state memory).
+- Pre (seq203 memory) run+0x18 = (-37.56, 0, 40.56); post (PES bytes, tick over seq203) = the same. The tick does not write it.
+- seq204 (the anchor call, the second tick) holds (-41.62, 0, 35.56) = A0+0x30 after tick A. So the writer is after tick A's recompute and before the anchor call: in tick B's own path or in the command writer 0x14047AB20 / 0x140A60770 chain (not decoded here). INF from the names; the translated 0x14047D280 is a prologue-only writer for this purpose (its +0x18 store is a stack slot), so it is not the writer.
+- Next: a capture at the anchor tick B entry (hook 0x140474F00 is already the anchor hook; the write must sit between tick A's recompute return (seq203 ret 0x14047B856) and seq204's entry). Diff of run+0x18 across the two captures is the test: a 2-capture check, no new hook needed if an entry capture exists at the tick A return. It is OPEN.
+
+## R3.4 Rig request status
+
+- R2.6 (the gfx result hook) is WITHDRAWN: the device path is in the image and the replay runs it (R3.0). Main's batching of cutrc_140471A80 (`d(rcx+0xbc)==2`) and cutk4_140446B20 (`b(rcx+0x2d2)==1`) is still useful for more real tick entries (more proofs), not for this one.
+- New, small: hook 0x14047AB20 (command writer, cap 6, full, `--when` the caller is 0x14047B8xx, i.e. the recompute's tail), to pin the run+0x18 writer. Optional; the 2-capture diff in R3.3 may already settle it.
+
+## R3.5 Next exact steps (ordered, for the next round)
+
+1. Model change (cross-lane, Main to approve): the gfx thunk 0x141957C50 is a service returning a fixed scratch block (one address, same on the PES harness side and in GF), replacing the rax = 0 model for the tick's closure. Affects every caller of the thunk (FUN_1423D4A80 path currently proven with 0): scope it to the tick's closure or prove the other caller too.
+2. Translate the tick closure (375 members, `closure.py --spec-set core --tag tick 0x14047B460`, reproduced in round 2; not committed) and regenerate the layer.
+3. snapdiff on the tick over seq203 with the block model on both sides, zeroed arg6 in the synthetic call (or the recorded arg6; both give the same outputs in R3.0).
+4. GF: ArrangeGoal calls the tick with D (a 0x17860+ byte object: D+0x1E8 = A0; list pointer at D+0x17860 to an empty range {begin, end}; r9 = D+0x2790; arg5 = D; arg6 = zero object). Delete the r8 = a0 and r9 = Zalloc stand-ins (ponytails). Then the wide test: expect scene 0x300D9 and T (-41.62, 0, 35.56), which R3.0 says PES's bytes produce.
+5. Run+0x18 writer: 2-capture diff (R3.3), then delete the manual write in fixdemo_select.cpp (ponytail) if the writer is in the translated chain.
+
+## R3.6 State of the branch
+
+- No code change this round. Branch tip 82ad8564 (ls-remote confirmed earlier this session). The wide test is still red; the pes_goal_anchor_test count is unchanged (25/26).
+- Scratch (not committed): <workdrive>/gf-CutLane-scratch/{stackpeek2.py, tickoracle.py, tickblock.py, tickarg6.py, runwriter.py, devpeek.py, tick_calls.py}. Unpacked seq203 mem.bin (3.9 GB) is in gf-Rendezvous-scratch/live2/pid2024691/seq203 (re-packed earlier; unpacked again for the runs, delete or pack when done) and the replay snapshot at gf-CutLane-scratch/tick/tick/seq203_pid2024691 (3.9 GB, delete when done).
