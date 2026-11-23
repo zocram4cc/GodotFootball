@@ -1679033,6 +1679033,12 @@
      "0x140430C30"
     ]
    },
+   "kind8owner": {
+    "members": 1,
+    "roots": [
+     "0x140425A90"
+    ]
+   },
    "mjstand": {
     "members": 1,
     "roots": [
