@@ -48,6 +48,20 @@
   "size": 520,
   "subsystem": "boot"
  },
+ "0x140419610": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 211,
+  "subsystem": "cutscene"
+ },
+ "0x140419D80": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 63,
+  "subsystem": "cutscene"
+ },
  "0x1406A9F20": {
   "callees": {},
   "how": "pdata",

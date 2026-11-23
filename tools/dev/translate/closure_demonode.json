@@ -1,0 +1,7 @@
+{
+ "note": "the functions the bounded proof of 0x141E6C280 (the match-constant node parser for the stadium demo areas) entered on its synthetic state over seq321's memory (snapdiff --bounded, results_snapdiff_demonode.json): the offset resolver 0x141E823E0 (returns rdx + ecx, or 0 for a zero offset).",
+ "root": "0x141E6C280",
+ "members": [
+  "0x141E823E0"
+ ]
+}

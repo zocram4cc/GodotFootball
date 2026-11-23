@@ -156,16 +156,33 @@ std::optional<pes::PeImage> OpenExe(std::string* why) {
   return pes::PeImage::Open(std::string(root) + "/PES2021.exe", why);
 }
 
+// The install's VFS, mounted once: the selector reads the cut library's constant_stadium.bin through it.
+const pes::PesVfs* InstallVfs(std::string* why) {
+  static std::optional<pes::PesVfs> vfs;
+  if (!vfs) {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root) {
+      *why = "PES21_ROOT not set";
+      return nullptr;
+    }
+    vfs.emplace();
+    if (!vfs->Mount(root, why)) {
+      vfs.reset();
+      return nullptr;
+    }
+  }
+  return &*vfs;
+}
+
 // A selector over the install's own goal table (scenes, cut groups, variant rows), as PES's DB holds it.
 std::unique_ptr<pes::FixDemoSelector> MakeInstalled(const pes::PeImage& exe, pes::FixDemoTable* table, std::string* why) {
-  const char* root = std::getenv("PES21_ROOT");
-  pes::PesVfs vfs;
-  if (!root || !vfs.Mount(root, why)) return nullptr;
-  const auto bytes = vfs.Read(pes::FixDemoTablePath(pes::kFixDemoGoal), why);
+  const pes::PesVfs* vfs = InstallVfs(why);
+  if (!vfs) return nullptr;
+  const auto bytes = vfs->Read(pes::FixDemoTablePath(pes::kFixDemoGoal), why);
   auto decoded = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, why) : std::nullopt;
   if (!decoded) return nullptr;
   *table = *decoded;
-  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, why);
+  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, *vfs, why);
 }
 
 // A selector whose goal table holds only the case's scene row (the rest zero), at the scene's index.
@@ -174,7 +191,8 @@ std::unique_ptr<pes::FixDemoSelector> MakeFor(const pes::PeImage& exe, const Cas
   t.goalSceneRows.resize(c.sceneId & 0xFFFF);
   t.goalSceneRows.back() = RowOf(Unhex(c.rowHex));
   std::string err;
-  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, &err);
+  const pes::PesVfs* vfs = InstallVfs(&err);
+  auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, *vfs, &err) : nullptr;
   EXPECT_TRUE(sel) << err;
   return sel;
 }
@@ -287,7 +305,8 @@ TEST(GoalAnchor, RotationIsWrappedIntoOneTurn) {
     t.goalSceneRows.back().head = {0, 0, 1, 1, 2};
     t.goalSceneRows.back().floats[8] = offset;
     std::string err;
-    auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, &err);
+    const pes::PesVfs* vfs = InstallVfs(&err);
+    auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, *vfs, &err) : nullptr;
     const auto got = sel ? sel->PlaceGoal(FactsOf(c)) : std::nullopt;
     EXPECT_TRUE(got) << err;
     return got ? got->rotYDeg : -1.0f;
@@ -323,15 +342,15 @@ TEST(GoalAnchor, HasNoAnchorWithoutARowOrASlot) {
 TEST(GoalAnchor, TheInstallsSceneRowIsTheRowPesHeld) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesVfs vfs;
   std::string err;
-  if (!vfs.Mount(root, &err)) GTEST_SKIP() << err;
+  const pes::PesVfs* vfs = InstallVfs(&err);
+  if (!vfs) GTEST_SKIP() << err;
   const auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
   if (!exe) GTEST_SKIP() << err;
-  const auto bytes = vfs.Read(pes::FixDemoTablePath(pes::kFixDemoGoal), &err);
+  const auto bytes = vfs->Read(pes::FixDemoTablePath(pes::kFixDemoGoal), &err);
   const auto table = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, &err) : std::nullopt;
   if (!table) GTEST_SKIP() << err;
-  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, &err);
+  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, *vfs, &err);
   ASSERT_TRUE(sel) << err;
   PesState& s = sel->State();
   const uint64_t rows = s.rd(s.rd(pes::kFixDemoDbSlotVa, 8) + 0x448, 8);
@@ -352,6 +371,107 @@ TEST(GoalAnchor, TheInstallsSceneRowIsTheRowPesHeld) {
   }
   if (compared == 0) GTEST_SKIP() << "the install's goal table matches none of the captured scenes' rows";
 }
+
+// ---- The kind-2 goal (live pid2024691, goal 1): the zone decision and the else arm ----
+//
+// The scorer, slot 19 (side 1, place 10: MI+0x15C8/0x15CC, the squad table's index 8), stood at z = 3.04 at the writer's first
+// captured call (DC 1: zone 8, and PES's writer returned 8 on that entry, replayed on seq003). When the anchor ran (seq204)
+// he stood at z = 29.56, inside the wide channel (|x| < 45.56, |z| > 26.06): zone 2, A0+0xBC = 2, the recompute 0x140471A80
+// takes its else arm, and the anchor is PES's spot (radius 0, T the event spot, pos z 34.0, rotY 0). The decision tick's DC is
+// not captured; the writer's result does not depend on it below clock x 3 = 162, so the test runs three values in 5..161.
+const Case kKindTwo = {"H", "pid2024691/seq204", 0x300D9, 19, {F(0xC226336C), F(0x00000000), F(0x41EC7598)},
+                       {F(0x3A260000), F(0x00000000), F(0x3DA83700)}, F(0x43B3A520), 3,
+                       F(0x42523D70), F(0x42083D70), F(0x42580000), {F(0xC2267C0E), F(0x00000000), F(0x420E3D70)}, 0.0f,
+                       "0100010300000618000000000000000000000000000000000000084200000842000008c2000008c20000000000000000000034430000344300000000",
+                       {F(0xC226336C), F(0x00000000), F(0x42080000)}, 0.0f, 0};
+
+pes::GoalAnchorFacts KindTwoFacts(const Case& c, std::array<float, 3> pos, uint32_t decisionCount) {
+  pes::GoalAnchorFacts f;
+  f.sceneId = c.sceneId;
+  f.scorerSlot = c.slot;
+  f.pos = pos;
+  f.vel = c.vel;
+  f.facing = c.facing;
+  f.moveMode = c.moveMode;
+  for (size_t k = 0; k < sizeof(kFieldBits) / sizeof(kFieldBits[0]); ++k) f.field[k] = F(kFieldBits[k]);
+  f.fps = c.fps;
+  f.attackDeg = {90.0f, 270.0f};  // side 1 attacks the -x end its spot is at (the captured T.x < 0), as FactsOf gives
+  f.decisionCount = decisionCount;
+  return f;
+}
+
+// RED (CutsceneAnchor 1, not disabled): the else arm 0x140471A80 -> 0x1404B6BD0 -> 0x14047AB20 -> 0x1404511E0 -> 0x140451C10 -> 0x141B55730
+// makes a virtual call on an object whose vtable is not mapped; GF aborts with PES_DISPATCH_UNTRANSLATED. The writer's zone decision
+// already runs in PlaceGoal. Stays red until that object is modelled.
+TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  for (uint32_t dc : {5u, 100u, 161u}) {
+    auto sel = MakeFor(*exe, kKindTwo);
+    ASSERT_TRUE(sel) << why;
+    const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, kKindTwo.pos, dc));
+    ASSERT_TRUE(got) << "DC " << dc;
+    EXPECT_EQ(got->bc, 2u) << "DC " << dc;
+    EXPECT_EQ(got->radius, kKindTwo.radius) << "DC " << dc;
+    for (int i = 0; i < 3; ++i) EXPECT_EQ(got->target[i], kKindTwo.target[i]) << "DC " << dc << " T[" << i << "]";
+    for (int i = 0; i < 3; ++i) EXPECT_EQ(got->pos[i], kKindTwo.wantPos[i]) << "DC " << dc << " pos[" << i << "]";
+    EXPECT_EQ(got->rotYDeg, kKindTwo.wantRotY) << "DC " << dc;
+  }
+}
+
+// The writer's zone decides BC; the default arm's BC is 8, so a zone-8 scorer cannot tell a fed writer from none. These
+// scorers are in zones 4 and 5, where PES's writer answers something else. PES's answers come from replaying the writer
+// (0x1404B88B0) on the captured DC-1 entry of seq003 with only the scorer's man position poked (scratch oracle
+// poke_bc.py, CutsceneAnchor 2: (60, 0) -> 4, (-60, 0) -> 4, (0, 0) -> 5). Without the writer call BC stays 8.
+TEST(GoalAnchorKindTwo, NarrowChannelScorerIsZoneEightAsTheDefaultIs) {
+  // The same man at the writer's first captured call (DC 1, x -41.553, z 3.039: seq003's slot 19). PES's writer answers 8, the
+  // default: this case does not tell a fed writer from none.
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  auto sel = MakeFor(*exe, kKindTwo);
+  ASSERT_TRUE(sel) << why;
+  const auto bc = sel->ZoneDecision(KindTwoFacts(kKindTwo, {F(0xC2263646), F(0x00000000), F(0x40427EFA)}, 1), 1);
+  ASSERT_TRUE(bc);
+  EXPECT_EQ(*bc, 8u);
+}
+// The scorer where PES held him when the anchor ran (seq204: x -41.55, z 29.56, the wide channel). PES's writer answers 2 at
+// that position (the replay of seq003's entry with the position poked: (-41.5, 30) -> 2). GF's arena must answer 2 too, at any
+// decision count in 5..161 (below clock x 3 = 162).
+TEST(GoalAnchorKindTwo, WideChannelScorerIsZoneTwoAsPes) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  for (uint32_t dc : {5u, 100u, 161u}) {
+    auto sel = MakeFor(*exe, kKindTwo);
+    ASSERT_TRUE(sel) << why;
+    const auto bc = sel->ZoneDecision(KindTwoFacts(kKindTwo, kKindTwo.pos, dc), dc);
+    ASSERT_TRUE(bc) << "DC " << dc;
+    EXPECT_EQ(*bc, 2u) << "DC " << dc;
+  }
+}
+
+TEST(GoalAnchorKindTwo, PastTheLineAndCentreScorersAreNotZoneEight) {
+  // PES's writer on the same entry with only the scorer's position poked (scratch oracle poke_bc.py, CutsceneAnchor 2): (60, 0)
+  // -> 4, (-60, 0) -> 4, (0, 0) -> 5. The default is 8, so these tell a fed writer from none.
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  struct Spot {
+    std::array<float, 3> pos;
+    uint32_t wantBc;
+  };
+  const Spot kSpots[] = {{{60.0f, 0.0f, 0.0f}, 4u}, {{-60.0f, 0.0f, 0.0f}, 4u}, {{0.0f, 0.0f, 0.0f}, 5u}};
+  for (const Spot& s : kSpots) {
+    auto sel = MakeFor(*exe, kKindTwo);
+    ASSERT_TRUE(sel) << why;
+    const auto bc = sel->ZoneDecision(KindTwoFacts(kKindTwo, s.pos, 1), 1);
+    ASSERT_TRUE(bc) << "pos " << s.pos[0] << "," << s.pos[2];
+    EXPECT_EQ(*bc, s.wantBc) << "pos " << s.pos[0] << "," << s.pos[2];
+  }
+}
+
 
 // ---- The goal run object's gate 0x140472640 (the DemoInfo state 2 wait), on the arena of PlaceGoal ----
 //

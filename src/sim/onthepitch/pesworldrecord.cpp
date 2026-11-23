@@ -99,6 +99,18 @@ void PesWorld::BindMemory(PesMemory& memory) {
   heap_.get_deleter().owned = false;
   memory_ = &memory;
   memory.Write64(kWorldGlobalVa, kWorldWindowVa);  // G's global holds the window's VA: the image's global, once per match
+  // Each on-pitch slot's X is built by PES's own constructor FUN_14091E9F0 over the match's memory, as FUN_1409211E0 builds it
+  // (rcx = X, rdx = side, r8 = slot). The ctor stores X into PES's slot table, which the presser reads. The proven captures took
+  // side 0, slots 0..5 (pid1858437 seq353..358).
+  for (int side = 0; side < kSideCount; ++side) {
+    for (int slot = 0; slot < kSlotsPerSide; ++slot) {
+      PesState s = MemoryCall();
+      s.gpr[1] = SlotObjectVa(side * kSlotsPerSide + slot);
+      s.gpr[2] = static_cast<uint64_t>(side);
+      s.gpr[8] = static_cast<uint64_t>(slot);
+      ::pes_fn_14091E9F0(s);
+    }
+  }
 }
 
 PesState PesWorld::MemoryCall() {

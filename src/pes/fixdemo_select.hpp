@@ -99,6 +99,10 @@ struct GoalAnchorFacts {
   // ponytail: A0+0x114, the state of the generator at A0+0x108 that 0x140476190 draws its corner-spot jitter from. PES seeds
   // it where the DemoInfo is built (the 0x14047DF00 construction, from its clock); the site that removes this is that seed.
   uint32_t rngState = 0;
+  // The zone decision's input: A0+0xDC at the tick the writer 0x1404B88B0 runs on (PES's counter; the writer's 7-arm opens
+  // above clock x 3 = 162, so any value in 5..161 gives the same zone). Unset: the writer is not run; A0+0xBC stays 8 (the
+  // defaults, 0x140478090). The decision tick's own value is not captured (pes-re-goal-anchor-feed.md section 5).
+  std::optional<uint32_t> decisionCount;
 };
 
 // The scene anchor: the writer 0x14047D280's result for a kind-1 goal, scene+0x110..+0x120, with the two inputs the
@@ -109,6 +113,7 @@ struct GoalAnchor {
   bool flip = false;  // 0x140478FF0
   std::array<float, 3> target{};  // A0+0x30 = the scorer's run object +0x18: the celebration spot (0x140476C50)
   float radius = 0;               // A0+0xC: the scene's run radius (0x140474CF0)
+  uint32_t bc = 0;                // A0+0xBC after the zone decision: 8 default arm, 2 else arm (0x1404B88B0, 0x140471A80)
   uint32_t sceneId = 0;           // A0+8: the scene the goal plays first (the builder's pick when `build` was set)
   std::vector<uint32_t> scenes;   // the scene list the DemoInfo plays, in order (the builder's, or the given `cuts`)
 };
@@ -138,13 +143,16 @@ struct FoulGateStart {
 };
 
 class PeImage;
+class PesVfs;
 
 class FixDemoSelector {
  public:
   // `tables`: the decoded table of every category the selector may be asked about (key = category). `exe`: the install's
   // PES2021.exe; the evaluator's switch tables live in PES's code (0x141F4F948.. and 0x141F508B0.., read by the translated
-  // `jmp` sequences) and are mapped from it. Null with *error when the image does not map them.
-  static std::unique_ptr<FixDemoSelector> Create(std::map<int, FixDemoTable> tables, const PeImage& exe, std::string* error);
+  // `jmp` sequences) and are mapped from it. `vfs`: the install's VFS, which reads constant_stadium.bin for the cut library.
+  // Null with *error when the image or the VFS does not provide them.
+  static std::unique_ptr<FixDemoSelector> Create(std::map<int, FixDemoTable> tables, const PeImage& exe, const PesVfs& vfs,
+                                                 std::string* error);
   ~FixDemoSelector();
   FixDemoSelector(const FixDemoSelector&) = delete;
   FixDemoSelector& operator=(const FixDemoSelector&) = delete;
@@ -177,6 +185,11 @@ class FixDemoSelector {
   // [0x14259858C], and the flip 0x140478FF0), run on the arena: the scene row is the goal table's, laid into the DB at
   // +0x448/+0x450. Nullopt when the table has no row for the scene or the slot is not a pitch slot.
   std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& facts);
+
+  // The goal's zone decision alone: PES's writer 0x1404B88B0 on the arena PlaceGoal would arrange for `facts`, with the DemoInfo
+  // counter A0+0xDC = decisionCount. Returns A0+0xBC (8 = the default arm; another value = the writer's zone). Nullopt when the
+  // slot is not a pitch slot. PlaceGoal runs the same call before its arm test.
+  std::optional<uint32_t> ZoneDecision(const GoalAnchorFacts& facts, uint32_t decisionCount);
 
   // The goal's DemoInfo gate, PES's own: `0x140472640(A0, ctx, DemoInfo)` run once on the arena of the last PlaceGoal with the
   // scorer's facts of this frame (A0+0x14 counts down once per call: the timer 0x14047A710 set at PlaceGoal; the radius test,

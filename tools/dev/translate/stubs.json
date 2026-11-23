@@ -4070,6 +4070,21 @@
    "op": "gfx_device_alloc",
    "effect": "rax = 0 (no device: the allocation fails)"
   }
- }
+ },
+  {
+   "va": "1403FC080",
+   "callers": ["1403FC6A4", "1403FC6F0", "1403FD378", "1403FE11C", "1403FE658", "1403FE710"],
+   "used_by_closure": true,
+   "kind": "heap-boundary",
+   "why": [
+    "Pool region release (CONFIRMED decompile): 0x1403FC080(addr, size) loops VirtualQuery(addr, &mbi, 0x30) (IAT 0x14252F6C8), checks BaseAddress == AllocationBase == addr, RegionSize <= size, State == MEM_COMMIT, then VirtualFree(addr, 0, MEM_RELEASE) (IAT 0x14252F6D0); returns 0 when every region is released, else -1.",
+    "Callers (CONFIRMED decompile of 0x1403FC6A4 and 0x1403FE710): the result is tested against 0; success adds the released size to the caller's count (0x1403FC6A4) and to the pool's bytes (0x1403FE710, the pool's [+0x358]).",
+    "Policy 6 (owner standing rule: PES's heap allocator entries are boundary services; the OS region release is not GF's, GF's pool is native). Main's ruling 2026-11-22 (b): the harness stops at this entry with the success answer. The answer 0 is the only one the callers take on a full release; the pool's own accounting in the callers runs as PES's code."
+   ],
+   "model": {
+    "op": "release_ok",
+    "effect": "returns 0 (every region released); rax only"
+   }
+  }
  ]
 }
