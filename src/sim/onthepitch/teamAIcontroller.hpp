@@ -102,6 +102,10 @@ public:
   // True from the lift's end until the restart is over: the taker keeps the root yaw the lift left him with (PES's throw-in loop
   // keeps the lift's yaw), so his clips start from it.
   bool HoldsRoot(const Player* player) const { return pieceLifted && player == taker; }
+  // PES's throw-in release is one action (docs/re/pes-re-throwin-choreography.md 4.2): while the taker's pass clip is still playing (the
+  // clip's function is a pass and it has not reached its last frame), that action owns his body. The MOVESTEP FSM does not tick and the
+  // AI's Movement does not reach him, and a queued pass is not selected again (a re-selected pass restarts its clip before the release).
+  bool ReleasePassPlaying(const Player* player, e_FunctionType clipFunction, bool clipPlaying) const;
   // The point a held taker looks at: his SetKick look point when the placement set one (a corner's heading), else the ball.
   Vector3 HeldTakerLookAt(const Vector3& ball) const { return pieceHasLookAt ? pieceLookAt : ball; }
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
@@ -285,9 +289,10 @@ protected:
   bool pieceWalk = false;      // a set-piece walk is pending (PES path only): a throw-in taker's or a goal-kick keeper's
   bool pieceCarrying = false;  // a throw-in taker has the ball: pieceWalkTarget is the carry spot
   int pieceReleaseRow = 0;     // the carry's release row, chosen as the take starts (0: not yet)
-  bool pieceWarping = false;   // the pickup clip is playing: the root warps onto pieceWarpTo until the contact frame
-  unsigned long pieceWarpTicks = 0;  // ticks left to the pickup's contact frame
-  Vector3 pieceWarpTo;         // the predicted ball at the contact frame, where the warp ends
+  bool pieceWarping = false;   // a SeamlessThrowin root warp runs (the pickup's, the carry's or the lift's): the root steps onto pieceWarpTo
+  bool pieceLifting = false;   // the running warp is the lift's (0xd01): the yaw turns to the pitch heading, and its end stands the taker
+  unsigned long pieceWarpTicks = 0;  // ticks left to the warp's end
+  Vector3 pieceWarpTo;         // where the warp ends: the predicted ball at the pickup's contact frame, then the carry spot
   bool pieceLifted = false;    // the lift clip has finished: the taker stands on the spot and the release may come (3.2 phase 5)
   bool pieceHeld = false;      // the taker was placed on his stand point at prepare and holds it until the release
   bool pieceHasLookAt = false;  // the placement set pieceLookAt (a corner's SetKick heading)

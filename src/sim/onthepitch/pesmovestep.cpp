@@ -660,6 +660,12 @@ void ProcessMoveStep(Player& player, Match& match) {
   // MOVE action, so the MOVESTEP entry does not run while the clip's root warp carries him (the gate below, for this action).
   if (player.GetTeam()->GetController()->IsPieceTakerWalking(&player) && player.GetTeam()->GetController()->IsPickingUp())
     return;
+  // PES's throw-in release is one action too (docs/re/pes-re-throwin-choreography.md 4.2): while the taker's pass clip plays, the FSM does
+  // not tick and issues no clips over it.
+  const Anim* action = player.GetCurrentAnim();
+  if (player.GetTeam()->GetController()->ReleasePassPlaying(&player, action->functionType,
+                                                            action->frameNum < action->anim->GetFrameCount() - 1))
+    return;
   // PES runs the MOVESTEP entry only in the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and DEMO_MOVE actions (anime ids 2, 3, 6, 74):
   // their Update functions FUN_1407824A0, FUN_140789DD0, FUN_1407D1E60 and the thunk at 0x1407347B0 are the entry FUN_1406B8340's
   // only callers (call sites 0x140782552, 0x140789E42, 0x1407D23A2, jump 0x1407347B6). A dodge, tackle, trap or kick owns the body

@@ -1359,8 +1359,8 @@ void TeamAIController::AdvancePieceWalk() {
       pieceWarpTicks = contactTicks > 0 ? contactTicks : 1;
       pieceWarpTo = rootPoint;
     } else {
-      // PES's lift trigger (phase 4): |ap - S| < 0.65 m (DAT_14259d5d0) and |x| inside the end line's inset. Until then the carry
-      // walks on: PES's MOVE stops him at its arrival radius.
+      // PES's lift trigger (phase 4): |ap - S| < 0.65 m (DAT_14259d5d0) and |x| inside the end line's inset. Until then the
+      // carry's root warp (below) is still taking him onto the spot.
       if (pieceLifted) return;
       const pes::RestartSpotConstants& rk = match->GetPesRestartSpotConstants();
       const Vector3 pos = taker->GetPosition();
@@ -1368,6 +1368,7 @@ void TeamAIController::AdvancePieceWalk() {
           std::fabs(pos.coords[0]) >= pesFieldHalfLength - rk.throwInCarryEndInset_m)
         return;
       pieceWarping = true;
+      pieceLifting = true;
       pieceWarpTicks = kLiftTicks;
       pieceWarpTo = pieceCarrySpot;
       // PES's phase-4 lift clip (throwin_seamless_liftupball, motion 0xD01, 14 frames; docs/re/pes-re-throwin-choreography.md 3.2).
@@ -1382,7 +1383,7 @@ void TeamAIController::AdvancePieceWalk() {
   const float ticksLeft = static_cast<float>(pieceWarpTicks);
   const Vector3 step = (pieceWarpTo - taker->GetPosition()).Get2D() * (1.0f / ticksLeft);
   float yawStep = 0.0f;
-  if (pieceCarrying) {
+  if (pieceLifting) {
     // The lift's yaw warp (phase 4, docs/re/pes-re-throwin-choreography.md 3.2): over the clip the root turns to PES's heading
     // 180 degrees, or 0 when the spot's PES z is negative, i.e. to face the pitch. PES's z is GF's -y, and a PES heading h is
     // GF's direction (sin h, -cos h); GF's angle of a direction v is atan2(v.x, -v.y). The turn is the same even step per tick.
@@ -1395,12 +1396,24 @@ void TeamAIController::AdvancePieceWalk() {
     const float target = std::atan2(std::sin(heading_rad), std::cos(heading_rad));  // atan2(x, -y) of (sin h, -cos h)
     const float now = std::atan2(root.coords[0], -root.coords[1]);
     yawStep = ModulateIntoRange(-pi, pi, target - now) * (1.0f / ticksLeft);
+  } else if (pieceCarrying) {
+    // The carry's turn (phase 4, docs/re/pes-re-throwin-choreography.md 3.2): the carrier turns toward S at no more than
+    // 360/54 = 6.67 degrees per frame, the same GF angle convention as the lift's turn above.
+    constexpr float kCarryTurnPerFrame_deg = 360.0f / static_cast<float>(Match::kFramesPerSecond);
+    const Vector3 root = taker->GetRootDirectionVec();
+    const Vector3 toSpot = (pieceCarrySpot - taker->GetPosition()).Get2D();
+    const float target = std::atan2(toSpot.coords[0], -toSpot.coords[1]);
+    const float now = std::atan2(root.coords[0], -root.coords[1]);
+    const float cap = kCarryTurnPerFrame_deg * static_cast<float>(pi) / 180.0f;
+    yawStep = std::clamp(ModulateIntoRange(-pi, pi, target - now), -cap, cap);
   }
   taker->WarpRoot(step, yawStep);
   --pieceWarpTicks;
   if (pieceWarpTicks == 0) {
-    pieceWarping = false;
-    if (pieceCarrying) {
+    if (pieceLifting) {
+      // The lift clip has ended (phase 5): the taker stands on the spot and the release may come.
+      pieceWarping = false;
+      pieceLifting = false;
       pieceLifted = true;
       // PES's ThrowinLoop SetKick (0x140794280, docs/re/pes-re-throwin-choreography.md 4.1) puts the lifted taker on his stand point as the
       // loop starts: the release key's ball is over the restart point, so he stands the key's length outside the touchline (live PES, loop and
@@ -1409,9 +1422,28 @@ void TeamAIController::AdvancePieceWalk() {
       // PES's phase 5 starts the loop when the lift clip ends (docs/re/pes-re-throwin-choreography.md 3.2): the loop is issued once, here.
       constexpr int kThrowInLoopMotion = 0xcf4;
       taker->CastHumanoid()->PlayIssuedClip(kThrowInLoopMotion, 1.0f, false, pes::PesClipFamily::kTrap);
-    } else {
+    } else if (!pieceCarrying) {
+      // The pickup clip has ended (phase 3's last frame): the ball is in his hands and the carry to the spot begins (phase 4).
       pieceCarrying = true;
       pieceWalkTarget = pieceCarrySpot;
+      // PES's carry runs the carry clip throwin_run_3_3_000_onehand_ver21 (0xd00, row 0x9bf column 8) at rate 0.85/1.0/1.15/1.3
+      // by the speed class; the root the clip travels is what closes the gap to S. APPROX: the carry clip is not ported (PES's
+      // writer of its command speed, cmd+0x172, is undecoded, docs/re/pes-re-throwin-choreography.md 14), so the root warp that
+      // the pickup and the lift already use drives the same root onto the spot over the carry distance instead, at the carry
+      // clip's natural root speed at rate 1.0. The body holds its last clip's final frame while it warps (PieceTakerOwnsBody).
+      constexpr int kCarryMotion = 0xd00;
+      constexpr float kCarryRate = 1.0f;  // ponytail: the taker's speed class (PES's +0x14) is not decoded; rate 1.0 stands in.
+      const float natural_mps = taker->CastHumanoid()->PesClipNaturalSpeed(kCarryMotion) * kCarryRate;
+      const float carry_mps = natural_mps > 0.0f ? natural_mps : match->GetPesSetPieceTakerConstants().walkDown_ms;
+      const float carry_m = (pieceCarrySpot - taker->GetPosition()).Get2D().GetLength();
+      const auto carryTicks = static_cast<unsigned long>(
+          std::ceil(carry_m / carry_mps * static_cast<float>(Match::kFramesPerSecond)));
+      pieceWarping = true;
+      pieceWarpTo = pieceCarrySpot;
+      pieceWarpTicks = std::max(1ul, carryTicks);
+    } else {
+      // The carry's warp has ended on the spot: the lift's trigger (the branch above) fires on the next tick.
+      pieceWarping = false;
     }
   }
 }
@@ -1464,6 +1496,11 @@ pes::Vec3 ThrowInKeyOffset(Match& match, const Player* taker) {
 }
 
 }  // namespace
+bool TeamAIController::ReleasePassPlaying(const Player* player, e_FunctionType clipFunction, bool clipPlaying) const {
+  return match->PesLoop() && match->IsInSetPiece() && setPieceType == e_SetPiece_ThrowIn && player == taker && clipPlaying &&
+         (clipFunction == e_FunctionType_ShortPass || clipFunction == e_FunctionType_LongPass ||
+          clipFunction == e_FunctionType_HighPass);
+}
 
 void TeamAIController::PushPieceTakerBehindLine() {
   // Before the release only: the restart is pending until the touch (the carry flag stays set after it, until the next restart).
@@ -1580,6 +1617,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   pieceCarrying = false;
   pieceReleaseRow = 0;
   pieceWarping = false;
+  pieceLifting = false;
   pieceWarpTicks = 0;
   pieceLifted = false;
   bool seamlessRestart = false;
