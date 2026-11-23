@@ -65,19 +65,15 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 
 }  // namespace
 
-// PES's holder is the actor of the newest ring-1 touch key: its only writer is W1 (VA 0x14045725A, MOV
-// [RBP+0x2601C],EDI in FUN_140457070; docs/re/pes-re-first-touch.md section 5.1), which GF ports as the per-tick
-// recompute behind the restart-step switch (Match::RecomputePesHolder; docs/re/pes-re-restart-step.md section 3).
-// PES's carrier is never cleared on loss (it persists on a loose ball until a newer touch replaces it, docs/re/
-// pes-re-press-coord.md section 5), so the holder is carried as its own state (Match::GetPesHolder) apart from
-// GF's ballRetainer, which is also the "the ball is loose / free" predicate the AI reads (designated possession in
-// match.cpp, the press reset, the keeper catch, and the far-loose-ball detector) and so MUST clear when the ball
-// leaves the man. The holder arms from a touch that keeps the ball with the man: the touch pushes the key
-// (CarrierFromTouch over AI_HasPossession, AIfunctions.cpp:1091, a height/distance/movement gate that can be
-// false for one step while the ball settles at his feet) and the recompute adopts the key at the next tick's
-// head, so the arm lands one step after the touch. The test therefore tolerates a one-tick gap and counts a miss
-// only while it persists for two ticks running: the man live with no holder this tick and the tick before. In
-// play, not a set piece.
+// PES's holder is the actor of the newest ring-1 key: its only writers are W1 (0x140457259, MOV [R13+0x2601C],EDI in
+// FUN_140457070; docs/re/pes-re-holder-clear.md section 2), which stores the actor of the newest valid key and 0xFF
+// otherwise, and W2 (0x140A71DF9), which resets it at object init. GF ports W1 as the per-tick recompute behind the
+// restart-step switch (Match::RecomputePesHolder; docs/re/pes-re-restart-step.md section 3). PES's kick pushes the
+// none key into ring 1, so a pass clears the holder to 0xFF for the whole flight until a receiver's touch
+// (docs/ports/pes-port-StallLive6.md section 2: MA+0x2601C = 255 on the kick frame and on all 6,926 flight frames).
+// A live last toucher therefore holds the holder only while no pass has come since his touch. The arm lands one tick
+// after the touch (the recompute adopts the key at the next tick's head), so the test tolerates a one-tick gap and
+// counts a miss only while it persists for two ticks running. In play, not a set piece.
 TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
   std::map<const Player*, bool> unheldLastTick;  // last toucher, ball live, no holder - at the previous post-tick
   unsigned long liveTicks = 0, unheld = 0;
@@ -89,6 +85,8 @@ TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
         if (!p->IsActive() || p->GetFormationEntry().role == e_PlayerRole_GK) continue;
         if (match.GetLastTouchPlayer() != p.get() || !AI_HasPossession(match.GetBall(), p.get())) continue;
         ++liveTicks;
+        const auto& pass = match.GetLastPassEvent();
+        if (pass.valid && pass.time_ms >= p->GetLastTouchTime_ms()) continue;  // the none key is the newest, so no holder is PES's
         if (!match.GetPesHolder()) {
           unheldNow[p.get()] = true;
           if (unheldLastTick.count(p.get())) ++unheld;  // no holder for two ticks running, not a one-tick gap
@@ -102,25 +100,32 @@ TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
                          << " ticks had a live outfield last toucher with no holder for two ticks running";
 }
 
-// The split from GF's retainer, at the bytes: W1 rewrites MA+0x2601C and only W2, the object reset
-// (0x140A71DF9, HolderRE runs 3-4), stores 0xFF, so once a touch has made a man the holder it stays him through
-// every loose-ball flicker - the ball leaving his feet clears GF's retainer (the retain block) but nothing
-// clears the holder. A miss is an in-play tick with a set-then-null holder; the pre-first-arm window does not
-// count, and it is pinned separately by the arming expectation.
-TEST(PesHolderPersist, ASetHolderIsNeverClearedWhileTheBallIsInPlay) {
+// PES's W1 stores 0xFF while the newest ring-1 key is the kick's none key, so a pass clears a set holder. W2 only
+// resets it at object init. A loose ball does not clear it: the ball leaving his feet clears GF's retainer (the retain
+// block) but never the holder. So every in-play tick that finds the holder null must follow a pass since the holder
+// was last set (docs/ports/pes-port-StallLive6.md section 2). A miss is an in-play clear with no pass in between; the
+// pre-first-arm window does not count.
+TEST(PesHolderPersist, ASetHolderIsClearedOnlyByAPassWhileTheBallIsInPlay) {
   bool holderArmed = false;
-  unsigned long armedTicks = 0, cleared = 0;
+  unsigned long armedTicks = 0, unattributed = 0;
+  // The kick is recorded in its own tick. The holder is observed set one tick after it (the recompute that clears it
+  // runs at the next tick's head), so a pass counts when it falls within two ticks before that last observation.
+  const double kKickWindowMs = 2.0 * 1000.0 / Match::kFramesPerSecond;
+  double holderSetAt = 0.0;  // when the holder was last observed set, in any stage
   RunPesLoopMatch([&](Match& match) {
+    if (match.GetPesHolder()) holderSetAt = double(match.GetActualTime_ms());
     if (!holderArmed) {
       holderArmed = match.GetPesHolder() != nullptr;
       return;
     }
     if (!match.IsInPlay() || match.IsInSetPiece()) return;
     ++armedTicks;
-    if (!match.GetPesHolder()) ++cleared;
+    if (match.GetPesHolder()) return;
+    const auto& pass = match.GetLastPassEvent();
+    if (!pass.valid || double(pass.time_ms) + kKickWindowMs < holderSetAt) ++unattributed;
   });
   EXPECT_TRUE(holderArmed) << "no touch ever made a man the holder";
   EXPECT_GT(armedTicks, 0ul) << "the holder armed too late to observe";
-  EXPECT_EQ(cleared, 0ul) << cleared
-                          << " in-play ticks cleared a set holder (PES clears only in W2's object reset)";
+  EXPECT_EQ(unattributed, 0ul) << unattributed
+                               << " in-play ticks cleared a set holder with no pass since it was set (PES clears only on the kick's none key)";
 }
