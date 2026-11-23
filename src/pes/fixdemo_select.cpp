@@ -50,6 +50,13 @@ constexpr uint64_t kDbCategoryStride = 0x20, kDbGroupsOff = 0x168, kDbGroupCount
 constexpr uint64_t kDbSceneTableOff = 8;
 constexpr uint64_t kRowBytes = 0x78;  // key u16[10] at +0, then the fdc strings and b0/f/b1 (+0x68/+0x6C/+0x70)
 constexpr uint64_t kRowB0 = 0x68, kRowF = 0x6C, kRowB1 = 0x70;
+// The control table T3 (PES's CTRL, goal only): groups {u16 start, u16 count} at DB+cat*0x20+0x2C8, the group count u32 at +0x2D8,
+// the 0x2C-byte rows at +0x2E0. Read by 0x14428BBD0, which the variant matcher's caller 0x141F4FC30 reaches through the thunk
+// 0x140A7CAE0. A row: u16 keys[10] at +0, the float count u8 at +0x14, the id count u8 at +0x15, floats at +0x18, the scene id u32 at
+// +0x28 (the first of the file's ids; CONFIRMED on seq203: group 0x30005's records hold 0x300D9 and 0x300DB at +0x28, ni = 1 at +0x15
+// in the sampled rows, nf = 0).
+constexpr uint64_t kDbCtrlGroupsOff = 0x2C8, kDbCtrlCountOff = 0x2D8, kDbCtrlRowsOff = 0x2E0;
+constexpr uint64_t kCtrlRowBytes = 0x2C, kCtrlNf = 0x14, kCtrlNi = 0x15, kCtrlFloats = 0x18, kCtrlSceneId = 0x28;
 constexpr unsigned kKeyColumns = 10;
 // A scene-table step row (0x141F616F0's reads): kind u8 +0, fade f32 +4, cut u32 +8, flags u32 +0xC, c0 u8 +0x10, c1 u8 +0x11,
 // w0 u16 +0x12, w1 i16 +0x14, ten {u8,u8,u8} from +0x16, w2 i16 +0x34.
@@ -333,6 +340,31 @@ struct FixDemoSelector::Impl {
     s.wr(ctx + kCtxPickMap, head, 8);
     s.wr(ctx + kCtxPickMap + 8, 0, 8);
   }
+  // PES's control table (T3) of one category, in the layout 0x14428BBD0 reads (see kDbCtrlGroupsOff). Only the goal has one.
+  void BuildControlTable(uint64_t base, const FixDemoTable& table) {
+    if (table.ctrlGroups.empty()) return;
+    uint32_t rowCount = 0;
+    for (const FixDemoCtrlGroup& g : table.ctrlGroups) rowCount = std::max<uint32_t>(rowCount, g.firstRow + static_cast<uint32_t>(g.rows.size()));
+    const uint64_t groups = heap->Alloc(table.ctrlGroups.size() * 4, 0x10);
+    const uint64_t rows = heap->Alloc(std::max<uint32_t>(rowCount, 1) * kCtrlRowBytes, 0x10);
+    for (size_t gi = 0; gi < table.ctrlGroups.size(); ++gi) {
+      const FixDemoCtrlGroup& g = table.ctrlGroups[gi];
+      s.wr(groups + gi * 4, g.firstRow, 2);
+      s.wr(groups + gi * 4 + 2, g.rows.size(), 2);
+      for (size_t ri = 0; ri < g.rows.size(); ++ri) {
+        const FixDemoCtrlRow& r = g.rows[ri];
+        const uint64_t row = rows + (g.firstRow + ri) * kCtrlRowBytes;
+        for (size_t k = 0; k < kKeyColumns && k < r.keys.size(); ++k) s.wr(row + k * 2, r.keys[k], 2);
+        s.wr(row + kCtrlNf, r.nf, 1);
+        s.wr(row + kCtrlNi, r.ni, 1);
+        for (size_t k = 0; k < r.floats.size(); ++k) s.wrf(row + kCtrlFloats + 4 * k, r.floats[k]);
+        s.wr(row + kCtrlSceneId, r.sceneId, 4);
+      }
+    }
+    s.wr(base + kDbCtrlGroupsOff, groups, 8);
+    s.wr(base + kDbCtrlCountOff, table.ctrlGroups.size(), 4);
+    s.wr(base + kDbCtrlRowsOff, rows, 8);
+  }
 
   void BuildDb() {
     db = heap->Alloc(kDbBytes, 0x10);
@@ -360,6 +392,7 @@ struct FixDemoSelector::Impl {
       s.wr(base + kDbGroupCountOff, table.cutGroups.size(), 4);
       s.wr(base + kDbRowsOff, rows, 8);
       BuildSceneTable(db + kDbSceneTableOff + static_cast<uint64_t>(cat) * kDbCategoryStride, table);
+      BuildControlTable(base, table);
     }
   }
 

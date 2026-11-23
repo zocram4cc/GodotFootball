@@ -424,9 +424,9 @@ TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
   const auto exe = OpenExe(&why);
   if (!exe) GTEST_SKIP() << why;
   for (uint32_t dc : {5u, 100u, 161u}) {
-    auto sel = MakeFor(*exe, kKindTwo);
+    pes::FixDemoTable table;
+    auto sel = MakeInstalled(*exe, &table, &why);
     ASSERT_TRUE(sel) << why;
-    SetStadiumCutKey(*sel);
     const auto armed = sel->ArrangeGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, dc));
     ASSERT_TRUE(armed) << "DC " << dc;
     EXPECT_EQ(armed->bc, 2u) << "DC " << dc;

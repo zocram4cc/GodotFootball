@@ -184,16 +184,38 @@ std::optional<FixDemoTable> DecodeFixDemoTable(const std::vector<uint8_t>& bytes
     }
     if (!atEnd()) {
       const uint16_t ng = r.u16();
-      for (uint16_t i = 0; i < ng; ++i) { r.u16(); r.u16(); }
-      for (uint16_t i = 0; i < ng; ++i) r.str();
+      std::vector<std::pair<uint16_t, uint16_t>> ctrlSlices;
+      for (uint16_t i = 0; i < ng; ++i) ctrlSlices.push_back({r.u16(), r.u16()});
+      for (uint16_t i = 0; i < ng; ++i) r.str();  // the group names: the cut groups' names are kept above
       const uint16_t cm = r.u16();
       const uint8_t cnk = r.u8();
+      std::vector<FixDemoCtrlRow> ctrlRows;
       for (uint16_t i = 0; i < cm; ++i) {
-        for (uint8_t k = 0; k < cnk; ++k) r.u16();
-        const uint8_t nf = r.u8();
+        FixDemoCtrlRow row;
+        for (uint8_t k = 0; k < cnk; ++k) {
+          const uint16_t key = r.u16();
+          if (k < kMaxKeys) row.keys.push_back(key);
+        }
+        row.nf = r.u8();
         const uint8_t ni = r.u8();
-        for (uint8_t k = 0; k < nf; ++k) r.f();
-        for (uint8_t k = 0; k < ni; ++k) r.u32();
+        for (uint8_t k = 0; k < row.nf; ++k) {
+          const float f = r.f();
+          if (k < row.floats.size()) row.floats[k] = f;
+        }
+        // The file lists ni ids per row; the runtime record has one id slot (+0x28), so the first is kept.
+        row.ni = ni;
+        for (uint8_t k = 0; k < ni; ++k) {
+          const uint32_t id = r.u32();
+          if (k == 0) row.sceneId = id;
+        }
+        ctrlRows.push_back(row);
+      }
+      for (const auto& [start, count] : ctrlSlices) {
+        if (static_cast<size_t>(start) + count > ctrlRows.size()) return fail("control group slice out of range");
+        FixDemoCtrlGroup g;
+        g.firstRow = start;
+        g.rows.assign(ctrlRows.begin() + start, ctrlRows.begin() + start + count);
+        t.ctrlGroups.push_back(g);
       }
     }
   }
