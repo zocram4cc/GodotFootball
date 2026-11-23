@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP dce519e7f2afcca4 -->
+<!-- LEDGER-STAMP 0a8255bbec409d45 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (no flags: reads docs, src and every results set; `--funclist` replaces the bridge's function list), `hand.json`, `offpath_allow.json`, `history.csv` (one row per regeneration that changes the counts)).
@@ -15,8 +15,8 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 |---|---|---|---|
 | total | 28886 | 18869 | 47755 |
 | ported | 380 | 0 | 380 |
-| diffed | 3906 | 0 | 3906 |
-| translated | 6800 | 0 | 6800 |
+| diffed | 3907 | 0 | 3907 |
+| translated | 6799 | 0 | 6799 |
 | stand-in | 65 | 0 | 65 |
 | decoded | 1220 | 0 | 1220 |
 | leaf accessor | 978 | 0 | 978 |
@@ -27,20 +27,20 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 
 In scope with a verdict (CONFIRMED/OBS/DOC/INF): 3473 of 28886 (12.0%). Implemented (ported, diffed or translated): 11086 of 28886 (38.4%).
 
-Proof behind the in-scope rows: diffed real 3838, diffed synthetic 68; translated record 0, translated closure 6800.
+Proof behind the in-scope rows: diffed real 3839, diffed synthetic 68; translated record 0, translated closure 6799.
 
 Change since the previous regeneration (in scope, one line per status):
 
-- in_total: 28880 -> 28886 (+6) since 5adb5208e2 (2026-11-23)
-- ported: 383 -> 380 (-3) since 5adb5208e2 (2026-11-23)
-- diffed: 3901 -> 3906 (+5) since 5adb5208e2 (2026-11-23)
-- translated: 6782 -> 6800 (+18) since 5adb5208e2 (2026-11-23)
-- stand-in: 66 -> 65 (-1) since 5adb5208e2 (2026-11-23)
-- decoded: 1225 -> 1220 (-5) since 5adb5208e2 (2026-11-23)
-- leaf accessor: 978 -> 978 (+0) since 5adb5208e2 (2026-11-23)
-- engine: 1538 -> 1538 (+0) since 5adb5208e2 (2026-11-23)
-- undecoded: 14006 -> 13998 (-8) since 5adb5208e2 (2026-11-23)
-- inert: 1 -> 1 (+0) since 5adb5208e2 (2026-11-23)
+- in_total: 28886 -> 28886 (+0) since 95de79ee37 (2026-11-23)
+- ported: 380 -> 380 (+0) since 95de79ee37 (2026-11-23)
+- diffed: 3906 -> 3907 (+1) since 95de79ee37 (2026-11-23)
+- translated: 6800 -> 6799 (-1) since 95de79ee37 (2026-11-23)
+- stand-in: 65 -> 65 (+0) since 95de79ee37 (2026-11-23)
+- decoded: 1220 -> 1220 (+0) since 95de79ee37 (2026-11-23)
+- leaf accessor: 978 -> 978 (+0) since 95de79ee37 (2026-11-23)
+- engine: 1538 -> 1538 (+0) since 95de79ee37 (2026-11-23)
+- undecoded: 13998 -> 13998 (+0) since 95de79ee37 (2026-11-23)
+- inert: 1 -> 1 (+0) since 95de79ee37 (2026-11-23)
 
 ## Scope rules
 
@@ -161,7 +161,7 @@ Rows per subsystem and status:
 |---|---|---|---|---|---|---|---|---|---|---|
 | pre-match | 2099 | 19 | 313 | 489 | 1 | 79 | 82 | 166 | 950 | 0 |
 | gameplay | 3681 | 62 | 1124 | 266 | 6 | 261 | 30 | 160 | 1772 | 0 |
-| ball | 809 | 12 | 212 | 93 | 6 | 60 | 64 | 33 | 329 | 0 |
+| ball | 809 | 12 | 213 | 92 | 6 | 60 | 64 | 33 | 329 | 0 |
 | AI | 6057 | 126 | 552 | 1794 | 17 | 523 | 204 | 91 | 2750 | 0 |
 | referee | 105 | 10 | 55 | 9 | 1 | 20 | 0 | 0 | 10 | 0 |
 | restart | 646 | 18 | 288 | 75 | 8 | 88 | 2 | 3 | 164 | 0 |
@@ -219,7 +219,7 @@ Rows per subsystem and status:
 | trapdribble | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | trapscan | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | world | 5 | 3 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| total | 28886 | 380 | 3906 | 6800 | 65 | 1220 | 978 | 1538 | 13998 | 1 |
+| total | 28886 | 380 | 3907 | 6799 | 65 | 1220 | 978 | 1538 | 13998 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -227,7 +227,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 |---|---|---|---|---|---|---|---|
 | pre-match | 2099 | 617 | 333 | 315 | 1985 | 114 | 0 |
 | gameplay | 3681 | 1309 | 1192 | 1109 | 3681 | 0 | 0 |
-| ball | 809 | 355 | 230 | 201 | 809 | 0 | 0 |
+| ball | 809 | 355 | 231 | 201 | 809 | 0 | 0 |
 | AI | 6057 | 2142 | 695 | 444 | 6057 | 0 | 0 |
 | referee | 105 | 61 | 66 | 55 | 105 | 0 | 0 |
 | restart | 646 | 310 | 314 | 278 | 646 | 0 | 0 |
@@ -285,7 +285,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | trapdribble | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
 | trapscan | 2 | 1 | 1 | 1 | 0 | 0 | 0 |
 | world | 5 | 0 | 5 | 0 | 0 | 0 | 0 |
-| total | 28886 | 8071 | 4351 | 3731 | 17208 | 8528 | 297 |
+| total | 28886 | 8071 | 4352 | 3731 | 17208 | 8528 | 297 |
 
 ## Roots
 
@@ -6463,7 +6463,7 @@ Not found (owner's list):
 | 0x140424D70 | FUN_140424d70 | decoded | - | OBS | pes-re-ball-collision.md | - | 1 | 100 | - | doc | 140424F70>140424D70 |
 | 0x140424F00 | FUN_140424f00 | undecoded | - | - | - | - | 2 | 32 | - | doc | 140424F70>140424D70>140424F00 |
 | 0x140424F70 | FUN_140424f70 | decoded | - | OBS | pes-re-ball-collision.md | - | 0 | 17 | - | doc | 140424F70 |
-| 0x140425010 | FUN_140425010 | translated | closure | - | - | src/sim/onthepitch/pesworldrecord.cpp;src/sim/onthepitch/pesworldrecord.hpp | 1 | 485 | - | doc | 140424D70>140425A90>140425010 |
+| 0x140425010 | FUN_140425010 | diffed | real | - | - | src/sim/onthepitch/pesworldrecord.cpp;src/sim/onthepitch/pesworldrecord.hpp | 1 | 485 | - | doc | 140424D70>140425A90>140425010 |
 | 0x140425A90 | FUN_140425a90 | diffed | real | CONFIRMED | pes-re-out-side.md | src/sim/onthepitch/matchevents.cpp | 1 | 199 | - | doc | 140424F70>140424D70>140425A90 |
 | 0x140425E20 | FUN_140425e20 | decoded | - | OBS | pes-re-ball-collision.md | - | 1 | 316 | - | doc | 140425E20 |
 | 0x14042A660 | FUN_14042a660 | decoded | - | OBS | pes-re-ball-collision.md | - | 14 | 32 | - | doc | 141FB9FB0>14042A660 |
