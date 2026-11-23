@@ -88,7 +88,6 @@ void pes_fn_1406E8320(PesState& s);
 void pes_fn_1406EA340(PesState& s);
 void pes_fn_1406EB100(PesState& s);
 void pes_fn_1407A3850(PesState& s);
-void pes_fn_1407ADFC4(PesState& s);
 void pes_fn_1407ADFD0(PesState& s);
 void pes_fn_1407B2D60(PesState& s);
 void pes_fn_1407B3470(PesState& s);
@@ -1368,37 +1367,4 @@ void pes_fn_1407AD150(PesState& s) {
   s.wr(((s.gpr[6]) + (0x245CULL)), (uint64_t)((7ULL)), 1);
   goto L_1407ADEC2;
   (void)0;
-  /*UNHANDLED OUT 0xda, al*/__builtin_trap();
-  if (s.cond("p")) goto L_1407ADFA0;
-  L_1407ADFA0:;
-  /*UNHANDLED OUT 0xda, al*/__builtin_trap();
-  if (s.cond("p")) goto L_1407ADFA4;
-  L_1407ADFA4:;
-  /*UNHANDLED OUT 0xda, al*/__builtin_trap();
-  if (s.cond("p")) goto L_1407ADFA8;
-  L_1407ADFA8:;
-  __builtin_trap(); /* LOOP target is not an instruction of this body */
-  if (s.cond("p")) goto L_1407ADFAC;
-  L_1407ADFAC:;
-  /*UNHANDLED RETF 0x7ad7*/__builtin_trap();
-  { uint64_t _a = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0))), _b = (uint64_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0))), _r = (_a + _b) & 0xFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
-    s.cf = (_r < (_a & 0xFFULL));
-    s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 7) & 1;
-    s.gpr[2] = (s.gpr[2] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)(_r));
-  }
-  /*UNHANDLED XLATB */__builtin_trap();
-  if (s.cond("p")) goto L_1407ADFB4;
-  L_1407ADFB4:;
-  __builtin_trap(); /* LOOP target is not an instruction of this body */
-  if (s.cond("p")) goto L_1407ADFB8;
-  L_1407ADFB8:;
-  /*UNHANDLED OUT 0xda, al*/__builtin_trap();
-  if (s.cond("p")) goto L_1407ADFBC;
-  L_1407ADFBC:;
-  /*UNHANDLED OUT 0xda, al*/__builtin_trap();
-  if (s.cond("p")) goto L_1407ADFC0;
-  L_1407ADFC0:;
-  /*UNHANDLED OUT 0xda, al*/__builtin_trap();
-  if (s.cond("p")) { pes_fn_1407ADFC4(s); return; }
 }

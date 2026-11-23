@@ -128,7 +128,7 @@ class Pdata:
     def _falls_off(self, b):
         """True if the walk of entry b reaches its end without a ret or jump (a last instruction that is no
         terminator)."""
-        return self._walk(self._md_get(), b, min(self.entries[b], b + MAX_RANGE), {}, set(), set())
+        return self._walk(self._md_get(), b, min(self.entries[b], b + MAX_RANGE), {}, set(), set(), [])
 
     def _head(self, b):
         """The entry that heads the function holding entry b: its chunk's root, and the entry whose code falls into
@@ -169,7 +169,7 @@ class Pdata:
             ranges = self._static(va)
             while True:
                 cond = set()
-                self._walk_ranges(self._md_get(), ranges, {}, set(), cond)
+                self._walk_ranges(self._md_get(), ranges, {}, set(), cond, [])
                 new = {self._entry(t) for t in cond if not any(b <= t < e for b, e in ranges)}
                 new = [e for e in sorted(x for x in new if x is not None)
                        if e not in self.root and abs(e - va) < MAX_RANGE]
@@ -244,14 +244,14 @@ class Pdata:
         ranges = self.ranges_of(va)
         if ranges is None:
             return None
-        out = {}
-        self._walk_ranges(md, ranges, out, set(), set())
+        out, data = {}, []  # data: the switch tables' spans inside the extent (bytes the walk never decodes as code)
+        self._walk_ranges(md, ranges, out, set(), set(), data)
         return [out[a] for a in sorted(out)]
 
-    def _switch_targets(self, out, jmp):
+    def _switch_targets(self, out, jmp, data):
         """The case targets of the switch dispatch that ends in `jmp reg`, read from its table; [] when the pattern is not
         there. The pattern is xlate.prepass's: cmp idx,N; ja default; lea base,[image]; [movzx map,[base+idx+d];]
-        mov r,[base+idx*4+disp]; add r,base; jmp r. out: the instructions decoded so far (address -> instruction)."""
+        mov r,[base+idx*4+disp]; add r,base; jmp r. out: the instructions decoded so far (address -> instruction); data: the list the table spans are appended to."""
         reg = _PARENT[jmp.op_str.strip()]
         prev = [out[a] for a in sorted((a for a in out if a < jmp.address), reverse=True)[:24]]
 
@@ -285,12 +285,16 @@ class Pdata:
             return []
         disp = int(load.group(5), 16) * (-1 if load.group(4) == "-" else 1) if load.group(5) else 0
         n = count
+        map_va = None
         for i in prev[:16]:  # a byte map feeds the dword table index: the table holds max(map) + 1 words
             m = _IDX_MEM.search(i.op_str) if i.mnemonic in ("movzx", "movsx", "movsxd") else None
             if m and not m.group(3) and _PARENT.get(m.group(1)) == base and m.group(5):
                 map_va = base_va + int(m.group(5), 16) * (-1 if m.group(4) == "-" else 1)
                 n = max(self.read(map_va, count)) + 1
                 break
+        if map_va is not None:
+            data.append((map_va, map_va + count))  # the byte map: count bytes, data
+        data.append((base_va + disp, base_va + disp + 4 * n))  # the dword table: n words, data
         words = struct.unpack("<%dI" % n, self.read(base_va + disp, 4 * n))
         return [base_va + w for w in words]
 
@@ -300,7 +304,7 @@ class Pdata:
             self._md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         return self._md
 
-    def _walk_ranges(self, md, ranges, out, targets, cond):
+    def _walk_ranges(self, md, ranges, out, targets, cond, data):
         """Walk every range of a function from its first byte, then from each jump target in a range that no walk has
         decoded (code only another range reaches). out: address -> instruction; targets: every direct jump target;
         cond: the targets of conditional jumps."""
@@ -312,15 +316,17 @@ class Pdata:
                 continue
             tried.add(b)
             r = next(r for r in ranges if r[0] <= b < r[1])
-            self._walk(md, b, min(r[1], b + MAX_RANGE), out, targets, cond)
+            self._walk(md, b, min(r[1], b + MAX_RANGE), out, targets, cond, data)
             todo.extend(t for t in sorted(targets) if t not in out and any(x <= t < y for x, y in ranges))
 
-    def _walk(self, md, begin, end, out, targets, cond):
+    def _walk(self, md, begin, end, out, targets, cond, data):
         """Decode [begin, end) into out, stopping at the first ret or tail jump out of the range with no forward
         branch into the range still pending, or at an address already decoded. Adds every direct jump target to
         targets. True if the walk reached the end of the range with a last instruction that falls through."""
         pending, last = set(), None
         for ins in md.disasm(self.read(begin, end - begin), begin):
+            if any(ins.address < hi and ins.address + ins.size > lo for lo, hi in data):
+                return False  # a switch table's bytes are data, never code: the walk ends; its targets decode from their own starts
             if ins.address in out:
                 return False
             out[ins.address] = last = ins
@@ -331,7 +337,7 @@ class Pdata:
                     tgt = int(ins.op_str, 16)
                 except ValueError:
                     # jmp reg: a switch (case blocks can lie past the first ret: 0x1408653E0), its table gives the targets
-                    for t in self._switch_targets(out, ins) if m == "jmp" and ins.op_str.strip() in _PARENT else ():
+                    for t in self._switch_targets(out, ins, data) if m == "jmp" and ins.op_str.strip() in _PARENT else ():
                         targets.add(t)
                         if begin <= t < end:
                             pending.add(t)
