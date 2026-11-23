@@ -1007,9 +1007,13 @@ void FixDemoSelector::Seed(uint32_t sessionSeed, uint32_t matchSeed) {
 void FixDemoSelector::BeginEvent(const FixDemoFacts& f) {
   Impl& m = *impl_;
   PesState& s = m.s;
-  for (uint64_t off = 0; off < kCtxBytes; off += 8) s.wr(m.ctx + off, 0, 8);  // 0x141F50B90 resets; unread fields stay 0
-  // ponytail: the reset's map clear (0x141F50B90 frees the nodes) is not run: the old nodes stay in the arena, a few dozen
-  // bytes per picked cut and event, against 8 MiB; a long session that fills it needs the clear translated.
+  // PES's ctx reset (0x141F50B90, translated) writes the event's defaults. It does not touch the pick cache (ctx+0x30) or the
+  // second map (ctx+0x40), which the constructor built: zeroing the whole ctx had wiped the second map, and the next map walk
+  // dereferenced its null head (SIGSEGV). The pick cache starts as a fresh sentinel per event.
+  // ponytail: the old pick-cache nodes are not freed (a few dozen bytes per picked cut and event, against 8 MiB); a long session
+  // that fills the arena needs PES's clear translated.
+  s.gpr[1] = m.ctx;
+  m.Call(&pes_fn_141F50B90);
   m.InitPickMap();
   const uint64_t c = m.ctx;
   s.wr(c + kCtxStadium, f.stadium, 4);

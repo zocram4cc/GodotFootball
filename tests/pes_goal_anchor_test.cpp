@@ -763,4 +763,33 @@ TEST(GoalScenes, ATrailingScorersGoalDoesNotPickTheScorersCelebration) {
   EXPECT_NE(pickFor({1, 2}), level);
 }
 
+// The event facts go in before the goal's arrangement, whose else arm runs the recompute and the event builder over the arena.
+// BeginEvent used to zero the whole ctx, which left the second std::map's head null, so the arrangement's map walk faulted.
+// The facts are PES's: the seq204 ctx (stadium 0x52, subject and event side 1, slot 8, goal difference -1, 11 players a side).
+TEST(GoalAnchorKindTwo, EventFactsBeforeTheArrangementKeepTheArenaValid) {
+  std::string why;
+  const auto exe = OpenExe(&why);
+  if (!exe) GTEST_SKIP() << why;
+  pes::FixDemoTable table;
+  auto sel = MakeInstalled(*exe, &table, &why);
+  ASSERT_TRUE(sel) << why;
+  pes::FixDemoFacts facts;
+  facts.stadium = 0x52;
+  facts.subjectSide = 1;
+  facts.eventX = F(0xC2267C0E);
+  facts.eventZ = F(0x420E3D70);
+  facts.eventPlayerSide = 1;
+  facts.eventPlayerSlot = 8;
+  facts.goalDiff = -1;
+  facts.playersHome = 11;
+  facts.playersAway = 11;
+  sel->BeginEvent(facts);
+  SetStadiumCutKey(*sel);
+  const auto armed = sel->ArrangeGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, 5));
+  ASSERT_TRUE(armed);
+  EXPECT_EQ(armed->bc, 2u);
+  EXPECT_EQ(armed->radius, kKindTwo.radius);
+  for (int i = 0; i < 3; ++i) EXPECT_EQ(armed->target[i], kKindTwo.target[i]) << "T[" << i << "]";
+}
+
 }  // namespace
