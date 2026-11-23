@@ -139,7 +139,8 @@ bool TablesMatchTheCapturedRun(const Install& in, const Event& e) {
 
 std::unique_ptr<pes::FixDemoSelector> Make(const Install& in) {
   std::string err;
-  auto sel = pes::FixDemoSelector::Create(in.tables, *in.exe, in.vfs, &err);
+  // The home team is not pinned by these tests (none reads the time-scale key); 0 is a team id the install's team list may not hold.
+  auto sel = pes::FixDemoSelector::Create(in.tables, *in.exe, in.vfs, 0, &err);
   EXPECT_TRUE(sel) << err;
   return sel;
 }

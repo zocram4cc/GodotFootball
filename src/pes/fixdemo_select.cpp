@@ -7,6 +7,7 @@
 #include "pes/exe.hpp"
 #include "pes/inflate.hpp"
 #include "pes/vfs.hpp"
+#include "pes/stadium.hpp"
 #include "pes_native.hpp"
 #include "translated.hpp"
 
@@ -137,6 +138,8 @@ constexpr char kStadiumConstantPath[] = "common/match/constant/constant_stadium.
 // 0x140A7C800 takes it), the integer frame rate 0x14351AE50 (0x141E532E0 returns it) and the foul object (0x14047FEB0's layout).
 constexpr uint64_t kWorldAnimeTable = 0x19C8, kAnimeBytes = 0x60, kAnimeClass = 1, kAnimeFlags = 8, kAnimeSpeed = 0x54;
 constexpr uint64_t kWorldTimeScale = 0x2C0, kTimeScaleBytes = 0x60, kTimeScaleValue = 0x5C;
+constexpr uint64_t kTimeScaleStadiumKey = 0x20;  // the cut-library lookup id field (see Create)
+constexpr uint32_t kStadiumCutNameBase = 112;    // demoarea_st000's cut name index: st001 = 113 = 0x71, st046 = 158 = 0x9E
 constexpr unsigned kRefereeSlot = 0x16;
 constexpr uint64_t kA0Ready = 0xEC, kDemoInfoBytes = 0x40, kDemoInfoCut = 0x10, kFpsIntVa = 0x14351AE50;
 constexpr uint64_t kFoulBytes = 0x20, kFoulScene = 0, kFoulCountdown = 8, kFoulReady = 0xC, kMiFouler = 0x1590, kMiVictim = 0x1594;
@@ -216,11 +219,13 @@ struct FixDemoSelector::Impl {
   std::array<uint64_t, kPitchSlots> man{}, run{};
   std::array<uint64_t, 2> squad{}, teamInfo{};  // per side: the squad key table and the team info (+0x254: attack sign)
   float fullTurnDeg = 0;
+  uint32_t stadiumCutKey = 0;
 
   Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables,
        std::vector<uint8_t> listVtable, std::vector<uint8_t> stageVtable, std::vector<uint8_t> rdata, float fullTurn,
-       const std::vector<std::string>& cutGroupPaths, const std::string& stadiumPath, const std::vector<uint8_t>& stadiumList)
-      : tables(std::move(t)), fullTurnDeg(fullTurn) {
+       const std::vector<std::string>& cutGroupPaths, const std::string& stadiumPath, const std::vector<uint8_t>& stadiumList,
+       uint32_t cutKey)
+      : tables(std::move(t)), fullTurnDeg(fullTurn), stadiumCutKey(cutKey) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
     s.mem.img.push_back({kMathTablesVa, std::move(mathTables)});
@@ -487,6 +492,8 @@ struct FixDemoSelector::Impl {
     timeScale = Zalloc(kTimeScaleBytes);
     s.wrf(timeScale + kTimeScaleValue, 1.0f);
     s.wr(world + kWorldTimeScale, timeScale, 8);
+    // ponytail: the cut key the cut-library lookup reads at this field (see Create).
+    s.wr(timeScale + kTimeScaleStadiumKey, stadiumCutKey, 4);
     // Per side: the squad table 0x140A62EA0 maps a squad key through (word 0 = the side, word 1+i = slot i's key) and the
     // team info (G+(0xA1+side)*0x28; +0x254 = the attack sign 0x140476190 reads: 1 for side 0, 0xFF for side 1).
     // GF keys its squad by the index on the pitch, so the key of slot i is i.
@@ -854,7 +861,7 @@ struct FixDemoSelector::Impl {
 };
 
 std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTable> tables, const PeImage& exe,
-                                                         const PesVfs& vfs, std::string* error) {
+                                                         const PesVfs& vfs, int homeTeamId, std::string* error) {
   std::vector<uint8_t> image(kImageTablesBytes);
   if (!exe.ReadVa(kImageTablesVa, image.size(), image.data())) {
     if (error) *error = "the image does not map the FixDemo evaluator's switch tables";
@@ -916,9 +923,13 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
   if (!stadiumBlob) return nullptr;
   const auto stadiumList = UnwrapWesys(*stadiumBlob, kStadiumConstantPath, error);
   if (!stadiumList) return nullptr;
+  // ponytail: the cut key of the home stadium, the time-scale object's +0x20 that 0x140476C50 and 0x140476010 read as the cut
+  // library lookup id. 112 + TeamStadiumId(home) is provisional: st001 <-> 0x71 and st046 <-> 0x9E (CutsceneAnchor15/16). The writer
+  // of T+0x1C and T+0x20 in PES (both carry the key) is not located; this feed replaces it until that writer is translated.
+  const uint32_t cutKey = kStadiumCutNameBase + static_cast<uint32_t>(TeamStadiumId(vfs, homeTeamId));
   return std::unique_ptr<FixDemoSelector>(new FixDemoSelector(
       std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), std::move(vtable), std::move(stage), std::move(rdata), fullTurn,
-                             cutGroupPaths, stadiumPath, *stadiumList)));
+                             cutGroupPaths, stadiumPath, *stadiumList, cutKey)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}

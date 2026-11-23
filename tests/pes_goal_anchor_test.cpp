@@ -182,7 +182,8 @@ std::unique_ptr<pes::FixDemoSelector> MakeInstalled(const pes::PeImage& exe, pes
   auto decoded = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, why) : std::nullopt;
   if (!decoded) return nullptr;
   *table = *decoded;
-  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, *vfs, why);
+  // The goal anchor tests pin the stadium cut key themselves (the capture's 0x71); the home team is not read here.
+  return pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, exe, *vfs, 0, why);
 }
 
 // A selector whose goal table holds only the case's scene row (the rest zero), at the scene's index.
@@ -192,7 +193,7 @@ std::unique_ptr<pes::FixDemoSelector> MakeFor(const pes::PeImage& exe, const Cas
   t.goalSceneRows.back() = RowOf(Unhex(c.rowHex));
   std::string err;
   const pes::PesVfs* vfs = InstallVfs(&err);
-  auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, *vfs, &err) : nullptr;
+  auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, exe, *vfs, 0, &err) : nullptr;
   EXPECT_TRUE(sel) << err;
   return sel;
 }
@@ -306,7 +307,7 @@ TEST(GoalAnchor, RotationIsWrappedIntoOneTurn) {
     t.goalSceneRows.back().floats[8] = offset;
     std::string err;
     const pes::PesVfs* vfs = InstallVfs(&err);
-    auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, *vfs, &err) : nullptr;
+    auto sel = vfs ? pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, *vfs, 0, &err) : nullptr;
     const auto got = sel ? sel->PlaceGoal(FactsOf(c)) : std::nullopt;
     EXPECT_TRUE(got) << err;
     return got ? got->rotYDeg : -1.0f;
@@ -350,7 +351,7 @@ TEST(GoalAnchor, TheInstallsSceneRowIsTheRowPesHeld) {
   const auto bytes = vfs->Read(pes::FixDemoTablePath(pes::kFixDemoGoal), &err);
   const auto table = bytes ? pes::DecodeFixDemoTable(*bytes, pes::kFixDemoGoal, &err) : std::nullopt;
   if (!table) GTEST_SKIP() << err;
-  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, *vfs, &err);
+  auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, *table}}, *exe, *vfs, 0, &err);
   ASSERT_TRUE(sel) << err;
   PesState& s = sel->State();
   const uint64_t rows = s.rd(s.rd(pes::kFixDemoDbSlotVa, 8) + 0x448, 8);
@@ -421,7 +422,10 @@ TEST(GoalAnchorKindTwo, WideChannelScorerTakesTheElseArmAndEqualsPes) {
       PesState& st = sel->State();
       st.wr(st.rd(st.rd(kWorldSlotVa, 8) + kWorldTimeScale, 8) + kStadiumKeyOff, kStadiumCutKey, 4);
     }
-    const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, kKindTwo.pos, dc));
+    // The scorer's man position as PES's writer read it: seq203's slot-19 man record at +0x55C, (-41.6211472, 0, 26.1946945)
+    // (policy 6, Main's ruling). seq204's later goal position is kKindTwo.pos and is not what PES's T was computed from.
+    const std::array<float, 3> kSeq203ManPos = {F(0xC2267C0E), F(0x00000000), F(0x41D18EBC)};
+    const auto got = sel->PlaceGoal(KindTwoFacts(kKindTwo, kSeq203ManPos, dc));
     ASSERT_TRUE(got) << "DC " << dc;
     EXPECT_EQ(got->bc, 2u) << "DC " << dc;
     EXPECT_EQ(got->radius, kKindTwo.radius) << "DC " << dc;
