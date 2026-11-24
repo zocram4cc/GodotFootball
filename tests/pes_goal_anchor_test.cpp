@@ -407,7 +407,7 @@ pes::GoalAnchorFacts KindTwoFacts(const Case& c, std::array<float, 3> pos, uint3
 // PES's stadium cut key (the capture held 0x71) at G+0x2C0's +0x20, the lookup id 0x140476C50 and 0x140476010 read (see
 // FixDemoSelector::Create).
 void SetStadiumCutKey(pes::FixDemoSelector& sel) {
-  constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldTimeScale = 0x2C0, kStadiumKeyOff = 0x20, kStadiumCutKey = 0x71;
+  constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldTimeScale = 0x2C0, kStadiumKeyOff = 0x1C, kStadiumCutKey = 0x71;
   PesState& st = sel.State();
   st.wr(st.rd(st.rd(kWorldSlotVa, 8) + kWorldTimeScale, 8) + kStadiumKeyOff, kStadiumCutKey, 4);
 }
