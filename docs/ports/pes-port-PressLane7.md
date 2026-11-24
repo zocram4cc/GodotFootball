@@ -1,3 +1,33 @@
+# RIG ASK (top, round 4): what PES's designated owner does on a resting ball with no holder
+
+Hooks (VAs and predicates; Main generates the lines via hooks_for_image). Cap 12 each, FULL, never slimmed.
+
+1. **A: `0x1409F34A0` entry (the frame sub-decision), designated arm.** Predicate (r15 = MA, r6 = the man's AI record, both
+   live at entry: the body reads `[r15+0x2600C]` at 0x1409F4xxx line 217 with r6 unchanged): `d(r15+0x2600c)==d(r6+4) and d(r15+0x2601c)==0xff`.
+   (MA+0x2601C == 0xFF is PES's "no holder", W1's `0x140457259` store of 0xFF; MA+0x2600C == the man's slot is the designated owner.)
+   Must show: rdx/r8 and xmm6 at entry (the threshold the caller passes, expected to be the caller's value), and the return value
+   xmm0 (expected == xmm6 on this arm, per `closure/pes_fn_1409F34A0.cpp` L_1409F373B).
+2. **B: same hook, contrast arm.** Same entry, predicate `d(r15+0x2600c)!=d(r6+4) and d(r15+0x2601c)==0xff` (a non-designated man, no holder),
+   cap 12. Must show the computed xmm0 on the arrival arm (L_1409F365A..).
+3. **C: `0x140929516` entry (the per-man AI tick; `rsi` = the man's AI record at entry, `[rsi+0x18]` = his slot).** No
+   predicate, FIRST 12 EVERY 20, cap 12. This entry has NO direct E8/E9 caller and NO qword pointer in the image
+   (`callers.py`, pointer search: 0 hits), so it is reached through a runtime table: the rig is the only way to see its callers.
+   Must show: xmm6 at entry (the threshold that `0x1409F34A0` returns on the designated arm), rsi, and the caller's return address.
+   Also `0x1409F20C0` entry, FIRST 12 EVERY 20 (the copy-back, one E8 caller `0x140929516`).
+4. **D (action, the "next frames" question): `0x1406EEBB0` (anime switch) with predicate `b(rcx+0xac8)==2 and (rdx&0xff)==7`**
+   is answered statically (no TRAP 7 on MOVE). Use instead: the action byte P+0xAC8 of the same slot after the decision. Ask: the
+   full capture of hook A already contains P (the slot object) in its read-set, so no extra hook is needed for the action id.
+
+Verification of the predicate (Main): on a capture of hook A, `r15+0x2600c` must equal the man's slot in the same record; if
+not, r6 is not the record at entry and the predicate must use the caller's r6 instead.
+
+Static findings this round (CONFIRMED): the frame builder `0x1409F1F20` has ONE E8 caller, `0x1409F21F1` in `0x1409F20C0`;
+`0x1409F20C0` has ONE E8 caller, `0x140929516`; `0x140929516` has none and no pointer in the image (runtime-dispatched AI tick).
+In the translated chain `0x1409F1F20 -> 0x1409F4580 -> 0x1409F34A0` xmm6 is never written (grep), only spilled and restored, so the
+threshold is the value that entered the AI tick. GF's `RunFrameBuilder` (pesworldrecord.cpp:1055) passes NO xmm6 and NO xmm2:
+the threshold is zero in GF. Its PES value is unknown until hook C reads it.
+
+
 # PressLane7: designated-owner TRAP 7 admission. Premise corrected, nothing landed
 
 Branch `PressLane4`, worktree `<workdrive>/gf-PressLane4`, tip `f95743c1` (Integrate `c4404052` merged). Nothing committed, nothing pushed, no code changed. Builds: none. Tests run: none this round (no code changed, so there was nothing red-first to show). The reds stay as measured in PressLane6 §0 on this tip (ALoose RED 21 of 10,022 in PressLane5 §9.1; ADesignated RED 2 of 369 on the tip; PesStallQuick 53, PesStall.ALiveBall 2,229 bound).
@@ -115,4 +145,67 @@ Scenario: none claimed. Nothing lands. Items 2 and 3 of Main's list are NOT done
 ### 8.6 Rig
 
 - Hook 1 (`0x140431800`, `d(rdx+0x1414)!=0`) is in Main's batch (IRC). Nothing new asked. Hook 2 dropped by Main.
+
+## 9. Round 3: the record-pair writer (item 1 of Main's round 3). The "record pair" is not a record: it is a register spill
+
+CONFIRMED (translated `closure/pes_fn_1409F34A0.cpp`, body and epilogue):
+
+- Prologue (lines 69-85 and the stores after the first call, lines ~24-70 of the body excerpt): `1409F34A0` saves the caller's
+  callee-saved registers and xmm values into its OWN frame: gpr5, gpr6, gpr7, gpr12..gpr15 pushed on the stack; xmm6 at `rsp-0x48`,
+  xmm7 at `rsp-0x58`, xmm9 at `rsp-0x78`, xmm10 at `rsp+0x40`, xmm11 at `rsp+0x30`, xmm8 at `rsp+0x60` (one `wr128` before the
+  call to `0x140A48A30`).
+- The designated arm `L_1409F373B` (reached by `cond z` after `cmp [r15+0x2600C], eax`, line 217) is the EPILOGUE: it reloads those
+  spills (`xmm8 <- [rsp+0x60]`, `xmm6 <- [rsp+0x80]`, `xmm9/10/11 <- ...`, `xmm7 <- [rsp+0x70]`) and pops the gprs. It loads nothing
+  from the AI record. Main's "[record+0x60], [record+0x70], [record+0x90..0xA0]" are the function's own frame offsets, not record
+  fields. The gpr loads at +0x90..+0xB8 are the pops of gpr15..gpr5.
+- Consequence (CONFIRMED from the arm's first instructions, `L_1409F373B` line 302 onward): the designated arm sets `xmm0 = xmm6`
+  (the caller's threshold, its input), so the designated man's return value is the input threshold. The non-designated men
+  compute the arrival value on L_1409F365A..L_1409F3778 and return it in xmm0.
+- So there is no record-pair writer to find. The caller `FUN_1409F4580` reads the return: `cmp_ss([rec+0x5E4], xmm6)` (line 367)
+  and stores xmm0 to `[rec+0x880]` (line 368). `[rec+0x5E4]` is written by the caller itself (1.0f at line 355 or the
+  `FUN_140A756C0` result at line 364, a value computed from the man's own state). `[rec+0x880]` has translated readers
+  (`1401C7FB0`, `140579E10`, `1407B2D60`, `1408BD970`, `1409F4580`), none decoded here.
+- Writer of `[rec+0x5E4]`: the caller. Writer of the threshold `xmm6`: the caller's caller (not traced).
+
+### 9.1 Where PES's designated owner's target is (CONFIRMED structure; value OPEN)
+
+- Designated man (MA+0x2600C == slot): `1409F34A0` returns the caller's threshold unchanged (xmm0 = xmm6). No target point is computed
+  in this function for him. What the decision record holds for him is the caller's value at `[rec+0x880]`, not a position.
+- So the PES designated owner's "approach" is NOT a point written here. ActionPress (state 0x34) is not in this chain either. The
+  translated decision (`1409F4580`, writes rec+0x5D0 id at line 524) is the PES AI's per-man decision id, and the approach geometry
+  for him is not in these functions.
+- Conclusion: the PES target for the designated owner on a resting ball is not decoded. OPEN item: the caller of
+  `1409F1F20`'s threshold (`xmm6`) and the readers of `[rec+0x880]` (`1409F4580` consumers). This does not support M3.
+
+### 9.2 Scenario decisions (Main's items 2 and 3)
+
+- **Item 2 (wire the writer):** nothing to wire. The writer is not a record writer; the designated arm is a register restore.
+  No port is made. Nothing is claimed under M1/M2 from this.
+- **M3 (ADesignated rewrite):** NOT done. The PES rule for the designated owner's target is not decoded (9.1 OPEN). Writing the
+  assertion now would pin a GF expectation (rejected by the owner's M3 rule).
+- **ActionPress for PRESS men, M1/M2 (item 3):** NOT re-measured. The state already measured (PressLane6 §0, state 1, both PRESS
+  arms) gives ALoose GREEN and PesStallQuick 6,623; the loose-presser-only state gives 9,130. M2 requires PesStallQuick <= 106
+  (2x bound) and the rise on named stand-ins only. Neither state meets it. So nothing lands under M1 or M2.
+- **Scenario claimed: none.** Patches stay in `<workdrive>/gf-PressLane4-scratch/`.
+
+### 9.3 Next exact steps
+
+1. Trace the caller of `1409F1F20` for the threshold input `xmm6` into `1409F4580` (the value that the designated man is compared
+   against), and the readers of `[rec+0x880]`. This decides whether PES's designated owner's decision depends on a target at all.
+2. Only if (1) names a PES target for him: wire ActionPress or the decision record for PRESS men with the M2 caps.
+
+## 10. Round 4 state (appended)
+
+- **Scenario: none.** Nothing wired, nothing landed. No code changed this round; tip `f95743c1` unchanged; no tests or builds run.
+- **M3 (ADesignated):** not decided. PES's designated-owner target is still unobserved: the decision chain runs through
+  `0x140929516` (runtime-dispatched) and the threshold xmm6 comes from there. Hooks A and C (top of this report) answer it.
+- **M1/M2 (ActionPress for PRESS men):** not re-measured. Measured states (PressLane6 §0) fail the bounds: ALoose GREEN with
+  PesStallQuick 6,623; loose-presser-only 9,130. M2 needs Quick <= 106.
+- **GF gap found (not a stand-in):** `RunFrameBuilder` (pesworldrecord.cpp:1055) passes no xmm6/xmm2 into `0x1409F1F20`; PES's
+  threshold is nonzero (compared against `[rec+0x5E4]` at `0x1409F4580`). The value is unknown until hook C reads it.
+- **Blocked on:** hooks A, B, C (top of report). Static tool added: `<workdrive>/gf-PressLane4-scratch/callers.py` (E8/E9 call-site
+  scan over `pes_full.bin`). Ghidra bridge returned 404 for decompile and xrefs this round; `dec.sh` works (about 140 s per call).
+- **Next, in order:** (1) Main launches A/B/C; (2) read xmm6 at C and the designated arm's xmm0 at A; (3) if xmm6 names a PES target,
+  wire it into `RunFrameBuilder` (its own red-first test) and re-measure; (4) decide ADesignated under M3 from the capture.
+
 
