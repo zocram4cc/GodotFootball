@@ -1,0 +1,138 @@
+{
+ "note": "framebuild results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 113,
+   "coverage": {
+    "0x1403FB410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 15
+    },
+    "0x1403FB5B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1403FB860": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043B8B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140456EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1408BBF20": {
+     "fraction": 0.1667,
+     "reached": 7,
+     "total": 42
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4EEF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x140A4F160": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1415A1708": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 87
+    },
+    "0x141E53540": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 36
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 222,
+   "nonreturn": 0,
+   "note": "113 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.17; 113 valid of 64 requested",
+   "requested": 64,
+   "role": "seed",
+   "stubs": [
+    "0x1403FC080",
+    "0x14159F3E0",
+    "0x14159F918",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C",
+    "0x1415A2FD0",
+    "0x1415A6CA8",
+    "0x1415A6CBC",
+    "0x1415A70B4",
+    "0x1415A71B8",
+    "0x1415A734C",
+    "0x141957C50",
+    "0x141AEB7C0",
+    "0x143DFA780",
+    "0x143DFCCE0",
+    "0x143E98DA0",
+    "0x1444C7960",
+    "0x1444CE440"
+   ],
+   "subsystem": "gameplay",
+   "translated": true,
+   "va": "0x1408BBF20"
+  }
+ ]
+}
