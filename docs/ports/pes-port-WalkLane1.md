@@ -55,3 +55,11 @@ Measured (taker, seed 7, throw-in on the opening kick-off's preparation):
 - Killed theory (this session): "the walker's MOVESTEP heading is wrong": killed by the trace (MOVESTEP's facing is right at every tick; the body disagrees after the animation write).
 - Killed theory: "the ball-action ids abort the run": killed by PesStallQuick 12960/12960.
 - Build: fresh worktree build took about 70 min (ccache cold for translated closures); incremental rebuilds since are minutes.
+
+## 7. Round 2 (root-motion composition; ALiveBall regression)
+- **Walker (SetKickStand): green on its own, NOT landed.** Fix in `PlayIssuedClip`: clip rotated by the root yaw `startAngle` (not the travel direction); clip anchored at `spatialState.position - positions[frameNum]`. Patch: `gf-WalkLane-scratch/walker-clipstart.patch`. Walker test OK.
+- **It fails the live-ball bound:** `PesStall.ALiveBall*` on that change over 82ad8564 = **2375 vs 2229** (FAILS). Worst episodes are clip starts on `trap_0_0_000_y0_sole` (156 ticks) and `sliding/idle/000.anim` (145, 87, 63).
+- **Strike root (ATrapsRoot...): RED, not landed.** Placing the body at A+0x14 gave a **27.5 m** worst gap (reverted). Needs a per-tick probe of the strike man before a retry.
+- **Action ids (2f8fcca3): not diagnosed** (budget). Next: ALiveBall with one function's rows at a time (ShortPass alone first). INF cause: the kicker's own body under the new ids is refused the trap gate that MOVE admitted.
+- **FUN_14092ED30 writer: not started.**
+- **Tree:** WalkLane tip stays at `2f8fcca3`, which Main has removed from Integrate; revert it on WalkLane (no force-push) before any further push. Worktree clean. Full notes: `gf-WalkLane-scratch/report-round2.md`.
