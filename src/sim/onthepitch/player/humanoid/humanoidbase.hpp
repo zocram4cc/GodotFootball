@@ -235,6 +235,9 @@ public:
   // A root yaw (PES's yaw adjuster step, the root-facing write): WarpRoot's turn, and the clip's remaining root path turns with the
   // body about the point it has reached, as PES's engine integrates the root yaw before it applies the clip's displacement.
   void TurnRoot(radian yaw);
+  // PES's root lock while the strike adjuster moves the root (AnimMovePlugin +0x81, docs/re/pes-re-anim-blend.md 7.1): the clip's root track
+  // adds nothing, and the body moves only by WarpRoot's steps.
+  void LockRoot(bool locked) { rootLocked = locked; }
   // False when the current clip cannot be interrupted by a trip.
   bool TripMe(const Vector3& tripVector, int tripType);
 
@@ -389,6 +392,7 @@ protected:
   // position/rotation offsets at the start of currentAnim
   Vector3 startPos;
   radian startAngle;
+  bool rootLocked = false;  // PES's strike root lock (LockRoot)
 
   // position/rotation offsets at the end of currentAnim
   Vector3 nextStartPos;

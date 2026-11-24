@@ -724,6 +724,8 @@ void StepAdjusters(Player& player, Match& match) {
   const pes::PesWorld::AdjusterFrame frame = match.PesWorldOf().ReadAdjusterFrame(match.PesSlotOf(&player));
   HumanoidBase* body = player.CastHumanoid();
   // The trap world's axes: PES z is GF y (the strike's target was built in them).
+  // PES's strike root lock is the adjuster's valid byte (AnimMovePlugin +0x81): the body moves only by the warps while it holds.
+  body->LockRoot(frame.strikeMoved);
   if (frame.strikeMoved) body->WarpRoot(Vector3(frame.x, frame.z, 0.0f), 0.0f);
   // The trap world's facing is atan2(x, GF y) = pi - GF's angle: a positive PES yaw turns GF's angle the other way.
   if (frame.yawStepped) {

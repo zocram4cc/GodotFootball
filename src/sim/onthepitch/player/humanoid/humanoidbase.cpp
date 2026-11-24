@@ -584,14 +584,23 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror, pes::
   currentAnim->positionOffset = Vector3(0);
   currentAnim->incomingMovement = spatialState.movement;
   // A throw-in taker keeps the root yaw the lift left him with (PES's throw-in loop keeps the lift's yaw), so his clips start
-  // from it. Any other body starts from the travel direction, as before.
-  const radian clipAngle = HoldsRootYaw() ? RootStartAngle(currentAnim->anim) : spatialState.angle;
+  // from it. Any other PES body keeps its root yaw too: the yaw the MOVESTEP facing steers (startAngle, through TurnRoot), which is
+  // the orientation the body is written at. The travel direction (spatialState.angle) is not that yaw: a clip started from it turned
+  // the body off its facing at every clip start (SetKickStand: the walker's facing and the orientation disagreed from t=18).
+  const radian clipAngle = HoldsRootYaw() ? RootStartAngle(currentAnim->anim) : startAngle;
   startAngle = clipAngle;
   currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
   TurnCacheToBody(currentAnim->positions, clipAngle);
   currentAnim->outgoingMovement = CalculateOutgoingMovement(currentAnim->positions);
-  // The clip starts where the body is now, as a selected anim does.
-  startPos = spatialState.position;
+  // The clip starts where the body is now: its root track is taken from the start frame, so the body stands where it stood at that
+  // frame and the first step reads only the clip's own motion (ResetPosition anchors the idle clip the same way). Anchored at the
+  // body's position with the whole track, a clip whose first frame is off the origin jumped the body by that offset in one tick
+  // (SetKickStand: 0.16 m at t=6 and 0.63 m at t=9, a walker at 8 and 34 m/s).
+  Vector3 startOffset = currentAnim->positions.size() > static_cast<unsigned int>(currentAnim->frameNum)
+                            ? currentAnim->positions.at(currentAnim->frameNum)
+                            : Vector3(0);
+  startOffset.coords[2] = 0.0f;
+  startPos = spatialState.position - startOffset;
   CalculatePredictedSituation(nextStartPos, nextStartAngle);
   animApplyBuffer.anim = currentAnim->anim;
   animApplyBuffer.smooth = false;
@@ -1395,6 +1404,12 @@ Vector3 HumanoidBase::CalculateOutgoingMovement(const std::vector<Vector3>& posi
 void HumanoidBase::CalculateSpatialState() {
   Vector3 position;
   if (currentAnim->positions.size() > (unsigned int)currentAnim->frameNum) {
+    // PES's strike root lock (AnimMovePlugin +0x81, pes-re-anim-blend.md 7.1): while the strike adjuster is armed the clip's root track adds
+    // nothing. The clip is re-anchored on the root the body already has, so the body moves only by the adjuster's warps (WarpRoot).
+    if (rootLocked) {
+      const Vector3 smuggles = currentAnim->actionSmuggleOffset + currentAnim->actionSmuggleSustainOffset + currentAnim->movementSmuggleOffset;
+      startPos = spatialState.position - smuggles - currentAnim->positions.at(currentAnim->frameNum);
+    }
     position = startPos + currentAnim->positions.at(currentAnim->frameNum) +
                currentAnim->actionSmuggleOffset + currentAnim->actionSmuggleSustainOffset +
                currentAnim->movementSmuggleOffset;
