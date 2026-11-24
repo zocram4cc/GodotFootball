@@ -145,7 +145,7 @@ constexpr char kStadiumConstantPath[] = "common/match/constant/constant_stadium.
 // 0x140A7C800 takes it), the integer frame rate 0x14351AE50 (0x141E532E0 returns it) and the foul object (0x14047FEB0's layout).
 constexpr uint64_t kWorldAnimeTable = 0x19C8, kAnimeBytes = 0x60, kAnimeClass = 1, kAnimeFlags = 8, kAnimeSpeed = 0x54;
 constexpr uint64_t kWorldTimeScale = 0x2C0, kTimeScaleBytes = 0x60, kTimeScaleValue = 0x5C;
-constexpr uint64_t kTimeScaleStadiumKey = 0x1C;  // the cut index the scene pick reads (0x1404B6400: [G+0x2C0]+0x1C = 113 on seq203)
+constexpr uint64_t kTimeScaleStadiumKey = 0x20;  // the cut-library lookup id field (see Create)
 constexpr uint32_t kStadiumCutNameBase = 112;    // demoarea_st000's cut name index: st001 = 113 = 0x71, st046 = 158 = 0x9E
 constexpr unsigned kRefereeSlot = 0x16;
 constexpr uint64_t kA0Ready = 0xEC, kDemoInfoBytes = 0x40, kDemoInfoCut = 0x10, kFpsIntVa = 0x14351AE50;
@@ -538,7 +538,7 @@ struct FixDemoSelector::Impl {
     timeScale = Zalloc(kTimeScaleBytes);
     s.wrf(timeScale + kTimeScaleValue, 1.0f);
     s.wr(world + kWorldTimeScale, timeScale, 8);
-    // The stadium cut key at the field 0x1404B6400 reads (PES's [G+0x2C0]+0x1C; the cut-library lookup of the scene pick).
+    // ponytail: the cut key the cut-library lookup reads at this field (see Create).
     s.wr(timeScale + kTimeScaleStadiumKey, stadiumCutKey, 4);
     // Per side: the squad table 0x140A62EA0 maps a squad key through (word 0 = the side, word 1+i = slot i's key) and the
     // team info (G+(0xA1+side)*0x28; +0x254 = the attack sign 0x140476190 reads: 1 for side 0, 0xFF for side 1).
