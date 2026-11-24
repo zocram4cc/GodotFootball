@@ -20,25 +20,19 @@ uint8_t AnimeActionOfClip(e_FunctionType function, int specialVar1, bool carrier
       return carrier ? kAnimeActionDribble : kAnimeActionMove;
     case e_FunctionType_Trap:
       return kAnimeActionTrap;  // 7: written at 0x1407B0D57 (FUN_1407B0C33) and 0x1407B35E6 (FUN_1407B35DA)
-    // PES's action names (the image's table 0x1434A5470, index = action id). Each row cites the PES site that writes the id, or the
-    // pending-command commit (FUN_1406EEA90 at 0x1406EEB78, edx = cmd[1]) when no constant site exists (docs/ports/pes-port-TrapAdmit2.md section 3).
+    // ponytail: the kick-family ids (8, 9, 0xA, 0xB, 0xD, 0x38, 0x3A) belong to PES action ticks GF has not translated: a body under them aborts the
+    // run (PES_DISPATCH_UNTRANSLATED 0x140789D00; HEAD 694e354e reverted the same). The body reads as MOVE until those ticks are translated.
     case e_FunctionType_ShortPass:
-      return kAnimeActionShortPass;  // 9: constant site 0x1407822CB
     case e_FunctionType_LongPass:
     case e_FunctionType_HighPass:
-      return kAnimeActionLongPass;  // 8: command commit; HighPass has no action of its own (INF)
-    case e_FunctionType_Shot:
     case e_FunctionType_Header:
-      return kAnimeActionShoot;  // 0xA: command commit; Header is INF
+    case e_FunctionType_Shot:
     case e_FunctionType_Sliding:
-      return kAnimeActionSliding;  // 0xB: command commit
     case e_FunctionType_Trip:
     case e_FunctionType_Interfere:
-      return kAnimeActionTackle;  // 0xD: command commit; Trip and Interfere are INF
     case e_FunctionType_Catch:
-      return kAnimeActionKeeperCatch;  // 0x38: command commit
     case e_FunctionType_Deflect:
-      return kAnimeActionKeeperDeflect;  // 0x3A: command commit
+      return kAnimeActionMove;
     case e_FunctionType_Special:
       if (specialVar1 == static_cast<int>(PesClipFamily::kDodge)) return kAnimeActionDodge;  // 0x15: no constant site, the command commit
       if (specialVar1 == static_cast<int>(PesClipFamily::kTackle)) return kAnimeActionTackle;
