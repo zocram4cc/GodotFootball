@@ -10,6 +10,7 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <array>
 #include <unistd.h>
 #include <utility>
 
@@ -85,7 +86,12 @@ struct PesMem {
   // GF-owned runtime services the translated code addresses by VA (the native heap's allocator table page and arena,
   // pes_native.hpp). They win over every other source, the snapshot included, so a snapshot replay can run on GF's heap.
   std::vector<Window> services;
+  // The GF-owned scratch block the graphics allocator answers (stubs.json fixed-block; pes_stubs.hpp). A fixed VA that no
+  // capture maps (CutLane4 round 4 scan, 895 captures): the harness maps the same VA. Every PesState owns the bytes.
+  static constexpr uint64_t kGfxScratchVa = 0x600000000000ULL, kGfxScratchBytes = 0x1000;
+  mutable std::array<uint8_t, kGfxScratchBytes> gfxScratch{};
   uint8_t* service_at(uint64_t addr, unsigned n) const {
+    if (addr >= kGfxScratchVa && addr + n <= kGfxScratchVa + kGfxScratchBytes) return gfxScratch.data() + (addr - kGfxScratchVa);
     for (const Window& w : services)
       if (w.rw && w.base <= addr && addr + n <= w.base + w.size) return w.rw + (addr - w.base);
     return nullptr;

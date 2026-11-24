@@ -99530,5 +99530,43 @@
    "translated": true,
    "va": "0x141E5D560"
   }
+  ,
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 1,
+   "coverage": {
+    "0x14047B460": {
+     "fraction": 0.4146,
+     "reached": 34,
+     "total": 82
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff (CutLane4 round 4): the DemoInfo tick 0x14047B460 over seq203's full snapshot, its recorded recompute call's state (rcx=D+0x1E8, r8=D, arg5=D, arg6=the recompute's r9, list/ctx as the handler 0x140446B20 builds them); 1 synthetic call replayed bit-exact, 0 mismatches; PES's bytes run it to its return (scene 0x300D9, bc 2, T = (-41.62, 0, 35.56) = seq204). The gfx allocator thunk 0x141957C50 is the fixed-block model (kGfxScratchVa). Tool: tools/dev/cutscene/tick_calls.py.",
+   "proof": "snapdiff",
+   "requested": 1,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.4146,
+     "reached": 34,
+     "total": 82
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_tick.json"
+   },
+   "stubs": [
+    "0x141957C50"
+   ],
+   "translated": true,
+   "va": "0x14047B460"
+  }
  ]
 }

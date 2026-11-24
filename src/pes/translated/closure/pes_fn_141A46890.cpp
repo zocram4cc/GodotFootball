@@ -26,7 +26,7 @@ void pes_fn_141A46890(PesState& s) {
   s.gpr[3] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[8]));
   s.gpr[1] = (uint64_t)(uint32_t)((24ULL));
   s.gpr[7] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
-  pes_service_gfx_device_alloc(s);
+  pes_fixed_block_gfx(s);
   s.wr(((s.gpr[4]) + (0x48ULL)), (uint64_t)(s.gpr[0]), 8);
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);

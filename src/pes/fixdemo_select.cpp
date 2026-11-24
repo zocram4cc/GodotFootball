@@ -203,7 +203,10 @@ constexpr uint64_t kRdataVa = 0x14252F000, kRdataBytes = 0xE6C000;
 constexpr uint64_t kA0Bc = 0xBC, kA0DemoCount = 0xDC;
 constexpr uint32_t kBcDefaultFirst = 6, kBcDefaultMask = 0xFFFFFFFDu;
 // ponytail: the r9 the tick passes the recompute (untranslated caller 0x14047B460's 6th argument) is a zeroed object of this size.
-constexpr uint64_t kRecomputeObjectBytes = 0x100;
+constexpr uint64_t kRecomputeObjectBytes = 0x100;  // the tick's arg6 object (zeroed; ponytail, CutLane4 R3.2)
+// The DemoInfo D the tick 0x14047B460 reads (CutLane4 R2.1, the handler 0x140446B20's call): A0 = D+0x1E8, the list pointer at
+// D+0x17860 (its [0] is the ctx, [1] the end), the tick's param_4 at D+0x2790 (fields to +0x2230), the tick's arg5 = D.
+constexpr uint64_t kTickA0Off = 0x1E8, kTickListOff = 0x17860, kTickParam4Off = 0x2790, kTickDemoBytes = 0x18000;
 // ponytail: the goal's level (A0+0): PES's writer 0x140477570 (with 0x1404794C0 and 0x1404793B0 for its argument) reads the
 // setup struct's records, both squads' stat bytes and the event history's counters; none is in GF. All five captured goals
 // (goal A and seq12946/31076/40581/53099) held 2; the builder's pool filter reads it. Removed with 0x140477570.
@@ -218,6 +221,7 @@ struct FixDemoSelector::Impl {
   PesState s;
   uint64_t ctx = 0, db = 0;
   uint64_t world = 0, matchInfo = 0, fieldInfo = 0, a0 = 0, event = 0, matchRecord = 0;
+  uint64_t tickDemo = 0, tickList = 0, tickArg6 = 0;  // D (the tick's arg5), its list object, and the arg6 object
   std::array<uint64_t, kPitchSlots> anime{};
   uint64_t referee = 0, demo = 0, foul = 0, timeScale = 0, slotTable = 0, history = 0;
   uint32_t gateSlot = 0, foulerSlot = 0, victimSlot = 0;
@@ -486,10 +490,18 @@ struct FixDemoSelector::Impl {
     s.wr(kWorldSlotVa, world, 8);
     matchInfo = Zalloc(kMatchInfoBytes);
     fieldInfo = Zalloc(kFieldInfoBytes);
-    a0 = Zalloc(kA0Bytes);
+    tickDemo = Zalloc(kTickDemoBytes);  // D: A0 is the tick's rcx at D+0x1E8 (CutLane4 R2.1)
+    a0 = tickDemo + kTickA0Off;
     event = Zalloc(kEventBytes);
     matchRecord = Zalloc(kMatchRecordBytes);
     s.wr(event + kEventMatchRecord, matchRecord, 8);
+    // The list the tick reads through D+0x17860: [0] = the ctx (the tick's rdx is *[0]), [1] = the end. Empty (end = begin): the
+    // captured list at seq203 ends before its begin, so no record is walked. ponytail: the list's real records come from the caller.
+    tickList = Zalloc(16);
+    s.wr(tickList, event, 8);
+    s.wr(tickList + 8, event, 8);
+    s.wr(tickDemo + kTickListOff, tickList, 8);
+    tickArg6 = Zalloc(kRecomputeObjectBytes);
     s.wr(world + kWorldMatchInfo, matchInfo, 8);
     s.wr(world + kWorldFieldInfo, fieldInfo, 8);
     // The builder's arena (constants above): the slot table (no designation), the setup struct (byte 0 = 0) and the event history.
@@ -688,16 +700,14 @@ struct FixDemoSelector::Impl {
     out.bc = static_cast<uint32_t>(s.rd(a0 + kA0Bc, 4));
     const bool elseArm = ((out.bc - kBcDefaultFirst) & kBcDefaultMask) != 0;
     if (elseArm) {
-      // The recompute 0x140471A80 (the tick's EA-gated call) on the arena, its else arm: the scene's run radius A0+0xC and the
-      // celebration spot A0+0x30 come out of it (0x1404B6BD0's list, 0x141F5EC60's radius). ponytail: the tick passes r8 and
-      // r9 from its own arguments (0x14047B460's 5th and 6th, not translated): r8 is taken as A0 (the radius and A0+0x10..0x18
-      // land on it), r9 as a zeroed object (read by 0x140A3FEF0, not decoded). The list it builds is not read; the scene list
-      // stays empty here until the tick's caller is translated.
+      // The DemoInfo tick 0x14047B460 on GF's D (CutLane4 R2.1 for its arguments): its prelude and its EA-gated recompute 0x140471A80
+      // (called inside with D as the out-record and arg6) are PES's own code. The else arm's scene, radius and celebration spot come out
+      // of A0. ponytail: arg6 is the handler's rdx (its chain is OPEN, CutLane4 R3.2); a zeroed object gives PES's outputs on seq203.
       s.gpr[1] = a0;
       s.gpr[2] = event;
-      s.gpr[8] = a0;
-      s.gpr[9] = Zalloc(kRecomputeObjectBytes);
-      Call(&pes_fn_140471A80);
+      s.gpr[8] = tickList;
+      s.gpr[9] = tickDemo + kTickParam4Off;
+      CallTick(&pes_fn_14047B460, tickDemo, tickArg6);
       sceneId = static_cast<uint32_t>(s.rd(a0 + kA0SceneId, 4));
       scenes.clear();
       out.radius = s.rdf(a0 + kA0Radius);
@@ -851,6 +861,16 @@ struct FixDemoSelector::Impl {
   void Call(void (*fn)(PesState&)) {
     s.gpr[4] -= 8;
     s.wr(s.gpr[4], 0, 8);
+    fn(s);
+    s.gpr[4] += 8;
+  }
+
+  // A call with a 5th and 6th argument: at the callee's entry they sit at [rsp+0x28] and [rsp+0x30] (Win64, past the return slot).
+  void CallTick(void (*fn)(PesState&), uint64_t arg5, uint64_t arg6) {
+    s.gpr[4] -= 8;
+    s.wr(s.gpr[4], 0, 8);
+    s.wr(s.gpr[4] + 0x28, arg5, 8);
+    s.wr(s.gpr[4] + 0x30, arg6, 8);
     fn(s);
     s.gpr[4] += 8;
   }
