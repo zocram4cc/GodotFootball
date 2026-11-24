@@ -50,7 +50,7 @@ SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_kickroot.json", "kickroot"), ("results_kickturn.json", "kickroot"),
         ("results_aiconcepts.json", "aiconcepts"), ("results_motion.json", "motion"), ("results_teampass.json", "teampass"),
         ("results_gkdribble.json", "gkdribble"),
-        ("results_press.json", "press"))
+        ("results_press.json", "press"), ("results_framebuild.json", "framebuild"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -305,6 +305,15 @@ def build(image):
     for va in held:
         print("gen_translated: held out %s: its closure reaches a mistranslated callee (%s)"
               % (va, " ".join(sorted(closure_of[va] & bad))))
+    # lint() refuses a committed function that reads a read-only image address live (the GF runtime maps no image there).
+    # A root whose closure reaches one is left out (listed) until its table is declared in ro_tables.json.
+    reads_ro = {f for f, _, _ in xlate.live_reads({v: r for v, r in xlate.LIVE_RO.items()
+                                                  if v in set().union(*(closure_of[va] for va, _ in bit))})}
+    held_ro = sorted(va for va, _ in bit if closure_of[va] & reads_ro and va not in held)
+    for va in held_ro:
+        print("gen_translated: held out %s: its closure reads a read-only image table live (%s; declare it in ro_tables.json)"
+              % (va, " ".join(sorted(closure_of[va] & reads_ro))))
+    held = sorted(set(held) | set(held_ro))
     members = {}
     for va, _ in bit:
         if va in held:

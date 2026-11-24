@@ -17,13 +17,16 @@ void pes_fn_1406E6660(PesState& s);
 void pes_fn_1406E8320(PesState& s);
 void pes_fn_1407987F0(PesState& s);
 void pes_fn_140798A70(PesState& s);
+void pes_fn_140798D50(PesState& s);
 void pes_fn_14079A470(PesState& s);
 void pes_fn_14079D940(PesState& s);
 void pes_fn_14079ED20(PesState& s);
 void pes_fn_140849020(PesState& s);
+void pes_fn_14084B810(PesState& s);
 void pes_fn_14084BAD0(PesState& s);
 void pes_fn_14084BCA0(PesState& s);
 void pes_fn_14084D7F0(PesState& s);
+void pes_fn_14085BCB0(PesState& s);
 void pes_fn_141794410(PesState& s);
 void pes_fn_1421B7D40(PesState& s);
 
@@ -260,7 +263,7 @@ void pes_fn_140799DB0(PesState& s) {
     s.gpr[2] = (uint64_t)(uint32_t)(_r);
   }
   s.gpr[1] = (uint64_t)(s.gpr[15]);
-  /*OUT-OF-SET CALL 0x14084B810*/ pes_dispatch_missing(0x14084B810);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14084B810(s); s.gpr[4] += 8; }
   s.gpr[9] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[3])), 4);
   s.wr(((s.gpr[4]) + (0x28ULL)), (uint64_t)((0ULL)), 1);
@@ -268,7 +271,7 @@ void pes_fn_140799DB0(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[6]));
   s.gpr[2] = (uint64_t)(s.gpr[13]);
   s.gpr[1] = (uint64_t)(s.gpr[14]);
-  /*OUT-OF-SET CALL 0x140798D50*/ pes_dispatch_missing(0x140798D50);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140798D50(s); s.gpr[4] += 8; }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) & (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
@@ -353,7 +356,7 @@ void pes_fn_140799DB0(PesState& s) {
   s.gpr[3] = (uint64_t)(uint32_t)(s.rd(((s.gpr[5]) + (0xA0ULL)), 1));
   L_14079A128:;
   s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x50ULL)));
-  /*OUT-OF-SET CALL 0x14085BCB0*/ pes_dispatch_missing(0x14085BCB0);
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14085BCB0(s); s.gpr[4] += 8; }
   s.gpr[0] = (uint64_t)(((0x1425EAD68ULL)));
   s.wr(((s.gpr[5]) + (0ULL - 0x80ULL)), (uint64_t)(s.gpr[0]), 8);
   s.wr(((s.gpr[5]) + (0ULL - 0x78ULL)), (uint64_t)(s.gpr[14]), 8);
