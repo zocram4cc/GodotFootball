@@ -73,8 +73,6 @@ def image_kind(path):
     return "flat"
 
 FLAT_BASE = 0x140000000
-# GF's graphics scratch block (PesMem::kGfxScratchVa, pes_state.hpp): the same fixed VA on both sides; no capture maps it.
-GFX_SCRATCH_VA, GFX_SCRATCH_BYTES = 0x600000000000, 0x1000
 
 
 def parse_pe_sections(path):
@@ -605,13 +603,6 @@ def install_hooks(mu, spec, RET_SENTINEL):
             dst = uc.reg_read(reg_const("rcx")) + int(stub["offset"], 16)
             val = uc.reg_read(reg_const("edx")) & 0xFFFFFFFF
             uc.mem_write(dst, struct.pack("<I", val))
-        elif kind == "fixed_block_gfx":
-            # stubs.json fixed-block (CutLane4 round 4, Main ruling): the graphics allocator answers GF's zeroed scratch block at
-            # the fixed VA pes_stubs.hpp / PesMem::kGfxScratchVa names (0x600000000000, 0x1000 bytes), zeroed on every call.
-            if not any(r[0] == GFX_SCRATCH_VA for r in uc.mem_regions()):
-                uc.mem_map(GFX_SCRATCH_VA, GFX_SCRATCH_BYTES)
-            uc.mem_write(GFX_SCRATCH_VA, b"\0" * GFX_SCRATCH_BYTES)
-            uc.reg_write(UC_X86_REG_RAX, GFX_SCRATCH_VA)
         elif kind == "abort":
             # Tamper trap (stubs.json abort-trap): reaching it means the
             # tamper path fired. Loud failure, never a silent model.
