@@ -397,17 +397,8 @@ void Humanoid::Process() {
   currentAnim->framePhase += currentAnim->playbackRate * ClipFramesPerTick();
   const int steps = static_cast<int>(currentAnim->framePhase);
   currentAnim->framePhase -= steps;
-  // A dribble member loops while PES's Dribble action owns the body: its layer record carries the loop flag (TrapContact10 section 14), so
-  // the frame wraps to the first and the cycle's root travel is carried into startPos, which keeps the body's path continuous (PES adds each
-  // frame's root delta: pes-re-anim-blend.md 7.1). Any other clip holds its last frame, as before.
-  const bool pesDribbleOwned = match->PesOwnsDribble(*CastPlayer());
-  const int frameCount = currentAnim->anim->GetFrameCount();
-  int frame = currentAnim->frameNum + steps;
-  if (pesDribbleOwned && currentAnim->positions.size() >= static_cast<size_t>(frameCount)) {
-    const Vector3 cycle = currentAnim->positions.at(frameCount - 1) - currentAnim->positions.front();
-    for (; frame >= frameCount; frame -= frameCount) startPos += cycle;
-  }
-  currentAnim->frameNum = std::min(frame, frameCount - 1);
+  currentAnim->frameNum =
+      std::min(currentAnim->frameNum + steps, currentAnim->anim->GetFrameCount() - 1);
   previousAnim->frameNum++;
 
   assert(team);
@@ -420,11 +411,12 @@ void Humanoid::Process() {
     }
   */
 
-  // A man PES's Dribble action owns does not switch his body at his dribble clip's end: the member loops (the advance above) until the dribble
-  // tick issues his next motion. PES runs MOVESTEP (the AI movement decision's consumer) only from the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and
+  // A man PES's Dribble action owns keeps his last dribble clip's final frame until the dribble tick issues the next motion: the clip's end
+  // does not switch the body. PES runs MOVESTEP (the AI movement decision's consumer) only from the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and
   // DEMO_MOVE actions (pesmovestep.cpp), so while the Dribble action (anime id 4, tick 0x1407B37D0) owns the body the AI's Movement commands do not
-  // reach it and the dribble tick's SetMotion issues are its only clips. INF: the wrap law. The record loops in PES's layer (TrapContact10 section
-  // 14); the root carry is GF's own (pes-re-anim-blend.md 7.1), not measured against a capture.
+  // reach it and the dribble tick's SetMotion issues are its only clips. INF: that the anime layer holds a finished motion at its last frame
+  // (the dribble's leave test FUN_1407B9280 reads the frame from the motion list); no capture shows a dribble clip's end.
+  const bool pesDribbleOwned = match->PesOwnsDribble(*CastPlayer());
   // The throw-in taker's clip does not switch the body while PES's throw-in action owns it (the same rule as the dribble's).
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 && interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer()) &&
       !pesDribbleOwned && !CastPlayer()->GetTeam()->GetController()->PieceTakerWarping(CastPlayer())) {
