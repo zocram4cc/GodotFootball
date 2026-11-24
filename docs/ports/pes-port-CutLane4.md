@@ -229,3 +229,62 @@ Direct callers of the thunk (translated, grep of src/pes/translated/closure/*.cp
 The tick path is ready on the PES side (R3.0). The GF side is blocked on the service's shape: an inline zeroed block needs a segment that every harness state maps, and that changes shared proof infrastructure. That is a Main decision (the ruling says the model is approved; the segment design and the condition's caller list are not in it yet).
 
 Tests run this round: none (no code change). Ratchet not measured.
+
+# Round 4b (Main's go: service, tick proof, ArrangeGoal on D, measure) — pushed 297071b0
+
+## R4b.0 Status
+
+- Pushed `297071b0` (ls-remote confirmed). WIP: the wide test is STILL RED. Scene A0+8 = 0 (PES 0x300D9). The armed target now equals PES's (see R4b.4).
+- The landing condition (Main's ruling: every recorded proof that reaches the thunk stays bit-exact) is NOT verified. Not landed as "done"; the change is on the branch for review. Revert path: the old answer-0 model is `pes_service_gfx_device_alloc` (git show 82ad8564:src/pes/translated/pes_stubs.hpp).
+
+## R4b.1 Block VA (Main decision 1; CONFIRMED scan)
+
+- kGfxScratchVa = 0x600000000000, 0x1000 bytes. Scan of 895 capture index.json mappings under gf-Rendezvous-scratch/live2 (read-only): 0 overlaps; highest mapped end 0x7FFFFE72B000. Harness fixed regions: snapshot.py SCRATCH = 0x600000000 (36 GB below, no overlap); gen_*.py HEAP 0x60000000 (no overlap). No move needed.
+
+## R4b.2 The service (built)
+
+- stubs.json: the 0x141957C50 entry is kind `fixed-block`, op `gfx_device_block`; the why text says what the answer is and why.
+- stubs.py: DO_BY_KIND["fixed-block"] -> `fixed_block_gfx`; KNOWN_DO and MODEL_DOS include it; it is no longer a gf-service (not a refusal).
+- xlate.py stub_lines: `fixed_block_gfx` -> `pes_fixed_block_gfx(s);`.
+- pes_state.hpp PesMem: kGfxScratchVa / kGfxScratchBytes and a `gfxScratch` array; service_at() serves the block in every PesState (so the snapshot path and the proof builds see it).
+- pes_stubs.hpp (inline, no pes_native.cpp): `pes_fixed_block_gfx` zeroes the block with memset (NOT through s.fill: the write log must not record the stub's own reset; this was the first snapdiff mismatch, see R4b.3) and answers kGfxScratchVa.
+- run.py: kind `fixed_block_gfx` maps the page if absent, zeroes it, answers the VA (constant GFX_SCRATCH_VA next to FLAT_BASE).
+- tests/pes_fox_world_test.cpp: the old answer-0 test is renamed and asserts the block answer and per-call zeroing (15/15 pass).
+- Mutation: NOT run for the service (the change is a model switch; the red/green evidence is R4b.4 plus the fox test assertion). Reported as not done.
+
+## R4b.3 The tick proof (CONFIRMED)
+
+- Synthetic call: tick_calls.py (now tools/dev/cutscene/tick_calls.py, committed) over seq203 (a scratch decompressed copy; live2 untouched). Trace: frame_trace.py recorded with --spec-dir specs/core (with the default impure dir the root is not recorded; calls=0).
+- First snapdiff run: 1 call, 1 mismatch: the write log recorded the block reset (36 bytes of zeros x 4096) as PES writes; the harness does not log host-side resets. Fixed by bypassing the log (R4b.2). Second run: `calls=1 replayed=1 mismatches=0 own_block=34/82 (0.4146) proven=True`.
+- Recorded: results_core.json row 0x14047B460 (proof snapdiff, stubs [0x141957C50]); results_snapdiff_tick.json. Layer regenerated: 10,990 functions (3,907 recorded bit-exact, 7,083 closure), +8 functions vs round 3 (the tick and 7 closure members). The tick is src/pes/translated/restart/pes_fn_14047B460.cpp.
+- gen --check: 10,990 functions regenerate byte-identical (rc 0, log r4_check.log).
+
+## R4b.4 ArrangeGoal on D (built; measured)
+
+- The else arm no longer calls the recompute with r8 = a0 and r9 = Zalloc. It calls the tick on GF's D: tickDemo = Zalloc(0x18000), a0 = D + 0x1E8, the list object at D+0x17860 (a 16-byte {begin, end} = {event, event}: EMPTY; ponytail), r9 = D+0x2790, arg5 = D (CallTick writes [rsp+0x28] = D and [rsp+0x30] = arg6), arg6 = a zeroed object (ponytail, R3.2: zero gives PES's outputs on seq203).
+- Measured (temporary probe, removed): after the tick, A0+0xEA = 0, A0+0xBC = 2, A0+0xC8 = 9, T = (-41.621147, 0, 35.559998) = PES's T. So the armed target now matches PES (the test's armed-target lines no longer fail).
+- Still wrong: sceneId A0+8 = 0 (PES 0x300D9, line 434 of the test). The pick reads the cut list, which is empty in GF; PES's list at seq203 is a stack struct (begin 0x31C50798, end 0x31C50588, not decoded). So the scene pick depends on the list GF does not build (OPEN; next step: decode the list's producer, the step handler's frame, R2.1).
+- Anchor (tick B, line 438 second failure) still GF -57.58 vs PES -41.55: the anchor call 474F00 reads the scorer and the armed scene; expected to move with the scene. Not verified.
+
+## R4b.5 Tests (this build)
+
+- pes_fixdemo_select_test 8/8; pes_fixdemo_table_test 7/7; pes_fox_world_test 15/15; pes_goal_anchor_test 25 passed, 1 failed (GoalAnchorKindTwo.WideChannelScorerTakesTheElseArmAndEqualsPes: scene 0 vs 0x300D9; anchor pos -57.58 vs -41.55, z 0 vs 34).
+- The other 1,600+ tests and the recorded-proof re-checks were NOT run (see R4b.6).
+
+## R4b.6 Condition not verified: the list of recorded roots that reach the thunk
+
+- Reverse call graph over the layer (callers_up.py, scratch): 13 direct callers of the thunk (inline pes_fixed_block_gfx): 14195B660, 14195B820, 14195BAD0, 14195BBE0, 14195BCB0, 14195D660, 1419F6FF0, 1419F7570, 141A46890, 1423D3AA0, 1423D43D0, 1423D4A80, 1423D4D10. Transitive: 24 translated functions. Recorded roots among them: 0 (no row in results_*.json with proof or diffed for them).
+- BUT the proof build's closure (gen dir of the tick: 3,816 pes_fn files) reaches the thunk through functions NOT in the layer (14195BD10 -> the string builder calls the thunk; 141F58F40, 141F55CB0, ...). The layer's direct-call graph does not contain them, so the reverse walk over the layer under-counts. The correct list needs the proof-build graph; not built.
+- Consequence: the condition is not checked. Before landing: (1) the reverse walk over the full proof-build graph; (2) re-run every recorded diff_*_recorded check of that list; (3) gen --check (done: byte-identical). If any changes, revert the model to answer-0 and name the counterexample.
+
+## R4b.7 Next exact steps
+
+1. Decode the cut list GF lacks (R4b.4): the producer of the tick's list at D+0x17860 (the handler's stack frame, R2.1). The scene pick needs it.
+2. Re-run the transitive-caller walk on the proof-build graph; re-check every recorded root in it with driver --check / snapdiff as recorded; record the list here.
+3. Mutation for the service (the block answer vs 0): one run, then revert.
+4. Anchor (tick B) after the scene moves.
+
+## R4b.8 Housekeeping
+
+- Deleted scratch copies: gf-CutLane-scratch/r4/seq203 (3.9 GB decompressed seq203), r4/tick, r4/build, r4/trace. live2/pid2024691/seq203 untouched (its mem.bin.zst is still the only copy; Main packs it).
+- Rig requests: 0 this round.
