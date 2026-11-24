@@ -95,6 +95,7 @@ struct PassStats {
 struct RootSample {
   bool valid = false;
   double gx = 0.0, gy = 0.0, ax = 0.0, az = 0.0;
+  int16_t count = 0;  // the adjuster's counter on that tick: a pair is one strike's consecutive ticks
 };
 
 class PesPassTarget : public ::testing::Test {
@@ -124,8 +125,13 @@ class PesPassTarget : public ::testing::Test {
         const uint8_t* const p = r != nullptr ? match.PesWorldOf().P(match.PesSlotOf(r)) : nullptr;
         uint32_t state = 0;
         float ax = 0.0f, az = 0.0f;
+        // A+0x14 holds the layer's root point once the adjuster's counter has reached 1: FUN_141AF3CA0 loads it there
+        // (FUN_141EB3AF0, docs/ports/pes-port-RootMotion.md section 1). Before that the field keeps its unwritten zeros, so a sample
+        // taken then is not a reference point (the old test's 38 m). Only ticks at counter 2 or later, of one strike, form a pair.
+        int16_t count = 0;
         const bool strike = p != nullptr && p[pes::kPByteAC8Offset] == pes::kAnimeActionTrap &&
-                            (std::memcpy(&state, p + pes::kPAdjusterOffset + pes::kAdjStateOffset, sizeof state), state == pes::kAdjRunning);
+                            (std::memcpy(&state, p + pes::kPAdjusterOffset + pes::kAdjStateOffset, sizeof state), state == pes::kAdjRunning) &&
+                            (std::memcpy(&count, p + pes::kPAdjusterOffset + pes::kAdjCountOffset, sizeof count), count >= 2);
         if (!strike) {
           rootPrev[side].valid = false;
           continue;
@@ -135,12 +141,12 @@ class PesPassTarget : public ::testing::Test {
         // PES's (x, z) is GF's (x, y): the man record is written that way (WritePesManMovement).
         const Vector3 g = r->GetPosition();
         RootSample& prev = rootPrev[side];
-        if (prev.valid) {
+        if (prev.valid && count == prev.count + 1) {
           const double gap = std::hypot((g.coords[0] - prev.gx) - (ax - prev.ax), (g.coords[1] - prev.gy) - (az - prev.az));
           stats_.worstRootGap_m = std::max(stats_.worstRootGap_m, gap);
           ++stats_.rootSamples;
         }
-        prev = RootSample{true, g.coords[0], g.coords[1], ax, az};
+        prev = RootSample{true, g.coords[0], g.coords[1], ax, az, count};
       }
       for (int side = 0; side < 2; ++side) {
         const Player* receiver = match.GetTeam(side)->PassGetReceiver();

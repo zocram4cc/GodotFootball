@@ -334,6 +334,7 @@ class TrapContactProbe : public pestest::Probe {
   // FUN_1406E68C0, the contact test FUN_1406EC260, the leave test FUN_1407B9280) all read the motion's frame from that table and answer 0
   // for a motion that is not on it. A tick of such a man with his motion off the table is the body not playing what PES issued.
   long pesDribbleTicks = 0;
+  long worstLastFrameHold = 0;  // the longest run of ticks a PES-owned dribbler's body sat on the last frame of its clip
   unsigned dribbleScans = 0, dribbleGrants = 0, dribblePending = 0;  // body scans of PES-owned dribblers, granted ones, ones that ran with contact pending
   unsigned dribbleKicks = 0;                         // dribbler touches the ball executor applied to the ball (Match::PesDribbleKicks)
   unsigned dribbleIssues = 0;                        // the dribble tick's SetMotion issues (Match::PesDribbleIssues)
@@ -421,6 +422,15 @@ class TrapContactProbe : public pestest::Probe {
           if (!player->IsActive()) continue;
           int& away = awayTicks_[player.get()];
           const float dist = (player->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength();
+          // A PES dribbler's body on the last frame of its clip: PES's layer loops the member, so GF's body must leave that frame on the next
+          // tick. Held longer, it is the series freeze.
+          if (match.PesOwnsDribble(*player)) {
+            const Anim* clip = player->GetCurrentAnim();
+            const bool lastFrame = clip && clip->anim && clip->frameNum >= clip->anim->GetFrameCount() - 1;
+            long& held = lastFrameHold_[player.get()];
+            held = lastFrame ? held + 1 : 0;
+            worstLastFrameHold = std::max(worstLastFrameHold, held);
+          }
           if (match.PesOwnsDribble(*player) && resting && dist > kTouchReach_m) {
             ++strandedTicks;
             if (++away == kStrandedTicks) {
@@ -604,6 +614,7 @@ class TrapContactProbe : public pestest::Probe {
     bool sawDribble = false;
   };
   std::map<const Player*, int> awayTicks_;
+  std::map<const Player*, long> lastFrameHold_;
   std::map<const Player*, Wait> waiting_;
   static constexpr uint16_t kNoCounter = 0x100;
   std::map<const Player*, uint16_t> lastCounter_;
@@ -862,6 +873,18 @@ TEST(PesStall, AGrantedRestingTouchReachesPesDribbleWithinTheWindow) {
   EXPECT_EQ(contactCensus.neverEngagedTrappers, 0)
       << contactCensus.neverEngagedTrappers << " of " << contactCensus.restingGrants
       << " granted resting touches never reached PES's dribble in the window";
+}
+
+// PES's dribble member loops: its record carries the loop flag (TrapContact10 section 14), so a PES dribbler's body is never left on the last
+// frame of his clip for longer than the tick that reaches it. GF held that frame for 900+ ticks (the series freeze, WalkLane2 section 2).
+TEST(PesStall, APesDribblerNeverHoldsHisClipsLastFrame) {
+  pestest::Run(contactCensus);
+  if (contactCensus.skipped) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(contactCensus.setupError.empty()) << contactCensus.setupError;
+  pestest::Settle(contactCensus);
+  ASSERT_TRUE(contactCensus.stop.gameOver) << "the match did not reach full time";
+  ASSERT_GT(contactCensus.pesDribbleTicks, 0) << "no man was in PES's Dribble action with a motion issued in the whole match";
+  EXPECT_LE(contactCensus.worstLastFrameHold, 1) << "a PES dribbler's body sat on the last frame of his clip for " << contactCensus.worstLastFrameHold << " ticks in a row";
 }
 
 // The first link of a PES dribbler's touch chain: the body plays the motion the Dribble action issued (SetMotion, P+0xAE0). Without it
