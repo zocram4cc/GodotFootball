@@ -135,19 +135,6 @@ def gen(spec, va, callees):
             L.append('    s.gpr[%d] = base_%s;' % (GPR[reg], ids[val]))
         else:
             L.append('    s.gpr[%d] = %sULL;' % (GPR[reg], val))
-    # regions_init linkage
-    for dst, val in (sp.get("regions_init") or {}).items():
-        dname, doff = dst.split("+", 1)
-        if isinstance(val, str) and val in regions:
-            L.append('    s.wr(base_%s + %s, base_%s, 8);' % (ids[dname], doff, ids[val]))
-        else:
-            L.append('    s.wr(base_%s + %s, (uint64_t)(%s), 4);' % (ids[dname], doff, val))
-    # patch_addrs: the image VA holds a pointer the function dereferences
-    # (e.g. 0x1436F3DC8 -> the IMG shadow region). run.py writes the region
-    # base there before each case; the flat image view takes the write, so the
-    # translated side reads it back the same way.
-    for vas, rname in (sp.get("patch_addrs") or {}).items():
-        L.append('    s.wr(%sULL, base_%s, 8);' % (vas, ids[rname]))
     # inputs
     inputs = sp.get("inputs") or {}
     for name, loc in inputs.items():
@@ -171,6 +158,19 @@ def gen(spec, va, callees):
             rname, off_key, typ = loc["absfill"]
             n = {"u8": 1, "u32": 4, "u64": 8, "i32": 4, "f32": 4}[typ]
             L.append('    { auto jt = jl.in.find("%s"); uint64_t _a = (uint64_t)(jt == jl.in.end() ? 0 : jt->second.n); auto it = jl.in.find("%s"); uint64_t _v = it == jl.in.end() ? 0 : (it->second.t == JVal::BITS ? it->second.bits : (uint64_t)it->second.n); s.wr(base_%s + (_a & 0xFFFFFF), _v, %d); }' % (off_key, name, ids[rname], n))
+    # regions_init linkage
+    for dst, val in (sp.get("regions_init") or {}).items():
+        dname, doff = dst.split("+", 1)
+        if isinstance(val, str) and val in regions:
+            L.append('    s.wr(base_%s + %s, base_%s, 8);' % (ids[dname], doff, ids[val]))
+        else:
+            L.append('    s.wr(base_%s + %s, (uint64_t)(%s), 4);' % (ids[dname], doff, val))
+    # patch_addrs: the image VA holds a pointer the function dereferences
+    # (e.g. 0x1436F3DC8 -> the IMG shadow region). run.py writes the region
+    # base there before each case; the flat image view takes the write, so the
+    # translated side reads it back the same way.
+    for vas, rname in (sp.get("patch_addrs") or {}).items():
+        L.append('    s.wr(%sULL, base_%s, 8);' % (vas, ids[rname]))
     # stub-fed inputs are provided by the harness only; translated code runs
     # callees for real, so nothing to do here.
     L.append('    pes_fn_%s(s);' % V)
