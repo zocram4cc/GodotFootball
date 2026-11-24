@@ -22,7 +22,7 @@ void pes_fn_14195BBE0(PesState& s) {
   }
   s.gpr[3] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[1] >> 0)));
   s.gpr[1] = (uint64_t)(uint32_t)((12ULL));
-  pes_fixed_block_gfx(s);
+  pes_service_gfx_device_alloc(s);
   s.wr(((s.gpr[4]) + (0x38ULL)), (uint64_t)(s.gpr[0]), 8);
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);

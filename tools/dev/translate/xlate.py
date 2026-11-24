@@ -2632,9 +2632,6 @@ def stub_lines(do):
     if do == "abort":
         # Tamper trap: reaching it aborts, exactly as the harness errors.
         return ["abort();"]
-    if do == "fixed_block_gfx":
-        # stubs.json fixed-block: the graphics allocator answers GF's zeroed scratch block (pes_stubs.hpp, inline).
-        return ["pes_fixed_block_gfx(s);"]
     if do.startswith("service_"):
         # A GF service (stubs.py SERVICE_DOS): GF's implementation answers the call over the same registers and stack.
         return ["pes_service_%s(s);" % do[len("service_"):]]
