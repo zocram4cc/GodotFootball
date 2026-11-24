@@ -312,6 +312,11 @@ TEST(PesForfeitMatch, ARedCardRemovesTheOffenderAndTheSideIsNotForfeited) {
   auto match = BuildMatch(kShortMatchMinutes);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
+  // A level match at the final whistle goes to extra time and a shoot-out (GF's draw rule, MatchProgression::GetNext;
+  // PES's knockout flags E+0x66/E+0x67 have no GF setting and their writers are OPEN, docs/re/pes-re-missing-systems.md
+  // 2.9a). That path runs past this window and is not what this test is about, so the score is set as data (as the
+  // test below does) and the match ends at the second half's whistle.
+  match->GetMatchData()->SetGoalCount(AWAY, 1);
   Player* offender = OutfieldOnPitch(*match, HOME).front();
   ShowRed(*match, offender);
   RunToFullTimeOrWindow(*match);
