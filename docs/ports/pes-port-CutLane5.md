@@ -1,6 +1,6 @@
-# CutLane5: the fixed-block gfx model FAILS the landing condition and is reverted to answer-0; wide test still red (scene list root not closed)
+# CutLane5: round 1 fixed-block refusal was a rendezvous-hook artefact (round 2: proven both ways); the fixed-block tree aborts the sim and is reverted; wide test still red
 
-Branch CutLane. Tip **f4c4dd40** (`git ls-remote origin CutLane` = f4c4dd40, CONFIRMED). It is `git revert` of 297071b0 (CutLane4's round 4b) on top of 82ad8564 (Integrate). Worktree <workdrive>/gf-CutLane. Labels: CONFIRMED = read or run this round; INF = inference; OPEN = blocker.
+Branch CutLane. Tip **c5937155c** (`git ls-remote origin CutLane` = c5937155c, CONFIRMED; tree identical to f4c4dd40, the round 1 tip). Round 1 was f4c4dd40 (a revert of 297071b0 on top of 82ad8564, Integrate). Worktree <workdrive>/gf-CutLane. Labels: CONFIRMED = read or run this round; INF = inference; OPEN = blocker.
 
 ## 0. Verdict
 
@@ -103,3 +103,78 @@ The tick (0x14047B460) is the PES call path that passes the list to the recomput
 
 1. Main: decide the stale recompute record (section 1.4) and the block model's future (it needs a device-compatible answer, not a block of zeros).
 2. Lane: experiment 3 (GF's cut-library entry 113 and the 0x1404B6400 reads, scratch only); then port the owner+0x228 pair producer only if experiment 3 names the field the pick reads from it.
+
+# Round 2 (Main's IRC: the counterexample is a rendezvous-hook artefact; re-prove with the launch's hooks restored)
+
+## R2.0 Verdict
+
+- Main was right, and my round-1 mechanism was wrong. The "fetch at 0x17B0000" is NOT after the thunk returns. The recompute's own **entry** is patched by a live rendezvous hook: `0x140471A80` begins with `ff25 00000000` and an 8-byte target `0x17B0000` (CONFIRMED, scan below). The replay therefore fetches the trampoline on its first instruction, before any thunk call. Section 1.2 of round 1 is withdrawn.
+- With the launch's hooks restored, the recompute proof is bit-exact under fixed-block (1/1) AND under answer-0 (1/1, harness side changed for the run only, see R2.3). The landing condition holds for 0x140471A80 and 0x14047B460.
+- **But the fixed-block tree (297071b0 content) aborts the sim**: PesStallQuick dies with `PES_DISPATCH_UNTRANSLATED: 0x1419CB300` (CONFIRMED, twice: with the key at +0x1C and at +0x20). So the fixed-block model is NOT landable. Reverted on the branch (section R2.6).
+- Wide test: still red. The pick move (M2) takes the scene from 0 to 0x300DE, not 0x300D9. Not kept (the commit that carries it is reverted with the model).
+
+## R2.1 Live hook patches in seq203 (CONFIRMED)
+
+- Scan: `scan_raw.py` (PressLane3's) run on the unpacked copy `gf-CutsceneLine-scratch/recompute/seq203/mem.bin` (the snapshot used by the proofs; the live2 copy is packed). Six live `ff25 00000000` patches, all at function entries:
+  - 0x140471A80 -> 0x17B0000 (the recompute itself)
+  - 0x140474F00 -> 0x17B0100 (anchor calc)
+  - 0x1404B88B0 -> 0x17B0200 (zone writer)
+  - 0x1414406A0 -> 0x17B0500
+  - 0x1420F0EB0 -> 0x17B0400
+  - 0x14217DEF0 -> 0x17B0300
+- The trampolines lie in the 64 KB page at 0x17B0000 that the snapshot maps as RWX and no PE module covers; the first fetch lands there. Main's "35 hooks" count vs 6 live patches in this snapshot: the scan is over every mapped, non-hole page of the full capture, so 6 is the live set at seq203 (INF for the other 29: they sit in pages no hook of this launch touched, or are in holes; not checked).
+- Restore config: `hooks_for_image` over those 6 VAs (first 1, every 1, prefix rv), 6 lines, 0 refusals. File: gf-CutLane-scratch/cl5/hooks203.cfg (displaced bytes from the flat image, never from the snapshot).
+
+## R2.2 Fixed-block re-proof (CONFIRMED, tip = 297071b0 content re-applied)
+
+- Trace: `frame_trace.py recorded seq203 --hooks hooks203.cfg --out ... --spec-dir specs/core` (rc 0). Snapdiff: `snapdiff.py --hooks hooks203.cfg --only 0x140471A80`: **calls 1, replayed 1, mismatches 0, own_block 0.3913, proven True**.
+- Thunk reach on this replay: a scratch counter in the harness's fixed-block branch (reverted) logged **60 thunk replays** in the recorded trace (CONFIRMED, probe/trace.log). The block path is exercised, not skipped.
+- Tick 0x14047B460 (synthetic call over seq203, tick_calls.py, trace with hooks): **calls 1, replayed 1, mismatches 0, own_block 0.4146, proven True** (CONFIRMED).
+
+## R2.3 Answer-0 re-proof (CONFIRMED, with a scratch harness edit that is reverted)
+
+- The current answer-0 tree (f4c4dd40) refuses the thunk in the harness: run.py answers every gf-service stub with "reached" and excludes the call. The translated side is `pes_service_gfx_device_alloc` (rax = 0, pes_stubs.hpp:200). To run answer-0 at all, I added one line to run.py (`kind == "service_gfx_device_alloc"` -> rax = 0), ran the proof, and reverted run.py (checkout; `grep PROBE` clean).
+- Result: trace rc 0; snapdiff **calls 1, replayed 1, mismatches 0, own_block 0.3913, proven True** (CONFIRMED, a0/res.json).
+- Caveat: the harness's answer-0 is the one-line rax = 0 stub, not a model shared with the stub table. Its reach count was not logged (INF: same path as fixed-block up to the answer).
+
+## R2.4 Pick finding and the M2 mutation (CONFIRMED on the fixed-block tip)
+
+- The scene pick 0x1404B6400 reads the cut index at `[G+0x2C0]+0x1C` (dec_pick.txt: `0x141E5D4C0(_, *(lVar5+0x1c))`). seq203 holds 0x71 there (and 0x71 at +0x20). GF wrote the key only at +0x20 (ponytail: "the cut-library lookup id field"). Nothing in GF writes +0x1C.
+- M2 (run): the stadium key also at +0x1C, fixed-block tip: wide test armed scene **196830 (0x300DE)** (was 0), T (-38.6197, 0, 30.3613) (was -57.58 / 0); PES 0x300D9 (196825), (-41.5502, 0, 34). The pick now returns a real scene from the cut row, 5 off in the low byte, and the target is 2.9 m off in x and 3.6 m off in z. Remaining difference: the row or variant choice (not decoded, OPEN).
+- Moved the key to +0x1C in production (the +0x20 write removed; test helper SetStadiumCutKey moved too). Build rc 0; pes_goal_anchor 25/26 (wide red, new numbers), pes_fixdemo_select 8/8, pes_fixdemo_table 7/7, pes_fox_world 15/15 (CONFIRMED).
+
+## R2.5 The sim abort (CONFIRMED; the reason the fixed-block tree cannot land)
+
+- Commit 87f4f928 (fixed-block + key at +0x1C), gen --check rc 0 (10,990 byte-identical; gen_check_r2.log), PII grep of the changed files clean.
+- PesStallQuick (`pes_restart_delay_test --gtest_filter=PesStallQuick.*`, slot): **aborts** at 5 s of the match: `PES_DISPATCH_UNTRANSLATED: 0x1419CB300`, then core dump, rc 134 (r2_quick.log). PesStall.ALiveBall aborts identically (r2_alive.log).
+- Bisect: the key back at +0x20 with the fixed-block model: the same abort (bisect_quick.log). So the key move is NOT the cause; the fixed-block tree is (CONFIRMED, two runs).
+- Who calls 0x1419CB300: no direct E8 caller in the image (callers.py, empty); it is reached through a pointer (INF). Not run to ground (OPEN).
+- Scan of the baseline: f4c4dd40 (answer-0) passed PesStallQuick (forced_live 53) and ALiveBall (PASS) in round 1.
+
+## R2.6 Branch state (pushed)
+
+- Tip **c5937155c** (ls-remote confirmed). Its tree is identical to f4c4dd40 (`git diff --quiet f4c4dd40 HEAD` rc 0): the fixed-block commit and its key move are reverted by revert commits (9193acf45 and c5937155c history, net no content change). Pushed as a fast-forward; no force push.
+- The round-1 ratchet numbers (PesStallQuick 53, ALiveBall PASS, bound 2229) were measured on this same content.
+- Re-applying fixed-block needs the sim abort fixed first (its source: an untranslated callee of the block path, reached through a pointer; the next experiment is to log the call stack at 0x1419CB300 in a sim with the block model).
+
+## R2.7 Recorded-roots list (Main's item 3)
+
+- 0x140471A80: proven under fixed-block (1/1) and answer-0 (1/1) with the hooks restored (R2.2, R2.3).
+- 0x14047B460: proven under fixed-block (1/1) with the hooks restored (R2.2). Under answer-0 not re-run (the tick's recompute reaches the thunk; the replay loops under answer-0, round 1 R2.5, INF it is still unprovable).
+- 0x141F7BFE0 and 0x141F7AE60 (proccam): **NOT re-run. Captures gone**: pid3234533 and pid3741448 are in neither live2 nor the Dati III archive (only the proccam trace dirs in gf-ProcCamera6-scratch/tr remain, no mem.bin). Their closures list the thunk (closure_proccam.json), so these two proofs are unverified under either model. Named as OPEN.
+- 0x14091E9F0 (trapaction): not re-run (its 6 calls are not named in the record); no thunk member in closure_pressx.json (INF unaffected).
+- Indirect reach: unchanged from round 1 (1,646 direct-reach functions, 0 recorded rows among them); the indirect edges are not enumerable from the image.
+
+## R2.8 Tests and ratchets (tip c5937155c = f4c4dd40 content)
+
+- pes_goal_anchor 25/26 (wide red), fixdemo_select 8/8, fixdemo_table 7/7, fox_world 15/15.
+- PesStallQuick forced_live 53 (PASS); PesStall.ALiveBall PASS (bound 2229); both from round 1 on this content.
+- gen --check on this content: rc 0 (round 1: 10,982 byte-identical).
+
+## R2.9 Next exact steps
+
+1. Find the caller of 0x1419CB300 in the block-model sim: a call-stack log at the abort (the untranslated dispatch in pes_dispatch_gen.cpp:22015 prints only the VA). The block answer may feed a vtable or an object PES reads a function pointer from.
+2. Once the sim is green with the block model: re-apply the fixed-block commit (87f4f928 content) and the key move; re-run gen --check, PesStallQuick, ALiveBall.
+3. Proccam proofs need new captures (hook 0x141F7BFE0 proc_camera, INIT calls) or an owner call on the archive; Main decides.
+
+Rig requests: none.
