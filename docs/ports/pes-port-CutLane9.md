@@ -76,3 +76,50 @@ requested.
   generated/restored for this run were removed.
 - Stashes untouched: stash@{0} CutLane8 WIP, stash@{1} CutLane6 r3.
 - Rig: not touched beyond reading watch.log and the capture folders.
+
+## Round 2 (Main's IRC: three blockers)
+
+### 0. Hook request for the animelayer root (for Main; INF until a capture confirms it)
+- Root 0x141AF4650 = vtable 0x142ABA1A8 slot 4 (+0x20). The class's ctors write the vtable at 0x141AED403 and 0x141AEDBC7 (owners 0x141AED3E0, 0x141AEDBB0). No E8 or E9 calls reach the root; one qword reference (0x142ABA1C8) is the table slot.
+- Factory 0x141AEF380 (creates the layer) is called from 0x141EB5250, 0x141F7F002 (owner 0x141F7EFD0), 0x141F29341, 0x1423E9249 and 0x1423E9711.
+- Virtual caller found (CONFIRMED by disassembly, the call target being the root is INF): pdata function 0x141F7F500. It reads kind edx (3, 6, 0xE, 0x12), walks `rbx=[rcx+0x50]; rbx=[rbx+0x118]; rbx=[rbx+idx*8+0xB0]` with idx 8 / 7 / 6 / 5 for kind 3 / 6 / 0xE / 0x12, and calls `[rax+0x20]` with rcx=rbx at 0x141F7F579 (a second site, 0x141F7F5F0, is in fn 0x141F7F5C7).
+- **Requested hook:** `fn_141F7F500`, VA 0x141F7F500, entry, FIRST 1 EVERY 20, cap 12, `--when '(rdx&0xffffffff) in (3,6,14,18) and q(q(rcx+0x50)+0x118)!=0'`, FULL. Offline filter: keep the captures whose element `q(q(q(rcx+0x50)+0x118)+idx*8+0xB0)` has vtable qword 0x142ABA1A8. That check is ours, not the rig's.
+- 0x141AF4650 itself stays unhookable (prologue). The proc camera capture (0x141F7BFE0) is still needed for the proc-camera record.
+
+### 1. The sider.dll fetch was my harness bug (CONFIRMED)
+- sider.dll patched 28 code sites in rwxp pages of the live PES image, e.g. 0x1414C0913 `push rax; movabs rax,0x6F6C90D2ABEC; call rax; pop rax` (also 0x140C53DEB, 0x141ED9CB0, 0x141F51855 and others). The image bytes at those VAs are the original code.
+- `full_snapshot.SnapMem.read` already serves exec, non-writable image sections from the image (is_code). SnapMem takes the image from the env var PES_EXE (full_snapshot.py:292), not from an argument. My prove.sh passed `--image` to snapdiff only, and snapdiff's SnapMem (snapdiff.py:337) and frame_trace's (frame_trace.py:689) never got PES_EXE. So code fetched from the capture, and the sider stub was reached.
+- Proof: the same replay with PES_EXE exported runs to completion (no sider refusal). Probe output: m7/dbg/snapfb2.log.
+- M6 fix (not landed): snapdiff must pass args.image into fs.SnapMem (snapdiff.py:337) and frame_trace must take the image from its args, not the env. Until then every harness run must export PES_EXE.
+
+### 2. proc_ctor 0x141F7AE60: no closure gap (CONFIRMED)
+- The `PES_DISPATCH_UNTRANSLATED: 0x14159f8b0` abort came from `--native` (my prove.sh hard-coded it on snapdiff). Without --native, proc_ctor's six real calls are bit-exact on answer-0 and on fixed-block: 6/6, 0 mismatches, own-block 7/8.
+- 0x14159F8B0 = a spin-lock wrapper (import call at +0x10, Sleep loop via 0x14159F974). The native-dispatch gap for this indirect target is still open (INF: the native dispatch table lacks it); it does not affect the plain proof.
+- proc_ctor's closure does not reach the thunk, so it is an M5 record either way. Merge needs prove_bounded --merge into results_proccam; that step and the regen are not done (next step).
+
+### 3. Re-proof table (CONFIRMED; m7/run_all2.out, both models, PES_EXE set)
+| root | captures | answer-0 (HEAD) | fixed-block (stash model) |
+|---|---|---|---|
+| recompute 0x140471A80 | pid2024691 seq203 (real, 1 call) | excluded: gfx thunk reached (HEAD refuses) | **proven 1/1, 0 mismatches, own 54/138** |
+| tick 0x14047B460 | seq203 synthetic (tick_calls.py) | excluded: gfx thunk reached | **proven 1/1, 0 mismatches, own 34/82** |
+| walker 0x1423D4A80 | pid2831823 seq001 (real; --native) | excluded: gfx thunk reached | **proven 1/1, 0 mismatches, own 10/18** |
+| proc_ctor 0x141F7AE60 | pid3148289 seq001-006 (real, 6 calls) | **proven 6/6, 0 mismatches, own 7/8** | **proven 6/6, 0 mismatches, own 7/8** |
+| animelayer root 0x141AF4650 | pid3148289 anime_bones seq757-772 (real) | 0 root calls | 0 root calls |
+| proc camera 0x141F7BFE0 | none (no goal capture yet) | not run | not run |
+- The answer-0 "excluded" rows are HEAD's gf-service refusal of the thunk: the HEAD records of recompute and tick (CutLane5) are stale and do not reproduce at HEAD. They cannot be used as the answer-0 baseline here.
+- No counterexample found: every fixed-block proof that ran is bit-exact.
+
+### 4. M7 decision: NOT MET, model NOT committed, answer-0 stays
+- M7 requires every recorded proof reaching the thunk 0x141957C50 to be re-run under the model and stay bit-exact. Status:
+  - recompute 0x140471A80: fixed-block 1/1 ✓
+  - tick 0x14047B460 (stash record): fixed-block 1/1 ✓
+  - walker 0x1423D4A80 (in the animelayer closure): fixed-block 1/1 ✓
+  - proc camera 0x141F7BFE0 (results_proccam; its closure reaches 14 affected functions): ✗ no captures; re-run when the goal captures land.
+  - animelayer family (21 records in results_animelayer.json, all with closure_animelayer.json, which contains 0x1423D4A80): ✗ the root 0x141AF4650 has no real call in the anime_bones captures; the synthetic states are gone. Re-run when the 0x141F7F500 hook captures land.
+- Per the M7 rule ("else rejected") the model is rejected for now. Nothing is committed: no model, no +0x1C key, no M4 test input (they depend on the model). The brief's "commit the model" condition is not met.
+- Pending: (a) Main's proc camera goal captures → rerun 0x141F7BFE0 under both models; (b) hook 0x141F7F500 captures → test the 21 animelayer records' root via the filter in section 0 (note: the records need a root-call proof, not the walker-only one); (c) M5 merge of proc_ctor (real calls) once the merge path is run.
+
+### 5. State
+- Worktree <workdrive>/gf-CutLane: HEAD 22b6acc58, clean (checked with the symlink swapped), stashes untouched, godot-cpp symlink restored.
+- Scratch: <workdrive>/gf-CutLane-scratch/m7 (run_all2.sh, prove2.sh, res.json per root under a0/ and fb/). Full-memory copies deleted after the report (~53 GB).
+- Live captures: read-only hardlinks/copies of relaunch 4 (pid3148289) and pid2024691/seq203, pid2831823/seq001; originals in live2 untouched.
