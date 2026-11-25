@@ -1586,9 +1586,8 @@ void Match::CheckHumanoidCollision(Player* p1, Player* p2, std::vector<PlayerBou
       offset1.NormalizeMax(sprintVelocity * pesball::kPesTick_s);
       offset2.NormalizeMax(sprintVelocity * pesball::kPesTick_s);
 
-      // The same exemption as the bounce above: a strike-owned man's root is PES's root point, not moved by the contact push.
-      if (!p1->StrikeRootValid()) p1->OffsetPosition(offset1);
-      if (!p2->StrikeRootValid()) p2->OffsetPosition(offset2);
+      p1->OffsetPosition(offset1);
+      p2->OffsetPosition(offset2);
     }
 
     // take over each others movement a bit (precalc phase)
