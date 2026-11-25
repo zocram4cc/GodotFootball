@@ -96,3 +96,24 @@ Re-proof of the 21 animelayer records under both models: NOT RUN (no in-play cap
 - Cause observed: the watcher releases every capture with "disk under 300 GiB" (log 04:53 onward, and again 08:50, 297 GiB free). So the in-play lyrupd hook has never snapshotted since the predicate change.
 - Not done: the 21 animelayer re-proofs under both models; the scan of a capture's heap for 0x142ABA1A8 owners (requested by Main only if 12+ in-play captures show no animelayer L, which has not been reached). stash@{0} model, +0x1C key, M4 input not applied or committed.
 - Next (needs disk > 300 GiB on the watcher): run `m7/lyr_filter.py lyr/seqNNN` on the first in-play lyrupd captures (hardlink call.bin, index.json, mem.bin.zst from live2/pid1257475, then capz unpack); if an L with 0x142ABA1A8 appears, re-prove 0x141AF4650 under both models.
+
+## Heap scan: animelayer instances in a match (Main's request, 09:40)
+
+Source: live2/pid506456/seq15454 (hook aimw_140514940, relaunch 7, in play, 4 GB, 2494 mappings, 1084 stored). Read by zstd stream, no copy on disk; scanner m7/heap/scan.py (output scan_out.txt, summary.txt in m7/heap). Coverage: 3.23 GiB of stored mapped bytes scanned for every 8-aligned qword; holes (239 ranges) and deferred file mappings not scanned.
+
+### Top line
+- CONFIRMED: an in-play match snapshot holds 25 live animelayer instances: qword 0x142ABA1A8 (the vtable, L's class) at 0x20FF2E10, 0x20FF3190, 0x20FF3510, 0x20FF3890, 0x2C699E10, 0x2C69A190, 0x2C69A510, 0x2C69A890, 0x2C69AC10, 0x2C69AF90, 0x2C69B310, 0x2C69B690, 0x2CEF0410, 0x2CEF0790, 0x2CEF0B10, 0x2CEF3510, 0x2CEF3890, 0x2CEF3C10, 0x2CEF3F90, 0x2CEF4310, 0x2CEF4690, 0x2CEF4A10, 0x2CEF4D90, 0x39110E90, 0x39111210 (all rw-p heap).
+- So the animelayer class DOES exist in matches. The earlier "no in-match calls" conclusion does not follow from the absence of captures; the blocker is the watcher's disk floor and the lyrupd predicate, not the class.
+- The instances are spaced 0x380 apart in runs (one run per allocation region), consistent with one array of same-size layer objects.
+
+### Owners (walk-back, one level)
+- Each instance holds a self-pointer at +0x2E8 (e.g. 0x20FF30F8 -> 0x20FF2E10; 0x2CEF45F8 -> 0x2CEF4310): an embedded list node, not an owner.
+- External pointers to instances (not self): 0x20658788, 0x207B4780, 0x23E4CCD8, 0x23E924E0, 0x23E925A0, 0x23EAD1A8, 0x23EAD388, 0x2C327768, 0x2C3278E8 (-> 0x20FF2E10); similar sets for every instance (250 pointer hits in total, summary in scan_out.txt). These are containers (lists or record slots) in other heap pages; the second-level owner of each container is NOT resolved yet (OPEN). The cause of the (0x20658788, 0x20667788, 0x20676788) regular stride is an array of records, consistent with lyrupd's per-record slot walk, but this is INF.
+
+### Dispatch and hook
+- Slot 4 (+0x20) of 0x142ABA1A8 is 0x141AF4650 (the root, unhookable, prologue). The dispatcher is 0x141F7F500 (from CutLane9); its single hookable caller in the rendezvous set is lyrupd_141F3BDC0 (watch_current comment: sole caller of the animelayer dispatcher). So the hook Main has is the owner update, already armed in play.
+- Predicate for the filter (offline, exact): L = q(q(q(r14+0x50)+0x118)+idx*8+0xB0), keep if q(L) == 0x142ABA1A8 (the 25 instances above are the expected L values in this launch). Main's watcher clause (in play only) is correct; the vtable clause can stay offline.
+
+### M7 remaining
+- The class runs in play. M7 still needs: (1) in-play lyrupd captures whose L hits one of the 25 instances (check with lyr_filter.py); (2) re-proof of 0x141AF4650 on those real root calls under both models (fixed-block and answer-0); (3) the stash@{0} model applied for the fixed-block run.
+- No copy was made; nothing to delete. Scratch m7/heap is 20 KB.
