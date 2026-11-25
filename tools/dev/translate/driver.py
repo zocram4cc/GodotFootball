@@ -8,7 +8,7 @@ Usage:
 Defaults: --spec-dir tools/dev/diffharness/specs/pilot (committed Map specs);
 asm comes from --asm-dir bridge cache when given, else capstone decodes the
 user's image at build time (no bridge needed).
---record FILE: a full run (no --only) writes its results there; --check re-runs the diffed VAs FILE lists and never writes it.
+--record FILE: a run merges its rows into FILE (the rows it attempted replace theirs, every other row stays); --check re-runs the diffed VAs FILE lists and never writes it.
 --set FILE: a generator set file (specgen sets/*.txt); each result gets the subsystem and role of its row.
 
 Steps per function (deterministic order, sorted VAs):
@@ -140,6 +140,15 @@ def recorded_elsewhere(record):
         if name.startswith("results") and name.endswith(".json") and path != own:
             out |= {"0x%X" % int(r["va"], 16) for r in json.load(open(path))["results"]}
     return out
+
+
+def merged_record(existing, results):
+    """The rows a --record file holds after a run: every existing row in its place, an attempted VA's row replaced by the
+    run's row, and the run's VAs the file lacks appended in run order. A subset run (--only, --exclude-recorded) owns only
+    its own VAs, so every other row keeps its position and bytes."""
+    new = {r["va"].upper(): r for r in results}
+    out = [new.pop(r["va"].upper(), r) for r in existing]
+    return out + list(new.values())
 
 
 def asm_for(asm_dir, va):
@@ -1051,7 +1060,7 @@ def main():
                     help="re-run every VA results.json records as diffed; exit 1 if any no longer diffs bit-exact. "
                          "Never writes the repo results.json (the gate's pilot test).")
     ap.add_argument("--record", default=None,
-                    help="committed results JSON. A full run writes it; --check re-runs its diffed VAs and never writes it.")
+                    help="committed results JSON. A run merges its rows in (attempted rows replaced, the rest kept); --check re-runs its diffed VAs and never writes it.")
     ap.add_argument("--set", default=None,
                     help="a generator set file (specgen sets/*.txt): its subsystem and role columns are recorded on each result")
     ap.add_argument("--exclude-recorded", action="store_true",
@@ -1130,8 +1139,8 @@ def main():
     for r in results:
         if r["va"] in attrib:
             r["subsystem"], r["role"] = attrib[r["va"]]
-    # results.json: build copy always; the committed repo copy only from a full run (a subset or a check run
-    # must never overwrite the record of the whole set). Sort by VA.
+    # results.json: build copy always (this run's rows). The --record file (never a --check run) keeps every row this run
+    # did not attempt, so no subset or exclusion run drops a row. Sort by VA.
     results.sort(key=lambda r: r["va"])
     payload = {"results": results,
                "note": ("%s results. diffed = bit-exact vs the unicorn harness. "
@@ -1140,8 +1149,14 @@ def main():
                         "stubs.json models." % os.path.basename(os.path.normpath(args.spec_dir)))}
     build_json = os.path.join(args.out_dir, "results.json")
     json.dump(payload, open(build_json, "w"), indent=1, sort_keys=True)
-    if args.record and not args.only and not args.check:
-        json.dump(payload, open(args.record, "w"), indent=1, sort_keys=True)
+    if args.record and not args.check:
+        kept = []
+        if os.path.exists(args.record):
+            with open(args.record) as f:
+                kept = json.load(f)["results"]
+        payload["results"] = merged_record(kept, results)
+        with open(args.record, "w") as f:
+            json.dump(payload, f, indent=1, sort_keys=True)
     att = sum(1 for _ in results)
     tra = sum(1 for r in results if r["translated"])
     dif = sum(1 for r in results if r["diffed"])

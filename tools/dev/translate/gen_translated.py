@@ -233,7 +233,9 @@ def silent_unhandled_sites(members):
 
 
 def subsystem_of(spec, name):
-    return (spec.get("subsystem") or name).lower().replace(" ", "_").replace("-", "_")
+    # The subsystem names a layer directory: any run of characters outside [a-z0-9_] becomes one '_' (the ledger's
+    # "out: career" made `out:_career`, which Make and Windows paths refuse, and "out: save/load" nested a directory).
+    return re.sub(r"[^a-z0-9_]+", "_", (spec.get("subsystem") or name).lower()).strip("_")
 
 
 def ponytails():
