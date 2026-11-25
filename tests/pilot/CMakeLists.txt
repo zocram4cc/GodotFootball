@@ -99,6 +99,9 @@ gtest_discover_tests(pes_native_heap_test)
 # The stub table's native services and the dispatch table gen_dispatch.py emits for them (stdlib only).
 add_test(NAME translate_native_services
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_native_services.py)
+# Worker threads read the image through their own Pdata: concurrent reads return each address's bytes (xlate.pdata_of).
+add_test(NAME translate_pdata_threads
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_pdata_threads.py)
 # A tail jump to an untranslated target is loud, never a silent return (xlate, driver.runnable_extra, the layer check).
 add_test(NAME translate_tail_jump_loud
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_tail_jump_loud.py'")

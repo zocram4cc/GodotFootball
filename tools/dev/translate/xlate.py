@@ -22,6 +22,7 @@ import argparse
 import os
 import re
 import struct
+import threading
 import sys
 import flow
 
@@ -2399,15 +2400,19 @@ def parse_lines(text):
     return out
 
 
-_PDATA = {}
+# One Pdata per thread. A Pdata holds one file object (its read is a seek then a read), one capstone handle (not
+# thread-safe) and lazily filled memo dicts: shared by the driver's worker threads, a read returned another address's
+# bytes and a jump target became mid-instruction (test_pdata_threads.py). The thread-local cache keeps each thread alone.
+_PDATA = threading.local()
 
 
 def pdata_of(image_path):
-    """The image's Pdata (cached): the one source of function extents (pdata.py)."""
+    """The image's Pdata for the calling thread (cached): the one source of function extents (pdata.py)."""
     from pdata import Pdata
-    if image_path not in _PDATA:
-        _PDATA[image_path] = Pdata(open(image_path, "rb"))  # kept open: decode reads the image
-    return _PDATA[image_path]
+    cache = _PDATA.__dict__.setdefault("by_image", {})
+    if image_path not in cache:
+        cache[image_path] = Pdata(open(image_path, "rb"))  # kept open: decode reads the image
+    return cache[image_path]
 
 
 def capstone_decode(image_path, va):
