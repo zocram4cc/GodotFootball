@@ -1,49 +1,51 @@
-# PassLane2 (run 3): the aim is P+8, the man's newest ring point; the writer of P+8 is still not found; Integrate merged locally (not pushed); nothing landed
+# PassLane2 (run 4): the aim's ring point is written by 0x140A76440 into a per-slot record that mirrors the man's ring; the chain runs from the press tick; the writer cannot be replayed yet; nothing ported or landed
 
-**Hooks (top of report, as requested by Main, all armed by Main; my asks are unchanged):** H1 `aimw_140514940` (`0x140514940`, EVERY 20, cap 12) is live and filling in `live2/pid254401` (5 `aimw` + 2 `ringc2` at the time of reading). The ring-writer candidates `ringc1_14056CB00`, `ringc2_140927D50`, `ringc4_140473990` are armed (cap 6, EVERY 50). I need no further hooks for section 1. For section 3 I need **a per-frame ring trace of one man**: one hook on the aim accessor's caller chain is enough (see section 4).
+**Hooks (Main has them live).** For section 3 I need one more: `0x142106110` (the writer's caller's function) at its entry, any call, EVERY 1, cap 24, FULL, so the event struct `rdx` and the record `rcx` are seen with the caller's arguments. No predicate. Without it I cannot tell which event runs the writer.
 
-**Status:** `origin/PassLane` is still `7104ed38d` (ls-remote confirmed). Local `PassLane` has a merge of `origin/Integrate e154ed687` (`27aee1b94`), **not pushed**: `gen_translated.py --check` did not finish in 1500 s on this machine (timeout, rc 124, log `gencheck.log`), and the brief bars pushing a tip whose check has not passed. No port, no test change, no measurement this run. ALiveBall, PesStallQuick, census: not run (no behaviour change to measure).
+**Status.** `origin/PassLane` = `27aee1b94` (ls-remote confirmed): the merge of `origin/Integrate e154ed687` on top of the run-1 red test `7104ed38d`. Gate evidence for that tip: `gen_translated.py --check` passed (3600 s, `gencheck2.log`: 11191 functions, regenerate byte-identical, rc 0); `tools/check_pii.sh` passed (rc 0, from the main checkout). The tip has no behaviour change of mine. No port, no test change, no measurement. ALiveBall, PesStallQuick, census: not run.
 
-CONFIRMED = read this run (capture bytes, asm, decompile, or test output). INF = inference. OPEN = blocker named.
+CONFIRMED = read this run (capture bytes, asm, decompile, or a direct E8/E9 scan). INF = inference. OPEN = blocker named.
 
-## 1. The man's ring, read from captures (CONFIRMED)
-Read in place from `live2/pid254401` (`seq106..112`; `tools/ring_read.py`, `tools/capmem.py`). Man record `M = G.table[slot]` (`0x140A48A10`), accessor `0x140A48A10` answers `G+0x1DD8 + 40*slot` as in the image.
-- `M+4` (byte) is a **count**: 0 in `seq106`, 2 in the other six captures. Read as a dword at `M+4` the words are `0x00000000` and `0x00000002`.
-- `M+8` is the first 12-byte point. In all six captures the point at `M+8` **equals the man's own GF position within 0.5 m** but lags it: e.g. `seq108` slot 1 `M+8 = (-9.559, 0, 8.481)`, man `(-10.097, 0, 8.941)`, frame 170; `seq110` slot 1, frame 172: `M+8` unchanged `(-9.559, 0, 8.481)`, man `(-10.106, 0, 8.947)`. **The ring did not change between frames 170 and 172 for the same man, while he moved 0.01 m.** So the writer does not run every frame for every man (INF on cadence from 2 frames; not a proof).
-- `seq106` (count 0): `M+8 = (9.5, 0, 8.5)`, which is the man's position `M+0x55C` exactly. So at count 0 the point is the current position (CONFIRMED equality, one sample).
-- With count 2 (six captures), `M+0x24` (the `0x140A76240` answer for n=2: `M + 12*(n+1)`) holds the **same** triple as `M+8` in every capture: `seq108 (-9.559,0,8.481)`, `seq109 (-8.159,0,-1.369)`, `seq111 (-5.428,0,14.332)`, `seq112 (17.986,0,-11.667)` (CONFIRMED by dump). So the answer of `0x140A76240` for count 0 and 2 is the point at `M+8`.
-- Layout (INF on the names, CONFIRMED on the bytes): `M+0x00` word `0x01000000`, `M+4` count, `M+8` point A (x, 0, z) in the dumps; words `M+0x0C..M+0x1C` hold further floats (for example `(0.701, -10.091, 0)`), not yet named. The ring stride is not established: the accessor's `12*(n+1)` lands off the 12-byte grid from `M+8` (for n=2 it is `M+0x24`, which is `M+8` by value, not by grid). OPEN: the entry grid.
+## 1. The writer, its record and its event (CONFIRMED)
+- **Writer:** `FUN_140A76440` (`0x140A76440..0x140A76505`, 197-line decompile `dec_w1.txt`). The chained-unwind fragment `0x140A76589..0x140A7691D` (Main's finding, pdata CONFIRMED) holds the vec3 copy `[rdi] -> [rbx+8]` (`dec_76589.txt`).
+- **Arguments:** `rcx` = record `O` (writer `param_1`); `rdx` = event `E` (writer `param_2`): `E+0` a pointer to an actor (its byte `+0x40` selects the arm), `E+8` = the **man record `M`** (the writer reads `M+0x55C`, the position; CONFIRMED: `E+8` equals the man table entry in all 8 captures), `E+0x14` double, `E+0x1C` int, flags `E+0x2D`, `E+0x2E`, `E+0x2F`.
+- **Record `O` (CONFIRMED from the writes):** `O+2` byte (count-like 0..4), `O+3` byte (a stamp compared with count-1), `O+4` byte **count**, `O+8` vec3 **point**, `O+0x14C` float, `O+0x3F5`, `O+0x3F7`, `O+0x5C8` a vec3. Size > 0x5C8 bytes.
+- **What it writes:** arm `iVar7 == 1` zeroes most of `O`, then sets `O+8` from **`E+4` (the event point) when `E+0x2E == 0 || E+0x2F != 0`, else from `M+0x55C` (the man)**. Arm `iVar7 == 2` zeroes `O` and its point. Selector `iVar7 = FUN_140A75C40(O, E, &uStack_88)`, **undecoded** (OPEN).
 
-## 2. The PASS_GET aim is `M+8` (CONFIRMED on the 6 captures above; INF beyond them)
-- The finalize `0x1405141F0` copies `uStack_90` into `R+0x894`, and `uStack_90` comes from `0x140514940` (`dec_514940.txt`), which copies `*0x140A76240(man)` when its flag `this+0x20` is set.
-- So for the observed counts, **`R+0x894` = the man's `M+8` point**. The probe's frozen aims (`probe5`: slot 9 (-1.77, 14.35) for 60 ticks; slot 20 (-3.57, 32.83) for 40) are `M+8` values that the writer did not refresh.
-- Consequence: the 43 m red is a stale `M+8`, not a wrong sample and not a wrong accessor. The fix is the writer that refreshes `M+8` (and the ring) every frame as PES does. INF that PES refreshes it every frame: the ball-to-aim test passed on the port's per-frame run (`probe4`, aim tracked the ball), but the port also changed the cadence of the tick, so the chain is not isolated.
+## 2. Ring equality with the aim source (CONFIRMED on 8 real calls)
+- The PASS_GET aim `R+0x894` is `M+8` (the ring accessor `0x140A76240` answers `M+8` for count 0 and 2; `M` = table entry `G+0x1DD8+40*slot`).
+- `pid506456` `ringw1_140A76440` (seq206..214, 8 calls, frames 168-173, slots 22, 23, 24): **`O+4 == M+4` and `O+8 == M+8` in all 8**. The caller's neighbouring object holds the slot id (`+4` = 23 and 22, CONFIRMED on two calls).
+- The writer writes `O`, not `M`. So for `M+8` to change, `O` must be copied to `M` somewhere. No copy was observed (OPEN). Equality is what the captures show.
+- Aim at frame 172 (`pid506456/seq213`, slot 24): `M+8 = (19.5, 0, 35.5)` = `M+0x55C` = `O+8` (count 0): consistent.
 
-## 3. Ring-writer candidates (CONFIRMED eliminations; no writer yet)
-| candidate | what it writes | verdict |
-|---|---|---|
-| `0x14056CB00` (`ringc1`) | a per-man state machine: `param_1+0x10`, `+0x20` (state id 1..5), `+0x24` (count), `+0x38/+0x3C`; no writes at `+4` or `+8` of the man record | NOT the ring |
-| `0x140927D50` (`ringc2`) | decision flags into `param_3[1..4]` (the caller's output bytes); reads the man position, writes no ring | NOT the ring (2 real calls, `pid254401/seq108,110`) |
-| `0x140473990` (`ringc4`) | writes 28-byte records (`piVar1 + 7k`), a different table | NOT the ring |
-| `0x140A6C550` | the man-record reset (zeroes `+0x55C`, `+0x564`, `+0x574..`, `+0x5D0`, `+0x6B8`) | NOT the writer (reset) |
-| `0x140A76589` | a record writer: `+0` short, `+4` byte index, `+8` a point copied from its input, `+0xC` a stamp, and it copies the man's `+0x55C` into its own `+0x53C`. It has **no direct caller** (no E8, no E9 into its range) | UNRESOLVED: a different record shape; reached some other way (indirect or inlined into a caller) |
-| `0x140651430` | 2 direct callers (`0x140656C14`, `0x14065800B`, both in `0x140656270`); not decoded | OPEN |
-| `0x140A1CC64` | inside a larger function, not an entry | OPEN |
+## 3. When it is written (CONFIRMED by before/after reads, slot 22)
+- Slot 22's `M+0x55C` is static at `(-5.01, 0, -10.0)` over frames 169, 171, 173. Its `O+8 = M+8` is `(-3.28, 0, -23.30)` at 169 and 171, then `(-3.61, 0, -23.36)` at 173, count 2 throughout. **The point changed while the man stood still**, so the source is not `M+0x55C`. It is `E+4` (the event point, moving about 0.3 m in two frames). So the writer ran between frames 171 and 173 on the `E+4` branch. CONFIRMED that a write happened in that window; INF that it was frame 172.
+- Slots 23 and 24 (count 0): the point equals `M+0x55C`, the `M` branch.
+- `E+4`: not identified (OPEN). The moving point is a candidate for a receiving point or ball sample. Not decided.
 
-Scan notes: the static search (`tools/scan_ring*.py`) is weak for this (558 hits under the width-agnostic version, `scan_ring4.out`). I did not reduce it.
+## 4. Caller chain and protection status (CONFIRMED)
+- `0x140A76440` is called only from `0x142106110` (E8 at `0x1421065E2`, return `0x1421065E7`). `0x142106110` (`0x142106110..0x1421066C2`) is called from `0x140926600` (inside `0x1409257B0`) and `0x140A36E40` (inside `0x140A36B30`). `0x1409257B0` is called from `0x140928FC0` (the press tick, ledger `1409257B0>...`), which GF already runs (`PesPressTick`; `pes_fn_140928FC0` landed on Integrate by the merge).
+- **Protection check:** `docs/re/pes-re-holder.md:82` labels `0x142106110` "Denuvo-VM region". The bytes do not support that label for these functions: `0x142106110` lies in `.trace` (plain code; `.impdata` starts at `0x143D14000`), its `.pdata` body has 39 direct `call`/`jmp` instructions and none targets `.impdata`; `0x140A76440` has 2 direct calls, neither into `.impdata`. Indirect calls (vtables) were not checked. INF: the label came from an earlier region note. Owner to confirm before any port.
 
-## 4. What finds the writer (asks for Main)
-- A **per-frame trace of one man's `M+4` and `M+8`** over ~30 frames with no touch: one hook at the entry of the **frame-level man update** (I do not have its VA; the `aimw` caller chain is the nearest known) with `--when 'd(q(q(0x1436F3DC8)+0x40)... )'` is not workable. Simplest request: hook the aim accessor's caller `0x140514940` (H1, already live) **every call** for one slot and keep all captures (the ring at each entry), and hook the candidate `0x140A76589` by ENTRY with a predicate `ret` not needed: its entry (`0x140A76589`, any call, cap 24, FULL). If `0x140A76589` never runs for a man, the writer is elsewhere.
-- The writer's VA follows from which of those captures shows `M+8` changing between two consecutive calls and what `rsp+8` (its caller) is.
+## 5. Why the port is not landed (CONFIRMED blockers)
+1. **Replay blocked:** `frame_trace.py recorded ringw1/seq206 --hooks hooks.cfg` (`replay206.err`) stops at `unmodelled OS export ucrtbase.dll!sqrtf` (import at `0x1415A1780`, called by the writer). A replay is the proof a port needs, so the writer needs a `sqrtf` import model in the harness (a harness change, boundary policy (6); not added in this lane).
+2. **Closure:** the writer's direct callees: `FUN_140A75C40` (undecoded), `FUN_140A6C6D0`, `FUN_141E532D0`, `FUN_141E5CA20`, `FUN_140A6E150`, `FUN_140A6E5E0`, `FUN_140A6E6B0`, `sqrtf`. The record `O`'s owner (the caller's array) is also needed.
+3. **The decision and the point source:** `FUN_140A75C40` and the `E+4` source are undecoded (sections 1 and 3).
+4. **`O`→`M`:** not established (section 2).
+5. **Cadence:** section 3 shows the writer runs on an event (`FUN_140A75C40` decides), not every frame, so the run-2 per-frame cadence is not the fix. The GF stand-in for the event point is the current position `M+0x55C`, which is the `M` branch. That is why GF's aim never moves to the ball.
 
-## 5. Task 1: team.cpp:445 (not changed this run)
-Still false: the samples 1..249 are written by `Ball::CalculatePrediction` (`ball.cpp:135-267`), so the comment ("stay zero") must go in the landing commit, as Main asked.
+## 6. Measurements this run
+None. Earlier numbers stand: aim 43.26 m (baseline); 51.32 m (run-2 cadence port, reverted); `EveryPassGetEpisodeIsWithinPesLiveRange` red on my tip (10 of 30 over 2.94 s; Main reports 6/34 on Integrate `e154ed687`). Not re-run: no change to measure.
 
-## 6. Next steps (exact)
-1. Main: keep H1 live; add the `0x140A76589` entry hook (any call, cap 24, FULL) and the `0x140651430` entry hook (any call, cap 12, FULL). Both are needed to find the writer.
-2. Me: once captures land, read `M+4`/`M+8` before and after each call of `0x140A76589` and `0x140651430` for the same man, decide which writes `M+8`, decode it, and port it with the per-frame cadence, red-first on `ThePassGetAimIsTheBall...`.
-3. Resolve `gen_translated.py --check` timing (1500 s not enough here; the merge's push waits for it), then push `PassLane` (merge of `e154ed687`) on its own.
-4. Task 3 (TRAP reach gate): not started.
+## 7. team.cpp:445
+Not changed (Main asked for it in the port's commit). It remains false: samples 1..249 are written by `Ball::CalculatePrediction` (`ball.cpp:135-267`).
 
-## Artifacts (scratch, `<workdrive>/gf-PassLane-scratch`, not committed)
-`tools/ring_read.py` (ring dump of H1 captures), `tools/capmem.py`, `tools/scan_ring*.py` (+ `scan_ring*.out`), `dec_76589.txt` (0x140A76589, 0x140651430), `dec_ring.txt` (0x14056CB00, 0x140927D50, 0x140A6C550, 0x140A76589), `dec_ring2.txt` (0x140473990, 0x140A1CC64), `gencheck.log`.
+## 8. Next, in order
+1. Main: arm `0x142106110` (any call, EVERY 1, cap 24, FULL) for `E` and `O` with the caller's arguments; keep `ringw1` live.
+2. Decode `FUN_140A75C40` and the `E+4` source (which GF object the press tick holds for it: the receiving point or the ball sample).
+3. Harness: review and add a `sqrtf` CRT import model (boundary policy (6)), so the writer replays and can be proven.
+4. Then port the writer with its caller's branch, red-first on `ThePassGetAimIsTheBallWhileTheBallRests`; fix `team.cpp:445` in that commit; measure PesPassTarget, PesStallQuick, ALiveBall (bounds 479 / 49; M2 caps 599 / 98), and the census.
+5. Task 3 (TRAP reach gate): not started.
+
+## Artifacts (scratch `<workdrive>/gf-PassLane-scratch`, not committed)
+`dec_w1.txt` (0x140A76440), `dec_76589.txt` (fragment), `dec_ring.txt`, `dec_514940.txt`, `replay206.err` (sqrtf stop), `gencheck2.log` (gen check pass), `pii.log`, `tools/ring_read.py`, `tools/capmem.py`, `tools/pdata.py`, `tools/callers.py`, `tools/scan_ring*.py`. The per-slot comparison (section 2) was run inline; its script is not saved.
