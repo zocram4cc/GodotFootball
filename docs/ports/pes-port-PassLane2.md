@@ -1,57 +1,61 @@
-# PassLane2: the PASS_GET aim is stale, not zero-sampled; the cadence port was refuted; no behaviour change landed
+# PassLane2: the PASS_GET aim is the last entry of the man's position ring (0x140A76240), which GF does not refresh; the per-frame cadence is PES's but is not sufficient; nothing landed
 
-Branch `PassLane` (origin tip `7104ed38d`, ls-remote confirmed; this lane's only commit is the red test from PassLane1). Merged `origin/Integrate` (a316278d1): already contained, no merge commit. Worktree `<workdrive>/gf-PassLane`; scratch `<workdrive>/gf-PassLane-scratch` (probe patches, logs, helper scripts). Build dir and unpacked captures deleted. Gate: not run (Main gates). CONFIRMED = run or decode this session; INF = inference; OPEN = blocker named.
+Branch `PassLane` (origin tip `7104ed38d`, ls-remote confirmed, unchanged by this lane). Worktree `<workdrive>/gf-PassLane` is clean (probes and port reverted, symlink restored, build dir deleted). Scratch `<workdrive>/gf-PassLane-scratch`: probe patches, logs, decompiles, helper scripts. CONFIRMED = read this session (decode, asm, capture, or test run). INF = inference. OPEN = blocker named.
 
-## 0. Verdict
-1. **Task 1 premise is false for this symptom (CONFIRMED by a live-sim probe).** At every probed tick of the 43 m red, the 250 GF ball samples (`SetBallSample`, B+0x88+0x28j) lie within 0.25 m of the rolling ball, so the aim is not read from zeroed or far samples. The aim sits still while the ball moves (section 2).
-2. **The aim is frozen, not computed from the ball (CONFIRMED).** R+0x894 holds one value across consecutive ticks while the ball moves 0.2 m. GF's `RunPassGetAction` is called from `ElizaController::_PassGetApproach`, which runs only inside `HumanoidBase` requeue (`humanoid.cpp:505-525`, `RequeueOnFrame` predicates, `humanoid.cpp:426-503`), so the tick is not per-frame in GF.
-3. **Cadence port REFUTED (CONFIRMED by test).** Running the tick per team tick (`Team::RunPesPassTarget`) and reading R in the controller moved the aim red from 43.26 m to 51.32 m; `EveryPassGetEpisode` stayed at 10 of 30 over. Reverted (patch kept: `port_cadence_REFUTED.patch`). So "requeue cadence is the cause" is not the whole story.
-4. **Nothing landed.** No PES writer ported, no GF behaviour changed. The red aim test stays red. ALiveBall and PesStallQuick were not run (no behaviour change to measure). No ratchet number moved.
-5. **Task 3 (TRAP reach gate): not started** (budget).
+## 0. Hook requests (for Main; none armed by me)
+Hook VAs go through `untranslated_callees.py hooks_for_image` before arming (brief 17-11-26). Proposed, not yet run through it:
+- **H1 (aim writer):** entry of `FUN_140514940` (`0x140514940`), the call that writes the PASS_GET aim from the man's ring. EVERY 20, cap 24, FULL, no predicate. It shows the flag this+0x20 and the ring entry the aim is copied from.
+- **H2 (ring accessor):** entry of `FUN_140A76240` (`0x140A76240`, the ring accessor: count byte P+4, entries P+8..). It is a per-man function, so the brief's rule applies: EVERY 1000, cap 24, FULL, predicate `b(rcx+4)>0`. It shows whether the ring changes per frame for a moving man.
+- **H3 (already on disk):** `0x14094E0E0` (ActionPassGet tick) has 24 real captures (`pid480109` seq001-027, `passget_tick_14094E0E0`); `0x1405141F0` (finalize) has 14 mixed-action captures (`pid1858437`). No new hook is needed for the tick or the finalize.
+- Ring writer: **not found**. H1 and H2 are needed to see whether the ring is written per frame in PES, and by which caller. The caller is the next hook after that.
 
-## 1. Ball samples in PES and in GF (CONFIRMED where marked)
-- Sample layout (CONFIRMED, k8tmA captures): sample j = B+0x88+0x28j is the ball position j ticks ahead; `(sample1 − sample0) × 54` equals B+0x2948 (velocity) to float precision on seq002 (vel (-12.72, 1.12, 10.51) m/s vs sample difference ×54 (-12.6, ...)). Samples run to 249 (14-40 m away on the six moving-ball captures).
-- Capture set: `live2/pid3880818/seq002..seq007` (six `k8tmA_140945EC0` calls, route BallFollow). Ball speeds at the call 9.2-20.8 m/s, frames 169-612 (`k/` summary, `tools/k8sum.py`). All six are in play with a moving ball; **none has a resting ball, so none checks the resting-ball samples in PES.** (OPEN for PES's rest case; the live rest rows are in PassReceiver3 §14.)
-- GF writer (CONFIRMED by source): `Ball::CalculatePrediction` (`ball.cpp:135-267`) writes samples 1..249 each call with `SetTrackSample(tick, nextPos)` and sample 0 with `positionBuffer`; it runs from `Ball::Process` (`ball.cpp:295`) and `ResetSituation` (`ball.cpp:311-318`). `team.cpp:445` still says "the prediction samples 1..249 stay zero": **that comment is stale** (StallTrap10 §2 said so; I confirmed it by probe). Fixed in the reverted port only; still open in the branch.
-- PES writer: NOT decoded (OPEN). `0x140A6CF70` is only an address calculator (`B+0x88+0x28j`, j ≥ 250 clamps to 249; translated, `pes_fn_140A6CF70`). I looked for the PES writer three ways: callers of the ball integrator `0x140876360` (E8 scan: 40 direct callers, mostly the pass/kick planners 0x14085C..0x14086B, not the sampler), `0x140873FBA` (the N-step loop, no direct caller), and a .pdata-wide store scan for `[reg+0x88..0x90]` plus a 0x28 operand (the scan matched ~thousands of functions and was abandoned). The step function `0x1408764F0` (`dec_ball1.txt`) is the ball's own integrator tick, not a sampler. OPEN: the sampler's VA. Next: hook a PES sample store with a predicate on B's speed < 0.5 m/s (rest) and check its values.
+## 1. Chain from the test to the PES writer (CONFIRMED unless marked)
+1. The test reads R+0x894 (`kRTargetOffset`), the aim. GF's `_PassGetApproach` uses it as `desiredTarget` (`elizacontroller.cpp:1231-1248`).
+2. R+0x894 is written by the finalize `0x1405141F0` from its local `uStack_90` (decompile `dec_pg.txt`, the copy `if (param_3+0x894 != &uStack_90)`).
+3. `uStack_90` is set by a chain of vtable slots of the ActionPassGet object (vtable `0x1426301E0`, flat-image reads, `dec_slots.txt`):
+   - +0x10 tick `0x14094E0E0`; +0x80 `0x140519550`; +0x88 `0x14094E680` (writes a speed float, not a point); +0x58 `0x141863350` (returns 0); +0x98 `0x14094E3A0` (pitch clamp of a point); +0xA0 `0x14094E380` (copies this+0x4C to R+0x888, the look point); +0xA8 `0x14094E530` (copies this+0x58 to R+0x8A0).
+4. **The action word is 5 (PASS_GET) in every real call.** `*r9` at the tick is 5 in all 24 `passget_tick` captures (`pg_scan_all.txt`, CONFIRMED by reading `mem.bin` through `call.bin` r9).
+5. **For action 5, the selector `0x140519550` writes nothing.** Its `switch(*param_4)` jump table, decoded from the image (VA `0x14051A424` byte table, `0x14051A414` dword table, base `0x140000000`): value 5 maps to `0x14051A40B`, the default early return. The writers are the arms for 2, 3, 7, 9, 10, 0x33, 0x54, 0x6C, 0x34, 0x56 (CONFIRMED by the table, not by Ghidra's labels).
+6. **So the PASS_GET aim comes from `FUN_140514940`** (`0x140514940`, called in the finalize with `param_4 = &uStack_90`). When its flag `this+0x20` is set, it does `*param_4 = FUN_140A76240(man)` (`dec_514940.txt`, CONFIRMED).
+7. **`FUN_140A76240` returns a point of the man's ring:** `if man[4]==0 return man+8; else return man+8+12*man[4]` (`dec_a76240.txt`, CONFIRMED by the bytes at `0x140A76240`: `movzx eax,[rcx+4]; test al,al; ...; lea`). Ledger notes call it "history position" (`pes-re-lane-units2.md:290`, INF on meaning).
+8. **The stuck aim in GF is a stored ring point, not the man and not the ball (CONFIRMED, probe5).** Slot 20, side 1: aim (-3.57, 32.83) for 40+ consecutive ticks while the man walks (23.3, -5.5) to (25.0, -6.0) and the ball is (27.9, -7.7). Slot 9, side 0: aim (-1.77, 14.35) fixed for 60 ticks while the man walks (18.9, 9.2) to (18.5, 9.3) and the ball is (22.3, 7.0).
+9. **The same chain tracks the ball when it is refreshed (CONFIRMED, probe4, per-frame port).** Slot 20: aim (-25.36, -17.64) to (-25.42, -17.81) while the ball moves (-25.33, -17.52) to (-25.41, -17.77). The man walks from (-20.9, -8.7) to (-21.6, -11.0), toward the ball.
+10. **Consequence:** PES's aim is the ring's last point, and the ring is refreshed each frame (PES) but not in GF. Which writer refreshes it is OPEN (section 3).
 
-## 2. Probe (seed 7, 2 min, `PesPassTarget.ThePassGetAimIsTheBallWhileTheBallRests`, probe patch `probe_aim.patch`; logs `probe1.log`, `probe2.log`)
-- Reproduced the red: **43.26 m** (matches PassLane1).
-- Side 0 slot 5, 60 consecutive ticks with miss > 5 m: aim (9.22, 12.53) fixed; ball (4.21, 16.22) → (4.40, 16.08), speed 0.39 → 0.13 m/s; miss 6.22 → 5.99 m. GF samples at every tick: s0 (4.21, 16.22), s1..s10 within 0.05 m, s249 (4.46, 16.03): **all samples on the ball** (CONFIRMED).
-- Side 1 slot 21, 60 ticks: aim (-27.69, 11.35) fixed; ball (-4.65, -13.94) → (-4.71, -13.82) (PES (x, z) = GF (x, y)); miss 34.2 → 34.1 m. Same sample picture.
-- `PROBECALLS` counters (the second probe, `probe2.log`) were not read before the port (see §3).
+## 2. Cadence (CONFIRMED in GF, INF on PES's rate for this exact tick)
+- GF calls `RunPassGetAction` only from `_PassGetApproach`, which runs inside the humanoid's requeue (`humanoid.cpp:505-525`, `RequeueOnFrame`), so the tick is not per frame.
+- PES runs ActionPassGet every AI frame for a PASS_GET man (`pes-port-PassReceiver2.md` note: "~54 calls/s for 0.02-2.94 s a pass"; the hook for it was EVERY 40 for that reason, so the rate is INF for every frame).
+- Per-frame port (team tick, `Team::RunPesPassTarget`, plus the controller reading the record): probe4 shows the stuck case tracking the ball (section 1.9). Probe5 (the same port, rows with aim more than 10 m from the ball) still shows frozen far aims in other episodes, so the cadence is necessary but not sufficient (INF that it is necessary).
+- Port tests (CONFIRMED, `port_cadence_REFUTED.patch`, `port_and_probe_final.patch`): `ThePassGetAimIsTheBall...` 51.32 m (was 43.26 m); `EveryPassGetEpisode...` 10 of 30 over 2.94 s (unchanged); `ATrapsRootMoves...` red (pre-existing); `EveryPassInFlight...` green. Port **not landed**.
 
-## 3. The PASS_GET tick (CONFIRMED by headless decompile, `dec_pg.txt`)
-- `0x14094E0E0` (ActionPassGet tick): returns at the top when `[G+0x3B0]` is non-null and `0x1423E7FD0` holds with `0x140A60F00` = 4 or 5. G+0x3B0 is the skip object (`pesworldrecord.hpp:83`, `TeamTick` doc: 0 in every capture; GF zeroes it), so this gate is not the cause.
-- Route walk `0x140945EC0` runs when `*(this+8)` is 0 or 1. Then `this+0x6C` (result 0..8) and `R+0xE48`. Then the base finalize `0x1405141F0`.
-- `0x1405141F0` writes **R+0x894 (aim) on every call**: `uStack_90` starts as the man's own position (`0x140A48A10(G, slot)+0x55C/+0x564`, `0x1405141F0` lines 1-30 of the listing), is overwritten only by the vtable slots `0x80`, `0x88`, `0x58` (route and receiving), and is then stored at `param_3+0x894`. So a frozen aim means either (a) the tick is not called for that man (the requeue cadence, refuted as the sole cause by §0.3), or (b) the tick is called but `uStack_90` stays at a value the vtable calls never set, so R+0x894 holds a point that is not the ball (INF: the aim equalling the man's own position would give a 6-34 m miss if he stands there; not probed).
-- OPEN: which of (a) or (b). Probe needed: the man's P+0x55C position and vtable 0x80/0x88/0x58 return values per tick, plus `*(this+8)` (route stage) and `this+0x6C` (route result), for slot 5 of seed 7 at the 6.2 m ticks.
+## 3. What is left unknown: the ring writer (OPEN)
+- Scans run this session over every `.pdata` function (`tools/scan_ring.py`, `tools/scan_ring2.py`):
+  - functions that load a man position (+0x55C/+0x564) and store a byte at +4 and a float at +8/+C: `0x14056CB00`, `0x140927D50`, `0x140A6C550`, `0x140A76589`.
+  - functions that call the man accessor `0x140A48A10` and store a byte at +4: `0x140473990`, `0x14056CB00`, `0x140927D50`, `0x140A1CC64`.
+- Decoded so far: `0x140A6C550` is the man-record reset (zeroes +0x55C, +0x564, ...), not a ring writer. `0x140A76589` writes a 12-byte record with its count at +2 (a touch/receive record), not the man's ring at +4. `0x14056CB00`, `0x140927D50`, `0x140473990`, `0x140A1CC64` are large; not reduced (OPEN).
+- The ring entries that GF has are stale because nothing in GF writes them (INF; the GF man record's +4 and +8.. are not in `pesworldrecord.hpp`'s man layout, which has no ring field: `kManPosXOffset` 0x55C and the rest, `pesworldrecord.hpp:224-241`). Not verified by a probe of the ring contents.
+- An existing ponytail names this as a stand-in: `pescarrier.cpp:2181` ("the history position (0x140A76240, S17) stands in with the current one"). That stand-in is in `pescarrier.cpp`, not on the PASS_GET path; the PASS_GET path reads the ring directly, so the stand-in does not cover it.
 
-## 4. The port (REFUTED, reverted)
-- Change: `RunPassGetAction` moved from `_PassGetApproach` to the team tick (`Team::RunPesPassTarget`, after `RunPassTarget`), with `PassGetResult(slot)` read by the controller (no re-run). Patch `port_cadence_REFUTED.patch` (86 lines).
-- Result: `ThePassGetAimIsTheBallWhileTheBallRests` **51.32 m** (was 43.26 m; red). `EveryPassGetEpisodeIsWithinPesLiveRange` still 10 over (red). `ATrapsRootMovesByExactlyTheStrikeAdjusterStep` red (pre-existing, WalkLane's). `EveryPassInFlightHasItsOwnSidesReceiver` green. `IsSetInFlight…` skipped (named gap).
-- Why it did not help: the tick now runs every team tick, yet the aim is still far off. So the cadence is not the only fault: the finalize's `uStack_90` path (§3b) or the route stage sets the far point. The port also changes route state (stage and counter increments) per tick, which PES does too but GF's inputs differ, so it may be a wrong-input port as well; not separated (OPEN).
+## 4. Task 1 and the team.cpp:445 comment
+- PES's ball samples (B+0x88+0x28j) are written by GF's `Ball::CalculatePrediction`: all 250 samples lie within 0.25 m of the ball at every probed tick (CONFIRMED, probe). The aim is not read from zeroed samples. The PES sample writer (`0x140A6CF70` is only the address calculator) stays undecoded for this symptom.
+- `team.cpp:445` ("the prediction samples 1..249 stay zero") is false (CONFIRMED). Not changed: no port landed, and Main asked for the fix in the port's commit. It stays for the landing commit.
 
-## 5. Measurements (what ran)
-| test | result | notes |
-|---|---|---|
-| `PesPassTarget.ThePassGetAimIsTheBallWhileTheBallRests` | RED 43.26 m (baseline); RED 51.32 m (port) | probe §2; port reverted |
-| `PesPassTarget.EveryPassGetEpisodeIsWithinPesLiveRange` | RED 10 of 30 over 2.94 s (baseline and port) | unchanged |
-| `PesPassTarget.ATrapsRootMovesByExactlyTheStrikeAdjusterStep` | RED (pre-existing) | unchanged |
-| `PesPassTarget.EveryPassInFlightHasItsOwnSidesReceiver` | GREEN | unchanged |
-| `PesPassTarget.IsSetInFlightAndNeverStaleWhileTheBallRests` | SKIPPED | named gap in the test |
-| PesStallQuick, census delta, ALiveBall, PesHang | not run | no landed behaviour change; the port was reverted before any of them |
+## 5. Measurements (all runs on this lane's tip plus the probes)
+| run | result |
+|---|---|
+| baseline `PesPassTarget.ThePassGetAim...` | RED 43.26 m (PassLane1), again 43.26 m |
+| port (per-frame cadence) `ThePassGetAim...` | RED 51.32 m |
+| port `EveryPassGetEpisodeIsWithinPesLiveRange` | RED 10 of 30 over 2.94 s (same as baseline) |
+| port `ATrapsRootMovesByExactlyTheStrikeAdjusterStep` | RED (pre-existing) |
+| port `EveryPassInFlightHasItsOwnSidesReceiver` | GREEN |
+| `IsSetInFlightAndNeverStaleWhileTheBallRests` | SKIPPED (named gap) |
+| PesStallQuick, ALiveBall (ALIVEBALL line), census delta, PesHang | NOT run: no landed behaviour change. Main's ALiveBall: not requested (nothing to measure). |
+Test binary: `build/tests/sim/pes_pass_target_test` (built with ccache; one build per probe). Seed 7, 2 min, pes_loop. No mutation checks (no landed change).
 
-Test binaries run: `build/tests/sim/pes_pass_target_test` (full `PesPassTarget.*`, once with the port, once with the probe). No mutation checks (no behaviour change). The census per-bucket delta was not needed (no change).
-
-## 6. Scope questions I could not close (for Main)
-- **Rig:** no live reads. Every number above comes from six captured k8tmA calls (moving ball) and the live-sim probe. The rest-ball PES samples and the route state need a hook: `0x14094E0E0` at the finalize store (`0x1405141F0` the write to `+0x894`, predicate: the receiver's speed < 0.5 m/s, EVERY 20, cap 12, FULL) and the vtable slots of the man's route object (`0x80`, `0x88`, `0x58`) for the same man. Please say whether Main will arm these; I have not requested them to avoid another PES restart.
-- **Stale comment:** `team.cpp:445` (samples 1..249 "stay zero") is false; a doc-only fix belongs in the next landing on PassLane.
-
-## 7. Next steps (exact)
-1. Probe §3's two cases (own position vs ball) for slot 5 and slot 21 on seed 7: the man's P+0x55C, vtable 0x80/0x88/0x58 return, `this+8`, `this+0x6C`, and whether the tick was called (the `gProbePassGetCalls` counter in the reverted probe patch). Decides (a) or (b).
-2. Only then port the writer that PES runs for R+0x894 (or the route stage). Acceptance: `ThePassGetAimIsTheBallWhileTheBallRests` green and `EveryPassGetEpisodeIsWithinPesLiveRange` lower, with a PES-cited decode.
-3. Task 3 (TRAP admission for a receiver at 0.06-0.28 m, PassLane1 class A: 84% of the over-bound time) is still open; the PassLane1 census still holds.
+## 6. Recommendation (not landed)
+- **Land nothing from this lane yet.** The cadence port alone moves the max aim from 43 to 51 m. Land it only with the ring writer, so the aim is refreshed per frame from PES's ring, and then the test can go green.
+- **Next, in order:** (1) Main arms H1 and H2 (section 0) through `hooks_for_image`. (2) From H2's per-frame ring contents, find the writer: the ring entries that change per frame (for a moving man) name the writer's inputs; decode that writer statically (candidates in section 3 are unverified). (3) Port the writer and the per-frame cadence together, red-first on the aim test; fix `team.cpp:445` in that commit; then measure PesPassTarget, PesStallQuick, ALiveBall and the census.
+- **Task 3 (TRAP reach gate for receivers at 0.06-0.28 m):** not started.
 
 ## Artifacts (scratch, not committed)
-`probe_aim.patch` (probe, not for landing), `port_cadence_REFUTED.patch` (port, refuted), `probe1.log` (43.26 m run), `probe2.log` (probe2 build failed on a namespace error; re-run not done), `suite1.log` (the port's suite run), `dec_pg.txt` (0x14094E0E0, 0x1405141F0, 0x140945EC0 decompile), `dec_ball1.txt` (0x140870020, 0x140873FBA, 0x1408764F0, 0x140876360), `tools/capmem.py`, `tools/k8sum.py`, `tools/callers.py`, `tools/pdata.py`.
+`probe_aim.patch`, `port_cadence_REFUTED.patch` (per-frame cadence port, 4 files), `port_and_probe_final.patch` (port plus probes), `probe1.log` (43.26 m), `probe3.log` (man vs aim: stuck), `probe4.log` (per-frame: ball tracking), `probe5.log` (per-frame, rows >10 m: stuck far aims), `pg_scan_all.txt` (action word 5 in 24 captures), `pw_scan.txt` (finalize captures, mixed actions), `dec_pg.txt` (0x14094E0E0, 0x1405141F0, 0x140945EC0), `dec_slots.txt` (vtable slots), `slot80.c` (0x140519550), `dec_514940.txt`, `dec_a76240.txt`, `dec_ring.txt`, `dec_ring2.txt`, `scan_ring.out`, `scan_ring2.out`, `tools/*.py` (capmem, pdata, callers, pg_scan, pw_scan, scan_*).
