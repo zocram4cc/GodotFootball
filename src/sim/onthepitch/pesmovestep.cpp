@@ -723,8 +723,9 @@ void StepAdjusters(Player& player, Match& match) {
   if (!match.PesLoop()) return;
   const pes::PesWorld::AdjusterFrame frame = match.PesWorldOf().ReadAdjusterFrame(match.PesSlotOf(&player));
   HumanoidBase* body = player.CastHumanoid();
-  // The trap world's axes: PES z is GF y (the strike's target was built in them).
-  if (frame.strikeMoved) body->WarpRoot(Vector3(frame.x, frame.z, 0.0f), 0.0f);
+  // The trap world's axes: PES z is GF y. While the strike is valid the root is PES's root point: the composer FUN_141AFD400 writes it as
+  // the layer root, and the humanoid absorbs the clip's root track into it (SetStrikeRoot).
+  body->SetStrikeRoot(frame.strikeValid, Vector3(frame.rootX, frame.rootZ, 0.0f));
   // The trap world's facing is atan2(x, GF y) = pi - GF's angle: a positive PES yaw turns GF's angle the other way.
   if (frame.yawStepped) {
     constexpr float kPi = 3.14159265358979323846f;

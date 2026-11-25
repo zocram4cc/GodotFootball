@@ -1393,18 +1393,29 @@ Vector3 HumanoidBase::CalculateOutgoingMovement(const std::vector<Vector3>& posi
 }
 
 void HumanoidBase::CalculateSpatialState() {
-  Vector3 position;
+  // The clip's root offset from its start: its root track, or the keyframe rotated to the start heading (a clip with no track).
+  Vector3 clipOffset;
   if (currentAnim->positions.size() > (unsigned int)currentAnim->frameNum) {
-    position = startPos + currentAnim->positions.at(currentAnim->frameNum) +
-               currentAnim->actionSmuggleOffset + currentAnim->actionSmuggleSustainOffset +
-               currentAnim->movementSmuggleOffset;
+    clipOffset = currentAnim->positions.at(currentAnim->frameNum);
   } else {
     Quaternion orientation;
-    currentAnim->anim->GetKeyFrame("player", currentAnim->frameNum, orientation, position);
-    position.coords[2] = 0.0f;
-    position = startPos + position.GetRotated2D(startAngle) + currentAnim->actionSmuggleOffset +
-               currentAnim->actionSmuggleSustainOffset + currentAnim->movementSmuggleOffset;
+    currentAnim->anim->GetKeyFrame("player", currentAnim->frameNum, orientation, clipOffset);
+    clipOffset.coords[2] = 0.0f;
+    clipOffset = clipOffset.GetRotated2D(startAngle);
   }
+  const Vector3 smuggle =
+      currentAnim->actionSmuggleOffset + currentAnim->actionSmuggleSustainOffset + currentAnim->movementSmuggleOffset;
+  // While the strike is valid the root is PES's root point (SetStrikeRoot): the clip offset and the smuggles are absorbed into startPos.
+  // nextStartPos moves with it, and previousPosition2D takes the same shift as WarpRoot does (the handover is not a step), so the clip
+  // continues from the point when the strike ends.
+  if (strikeRootValid) {
+    const Vector3 newStartPos = strikeRootPoint - clipOffset - smuggle;
+    const Vector3 shift = newStartPos - startPos;
+    startPos = newStartPos;
+    nextStartPos += shift;
+    previousPosition2D += shift;
+  }
+  Vector3 position = startPos + clipOffset + smuggle;
 
   if (currentAnim->frameNum > 12) {
     spatialState.foot = currentAnim->anim->GetOutgoingFoot();

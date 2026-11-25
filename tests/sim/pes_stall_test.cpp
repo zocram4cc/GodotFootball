@@ -730,10 +730,11 @@ TEST(PesStall, TheBreakerNeverForcesABallUnderAnArmedRestart) {
 
 // OneWorld gate RATCHET (owner, 22-11-26): the live-ball breaker count lands at no more than the best measured on Integrate
 // and only ever goes down; the goal stays 0. Measured on Integrate 39898dc3 (throw-in taker owns his body; first tip whose
-// seed-7 match reaches full time): 2229 ticks in 160 episodes (full match), 53 in the quick window. Lower these in the same
+// seed-7 match reaches full time): 2229 ticks in 160 episodes (full match), 53 in the quick window. WalkLane10 (Integrate 3ed0f35d9 +
+// the strike root handoff and the strike-owned exemption): 479 ticks (full match), 49 in the quick window. Lower these in the same
 // commit as any gain.
-constexpr long kBestMeasuredLiveFirings = 2229;
-constexpr long kBestMeasuredQuickLiveFirings = 53;
+constexpr long kBestMeasuredLiveFirings = 479;
+constexpr long kBestMeasuredQuickLiveFirings = 49;
 
 // A live ball that lies still for five seconds is a man who holds it and does nothing with it. PES's holder keeps
 // the ball until he releases it, so the breaker must not have to take it from him.
