@@ -39,5 +39,32 @@ class Candidates(unittest.TestCase):
         self.assertEqual(got, [self.dirs[s] for s in ("seq1", "seq2", "seq3")])
 
 
+class FirstInPlayStaysFull(unittest.TestCase):
+    def setUp(self):
+        self.live2 = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.live2)
+        auto_slim.full = lambda d: True  # the selection rules, not the size check
+        self.dirs = {}
+        for seq, hook in (("seq9", "press"), ("seq10", "press"), ("seq11", "press"), ("seq12", "press"),
+                          ("seq13", "other")):
+            d = os.path.join(self.live2, "pid1", seq)
+            os.makedirs(d)
+            json.dump({"rv": {"hook": hook}}, open(os.path.join(d, "index.json"), "w"))
+            self.dirs[seq] = d
+
+    def test_the_first_two_in_play_captures_of_each_hook_stay_full(self):
+        inplay = lambda d: os.path.basename(d) in ("seq9", "seq11", "seq12", "seq13")  # noqa: E731
+        got = auto_slim.candidates(self.live2, 1, set(), 0, set(), inplay=inplay)
+        self.assertEqual(sorted(got), sorted([self.dirs["seq10"], self.dirs["seq12"]]))
+
+    def test_a_keep_file_line_naming_a_capture_keeps_that_capture(self):
+        keep = os.path.join(self.live2, "keep.txt")
+        open(keep, "w").write("# agents append capture paths here\npid1/seq12\n")
+        tokens = auto_slim.read_keep_files([keep])
+        got = auto_slim.candidates(self.live2, 1, tokens, 0, set(), inplay=lambda d: False)
+        self.assertNotIn(self.dirs["seq12"], got)
+        self.assertIn(self.dirs["seq10"], got)
+
+
 if __name__ == "__main__":
     unittest.main()
