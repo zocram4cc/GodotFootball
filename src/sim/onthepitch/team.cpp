@@ -442,7 +442,8 @@ void Team::RunPesPassTarget() {
   const Vector3 ball = match->GetBall()->Predict(0);
   world.SetBallSample(0, ball.coords[0], ball.coords[2], ball.coords[1]);
   // B+0x2948: the ball's velocity (m/s, PES's axes: x along the pitch, y the height, z across), which the holder tree reads (FUN_140A57720)
-  // to see a ball that has stopped. ponytail: the prediction samples 1..249 (FUN_140A6CF70) stay zero until the ball port writes them.
+  // to see a ball that has stopped. Samples 1..249 (FUN_140A6CF70) are not written here: Ball::CalculatePrediction (ball.cpp:135-267,
+  // SetTrackSample) writes them whenever it runs, and Ball::Process runs it each tick (ball.cpp:295). This call writes sample 0 only.
   const Vector3 ballMove = match->GetBall()->GetMovement();
   world.SetBallVelocity(ballMove.coords[0], ballMove.coords[2], ballMove.coords[1]);
   world.SetMaBall(id, ball.coords[0], ball.coords[2], ball.coords[1]);

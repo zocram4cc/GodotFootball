@@ -113,6 +113,11 @@ add_test(NAME translate_libm_models
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_libm_models.py'")
 set_tests_properties(translate_libm_models PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
 
+# The ucrtbase sqrtf model (sqrtss) against the correctly rounded single-precision root; needs the harness python only.
+add_test(NAME translate_sqrt_model
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_sqrt_model.py'")
+set_tests_properties(translate_sqrt_model PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+
 # finish_one's coverage record skips an undecodable function (block_coverage's None), never unpacks it (plain python3).
 add_test(NAME translate_finish_coverage
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_finish_coverage.py)

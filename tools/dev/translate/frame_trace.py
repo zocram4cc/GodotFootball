@@ -668,6 +668,12 @@ def _xmm_int(uc, n):
     return int.from_bytes(v, "little") if isinstance(v, (bytes, bytearray)) else v
 
 
+def import_models_for(models):
+    """The import models a recorded run answers its OS exports with: the caller's table, else import_stubs.json. Plain runs need
+    the table too (an export without a model stops the run), not only snapdiff trace runs."""
+    return load_import_models() if models is None else models
+
+
 def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=None, on_write=None,
                  models=None, start=None):
     """One recorded call (load_recorded_call) emulated from its captured entry, with its captured GPRs, XMM,
@@ -693,7 +699,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
         start = entry
     rsp = gpr["rsp"]
     uc = rn.new_x86_64()
-    lazy = LazyMap(sm, models if models is not None else (load_import_models() if trace is not None else {}))
+    lazy = LazyMap(sm, import_models_for(models))
     lazy.attach(uc)
     uc.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED,
                 lambda u, access, addr, size, value, data: lazy.handle(addr) or lazy._refuse(
