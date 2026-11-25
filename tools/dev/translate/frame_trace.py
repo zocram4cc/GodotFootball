@@ -669,7 +669,7 @@ def _xmm_int(uc, n):
 
 
 def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=None, on_write=None,
-                 models=None, start=None):
+                 models=None, start=None, image=None):
     """One recorded call (load_recorded_call) emulated from its captured entry, with its captured GPRs, XMM,
     RFLAGS, MXCSR and GS base, over the snapshot's own memory. The stack and the return address are the
     snapshot's, so the call returns to the caller's address with the caller's rsp. `start` (a VA, default the
@@ -686,7 +686,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
     import unicorn.x86_const as xc
     from unicorn import (Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_MEM_READ_UNMAPPED,
                          UC_HOOK_MEM_WRITE_UNMAPPED, UC_HOOK_CODE, UC_HOOK_MEM_WRITE)
-    sm = fs.SnapMem(snap_dir, restore=orig)
+    sm = fs.SnapMem(snap_dir, restore=orig, image=image)
     call = load_recorded_call(snap_dir)
     gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
     if start is None:
@@ -817,14 +817,17 @@ def recorded_main(argv):
     ap.add_argument("--budget", type=int, default=INSTR_BUDGET)
     ap.add_argument("--out", default=None, help="trace directory: record the callees and deltas (needs --hooks)")
     ap.add_argument("--spec-dir", default=os.path.join(DIFF, "specs", "impure"))
+    ap.add_argument("--image", default=os.environ.get("PES_EXE"), help="the game image (flat pes_full.bin): required, the code the replay runs")
     a = ap.parse_args(argv)
+    if not a.image:
+        ap.error("--image or PES_EXE")
     if a.out and not a.hooks:
         ap.error("--out needs --hooks: every hook entry must run its original bytes in the trace")
     orig = hook_bytes(a.hooks) if a.hooks else None
     trace = None
     if a.out:
         trace = {"out": a.out, "impure": load_impure(a.spec_dir), "stubs": stubs_for_run(stub_table.load())}
-    uc, err = run_recorded(a.snap, orig=orig, budget=a.budget, trace=trace)
+    uc, err = run_recorded(a.snap, orig=orig, budget=a.budget, trace=trace, image=a.image)
     xmm0 = struct.unpack("<d", struct.pack("<Q", _xmm_int(uc, 0) & ((1 << 64) - 1)))[0]
     result = {"rax": hex(uc.reg_read(xc.UC_X86_REG_RAX)), "xmm0_lo_double": xmm0,
               "rip": hex(uc.reg_read(xc.UC_X86_REG_RIP)),
@@ -875,7 +878,7 @@ def main():
     cdelta = None  # the snapshot run's CallDelta; a capture run has none
     teb = teb_tid = None  # the snapshot's game TEB, set below
     if a.snapshot:
-        sm = fs.SnapMem(a.snapshot)
+        sm = fs.SnapMem(a.snapshot, image=a.image)
         uc, ret = rn.build_emu({"regions": {}}, a.image, [])
         lazy = LazyMap(sm, load_import_models())
         lazy.attach(uc)

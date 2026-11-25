@@ -20,7 +20,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness", "specs", "trapaction")
+SPEC_ROOT = os.path.join(REPO, "tools", "dev", "diffharness", "specs")
 RESULTS = os.path.join(HERE, "results_trapaction.json")
 
 
@@ -34,20 +34,23 @@ def main():
     ap.add_argument("--note", default="", help="added to the record's note")
     ap.add_argument("--merge", action="store_true")
     ap.add_argument("--native", action="store_true", help="snapdiff --native: also run each call on GF's native heap (links pes_native.cpp, which defines the gf-service stubs)")
+    ap.add_argument("--spec-set", default="trapaction", help="spec subdirectory of specs/ holding the root's spec (trapaction, proccam, ...)")
+    ap.add_argument("--results", default=RESULTS, help="the results file --merge writes (translate/results_<set>.json; gen reads each)")
     a = ap.parse_args()
     root = a.root.upper().replace("0X", "0x")
     image, hooks = os.environ["PES_EXE"], os.environ["RV_HOOKS"]
+    spec_dir = os.path.join(SPEC_ROOT, a.spec_set)
     os.makedirs(a.work, exist_ok=True)
     snaps = []
     for d in a.real + a.synth:
         trace = os.path.join(a.work, "tr_" + os.path.basename(d.rstrip("/")))
         subprocess.check_call([sys.executable, os.path.join(HERE, "frame_trace.py"), "recorded", d, "--hooks", hooks, "--out", trace,
-                               "--spec-dir", SPEC_DIR], stdout=subprocess.DEVNULL)
+                               "--spec-dir", spec_dir, "--image", image], stdout=subprocess.DEVNULL)
         snaps += ["--snapshot", "%s=%s" % (d, trace)]
     res = os.path.join(a.work, "res.json")
     out_dir = os.path.join(a.work, "build")
     native = ["--native"] if a.native else []
-    subprocess.call([sys.executable, os.path.join(HERE, "snapdiff.py"), "--image", image, "--out-dir", out_dir, "--spec-dir", SPEC_DIR,
+    subprocess.call([sys.executable, os.path.join(HERE, "snapdiff.py"), "--image", image, "--out-dir", out_dir, "--spec-dir", spec_dir,
                      *snaps, "--only", root, "--hooks", hooks, "--bounded", "--results", res, *native])
     raw = next((r for r in json.load(open(res))["results"] if r["va"].upper() == root.upper()), None)
     print("%s: proven=%s calls=%s replayed=%s excluded=%s mismatches=%s own_block=%s" % (
@@ -75,9 +78,9 @@ def main():
         json.dump({"note": "the functions the capture-bounded proof of %s entered (prove_bounded.py). VAs only." % root, "root": root,
                    "members": members}, f, indent=1)
         f.write("\n")
-    doc = json.load(open(RESULTS))
+    doc = json.load(open(a.results))
     doc["results"] = [r for r in doc["results"] if r["va"].upper() != root.upper()] + [rec]
-    with open(RESULTS, "w") as f:
+    with open(a.results, "w") as f:
         json.dump(doc, f, indent=1)
         f.write("\n")
 

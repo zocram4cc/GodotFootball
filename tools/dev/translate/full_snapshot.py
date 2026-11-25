@@ -290,6 +290,8 @@ class SnapMem:
 
     def __init__(self, snap_dir, restore=None, image=None):
         path = image if image is not None else os.environ.get("PES_EXE")
+        if path is None:
+            raise ValueError("SnapMem: no game image: pass image=PATH for a replay, image='' for data-only reads, or set PES_EXE")
         idx = json.load(open(os.path.join(snap_dir, "index.json")))
         self.index = idx
         self.maps = idx["mappings"]

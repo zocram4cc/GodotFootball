@@ -334,7 +334,7 @@ def run_one(va, args, pilot, pairs):
     res["translated"] = True
     for label, snap, out_s, corpus, tdir in runs:
         trans = os.path.join(out_s, "translated.jsonl")
-        teb = hex(ft.trace_teb(tdir, fs.SnapMem(snap)))  # the GS base of each run: the trace's TEB, or the snapshot's
+        teb = hex(ft.trace_teb(tdir, fs.SnapMem(snap, image=args.image)))  # the GS base of each run: the trace's TEB, or the snapshot's
         rc, out, err = drv.sh([bin_p, os.path.join(out_s, "ok_calls.bin"), os.path.join(snap, "mem.bin"),
                                os.path.join(out_s, "maps.txt"), trans, os.path.join(out_s, "ok_delta.bin"),
                                os.path.join(tdir, "pool", "pages.bin"), teb], timeout=args.timeout)
