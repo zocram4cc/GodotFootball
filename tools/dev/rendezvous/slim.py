@@ -102,9 +102,10 @@ def kept_pages(touched, size):
 
 
 def identity_reads(cap):
-    """File pages of cap's mem.bin that naming its modules reads: every mapping's first page (the 'MZ' scan), and each
-    PE's header and export tables. A replay that runs only a module's code never reads these, so a slim built from the
-    replay alone drops them, and the slimmed module names nothing."""
+    """File pages of cap's mem.bin that naming its modules reads: every mapping's first page (the 'MZ' scan), each PE's
+    header and export tables, and the page of each export entry (the import model that replaces the entry is mapped only
+    where that page exists). A replay that runs only a module's code never reads these, so a slim built from the replay
+    alone drops them, and the slimmed module names nothing or refuses its calls."""
     global _touch
     sm = fs.SnapMem(cap)
     touched = set()
