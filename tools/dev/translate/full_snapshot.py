@@ -186,6 +186,7 @@ def run_jobs(pid, out_fd, mappings, sel, chunk, threads, holes):
 
 
 IMAGE_BASE = 0x140000000  # the game image's load base; pes_full.bin's file offset is VA - IMAGE_BASE
+ARCHIVE_ENV = "GF_CAPTURE_ARCHIVE"  # env var naming the archive root that holds a slim capture's full copy
 
 
 def _data_extents(fd):
@@ -292,6 +293,8 @@ class SnapMem:
         path = image if image is not None else os.environ.get("PES_EXE")
         idx = json.load(open(os.path.join(snap_dir, "index.json")))
         self.index = idx
+        self.snap_dir = snap_dir
+        self.slim = idx.get("slim") or {}  # footprint slim's record: dropped ranges and the archived full copy
         self.maps = idx["mappings"]
         self.starts = [m["va"] for m in self.maps]
         self.fd = os.open(os.path.join(snap_dir, "mem.bin"), os.O_RDONLY)
@@ -339,6 +342,19 @@ class SnapMem:
         """True when va's page is mapped and not an index hole, but a slim capture dropped its bytes and no image serves them."""
         page = va & ~(PAGE - 1)
         return self.mapping_of(page) is not None and page not in self.holes and not self._captured_page(page) and not self._served(page)
+
+    def dropped_reason(self, va):
+        """The named refusal for a read of a page that footprint slim dropped (None for any other page). It names the
+        archived full copy and the command that restores it, so the replay that needs the page knows what to bring back."""
+        page = va & ~(PAGE - 1)
+        if not self.page_dropped(page):
+            return None
+        if not self.slim:
+            return "case excluded: page not captured at %#x" % page
+        rel = self.slim.get("full")
+        where = ("the full copy is $%s/%s" % (ARCHIVE_ENV, rel)) if rel else "no full copy was archived"
+        return ("case excluded: page %#x was dropped by footprint slim; %s; restore with: "
+                "python3 tools/dev/rendezvous/slim.py --restore %s" % (page, where, self.snap_dir))
 
     def page_ok(self, page):
         page &= ~(PAGE - 1)

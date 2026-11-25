@@ -190,8 +190,8 @@ class LazyMap:
         return False
 
     def unmapped_reason(self, addr):
-        """The named exclusion for an access to a page a slim capture dropped; None for any other page."""
-        return "case excluded: page not captured at %#x" % addr if self.sm.page_dropped(addr) else None
+        """The named exclusion for an access to a page a slim capture dropped (SnapMem.dropped_reason); None otherwise."""
+        return self.sm.dropped_reason(addr)
 
     def _counter(self, key):
         def count(uc, address, size, data):
@@ -802,13 +802,16 @@ def recorded_main(argv):
     ap.add_argument("--budget", type=int, default=INSTR_BUDGET)
     ap.add_argument("--out", default=None, help="trace directory: record the callees and deltas (needs --hooks)")
     ap.add_argument("--spec-dir", default=os.path.join(DIFF, "specs", "impure"))
+    ap.add_argument("--no-stubs", action="store_true",
+                    help="footprint: every callee runs PES's image bytes; GF stand-ins (stubs.json) are not installed")
     a = ap.parse_args(argv)
     if a.out and not a.hooks:
         ap.error("--out needs --hooks: every hook entry must run its original bytes in the trace")
     orig = hook_bytes(a.hooks) if a.hooks else None
     trace = None
     if a.out:
-        trace = {"out": a.out, "impure": load_impure(a.spec_dir), "stubs": stubs_for_run(stub_table.load())}
+        trace = {"out": a.out, "impure": load_impure(a.spec_dir),
+                 "stubs": stubs_for_run({} if a.no_stubs else stub_table.load())}
     uc, err = run_recorded(a.snap, orig=orig, budget=a.budget, trace=trace)
     xmm0 = struct.unpack("<d", struct.pack("<Q", _xmm_int(uc, 0) & ((1 << 64) - 1)))[0]
     result = {"rax": hex(uc.reg_read(xc.UC_X86_REG_RAX)), "xmm0_lo_double": xmm0,

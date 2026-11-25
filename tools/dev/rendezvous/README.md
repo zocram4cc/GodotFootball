@@ -56,14 +56,9 @@ Pauses take about 1-7 s each on a 4 GB process. The DLL releases the thread on i
 `TIMEOUT_MS` (60 s) if no watcher answers; the watcher aborts a read that passes its 60 s pause cap and
 releases the game at once.
 
-**Slim a capture** (after a replay has proven it): `python3 tools/dev/rendezvous/slim.py --hooks <run>/hooks.cfg --scratch SNAP_ROOT`
-(every seq dir of `SNAP_ROOT/live/` and `SNAP_ROOT/live2/` older than 10 minutes; or pass the seq dirs). It replays each capture's
-recorded call, logs every `mem.bin` page read, and rewrites `mem.bin` as a sparse file of the same size and offsets that
-keeps only those pages plus one page either side. The slim copy is replayed again and must read only kept pages and
-return byte-identical output before the full file is deleted; otherwise the full capture is restored and reported.
-Run it when a capture's hook has no open replay question. Caveat: the full file is deleted after verification, so a
-later replay that reads a page outside the kept set cannot run on that capture. Keep the replay's `--out` trace as the
-record of what the capture proved.
+**Slim a capture** (footprint): `GF_CAPTURE_ARCHIVE=<archive root> python3 tools/dev/rendezvous/slim.py --hooks <run>/hooks.cfg --scratch SNAP_ROOT` (every seq dir of `SNAP_ROOT/live/` and `SNAP_ROOT/live2/` older than 10 minutes; or pass the seq dirs). Per capture it replays the recorded call with the GF stand-ins off (`frame_trace.py recorded --no-stubs`): PES's own image code runs from the hook entry to its return, and every page of `mem.bin` it reads is kept, with the identity pages and one neighbour either side. The replay must return cleanly (an unmodelled import, a fault or the step cap keeps the capture full). The slim copy must read only kept pages and return byte-identical output. Then the full `mem.bin` is packed, copied to the archive and verified byte for byte, and the packed name becomes a link to the archived copy. Nothing is deleted. `index.json` `slim` lists every dropped range and the archive-relative path of the full copy. A replay that reads a dropped page is refused, and the refusal names that copy and `slim.py --restore <capture>`, which unpacks it back.
+
+**Keep set and expiry.** `auto_slim.py` never slims the first two in-play captures of each hook in a launch (in play: `MI+0x116C == 1`, cached in `index.json` as `in_play`), nor a hook or a `pidN/seqM` capture named in a keep file. `expire.py --live2 DIR --record 'GLOB' [--cited FILE] [--days 14]` lists the captures that no results record and no open lane cites and that are older than 14 days, with their bytes. It is a dry run and deletes nothing.
 
 **Pack a capture that must stay full** (cited, or slim refused) but that nothing reads now:
 `python3 tools/dev/rendezvous/capz.py pack DIR...` (a seq dir, or a pid dir for all of its captures). `mem.bin` becomes

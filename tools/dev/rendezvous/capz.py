@@ -79,9 +79,13 @@ LOCK_NAME = ".capz.lock"
 
 
 def locked(op, d):
-    with open(os.path.join(d, LOCK_NAME), "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    # Read-only open: a lock file that a root packer left (root:root 644) must still lock for a user.
+    fd = os.open(os.path.join(d, LOCK_NAME), os.O_RDONLY | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
         return op(d)
+    finally:
+        os.close(fd)
 
 
 def main():

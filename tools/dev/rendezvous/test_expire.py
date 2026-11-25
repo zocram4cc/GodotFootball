@@ -23,8 +23,9 @@ class DryRun(unittest.TestCase):
         self.live2 = os.path.join(self.root, "live2")
         self.now = time.time()
         # launch, seq, age in days
-        for launch, seq, age in (("pid1", "seq1", 20), ("pid1", "seq2", 20), ("pid2", "seq1", 20),
-                                 ("pid3", "seq1", 3), ("pid4", "seq1", 20), ("pid5", "seq1", 20)):
+        self.captures = (("pid1", "seq1", 20), ("pid1", "seq2", 20), ("pid2", "seq1", 20),
+                         ("pid3", "seq1", 3), ("pid4", "seq1", 20), ("pid5", "seq1", 20))
+        for launch, seq, age in self.captures:
             d = os.path.join(self.live2, launch, seq)
             os.makedirs(d)
             with open(os.path.join(d, "mem.bin"), "wb") as f:
@@ -33,6 +34,8 @@ class DryRun(unittest.TestCase):
         self.records = ["proof on live2/pid1/seq2 and the launch live2/pid2, bit-exact"]
         self.cited = os.path.join(self.root, "cited.txt")
         open(self.cited, "w").write("# open lane\npid4/seq1\n")
+        self.record_file = os.path.join(self.root, "results_x.json")
+        open(self.record_file, "w").write(self.records[0])
 
     def test_lists_old_uncited_captures_only(self):
         got = expire.plan(self.live2, self.records, expire.read_cited([self.cited]), 14, self.now)
@@ -45,10 +48,10 @@ class DryRun(unittest.TestCase):
     def test_deletes_nothing(self):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            expire.main(["--live2", self.live2, "--cited", self.cited, "--days", "14"])
+            expire.main(["--live2", self.live2, "--record", self.record_file, "--cited", self.cited, "--days", "14"])
         self.assertIn("dry run", out.getvalue())
-        for launch, seq in (("pid1", "seq1"), ("pid1", "seq2"), ("pid2", "seq1"), ("pid3", "seq1"),
-                            ("pid4", "seq1"), ("pid5", "seq1")):
+        self.assertIn("pid5/seq1", out.getvalue())
+        for launch, seq, _ in self.captures:
             self.assertTrue(os.path.exists(os.path.join(self.live2, launch, seq, "mem.bin")))
 
 
