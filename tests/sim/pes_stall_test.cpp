@@ -747,6 +747,11 @@ TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
   std::sort(census.liveEpisodes.rbegin(), census.liveEpisodes.rend());
   std::string episodes;
   for (std::size_t i = 0; i < census.liveEpisodes.size() && i < 25; ++i) episodes += "\n    " + std::to_string(census.liveEpisodes[i].first) + " ticks from " + census.liveEpisodes[i].second;
+  // Printed on every run, pass or fail: the ratchet's number is the measurement every landing is judged by, so it is logged even
+  // when it holds (a pass that printed nothing left lanes unable to say how much headroom a change used).
+  std::printf("ALIVEBALL liveFirings=%ld episodes=%zu seriesFrozen=%ld duringFreeze=%ld bound=%ld\n", static_cast<long>(census.liveFirings),
+              census.liveEpisodes.size(), static_cast<long>(census.liveFiringsSeriesFrozen), static_cast<long>(census.liveFiringsDuringFreeze),
+              kBestMeasuredLiveFirings);
   EXPECT_LE(census.liveFirings, kBestMeasuredLiveFirings) << "the breaker forced a live ball for " << census.liveFirings << " ticks in " << census.liveEpisodes.size() << " episodes the series freeze does not explain (longest:" << episodes << "); " << census.liveFiringsSeriesFrozen
                                    << " of them on a PES dribbler whose body sat on the last frame of a clip with a series held (the series freeze), " << census.liveFiringsDuringFreeze
                                    << " more while another PES dribbler had been frozen so for a second; the rest, by the forced man:" << [&] {

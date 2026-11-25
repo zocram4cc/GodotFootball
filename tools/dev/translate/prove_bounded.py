@@ -70,7 +70,14 @@ def main():
     if a.synth:
         rec["synthetic"] = True
         rec["synthetic_cases"] = len(a.synth)
-    members = sorted(m for m in json.load(open(os.path.join(out_dir, "gen", root[2:], "members.json"))) if m.upper() != root.upper())
+    # Native services are served by pes_native.cpp in the layer (gen_dispatch refuses a VA that is both); under --native the
+    # replay ran them natively too (snapdiff drops them from the translated set and compares that run), so the proof covers
+    # the layer as dispatched and they are not closure members.
+    sys.path.insert(0, HERE)
+    import gen_dispatch
+    natives = {v.upper() for v in gen_dispatch.natives()}
+    members = sorted(m for m in json.load(open(os.path.join(out_dir, "gen", root[2:], "members.json")))
+                     if m.upper() != root.upper() and m.upper() not in natives)
     with open(os.path.join(HERE, "closure_%s.json" % a.tag), "w") as f:
         json.dump({"note": "the functions the capture-bounded proof of %s entered (prove_bounded.py). VAs only." % root, "root": root,
                    "members": members}, f, indent=1)
