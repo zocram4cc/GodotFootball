@@ -5,6 +5,7 @@
    "aborted": 0,
    "capped": 0,
    "cases": 126,
+   "corpus": "bank",
    "coverage": {
     "0x1403815F0": {
      "fraction": 0.0,
@@ -707,7 +708,6 @@
     "0x1415A1780"
    ],
    "translated": true,
-   "corpus": "bank",
    "va": "0x1404386D0"
   },
   {
@@ -730,6 +730,11 @@
      "reached": 0,
      "total": 15
     },
+    "0x1403FB4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 18
+    },
     "0x1403FB5B0": {
      "fraction": 0.0,
      "reached": 0,
@@ -750,16 +755,6 @@
      "reached": 0,
      "total": 5
     },
-    "0x1403FF430": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 4
-    },
-    "0x1403FF490": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 4
-    },
     "0x14041B930": {
      "fraction": 0.0,
      "reached": 0,
@@ -773,12 +768,12 @@
     "0x1404362D0": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 572
+     "total": 63
     },
     "0x140436820": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 510
+     "total": 366
     },
     "0x140437E70": {
      "fraction": 0.0,
@@ -788,7 +783,7 @@
     "0x1404386D0": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 238
+     "total": 142
     },
     "0x140438F10": {
      "fraction": 0.0,
@@ -848,7 +843,7 @@
     "0x14043A350": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 67
+     "total": 28
     },
     "0x14043A540": {
      "fraction": 0.0,
@@ -878,12 +873,12 @@
     "0x14043B9D0": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 152
+     "total": 49
     },
     "0x14043BE10": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 103
+     "total": 100
     },
     "0x14043C410": {
      "fraction": 0.0,
@@ -898,7 +893,7 @@
     "0x14043C460": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 47
+     "total": 35
     },
     "0x14043C690": {
      "fraction": 0.0,
@@ -933,7 +928,7 @@
     "0x14043DBA0": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 56
+     "total": 31
     },
     "0x14043DD70": {
      "fraction": 0.0,
@@ -1058,7 +1053,7 @@
     "0x140A3C070": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 5
+     "total": 3
     },
     "0x140A3C8F0": {
      "fraction": 0.0,
@@ -1094,6 +1089,11 @@
      "fraction": 0.0,
      "reached": 0,
      "total": 9
+    },
+    "0x140A3E840": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
     },
     "0x140A3E880": {
      "fraction": 0.0,
@@ -1163,7 +1163,7 @@
     "0x140A52310": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 256
+     "total": 248
     },
     "0x140A53F90": {
      "fraction": 0.0,
@@ -1213,7 +1213,7 @@
     "0x140A55D40": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 46
+     "total": 15
     },
     "0x140A57040": {
      "fraction": 0.0,
@@ -1258,7 +1258,12 @@
     "0x140A59AF0": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 27
+     "total": 5
+    },
+    "0x140A59B20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
     },
     "0x140A60300": {
      "fraction": 0.0,
@@ -1349,11 +1354,6 @@
      "fraction": 0.0,
      "reached": 0,
      "total": 28
-    },
-    "0x140A6BD00": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 9
     },
     "0x140A6BD60": {
      "fraction": 0.0,
@@ -1488,82 +1488,12 @@
     "0x1415A1708": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 88
-    },
-    "0x1415A1720": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 84
-    },
-    "0x1415A17F2": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 49
-    },
-    "0x1415A1938": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 23
-    },
-    "0x1415A1A68": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 2
-    },
-    "0x1415A1BB0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 15
-    },
-    "0x1415A1E4C": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x1415A1EF4": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x1415A1F2C": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 7
-    },
-    "0x1415A1F54": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 7
-    },
-    "0x1415A1F7C": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 7
-    },
-    "0x1415A1FA4": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 8
-    },
-    "0x1415A204C": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 9
-    },
-    "0x1415A20A4": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 11
-    },
-    "0x1415A2100": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
+     "total": 87
     },
     "0x141B52380": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 8
+     "total": 3
     },
     "0x141B55730": {
      "fraction": 0.0,
@@ -1573,7 +1503,12 @@
     "0x141B55850": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 20
+     "total": 14
+    },
+    "0x141B558F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
     },
     "0x141B55F40": {
      "fraction": 0.0,
@@ -1605,11 +1540,6 @@
      "reached": 0,
      "total": 1
     },
-    "0x141FED090": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
     "0x14213E2F0": {
      "fraction": 0.0,
      "reached": 0,
@@ -1619,11 +1549,6 @@
      "fraction": 0.0,
      "reached": 0,
      "total": 1
-    },
-    "0x142293C38": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 15
     },
     "0x1423E7FD0": {
      "fraction": 0.0,
@@ -1640,8 +1565,38 @@
    "note": "128 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.07; 128 valid of 64 requested",
    "requested": 64,
    "stubs": [
+    "0x1403FC080",
     "0x14159F3E0",
-    "0x1415A1780"
+    "0x14159F918",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C",
+    "0x1415A2FD0",
+    "0x1415A6CA8",
+    "0x1415A6CBC",
+    "0x1415A70B4",
+    "0x1415A71B8",
+    "0x1415A734C",
+    "0x141957C50",
+    "0x141AEB7C0",
+    "0x143DFA780",
+    "0x143DFCCE0",
+    "0x143E98DA0",
+    "0x1444C7960",
+    "0x1444CE440"
    ],
    "translated": true,
    "va": "0x1404405D0"
@@ -2220,7 +2175,7 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 35,
+   "cases": 78,
    "coverage": {
     "0x14042D470": {
      "fraction": 0.0,
@@ -2285,7 +2240,7 @@
     "0x1404F0E50": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 1004
+     "total": 998
     },
     "0x1404F4AB0": {
      "fraction": 0.0,
@@ -2303,8 +2258,8 @@
      "total": 2
     },
     "0x1404FB2A0": {
-     "fraction": 0.3125,
-     "reached": 5,
+     "fraction": 0.375,
+     "reached": 6,
      "total": 16
     },
     "0x1404FB380": {
@@ -2317,25 +2272,10 @@
      "reached": 0,
      "total": 68
     },
-    "0x1408C6430": {
+    "0x140A3AEE0": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 6
-    },
-    "0x1408C7290": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x1408C8F50": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 4
-    },
-    "0x1408CA920": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 10
+     "total": 9
     },
     "0x140A3B320": {
      "fraction": 0.0,
@@ -2351,6 +2291,11 @@
      "fraction": 0.0,
      "reached": 0,
      "total": 4
+    },
+    "0x140A3D4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
     },
     "0x140A3E190": {
      "fraction": 0.0,
@@ -2377,25 +2322,10 @@
      "reached": 0,
      "total": 1
     },
-    "0x140A3E8A0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
     "0x140A3E900": {
      "fraction": 0.0,
      "reached": 0,
      "total": 5
-    },
-    "0x140A41080": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 2
-    },
-    "0x140A426F0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
     },
     "0x140A431E0": {
      "fraction": 0.0,
@@ -2440,7 +2370,7 @@
     "0x140A55D40": {
      "fraction": 0.0,
      "reached": 0,
-     "total": 46
+     "total": 15
     },
     "0x140A57450": {
      "fraction": 0.0,
@@ -2506,6 +2436,11 @@
      "fraction": 0.0,
      "reached": 0,
      "total": 6
+    },
+    "0x140A62F20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
     },
     "0x140A62FE0": {
      "fraction": 0.0,
@@ -2617,11 +2552,6 @@
      "reached": 0,
      "total": 3
     },
-    "0x140A7A890": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 22
-    },
     "0x140A8F7C0": {
      "fraction": 0.0,
      "reached": 0,
@@ -2690,14 +2620,45 @@
    },
    "dead_blocks": {},
    "diffed": true,
-   "failed": 47,
+   "failed": 1,
    "failure_class": null,
    "icount_max": 25,
    "nonreturn": 0,
-   "note": "35 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.31; 35 valid of 64 requested; 47 failed skipped",
+   "note": "78 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.38; 78 valid of 64 requested; 1 failed skipped",
    "requested": 64,
    "stubs": [
-    "0x1415A1780"
+    "0x1403FC080",
+    "0x14159F3E0",
+    "0x14159F918",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C",
+    "0x1415A2FD0",
+    "0x1415A6CA8",
+    "0x1415A6CBC",
+    "0x1415A70B4",
+    "0x1415A71B8",
+    "0x1415A734C",
+    "0x141957C50",
+    "0x141AEB7C0",
+    "0x143DFA780",
+    "0x143DFCCE0",
+    "0x143E98DA0",
+    "0x1444C7960",
+    "0x1444CE440"
    ],
    "translated": true,
    "va": "0x1404FB2A0"
@@ -2738,8 +2699,8 @@
      "total": 8
     },
     "0x1404F4AE0": {
-     "fraction": 0.5,
-     "reached": 6,
+     "fraction": 0.3333,
+     "reached": 4,
      "total": 12
     },
     "0x1404F4BE0": {
@@ -2748,9 +2709,9 @@
      "total": 90
     },
     "0x1404FE9C0": {
-     "fraction": 0.2045,
-     "reached": 45,
-     "total": 220
+     "fraction": 0.5465,
+     "reached": 47,
+     "total": 86
     },
     "0x140A3B320": {
      "fraction": 0.8,
@@ -2758,8 +2719,8 @@
      "total": 10
     },
     "0x140A3C950": {
-     "fraction": 1.0,
-     "reached": 4,
+     "fraction": 0.75,
+     "reached": 3,
      "total": 4
     },
     "0x140A3E190": {
@@ -2847,6 +2808,11 @@
      "reached": 2,
      "total": 6
     },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
     "0x140A6E340": {
      "fraction": 0.0,
      "reached": 0,
@@ -2878,18 +2844,47 @@
      "total": 1
     }
    },
-   "dead_blocks": {
-    "0x1404FEDB7": "int3 padding"
-   },
+   "dead_blocks": {},
    "diffed": true,
    "failed": 0,
    "failure_class": null,
-   "icount_max": 347,
+   "icount_max": 275,
    "nonreturn": 0,
-   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.20; 128 valid of 64 requested",
+   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.55; 128 valid of 64 requested",
    "requested": 64,
    "stubs": [
-    "0x1415A1780"
+    "0x1403FC080",
+    "0x14159F3E0",
+    "0x14159F918",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C",
+    "0x1415A2FD0",
+    "0x1415A6CA8",
+    "0x1415A6CBC",
+    "0x1415A70B4",
+    "0x1415A71B8",
+    "0x1415A734C",
+    "0x141957C50",
+    "0x141AEB7C0",
+    "0x143DFA780",
+    "0x143DFCCE0",
+    "0x143E98DA0",
+    "0x1444C7960",
+    "0x1444CE440"
    ],
    "translated": true,
    "va": "0x1404FE9C0"
@@ -5269,6 +5264,16 @@
      "reached": 6,
      "total": 11
     },
+    "0x140A3AEE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3D4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
     "0x140A3E7D0": {
      "fraction": 0.0,
      "reached": 0,
@@ -5319,6 +5324,11 @@
      "reached": 0,
      "total": 1
     },
+    "0x140A62F20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
     "0x140A62FE0": {
      "fraction": 0.0,
      "reached": 0,
@@ -5343,7 +5353,40 @@
    "nonreturn": 0,
    "note": "70 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.55; 70 valid of 64 requested",
    "requested": 64,
-   "stubs": [],
+   "stubs": [
+    "0x1403FC080",
+    "0x14159F3E0",
+    "0x14159F918",
+    "0x14159FB70",
+    "0x14159FCCC",
+    "0x1415A01DC",
+    "0x1415A1714",
+    "0x1415A1780",
+    "0x1415A178C",
+    "0x1415A1792",
+    "0x1415A1798",
+    "0x1415A179E",
+    "0x1415A17A4",
+    "0x1415A17AA",
+    "0x1415A17C8",
+    "0x1415A17CE",
+    "0x1415A17D4",
+    "0x1415A1876",
+    "0x1415A187C",
+    "0x1415A2FD0",
+    "0x1415A6CA8",
+    "0x1415A6CBC",
+    "0x1415A70B4",
+    "0x1415A71B8",
+    "0x1415A734C",
+    "0x141957C50",
+    "0x141AEB7C0",
+    "0x143DFA780",
+    "0x143DFCCE0",
+    "0x143E98DA0",
+    "0x1444C7960",
+    "0x1444CE440"
+   ],
    "translated": true,
    "va": "0x14057BA50"
   },
