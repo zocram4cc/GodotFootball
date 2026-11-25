@@ -1210,13 +1210,14 @@ PesBodyScanOut PesWorld::RunBodyScan(int slot, PesTrapExternals& ext) {
 }
 
 PesWorld::AdjusterFrame PesWorld::ReadAdjusterFrame(int slot) {
-  // The tick's outputs in B (FUN_1406EEDF0 wrote them after the adjusters stepped): the strike valid byte B+0x81 and the root step B+0x90
-  // (x, y, z), the yaw valid byte B+0x82 with the absolute yaw's direction (sin at B+0xA4, cos at B+0xAC), or in the flag (rate) mode the
+  // The tick's outputs in B (FUN_1406EEDF0 wrote them after the adjusters stepped): the strike valid byte B+0x81 and the root point B+0x90
+  // (x) and B+0x98 (z). The composer (FUN_141AFD400) copies that point into the layer's root translation while B+0x81 is set, so the root
+  // point is read here, not from the layer (WL9 handoff: the layer root O2+0xD0 already equals B+0x90 on all 560 strike rows).
+  // The yaw valid byte B+0x82 with the absolute yaw's direction (sin at B+0xA4, cos at B+0xAC), or in the flag (rate) mode the
   // valid byte B+0xB8 and the rate B+0xBC (radians this tick).
   PesState st = MemoryCall();
   const uint64_t a = LoadU64(P(slot), kPScalePtrOffset);
   const uint64_t b = st.rd(a + kPhysiqueNextOffset, 8);
-  const uint64_t o2 = st.rd(a + kAChildO2Offset, 8);
   const auto f32 = [&st](uint64_t va) {
     const uint32_t bits = static_cast<uint32_t>(st.rd(va, 4));
     float f;
@@ -1224,12 +1225,9 @@ PesWorld::AdjusterFrame PesWorld::ReadAdjusterFrame(int slot) {
     return f;
   };
   AdjusterFrame frame;
-  frame.strikeMoved = (st.rd(b + kBStrikeValidOffset, 1) & 0xFFu) != 0;
-  if (frame.strikeMoved) {
-    // The root point was the step's start (O2+0xD0): the displacement is the step minus it.
-    frame.x = f32(b + kBStepOffset) - f32(o2 + kO2PointOffset);
-    frame.z = f32(b + kBStepOffset + 8) - f32(o2 + kO2PointOffset + 8);
-  }
+  frame.strikeValid = (st.rd(b + kBStrikeValidOffset, 1) & 0xFFu) != 0;
+  frame.rootX = f32(b + kBStepOffset);
+  frame.rootZ = f32(b + kBStepOffset + 8);
   frame.yawIsRate = P(slot)[kPYawAdjusterOffset + kAdjYawFlagOffset] != 0;
   if (frame.yawIsRate) {
     frame.yawStepped = (st.rd(b + kBYawRateValidOffset, 1) & 0xFFu) != 0;
