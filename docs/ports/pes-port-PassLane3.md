@@ -70,3 +70,56 @@ The old comment said the prediction samples 1..249 "stay zero until the ball por
 ## Next step
 
 Main arms `ringcaller_142106110` at the next relaunch. Then decode the writer's selector `FUN_140A75C40` and the `E+4` point source from the new captures; port the writer with its caller's branch, red-first on `ThePassGetAimIsTheBallWhileTheBallRests`.
+
+## 6. Run 5 (Main's IRC ask): 0x142106110 proven on its real calls; the aim chain decoded (CONFIRMED unless marked)
+
+Captures: `live2/pid2108145`, the 24 `ringcaller_142106110` calls (seq118, 1751, 1752, 2164-2173, 3425-3435). The hook in the launch's config (`<workdrive>/PES21/rendezvous/hooks.cfg`, copied to scratch as `hooks_2108145.cfg`) is `EVERY 20`, not the `EVERY 1` I asked for; the bytes are the same 14 bytes. Main's relaunch made the sampling; 24 real calls came out of it.
+
+### 6.1 Proof (M5)
+- Each capture copied out of live2 under its `.capz.lock`, unpacked, slimmed with `slim.py --min-age 0` (rc 0 for all 24: slim's verified replay). My own first check of slim's output was wrong (apparent size vs allocated size), so its `SLIM FAIL` lines are a false alarm; the rc was 0 throughout. The copies were deleted after the decode.
+- `prove_bounded.py 0x142106110 ... --tag passlane3_root --real <24> --merge`: `calls=24 replayed=24 mismatches=0 excluded=0 proven=True`, own block 67 of 108 (62%).
+- Records: `results_trapaction.json` +1 row (0x142106110); `closure_passlane3_root.json`: 36 members (the writer 0x140A76440 among them, already recorded; the selector 0x140A75C40; the event builder 0x1421066D0; the R+0x894 accessor 0x140A76240; the ball accessor 0x140A6CF70; the thunks 0x140A48910/0x140A48A10 and others).
+- Layer: 0x142106110 moves `closure/` -> `gameplay/` (recorded). 11191 functions, 4163 recorded, 7028 closure.
+
+### 6.2 Decode of the root's event and the writer's branch (from the 24 real replays)
+Method: `decode_root.py` (scratch, not committed) replays each slim copy the way slim.py verifies it, with an on_code hook that reads the registers and memory at each entry: root (R = r8, E0 = rdx), `FUN_1421066D0` (its out vec3, on return), writer 0x140A76440 (E = rdx, O = rcx, the root's R-fields), selector 0x140A75C40 (AL on return). Output: `decode_root_keep.jsonl` (scratch).
+
+Root arguments (decompile `dec_root.txt`, CONFIRMED by the replay): rcx unused (the root reads the G global `_DAT_1436F3DC8`), rdx = `E0` (the caller's event; E0+4 = slot id, observed 8, 9, 13, 14, 19, 22), r8 = `R` (state; `R+0x878` = 2 or 3 in 24/24; `R+0x195D` and `R+0xE30` vary), r9 = `O` (the ring record the writer updates).
+
+Event `E` the root builds for the writer (the writer's `rdx`), per field:
+- `E+0x00` actor pointer: `FUN_140A48910(G)` (decompile; not checked against the replay).
+- `E+0x08` = `M` (the man's table entry): `FUN_140A48A10(G, E0+4)` (decompile). Observed `M` is a heap pointer in all 24 (CONFIRMED that E+8 is set; the value equals the table lookup by the decompile).
+- `E+0x10` slot id (`E0+4`) (decompile).
+- `E+0x14` vec3 = the out vector of `FUN_1421066D0(&out, E0)`: **CONFIRMED 24/24 bit-exact** (replay: the vec3 returned by `FUN_1421066D0` equals the writer's `E+0x14`).
+- `E+0x20` vec3 = **`R+0x894` (the PASS_GET aim cell): CONFIRMED 24/24 bit-exact** (the three floats equal in every call). This is the E+4 point of PassLane2 (the writer's `param_2+4`, byte 0x20): the decompile's `puVar11 = param_3 + 0x894` assignment (the `LAB_14210642e` arm) is the one that writes it; the arm choice itself is INF from equality, not traced per branch.
+- Flags (CONFIRMED 24/24 by the replay; the mapping from the root's decompile):
+  - `E+0x2D` = NOT `R+0xE30` (16 calls with `R+0xE30 == 1` and `E+0x2D == 0`; 8 with `R+0xE30 == 0` and `E+0x2D == 1`).
+  - `E+0x2E` = 0 in 24/24 (the root's `cVar7 & (R+0x195D == 0)`; `R+0x195D` was 0 in 22 calls, 1 in 2).
+  - `E+0x2F` = `R+0x195D` (2 calls with 1, both with `E+0x2F == 1`).
+  - `E+0x30` = 0 in 24/24.
+
+### 6.3 The writer's branch for these calls (CONFIRMED)
+- `E+0x2E == 0` in all 24, so the writer takes the `E+0x20` point (the aim `R+0x894`) for `O+8` (PassLane2 section 1: `O+8` from `E+4` when `E+0x2E == 0 || E+0x2F != 0`). That is why the writer's point equals the PASS_GET aim on this path. Post-state equality is not checked here; the proof checks every written byte bit-exact.
+- The selector `FUN_140A75C40` returns **AL = 0 at its return in 24/24** (CONFIRMED value). Which `return` leaf gives 0 is INF: the decompile has `return false` at `fVar14 <= fVar9`; the other leaves are 1, 2, 3 (`E+0x30 != 0`) and 4. Not traced per leaf.
+- `O` before the writer (pre-state, observed): `O+4` count 0 (1 call), 2 (20), 3 (2), 10 (1). PassLane2's ring rule holds: the aim is written into `O`, and the writer's own count update is in the proof.
+
+### 6.4 Undecoded (OPEN)
+- `FUN_140A6C6D0` (the vector `FUN_1421066D0` builds from `M`): not decoded; so `E+0x14`'s meaning (the man's movement?) is INF.
+- `FUN_140A75C40`'s leaves and its input meaning: its value is observed (0), its branch is not.
+- `R+0x878` (2 or 3 in these calls; the root's `iVar1`): its meaning is not decoded; the `iVar1 == 0` default path (`E+0x20 = M+0x55C`) was NOT taken in any of the 24, so the aim path is the observed one.
+- The writer's 44 unexercised own blocks (section 1) are still unexercised after this proof's 67/108 root blocks; the writer's own coverage did not change.
+
+### 6.5 Port status
+Nothing ported. The layer now holds the root and the writer as recorded (bit-exact on 24 real calls each), so the per-man wiring (PressLane12) can call `0x142106110` through the translated path once its inputs (E0, R, O) are wired.
+
+### 6.6 Checks
+- `gen_translated.py --check` (on the committed tree, 5403c2ee9): `11191 functions (4163 recorded bit-exact, 7028 closure) regenerate byte-identical`, rc 0 (1258 s). The first check (before the commit) reported `untracked gameplay/pes_fn_142106110.cpp` (rc 1): a commit-state drift, not content; fixed by committing the regenerated layer.
+- PII: `tools/check_pii.sh` from `<workdrive>/GodotFootball`: rc 0.
+- Pushed `PassLane` = `5403c2ee9` (ls-remote confirmed; fast-forward on `2204859c6`).
+- No C++ build, no gate, no smoke, no ALiveBall/PesStallQuick (no behaviour change).
+- Rig requests: 0 (captures only).
+- Scratch: slim copies (cap2) and the decoder's temp dirs deleted; `decode_root_keep.jsonl`, `decode_root.py`, `dec_root.txt`, `dec_1421066d0.txt` kept in `<workdrive>/gf-PassLane-scratch` (3 MB).
+
+### 6.7 Next
+1. Decode `FUN_140A6C6D0` and the selector's leaf (`return 0`): which input makes the writer's arm 0 (INF now).
+2. The PassLane2 step 4 port: writer + root, red-first on `ThePassGetAimIsTheBallWhileTheBallRests`, once PressLane12's wiring calls the root.
