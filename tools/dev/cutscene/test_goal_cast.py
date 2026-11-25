@@ -2,7 +2,8 @@
 """test_goal_cast.py: the goal scene's cast map (src/pes/goal_cast.hpp) against the proc_camera captures of PES goals.
 
 For every capture of GF_CAST_SEQS (path list, ':' separated; each a proc_camera_141F7BFE0 capture dir under the rendezvous
-live2 tree) it unpacks the capture (capz.py), reads the FixDemo player's human map and the scene manager's cast list, checks
+live2 tree) it unpacks the capture (capz.py; an archived slim capture is refused, so restore it first with
+`slim.py --restore`), reads the FixDemo player's human map and the scene manager's cast list, checks
 
   * the cast entry of fdc slot 21 (id 0x1315), when the list holds it, is (side = scorer side ^ 1, roster slot 0), the
     scorer's side being that of entry 0x1300;

@@ -132,7 +132,8 @@ itself), so a script that flocks them directly still counts. It bypasses the que
 ## Synthetic states: `translate/synth.py`
 
 `synth.py SRC OUT --spec SPEC.json [--hooks CFG]` writes SYNTHETIC states of one full rendezvous capture (unpack it first with
-`rendezvous/capz.py unpack`) in the layout `frame_trace.py recorded` and `snapdiff.py --bounded` replay: one directory per case,
+`rendezvous/capz.py unpack`; an archived slim capture is restored only with `rendezvous/slim.py --restore`) in the layout
+`frame_trace.py recorded` and `snapdiff.py --bounded` replay: one directory per case,
 each with `index.json` (its `synthetic` key says SYNTHETIC and records every chosen value and address), `call.bin` and `mem.bin`.
 The same spec and seed write the same bytes. The spec is documented in the module docstring. In short:
 

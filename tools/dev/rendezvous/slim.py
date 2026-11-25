@@ -246,14 +246,12 @@ def trim(cap, hooks, spec_dir, work, archive):
 
 
 def restore(cap):
-    """Bring a slimmed capture's full copy back: unpack it through the archive link into mem.bin, then drop the slim
-    record. -> 'unpacked' or 'skip' (already full)."""
+    """Explicit restore of a slim capture's archived full copy: mem.bin becomes the archived copy, the archive link goes
+    and the slim record is dropped (the archived copy stays). Refuses a capture with no archived copy (capz.Refused)."""
     index_path = os.path.join(cap, "index.json")
     with open(index_path) as f:
         index = json.load(f)
-    status = capz.locked(capz.unpack, cap)
-    if status == "skip" and "slim" in index:
-        raise SystemExit("%s: no packed full copy to restore from (mem.bin.zst)" % cap)
+    status = capz.locked(capz.restore, cap)
     if "slim" in index:
         del index["slim"]
         write_atomic(index_path, json.dumps(index))
@@ -289,9 +287,14 @@ def main():
     ap.add_argument("--restore", action="store_true", help="restore the named captures' full copies")
     args = ap.parse_args()
     if args.restore:
+        refused = False
         for cap in args.captures:
-            print(os.path.basename(cap.rstrip("/")), capz.locked(lambda d: restore(d), cap), flush=True)
-        return
+            try:
+                print(os.path.basename(cap.rstrip("/")), restore(cap), flush=True)
+            except capz.Refused as e:
+                print(os.path.basename(cap.rstrip("/")), "refused:", e, file=sys.stderr, flush=True)
+                refused = True
+        sys.exit(1 if refused else 0)
     if not args.hooks:
         ap.error("--hooks is required to slim")
     if not args.archive:
