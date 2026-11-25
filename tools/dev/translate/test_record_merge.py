@@ -28,6 +28,10 @@ def rows_of(path):
     with open(path) as f:
         return {r["va"]: r for r in json.load(f)["results"]}
 
+def vas_of(path):
+    with open(path) as f:
+        return [r["va"] for r in json.load(f)["results"]]
+
 
 class RecordMerge(unittest.TestCase):
     def setUp(self):
@@ -43,7 +47,7 @@ class RecordMerge(unittest.TestCase):
         self.record = os.path.join(self.dir, "results_test.json")
         # the committed record: 0x1000 (attempted by the run, stale verdict), 0x2000 (attempted by the run, not
         # recorded elsewhere), 0x3000 (not in the spec dir: a row no run of this spec dir attempts)
-        self.write_record([row("0x1000", False), row("0x2000", True), row("0x3000", True)])
+        self.write_record([row("0x3000", True), row("0x1000", False), row("0x2000", True)])
         self.env = mock.patch.dict(os.environ, {"GF_DIFF_CACHE": os.path.join(self.dir, "cache")})
         self.env.start()
         self.addCleanup(self.env.stop)
@@ -67,6 +71,7 @@ class RecordMerge(unittest.TestCase):
         self.assertEqual(self.run_driver(["--only", "0x1000"], {"0x1000": True}), 0)
         got = rows_of(self.record)
         self.assertEqual(sorted(got), ["0x1000", "0x2000", "0x3000"])
+        self.assertEqual(vas_of(self.record), ["0x3000", "0x1000", "0x2000"])  # the record keeps its row order
         self.assertTrue(got["0x1000"]["diffed"])  # attempted: the new verdict
         self.assertEqual(got["0x2000"], row("0x2000", True))  # not attempted: kept as it was
         self.assertEqual(got["0x3000"], row("0x3000", True))

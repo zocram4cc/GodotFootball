@@ -143,11 +143,12 @@ def recorded_elsewhere(record):
 
 
 def merged_record(existing, results):
-    """The rows a --record file holds after a run: every existing row the run did not attempt, plus the run's rows (an
-    attempted VA's row is replaced). Sorted by VA. A subset run (--only, --exclude-recorded) owns only its own VAs."""
-    attempted = {r["va"].upper() for r in results}
-    kept = [r for r in existing if r["va"].upper() not in attempted]
-    return sorted(kept + results, key=lambda r: r["va"])
+    """The rows a --record file holds after a run: every existing row in its place, an attempted VA's row replaced by the
+    run's row, and the run's VAs the file lacks appended in run order. A subset run (--only, --exclude-recorded) owns only
+    its own VAs, so every other row keeps its position and bytes."""
+    new = {r["va"].upper(): r for r in results}
+    out = [new.pop(r["va"].upper(), r) for r in existing]
+    return out + list(new.values())
 
 
 def asm_for(asm_dir, va):
