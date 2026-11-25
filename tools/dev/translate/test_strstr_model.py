@@ -345,6 +345,15 @@ class StartupOsModels(unittest.TestCase):
         self.assertEqual(raw[2 * n:2 * n + 2], b"\x00\x00")
         self.assertEqual(raw[2 * n + 2:], b"\xAB" * (0x40 - 2 * n - 2))
 
+    def test_current_directory_length_query_writes_nothing_and_returns_the_required_size(self):
+        # PES asks for the length first: GetCurrentDirectoryW(0, NULL) returns the required size with the terminator (4 for "C:\"),
+        # and a buffer smaller than that is never written (Win32 contract). The model stored through rdx = NULL before this fix.
+        mu = self.run_model(("kernel32.dll", "GetCurrentDirectoryW"), 0, 0)
+        self.assertEqual(mu.reg_read(UC_X86_REG_RAX), 4)
+        mu = self.run_model(("kernel32.dll", "GetCurrentDirectoryW"), 2, DATA + 0x100)
+        self.assertEqual(mu.reg_read(UC_X86_REG_RAX), 4)
+        self.assertEqual(bytes(mu.mem_read(DATA + 0x100, 0x10)), b"\xAB" * 0x10)
+
 
 class WideCharToMultiByteModel(unittest.TestCase):
     """KERNEL32 WideCharToMultiByte over ASCII text: counts, copies, refuses a short buffer, and writes nothing else."""

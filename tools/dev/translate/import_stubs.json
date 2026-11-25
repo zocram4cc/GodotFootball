@@ -582,10 +582,10 @@
    "module": "kernel32.dll",
    "export": "GetCurrentDirectoryW",
    "do": "cwd_w",
-   "code_hex": "48b843003a005c000000488902b803000000c3",
+   "code_hex": "83f904721348b843003a005c000000488902b803000000c3b804000000c3",
    "why": [
-    "DWORD GetCurrentDirectoryW(DWORD size, LPWSTR buf): PES's start-up initializers read the working directory (a path string kept in a static).",
-    "Model: writes the wide stand-in for a drive root (3 wide chars and the terminator, 8 bytes at rdx; the bytes are in code_hex) and returns 3. The real directory is the install's; the translated code keeps the string only. A named stand-in for an OS answer."
+    "DWORD GetCurrentDirectoryW(DWORD size, LPWSTR buf): PES's start-up initializers read the working directory (a path string kept in a static). PES first asks for the length with GetCurrentDirectoryW(0, NULL) (CONFIRMED: the live fault at rip 0x6F9C3653E2C6 inside this model's store through rdx = 0, capture pid1257475/seq001, frame_trace recorded).",
+    "Model (tools/dev/translate/getcwd_model.s): when size >= 4, writes the wide stand-in for a drive root (3 wide chars and the terminator, 8 bytes at rdx) and returns 3; when size < 4 writes nothing and returns 4, the required size with the terminator (the Win32 contract). The real directory is the install's; the translated code keeps the string only. A named stand-in for an OS answer."
    ]
   },
   {
@@ -646,6 +646,46 @@
    "why": [
     "void GetSystemInfo(SYSTEM_INFO *): callers read three dwords. FUN_14038EE80 reads dwNumberOfProcessors (+0x20, `local_18` at 0x14038EFE9) into 0x143AC3DC8 and derives narenas = 4 x it; FUN_1403FCC30 reads dwPageSize (+4) and dwAllocationGranularity (+0x28) into 0x1436F0028 / 0x1436F0030.",
     "EVIDENCE (the live dump, written by these very calls): 0x143AC3DC8 = 0x10 (and narenas 0x1436DCEC0 = 0x40 = 4 x 16), 0x1436F0028 = 0x1000, 0x1436F0030 = 0x10000. Model: those three dwords are written and nothing else in the structure (no caller reads another field; the rest stays as the caller's stack held it). code_hex: mov dword [rcx+4], 0x1000; mov dword [rcx+0x20], 0x10; mov dword [rcx+0x28], 0x10000; ret."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "toupper",
+   "do": "toupper",
+   "code_hex": "89c88d509f83fa19770383e820c3",
+   "why": [
+    "int toupper(int c): ecx; returns c - 0x20 for c in 'a'..'z', else c, in eax (rax zero-extended). Called by PES's record create 0x1408BE3C0 on name characters.",
+    "A hand model (source: toupper_model.s, as + objcopy -O binary -j .text). No stack use, no memory write; mirrored by pes_model_toupper. Ported from origin/Presentation d3f04aa1f."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "strlen",
+   "do": "strlen",
+   "code_hex": "31c0803c0100740548ffc0ebf5c3",
+   "why": [
+    "size_t strlen(const char *s): rcx; rax = the count of bytes before the NUL. Called by PES's record create 0x1408BE3C0 (and its formatter) on the asset path and the referee name (the first live-replay stop after the GetCurrentDirectoryW fix, seq001).",
+    "A hand model (source: strlen_model.s, as + objcopy -O binary -j .text). Reads the string only: no write, rcx unchanged; mirrored by pes_model_strlen. Ported as a new model, not from Presentation."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "strncmp",
+   "do": "strncmp",
+   "code_hex": "4d85c0741b0fb601440fb60a4439c8751285c0740b48ffc148ffc249ffc875e531c0c34429c8c3",
+   "why": [
+    "int strncmp(const char *s1, const char *s2, size_t n): rcx, rdx, r8; returns s1 - s2 for the first bytes that differ (unsigned), 0 when they agree to a NUL or for n bytes. Called by PES's record create 0x1408BE3C0 on the asset path prefix.",
+    "A hand model (source: strncmp_model.s, as + objcopy -O binary -j .text). No stack use, no memory write; mirrored by pes_model_strncmp. Ported from origin/Presentation d3f04aa1f."
+   ]
+  },
+  {
+   "module": "ucrtbase.dll",
+   "export": "__stdio_common_vsnprintf_s",
+   "do": "vsnprintf_s",
+   "code_hex": "5356574d85c074764889d74989d24e8d4402ff488b7424404c8b5c24500fb60648ffc684c00f84280100003c25755031db0fb60648ffc63c2574443c30750bbb000100000fb60648ffc68d48d083f90977180fb6d36bd20a01ca81e30001000009d30fb60648ffc6ebe03c73741d3c6474473c6974433c7574673c787472cc4c39c773fa880748ffc7eb92f7c3ff00000075eb4d8b0b4983c3084d85c974df418a0184c00f8473ffffff4c39c773cf880748ffc749ffc1ebe6418b034983c30885c079244c39c773b5c6072d48ffc7f7d884db7413f7c30001000074a1fecbeb07418b034983c30841b90a000000eb0d418b034983c30841b91000000031c931d241f7f180fa0a720380c22780c23052ffc185c075e90fb6c329c8761eb220f7c3000100007402b2304c39c70f834cffffff881748ffc7ffc875ee584c39c70f8339ffffff880748ffc7ffc975ede9cafeffffc607004889f84c29d05f5e5bc3",
+   "why": [
+    "int __stdio_common_vsnprintf_s(unsigned __int64 options, char *buf, size_t size, size_t count, const char *fmt, _locale_t locale, va_list args): rcx, rdx, r8, r9, [rsp+0x28], [rsp+0x30], [rsp+0x38]; returns the character count in eax. Called by PES's referee-name formatter in the record create 0x1408BE3C0 (format \"referee%03d\", size 0x20, count -1 = _TRUNCATE).",
+    "A hand model (source: vsnprintf_model.s, as + objcopy -O binary -j .text, the same method as vsprintf). ponytail: a hand model of the DLL's formatter; the DLL's own code is not run. Mirrored by pes_model_vsnprintf_s. Ported from origin/Presentation d3f04aa1f."
    ]
   }
  ]

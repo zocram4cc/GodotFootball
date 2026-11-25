@@ -579,6 +579,18 @@ def import_model_lines(op, jump):
     if e["do"] == "vsprintf_s":
         # ucrtbase __stdio_common_vsprintf_s: pes_model_vsprintf_s (pes_stubs.hpp) mirrors vsprintf_model.s, the harness's code.
         return ["{ " + push_ret + " pes_model_vsprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "vsnprintf_s":
+        # ucrtbase __stdio_common_vsnprintf_s: pes_model_vsnprintf_s (pes_stubs.hpp) mirrors vsnprintf_model.s (the seven-argument layout).
+        return ["{ " + push_ret + " pes_model_vsnprintf_s(s);%s }" % pop_ret]
+    if e["do"] == "strncmp":
+        # ucrtbase strncmp(rcx = s1, rdx = s2, r8 = n): pes_model_strncmp (pes_stubs.hpp) mirrors strncmp_model.s register for register.
+        return ["{ " + push_ret + " pes_model_strncmp(s);%s }" % pop_ret]
+    if e["do"] == "toupper":
+        # ucrtbase toupper(ecx = c): pes_model_toupper (pes_stubs.hpp) mirrors toupper_model.s register for register.
+        return ["{ " + push_ret + " pes_model_toupper(s);%s }" % pop_ret]
+    if e["do"] == "strlen":
+        # ucrtbase strlen(rcx = s), the code_hex model register for register: pes_model_strlen (pes_stubs.hpp) mirrors strlen_model.s.
+        return ["{ " + push_ret + " pes_model_strlen(s);%s }" % pop_ret]
     if e["do"] == "strcpy_s":
         # ucrtbase strcpy_s(rcx = dst, rdx = size, r8 = src), the code_hex model register for register: dst or size zero is EINVAL (0x16),
         # no write; src zero writes dst[0] = 0 then EINVAL; else the copy walks r9 from dst with r8 = src - dst, rdx counting the bytes
@@ -639,8 +651,9 @@ def import_model_lines(op, jump):
         # _time64(rcx = out): rax = the model's time; stored at *rcx when rcx != 0 (the code_hex model register for register).
         return ["{ " + push_ret + " s.gpr[0] = 1794205125ULL; if (s.gpr[1] != 0) s.wr(s.gpr[1], 1794205125ULL, 8);%s }" % pop_ret]
     if e["do"] == "cwd_w":
-        # GetCurrentDirectoryW(ecx, rdx = buf): the wide stand-in for a drive root and its terminator at [rdx], rax = 3 (the code_hex model register for register).
-        return ["{ " + push_ret + " s.wr(s.gpr[2], 0x5C003A0043ULL, 8); s.gpr[0] = 3ULL;%s }" % pop_ret]
+        # GetCurrentDirectoryW(ecx = size, rdx = buf), the code_hex model register for register (getcwd_model.s): size >= 4 stores the
+        # drive root and its terminator at [rdx] and returns 3; else nothing is written and rax = 4, the required size with the terminator.
+        return ["{ " + push_ret + " if ((uint32_t)s.gpr[1] < 4) { s.gpr[0] = 4ULL; } else { s.wr(s.gpr[2], 0x5C003A0043ULL, 8); s.gpr[0] = 3ULL; }%s }" % pop_ret]
     if e["do"] == "module_file_name":
         # GetModuleFileNameA(h, buf = rdx, size): the code_hex model register for register: the 14-byte stand-in image path and its terminator into [rdx], rax = 14.
         return ["{ " + push_ret + " s.wr(s.gpr[2], 0x30325345505C3A43ULL, 8); s.wr(s.gpr[2] + 8, 0x652E3132ULL, 4); s.wr(s.gpr[2] + 12, 0x6578ULL, 2); s.wr(s.gpr[2] + 14, 0ULL, 1); s.gpr[0] = 14ULL;%s }" % pop_ret]
