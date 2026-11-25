@@ -12,6 +12,7 @@
 void pes_fn_141B29210(PesState& s);
 void pes_fn_1415C50E0(PesState& s);
 void pes_fn_141B24D70(PesState& s);
+void pes_fn_1423A74B0(PesState& s);
 
 void pes_fn_141B29210(PesState& s) {
   s.gpr[4] -= 8;
@@ -235,7 +236,7 @@ void pes_fn_141B29210(PesState& s) {
           { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1415C50E0(s); s.gpr[4] += 8; }
           (void)0;
           s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x70ULL)));
-          /*OUT-OF-SET CALL 0x1423A74B0*/ pes_dispatch_missing(0x1423A74B0);
+          { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423A74B0(s); s.gpr[4] += 8; }
         }
       }
     }
@@ -364,7 +365,7 @@ void pes_fn_141B29210(PesState& s) {
             { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1415C50E0(s); s.gpr[4] += 8; }
             (void)0;
             s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x70ULL)));
-            /*OUT-OF-SET CALL 0x1423A74B0*/ pes_dispatch_missing(0x1423A74B0);
+            { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423A74B0(s); s.gpr[4] += 8; }
           }
         }
       }
@@ -477,7 +478,7 @@ void pes_fn_141B29210(PesState& s) {
         { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1415C50E0(s); s.gpr[4] += 8; }
         (void)0;
         s.gpr[1] = (uint64_t)(((s.gpr[5]) + (0ULL - 0x70ULL)));
-        /*OUT-OF-SET CALL 0x1423A74B0*/ pes_dispatch_missing(0x1423A74B0);
+        { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_1423A74B0(s); s.gpr[4] += 8; }
       }
     }
   }

@@ -3860,6 +3860,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x1408BBF20"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_pdrv.json",
+   "coverage": {
+    "0x140925750": {
+     "reached": 5,
+     "total": 5,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 4 of 4: 4 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. wrapper 0x140925750 (vtable +0x10 of X); its 4 real calls enter the driver 0x140925470 and the press tick (members 968). The owner X+0x7D8 is P (written by 0x1408BE740 in PES, not in GF).",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 4,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 5,
+     "total": 5,
+     "fraction": 1.0
+    },
+    "replayed": 4,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140925750"
   }
  ]
 }
