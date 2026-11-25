@@ -1212,9 +1212,8 @@ class PesWorld {
   // The tick's adjuster outputs, read by ReadAdjusterFrame after RunAdjusters.
   // ponytail: the height adjuster's output (+0x18, metres of root height) has no consumer: GF's body has no root height (2D contract).
   struct AdjusterFrame {
-    // B+0x81: the composer (FUN_141AFD400) replaces the layer root translation with the root point below while this is set.
-    bool strikeValid = false;
-    float rootX = 0.0f, rootZ = 0.0f;  // B+0x90 and B+0x98: the root point, PES axes (z = GF y), m
+    bool strikeMoved = false;
+    float x = 0.0f, z = 0.0f;
     bool yawStepped = false;
     bool yawIsRate = false;
     float yawRad = 0.0f;
@@ -1223,8 +1222,8 @@ class PesWorld {
   // P+0x498, yaw P+0x4D0) through FUN_141EB3AF0, the chain's phases on the engine's BodyAnimControl, and the outputs into B. The caller
   // runs it where the engine's phase run was, before the joint writer.
   void RunAdjusters(int slot, float tickSeconds, PesTrapExternals& ext);
-  // The tick's outputs from B: strikeValid and the root point (rootX, rootZ, PES axes), read before the composer's copy is used (see the .cpp).
-  // The yaw: in the flag (rate) mode yawIsRate and yawRad = B+0xBC (radians this tick); else the absolute yaw,
+  // The tick's outputs from B: strikeMoved and the root displacement (x, z: the step B+0x90 and B+0x98 minus the root point O2+0xD0,
+  // PES axes). The yaw: in the flag (rate) mode yawIsRate and yawRad = B+0xBC (radians this tick); else the absolute yaw,
   // yawRad = 2 * atan2(B+0xA4 (sin of half the yaw), B+0xAC (cos of half the yaw)).
   AdjusterFrame ReadAdjusterFrame(int slot);
   // FUN_141EB35A0(P+0x4D0, from, to, ticks, override) then FUN_141EB3AE0: arms the yaw adjuster (facing degrees, the trap world's sense).

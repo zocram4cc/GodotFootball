@@ -1430,10 +1430,7 @@ void Match::CheckHumanoidCollisions() {
       //  okay, accumulated all, now distribute them in normalized fashion
       // The push is a velocity applied over one sim tick: PES's 1/54 s since
       // Milestone A1 (it was GF's 10 ms tick, written as 0.01).
-      // PES's contact push is discarded for a man whose strike root is valid: FUN_141AFD400 writes the layer root from B+0x90 while B+0x81
-      // is set, and FUN_1408C48C0's push lands in P+0x624 and the anime root offset, which the composer never reads.
-      // ponytail: GF's bounce stays the push for the other man until PES's per-man share (FUN_1408C48C0 / FUN_140A6D670) is ported.
-      if (!players.at(i1)->StrikeRootValid()) players.at(i1)->OffsetPosition(bounceVec * pesball::kPesTick_s);
+      players.at(i1)->OffsetPosition(bounceVec * pesball::kPesTick_s);
       // printf("moving player %i\n", i1);
     }
   }
@@ -1586,9 +1583,8 @@ void Match::CheckHumanoidCollision(Player* p1, Player* p2, std::vector<PlayerBou
       offset1.NormalizeMax(sprintVelocity * pesball::kPesTick_s);
       offset2.NormalizeMax(sprintVelocity * pesball::kPesTick_s);
 
-      // The same exemption as the bounce above: a strike-owned man's root is PES's root point, not moved by the contact push.
-      if (!p1->StrikeRootValid()) p1->OffsetPosition(offset1);
-      if (!p2->StrikeRootValid()) p2->OffsetPosition(offset2);
+      p1->OffsetPosition(offset1);
+      p2->OffsetPosition(offset2);
     }
 
     // take over each others movement a bit (precalc phase)

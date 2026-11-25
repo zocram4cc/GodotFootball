@@ -185,13 +185,6 @@ static const Vector3 emptyVec(0);
 
 class HumanoidBase {
 public:
-  // PES's composer (FUN_141AFD400) while the strike is valid: the body root is `point` (GF x, y) and the clip's root track and smuggles add
-  // nothing (CalculateSpatialState absorbs them into the start point). Set by pesmovestep's StepAdjusters every PES tick.
-  void SetStrikeRoot(bool valid, const Vector3& point) {
-    strikeRootValid = valid;
-    strikeRootPoint = point;
-  }
-  bool StrikeRootValid() const { return strikeRootValid; }
   HumanoidBase(PlayerBase* player, Match* match, boost::intrusive_ptr<Node> humanoidSourceNode,
                std::shared_ptr<AnimCollection> animCollection);
   virtual ~HumanoidBase();
@@ -392,9 +385,6 @@ protected:
   Anim* currentAnim;
   Anim* previousAnim;
   int placementCount = 0;
-  // PES's strike root (SetStrikeRoot): while valid, the body root is strikeRootPoint and the clip's root track adds nothing.
-  bool strikeRootValid = false;
-  Vector3 strikeRootPoint;
 
   // position/rotation offsets at the start of currentAnim
   Vector3 startPos;
