@@ -41,6 +41,9 @@ constexpr unsigned long kMaxTicks = 6ul * 60ul * Match::kFramesPerSecond;
 
 // The longest a team's pass target stayed set in PES's live play (docs/re/pes-re-receiving.md section 2: PASS_GET lasts 0.02 to 2.94 s).
 constexpr double kPesPassTargetMaxLive_s = 2.94;
+// The longest a PASS_GET aim may stand from a ball at rest in live play. A scale for this test, not a PES value: PES's own aim is the
+// ball (median 0.03 m over 1158 live rows with the ball at rest, docs/ports/pes-port-PassReceiver3.md section 14).
+constexpr double kPesRestTargetMaxMiss_m = 1.0;
 // The ball counts as at rest below GF's stalemate breaker's own bound.
 constexpr double kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
 
@@ -88,6 +91,8 @@ struct PassStats {
   std::vector<double> episodes_s;          // each PASS_GET episode: consecutive ticks one man was his side's PassGetReceiver()
   double worstRootGap_m = 0.0;             // the largest mismatch between a PASS_GET man's root step and his strike adjuster's step
   unsigned long rootSamples = 0;           // ticks with such a comparison
+  double restTargetMiss_m = 0.0;       // the largest distance between a PASS_GET aim (R+0x894) and the ball, with the ball at rest in play
+  unsigned long restTargetTicks = 0;   // ticks with such an aim
   bool ran = false;
 };
 
@@ -118,6 +123,20 @@ class PesPassTarget : public ::testing::Test {
       const double tick_s = static_cast<double>(Match::kTick_ms) / 1000.0;
       restingSinceTargetSet_s = targetSet && resting ? restingSinceTargetSet_s + tick_s : 0.0;
       stats_.worstStale_s = std::max(stats_.worstStale_s, restingSinceTargetSet_s);
+      // The receiver's aim (R+0x894, PES's ActionPassGet output; PES's (x, z) is GF's (x, y)) against a ball at rest in live play.
+      if (playState == pes::kPlayStateInPlay && match.GetBall()->GetMovement().GetLength() < kRestSpeed_ms) {
+        for (int side = 0; side < 2; ++side) {
+          Player* const rc = match.GetTeam(side)->PassGetReceiver();
+          if (rc == nullptr) continue;
+          const uint8_t* const aim = match.PesWorldOf().PassGetR(match.PesSlotOf(rc));
+          float tx = 0.0f, tz = 0.0f;
+          std::memcpy(&tx, aim + pes::kRTargetOffset, sizeof tx);
+          std::memcpy(&tz, aim + pes::kRTargetOffset + 2 * sizeof(float), sizeof tz);
+          const Vector3 ball = match.GetBall()->Predict(0);
+          stats_.restTargetMiss_m = std::max<double>(stats_.restTargetMiss_m, std::hypot(tx - ball.coords[0], tz - ball.coords[1]));
+          ++stats_.restTargetTicks;
+        }
+      }
       // The PASS_GET man's root against his strike adjuster (see ATrapsRootMovesByExactlyTheStrikeAdjusterStep).
       for (int side = 0; side < 2; ++side) {
         Player* const r = match.GetTeam(side)->PassGetReceiver();
@@ -213,6 +232,17 @@ TEST_F(PesPassTarget, EveryPassGetEpisodeIsWithinPesLiveRange) {
   RecordProperty("median_s", std::to_string(median));
   EXPECT_EQ(over, 0) << over << " of " << sorted.size() << " PASS_GET episodes exceeded " << kPesPassTargetMaxLive_s
                      << " s; longest " << sorted.back() << " s, median " << median << " s";
+}
+
+// PES's ActionPassGet aims at the ball while the ball lies at rest in live play (docs/ports/pes-port-PassReceiver3.md section 14: 1158
+// live rows with the ball at rest, PES's target-to-ball median 0.03 m). GF's team tick writes ball prediction sample 0 only (samples
+// 1..249 stay zero, team.cpp RunPesPassTarget, ponytail). INF: the aim reads those samples, so a receiver of a long ball is aimed where
+// the ball is not; the census (PassLane census, seed 7) has such aims 6 to 32 m from a resting ball.
+TEST_F(PesPassTarget, ThePassGetAimIsTheBallWhileTheBallRests) {
+  if (!stats_.ran) GTEST_SKIP() << "no match ran";
+  ASSERT_GT(stats_.restTargetTicks, 0ul) << "no PASS_GET receiver was aimed while the ball rested in play";
+  EXPECT_LE(stats_.restTargetMiss_m, kPesRestTargetMaxMiss_m)
+      << "a PASS_GET aim stood " << stats_.restTargetMiss_m << " m from a resting ball";
 }
 
 // PES's strike adjuster is the trapping man's whole root translation while it runs: FUN_141AFD400 replaces the layer's root
