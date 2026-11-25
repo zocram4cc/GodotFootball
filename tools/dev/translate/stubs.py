@@ -96,7 +96,7 @@ def check_spec_refs(spec, table, where):
 
 
 # The ops a native service may name: each is a GF-native C++ implementation pes_native_<op> (pes_native.cpp).
-KNOWN_NATIVE_OPS = frozenset({"heap_alloc", "heap_free", "heap_owns", "heap_trim", "registry_find", "registry_insert"})
+KNOWN_NATIVE_OPS = frozenset({"heap_alloc", "heap_free", "heap_owns", "heap_trim", "spin_lock", "registry_find", "registry_insert"})
 
 
 def natives(path=DEFAULT):

@@ -94,6 +94,9 @@ struct PesHeap {
  private:
   uint8_t* At(uint64_t va) { return arena_ + (va - kArenaVa); }
   static void Store64(uint8_t* mem, uint64_t off, uint64_t v);
+  // Copies PES's bytes into the page's words GF does not model (the packer's spin word 0x1436EF2B0 among them). Called by Attach
+  // before the page window shadows the state's memory.
+  void CopyPesGlobals(const PesState& s);
 
   uint8_t* page_ = nullptr;   // the allocator's global page at kPageVa
   uint8_t* arena_ = nullptr;  // the objects' own bytes, then the blocks, at kArenaVa
@@ -110,6 +113,8 @@ void pes_native_heap_alloc(PesState& s);
 void pes_native_heap_free(PesState& s);
 void pes_native_heap_owns(PesState& s);
 void pes_native_heap_trim(PesState& s);
+// 0x14159F8B0, the packer-protected spin-lock acquire (rcx = the lock word; decode in stubs.json native_services).
+void pes_native_spin_lock(PesState& s);
 
 // The named registry the FixDemo camera's target tables and the goal's DemoInfo (0x140451C10) register in. PES keeps it in the
 // game's registry (a GameImpl at [0x1437F0AC8], +0x20 the RegistryImpl; find is vslot +0x70 = 0x141B6EAB0 and insert vslot +0x68

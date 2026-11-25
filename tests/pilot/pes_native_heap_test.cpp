@@ -215,4 +215,51 @@ TEST(NativeHeap, AttachKeepsTheWindowsTheCallerLent) {
   EXPECT_EQ(s.rd(kLentVa, 1), 0xABu);
 }
 
+// 0x14159F8B0 (native spin_lock, decode in stubs.json): word 0 is taken; a word that is neither 0 nor -1 is not the lock.
+TEST(NativeSpinLock, TakesAFreeWordAndWritesNothingBeside) {
+  Machine m;
+  const uint64_t lock = kScratchVa + 0x200;
+  m.s.wr(lock, 0, 4);
+  m.s.wr(lock + 4, 0x5A5A, 4);
+  m.s.gpr[1] = lock;
+  pes_native_spin_lock(m.s);
+  EXPECT_EQ(m.s.rd(lock, 4), 0xFFFFFFFFu);
+  EXPECT_EQ(m.s.rd(lock + 4, 4), 0x5A5Au);
+}
+
+TEST(NativeSpinLock, OtherWordIsLeftAloneAndItsOwnerIsWrittenToTheThreadBlock) {
+  Machine m;
+  const uint64_t lock = kScratchVa + 0x200, teb = kScratchVa + 0x400, tlsArray = kScratchVa + 0x500, block = kScratchVa + 0x600;
+  m.s.mem.img.push_back({0x1437067A0, {0, 0, 0, 0}});     // __tls_index = 0
+  m.s.mem.img.push_back({0x14350B358, {0x7A, 0, 0, 0}});  // the owner id the wrapper stores
+  m.s.gs_base = teb;
+  m.s.wr(teb + 0x58, tlsArray, 8);
+  m.s.wr(tlsArray, block, 8);
+  m.s.wr(lock, 0x80000002u, 4);
+  m.s.gpr[1] = lock;
+  pes_native_spin_lock(m.s);
+  EXPECT_EQ(m.s.rd(lock, 4), 0x80000002u);
+  EXPECT_EQ(m.s.rd(block + 0x84, 4), 0x7Au);
+}
+
+TEST(NativeSpinLockDeathTest, AMinusOneWordIsAWaitTheSingleThreadCannotEnd) {
+  Machine m;
+  const uint64_t lock = kScratchVa + 0x200;
+  m.s.wr(lock, 0xFFFFFFFFu, 4);
+  m.s.gpr[1] = lock;
+  EXPECT_DEATH(pes_native_spin_lock(m.s), "PES_NATIVE_HEAP");
+}
+
+// PES's own words in the page survive the attach: the packer's spin word is PES's; the table and the init count are GF's.
+TEST(NativeHeapPage, AttachCopiesPesWordsAndKeepsTheModelledSlots) {
+  PesState s;
+  s.mem.img.push_back({PesHeap::kPageVa + 0x2B0, {0x02, 0x00, 0x00, 0x80}});
+  PesHeap heap;
+  heap.Attach(s);
+  EXPECT_EQ(s.rd(0x1436EF2B0, 4), 0x80000002u);
+  EXPECT_EQ(s.rd(PesHeap::kTableSlotVa, 8), PesHeap::kTableVa);
+  EXPECT_EQ(s.rd(PesHeap::kInitCountVa, 8), 1u);
+}
+
 }  // namespace
+

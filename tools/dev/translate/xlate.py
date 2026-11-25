@@ -24,6 +24,9 @@ import re
 import struct
 import sys
 import flow
+import stubs as stub_table
+
+NATIVE_TARGETS = frozenset("0x%X" % v for v in stub_table.natives())
 
 BASE = 0x140000000
 
@@ -2240,11 +2243,16 @@ class Emitter:
                 # Stubbed callee: its modelled effect on the caller (stubs.py),
                 # then the call returns, as the harness pops the return.
                 return stub_lines(stub["do"])
-            if tgt in self.pilot:
+            if tgt in self.pilot and tgt not in NATIVE_TARGETS:
                 self.siblings.add(tgt)
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); %s(s); "
                         "s.gpr[4] += 8; }" % fn]
+            if tgt in NATIVE_TARGETS:
+                # stubs.json native_services: a direct call to a GF-native service goes through the dispatch table, as a computed
+                # call does (the committed table routes it to pes_native_<op>; the harness tables have no such entry and abort as before).
+                return ["{ PesDispatch _d = pes_dispatch_lookup(%sULL); s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s); "
+                        "s.gpr[4] += 8; }" % tgt]
             return ["/*OUT-OF-SET CALL %s*/ pes_dispatch_missing(0x%X);" % (tgt, imm_val(ops[0]))]
         if m == "JMP":
             o = ops[0].strip()

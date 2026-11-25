@@ -1,5 +1,5 @@
 {
- "note": "the functions snapdiff --bounded built for the proof of 0x141F7AE60 (the FixDemoCamera constructor, which builds DmCamEnv, the 0x1D88-byte DmCameraScene and the 28 CameraTargetInfoRef through the name registry): the root and each function the five synthetic replays (synth_ctor.py over live2/pid3234533 seq6218, seq6219, seq6220, seq6224, seq6228) entered. gen_translated seeds the layer with them; regenerate with snapdiff.py --bounded after the closure changes. The PES allocator entries that stand as native services (stubs.json natives) are left out. VAs only.",
+ "note": "the functions the capture-bounded proof of 0x141F7AE60 entered (prove_bounded.py). VAs only.",
  "root": "0x141F7AE60",
  "members": [
   "0x140227920",
@@ -8,6 +8,7 @@
   "0x1403FB240",
   "0x1403FB410",
   "0x1403FB600",
+  "0x1403FBC10",
   "0x1403FD830",
   "0x1403FDB10",
   "0x1403FE800",
@@ -57,6 +58,7 @@
   "0x14089DD80",
   "0x14089FA40",
   "0x1415A1726",
+  "0x141B34CB0",
   "0x141B55730",
   "0x141B55F40",
   "0x141B6EAB0",
@@ -72,7 +74,6 @@
   "0x141B72EF0",
   "0x141B72FC0",
   "0x141E532D0",
-  "0x141F7AE60",
   "0x14217D310",
   "0x1423D99F0",
   "0x1423D9A20"

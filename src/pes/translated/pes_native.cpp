@@ -83,8 +83,20 @@ void PesHeap::Attach(PesState& s) {
   services.erase(std::remove_if(services.begin(), services.end(),
                                 [](const PesMem::Window& w) { return w.base == kPageVa || w.base == kArenaVa; }),
                  services.end());
+  CopyPesGlobals(s);
   services.push_back({kPageVa, kPageBytes, nullptr, page_});
   services.push_back({kArenaVa, arenaBytes_, nullptr, arena_});
+}
+
+// The page's words GF models are the failure slot, the table slot, the init count and the pool table; every other word is PES's
+// own. 0x1436EF2B0 is one: the packer's spin word, 0x80000002 at every proc_ctor entry (CutLane10, pid3148289).
+void PesHeap::CopyPesGlobals(const PesState& s) {
+  auto modelled = [](uint64_t va) {
+    return (va >= kFailHandlerSlotVa && va < kFailHandlerSlotVa + 8) || (va >= kTableSlotVa && va < kTableSlotVa + 8) ||
+           (va >= kInitCountVa && va < kInitCountVa + 8) || (va >= kTableVa && va < kTableVa + kPools * kPoolBytes);
+  };
+  for (uint64_t off = 0; off < kPageBytes; ++off)
+    if (!modelled(kPageVa + off)) page_[off] = (uint8_t)s.mem.rd(kPageVa + off, 1);
 }
 
 PesHeap::Bookkeeping PesHeap::SaveBookkeeping() const {
@@ -163,6 +175,25 @@ void pes_native_heap_owns(PesState& s) { s.gpr[0] = 1; }
 
 // 0x1403FBEB0 hands free pages back to the OS: nothing to give back from a GF arena.
 void pes_native_heap_trim(PesState&) {}
+
+// 0x14159F8B0 (decode in stubs.json native_services): rcx = the lock word. Word 0 is taken (-1). Word -1 is a wait the one thread
+// can never end (the real wrapper's Sleep loop), so GF aborts. Any other word (PES's own state, e.g. 0x80000002 at proc_ctor's
+// entry) is not the lock: the wrapper writes the u32 at [0x14350B358] into the thread block's +0x84, where the thread block is
+// gs:[0x58][__tls_index] (__tls_index at 0x1437067A0), leaves the word alone and tail-jumps to the packer's own primitive, which
+// is not modelled (its critical section 0x143706758 is net-unchanged by one enter and leave).
+void pes_native_spin_lock(PesState& s) {
+  constexpr uint64_t kTlsIndexVa = 0x1437067A0, kOwnerIdVa = 0x14350B358, kTlsArrayOff = 0x58, kThreadOwnerOff = 0x84;
+  const uint64_t lock = s.gpr[1];
+  const uint32_t word = (uint32_t)s.rd(lock, 4);
+  if (word == 0) {
+    s.wr(lock, 0xFFFFFFFFu, 4);
+    return;
+  }
+  if (word == 0xFFFFFFFFu) Die("spin lock held: a wait the single thread cannot end; lock", lock);
+  const uint64_t tlsArray = s.rd(s.gs_base + kTlsArrayOff, 8);
+  const uint64_t threadBlock = s.rd(tlsArray + s.rd(kTlsIndexVa, 4) * 8, 8);
+  s.wr(threadBlock + kThreadOwnerOff, s.rd(kOwnerIdVa, 4), 4);
+}
 
 namespace {
 

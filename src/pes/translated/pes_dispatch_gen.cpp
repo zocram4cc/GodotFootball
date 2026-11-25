@@ -8878,7 +8878,6 @@ void pes_fn_14159EFF8(PesState& s);
 void pes_fn_14159F670(PesState& s);
 void pes_fn_14159F6C0(PesState& s);
 void pes_fn_14159F850(PesState& s);
-void pes_fn_14159F8B0(PesState& s);
 void pes_fn_14159F918(PesState& s);
 void pes_fn_14159F974(PesState& s);
 void pes_fn_14159FA0C(PesState& s);
@@ -11014,6 +11013,7 @@ void pes_native_heap_owns(PesState& s);
 void pes_native_heap_trim(PesState& s);
 void pes_native_registry_find(PesState& s);
 void pes_native_registry_insert(PesState& s);
+void pes_native_spin_lock(PesState& s);
 PesDispatch pes_dispatch_lookup(uint64_t t) {
   switch (t) {
     case 0x140001480ULL: return {pes_fn_140001480};
@@ -19889,7 +19889,6 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x14159F670ULL: return {pes_fn_14159F670};
     case 0x14159F6C0ULL: return {pes_fn_14159F6C0};
     case 0x14159F850ULL: return {pes_fn_14159F850};
-    case 0x14159F8B0ULL: return {pes_fn_14159F8B0};
     case 0x14159F918ULL: return {pes_fn_14159F918};
     case 0x14159F974ULL: return {pes_fn_14159F974};
     case 0x14159FA0CULL: return {pes_fn_14159FA0C};
@@ -22023,6 +22022,7 @@ PesDispatch pes_dispatch_lookup(uint64_t t) {
     case 0x1403FBCB0ULL: return {pes_native_heap_free};
     case 0x1403FBD00ULL: return {pes_native_heap_owns};
     case 0x1403FBEB0ULL: return {pes_native_heap_trim};
+    case 0x14159F8B0ULL: return {pes_native_spin_lock};
     case 0x141B34C30ULL: return {pes_native_heap_owns};
     case 0x141B34CB0ULL: return {pes_native_heap_alloc};
     case 0x141B34D80ULL: return {pes_native_heap_free};

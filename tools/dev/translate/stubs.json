@@ -19,6 +19,7 @@
   {"va": "141B34D80", "op": "heap_free", "why": ["forwarder vtable 0x142AC0090 +0x08: pool 1's free, same contract"]},
   {"va": "141B34C30", "op": "heap_owns", "why": ["forwarder vtable 0x142AC0090 +0x30: pool 1's owns, same contract"]},
   {"va": "141B34DB0", "op": "heap_trim", "why": ["forwarder vtable 0x142AC0090 +0x50: pool 1's trim, same contract"]},
+  {"va": "14159F8B0", "op": "spin_lock", "why": ["packer-protected spin-lock acquire (Ghidra FUN_14159f8b0, bytes 14159F8B0-14159F910; rcx = the lock word): enters the global CS 0x143706758 (call [0x14252F340]), then [lock]==0 -> [lock] = -1 and the CS is left by the tail jump (lea rcx, 0x143706758; jmp [0x14252F6E7]); [lock]==-1 -> FUN_14159f974(100) (a Sleep-style wait) and retry, which never ends with one thread; any other value -> owner id written at TLS+0x84, then halt. GF runs one thread: a free word is taken, a held one aborts (pes_native_spin_lock). The CS enter/leave pair is not modelled: one thread, net state unchanged"]},
   {"va": "2500000070", "op": "registry_find", "why": ["GF-private VA (no PES function): vtable slot +0x70 of PesCameraRegistry's RegistryImpl, standing for PES's find 0x141B6EAB0 (hash, tree walk behind an SRW lock, typed handle) over the 28 CAMERA_TARGET_%02d%02d records of one group"]},
   {"va": "2500000068", "op": "registry_insert", "why": ["GF-private VA (no PES function): vtable slot +0x68 of PesCameraRegistry's RegistryImpl, standing for PES's insert 0x141B6EB70; aborts: GF's registry is fixed"]}
  ],

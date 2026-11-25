@@ -36,6 +36,10 @@ import driver  # noqa: E402  (the universe, stub map and translator the diff run
 import gen_dispatch  # noqa: E402
 import xlate  # noqa: E402
 
+# stubs.json native_services: GF-native implementations the dispatch table sends these VAs to. Never translated, and never walked
+# through: a closure member that is native is replaced by its native service (natives stay natives).
+NATIVE_VAS = frozenset(gen_dispatch.natives())
+
 ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 # (committed results file, spec subdirectory of tools/dev/diffharness/specs).
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
@@ -274,7 +278,7 @@ def build(image):
         universe = universe | set(INDIRECT_EDGES.get(va, ()))
         members = closure_members(va)
         universe = link_universe(universe, members)
-        queue, seen = [va] + sorted(members - {va}), {va} | members
+        queue, seen = [va] + sorted(members - {va} - NATIVE_VAS), {va} | (members - NATIVE_VAS)
         while queue:
             cur = queue.pop(0)
             text = translate(cur, image, stubs, universe)
@@ -290,7 +294,7 @@ def build(image):
             texts.setdefault(cur, text)
             for cv in [("0x" + c.upper()) for c in CALLEE.findall(text)] + list(INDIRECT_EDGES.get(cur, ())):
                 # An indirect edge names its target (the table's resolved VA): it joins the closure whatever the set's universe holds.
-                if cv != cur and (cv in universe or cv in INDIRECT_EDGES.get(cur, ())) and cv not in seen:
+                if cv != cur and (cv in universe or cv in INDIRECT_EDGES.get(cur, ())) and cv not in seen and cv not in NATIVE_VAS:
                     seen.add(cv)
                     queue.append(cv)
         # A root recorded in two sets (0x14092ED30: trapaction's counter B and press's manthink) is walked once per set; its layer text
