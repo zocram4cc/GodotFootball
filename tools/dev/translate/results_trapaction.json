@@ -3897,6 +3897,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x140A76440"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_passlane3_root.json",
+   "coverage": {
+    "0x142106110": {
+     "reached": 67,
+     "total": 108,
+     "fraction": 0.6204
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 24 of 24: 24 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. PassLane3 run 5: the 24 real ringcaller_142106110 calls of live2/pid2108145 (relaunch 10; slim copies, each replay verified by slim.py)",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 24,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 67,
+     "total": 108,
+     "fraction": 0.6204
+    },
+    "replayed": 24,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x142106110"
   }
  ]
 }
