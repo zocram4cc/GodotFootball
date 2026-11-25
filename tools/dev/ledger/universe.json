@@ -1095644,6 +1095644,40 @@
    "vtables": [],
    "walked": false
   },
+  "1419B7940": {
+   "boundary": null,
+   "callees": {
+    "1415A1708": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [
+    {
+     "site": "1419B7A01",
+     "text": "call qword ptr [rax + 0x10]"
+    },
+    {
+     "site": "1419B7A0E",
+     "text": "call qword ptr [rax + 8]"
+    }
+   ],
+   "leaf": false,
+   "name": "FUN_1419b7940",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cdbw"
+   ],
+   "scope": "in",
+   "size": 196,
+   "source": "pdata",
+   "subsystem": "cdbw",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
   "1419B7C00": {
    "boundary": {
     "rule": "rtti",
@@ -1098834,6 +1098868,58 @@
    "size": 26,
    "source": "pdata",
    "subsystem": "animelayer10c",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1419CB300": {
+   "boundary": null,
+   "callees": {
+    "1419B7930": "direct",
+    "1419B7CD0": "direct",
+    "1419CB340": "tail"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1419cb300",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cdbw"
+   ],
+   "scope": "in",
+   "size": 15,
+   "source": "pdata",
+   "subsystem": "cdbw",
+   "tables": 0,
+   "unresolved": false,
+   "vtables": [],
+   "walked": true
+  },
+  "1419CB340": {
+   "boundary": null,
+   "callees": {
+    "1415A1708": "direct"
+   },
+   "error": "",
+   "how": "closure",
+   "indirect": [],
+   "leaf": false,
+   "name": "FUN_1419cb340",
+   "overspill": null,
+   "path": [],
+   "protected": false,
+   "roots": [
+    "cdbw"
+   ],
+   "scope": "in",
+   "size": 318,
+   "source": "pdata",
+   "subsystem": "cdbw",
    "tables": 0,
    "unresolved": false,
    "vtables": [],
@@ -1679789,6 +1679875,12 @@
      "0x14050D6A0",
      "0x143F546F0",
      "0x140A81910"
+    ]
+   },
+   "cdbw": {
+    "members": 7,
+    "roots": [
+     "0x1419CB300"
     ]
    },
    "counterb": {

@@ -1,0 +1,7 @@
+0x1419CB300	stand-in	cdbw	seed
+0x1415A1708	stand-in	restart	callee
+0x1419B7930	stand-in	pre-match	callee
+0x1419B7940	stand-in	cdbw	callee
+0x1419B7CD0	stand-in	pre-match	callee
+0x1419B7CE0	stand-in	animelayer10f	callee
+0x1419CB340	stand-in	cdbw	callee

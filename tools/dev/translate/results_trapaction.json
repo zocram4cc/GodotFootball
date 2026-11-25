@@ -3823,6 +3823,43 @@
    "stubs": [],
    "translated": true,
    "va": "0x140928FC0"
+  },
+  {
+   "aborted": 0,
+   "bounded": true,
+   "capped": 0,
+   "cases": 0,
+   "closure_file": "closure_cdbw.json",
+   "coverage": {
+    "0x1419CB300": {
+     "reached": 3,
+     "total": 3,
+     "fraction": 1.0
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff --bounded: every replayed call bit-exact, 2 of 2: 2 REAL captured call(s); the closure is capture-bounded (the functions the replays entered), every other call aborts loudly. capture pid2831823 (24-11 relaunch 2, hook cdbw_1419CB300): seq002 and seq003, the writer's real calls; the walker call (seq001) needs the fixed-block model and is in the model commit",
+   "proof": "snapdiff",
+   "requested": 0,
+   "snapdiff": {
+    "calls": 2,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 3,
+     "total": 3,
+     "fraction": 1.0
+    },
+    "replayed": 2,
+    "source": "tools/dev/translate/results_trapaction.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x1419CB300"
   }
  ]
 }
