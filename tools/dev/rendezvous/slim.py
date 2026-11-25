@@ -112,7 +112,9 @@ def identity_reads(cap):
     os.pread = _logged_pread
     try:
         for base in sm.module_bases():
-            sm.entries_of(base)
+            _, exports = sm.entries_of(base)
+            for entry, _ in exports:  # an export's page is replaced by its import model, which is mapped only if it exists
+                sm.read(entry, 1)
     finally:
         os.pread = _orig_pread
         _touch = None

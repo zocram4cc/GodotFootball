@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""test_slim_footprint.py: footprint slim (slim.py) on a synthetic capture.
+"""test_slim_footprint.py: footprint slim (slim.py) on synthetic captures.
 
 The capture is one game-image page with a hooked entry that calls CALLEE; CALLEE reads one heap page, and the heap's
 other pages are never read. The heap is two 256 KiB blocks (the emulator maps a block on first touch). Behaviours checked:
@@ -7,7 +7,9 @@ other pages are never read. The heap is two 256 KiB blocks (the emulator maps a 
   2. a footprint run that does not return cleanly (CALLEE faults) keeps the capture full;
   3. a trimmed capture records its dropped ranges and the archive-relative path of its full copy, and a read of a dropped
      page is refused naming that copy and the restore command;
-  4. the full original is archived (packed, verified) and removed locally only after that, and restores byte for byte.
+  4. the full original is archived (packed, verified) and removed locally only after that, and restores byte for byte;
+  5. the page of a module's export entry is kept although no replay reads it: the import model that replaces the entry
+     is only mapped where that page exists, so a slim without it refuses the call.
 Usage: GF_DIFF_PYTHON=<venv python> python3 test_slim_footprint.py      (exit 0 green, 1 red)
 """
 import json
@@ -35,6 +37,7 @@ HEAP_DATA = b"PESHEAP!"
 HEAP_UNREAD = HEAP + BLOCK + 0x1000  # block 1, past the page the neighbour rule keeps: never read by any call
 CALLEE_READS = b"\x48\x8b\x01\xc3"  # mov rax, [rcx]; ret
 CALLEE_FAULTS = b"\x0f\x0b"  # ud2
+DLL, DLL_EXPORT_ENTRY = 0x6FFF0000, 0x5000  # a module; its export 'memset' enters on page 5, which no replay reads
 
 
 def entry_code():
@@ -74,6 +77,38 @@ def make_capture(cap, callee):
     gprs[4] = STACK + 0x800  # rsp
     with open(os.path.join(cap, "call.bin"), "wb") as f:
         f.write(ft.CALL_REC.pack(*gprs, *([0] * 32), RET))
+
+
+def make_module(cap):
+    """A six-page PE module at DLL with one export, 'memset', entering page 5; the export directory is on page 2."""
+    pages = [bytearray(PAGE) for _ in range(6)]
+    h = pages[0]
+    h[0:2] = b"MZ"
+    struct.pack_into("<I", h, 0x3C, 0x80)
+    h[0x80:0x84] = b"PE\0\0"
+    struct.pack_into("<H", h, 0x94, 240)  # SizeOfOptionalHeader
+    struct.pack_into("<H", h, 0x98, 0x20B)  # PE32+
+    struct.pack_into("<I", h, 0x98 + 56, 0x6000)  # SizeOfImage
+    struct.pack_into("<I", h, 0x98 + 60, 0x400)  # SizeOfHeaders
+    struct.pack_into("<II", h, 0x98 + 112, 0x2000, 0x100)  # export data directory
+    e = pages[2]  # the export directory at RVA 0x2000
+    struct.pack_into("<I", e, 12, 0x2100)  # Name
+    struct.pack_into("<I", e, 20, 1)  # NumberOfFunctions
+    struct.pack_into("<I", e, 24, 1)  # NumberOfNames
+    struct.pack_into("<IIII", e, 28, 0x2200, 0x2208, 0x2210, 0)  # functions, names, ordinals
+    e[0x100:0x100 + 17] = b"VCRUNTIME140.dll\0"
+    struct.pack_into("<I", e, 0x200, DLL_EXPORT_ENTRY)
+    struct.pack_into("<I", e, 0x208, 0x2220)
+    struct.pack_into("<H", e, 0x210, 0)
+    e[0x220:0x227] = b"memset\0"
+    pages[5][0:4] = b"\x90" * 4
+    data = b"".join(bytes(p) for p in pages)
+    with open(os.path.join(cap, "mem.bin"), "wb") as f:
+        f.write(data)
+    m = {"va": DLL, "size": len(data), "perm": "r--p", "off": 0, "name": "", "deferred": False, "device": False}
+    with open(os.path.join(cap, "index.json"), "w") as f:
+        json.dump({"mappings": [m], "holes": []}, f)
+    return len(data)
 
 
 class StandInForCallee:
@@ -161,6 +196,13 @@ class FootprintSlim(unittest.TestCase):
             self.assertEqual(f.read(), original)
         with open(os.path.join(cap, "index.json")) as f:
             self.assertNotIn("slim", json.load(f))
+
+    def test_an_export_entry_page_is_kept_although_no_replay_reads_it(self):
+        cap = os.path.join(self.tmp, "live2", "pid7", "seq5")
+        os.makedirs(cap)
+        size = make_module(cap)
+        keep = slim.keep_for(cap, set(), size)
+        self.assertIn(DLL_EXPORT_ENTRY, keep)
 
 
 if __name__ == "__main__":
