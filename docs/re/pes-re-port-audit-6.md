@@ -1,6 +1,6 @@
 # PES re-port audit 6: StrategyFix + CondTactics (PortAudit6RE, 24-10-26)
 
-Read-only audit of two branches against PES's bytes. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only audit of two branches against PES's bytes. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time.
 GF code read from the named branches (`git -C <workdrive>/GodotFootball show <ref>:<path>`);
 scratch absolute outputs in `<workdrive>/gf-PortAudit6RE-scratch/`

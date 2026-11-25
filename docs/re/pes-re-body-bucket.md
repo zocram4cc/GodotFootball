@@ -5,7 +5,7 @@
 > **Main audit, round 3 (21-10-26):** the polarity correction is confirmed: `0x1411944C6` `xor cl,cl` on the out-of-range path, `0x1411944E1` `sete al` → +0x2798 = 1 only when NOT usable; the default record gives 0 (bucket angle 0°). The earlier audit note above ("flag is 1 … +45°") is superseded.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
-Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
+Base `0x140000000`, image `<local>/pes_full.bin`.
 Tags: **CONFIRMED** = decompile and/or raw dis this pass, checked by script; **INF** = inference;
 **OPEN** = blocker named.
 

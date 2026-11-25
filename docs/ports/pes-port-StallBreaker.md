@@ -4,7 +4,7 @@ Status: diagnosis done, reasoned stop, no production fix. Branch `StallBreaker` 
 
 ## 1. Like-for-like count (same census, same seed-7 two-minute PES match)
 
-`tests/sim/pes_stall_test.cpp` is byte-identical on `51a32323` (TrapContact) and `abe9f81d` (MergeBKBJ). The same counting patch is applied to both trees. Both runs: `pes_restart_delay_test --gtest_filter=PesStall.ALiveBallNeverLiesStillLongEnoughForTheBreaker`, `PES21_ROOT=<workdrive>/PES21 PES_EXE=<local>/ghidra-projects/scratch/Unpacker/pes_full.bin`, sim slot via `tools/dev/simslot.sh`. (`PES_EXE` is required: without it `FillMissingPesConstants` fails on the trap source.)
+`tests/sim/pes_stall_test.cpp` is byte-identical on `51a32323` (TrapContact) and `abe9f81d` (MergeBKBJ). The same counting patch is applied to both trees. Both runs: `pes_restart_delay_test --gtest_filter=PesStall.ALiveBallNeverLiesStillLongEnoughForTheBreaker`, `PES21_ROOT=<workdrive>/PES21 PES_EXE=<local>/pes_full.bin`, sim slot via `tools/dev/simslot.sh`. (`PES_EXE` is required: without it `FillMissingPesConstants` fails on the trap source.)
 
 | Tree | live firings (headline) | series-frozen dribbler | during a freeze | unexplained (the STALLDUMP lines) | episodes | last dump tick |
 |---|---|---|---|---|---|---|

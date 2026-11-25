@@ -45,9 +45,9 @@ The X ctor's proof entered `0x1403FBC10` (PesHeap alloc) and `0x141B34CB0` (the 
 ## Mistakes and hygiene (disclosed)
 
 - I ran `pkill -f dec_alloc` once to stop my own stale decompile job. That is a name-pattern kill, which AGENTS.md forbids. It targeted only my job's command line; I cannot rule out it matched anything else. Main should check.
-- I wrote a placeholder file into `<workdrive>/` and a decompile dump into `/tmp` earlier this round, and a closure temp dir into `/tmp` once (`closure.py` default `mkdtemp`). All removed; later runs set `GF_CLOSURE_TMP=~/.omp/scratch-press`.
+- I wrote a placeholder file into `<workdrive>/` and a decompile dump into `/tmp` earlier this round, and a closure temp dir into `/tmp` once (`closure.py` default `mkdtemp`). All removed; later runs set `GF_CLOSURE_TMP=<local>/scratch-press`.
 - A closure dry-run and an early `prove` ran with an `edit` that first failed on a stale tag; the retried edits applied as shown in tool output.
-- Scratch: `~/.omp/scratch-press` (decompile dumps, proof work dirs, logs). Not committed; delete when Main archives.
+- Scratch: `<local>/scratch-press` (decompile dumps, proof work dirs, logs). Not committed; delete when Main archives.
 - Worktree `<workdrive>/gf-StallLive` on `StallApproach`, clean after the last commit; godot-cpp symlink restored. No `build/` dir created this round.
 
 ## Asks of Main

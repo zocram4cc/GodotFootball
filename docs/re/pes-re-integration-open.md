@@ -1,6 +1,6 @@
 # PES RE: closing the cutover OPENs (IntegrationOpen, 26-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA − 0x140000000).
+Read-only RE. Image `<local>/pes_full.bin` (offset = VA − 0x140000000).
 Labels: **CONFIRMED** = disassembly bytes or capture bytes read this pass (capstone over the image + `cap1/f01-open-p3-play1-fr30490` live.json/regions); **INF** = inference; **OPEN** = narrowed remainder with the exact next step.
 No PES bytes quoted. Ghidra bridge (:8080) was down all session; all evidence is capstone disassembly + capture reads + the universe ledger.
 Scratch: `<workdrive>/gf-IntegrationOpen-scratch/` (`dis_key.txt`).

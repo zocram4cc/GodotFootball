@@ -8,10 +8,10 @@
 - Commit: 7 paths (layer ball/ + closure/, closure-kind8a40.txt, specs/trapaction/140425010.json, universe.json, closure_kind8a40.json, results_trapaction.json).
 
 ## 2. The SIGSEGV: root cause FOUND (CONFIRMED)
-- The diff main built in the Dati III work dir died at exec (rc 139, no output, gdb "during startup").
+- The diff main built in the <archive-drive> work dir died at exec (rc 139, no output, gdb "during startup").
 - The same binary copied to <workdrive> ran cleanly: rc 0, "1 calls", translated.jsonl written.
-- Cause: the binary executed from <media>/Dati III (ntfs3, `prealloc,acl`). Every failing run had its work dir there. Not the hook bytes, not the translation.
-- Rerun with the work dir on <workdrive> (snapshot still read from Dati III) gave proven True.
+- Cause: the binary executed from <media>/<archive-drive> (ntfs3, `prealloc,acl`). Every failing run had its work dir there. Not the hook bytes, not the translation.
+- Rerun with the work dir on <workdrive> (snapshot still read from <archive-drive>) gave proven True.
 
 ## 3. Gate-on classification of the 11 sync captures: DONE, and it CONTRADICTS the predicate
 - Read S+0x280..0x2B0 by streaming `zstd -dc` to each offset (readcap.py), no unpack. S = rcx = 0x39AEF450 in all 11.
@@ -36,7 +36,7 @@
 3. GF side (kind-8 producer, ring test) after the owner chain is proven through 0x140870A40.
 
 ## 7. Disk and scratch
-- Dati III scratch cleaned (empty). Proof work dirs under <workdrive>/gf-Kind8Lane-scratch (w4 456 KB). No captures moved or archived.
+- <archive-drive> scratch cleaned (empty). Proof work dirs under <workdrive>/gf-Kind8Lane-scratch (w4 456 KB). No captures moved or archived.
 - <workdrive> now 282 GiB free.
 
 ## 8. Verification

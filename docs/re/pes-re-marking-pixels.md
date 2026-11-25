@@ -18,7 +18,7 @@ re-read from instructions), plus synthetic renders of the resulting rules agains
 VFS strips (PNG evidence kept in `<scratch>/MarkingPixelsRE/`).
 
 Headless invocation that works (prior attempts failed on arg parsing):
-`/opt/ghidra/support/analyzeHeadless $HOME/ghidra-projects/scratch/main PES21 -process pesmem.bin -noanalysis -readOnly -scriptPath <dir> -postScript <Script>.java <ABSOUT> <addr>-<addr> …`
+`/opt/ghidra/support/analyzeHeadless <local>/main PES21 -process pesmem.bin -noanalysis -readOnly -scriptPath <dir> -postScript <Script>.java <ABSOUT> <addr>-<addr> …`
 with a freshly renamed copy of `DecompAt.java` (the original fails to load under this install).
 
 ---
@@ -462,7 +462,7 @@ empty, exactly as the compositor produces it.
 
 ```
 # decompile (works with a renamed script copy; the stock DecompAt.java fails to load)
-/opt/ghidra/support/analyzeHeadless $HOME/ghidra-projects/scratch/main PES21 \
+/opt/ghidra/support/analyzeHeadless <local>/main PES21 \
   -process pesmem.bin -noanalysis -readOnly -scriptPath <dir> -postScript DM2.java <ABSOUT> \
   0x1419e2c10-0x1419e3a21 0x1419e1df0-0x1419e2c0d 0x1419e3a30-0x1419e3c51 \
   0x1419e3c60-0x1419e4145 0x1419c0290-0x1419c03cf 0x1419e4a90-0x1419e4b68

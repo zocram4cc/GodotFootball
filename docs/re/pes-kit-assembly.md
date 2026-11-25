@@ -335,7 +335,7 @@ Validation: all 24 named players of the State-1 match matched on (sleeves, socks
 - The in-memory copy of `PlayerAppearance.bin` (60-byte records at 0x2c000010, 5,336 records) is byte-identical to the VFS file (`4cc_01_base.cpk`). In it, every 4cc player has the same placeholder record (`… 40 40 00 02 …` = short sleeves, socks 0, tail out).
 - `4cc_01_base` `Player.bin` is likewise `PLACEHOLDER` names.
 - The real names and appearance live only in the decrypted **EDIT save**: the live player table at 0x45770040 (stride 0x17C, 4,830 players; real names present, not reproduced here) and the 72-byte table above.
-- On disk the save is `~/Documents/KONAMI/eFootball PES 2021 SEASON UPDATE/<steamid>/save/EDIT00000000` (11,011,039 B, dated 2022-10-22). The prefix `Documents` folder is a symlink to `~/Documents`. **Update (§8.1):** the cipher is now reimplemented and the file was decrypted into scratch; the 72-byte records map 1:1 to it.
+- On disk the save is `<local>/eFootball PES 2021 SEASON UPDATE/<steamid>/save/EDIT00000000` (11,011,039 B, dated 2022-10-22). The prefix `Documents` folder is a symlink to `<local>/Documents`. **Update (§8.1):** the cipher is now reimplemented and the file was decrypted into scratch; the 72-byte records map 1:1 to it.
 - **Consequence:** per-player sleeves/socks/tail/glove/boots for this install come from the decrypted EDIT00000000 (§8.1). They are not in any cpk.
 
 ### 7.2 Kit atlas binding (priority 2)

@@ -2,7 +2,7 @@
 
 > **Main audit 23-10-26 (bytes):** `0x140457087 C6 41 11 01 mov byte [rcx+0x11], 1` (W1 sets TA+0x11) and `0x1407F4876 mov byte [rsi+0x2472], 1` (P+0xAB8+0x19BA = P+0x2472): match.
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. Base doc: `docs/re/pes-re-holder.md` (HolderRE; W1 `0x140457259`, W2 `0x140A71DF9`, `FUN_140A63020` 3-level rule, step-43 gate).
+Read-only RE. Image `<local>/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. Base doc: `docs/re/pes-re-holder.md` (HolderRE; W1 `0x140457259`, W2 `0x140A71DF9`, `FUN_140A63020` 3-level rule, step-43 gate).
 Checker + evidence: `<workdrive>/gf-HolderLeavesRE-scratch/check_holder_leaves.py` (CLEAN, 20 rows incl. 2 mutation rows), decompiles `d_*.c`, xrefs `xref_*.txt` in the same dir.
 GF paths below are `origin/main` (`<workdrive>/GodotFootball`).
 

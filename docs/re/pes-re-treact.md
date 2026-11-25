@@ -9,7 +9,7 @@
 > **Main audit 22-10-26 (bytes):** jump table `0x140502758` read from the image: kinds 1-5, 7, 9, 16 → `0x1405025BD` (FDD20, param_5 = 0), 10-14 → `0x1405025C0` (param_5 = 1), 6 → `0x1405025E5` (27A0), 8 and 15 → `0x140502615` (dead tail): match. Correction: `CMP 0xF` bounds the table at **16** entries; the 17th dword (`0x10CCCCCCC`) is padding, not an entry.
 
 Batch: Team-tick step 9 (`FUN_140502190`, `docs/re/pes-re-tick-steps.md` slice T2b). Image
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin`, base `0x140000000`. Tags: **CONFIRMED**
+`<local>/pes_full.bin`, base `0x140000000`. Tags: **CONFIRMED**
 = raw image bytes / disassembly this pass; **INF** = inference; **OPEN** = blocker.
 Decompiles cited for orientation; every constant re-read from the image.
 

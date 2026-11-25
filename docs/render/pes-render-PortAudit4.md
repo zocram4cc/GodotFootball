@@ -2,7 +2,7 @@
 
 Read-only audit. GF code from `origin/main` (`eae5607`), PostPort `b3223ac`, TurfFinPort `dd70ad3`
 (`git show <ref>:<path>` into `<workdrive>/gf-PortAudit4RE-scratch/`). Image
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA − 0x140000000); Ghidra bridge
+`<local>/pes_full.bin` (offset = VA − 0x140000000); Ghidra bridge
 (one request at a time); constants below read from the image by script unless marked asm-literal.
 No repo edits. Ticket order: SunPort (§1), GradePort (§2), PostPort (§3), TurfFinPort (§4),
 exposure + b2 (§5). Reference docs: `docs/render/pes-render-SunPort.md`,

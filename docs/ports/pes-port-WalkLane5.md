@@ -13,7 +13,7 @@
 
 ## 2. Ratchet on the reverted tip (`843a2e30`)
 - Build: `pes_restart_delay_test`, `pes_pass_target_test`, BUILD_RC=0 (769 s, ccache warm).
-- Env for constant-dependent tests: `PES21_ROOT=<workdrive>/PES21 PES_EXE=<home>/ghidra-projects/scratch/Unpacker/pes_full.bin`. Without `PES_EXE` every such test skips or fails with "install constants unavailable". My first attempts were invalid for that reason; every number below uses both vars.
+- Env for constant-dependent tests: `PES21_ROOT=<workdrive>/PES21 PES_EXE=<local>/pes_full.bin`. Without `PES_EXE` every such test skips or fails with "install constants unavailable". My first attempts were invalid for that reason; every number below uses both vars.
 - PesStallQuick (`PesStallQuick.*`): `forced_live=53` in two runs (`quick_base_dump.log`, `quick_base_rerun.log`). Ratchet 53: holds, deterministic on this tree.
   - WalkLane1's 28 was measured before the Integrate merge (c4404052). On the integration tip the base is 53, which is the brief's ratchet.
 - ALiveBall (`PesStall.ALiveBall*`): PASS, exit 0, 1,215 s (`aliveball_base.log`). Bound 2,229. The test prints its count only on failure, so the exact count is NOT measured.

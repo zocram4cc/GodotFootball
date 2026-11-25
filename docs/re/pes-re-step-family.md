@@ -4,7 +4,7 @@
 > **Main audit, round 2:** STEP_TURN_STEP exits `0x1406C9416` `movl $0xf,0xe4(%rsi)` and `0x1406C9DC4` `movl $0x4,0xe4(%rsi)` (+0xE4 = req word 0x39): match. The old "§7 Method" is now §12.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
-Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
+Base `0x140000000`, image `<local>/pes_full.bin`.
 Tags: **CONFIRMED** = decompile and/or raw dis this pass; **INF** = inference; **OPEN** = blocker named.
 
 Companion to `pes-re-runloop-arms.md` (the state dispatch table and the full `req[0x39]`
@@ -1282,7 +1282,7 @@ is outside {3,4,8,9}, or the speed/angle test fails) — and the dwell is not ye
 
 - Bridge decompiles (`dec/FUN_*.c`) and disassembly (`dec/dis_*.txt`) for every handler named here;
   ~30 fetches (round 1) + ~25 more (round 2) against `http://127.0.0.1:8080`.
-- Every constant is read by script from `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+- Every constant is read by script from `<local>/pes_full.bin`
   (`readf.py`) and is paired with the instruction VA and the operand VA the disassembly shows.
 - The state→handler map comes from the jump table at `0x1406BB50C` (see
   `pes-re-runloop-arms.md` §4).

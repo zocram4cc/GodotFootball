@@ -28,7 +28,7 @@ decoded textures:
 | `/tmp/PitchGrassRE/sym/run_ps.py` | executes the IR; emits GB0..GB4 |
 | `/tmp/PitchGrassRE/sym/final.py` | independent hand-written port of §3.7–3.8 |
 | `/tmp/PitchGrassRE/sym/cmp5.py` | cross-checks the two |
-| `/tmp/PitchGrassRE/tex/*.png` | decoded st002 pitch textures (also on disk at `~/ghidra-projects/scratch/PitchGrassRE/tex/`) |
+| `/tmp/PitchGrassRE/tex/*.png` | decoded st002 pitch textures (also on disk at `<local>/tex/`) |
 
 **Result: `checked 315 pixels, 0 mismatches`** (8 camera positions × 7×5 UV grid),
 comparing GB0.rgb, GB2.x (roughness), GB2.y (specular) and GB2.w exactly. The

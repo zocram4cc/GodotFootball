@@ -1,7 +1,7 @@
 # PES carrier helpers behind BackSpace (kind 3) and Safety (kind 6): decode + port spec
 
 Decode-only. No engine edits, no live writes, no commits. Read-only: Ghidra bridge 8080
-(decompile/disassemble), `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (base 0x140000000)
+(decompile/disassemble), `<local>/pes_full.bin` (base 0x140000000)
 for constants and raw checks, saved decompiles in `gf-A4Lanes-scratch` / `gf-A4Carrier-scratch`,
 copied to `<workdrive>/gf-CarrierHelpers-scratch/`. Port target: `pescarrier.{hpp,cpp}`,
 `peslane.{hpp,cpp}` on `origin/A4Lanes` `d5e8417` (GoalFront port).

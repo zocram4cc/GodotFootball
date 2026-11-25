@@ -1,6 +1,6 @@
 # PES publisher RE: 27A0 writer-side opens (PublisherRE, 24-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (base 0x140000000,
+Read-only RE. Image `<local>/pes_full.bin` (base 0x140000000,
 file offset = VA − 0x140000000). Bridge one request at a time; `dec.sh` for undefined code.
 Read-first: `pes-re-27a0-inputs.md` (the read side; §1–§7 CLOSED there).
 Tags: **CONFIRMED** = bytes/decompile this session; **INF** = inference; **OPEN** = blocker named.

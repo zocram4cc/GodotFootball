@@ -1,7 +1,7 @@
 # PES Fox engine services for cutscene and presentation: ranking, interfaces, Godot mapping, proof design, build plan
 
 Read-only static RE (owner ruling 24-10-26; no repo edits; no snapshot taken this pass). Image
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000). Ledger
+`<local>/pes_full.bin` (file offset = VA − 0x140000000). Ledger
 `tools/dev/ledger/universe.json` (37,855 rows). Scratch: `<workdrive>/gf-FoxCutscene-scratch/`
 (scripts `fox_rank3.py`, `fox_rank4.py`, `v5.py`, `cutunlock.py`, `iface.py`, `vtdump.py`; data in `v3/`).
 Labels: CONFIRMED = ledger row or image bytes read by script; INF = inferred, reason given; OPEN = what would settle it.

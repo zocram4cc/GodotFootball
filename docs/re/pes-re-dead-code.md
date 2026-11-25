@@ -1,8 +1,8 @@
 # PES 2021 dead-code census (DeadCodeRE)
 
 Static, read-only census of the PES2021 live image. Nothing in the game process was read or written for this report.
-- **Image:** `~/ghidra-projects/scratch/Unpacker/pes_full.bin`, base 0x140000000, file offset = VA − base.
-- **Scratch dir:** `~/ghidra-projects/scratch/DeadCodeRE/`. All scripts and outputs named below are there.
+- **Image:** `<local>/pes_full.bin`, base 0x140000000, file offset = VA − base.
+- **Scratch dir:** `<local>/DeadCodeRE/`. All scripts and outputs named below are there.
 - **Tags:** **OBS** = observed in raw bytes, a capstone decode or a script count. **INF(h/m/l)** = inference with confidence high/medium/low.
 - **Tools:** Python 3.14.8, numpy 2.5.4, capstone 5.0.7. Date: 2026-10-14.
 
@@ -313,7 +313,7 @@ Why the earlier docs missed it:
 ## 7. Reproduce
 
 ```
-cd ~/ghidra-projects/scratch/DeadCodeRE
+cd <local>/DeadCodeRE
 python3 census.py                    # ~45 s, 14 workers -> out/nodes.tsv, out/vtables.tsv, out/summary.json, out/graph.pkl
 python3 deadlist.py ['REGEX']        # out/dead.tsv: every non-live function + nearest RTTI-named neighbour
 python3 verify_dead.py > out/verify_dead.txt   # whole-image byte scan + instruction-boundary check of each dead fn

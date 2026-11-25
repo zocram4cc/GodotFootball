@@ -1,6 +1,6 @@
 # H, S and brain records for the S7 frame step (S7Records, 26-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only RE. Image `<local>/pes_full.bin`
 (offset = VA − 0x140000000). No PES bytes quoted.
 Labels: **CONFIRMED** = disassembly bytes or snapshot bytes read this pass;
 **INF** = inference; **OPEN** = narrowed remainder with the exact next step.

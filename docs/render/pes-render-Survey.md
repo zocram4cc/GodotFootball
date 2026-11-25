@@ -1,7 +1,7 @@
 # PES→GF render survey: per-doc OPEN table, static decodes closed, corrections, port-ready list
 
 Status: read-only survey. Repo `<workdrive>/GodotFootball` (main `15c6779`), install VFS `<workdrive>/PES21`,
-image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (VA = fileoff + 0x140000000), Ghidra bridge
+image `<local>/pes_full.bin` (VA = fileoff + 0x140000000), Ghidra bridge
 `http://127.0.0.1:8080` (one request at a time). Scratch: `<workdrive>/gf-RenderSurveyRE-scratch/`
 (absolute output paths; nothing written to the repo). Read with every doc in `docs/render/`.
 

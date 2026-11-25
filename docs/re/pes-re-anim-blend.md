@@ -4,7 +4,7 @@ Scope: how PES 2021 plays and blends match body clips, precisely enough to repro
 Godot. Read-only RE of the image dump `<scratch>/pesmem.bin` (base 0x140000000; RVA = VA −
 0x140000000), GhidraMCP on port 8080, and the live process (read-only `sudo` preads of
 `/proc/<pid>/mem`; never written, never stopped, never given input). Scratch:
-`~/ghidra-projects/scratch/AnimBlendRE/`.
+`<local>/AnimBlendRE/`.
 
 Sources carried in: `pes-re-animselect.md` (AR) §5/§7/§9, `pes-re-sim-motion-mapping.md`
 (SMM) §5/§6/§14, `pes-re-locomotion.md` (LOC) §1–§6.
@@ -447,9 +447,9 @@ AR §11 stands unchanged. One addition from this session:
 
 - Image `<scratch>/pesmem.bin`; `.rdata`/`.data` reads at `VA − 0x140000000` (verified on
   `DAT_1425A266c = 300.0`, `DAT_14259A764 = 60.0`, `DAT_142565600 = 0.5`, `DAT_14256AE1C = 1.0`).
-- Function bounds from `.pdata` via `~/ghidra-projects/scratch/ThrowInRE/pdata.py`
+- Function bounds from `.pdata` via `<local>/pdata.py`
   (resolves `0x1406f2c8a`/`0x1406f1a58`/`0x1406f4e60` → primary `FUN_1406f19f0`).
-- GhidraMCP :8080 decompiles, all in `~/ghidra-projects/scratch/AnimBlendRE/*.c`:
+- GhidraMCP :8080 decompiles, all in `<local>/*.c`:
   `FUN_1406f0f70`, `FUN_1406f0aa0`, `FUN_1406f14e0`, `FUN_1406f1280`, `FUN_1406f19f0`,
   `FUN_140727230`, `FUN_1406b11e0`, `FUN_1406b10d0`, `FUN_1406af620`, `FUN_1406e6c40`,
   `FUN_1406e8b70`, `FUN_14071c910`, `FUN_141af61c0`, `FUN_141af52b0`, `FUN_141af6e40`,

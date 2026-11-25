@@ -5,7 +5,7 @@ Tools: `pesfmt_dump` (install reads), scratch C++/Python in `the scratch dir` ag
 
 Evidence tags: **OBS** = observed in bytes or decompile (method given). **INF** = inferred. **OPEN** = not resolved.
 
-VAs are in the unpacked image (base 0x140000000). The on-disk `PES2021.exe` is protected (its `.text1` is a 0x1600 stub), so code searches used `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − base).
+VAs are in the unpacked image (base 0x140000000). The on-disk `PES2021.exe` is protected (its `.text1` is a 0x1600 stub), so code searches used `<local>/pes_full.bin` (file offset = VA − base).
 
 ---
 

@@ -8,7 +8,7 @@
 > PES cannot reach this: the minimum-players rule (FUN_140447B50 case 6, fewer than 7) ends the match first. `MI+0x175E` read all zero
 > with eight or more players sent off, so it is not a sent-off array (corrects that lead in pes-re-missing-systems.md).
 
-Read-only RE. Sources: Ghidra PESLive decompiles via `dec.sh` (scratch `~/ghidra-projects/scratch/Unpacker/out/spk1..6.c`),
+Read-only RE. Sources: Ghidra PESLive decompiles via `dec.sh` (scratch `<local>/spk1..6.c`),
 capstone over `<scratch>/pesmem.bin` (raw checks), read-only `pread` of the running AI-vs-AI match (`kwatch.py`, an extension of
 `SetPieceChoreoRE/spwatch.py` that also logs the taker's request block `ap+0x2bb0..0x2d1f` and the ball trajectory
 `*(G+0x40)+0x88`), and the earlier captures `SetPieceChoreoRE/live.jsonl`, `live_match1.jsonl`.

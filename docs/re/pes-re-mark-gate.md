@@ -7,7 +7,7 @@ CONFIRMED (two call sites + init), value-set {1, 0x3F} provenance INF (one scan 
 Ramp base OPEN (struct shape CONFIRMED, allocating writer unidentified). Reader verdict
 branches mapped to GF consumers as INF (near-miss, not port-blocking).
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only RE. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`
 (`/decompile_function?address=`, `/disassemble_function?address=`).
 Scratch: `<workdrive>/gf-MarkGateRE-scratch/`

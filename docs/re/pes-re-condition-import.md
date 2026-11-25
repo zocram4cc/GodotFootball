@@ -5,7 +5,7 @@ Parents: `docs/re/pes-re-condition-writer.md` (writer chain) +
 `docs/re/pes-re-condition-roll.md` (copier verdict, veto, mixer, no-Form proof).
 This file closes the last link the ticket named: roster/save load into `+0x147`.
 
-Image: `~/ghidra-projects/scratch/Unpacker/pes_full.bin`, file offset = VA −
+Image: `<local>/pes_full.bin`, file offset = VA −
 0x140000000. Bridge one request at a time; floats/instructions script-read.
 Checker: `<workdrive>/gf-ConditionImportRE-scratch/check_condition_import.py` —
 41 byte/table/data asserts, GREEN 23-10-26; mutation run (0x46→0x47 at

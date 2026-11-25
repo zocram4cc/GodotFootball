@@ -168,7 +168,7 @@ Predicates (`pass 9` helpers): bit 3 (`>>3`) = `FUN_140a6e150`, bit 5 (`>>5`) = 
 - `FUN_140a62690(team, side)` (= pass 1's `side*11 + FUN_140a62610`): `FUN_140a62610(side, MI, team)` is the slot, `0xff` if none. Cross-check done: matches the notes.
 - `FUN_140a41190(team, man)`: index 0..3 of `man` in `team+0xa548`, else `0xffffffff`.
 
-## Pass 13: writer FUN_140536fc0 body, lines 1–240 read (decode in ~/ghidra-projects/scratch/Unpacker/out/w_main.c)
+## Pass 13: writer FUN_140536fc0 body, lines 1–240 read (decode in <local>/w_main.c)
 Order of the body:
 1. `T+0xa548[0..3]` cleared to 0xff for man < 0x16; `T+0xa558` saved to `uStack_244`, set 0xff.
 2. Entry gates: `MI+0x78 >= 0x16` required; `FUN_141b92460(2) >= 5` required; `FUN_140a53f90(team,&out)` must be ≤ 0; `FUN_140a62690(team, side)` = slot in 0..21 with `FUN_140a48910` role class not in {0x41,0x42}... (`(role-0x41) < 2` ⇒ exit); `MI+0x116c == 1` required. `FUN_140a51320(team)` must be ≥3 unless the newest event type is 1..3 or 0x10 or `FUN_140a6ce10` is true.

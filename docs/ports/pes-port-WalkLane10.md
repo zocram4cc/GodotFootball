@@ -1,7 +1,7 @@
 # WalkLane10: a strike-owned man and PES's contact push (ATrapsRoot, handoff + exemption). Scenario M1.
 
 Branch WalkLane, worktree <workdrive>/gf-WalkLane. Base: origin/Integrate 3ed0f35d9, merged into WalkLane (merge 5f2c5e771, clean).
-Commit: 66f2930d7 (local; push pending gen check, see section 6). Static evidence: headless decompiles via `~/ghidra-projects/scratch/Unpacker/dec.sh` (the Ghidra bridge on :8080 returned 404 on every path this session). Outputs: `<workdrive>/gf-WalkLane-scratch/dec/contact1.txt`, `contact2.txt`.
+Commit: 66f2930d7 (local; push pending gen check, see section 6). Static evidence: headless decompiles via `<local>/dec.sh` (the Ghidra bridge on :8080 returned 404 on every path this session). Outputs: `<workdrive>/gf-WalkLane-scratch/dec/contact1.txt`, `contact2.txt`.
 
 ## 0. Rig requests
 None. No live PES reads, no hooks, no captures.

@@ -689,7 +689,7 @@ else:               vy_out =  −F·vy_in                 # true reflection → 
 
 ### 8.1 Note on the companion probe
 
-`~/ghidra-projects/scratch/pes_state.py` (shared, read-only) had a stale ball locator: it
+`<local>/pes_state.py` (shared, read-only) had a stale ball locator: it
 looked for the `BallInfoRef` vtable at `simBall+0x4E0` with the ball position at `+0x64`, and
 found nothing in a live match (33 vtable hits, none moving). It now locates the live ball by
 matching the **ballstate signature** instead — position in the pitch box, `y ≥ r−0.02`, a

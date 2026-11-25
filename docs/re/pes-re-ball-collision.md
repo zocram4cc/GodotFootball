@@ -1,7 +1,7 @@
 # PES 2021 ball vs goal frame / nets / boards / players — collision response (BallCollisionRE)
 
 Read-only RE. OBS = observed at the named VA (decompile of PESLive `pes_live.exe` via `dec.sh`, confirmed against
-capstone where stated); INF(conf) = inferred. Image base 0x140000000. Scratch: `~/ghidra-projects/scratch/BallCollisionRE/`
+capstone where stated); INF(conf) = inferred. Image base 0x140000000. Scratch: `<local>/BallCollisionRE/`
 (`tick.a.c`, `coll.a.c`, `h.a.c`, `c3.a.c` = annotated decompiles; `callscan.py` = e8/e9 caller scan of the full image).
 
 ## 0. Headline (status: response function FOUND, literal)

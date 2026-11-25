@@ -4,7 +4,7 @@
 
 Read-only RE. No GF code changed, no PES written.
 Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`, `<workdrive>/gf-TeamDecode-scratch/deriv.bin`.
-Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
+Base `0x140000000`, image `<local>/pes_full.bin`.
 Install: `<workdrive>/PES21` (read only, through `build/apps/pesfmt_dump`).
 
 Tags: **CONFIRMED** = decompile and/or raw dis this pass, checked by script; **INF** = inference;

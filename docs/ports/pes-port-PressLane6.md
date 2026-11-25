@@ -21,7 +21,7 @@ Neither ratchet holds in any state. Per land-or-revert, nothing lands and the tr
 - The patch applies cleanly to `f95743c1`. Both test binaries build.
 - The three PressLane5 gaps are in the patch: G+0x3B0 skip pointer stored (`pesworldrecord.hpp`), P+0xAC0 speed-profile vtable read
   from the install (`pesimagetables.cpp`), interface vtable span 0x100 (`pesimagetables.hpp`).
-- Run env needs `PES_EXE=<home>/ghidra-projects/scratch/Unpacker/pes_full.bin` as well as `PES21_ROOT` (without it every sim test stops at
+- Run env needs `PES_EXE=<local>/pes_full.bin` as well as `PES21_ROOT` (without it every sim test stops at
   "install constants unavailable"). Not a code change.
 
 ## 2. Step 2 (designation order): moved, no effect on the numbers

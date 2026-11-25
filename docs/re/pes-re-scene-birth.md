@@ -3,7 +3,7 @@
 Read-only RE. PES2021.exe pid 53052 under Wine, bot churning matches. No repo edits.
 Scratch: `<workdrive>/gf-SceneBirth-scratch/` (catcher/trace scripts, `births/`,
 `traces/`, `specs-birth*`, `snapdiff-*`, `res-*.json`). PES-derived bytes stay in
-scratch, never committed. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+scratch, never committed. Image `<local>/pes_full.bin`
 (base 0x140000000). Ledger `tools/dev/ledger/universe.json`.
 Prior docs: `docs/re/pes-re-cutscene-impure.md` (the 3,095 impure set, tiers),
 `docs/re/pes-re-cutscene-snap.md` (4 stoppage snapshots, 25/3,095 steady-state reach),

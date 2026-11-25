@@ -3,7 +3,7 @@
 Read-only RE (owner ruling 24-10-26; brief allows one SIGSTOP snapshot only if the game shows a cutscene).
 Read `brief-rules.md` first. Scratch: `<workdrive>/gf-CutsceneImpure-scratch/`
 (`cutscene-impure-stubs.json` = the stub file for the task agent). No repo edits made.
-Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA − 0x140000000).
+Image `<local>/pes_full.bin` (offset = VA − 0x140000000).
 Ledger `tools/dev/ledger/universe.json` (37,855 rows; 18,374 in scope).
 `tools/dev/ledger/indirect.py` output: `<workdrive>/gf-Indirect-scratch/indirect.json` (6,873 sites).
 Fox survey: `docs/re/pes-re-fox-layer.md` (system grouping reused here).

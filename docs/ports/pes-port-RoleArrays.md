@@ -77,7 +77,7 @@ Summary: PES keeps per-side arrays A (`S+0x3F8C`, T+0x4BD4) and B (`S+0x3FB8`, T
 6. `MI+0x1775` (restart mode byte) and `MI+0x1554` are PES-host stubs that return 0 (`pesmovestep.cpp`). The write gates are therefore open.
 7. Keeper stand-in for `FramesToReach` record byte: not ported (`FUN_140A48910(G,id)+1` writer not decoded).
 8. Head-write timing: the registry mirror at the head reads the dynamic roles as of the head; if `CalculateDynamicRoles` runs later in the tick, readers see a one-tick lag. Not measured.
-9. Ghidra bridge (`127.0.0.1:8080`) returned "No function found" for `0x140606CD0` and `0x140500200`. Disassembly used `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA - 0x140000000).
+9. Ghidra bridge (`127.0.0.1:8080`) returned "No function found" for `0x140606CD0` and `0x140500200`. Disassembly used `<local>/pes_full.bin` (offset = VA - 0x140000000).
 10. The 4152 thrash (motion re-issued every few ticks t=28399–28427 before the 045 issue, §9) is a second, unaddressed defect; left alone per Main's ruling.
 
 ## 9. Restart-path fix: faithful FUN_140a92950 (RoleArrays-on-main, d6cb09b)

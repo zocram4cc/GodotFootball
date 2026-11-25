@@ -1,6 +1,6 @@
 # PES record layouts: the A3E190 ring, the slot record, the 6E150 class byte, the need chain (RecordLayoutRE, 23-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only RE. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request
 at a time. Scratch: `<workdrive>/gf-RecordLayoutRE-scratch/`
 (`d_A3E190.c`, `d_6CA10.c`, `d_6E150.c`, `d_6E340.c` = bridge decompiles saved

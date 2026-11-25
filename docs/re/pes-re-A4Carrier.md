@@ -395,7 +395,7 @@ No live capture was taken for this report. All live counts are C-prior.
 
 ### 14.0 Live state and method
 - Live PES (pid 2510857, `PES2021.exe`) is in a menu: `G = *(0x1436F3DC8) = 0x371d5090`, `MI = *(G+0x270) = 0`, so no match is loaded. **No live read this turn.** `/proc/<pid>/mem` needs `sudo -n` (works here); the read-only scripts are `live_mi.py` and `live_gate.py` in the scratch dir.
-- Binary scans (scratch): `scan5d0.py` (pdata functions), `scanlin5d0.py` (linear sweep of `.text`, covers functions with no `.pdata`), `scanlea.py` (address-of `+0x5D0`), `scancall.py` (call and jmp sites to a VA). Image: `~/ghidra-projects/scratch/Unpacker/pes_full.bin`, base 0x140000000.
+- Binary scans (scratch): `scan5d0.py` (pdata functions), `scanlin5d0.py` (linear sweep of `.text`, covers functions with no `.pdata`), `scanlea.py` (address-of `+0x5D0`), `scancall.py` (call and jmp sites to a VA). Image: `<local>/pes_full.bin`, base 0x140000000.
 - Ghidra: the five unit entries are defined in the PESLive project through `dec.sh` (read-only, creates functions on demand). The shared bridge on port 8080 still does not define them.
 
 ### 14.1 Item 1: writer of `PM+0x5D0`: setter found (CONFIRMED), link to PM INF(high)

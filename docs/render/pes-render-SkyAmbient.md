@@ -2,7 +2,7 @@
 
 Ticket: GF grass ~1.31x PES, paint ~0.70x PES at p12 (split 1.87x, stable f200-f399); the split moves with the sun:sky balance; sun math/constants, post path, hour, shadow, metering, LACC and SunPort's scale are eliminated. Open leg: the sky ambient energy (PES `cb7` writer undecoded; GF `daySkyAmbientScale` ponytail) and the live sun row's R=G,B~0 shape vs GF white.
 
-Read-only on the repo and install. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (VA = offset + 0x140000000); Ghidra bridge one-at-a-time; live PES pid 2510857 `pread` only. Scratch: `<workdrive>/gf-SkyAmbientRE-scratch/` (absolute paths; probes, asm, scripts).
+Read-only on the repo and install. Image `<local>/pes_full.bin` (VA = offset + 0x140000000); Ghidra bridge one-at-a-time; live PES pid 2510857 `pread` only. Scratch: `<workdrive>/gf-SkyAmbientRE-scratch/` (absolute paths; probes, asm, scripts).
 
 ## 0. Script-read constant table (floats read from the image, offset = VA - 0x140000000; operand VA paired)
 

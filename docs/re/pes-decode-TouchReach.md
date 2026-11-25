@@ -1,6 +1,6 @@
 # TouchReach: PES decode of three GF stand-ins (read-only)
 
-Base: `origin/main` `a47f5f2`, read in `<workdrive>/GodotFootball` (no edits). Image: `pes_full.bin` (Ghidra bridge, base 0x140000000). Constants read from `<workdrive>/PES21/PES2021.exe` with `~/ghidra-projects/scratch/va.py`. Scratch: `<workdrive>/gf-TouchReach-scratch/` (decompiles saved as `d_*.c`).
+Base: `origin/main` `a47f5f2`, read in `<workdrive>/GodotFootball` (no edits). Image: `pes_full.bin` (Ghidra bridge, base 0x140000000). Constants read from `<workdrive>/PES21/PES2021.exe` with `<local>/va.py`. Scratch: `<workdrive>/gf-TouchReach-scratch/` (decompiles saved as `d_*.c`).
 
 Verdicts: CONFIRMED = decompile or file read; INF = inference; OPEN = blocked, with the blocker named.
 

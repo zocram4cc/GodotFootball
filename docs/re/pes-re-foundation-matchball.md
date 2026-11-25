@@ -107,7 +107,7 @@ by LivePoke (MA=0x7ffffb000018 that session): rank bytes MA+0x247be[0..21] are p
 21 of 22 within 1%. MA found by SCAN, not a pointer chain (depth-2 via G+0x18 found nothing):
 findma.py scans writables (numpy f32) for sim-ball x±2.5m at MA+0x2482c and z at MA+0x24834, accepts at
 >=18 players, retries torn reads; address moves per match, relocate on G change
-(~/ghidra-projects/scratch/LivePoke/findma.py). `_DAT_1425301f0` = ucrtbase sqrtf IAT slot, so
+(<local>/findma.py). `_DAT_1425301f0` = ucrtbase sqrtf IAT slot, so
 FUN_14044e0d0 returns sqrt(d2) metres; flagA = <4.0m. | writer FUN_140536fc0 (named, not ported, input
 not wired) | readers (P: PressFillMan sqrt(tableDistSq)<4.0 with caller-computed d2, pespress.hpp:198 +
 FlagAIsDistanceNotSquaredDistance test; p: mark compare attack-decisions §477, keeper 6m gate defshape

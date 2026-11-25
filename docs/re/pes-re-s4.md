@@ -1,6 +1,6 @@
 # PES S4: MA nearest-list builder + two live values (S4Builder, 26-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA - 0x140000000).
+Read-only RE. Image `<local>/pes_full.bin` (offset = VA - 0x140000000).
 Labels: **CONFIRMED** = disassembly bytes read this pass (capstone over the image) or live/capture bytes read this pass;
 **INF** = inference; **OPEN** = narrowed remainder with the exact next step. No PES bytes quoted.
 Scratch: `<workdrive>/gf-S4-scratch/` (`live1.py`, `live2.py`, `live3.py`, `polldiv.py`, `pollsetup.py`).

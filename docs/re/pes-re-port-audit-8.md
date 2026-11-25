@@ -2,7 +2,7 @@
 
 Read-only audit of everything `docs/re/pes-re-port-audit-7.md` §"Not yet covered"
 lists as unaudited, checked against PES's bytes and against the code on
-`origin/main` (`a6b870e`). Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+`origin/main` (`a6b870e`). Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at
 a time; image constants below re-read by script this pass. GF code read from
 `origin/main` via `git show` into `<workdrive>/gf-PortAudit8RE-scratch/main/`.

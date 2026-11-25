@@ -1,8 +1,8 @@
 # PES 2021 keeper deflect + distribution → GodotFootball port
 
 Scope: read-only RE of PES2021.exe (image base 0x140000000, dump
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin`, Ghidra project
-`~/ghidra-projects/scratch/Unpacker/proj/PESLive.gpr`, headless decompile only),
+`<local>/pes_full.bin`, Ghidra project
+`<local>/PESLive.gpr`, headless decompile only),
 then the port into `src/sim`. Tags: **OBS** = observed in bytes/decompile at the
 named address, **INF** = inferred (confidence).
 

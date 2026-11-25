@@ -8,7 +8,7 @@ sample); every claim is static unless marked. Function bounds come from the real
 table at raw file offset `0x3b339b8` (e.g. `0x876360 → 0x8763b3`), **not** from linear
 `objdump`, which desyncs in this image (confirmed: `objdump -d` on `0x876360` produced garbage;
 the `--adjust-vma` rebased form agrees with Ghidra instruction-for-instruction). Scratch:
-`~/ghidra-projects/scratch/BallContactRE/` (`dis.sh`, raw disassemblies `intbody.txt`,
+`<local>/BallContactRE/` (`dis.sh`, raw disassemblies `intbody.txt`,
 `loadrec.txt`, `loadjson.txt`, `lmap.tsv`, `cm.bin`, `*.py` parsers).
 
 Tags: **OBS** = observed (method stated); **INF** = inferred (confidence stated).

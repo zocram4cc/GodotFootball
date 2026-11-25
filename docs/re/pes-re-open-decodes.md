@@ -4,7 +4,7 @@
 
 # Open decodes: CANM camera sampler, function 0x5D, sanction inputs
 
-Read-only RE. Image `<local>/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA − 0x140000000). Ghidra GUI bridge down → headless `dec.sh` + capstone on the image + operand-VA constants script-read. Scratch: `<workdrive>/gf-OpenDecodes-scratch/`. Labels: **CONFIRMED** = dec.sh decompile or image read this pass; **INF** = inference, reason given; **OPEN** = blocker named.
+Read-only RE. Image `<local>/pes_full.bin` (offset = VA − 0x140000000). Ghidra GUI bridge down → headless `dec.sh` + capstone on the image + operand-VA constants script-read. Scratch: `<workdrive>/gf-OpenDecodes-scratch/`. Labels: **CONFIRMED** = dec.sh decompile or image read this pass; **INF** = inference, reason given; **OPEN** = blocker named.
 
 ## Item 1 — Cutscene camera sampler (CANM)
 

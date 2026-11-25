@@ -289,7 +289,7 @@ The census lists 977 RTTI classes in match, matchPlan and constant namespaces; 4
 
 ## 8. Reproduction
 
-- Census: `~/ghidra-projects/scratch/DeadCodeRE/out/{nodes.tsv,vtables.tsv,summary.json}`; band = 0x140400000 <= VA < 0x140B00000, categories live-*.
+- Census: `<local>/{nodes.tsv,vtables.tsv,summary.json}`; band = 0x140400000 <= VA < 0x140B00000, categories live-*.
 - Main: `git -C <workdrive>/GodotFootball grep -n -o -i -E "14[0-9a-f]{7}" origin/main -- src/sim src/pes`.
 - Branches: `git for-each-ref refs/remotes/origin/`, then `git merge-base --is-ancestor <branch> origin/main`; cited = band VA cited on the branch and absent on main.
 - Guards: `grep PesLoop` over src/sim/onthepitch (match.cpp:80 default false).

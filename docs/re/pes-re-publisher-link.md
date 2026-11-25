@@ -1,6 +1,6 @@
 # PES publisher link: 27A0 writer-side closes (PublisherLinkRE, 24-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (base 0x140000000,
+Read-only RE. Image `<local>/pes_full.bin` (base 0x140000000,
 file offset = VA − 0x140000000). Bridge one request at a time
 (`decompile_function` + `xrefs_to` + `disassemble_function`); `dec.sh` not needed
 (all targets had symbols). Read-first: `pes-re-publisher.md` (the handover,

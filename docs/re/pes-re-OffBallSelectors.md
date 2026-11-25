@@ -29,4 +29,4 @@
 - SecondLine: stop head read (pes-re-off-ball 2.2 corrected). Mask `0x60ebf0` (477 lines) calls about 18 unread helpers; its cooldown read is `b4a.c:1204` (`param_2[7][slot]`), i.e. RunCooldownBlocks belongs there.
 
 ## Scratch and reproduction
-- Decompile batches: `<workdrive>/gf-OffBallSelectors-scratch/dec1..dec5.txt`, `dec_post.txt`, `dec_veto.txt`, `dec_cap.txt`, `dec_cap2.txt`, `dec_stops.txt`, `dec_pp_helpers.txt`, `lane0.asm`. Re-decompile any VA with `sh ~/ghidra-projects/scratch/Unpacker/dec.sh OUT 0xVA`. The old `gf-*-scratch` trees named in the earlier reports (b4a.c, run2.c copies, etc.) are gone from disk; the Unpacker `out/` copies remain.
+- Decompile batches: `<workdrive>/gf-OffBallSelectors-scratch/dec1..dec5.txt`, `dec_post.txt`, `dec_veto.txt`, `dec_cap.txt`, `dec_cap2.txt`, `dec_stops.txt`, `dec_pp_helpers.txt`, `lane0.asm`. Re-decompile any VA with `sh <local>/dec.sh OUT 0xVA`. The old `gf-*-scratch` trees named in the earlier reports (b4a.c, run2.c copies, etc.) are gone from disk; the Unpacker `out/` copies remain.

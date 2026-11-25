@@ -7,7 +7,7 @@
 - Tip unchanged: `843a2e305`. No push, nothing landed. Gate not run (Main gates).
 
 ## 1. FUN_1406EB440: what it resets (CONFIRMED)
-Sources: headless decompile (`~/ghidra-projects/scratch/Unpacker/dec.sh`, output `gf-WalkLane-scratch/dec_eb440.txt`); translated closure `src/pes/translated/closure/pes_fn_1406EB440.cpp` (the two agree).
+Sources: headless decompile (`<local>/dec.sh`, output `gf-WalkLane-scratch/dec_eb440.txt`); translated closure `src/pes/translated/closure/pes_fn_1406EB440.cpp` (the two agree).
 - `P+0x245D = P+0x245C; P+0x245C = 0` (the phase byte, `pes-port-ClipOwner.md` §1).
 - `[A.vtable]+8(A, P+0xA08)` with A = P+0x428: the strike-adjuster RESET `FUN_141EB33E0` (translated `closure/pes_fn_141EB33E0.cpp`). It writes `A+8 = 0` (the state word), `A+0x10/0x18 = 0`, `A+0x20/0x24`, `A+0x4C..0x58`, then calls `[A]+0x10` = `FUN_141EB1A20` (`A+0x28..0x48 = 0`, `A+0x6D = 0`).
 - `[P+0x4D0 vtable]+8(yaw, P+0xA08)` = the yaw reset `FUN_141EB33C0`.
@@ -20,7 +20,7 @@ Sources: headless decompile (`~/ghidra-projects/scratch/Unpacker/dec.sh`, output
 - `tests/sim/pes_stall_test.cpp`, `BreakerCensusProbe::OnTick`: per man, prints `DIAGEDGE` on each Trap edge (ac8 7 <-> other) with A's state word before and after, the A mode `+0x6D`, the Trap ticks and the ticks with state 2 of that Trap.
 - Patch: `gf-WalkLane-scratch/lock-diag-pes_stall_test.cpp.patch` (observation only).
 - Probe check: baseline (tip, no lock) gives `PESSTALLQUICK forced_live=53`, the ratchet number, so the probe does not perturb the match.
-- Run environment (for the record): `PES21_ROOT=<workdrive>/PES21 PES_EXE=<home>/ghidra-projects/scratch/Unpacker/pes_full.bin`; without `PES_EXE` the constants fail to load ("install constants unavailable") and the run aborts in 8 s.
+- Run environment (for the record): `PES21_ROOT=<workdrive>/PES21 PES_EXE=<local>/pes_full.bin`; without `PES_EXE` the constants fail to load ("install constants unavailable") and the run aborts in 8 s.
 
 ## 3. Census of the Trap edges (CONFIRMED, one seed-7 quick match each)
 Baseline (tip + diagnostic, no lock), `diag_quick.log`, 119 edges:

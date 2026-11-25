@@ -1,6 +1,6 @@
 # PES team-tick small decodes (SmallDecodesRE, 24-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only RE. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Static byte decode
 (`gf-SmallDecodesRE-scratch/rd.py`, capstone 5.0.7); no repo edits.
 Slice labels and §0 floats per `pes-re-slice-survey.md` (SliceSurveyRE).

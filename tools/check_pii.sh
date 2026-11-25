@@ -12,7 +12,7 @@ hit() { echo "PII: $1"; fail=1; }
 
 path_patterns=(
   '/hom[e]/' '/mn[t]/' '/run/medi[a]/' '/User[s]/' '(^|[^A-Za-z0-9_])[A-Za-z]:\\'
-  '\.claud[e]' 'claude-[0-9]'
+  '\.claud[e]' 'claude-[0-9]' '[~]/' '<hom[e]>/' 'ghidra-project[s]' '\.om[p]/' 'Dat[i] III'
 )
 user_patterns=()
 [ -n "${USER:-}" ] && user_patterns+=("/${USER}/" "-${USER}-")

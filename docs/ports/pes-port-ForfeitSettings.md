@@ -8,7 +8,7 @@ Status: DONE. Branch `ForfeitSettings` at `b28f2166` (pushed, `ls-remote` confir
 - Writer chain (static, CONFIRMED for the chain, INF for the field meaning): `FUN_142159F40` (0x142159F40) fills E's settings fields from a tagged record array; its only caller is `FUN_14214B8D0` (0x14214B8D0), called from `FUN_142160350` (0x142160350, save-slot reader). The hook on 0x142159F40 never fired (the save is read before hooks install). The two ff_ hooks on 0x141019BF0 / 0x1408E0DB0 are not the E writer.
 
 ## 2. Default and save reader
-- `src/pes/editsave.hpp` `ReadEditSave` decodes only the player table (data block, records at +0x7C, stride 0x138). No reader exists for E+0x66/0x67, so the defaults are the live measured pair, labelled `ponytail:`. Upgrade path: read the user's save (`~/Documents/KONAMI/eFootball PES 2021 SEASON UPDATE/<id>/save/EDIT00000000`) settings records in FUN_142159F40's layout.
+- `src/pes/editsave.hpp` `ReadEditSave` decodes only the player table (data block, records at +0x7C, stride 0x138). No reader exists for E+0x66/0x67, so the defaults are the live measured pair, labelled `ponytail:`. Upgrade path: read the user's save (`<local>/eFootball PES 2021 SEASON UPDATE/<id>/save/EDIT00000000`) settings records in FUN_142159F40's layout.
 
 ## 3. GF change (CONFIRMED by build and tests)
 - `MatchSetup`: `extraTime = false`, `penaltyShootout = true` (the measured pair).

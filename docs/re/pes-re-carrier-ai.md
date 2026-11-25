@@ -2,7 +2,7 @@
 
 Agent: CarrierAIRE. Read-only RE of `pesmem.bin` (mid-match image, base 0x140000000) with
 capstone (raw bytes) + GhidraMCP decompiles (hypothesis only, every formula below re-read
-from the disassembly unless tagged otherwise). Scratch: `~/ghidra-projects/scratch/CarrierAIRE/`
+from the disassembly unless tagged otherwise). Scratch: `<local>/CarrierAIRE/`
 (decompiles `*.c`). Tags: **OBS** (observed, address given), **INF** (inferred, confidence given).
 Angles are **degrees** throughout (OBS: the wrap helpers `0x140481b00`/`0x14043a020`/`0x1404583b0`
 wrap with 360.0 @0x14259858c and fold at 180.0 @0x142598580). Positions are Fox/PES metres,

@@ -6,7 +6,7 @@ Title: which player each B7D8 writer stores and when (CONFIRMED), what `FUN_140A
 writes and when (CONFIRMED), the {1, 0x3F} value provenance (INF, one scan left),
 plus `FUN_1404F0E50` inner scoring weights (INF detail, CONFIRMED skeleton/contract).
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only RE. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`
 (`decompile_function?address=`, `disassemble_function?address=`, `xrefs_to?address=`),
 one request at a time.

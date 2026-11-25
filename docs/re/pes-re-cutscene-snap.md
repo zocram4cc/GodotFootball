@@ -3,7 +3,7 @@
 Read-only RE. PES2021.exe pid 53052 under Wine, bot churning matches. No repo edits.
 Scratch: `<workdrive>/gf-CutsceneSnap-scratch/` (audit/trace scripts, snapshot dirs
 `cut/snap*`, trace dirs `trace-*`). PES-derived bytes stay in scratch, never committed.
-Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (base 0x140000000).
+Image `<local>/pes_full.bin` (base 0x140000000).
 Ledger `tools/dev/ledger/universe.json`; Fox systems
 `<workdrive>/gf-FoxSurvey-scratch/systems.json`; stubs/callee map/tiers in
 `<workdrive>/gf-CutsceneImpure-scratch/pes-re-cutscene-impure.md` (§ references below

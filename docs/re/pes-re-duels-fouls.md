@@ -12,7 +12,7 @@ cross-checked byte-for-byte against the on-disk exe at `fileoff = 0x391b400 + (V
 few junk instructions (`xchg [rip+…]`, `sub edi,[rip+…]`, `mov rbp,[rip+…]` into dead registers) and
 **XOR-obfuscated immediates** (`mov r,[rip+X]; xor r,K`), decoded below.
 
-Scratch: `~/ghidra-projects/scratch/DuelsFoulsRE/` — `dec/*.c` (GhidraMCP + headless decompiles),
+Scratch: `<local>/DuelsFoulsRE/` — `dec/*.c` (GhidraMCP + headless decompiles),
 `live/*.bin` (protected-code dumps), `ldis.py` (disassembler that resolves rip-relative constants from the
 image or the on-disk exe), `dumplive.py` (read-only live dump), `xscan.py`/`xscan2.py`/`xcall.py` (scans of
 the on-disk protected region), `f.py` (constant reader).

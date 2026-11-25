@@ -3,7 +3,7 @@
 Batch-3 decode of the steps team-layer.md §1 lists as OPEN that batches 1+2 left
 (step 27c is directive.md §1; step 41's manager is off-ball.md §1; step 44's
 dispatcher is defshape §1 + press-life). Base `0x140000000`, image
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin`. Disassembly files in
+`<local>/pes_full.bin`. Disassembly files in
 `<workdrive>/gf-TickSteps3-scratch/dis_*.txt` (bridge `/disassemble_function`).
 Tags: **CONFIRMED** = raw disassembly or image bytes this pass; **DOC** = cited
 doc, not re-checked; **INF** = inference; **OPEN** = blocker named. Decompile

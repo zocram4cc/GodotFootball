@@ -134,7 +134,7 @@ the ratchet), run it red, then implement, then a mutation per branch. Mutation c
 ## 7. Verification commands for the restarted pair
 
 - Build: `nice -n 19 cmake --build build -j3` (in the new worktree).
-- Gate: `flock <workdrive>/gf-sim.lock env PES21_ROOT=<workdrive>/PES21 PES21_EDIT_SAVE="$(find ~/Documents/KONAMI/'eFootball PES 2021 SEASON UPDATE' -name EDIT00000000|head -1)" nice -n 19 ctest --test-dir build -j3 --timeout 2400`.
+- Gate: `flock <workdrive>/gf-sim.lock env PES21_ROOT=<workdrive>/PES21 PES21_EDIT_SAVE="$(find <local>/KONAMI/'eFootball PES 2021 SEASON UPDATE' -name EDIT00000000|head -1)" nice -n 19 ctest --test-dir build -j3 --timeout 2400`.
 - Smoke: `flock <workdrive>/gf-sim.lock nice -n 19 build/apps/gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --seed 7 --minutes 20 --pes21-root <workdrive>/PES21` (compare against main's
   `[determinism] 9191772f1f1ab525` line from tasks/14-10-26).
 - Scratch for this pair: `<workdrive>/gf-CarrierImagePort-scratch`, scripts under

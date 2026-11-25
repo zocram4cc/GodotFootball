@@ -27,7 +27,7 @@ Branch `PressLane`, tip `44ee6899` (pushed; `git ls-remote origin PressLane` con
 
 ## Scratch, disk, handoffs
 - Unpacked capture copies deleted; `gf-PressLane-scratch` 408 MB (scripts, logs, `press2/`, saved record). Disk 282 GiB free on <workdrive> at the last check.
-- Archive: my `move_launches.sh` was killed by Main before any verify. Live2 sources intact; one partial copy remains at `<media>/Dati III/gf-capture-archive/pid1270903` (reported; Main's to clean).
+- Archive: my `move_launches.sh` was killed by Main before any verify. Live2 sources intact; one partial copy remains at `<media>/<archive-drive>/gf-capture-archive/pid1270903` (reported; Main's to clean).
 
 ## Not run
 PesStallQuick, ankle 9/9, ALiveBall, PesHang (no behaviour change in any commit this window).

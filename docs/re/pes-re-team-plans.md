@@ -10,7 +10,7 @@ Image: `<scratch>/pesmem.bin` (mid-match memory image, base 0x140000000, so
 Decompile: Ghidra MCP on 127.0.0.1:8080 (`pesmem.bin` project). Raw re-check:
 capstone linear disasm of each quoted function, with every rip-relative literal
 resolved to its value in the image (script `<scratch>/TeamPlansRE/dz.py`).
-RTTI: `~/ghidra-projects/scratch/FoxRegistryRE/rtti.py cls '<regex>'` over
+RTTI: `<local>/rtti.py cls '<regex>'` over
 `rtti_all.json` (13,816 COLs).
 
 Tags: **OBS** = raw bytes + decompile at a stated address. **INF** = inference with a

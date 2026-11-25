@@ -1,6 +1,6 @@
 # PES RE: cutover §5 open items — S3 / S8 / S9 (OpenItems, 27-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file-offset = VA − 0x140000000).
+Read-only RE. Image `<local>/pes_full.bin` (file-offset = VA − 0x140000000).
 Labels: **CONFIRMED** = disassembly bytes read this pass (capstone over the image, `mmap`); **INF** = inference; **OPEN** = narrowed remainder with the exact next step named.
 No PES bytes quoted. PES pid <pid> alive (polling not needed — all claims static; no SIGSTOP taken this pass).
 Prior docs re-checked, not re-derived: `pes-re-integration.md` (§4/§5), `pes-re-integration-open.md` (IntegrationOpen 26-10-26 — **two errors corrected here, §6**), `pes-re-tick-order.md` (MB-H), `pes-re-record-layouts.md` (RL §4), `pes-re-liveroster.md`, `pes-re-s7-records.md`.

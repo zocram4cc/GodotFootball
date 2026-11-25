@@ -373,7 +373,7 @@ Notes:
 
 ## 9. b6c record A (`X5+0xB6C+0x68+0xF8·k`), field meanings
 
-Writer: `0x1421174F0` (`~/ghidra-projects/scratch/CarrierAIRE/d_1421174f0.c`, read this session, C-dec with the asm-verified store types above). Dword indices:
+Writer: `0x1421174F0` (`<local>/d_1421174f0.c`, read this session, C-dec with the asm-verified store types above). Dword indices:
 
 | Dword | Byte | Field | Derivation (writer) | Read by |
 |---|---|---|---|---|

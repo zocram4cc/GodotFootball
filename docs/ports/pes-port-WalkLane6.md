@@ -41,6 +41,6 @@
 4. Worktree: `git diff` / `git status` fail (`extern/godot-cpp` symlink); use `git show HEAD:path` and `diff -u` (as in `dribble-series.patch`).
 
 ## 7. Commands and environment
-- Configure: `cmake -S . -B build` with `GF_DIFF_PYTHON`, `PES_EXE=<home>/ghidra-projects/scratch/Unpacker/pes_full.bin`, `PES21_ROOT=<workdrive>/PES21`. Build: `flock /tmp/gf-build.lock nice -n 19 cmake --build build --target pes_restart_delay_test -j8`.
+- Configure: `cmake -S . -B build` with `GF_DIFF_PYTHON`, `PES_EXE=<local>/pes_full.bin`, `PES21_ROOT=<workdrive>/PES21`. Build: `flock /tmp/gf-build.lock nice -n 19 cmake --build build --target pes_restart_delay_test -j8`.
 - Sims: `tools/dev/simslot.sh timeout <n> nice -n 19 ./build/tests/sim/pes_restart_delay_test --gtest_filter=...`.
 - Build dir `gf-WalkLane/build` is kept for the next round; delete when the lane ends.

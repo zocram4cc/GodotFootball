@@ -80,7 +80,7 @@ Source: TrapPick scratch `d_a.c:1248-1283` (the Ghidra bridge on 127.0.0.1:8080 
 - INF: the 0x5D speed sample units. `FUN_140A6C6D0` scales the player sample by `0x14259BDD0/gs`, so the unit of its output is not known. The gate takes the two samples as PES writes them.
 
 ## 6. Open items (numbered, with the method)
-1. Decode the action at id 0x5D: class (RTTI) and clip family. Method: Main's headless decompiler (`~/ghidra-projects/scratch/Unpacker/dec.sh OUT.txt 0xVA`, about 16 s) on the constructor/writer of `anime+0xC40+0x1528+8·0x5D` and on `FUN_1406B4580`/`FUN_1406D9010`. Then wire the 0x5D branch into `elizacontroller.cpp kReceive` for the designated owner, with the facing gate (item 4).
+1. Decode the action at id 0x5D: class (RTTI) and clip family. Method: Main's headless decompiler (`<local>/dec.sh OUT.txt 0xVA`, about 16 s) on the constructor/writer of `anime+0xC40+0x1528+8·0x5D` and on `FUN_1406B4580`/`FUN_1406D9010`. Then wire the 0x5D branch into `elizacontroller.cpp kReceive` for the designated owner, with the facing gate (item 4).
 2. Find which `_ReceiveCandidate`/`_TrapCommand` gate refuses the presser on the stall. Method: a live-free probe in the test harness that logs each gate's return on the 147 ticks.
 3. PES touch frame for TRAP clips from the HitData record (first-touch §7.6(b)). Needed before any TRAP can make contact.
 4. Port `FUN_140439F90` and the 0x5D facing gate (157.5°).

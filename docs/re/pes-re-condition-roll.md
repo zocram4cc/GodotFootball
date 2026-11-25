@@ -6,7 +6,7 @@ the edit slot record's band byte `+0x147`. This file closes it, plus the remaini
 reach within budget: the own-team shift's `+0x20 == 3` gate, the `/100 == 6` predicate, the Form
 mirror reader, and the exact GF port.
 
-Image: `~/ghidra-projects/scratch/Unpacker/pes_full.bin`, file offset = VA − 0x140000000.
+Image: `<local>/pes_full.bin`, file offset = VA − 0x140000000.
 Bridge one request at a time. Floats below are script-read from the image (owner ruling 19-10-26).
 Checker: `<workdrive>/gf-BandByteRE-scratch/check_condition_roll.py` — 60 byte/float asserts,
 GREEN 23-10-26; one mutation run (0x46→0x47 at 0x140AF2EB1) goes RED on `band.lt46`, reverted.

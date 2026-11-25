@@ -32,7 +32,7 @@ Branch `EndClear` (worktree `gf-EndClear`), pushed head `65110b24` (confirm: `gi
 - Not done: **builder `0x142119390`**. Its replay stops at the `powf` thunk `0x1415A17CE` (libm: no harness model; asked of NativeSeam) and it allocates 15 times through `0x1403FB410` (NativeSeam's native heap, branch not on main). Also not translated: memset `0x1415A1720` (reached only through the allocator pool constructor `0x1403FCD90`, never in a replay).
 - The merge of `origin/StoppageFlow` was needed: before it, `gen_translated` failed with 10 conflicts on the import thunks `0x1415A1708` and `0x1415A1720` (their decode ran into the next function under one set).
 
-## 4. Forced clear (rule 7) decoded (CONFIRMED from `~/ghidra-projects/scratch/Unpacker/out/carunits5.c`, walk `0x14210F110`; constants read from `pes_full.bin`, instruction/operand VA pairs from capstone)
+## 4. Forced clear (rule 7) decoded (CONFIRMED from `<local>/carunits5.c`, walk `0x14210F110`; constants read from `pes_full.bin`, instruction/operand VA pairs from capstone)
 
 The walk loops the priority list at BP+0x3E20 (`0x14211EF40` kind at index, `0x14211EF20` answer record). Its return (`edi` at `0x142110267`, CONFIRMED by disassembly) is the chosen kind: `0x14210023A..` `mov edi,3|4|9|6` are the replacements, `mov edi, r14d` accepts the current kind, `0x142110264` returns the loop's stored candidate (starts 0x19 = none).
 

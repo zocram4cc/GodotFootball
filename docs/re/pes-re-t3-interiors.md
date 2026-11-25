@@ -1,6 +1,6 @@
 # PES team-tick steps 20/21: per-slot interiors, port spec (T3InteriorRE, 24-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000).
+Read-only RE. Image `<local>/pes_full.bin` (file offset = VA − 0x140000000).
 Bridge `http://127.0.0.1:8080`, one request at a time. Scratch `<workdrive>/gf-T3InteriorRE-scratch/`
 (`d_4FF8B0/d_4F7BA0/d_A55D40` + 16 helper decompiles, `dis_4FF8B0` 478 lines, `dis_4F7BA0` 409 lines).
 No repo edits. T3Port branch (`origin/T3Port`) read for the ported pure functions.

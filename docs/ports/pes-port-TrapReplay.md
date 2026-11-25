@@ -11,7 +11,7 @@ Tags: **CONFIRMED** = read from a capture or a harness run in this session; **IN
 
 ## 2. Replay verdicts: 12 of 12 captures return cleanly (CONFIRMED)
 
-Captures: `<workdrive>/gf-Rendezvous-scratch/live2/pid463316/` (full, not slimmed). Replay: `frame_trace.py recorded SNAP --hooks <workdrive>/PES21/rendezvous/hooks.cfg --budget 50000000 [--out DIR]` (PES_EXE = `<local>/ghidra-projects/scratch/Unpacker/pes_full.bin`). `err: null` = the emulated PES call returned to its recorded return address with rsp balanced. Each call's rip at return: `0x1407A03EE` (kind-0, return into the dispatcher) and `0x14079A8C1` (commit, return into kind-0 at the commit call site: INF from the return address).
+Captures: `<workdrive>/gf-Rendezvous-scratch/live2/pid463316/` (full, not slimmed). Replay: `frame_trace.py recorded SNAP --hooks <workdrive>/PES21/rendezvous/hooks.cfg --budget 50000000 [--out DIR]` (PES_EXE = `<local>/pes_full.bin`). `err: null` = the emulated PES call returned to its recorded return address with rsp balanced. Each call's rip at return: `0x1407A03EE` (kind-0, return into the dispatcher) and `0x14079A8C1` (commit, return into kind-0 at the commit call site: INF from the return address).
 
 | capture | hook | rax low byte (return) | written bytes (own) | nested traced calls (spec-dir run) |
 |---|---|---|---|---|

@@ -3,10 +3,10 @@
 Read-only RE (owner ruling 24-10-26). Labels: CONFIRMED (read in image/live/snapshot bytes,
 decompile with verified xrefs, or reproducible tool output), INF (inferred, level stated),
 OPEN (what would settle it). No PES bytes quoted; VAs, names and behaviour only.
-Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA - 0x140000000).
+Image `<local>/pes_full.bin` (offset = VA - 0x140000000).
 Ledger `tools/dev/ledger/universe.json`. Scratch `<workdrive>/gf-CutsceneRoles-scratch/`
 (per-group row dumps `role_*.json`, catcher `birth_catch2.py`, its log `birth2/birth2.log`).
-Decompiles cited from `~/ghidra-projects/scratch/FoulChoreographyRE/dec/`.
+Decompiles cited from `<local>/dec/`.
 
 Prior docs: `pes-re-cutscenes.md` (formats, selection, replays), `pes-re-cutscene-slots.md`
 (manager/slot layout), `pes-re-scene-birth.md` (birth snapshots), `pes-re-restart-step.md`

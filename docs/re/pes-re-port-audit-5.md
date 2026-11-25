@@ -1,6 +1,6 @@
 # PES re-port audit 5: the older landed ports (PortAudit5RE, 24-10-26)
 
-Read-only audit of six older landed ports on `origin/main` (`d6a26b8`), checked against PES's bytes. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. GF code read from `origin/main` into scratch. No repo edits. Reference docs all on `origin/main` unless named. Verdicts: CONFIRMED = bytes/disassembly read this pass; INF = inference; OPEN = blocker. GF paths are `src/sim/onthepitch/…` / `src/pes/…` / `src/sim/…` on main.
+Read-only audit of six older landed ports on `origin/main` (`d6a26b8`), checked against PES's bytes. Image `<local>/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. GF code read from `origin/main` into scratch. No repo edits. Reference docs all on `origin/main` unless named. Verdicts: CONFIRMED = bytes/disassembly read this pass; INF = inference; OPEN = blocker. GF paths are `src/sim/onthepitch/…` / `src/pes/…` / `src/sim/…` on main.
 
 ## Verdicts per port
 

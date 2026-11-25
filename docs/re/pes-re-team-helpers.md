@@ -4,7 +4,7 @@ Status: decode-only. No GF code changed. Scratch: `<workdrive>/gf-TeamHelpersRE-
 (`dis_*.txt` = bridge disassemblies fetched this pass, `checker_team_helpers.py` =
 self-checking checker, 40 float rows + 21 opcode sites + 15 structural rows; all pass;
 3 mutations each caught). Base `0x140000000`, image
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − base).
+`<local>/pes_full.bin` (file offset = VA − base).
 Tags: **CONFIRMED** = raw disassembly or image bytes read this pass (opcode bytes quoted);
 **DOC** = cited doc, not re-checked; **INF** = inference; **OPEN** = blocker named.
 Bridge decompiles used only for orientation (named `dec_*` where kept).

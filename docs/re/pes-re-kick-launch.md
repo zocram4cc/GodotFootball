@@ -5,12 +5,12 @@ Tags: **OBS** = observed (raw bytes at the stated VA); **INF** = inferred (confi
 Scope: `<scratch>/pesmem.bin` (memory image, base `0x140000000`, file offset = VA − `0x140000000`
 for every section), disassembled with a local capstone script (`d.py`). Every formula below is
 read off **raw bytes**, not from decompiler variable names. Vtables and ANIME action ids from
-`~/ghidra-projects/scratch/FoxRegistryRE/rtti.py` + `actions.json`. Live process:
-`sudo python3 ~/ghidra-projects/scratch/pes_state.py` reported `STATE=OPEN_PLAY` at the start
+`<local>/rtti.py` + `actions.json`. Live process:
+`sudo python3 <local>/pes_state.py` reported `STATE=OPEN_PLAY` at the start
 of the session; ball pointer and state read read-only via `/proc/<pid>/mem`, nothing written,
 no input sent.
 
-Scratch: `~/ghidra-projects/scratch/KickRE/`.
+Scratch: `<local>/KickRE/`.
 
 ---
 
@@ -331,7 +331,7 @@ Math thunks (ILT at `0x1425301f0` region, resolved by idiom): `0x1415a1780` = `s
 
 ## 6. Live observation (OBS)
 
-`sudo python3 ~/ghidra-projects/scratch/pes_state.py` at session start:
+`sudo python3 <local>/pes_state.py` at session start:
 
 ```
 STATE=OPEN_PLAY ctx=0x1c39f820 step=0.018519 ball=0x297383c pos=(1.00,0.50,-0.51) vel=(0.94,0.07,0.00)

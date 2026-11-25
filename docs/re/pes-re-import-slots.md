@@ -1,6 +1,6 @@
 # PES import slots and cutscene prerequisites P0a–P0d: census, classes, models, verdicts, corrected unblock numbers
 
-Scope: read-only RE (no repo edits). Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000). Ledger `tools/dev/ledger/universe.json` (37,855 rows). Live process: pid 53052 (PES2021.exe under Wine). Scratch: `<workdrive>/gf-ImportSlots-scratch/` (scripts `census.py`, `attr.py`, `blocked.py`, `unblock.py`, `models.py`, `full.py`, `cls2.py`, `p0*.py`; data `slots.json`, `slot_table.md`, `top30.json`, `rank_corr.json`, `blocked.json`). No PES bytes are quoted; VAs, names and behaviour only.
+Scope: read-only RE (no repo edits). Image `<local>/pes_full.bin` (file offset = VA − 0x140000000). Ledger `tools/dev/ledger/universe.json` (37,855 rows). Live process: pid 53052 (PES2021.exe under Wine). Scratch: `<workdrive>/gf-ImportSlots-scratch/` (scripts `census.py`, `attr.py`, `blocked.py`, `unblock.py`, `models.py`, `full.py`, `cls2.py`, `p0*.py`; data `slots.json`, `slot_table.md`, `top30.json`, `rank_corr.json`, `blocked.json`). No PES bytes are quoted; VAs, names and behaviour only.
 
 Labels: CONFIRMED = read from the image, live memory, the on-disk PE of a Wine module, or the ledger, by script. INF = inferred, reason given. OPEN = what would settle it.
 

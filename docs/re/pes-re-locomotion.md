@@ -365,7 +365,7 @@ physique function the skeleton uses.
 ### 7.1 What was done
 
 Read-only (sudo preads of `/proc/<pid>/mem`, no writes, no ptrace, no input — the sampler
-script is `~/ghidra-projects/scratch/LocomotionRE/samp.py`).
+script is `<local>/samp.py`).
 
 Play state was `OPEN_PLAY` (`STATE=OPEN_PLAY ctx=0x3b870010 step=0.018519`, verified with
 `pes_state.py`). Captured:
@@ -498,8 +498,8 @@ Killed this session, recorded so nobody repeats them:
   `FUN_140a48a10`, `FUN_140a48910`, `FUN_140a489f0`, `FUN_140a3af90`, `FUN_140a62b30`,
   `FUN_140a58550`/`140a581c0`/`140a58450`/`140a58350`, `FUN_1406b10d0`/`1406b11e0`,
   `FUN_141af61c0`, `FUN_14046f230`, `FUN_1404583b0`, `FUN_1405bb170`, `FUN_14043a020`.
-- Live reads: `~/ghidra-projects/scratch/pes_state.py` (state gate),
-  `~/ghidra-projects/scratch/LocomotionRE/{samp.py,dis.py,disp.json,roster.json}`.
+- Live reads: `<local>/pes_state.py` (state gate),
+  `<local>/{samp.py,dis.py,disp.json,roster.json}`.
 - Prior reports relied on: `pes-re-matchlogic.md` §1.2/§1.3/§3.1/§3.6, `pes-re-animselect.md`
   §1–§6/§9, `pes-re-physique.md` §0–§6, `pes-re-physique-helpers.md`, `pes-re-stamina-live.md`
   §4/§8–§9, `pes-re-sim-motion-mapping.md` §2/§3/§6, `pes-re-injury-fatigue.md` §1/§2/§7,

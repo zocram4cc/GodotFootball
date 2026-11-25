@@ -81,4 +81,4 @@ No fix. None of the single causes tested accounts for the gap, and no VA-cited s
 - Aligned GF (stadium 21, settled): `gf_st21_aligned/frame00000149.png`; circle check: `gf_st21_aligned_circle.png`; boxes: `boxes_aligned_pair.png`.
 - Experiments: `gf_E1_speckleoff/`, `gf_E2_evfrozen/`, `gf_E3_mask05/`, `gf_E4_linespecoff/`, `gf_E5_bloomoff/` (frame00000149.png each); measurements `aligned_luma*.json`.
 - Projection and fit scripts: `proj.py`, `circfit.py`, `hough.py` (the circle-fit scores were not reliable; the final offset is from the 3-point least squares). Live scans: `LiveSample/stadium_scan.py` (read-only), outputs `stadium_scan.txt`, `st_targeted.txt`, `live_suffix_scan.txt`.
-- PES frame: `~/ghidra-projects/scratch/obs/p12_dec.png` (decoded). Live frame now: `~/ghidra-projects/scratch/obs/now_dec.png`.
+- PES frame: `<local>/p12_dec.png` (decoded). Live frame now: `<local>/now_dec.png`.

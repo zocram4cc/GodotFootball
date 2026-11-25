@@ -1,8 +1,8 @@
 # PES 2021 stamina drain / recovery, fatigue effect, injury roll — StaminaDrainRE (2026-10-13)
 
-Read-only RE. Image: full live image `~/ghidra-projects/scratch/Unpacker/pes_live.exe` (headless `dec.sh`, read-only) +
+Read-only RE. Image: full live image `<local>/pes_live.exe` (headless `dec.sh`, read-only) +
 capstone on `pes_full.bin`. OBS = observed at the named VA (decompile cross-checked against raw disassembly where
-stated); INF(conf) = inference. No player/team names. Scratch: `~/ghidra-projects/scratch/StaminaDrainRE/`.
+stated); INF(conf) = inference. No player/team names. Scratch: `<local>/StaminaDrainRE/`.
 
 ## 0. Headline — why the A5 writer was "not found"
 

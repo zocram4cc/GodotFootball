@@ -10,12 +10,12 @@ compiles and runs scripts again. OBS = observed in this session; INFERENCE = der
 
 | Path | What it is |
 |---|---|
-| `~/ghidra-projects/scratch/GhidraMcpRebuild/src` | clean clone of `https://github.com/LaurieWired/GhidraMCP.git` at `main` (2.0.0, 3 commits past tag 1.4) — has the Gradle layout under `src/extension/` |
-| `~/ghidra-projects/scratch/GhidraMcpRebuild/build14` | git worktree at **tag `1.4`**; this is the one that is built and deployed here |
-| `~/ghidra-projects/scratch/GhidraMcpRebuild/backup-GhidraMCP-11.3.2/` | extension folder layout as found before any fix (Ghidra 11.3.2 build) |
-| `~/tools/ghidramcp/bridge_mcp_ghidra.py` | the MCP server the harness actually mounts (`uv run … --ghidra-server http://127.0.0.1:8080/`) |
+| `<local>/src` | clean clone of `https://github.com/LaurieWired/GhidraMCP.git` at `main` (2.0.0, 3 commits past tag 1.4) — has the Gradle layout under `src/extension/` |
+| `<local>/build14` | git worktree at **tag `1.4`**; this is the one that is built and deployed here |
+| `<local>/backup-GhidraMCP-11.3.2/` | extension folder layout as found before any fix (Ghidra 11.3.2 build) |
+| `<local>/bridge_mcp_ghidra.py` | the MCP server the harness actually mounts (`uv run … --ghidra-server http://127.0.0.1:8080/`) |
 
-**Why tag 1.4 and not 2.0:** the deployed MCP bridge (`~/tools/ghidramcp/bridge_mcp_ghidra.py`,
+**Why tag 1.4 and not 2.0:** the deployed MCP bridge (`<local>/bridge_mcp_ghidra.py`,
 1.4-era) speaks the 1.4 HTTP API — `GET /methods`, `GET /list_functions`, `POST /decompile`
 (raw body), `POST /renameFunction`, `GET /searchFunctions`, `GET /disassemble_function`,
 `GET /get_function_by_address`, `GET /strings`, `/xrefs_to`, `/xrefs_from`, … Upstream 2.0
@@ -33,7 +33,7 @@ them in five places, so the extension no longer compiled (and, where a 11.3.2-bu
 already on disk, no longer loaded) against 12.1.2.
 
 The fix is the 5-hunk patch in
-`~/ghidra-projects/scratch/GhidraMcpRebuild/build14/src/main/java/com/lauriewired/GhidraMCPPlugin.java`
+`<local>/GhidraMCPPlugin.java`
 (local `git diff` there): `CodeUnit.EOL_COMMENT → CommentType.EOL`, `CodeUnit.PRE_COMMENT →
 CommentType.PRE`, `CodeUnit.PLATE_COMMENT → CommentType.PLATE`, and
 `setCommentAtAddress(..., int commentType, ...) → setCommentAtAddress(..., CommentType
@@ -51,7 +51,7 @@ probe run against the running Ghidra:
 
 ```
 Info  ProbeClass.java> LAYOUT ghidra.GhidraApplicationLayout
-Info  ProbeClass.java> EXTDIRS [~/.config/ghidra/ghidra_12.1.2_DEV/Extensions,
+Info  ProbeClass.java> EXTDIRS [<local>/Extensions,
                                 /opt/ghidra/Ghidra/Extensions]
 Info  ProbeClass.java> MODULE_COUNT 103          # extension installed at Extensions/Ghidra/GhidraMCP
 Info  ProbeClass.java> GHIDRAMCP_MODULE 0
@@ -63,7 +63,7 @@ Info  ProbeClass.java> GHIDRAMCP_MODULE 1
 `Skeleton` is *also* not discovered) is the **extension-archive** dir Ghidra unzips into, not a
 dir it scans as an install root. The correct locations are:
 
-* user: `~/.config/ghidra/ghidra_12.1.2_DEV/Extensions/GhidraMCP/`  ← **used here**
+* user: `<local>/GhidraMCP/`  ← **used here**
 * install-level: `/opt/ghidra/Ghidra/Extensions/GhidraMCP/` (that dir does not exist yet)
 
 Both are live in the running JVM's extension list after the move; the user dir is preferred
@@ -96,35 +96,35 @@ exist in 12.1.2 (OBS: `javap ghidra.app.script.GhidraScript` shows no `getBytes`
 ### Build + install the extension (reproducible)
 
 ```bash
-~/ghidra-projects/scratch/GhidraMcpRebuild/build.sh            # user-level install (default)
-~/ghidra-projects/scratch/GhidraMcpRebuild/build.sh --system    # /opt/ghidra/Ghidra/Extensions
+<local>/build.sh            # user-level install (default)
+<local>/build.sh --system    # /opt/ghidra/Ghidra/Extensions
 ```
 
 which is:
 
 ```bash
-cd ~/ghidra-projects/scratch/GhidraMcpRebuild/build14
+cd <local>/build14
 GHIDRA_INSTALL_DIR=/opt/ghidra \
-  ~/.gradle/wrapper/dists/gradle-8.9-bin/90cnw93cvbtalezasaz0blq0a/gradle-8.9/bin/gradle buildExtension
-unzip -o -q ~/ghidra-projects/scratch/GhidraMcpRebuild/build14/dist/ghidra_*_GhidraMCP.zip \
-  -d ~/.config/ghidra/ghidra_12.1.2_DEV/Extensions
+  <local>/gradle buildExtension
+unzip -o -q <local>/ghidra_*_GhidraMCP.zip \
+  -d <local>/Extensions
 ```
 
-Build time ~2 s clean. Output jar: `~/.config/ghidra/ghidra_12.1.2_DEV/Extensions/GhidraMCP/lib/GhidraMCP.jar`.
+Build time ~2 s clean. Output jar: `<local>/GhidraMCP.jar`.
 `extension.properties` in the install reads `version=12.1.2, ghidraVersion=12.1.2` (OBS).
-Gradle 8.9 is present at `~/.gradle/wrapper/dists/gradle-8.9-bin/…/gradle-8.9/bin/gradle`
+Gradle 8.9 is present at `<local>/gradle-8.9-bin/…/gradle-8.9/bin/gradle`
 (8.9 satisfies Ghidra 12's `application.gradle.min=8.5`).
 
 ### Start / restart the GUI
 
 ```bash
-GHIDRA_GUI_MAXMEM=4G /opt/ghidra/ghidraRun ~/ghidra-projects/PES21.gpr
+GHIDRA_GUI_MAXMEM=4G /opt/ghidra/ghidraRun <local>/PES21.gpr
 ```
 OBS: the GUI service was restarted by me at 08:29 and again at 09:06 (old pids 3245896, now
-3287245). The PES21 project reopened both times (`Opening project: ~/ghidra-projects/PES21`
-then `Ghidra startup complete` in `~/.config/ghidra/ghidra_12.1.2_DEV/application.log`). The
+3287245). The PES21 project reopened both times (`Opening project: <local>/PES21`
+then `Ghidra startup complete` in `<local>/application.log`). The
 CodeBrowser tool was opened for me by you; the tool config
-`~/.config/ghidra/ghidra_12.1.2_DEV/tools/CodeBrowser.tcd` already contains
+`<local>/CodeBrowser.tcd` already contains
 `<INCLUDE CLASS="com.lauriewired.GhidraMCPPlugin" />`, so any future CodeBrowser window starts
 the backend automatically.
 
@@ -168,7 +168,7 @@ decompile as final without a disassembly check when the result decides a branch.
 ### Agent → Ghidra (headless path, preferred per your instruction)
 
 ```bash
-/opt/ghidra/support/analyzeHeadless $HOME/ghidra-projects/scratch/main PES21 \
+/opt/ghidra/support/analyzeHeadless <local>/main PES21 \
   -process pesmem.bin -noanalysis -readOnly \
   -scriptPath <scratch>/ghk/scripts \
   -postScript DecompAt.java /abs/path/out.txt 0xADDR [0xADDR2-0xEND2 ...]
@@ -181,7 +181,7 @@ in that directory still compiles against 12.1.2's jars — that is what the erro
 
 ## 4. Proof
 
-### GUI load + port 8080 (`~/.config/ghidra/ghidra_12.1.2_DEV/application.log`, OBS)
+### GUI load + port 8080 (`<local>/application.log`, OBS)
 
 ```
 2026-10-13 09:09:45 INFO  (GhidraMCPPlugin) GhidraMCPPlugin loading...
@@ -223,7 +223,7 @@ $ curl -s 'http://127.0.0.1:8080/strings?limit=2'
 ### Headless postScript (OBS, after the `BytesAt.java` fix)
 
 ```
-$ /opt/ghidra/support/analyzeHeadless $HOME/ghidra-projects/scratch/main PES21 \
+$ /opt/ghidra/support/analyzeHeadless <local>/main PES21 \
     -process pesmem.bin -noanalysis -readOnly -scriptPath <scratch>/ghk/scripts \
     -postScript DecompAt.java <scratch>/htest/out7.txt 0x1419f1b00-0x1419f1be6 0x141a72250-0x141a72291
 RC=0 ; SCRIPT ERROR count: 0
@@ -249,8 +249,8 @@ bundle containing script: <scratch>/ghk/scripts/DecompAt.java`.
   live backend; the 1.4 bridge takes no lock on 8080, so duplicates are harmless.
 * The GUI pid <pid> that exited at 08:41 with SIGTERM was my restart (the extension install dir
   had to move). It is back up — pid <pid>, PES21 reopened — with a CodeBrowser loaded.
-* Nothing under `<repo>/src`, `~/Code/GameplayFootball`, `godot/` was
-  touched. Only `~/ghidra-projects/...`, `~/.config/ghidra/...` and `<scratch>/ghk` were modified.
-* `~/tools/ghidramcp/bridge_mcp_ghidra.py` was not modified — the 1.4 extension matches it.
+* Nothing under `<repo>/src`, `<local>/GameplayFootball`, `godot/` was
+  touched. Only `<local>/...`, `<local>/...` and `<scratch>/ghk` were modified.
+* `<local>/bridge_mcp_ghidra.py` was not modified — the 1.4 extension matches it.
 * Stale `.class` files left in `<scratch>/ghk/scripts` from a previous manual build are inert; they
   were deliberately left in place.

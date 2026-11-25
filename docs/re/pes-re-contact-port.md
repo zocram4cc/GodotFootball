@@ -111,7 +111,7 @@ Rebased onto main: clean, no new code commits.
 
 ## What the pipeline actually is in GodotFootball
 - The GF sim loads only GF-native `.anim` files from `assets/gf_anims` (293 files). `AnimCollection::Load` still has a hook for imported clips under `<family>/pes/`, plus `Humanoid::PreferImportedAnims`, but nothing in this repo produces them.
-- `gani_to_anim.py` and `reconvert_installed.py` live in the old `~/Code/GameplayFootball` repo, not here. GodotFootball reads ganis only on the Godot side (`pes/clips`, `rig/ClipSampler`, `gdext/pes_animation`). The sim already holds the rig (`MatchSetup::rig`).
+- `gani_to_anim.py` and `reconvert_installed.py` live in the old `<local>/GameplayFootball` repo, not here. GodotFootball reads ganis only on the Godot side (`pes/clips`, `rig/ClipSampler`, `gdext/pes_animation`). The sim already holds the rig (`MatchSetup::rig`).
 - So "import through the pipeline" means: port `gani_to_anim.convert` into the sim (ClipSampler → GF node keyframes, Fox→GF basis `(x,−z,y)`, gameplay position scale), load the result in memory, and synthesise GF metadata (type / special vars, mirrored copy, `_PrepareAnim`). Clips would be built at match start from the user's install, so nothing is committed.
 - Playback: GF has no "play this exact clip" command, but the `special` type with `specialvar1/2` is a forced-clip path that already exists.
 

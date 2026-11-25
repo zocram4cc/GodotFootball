@@ -5,7 +5,7 @@
 Scope: decode `MI+0x11B0` (the restart-step byte) per the ticket: trace `FUN_140422030`'s callers
 (vtable slot `0x142598558`) to name the `+0x728` container, sweep its writers, name phases
 7 / 0xD / 0x10 / 0x13, confirm the named ones, record the restart order, and spec the GF port.
-Read-only. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA − 0x140000000).
+Read-only. Image `<local>/pes_full.bin` (offset = VA − 0x140000000).
 Bridge `http://127.0.0.1:8080`, one request at a time. Live PES read-only (`sudo dd` on `/proc/2510857/mem`).
 
 Base docs: `docs/re/pes-re-team-status.md` §4, `docs/re/pes-re-holder-leaves.md` §§1/5,

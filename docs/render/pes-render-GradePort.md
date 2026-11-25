@@ -91,7 +91,7 @@ MISMATCHES: 0
 
 ## 4. Visual
 
-Setup, same for both frames: `tools/capture_viewer.sh --scene res://match/match.tscn --frames 150 -- --stadium 21 --camera-pose 7.94,19.135,37.07,0.022,-0.376,-0.926,23.28 --home-team 708 --away-team 760`, frame 149, RX 6900 XT under gamescope. The `before` tree is `cddc58b` (hook only); the `after` tree is `0c2a8bb`. PES reference: `~/ghidra-projects/scratch/obs/p12_dec.png` (the aligned frame ExposureMatch matched to this pose: stadium 21, day, BNT 95-99 W HUD, wide pitch and giraffe). Boxes and ratios: `measure.py` (TurfColour scratch), GF/PES of Rec.709 linear p50.
+Setup, same for both frames: `tools/capture_viewer.sh --scene res://match/match.tscn --frames 150 -- --stadium 21 --camera-pose 7.94,19.135,37.07,0.022,-0.376,-0.926,23.28 --home-team 708 --away-team 760`, frame 149, RX 6900 XT under gamescope. The `before` tree is `cddc58b` (hook only); the `after` tree is `0c2a8bb`. PES reference: `<local>/p12_dec.png` (the aligned frame ExposureMatch matched to this pose: stadium 21, day, BNT 95-99 W HUD, wide pitch and giraffe). Boxes and ratios: `measure.py` (TurfColour scratch), GF/PES of Rec.709 linear p50.
 
 **Frame-mean (rows 15-92 %) luminance**: PES 0.1507; GF before 0.4229 (2.81×); GF after 0.4086 (2.71×).
 

@@ -9,7 +9,7 @@
 > **Main note, round 6 (22-10-26):** §5i (the vt+0 issuer's callees) and §5j (the MOVESTEP skip: FUN_140708750 skips only the side's on-pitch keeper) are TeamDecode2's, checker-clean; not yet Main-audited.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
-Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
+Base `0x140000000`, image `<local>/pes_full.bin`.
 Tags: **CONFIRMED** = decompile and/or raw dis this pass, checked by script; **INF** = inference;
 **OPEN** = blocker named.
 

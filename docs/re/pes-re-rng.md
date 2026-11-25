@@ -2,14 +2,14 @@
 
 Tags: **OBS** = observed (raw bytes / on-disk exe bytes / live `/proc/<pid>/mem` read at the stated
 address). **INF** = inference, with a confidence level. No player or team names. No PES-derived bytes
-are written anywhere except this report's scratch (`~/ghidra-projects/scratch/RngRE/`).
+are written anywhere except this report's scratch (`<local>/RngRE/`).
 
 Sources used this session:
 - on-disk exe `$PES21_ROOT/PES2021.exe`, VA→file-offset through the PE section table
   (PE header at file offset `0xd8`; image base `0x140000000`). Build matches the live process
   byte-for-byte at every VA quoted below (spot-checked: `0x140a92470`, `0x140a92590`,
   `0x140a928a0`, `0x140441fc0`, `0x140504100` — identical in `.exe` and memory image).
-- `math::Random` / `math::GameRandom` RTTI via `~/ghidra-projects/scratch/FoxRegistryRE/rtti.py`:
+- `math::Random` / `math::GameRandom` RTTI via `<local>/rtti.py`:
   `math::Random` COL `0x142c9bed0`, vtable `0x1425def28` = `{0x1406e28c0}`;
   `math::GameRandom` COL `0x142caf7d8`, vtable `0x1426550d0` = `{0x140a92440}`.
 - live process (pid found by `pgrep -x PES2021.exe`), read-only `/proc/<pid>/mem`.
@@ -529,7 +529,7 @@ per-player LCGs (`player+0x32d0`), which were not isolated to a stable address i
 ## 5. Seed pinning (procedure; NOT executed)
 
 Authorisation exists (owner, this session) to write the seed/state of the generators PES seeds at
-kick-off, **once**, with logging to `~/ghidra-projects/scratch/RngRE/writes.log`. It was **not
+kick-off, **once**, with logging to `<local>/writes.log`. It was **not
 executed**: the game was mid-open-play for the whole session and never returned to a kick-off
 transition, so the "write at kick-off, before the first draw" gate could not be met reliably.
 Writing at an arbitrary moment would have overwritten an already-advanced state and produced a
@@ -550,13 +550,13 @@ first tick after the context constructor `0x140441fc0`):
 4. `os.pwrite` the four slot words: `[0x2f3d0, 0x2f3d1, 0x2f3d2, 0x2f3d3]` at `ctx+0x5708+8`
    (that is, write back the *stock default* — no code patch, no constant change; the multipliers
    `0x2D22B2E3` and `21` stay stock). This makes the seed constant and reproducible.
-5. Read back immediately; append to `~/ghidra-projects/scratch/RngRE/writes.log`:
+5. Read back immediately; append to `<local>/writes.log`:
    `time, pid, address, old_value, new_value, ctx`.
 6. Show it worked: two read-only samples of `ctx+0x5708` ≥ 0.5 s apart once play starts; each slot
    must equal `step^(n)(0x2f3d0+k)` for the observed draw count `n` — exactly the check in §4.
 
-Script path to be written when executed: `~/ghidra-projects/scratch/RngRE/pin_seed.py` (read-only
-helpers already exist: `~/ghidra-projects/scratch/pes_state.py`).
+Script path to be written when executed: `<local>/pin_seed.py` (read-only
+helpers already exist: `<local>/pes_state.py`).
 
 ---
 

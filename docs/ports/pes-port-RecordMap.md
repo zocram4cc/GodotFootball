@@ -42,7 +42,7 @@ Field→GF table (the work list for cutover): layouts doc §7. Summary: GF has t
 
 ## 4. Verification run
 
-- Access map: `python3 tools/dev/translate/recordmap.py analyze --image ~/ghidra-projects/scratch/Unpacker/pes_full.bin --out <scratch>/analysis.json`: closure 357 functions, 48 top levels, 3146 unresolved memory operands, 522 indirect calls (not covered by the map).
+- Access map: `python3 tools/dev/translate/recordmap.py analyze --image <local>/pes_full.bin --out <scratch>/analysis.json`: closure 357 functions, 48 top levels, 3146 unresolved memory operands, 522 indirect calls (not covered by the map).
 - Merge: `recordmap.py merge ...`: 19 records, 204 fields written under `fieldmap.json` key `recordmap`. The other keys are unchanged (checked against the copy taken before the merge).
 - Pins: `recordmap_pin.py --live .../live2/pid407792 --max 6`: kick 6+6 captures, Clear 5, angle 6. Result: every check passes except the two refuted ones (ap block start 0/12; carrier table entry 0/5).
 - Mutation checks, run in-process with the module constant overridden and no file edit (all reverted): `MAN_OFF` 0x32C→0x330 fails "man table"; `SLOT_OFF` 0x10F0→0x10F4 fails "slot table"; `RING_HEAD_OFF` 0x1904→0x1905 fails "ring head"; `CARRIER_TABLE_STRIDE` 0x74→0x78 does **not** fail (stride not pinned).

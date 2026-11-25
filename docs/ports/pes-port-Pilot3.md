@@ -143,6 +143,6 @@ mismatches, one compile error in `140A40820`), 14 gained. **Net regression; the 
 ## Not reachable for users yet: the unpacked image
 
 The translator and the harness read `pes_full.bin`, an unpacked image produced by hand outside the repo
-(`<local>/ghidra-projects/scratch/Unpacker/`, with recovered key files). The repo has no script that makes it from a
+(`<local>/Unpacker/`, with recovered key files). The repo has no script that makes it from a
 user's install, so per AGENTS.md (every PES-derived asset reproducible by script) no user can build translated code.
 Owner decision pending.

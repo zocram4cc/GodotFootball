@@ -556,7 +556,7 @@ done
 PES21_ROOT=<install> build/apps/pesfmt_dump cat common/match/constant/constant_match.bin > cm.bin
 
 # decompile
-/opt/ghidra/support/analyzeHeadless $HOME/ghidra-projects/scratch/main PES21 \
+/opt/ghidra/support/analyzeHeadless <local>/main PES21 \
   -process pesmem.bin -noanalysis -readOnly -scriptPath <scratch>/TacticsClockRE/scripts \
   -postScript DecompAt.java <scratch>/TacticsClockRE/out.txt \
   0x140922dd0-0x140922dd0 0x140923060-0x140923060 0x14092fad0-0x14092fad0

@@ -43,5 +43,5 @@ Branch CutLane (worktree <workdrive>/gf-CutLane). Pushed `0c8047f1` (ls-remote c
 ## Verification summary
 
 - Build: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache` (rc 0); targets pes_goal_anchor_test, pes_fixdemo_select_test, pes_fixdemo_table_test built under `/tmp/gf-build.lock`, nice 19, -j8.
-- Env: PES_EXE=<home>/ghidra-projects/scratch/Unpacker/pes_full.bin, GF_DIFF_PYTHON=<workdrive>/gf-DiffHarnessRE-scratch/venv/bin/python, PES21_ROOT=<workdrive>/PES21; tests run under `env -u GF_DEBUG_RECEIVE -u GF_DEBUG_ANKLE -u GF_PES_SURVEY`.
+- Env: PES_EXE=<local>/pes_full.bin, GF_DIFF_PYTHON=<workdrive>/gf-DiffHarnessRE-scratch/venv/bin/python, PES21_ROOT=<workdrive>/PES21; tests run under `env -u GF_DEBUG_RECEIVE -u GF_DEBUG_ANKLE -u GF_PES_SURVEY`.
 - Probes (temporary, removed before the commit): BeginEvent/ArrangeGoal ctx dumps, the zone-decision bisect, the slot-pointer check. Scratch reads used `zr.py` on the packed captures (streamed, nothing unpacked).

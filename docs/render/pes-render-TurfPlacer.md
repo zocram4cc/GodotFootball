@@ -2,7 +2,7 @@
 
 Status: read-only work. Install VFS at `<workdrive>/PES21` (GF `PesVfs` with
 nested-cpk support, `src/pes/vfs.cpp:52-80`), image
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin` (VA = fileoff + 0x140000000),
+`<local>/pes_full.bin` (VA = fileoff + 0x140000000),
 Ghidra bridge `http://127.0.0.1:8080`, live PES pid 2510857 (read-only).
 Scratch: `<workdrive>/gf-TurfPlacerRE-scratch/` (extract scripts, decodes,
 disassembly notes; absolute paths). Read with

@@ -6,7 +6,7 @@
 Read-only RE report. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`
 (bridge decompiles + `dis_1404F6C30.txt`; floats read by script from `pes_full.bin`, base `0x140000000`).
 
-Base `0x140000000`. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
+Base `0x140000000`. Image `<local>/pes_full.bin`.
 Tags: **CONFIRMED** = decompile and/or raw dis this pass; **INF** = inference; **OPEN** = blocker named.
 Step numbers are `docs/re/pes-re-team-layer.md` §1's table (call-site VA column), re-derived from this
 pass's own decompile of `FUN_1404F6C30` (`dec/FUN_1404F6C30.c`) — no new call sites were invented.
@@ -1380,7 +1380,7 @@ current AI request and are released to make a new decision (`FUN_14092A340`).
 ## §4 Method
 
 - Bridge decompiles (`dec/FUN_*.c`) and disassembly (`dec/dis_*.txt`) for every callee named in this report; ~90 fetches against `http://127.0.0.1:8080` (round 1) + ~40 more (round 2).
-- Float constants read by script from `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (`readf.py`, `consts.py`), never typed. Each constant is paired with the instruction VA and the operand VA the disassembly shows.
+- Float constants read by script from `<local>/pes_full.bin` (`readf.py`, `consts.py`), never typed. Each constant is paired with the instruction VA and the operand VA the disassembly shows.
 - **Self-check** (`<workdrive>/gf-TeamDecode-scratch/check_report.py`, run against this file, after round 2):
   ```
   checked 43 value/bits claims, 0 mismatches

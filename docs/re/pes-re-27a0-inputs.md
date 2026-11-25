@@ -1,6 +1,6 @@
 # PES 27A0 inputs (FUN_1405027A0): unbound items decoded (Inputs27A0RE, 24-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (base 0x140000000,
+Read-only RE. Image `<local>/pes_full.bin` (base 0x140000000,
 file offset = VA − 0x140000000). Bridge: one request at a time; constants re-read from the
 image, never typed. Tags: **CONFIRMED** = bytes/decompile/live read this session;
 **INF** = inference; **OPEN** = blocker named. Checker: `check_27a0.py` (this scratch dir),

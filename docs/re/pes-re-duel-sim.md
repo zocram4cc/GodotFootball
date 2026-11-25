@@ -8,7 +8,7 @@ Starting points (cited, not re-derived): `docs/re/pes-re-rng-slots.md` (the loca
 `math::Random` in `0x1405b83b0`, draw at `0x1405b8759`, slot 0, M = 100), `docs/re/pes-re-rng.md` §1
 (ctor, `Range`, LCG), `docs/re/pes-re-duels-fouls.md` §2 (Judge, SetPending record, commit, advantage).
 
-Scratch: `~/ghidra-projects/scratch/DuelSimRE/` — `dec/main.c` (decompile of `0x1405b83b0`),
+Scratch: `<local>/DuelSimRE/` — `dec/main.c` (decompile of `0x1405b83b0`),
 `dec/judgeupd.c` (Judge update `0x14050b490` + offside `0x14050df20`), `dis_b83b0.txt` (raw
 disassembly `0x1405b83b0..0x1405b89ee`, 369 insns), `callscan_jcc.py` (call/jmp/**jcc** rel32 caller scan,
 whole image including `.impdata`).

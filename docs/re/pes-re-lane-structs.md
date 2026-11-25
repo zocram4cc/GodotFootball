@@ -6,7 +6,7 @@ plus the project's function list (`gf-LaneStruct-scratch/funcs.txt`, 117471 entr
 The Ghidra bridge on 8080 was **down** for this pass (xref endpoints returned non-JSON), so the
 caller enumeration was done by an image-wide scan for `E8 rel32` whose target equals the core VA,
 plus a scan for any 8-byte pointer in the image equal to the core/packer VA. Scratch:
-`~/ghidra-projects/scratch/Unpacker/pes_full.bin`, `<workdrive>/gf-LaneStruct-scratch/`.
+`<local>/pes_full.bin`, `<workdrive>/gf-LaneStruct-scratch/`.
 
 Legend: **C-asm** = raw disassembly. **C-dec** = decompile/flow earlier confirmed. **INF** =
 inference, stated as such. **OPEN** = not decoded, blocker named.

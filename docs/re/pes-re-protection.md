@@ -2,7 +2,7 @@
 
 Read-only RE. OBS = observed at the named address/bytes; INF(conf) = inferred. Addresses are VAs, image base 0x140000000.
 Live process read only through `/proc/<pid>/mem` (sudo, O_RDONLY). Nothing in the repo was touched.
-Scratch: `~/ghidra-projects/scratch/Unpacker/`.
+Scratch: `<local>/Unpacker/`.
 
 ## 1. What `.impdata` is
 
@@ -74,17 +74,17 @@ itself (OBS: they still print as `_DAT_ ^ K`), hence the post-pass.
 
 ## 2. Full image for Ghidra (dump → PE → headless project)
 
-All scripts in `~/ghidra-projects/scratch/Unpacker/`. Read-only toward the game.
+All scripts in `<local>/Unpacker/`. Read-only toward the game.
 
 | step | command | result |
 |---|---|---|
 | 1 dump | `sudo python3 dump_image.py pes_full.bin` | flat 0x1b97c000-byte file, offset = VA − 0x140000000, all 15 image mappings incl. all of `.impdata` (0 unreadable chunks, OBS); `pes_full.bin.maps` records pid + maps |
 | 2 check | `python3 diff_disk.py pes_full.bin $PES21_ROOT/PES2021.exe [--pages .impdata]` | §1.2 table |
 | 3 rebuild PE | `python3 build_pe.py pes_full.bin pes_live.exe` | same headers/directories, every section's raw data = live bytes of its whole page-rounded vsize (so `.data`'s zero-init tail with `gMatchContext` is present) |
-| 4 import | `GHIDRA_HEADLESS_MAXMEM=6G /opt/ghidra/support/analyzeHeadless ~/ghidra-projects/scratch/Unpacker/proj PESLive -import ~/ghidra-projects/scratch/Unpacker/pes_live.exe -loader PeLoader -noanalysis -scriptPath ~/ghidra-projects/scratch/Unpacker/scripts -postScript SetupImage.java` | 342 s. PE loader: 19 blocks with real names/permissions, imports labelled. `SetupImage.java`: `.impdata` → r-x (not writable), disassemble + create functions at all **158,648 `.pdata` begins** → 158,723 functions (one CreateFunction error at 0x140477b63, thunk overlap) |
+| 4 import | `GHIDRA_HEADLESS_MAXMEM=6G /opt/ghidra/support/analyzeHeadless <local>/proj PESLive -import <local>/pes_live.exe -loader PeLoader -noanalysis -scriptPath <local>/scripts -postScript SetupImage.java` | 342 s. PE loader: 19 blocks with real names/permissions, imports labelled. `SetupImage.java`: `.impdata` → r-x (not writable), disassemble + create functions at all **158,648 `.pdata` begins** → 158,723 functions (one CreateFunction error at 0x140477b63, thunk overlap) |
 | 5 decompile | `./dec.sh out/x.c 0xADDR [0xADDR…]` then `python3 annot.py out/x.c` | `DecompAt.java` (copied from `<scratch>/ghk/scripts`, creates a function on demand), `-readOnly`, ~7–13 s per batch |
 
-**New Ghidra project: `~/ghidra-projects/scratch/Unpacker/proj/PESLive.gpr`, program `pes_live.exe`**, image base
+**New Ghidra project: `<local>/PESLive.gpr`, program `pes_live.exe`**, image base
 0x140000000, language x86:LE:64:default / windows. Same VAs as `pesmem.bin`, so every address in docs/re still holds.
 Headless only (the GUI PES21 project and the GhidraMCP backend on :8080 are untouched; to browse it in the GUI open the
 .gpr — do not open it in two Ghidra processes at once). Full auto-analysis was NOT run (443 MB; hours); xrefs exist
@@ -200,7 +200,7 @@ x / z; `F = *(G+0x2aa8)` pitch floats (F[0] 52.56, F[5] 9.16, F[6] 36.14, F[7] 2
 ## 4. Recipe: resolve any protected address to readable code or values
 
 ```
-cd ~/ghidra-projects/scratch/Unpacker
+cd <local>/Unpacker
 python3 resolve.py 0xADDR            # follow e9 thunk chain, classify the body, print the next command
 python3 resolve.py 0xADDR --dec      # clean/tiny: decompile from PESLive + annotate (floats, XOR immediates)
 ./dec.sh out/x.c 0xA 0xB …           # batch decompile (creates functions on demand, -readOnly)
@@ -229,7 +229,7 @@ OBS §6); straddling accesses across two unmapped 64 KB heap chunks can still fa
 this only concerns heap; OBS fix for the image case); `rdtsc`/`cpuid` return unicorn's values, so a timing check may
 branch differently than in the game (INF, not observed). Speed with per-instruction hooks ≈73 k insn/s (OBS: 3 M in 41 s).
 
-## 5. Scripts (all in `~/ghidra-projects/scratch/Unpacker/`)
+## 5. Scripts (all in `<local>/Unpacker/`)
 
 | file | purpose |
 |---|---|

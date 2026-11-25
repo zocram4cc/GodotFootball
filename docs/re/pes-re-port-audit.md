@@ -1,7 +1,7 @@
 # PES re-port audit (PortAuditRE, 24-10-26)
 
 Read-only audit of the ports that landed on main in the last batches, checked
-against PES's bytes. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+against PES's bytes. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request
 at a time. GF code read from `origin/main` into
 `<workdrive>/gf-PortAuditRE-scratch/` (absolute output paths there). No repo

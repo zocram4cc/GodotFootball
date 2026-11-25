@@ -16,7 +16,7 @@ Branch CutLane. Tip **c5937155c** (`git ls-remote origin CutLane` = c5937155c, C
 |---|---|---|---|
 | 0x140471A80 recompute | results_core.json row; results_snapdiff_recompute.json (seq203 of pid2024691; trace gf-CutsceneLine-scratch/recompute/trace203) | **EXCLUDED** (counterexample): `fetch from code outside every PE module of the snapshot at 0x17b0000 x1`, calls=1 replayed=0 (CONFIRMED, cl5/run_recompute.log) | **EXCLUDED** (stale record): `GF service stub_141957C50 reached x1` (CONFIRMED, cl5/res_recompute_ctl.json). run.py:615 refuses every gf-service stub; stubs.json 141957C50 is `kind: gf-service` (op gfx_device_alloc, rax = 0). |
 | 0x14047B460 tick | results_core.json row; results_snapdiff_tick.json (seq203_r4) | Proven only under fixed-block (its own record: 1 synthetic call, bit-exact). Under answer-0 the replay loops in the builder (CutLane4 R2.5), so it is not provable. Removed by the revert. | not provable (R2.5) |
-| 0x141F7BFE0 proccam | results_proccam.json (18 calls: live2/pid3234533 seq6220/6224/6228, pid3741448 seq11590/11594/11598, seq71718..71750) | **NOT RE-RUN: captures absent.** pid3234533 and pid3741448 are in neither live2 nor the Dati III archive; only trace dirs remain (gf-ProcCamera6-scratch/tr/seq71718 etc.). | same |
+| 0x141F7BFE0 proccam | results_proccam.json (18 calls: live2/pid3234533 seq6220/6224/6228, pid3741448 seq11590/11594/11598, seq71718..71750) | **NOT RE-RUN: captures absent.** pid3234533 and pid3741448 are in neither live2 nor the <archive-drive> archive; only trace dirs remain (gf-ProcCamera6-scratch/tr/seq71718 etc.). | same |
 | 0x141F7AE60 proccam ctor | results_proccam.json (5 synthetic states built from pid3234533 seq6218/6219/6220/6224/6228) | **NOT RE-RUN: captures absent** (the synthetic states need the mem.bin). | same |
 | 0x14091E9F0 trapaction | results_trapaction.json (6 real calls; the record does not name them) | **NOT RE-RUN** (calls not named). Unaffected by construction (INF): closure_pressx.json (235 members, capture-bounded) has no thunk member, and a bounded closure aborts loudly on any call outside its members. | same |
 
@@ -161,7 +161,7 @@ The tick (0x14047B460) is the PES call path that passes the list to the recomput
 
 - 0x140471A80: proven under fixed-block (1/1) and answer-0 (1/1) with the hooks restored (R2.2, R2.3).
 - 0x14047B460: proven under fixed-block (1/1) with the hooks restored (R2.2). Under answer-0 not re-run (the tick's recompute reaches the thunk; the replay loops under answer-0, round 1 R2.5, INF it is still unprovable).
-- 0x141F7BFE0 and 0x141F7AE60 (proccam): **NOT re-run. Captures gone**: pid3234533 and pid3741448 are in neither live2 nor the Dati III archive (only the proccam trace dirs in gf-ProcCamera6-scratch/tr remain, no mem.bin). Their closures list the thunk (closure_proccam.json), so these two proofs are unverified under either model. Named as OPEN.
+- 0x141F7BFE0 and 0x141F7AE60 (proccam): **NOT re-run. Captures gone**: pid3234533 and pid3741448 are in neither live2 nor the <archive-drive> archive (only the proccam trace dirs in gf-ProcCamera6-scratch/tr remain, no mem.bin). Their closures list the thunk (closure_proccam.json), so these two proofs are unverified under either model. Named as OPEN.
 - 0x14091E9F0 (trapaction): not re-run (its 6 calls are not named in the record); no thunk member in closure_pressx.json (INF unaffected).
 - Indirect reach: unchanged from round 1 (1,646 direct-reach functions, 0 recorded rows among them); the indirect edges are not enumerable from the image.
 

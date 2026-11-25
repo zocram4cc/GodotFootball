@@ -4,7 +4,7 @@ Branch `PressLane4` (worktree `<workdrive>/gf-PressLane4`). Pushed tip: `6f98259
 
 ## 1. Landed: the Integrate merge (6f982593)
 - Conflict in `tools/dev/translate/results_trapaction.json` resolved with `json_union_merge.py` (base merge-base, ours PressLane, theirs Integrate). rc 0.
-- Layer regenerated with `gen_translated.py --image <home>/ghidra-projects/scratch/Unpacker/pes_full.bin`: 10,987 functions (3,906 recorded bit-exact, 7,081 closure). `--check`: byte-identical.
+- Layer regenerated with `gen_translated.py --image <local>/pes_full.bin`: 10,987 functions (3,906 recorded bit-exact, 7,081 closure). `--check`: byte-identical.
 - Tick `0x140928FC0` is still held out ("closure reaches a mistranslated callee 0x1409F6960"). Not a regression; this is the row Main's re-record must clear.
 - Worktree: `extern/godot-cpp` is an empty dir for git and a symlink only during builds (the index gitlink refuses a symlink).
 

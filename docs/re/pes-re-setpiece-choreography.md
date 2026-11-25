@@ -10,7 +10,7 @@ No player/team names; players are slot indices 0..21 (0–10 home, 11–21 away)
 Tags: **OBS** = read in raw bytes / disassembly / decompile at the named address, or observed live.
 **INF(conf)** = inference. Frame counts are 54 Hz logic frames unless marked.
 
-Scratch (not in the repo): `~/ghidra-projects/scratch/SetPieceChoreoRE/` — `m.py` (image helpers),
+Scratch (not in the repo): `<local>/SetPieceChoreoRE/` — `m.py` (image helpers),
 `dec/*.c` decompiles, `spwatch.py` (live restart recorder), `live.jsonl` (raw live log).
 
 Conventions (OBS, shared with the throw-in report): `G = *(u64*)0x1436F3DC8`; `MI = *(G+0x270)`;
@@ -587,7 +587,7 @@ capture. The referee's in-play diagonal resumes through `FUN_140a37910` once in 
 ## 11. Placement, marking and the run between marks (SetpiecePlacementRE, 2026-10-13)
 
 Static only: the game sat in the menu for the whole session (`pes_state.py` → `STATE=MENU`), so there are no new live
-restart captures. Image reads: `~/ghidra-projects/scratch/Unpacker` (`dec.sh`/`annot.py`, `pes_full.bin`, `emu.py`);
+restart captures. Image reads: `<local>/Unpacker` (`dec.sh`/`annot.py`, `pes_full.bin`, `emu.py`);
 the live process was read once, read-only, for the constant registry. Scratch: the SetpiecePlacementRE scratch dir.
 (`*.c` decompiles, `scan.py` displacement scanner, `fn.py` .pdata resolver, `strenum.py`, `xref.py`, `emu_fi*.txt`).
 Players: `idx` 0..21, `slot = idx % 11`, `T = FUN_140a48a30(G, side)` team record, `dir = (s8)T+0x254`, `R = MI+0x155c` (x,y,z).

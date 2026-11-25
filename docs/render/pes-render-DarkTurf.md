@@ -282,5 +282,5 @@ mean occlusion) is plausible but not yet derived. Status: INF (high).
   `SSLighting_Sun_NoShadow.ps.asm` (w L137-139),
   `Tonemap_Lum.ps.asm` (32-term L12-16), `pes3ddf_turf3d_2020.ps.asm` (84
   lines, alpha test), `.vs.asm` (237 lines).
-- Frame: `~/ghidra-projects/scratch/obs/p12_dec.png` + box script (§0 table);
+- Frame: `<local>/p12_dec.png` + box script (§0 table);
   zooms `gf-DarkTurfRE-scratch/zoom_grass.png`, `zoom_giraffe.png`.

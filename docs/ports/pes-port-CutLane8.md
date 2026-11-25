@@ -4,7 +4,7 @@ Branch CutLane, worktree <workdrive>/gf-CutLane, base tip 5b608ffb4. Pushed: `22
 
 ## 0. Rig requests and ratchet asks (top)
 
-1. **Rig (Main's hooks), needed before M7 can pass.** Two recorded roots that reach the graphics thunk 0x141957C50 have no captures left (CONFIRMED: neither `live2/pid3741448`, `live2/pid3234533`, `live2/pid952648` nor the Dati III archive holds them):
+1. **Rig (Main's hooks), needed before M7 can pass.** Two recorded roots that reach the graphics thunk 0x141957C50 have no captures left (CONFIRMED: neither `live2/pid3741448`, `live2/pid3234533`, `live2/pid952648` nor the <archive-drive> archive holds them):
    - 0x141F7BFE0 proc camera (`results_proccam.json`, 18 real calls; `closure_proccam.json`, 13 of its members are direct thunk callers) and its ctor 0x141F7AE60 (5 synthetic states from `pid3234533`).
    - 0x141AF4650 BodyAnimControl::Exec (`closure_animelayer.json`, 4,664 members, the closure includes 0x141957C50 and 0x1423D4A80; 49 synthetic calls over `pid952648` seq3154/3160/3164/3170).
    - Ask: proc_camera_141F7BFE0 `--when 'd(rcx+0x128)==1 and d(q(rcx+0x130)+0xb8)!=0'` (INIT calls, cap 6, armed by cut_anchor_calc_474F00); anime_bones_141EB49B0 for the animelayer root. Hook lines come from `hooks_for_image`.

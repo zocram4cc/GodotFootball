@@ -2,7 +2,7 @@
 
 Tags: **OBS** = read in raw bytes / disassembly / decompile at the named address, or decoded from the
 install's data file; **INF(conf)** = inferred. Addresses are VAs in `pesmem.bin` (base 0x140000000).
-Scratch (never in the repo): `~/ghidra-projects/scratch/FoulChoreographyRE/` — `dec/*.c` decompiles,
+Scratch (never in the repo): `<local>/FoulChoreographyRE/` — `dec/*.c` decompiles,
 `dis_*.txt` disassembly, `tbl.py` (table_foul.bin decoder; consumes exactly 100 % of every stream: A 180,
 B 360, W 1231, U8 402, S 863), `table_foul.json`, `fdc_decoded.json` (all 78 foul fdcs), `atab.py`
 (Animetable row dumper), `fdc/` (foul fdcs + table, extracted at runtime with `pesfmt_dump cat`).
@@ -456,7 +456,7 @@ the ball and the second-last opponent in his opponents' half; level = onside.
 
 Not possible in this session. `pes_state.py` at the start of the pass: `STATE=MATCH_FROZEN` but `*(G+0x270) == 0`
 (no match-info object; read 2026-10-13 between 18:43 and 19:00 CEST); at 19:11 CEST: `STATE=MENU`. No foul/offside could be observed
-(input to the game is forbidden). Script for a future capture: `~/ghidra-projects/scratch/FoulChoreographyRE/live.py`
+(input to the game is forbidden). Script for a future capture: `<local>/live.py`
 (dumps `MI+0x1550..0x15d0`, period and out-of-play reason).
 
 ---
@@ -490,7 +490,7 @@ Not possible in this session. `pes_state.py` at the start of the pass: `STATE=MA
 ## 9. Stoppage timings and reaction roles (FoulChoreographyRE-2, 2026-10-13)
 
 Extends §4/§5/§7. Where this section contradicts §0.2, §4.2, §5.3 step 3 or §8, **this section wins** (see 9.9).
-Evidence: decompiles `~/ghidra-projects/scratch/FoulChoreographyRE2/out/{a,b,c}.c` (+ `FoulChoreographyRE/dec/`),
+Evidence: decompiles `<local>/{a,b,c}.c` (+ `FoulChoreographyRE/dec/`),
 raw floats `rf.py` and disassembly `pd.py` on `pes_full.bin`, live step durations from `steps.py` over the sibling
 captures `SetPieceChoreoRE/live.jsonl`, `live_match1.jsonl`, `ThrowInRE/seq.jsonl`, `seq2.jsonl` (`fr` = 54 Hz frame).
 

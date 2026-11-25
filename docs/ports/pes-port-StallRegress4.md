@@ -45,5 +45,5 @@ Items 1 and 2 are not reachable with the tools and hooks I have. Wiring without 
 - Doc: `docs/re/pes-re-press-owner.md` (the owner map, with VAs and tags); `docs/re/pes-re-press-inputs.md` (the input map, earlier round).
 - `.pdata` is a flat table (file offset = VA - 0x140000000); the section-header mapping gave garbage, the flat mapping resolves every function start checked.
 - Headless decompiles: 0x14091EDB0, 0x140512CA0, 0x140961F00, 0x1405141F0, 0x140518E20, 0x140518DD0 (bytes). The Ghidra bridge was down.
-- Mistakes, corrected: one-byte placeholder in `<workdrive>/` (deleted); a session report written under `<workdrive>/.omp` (moved to `~/.omp`, tree removed); scratch decompile files written into the worktree (moved to `~/.omp/scratch-press`, not committed); a decompile output sent to `/tmp` (removed).
-- Scratch: `~/.omp/scratch-press` (decompile dumps). `<workdrive>/gf-PressWire-scratch` removed earlier. Worktree on StallApproach, clean, godot-cpp symlink restored.
+- Mistakes, corrected: one-byte placeholder in `<workdrive>/` (deleted); a session report written under `<workdrive>/.omp` (moved to `<local>`, tree removed); scratch decompile files written into the worktree (moved to `<local>/scratch-press`, not committed); a decompile output sent to `/tmp` (removed).
+- Scratch: `<local>/scratch-press` (decompile dumps). `<workdrive>/gf-PressWire-scratch` removed earlier. Worktree on StallApproach, clean, godot-cpp symlink restored.

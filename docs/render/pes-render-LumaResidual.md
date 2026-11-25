@@ -132,7 +132,7 @@ single-`_day`-span file structure.
 
 ## 2. Shadow state at the comparison boxes (INF sunlit; term 1.0 on the PES side)
 
-- Frame evidence (`~/ghidra-projects/scratch/obs/p12_dec.png`, decoded):
+- Frame evidence (`<local>/p12_dec.png`, decoded):
   the far-pitch strip (rows 130–160, the `grass_top_right`/`far_touchline`
   neighbourhood) is flat (≈0.075, no dark band = **no stand shadow on the
   pitch**); every comparison box is unimodal at the mow-stripe level
@@ -261,7 +261,7 @@ single-`_day`-span file structure.
   colour ×(1,1,1,0), dirty-flag ×10 only); disassembly
   `dis_141955000.txt` (π at the two MULSS, fade knees/widths, 3/0.5
   normalize shapes — all paired with operand VAs in §0).
-- Frame: `~/ghidra-projects/scratch/obs/p12_dec.png` (OBS double-sRGB
+- Frame: `<local>/p12_dec.png` (OBS double-sRGB
   decoded; 1280×720). Box statistics script in scratch notes.
 
 ## 7. Open items (numbered; owners in brackets)

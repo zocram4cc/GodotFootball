@@ -1,6 +1,6 @@
 # PES live capture 2: stoppage settlement (T8b / restart step / T6A / camera+PA+meter / kick-off action)
 
-Status: read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Status: read-only RE. Image `<local>/pes_full.bin`
 (VA = fileoff + 0x140000000), live PES pid 2510857 (read-only `sudo -n` pread only).
 Log: `<workdrive>/gf-LiveSessionRE-scratch/live_session_capture2.log`
 (25,959 lines, ~1 h, `live_session.py` in the same dir; format §0).

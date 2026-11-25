@@ -1,7 +1,7 @@
 # PES team tick `FUN_1404F6C30` step bodies, batch 2 (27a-pre + 29-32 + 35-36 + 40 + 45-53 + 55 + step-23 callees)
 
 Batch-2 decode of the steps docs/re/pes-re-team-layer.md §1 lists as still-OPEN (plus the five step-23 callees
-batch 1 left OPEN). Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
+batch 1 left OPEN). Base `0x140000000`, image `<local>/pes_full.bin`.
 Tags: **CONFIRMED** = raw disassembly or image bytes read this pass; **DOC** = cited doc, not re-checked;
 **INF** = inference; **OPEN** = blocker named. Decompile cited for orientation only.
 Call-site VAs below are the team-layer §1 bridge return-address markers (the `E8` immediately below each

@@ -6,7 +6,7 @@ Scope: how to drive visible PES match clips from the GameplayFootball (GF) simul
 base 0x140000000, plus the on-disk `PES2021.exe`), the install's own `common/anime/` bins, the GF sources, and the prior report
 [`pes-re-animselect.md`](pes-re-animselect.md) (cited as "AR"; §N = its sections). No PES table is
 reproduced; every table is described by its layout and the generator script. Scratch (never in the
-repo): **`<scratch>/SimMotionRE/`** = `~/ghidra-projects/scratch/SimMotionRE/`, holding the dumps
+repo): **`<scratch>/SimMotionRE/`** = `<local>/SimMotionRE/`, holding the dumps
 `Animetable.bin Freemove.bin Parametricblendtable.bin Idletable.bin Movetable.bin Kickinfo.bin`,
 the headless decompiles `o_*.txt` (plus `scripts/` with the Ghidra post-scripts and
 `report.md`, this report's own working copy) and the derived `tables.json` (name + row-label

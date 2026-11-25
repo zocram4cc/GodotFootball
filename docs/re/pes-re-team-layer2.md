@@ -2,7 +2,7 @@
 
 Decode pass on `FUN_140A79640` (sorter), `FUN_140A40CA0` (bucket+lateral sort),
 its 8 callers, and the `FUN_1405E6E80` support-count arms. Base `0x140000000`,
-image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`. Raw disassembly is the
+image `<local>/pes_full.bin`. Raw disassembly is the
 authority throughout; decompile line refs are given only as finders.
 
 ## 1. `FUN_140A79640` sort direction, key, and tie rule

@@ -77,7 +77,7 @@ in both inputs and outputs, so comparison is exact). `out`: `reg`, `xmm0f`,
 ## 3. How to run
 
 ```
-$GF_DIFF_PYTHON run.py --exe ~/ghidra-projects/scratch/Unpacker/pes_full.bin \
+$GF_DIFF_PYTHON run.py --exe <local>/pes_full.bin \
   --spec specs/cone.json --out /tmp/c.jsonl        # or band / strategy
 ```
 

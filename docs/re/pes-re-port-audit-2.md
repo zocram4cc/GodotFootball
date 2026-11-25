@@ -1,6 +1,6 @@
 # PES re-port audit, round 2 (PortAudit2RE, 24-10-26)
 
-Read-only audit of four ports against PES's bytes. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only audit of four ports against PES's bytes. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time.
 GF code read from the named branches into `<workdrive>/gf-PortAudit2RE-scratch/` (absolute output paths there).
 No repo edits. Budget: ~150 tool requests; this pass used ~60 (bridge + git-show reads).

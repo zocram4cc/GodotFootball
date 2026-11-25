@@ -9,7 +9,7 @@ Read-only RE. Sources:
 Tags: **OBS** = read in raw bytes / disassembly / decompile at the named address, or observed live.
 **INF(conf)** = inference. All frame counts are 54 Hz logic frames unless marked "30 fps" (clip-data units).
 
-Scratch (not in the repo): `~/ghidra-projects/scratch/ThrowInRE/` — `dec_*.c` / `dec/*.c` decompiles, `m.py`
+Scratch (not in the repo): `<local>/ThrowInRE/` — `dec_*.c` / `dec/*.c` decompiles, `m.py`
 (image helpers), `dsearch.py`/`lscan.py` (operand scanners), `deser.py` (constant-object field map),
 `tiwatch.py` (live restart-state watcher), `ballwatch.py` (live ball logger), `motinfo.py` (live motion-table
 dump), `live1.jsonl` (raw live log), `motinfo_throwin.txt`, `motinfo2.txt`.

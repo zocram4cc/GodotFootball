@@ -1,6 +1,6 @@
 # PES team-tick slice survey: every unported slice (SliceSurveyRE, 24-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. Scratch: `<workdrive>/gf-SliceSurveyRE-scratch/` (`tick_dis.txt` 772 lines, `dis_*.txt` per callee, `check_survey.py`: RESULT OK, 2 mutations caught). No repo edits; `src/sim` searched read-only (grep).
+Read-only RE. Image `<local>/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. Scratch: `<workdrive>/gf-SliceSurveyRE-scratch/` (`tick_dis.txt` 772 lines, `dis_*.txt` per callee, `check_survey.py`: RESULT OK, 2 mutations caught). No repo edits; `src/sim` searched read-only (grep).
 
 Verdicts: **CONFIRMED** = disassembly/image bytes this pass; **DOC** = cited doc, not re-checked; **INF** = inference; **OPEN** = blocker named. Verdict rule: **port-ready** = every input closed; **port-ready-after-small-decode** = one named decode; **blocked** = named blocker (live = needs running-match read, static = image decode).
 

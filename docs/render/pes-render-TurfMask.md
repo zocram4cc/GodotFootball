@@ -1,7 +1,7 @@
 # PES turf mask content, cb4[1], st021 BC7 texels + refined point prediction (TurfMaskRE)
 
 Status: read-only work. Install VFS at `<workdrive>/PES21` (GF `PesVfs`),
-image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (VA = fileoff + 0x140000000),
+image `<local>/pes_full.bin` (VA = fileoff + 0x140000000),
 live PES pid 2510857 (read-only `pread` only). Scratch:
 `<workdrive>/gf-TurfMaskRE-scratch/` (absolute paths; extraction scripts,
 decodes, disassembly notes). Read with `docs/render/pes-render-TurfFins.md`

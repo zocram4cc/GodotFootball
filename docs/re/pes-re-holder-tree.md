@@ -1,6 +1,6 @@
 # PES holder tree: FUN_1404F0E50 scoring, output, port spec (HolderTreeRE, 26-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only RE. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request
 at a time. Scratch: `<workdrive>/gf-HolderTreeRE-scratch/`
 (`d_4F0E50.c`, `dis_4F0E50.txt` = 3424 lines, `d_4F6110.c`, `d_4F4AB0.c`,

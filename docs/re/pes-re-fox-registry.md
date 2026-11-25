@@ -3,7 +3,7 @@
 Scope: the dispatch blocker named in `pes-re-setpiece-referee.md` §1.8 / §7 item 2,
 `pes-re-tactics-clock.md` §9 item 2 and `pes-re-ball-contact-2.md` §6.
 Image: `<scratch>/pesmem.bin` (mid-match memory image, base 0x140000000, file offset = VA − base).
-Scratch: `~/ghidra-projects/scratch/FoxRegistryRE/`.
+Scratch: `<local>/FoxRegistryRE/`.
 Tags: **OBS** = raw bytes or a decompile at an address. Every formula quoted below was re-checked
 against capstone disassembly of the raw bytes. **INF** = inference, with a confidence level.
 No live process was used. Everything here is static.
@@ -383,14 +383,14 @@ Hold durations recovered:
 ## 8. Reproduction recipe
 
 ```
-cd ~/ghidra-projects/scratch/FoxRegistryRE
+cd <local>/FoxRegistryRE
 python3 rtti.py dump                       # -> rtti_all.json: 13,816 COLs, bases, vtables, slots (~2 s)
 python3 rtti.py cls 'CornerKick'           # any class regex -> vtable + slot VAs
 python3 resolve_actions.py > actions.md    # ANIME id -> class -> vtable -> CanEnter/Enter/Update/Exit/[10]/[12],
                                            #   flags slots that are .impdata thunks; also actions.json
 python3 resolve_actions.py 'CORNER|Wall'   # filtered
 # decompile any resolved slot (works for addresses Ghidra has no function for):
-/opt/ghidra/support/analyzeHeadless $HOME/ghidra-projects/scratch/main PES21 -process pesmem.bin \
+/opt/ghidra/support/analyzeHeadless <local>/main PES21 -process pesmem.bin \
   -noanalysis -readOnly -scriptPath $PWD/ghk -postScript DecompAt.java $PWD/dec/out.txt 0x140732e30 0x140733a30
 ```
 

@@ -2,7 +2,7 @@
 
 Tags: **OBS** = raw bytes / disassembly / decompile at the VA, or a decoded file value; **INF(level)** = inference.
 Static only (no live process touched). Image: `pes_full.bin` (base 0x140000000); decompiles via
-`~/ghidra-projects/scratch/Unpacker/dec.sh`. Notation as the team-AI reports: `G = *(0x1436f3dc8)`, `MI = *(G+0x270)`,
+`<local>/dec.sh`. Notation as the team-AI reports: `G = *(0x1436f3dc8)`, `MI = *(G+0x270)`,
 `MA = *(G+0x18)`, `T` = team record, `fps = FUN_141e532e0()` (54).
 
 Scratch: the TeamConstRE scratch dir —

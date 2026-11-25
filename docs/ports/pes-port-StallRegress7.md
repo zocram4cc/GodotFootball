@@ -28,4 +28,4 @@ So the callback 0x14041F2F0 runs exactly when Q != 0 and `vt[0x70](Q)` returns 0
 ## Hygiene
 
 - No files changed this round; the worktree is clean at `bb52fa12`. `build/` was removed in round 4; no build this round.
-- Scratch: `~/.omp/scratch-press`.
+- Scratch: `<local>/scratch-press`.

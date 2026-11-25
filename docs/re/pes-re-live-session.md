@@ -1,6 +1,6 @@
 # PES live-session RE: P5 monitor-UV decode + one capture script
 
-Status: read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Status: read-only RE. Image `<local>/pes_full.bin`
 (VA = fileoff + 0x140000000), Ghidra bridge `http://127.0.0.1:8080` (one request
 at a time), install VFS `<workdrive>/PES21` (read-only), live PES pid 2510857
 (read-only `sudo -n` pread on `/proc/<pid>/mem` only).

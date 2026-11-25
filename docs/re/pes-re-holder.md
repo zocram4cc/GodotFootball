@@ -2,7 +2,7 @@
 
 > **Main audit 23-10-26 (bytes):** `0x140457259 mov [r13+0x2601C], edi` (W1), `0x140A71DF9 mov [rbx+0x2601C], 0xFF` (W2), the sweep gate `0x1404F78DB cmp [rax+0x218], 0`: match.
 
-Read-only RE. No repo edits. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. Checker + evidence: `<workdrive>/gf-HolderRE-scratch/` (CLEAN, 46 rows; 3/3 mutations fire).
+Read-only RE. No repo edits. Image `<local>/pes_full.bin` (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time. Checker + evidence: `<workdrive>/gf-HolderRE-scratch/` (CLEAN, 46 rows; 3/3 mutations fire).
 GF paths below are `origin/main` (`<workdrive>/GodotFootball`); the HolderLatch code cited is the landed latch (`humanoid.cpp:1330-1400`, FarChasePressMain note 22-10-26).
 
 ## §0 Constants (checker output, pasted)

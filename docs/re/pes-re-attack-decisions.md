@@ -3,11 +3,11 @@
 > **Main correction 20-10-26 (CrossLane):** §2.1 labels F[4] as "half-width 34.06"; 34.06 is F[1] (the touchline). F[4] = 47.06 is the goal-area line, and the Cross aim is k*F[4].
 
 Read-only RE against the full live image. Image base 0x140000000; all VAs below are image VAs.
-Tools: `~/ghidra-projects/scratch/Unpacker/` (`resolve.py`, `dec.sh` on the PESLive project via
+Tools: `<local>/Unpacker/` (`resolve.py`, `dec.sh` on the PESLive project via
 `proj.lock`, `annot.py`, capstone-over-`pes_full.bin` re-checks). Raw bytes re-checked for every
 constant quoted; decompiler output used as structure hypothesis only.
 Tags: **OBS** = raw bytes/decompile at the stated address. **INF** = inference with confidence.
-Evidence decompiles kept in `~/ghidra-projects/scratch/AttackDecisionsRE/`
+Evidence decompiles kept in `<local>/AttackDecisionsRE/`
 (`off.c`, `cross.c`, `through.c`, `shield.c`, `runs.c`, `run2.c`, `pull.c`, `pull2.c`,
 `misc2.c`, `misc3.c`, `valid.c`, `setflag.c`, `writer2.c`, `xref1.c`).
 

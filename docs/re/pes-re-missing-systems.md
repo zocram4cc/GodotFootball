@@ -964,7 +964,7 @@ and the reader that turns the pair into a 3-0 loss (`0x140a105b5`,
 
 ## 8. Reproduction notes
 
-* Image: `~/ghidra-projects/scratch/Unpacker/pes_full.bin`, file offset =
+* Image: `<local>/pes_full.bin`, file offset =
   VA − `0x140000000`.
 * Decode helpers (scratch):
   * `dec.py <VA> <nbytes>` — capstone disassembly with the rip-relative

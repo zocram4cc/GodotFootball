@@ -1,6 +1,6 @@
 # PES team-tick blocked slices (BlockedSlicesRE, 24-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000).
+Read-only RE. Image `<local>/pes_full.bin` (file offset = VA − 0x140000000).
 Bridge `http://127.0.0.1:8080` (lowercase hex `address=0x…`; endpoints used: `decompile_function`,
 `disassemble_function`, `xrefs_to`, `get_function_by_address`). Static byte work with capstone 5.0.7
 (`rd.py`: `dis`/`scan`; byte-anchored owner search for disp32 — linear sweep desyncs on data, so every

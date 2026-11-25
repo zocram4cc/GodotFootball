@@ -5,7 +5,7 @@
 # PES team status word pair `T+0xA294` / `T+0xA29C` and match phase `MI+0x11B0`
 
  Checker: `check_team_status.py` (this dir), GREEN 24-10-26; mutation (`0x14092B505` `BA 06` -> `BA 07`) drives `cond.edx6` RED, reverted.
- Image: `~/ghidra-projects/scratch/Unpacker/pes_full.bin`, file offset = VA - 0x140000000. One bridge request at a time.
+ Image: `<local>/pes_full.bin`, file offset = VA - 0x140000000. One bridge request at a time.
  Floats below are script-read from the image; every cited instruction is paired with its operand VA.
 
  Three corrections to standing GF-side claims are marked CORRECTION.
@@ -156,11 +156,11 @@ Self-checking, 35 rows, GREEN 24-10-26; one mutation run RED then reverted. Run 
 ```python
 #!/usr/bin/env python3
 """Self-checking byte verifier for the team-status word pair + match phase decode.
-Reads ~/ghidra-projects/scratch/Unpacker/pes_full.bin (file offset = VA - 0x140000000).
+Reads <local>/pes_full.bin (file offset = VA - 0x140000000).
 GREEN = all asserts hold. Mutation: flip the 6 at 0x14092B505 to 7 -> row 'cond.edx6' goes RED.
 """
 import os, struct, sys
-P = os.path.expanduser("~/ghidra-projects/scratch/Unpacker/pes_full.bin")
+P = os.path.expanduser("<local>/pes_full.bin")
 img = open(P,'rb').read()
 def b(va,n=1): return img[va-0x140000000:va-0x140000000+n]
 fails = []

@@ -1,7 +1,7 @@
 # PES render static-RE: five cheap items (survey §5 S4/S1/S2/S3/S5)
 
 Status: read-only RE. Repo `<workdrive>/GodotFootball` (main `9f1f2d9`), install VFS `<workdrive>/PES21`,
-image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (VA = fileoff + 0x140000000), Ghidra bridge
+image `<local>/pes_full.bin` (VA = fileoff + 0x140000000), Ghidra bridge
 `http://127.0.0.1:8080` (`decompile_function`/`disassemble_function`/`xrefs_to`/`function_xrefs`/`searchFunctions`/`strings`
 only — `get_xrefs_to`, `get_function_xrefs`, `list_*` are 404 on this bridge). Scratch:
 `<workdrive>/gf-RenderStaticRE-scratch/` (absolute output paths; nothing written to the repo).
@@ -182,7 +182,7 @@ Mode chain (all bridge-verified this session):
 - S2a: bridge `decompile_function?address=0x141a8b7b0` (`fun_141a8b7b0.txt`).
 - S2b: `build/apps/pesfmt_dump fmdl "Asset/model/character/face/real/76020/#Win/face.fpk"` +
   `ls "Asset/model/character/face/real/76020/sourceimages"`; `head76020_full.png` via
-  chunked-zlib DXT5 assemble (script pattern in `~/ghidra-projects/scratch/LegNumberRE/ftex_png.py`
+  chunked-zlib DXT5 assemble (script pattern in `<local>/ftex_png.py`
   for the container, DXT5 decode inline).
 - S3: bridge `function_xrefs?name=FUN_1416a3b30 / FUN_1416a44b0 / FUN_1416a3a50`,
   `decompile_function?address=0x1416a4530 / 0x1416a3b30 / 0x1416a3a50 / 0x141950600 / 0x1418fe8f0`,

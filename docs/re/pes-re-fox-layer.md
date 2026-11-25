@@ -1,6 +1,6 @@
 # PES Fox engine layer survey — what the 1,242 in-scope boundary rows are
 
-Static RE only (owner ruling 24-10-26). Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Static RE only (owner ruling 24-10-26). Image `<local>/pes_full.bin`
 (offset = VA − 0x140000000). Ledger: `tools/dev/ledger/universe.json` (37,855 rows;
 18,374 in scope; 1,242 in-scope boundary rows, all counted here). RTTI map re-extracted
 from the image with `universe.py`'s own `rtti_vtables` logic (11,334 TypeDescriptors,

@@ -554,7 +554,7 @@ Everything else in §1–§4 is OBS with the address/file that makes it readable
   useful to prove a string is *not* referenced from code), `dis.py` (objdump + `.pdata` function-bounds
   lookup via the RUNTIME_FUNCTION table at 0x143ac5000).
 - Headless decompile that worked:
-  `/opt/ghidra/support/analyzeHeadless $HOME/ghidra-projects/scratch/main PES21 -process pesmem.bin
+  `/opt/ghidra/support/analyzeHeadless <local>/main PES21 -process pesmem.bin
    -noanalysis -readOnly -scriptPath <scratch>/ghk/scripts -postScript DecompAt.class <ABS_OUT>.txt 0xADDR`
   (note: `DecompAt.class`, not `.java` — `.java` fails with ClassNotFoundException).
 - No PES-derived bytes, name lists or number tables are committed anywhere by this report.

@@ -1,6 +1,6 @@
 # PES mentality lane line: the four leaves (LaneLeavesRE, 24-10-26)
 
-Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − 0x140000000).
+Image `<local>/pes_full.bin` (file offset = VA − 0x140000000).
 Bridge `http://127.0.0.1:8080`, one request at a time.
 Checker: `<workdrive>/gf-LaneLeavesRE-scratch/checker_lane_leaves.py`
 (`python3 checker_lane_leaves.py`: RESULT OK, 33 instruction-byte checks + 11 float rows;

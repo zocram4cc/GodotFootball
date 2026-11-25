@@ -4,7 +4,7 @@ Read-only RE. Scratch: `<workdrive>/gf-PressLife-scratch/` (`d_*.c` decompiles).
 Tags: **CONFIRMED** = read in the decompile and checked against disassembly bytes or install bytes.
 **INF** = inference with reason. VAs are PES2021 image VAs (base 0x140000000).
 Bridge: `http://127.0.0.1:8080` (`/decompile_function`, `/disassemble_function`).
-`E8` scans of `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − base).
+`E8` scans of `<local>/pes_full.bin` (file offset = VA − base).
 
 Closes `docs/re/pes-re-first-touch.md` §10 items 1 (planner, PRESS release path) and 3
 (arrival/C3 units), and §7.1/§7.5/§9 corrections.

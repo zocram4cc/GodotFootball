@@ -56,7 +56,7 @@ The report's fitted values (zoom ≈ 0.79, height ≈ 0.20) are confirmed to wit
 representation. The `+0xFC = 21.921` field is the mode-5 `Z_max` carried on the object, not only
 in `.rdata`.
 
-## 3. Open-play samples (OBS, `~/ghidra-projects/scratch/LiveSample/cam_B.jsonl`)
+## 3. Open-play samples (OBS, `<local>/cam_B.jsonl`)
 
 Four consecutive samples in genuine open play (mode 5, near 0.9, FOV 23–24°), 25 s apart:
 
@@ -124,11 +124,11 @@ either damped or the observed pose is still blending from the previous mode. (IN
 
 ## 5. Reproducibility
 
-Scratch (nothing committed): `~/ghidra-projects/scratch/LiveSample/`
+Scratch (nothing committed): `<local>/LiveSample/`
 - `live.py` — read-only `/proc` helpers; pid resolved per access with `pgrep -x PES2021.exe`
   (the earlier `-f` form matched the poller's own `sh -c` wrapper and picked a transient pid —
   fixed this session, that was the cause of the state-gate's `FileNotFoundError` flicker).
 - `find_vt.py` — targeted vtable scan (game heap only, ≈ 25 s).
 - `cam2.py` — 10 Hz camera sampler with a 20 s plugin-address cache; writes `cam_B.jsonl`.
-- Gate: `~/ghidra-projects/scratch/pes_state.py` (fixed the same pid race), watched via
+- Gate: `<local>/pes_state.py` (fixed the same pid race), watched via
   `watch.py`.

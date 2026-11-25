@@ -1,6 +1,6 @@
 # PES live roster / frame advance / S4 + ball writer (LiveRoster, 26-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (VA offset 0x140000000, file-offset = VA − 0x140000000 for 0x140Axxxx code; validated by E8 rel32 at 0x140A032D8→0x140A03BE0 and the 36.0 float anchor). Scratch: `<workdrive>/gf-LiveRoster-scratch/`. PES pid 53052 throughout; read-only `process_vm_readv`, SIGSTOP snapshots ≤ 10 s (CONTed, logged). No PES bytes quoted.
+Read-only RE. Image `<local>/pes_full.bin` (VA offset 0x140000000, file-offset = VA − 0x140000000 for 0x140Axxxx code; validated by E8 rel32 at 0x140A032D8→0x140A03BE0 and the 36.0 float anchor). Scratch: `<workdrive>/gf-LiveRoster-scratch/`. PES pid 53052 throughout; read-only `process_vm_readv`, SIGSTOP snapshots ≤ 10 s (CONTed, logged). No PES bytes quoted.
 
 ## 0. Headline verdicts
 

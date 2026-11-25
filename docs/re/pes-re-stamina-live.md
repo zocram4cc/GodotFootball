@@ -718,7 +718,7 @@ taken. All my sampling processes were already stopped in the previous pass and n
 ### 8.15 Pass 7 (2026-10-13) — runtime descriptor-map walk: the registry is empty outside a match
 
 Executed the read-only walk as instructed (live pid <pid>; dumps written to
-`~/ghidra-projects/scratch/StaminaStatic/class_registry.txt` and `tier_clusters.txt`):
+`<local>/class_registry.txt` and `tier_clusters.txt`):
 
 1. **`*(qword*)0x143736d38 = 0`, `*(qword*)0x143736cf8 = 0`, `*(qword*)0x143736d00 = 0`** (OBS, live).
    The descriptor manager is **not instantiated outside a match** — exactly the "map is empty"
@@ -906,7 +906,7 @@ across ~10 minutes, which needs a match in open play again.
 
 ### 9.8 Reproducibility
 
-Scratch (session-local, nothing committed): `~/ghidra-projects/scratch/StaminaLive2/` —
+Scratch (session-local, nothing committed): `<local>/StaminaLive2/` —
 `snap.py`/`snap2.py` (sweep + `/dev/shm` snapshot), `fdiff.py`/`diff2.py`/`flt.py`
 (4-byte-word diff and float classification), `fam*.py` (stride analysis),
 `OPENPLAY.md` (this pass's raw notes plus the full resolved-constant table), and the
@@ -939,7 +939,7 @@ Two further match births occurred after §9 was written, both captured:
 
 `sub_14092AF10`'s `rdi` operand is not a shared object: the caller chain is
 `0x140925750 → 0x140925470 → 0x14092AF10`, and `sub_140925470` passes the *same* `this` (`rbx`)
-as `rcx` and `rdi`. Resolved with the RTTI registry (`~/ghidra-projects/scratch/FoxRegistryRE/rtti.py`):
+as `rcx` and `rdi`. Resolved with the RTTI registry (`<local>/rtti.py`):
 
 - `0x1426329a8` = **`.?AVPlayer@match@@`**, slots:
   `0: 0x1409210d0` (dtor), `1: 0x1402297e0`, **`2: 0x140925750` (the per-frame stat update)**,
@@ -1049,7 +1049,7 @@ Remaining: (a) locate the obfuscated A5 writer, (b) re-derive a live per-player 
 a clean continuous 20 Hz 60 s series (`stam2.py` is ready: `sudo python3 stam2.py 60 20 out.jsonl`).
 
 ### 10.9 Reproducibility
-`~/ghidra-projects/scratch/LiveSample/`: `live.py` (read-only `/proc` helpers, `pgrep -x`),
+`<local>/LiveSample/`: `live.py` (read-only `/proc` helpers, `pgrep -x`),
 `find_vt.py` (vtable scan), `stam2.py` (per-player A1–A5 + `f50` + `drain` sampler, 20 Hz),
 `cam2.py` (camera sampler, 10 Hz), `watch.py` (state gate poller), plus `cam_B.jsonl`,
 `stam_C.jsonl`, `watch.log`. Nothing committed; no PES bytes, names or tables exported.

@@ -1,7 +1,7 @@
 # PES kick-scatter input decode (unblock `KickSoftMin`)
 
 Source: linear `objdump`-style raw disassembly of the unpacked image
-`<local>/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset = VA − `0x140000000`),
+`<local>/pes_full.bin` (file offset = VA − `0x140000000`),
 cross-checked against the `DecompAt` output in `dec_all.txt`. Ghidra HTTP bridge was down
 (HTTP 000); `dec.sh` (headless, needs the exclusive `proj.lock`) could not run, so raw
 disassembly is the primary evidence and every constant was script-read from the image.

@@ -1,6 +1,6 @@
 # pes-re-record-ids (RecordIds, 28-10-26)
 
-Read-only RE. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Read-only RE. Image `<local>/pes_full.bin`
 (flat: file offset = VA − `0x140000000`, verified: `0x14259858C` reads
 `360.0`/`0x43B40000` at its flat offset; code `0x14083CC30` = `48 8B BC
 44 C8 19 07 C0` there). Captures: `live2/pid407792` (kick 6+6, Clear 5,

@@ -1,7 +1,7 @@
 # PES re-port audit 7: the earliest landed ports not yet covered (PortAudit7RE, 24-10-26)
 
 Read-only audit of the Batch C, Batch B (not covered by audits 1-6), and TurfEV ports on `origin/main`
-(`4da64c2`), checked against PES's bytes. Image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+(`4da64c2`), checked against PES's bytes. Image `<local>/pes_full.bin`
 (file offset = VA − 0x140000000). Bridge `http://127.0.0.1:8080`, one request at a time (decompile only
 where the doc did not already verify; constants below re-read from the image by script). GF code read from
 `origin/main` via `git show` into `<workdrive>/gf-PortAudit7RE-scratch/` (absolute outputs there). No repo

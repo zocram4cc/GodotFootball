@@ -3,7 +3,7 @@
 > **Main audit 20-10-26:** `0x1406C0AEB` `movb [rsi+0xe0],1` + `0x1406C0AF2` `movl [rsi+0xe4],0xe` (RUN_LOOP style arm requests RUN_TO_STEP); `0x1406D5DA6/DAB` class word [rdx+0x7c] compare; `0x1406D608A` `movl [rdi+0xe4],8` (STOP) and `0x1406D6243` `movl [rdi+0xe4],1` (IDLE): all match.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
-Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
+Base `0x140000000`, image `<local>/pes_full.bin`.
 Tags: **CONFIRMED** = decompile and/or raw dis this pass; **INF** = inference; **OPEN** = blocker named.
 
 The port under comparison is `<workdrive>/gf-ClipWords/src/pes/movestep_run.cpp` (`RunLoop`).

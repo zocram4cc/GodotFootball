@@ -4,7 +4,7 @@ Read-only RE. Scratch: `<workdrive>/gf-PressCmd-scratch/` (`d_140962440.c`, `thi
 `fn_14092a340.c`, `verify.py`, store-scan scripts). No GF code changed; no PES written; no live
 read relied on (PES was stopped during this pass).
 
-Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (file offset == VA − base
+Base `0x140000000`, image `<local>/pes_full.bin` (file offset == VA − base
 for the code/rdata). Tags: **CONFIRMED** = read in a decompile or the raw image bytes this pass
 (or a prior doc whose VAs I re-verified). **INF** = inference with the reason. **OPEN** = blocker.
 

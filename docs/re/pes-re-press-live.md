@@ -1,7 +1,7 @@
 # PES 2021 press command — the two OPEN facts, closed
 
 Read-only RE + live pread. Scratch: `<workdrive>/gf-PressLive-scratch/`. No repo edits; no PES
-written. Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+written. Base `0x140000000`, image `<local>/pes_full.bin`
 (file offset == VA − base for code/rdata). Tags: **CONFIRMED** = raw-image bytes read this pass
 or verified disassembly; **INF** = inference, reason given; **BLOCKED** = what stopped it + the
 hook that would settle it. This report closes both OPEN items in `pes-re-press-cmd.md` §8.

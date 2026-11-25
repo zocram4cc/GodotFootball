@@ -33,7 +33,7 @@ Nothing was wired, so the walk (`playercontroller.cpp`, `AI_GetBallControlMoveme
 - Build: `build/` removed at the end (the test binary is 1.6 GB). The first build of this round ran without the shared lock because the wrapper exited early (Main noted it); later builds are foreground under `flock /tmp/gf-build.lock nice -n 19`.
 - `pkill -f dec_alloc` once (round 3): noted by Main, no harm seen.
 - `press_inputs.py` now reads an unpacked `mem.bin` directly (committed in `ab15ca5b`).
-- Unpacked the three packed dispatcher captures in pid1858437 (seq424, seq439, seq463); they are not press captures, so they are not used. Scratch: `~/.omp/scratch-press`.
+- Unpacked the three packed dispatcher captures in pid1858437 (seq424, seq439, seq463); they are not press captures, so they are not used. Scratch: `<local>/scratch-press`.
 
 ## Asks of Main
 

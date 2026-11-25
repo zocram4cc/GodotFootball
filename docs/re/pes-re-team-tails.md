@@ -5,7 +5,7 @@
 Status: decode-only. No GF code changed. Scratch: `<workdrive>/gf-TeamTailsRE-scratch/`
 (`dis_tick.txt` = 772-line `FUN_1404F6C30` disassembly, `dis_*.txt` = callee bodies,
 `dec_*.txt` = decompiles, `checker_team_tails.py` = self-checking checker with mutations).
-Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`
+Base `0x140000000`, image `<local>/pes_full.bin`
 (file offset = VA − base). Tags: **CONFIRMED** = raw disassembly or image bytes
 read this pass (opcode bytes quoted); **DOC** = cited doc, not re-checked;
 **INF** = inference; **OPEN** = blocker named. Decompile cited for orientation only.
